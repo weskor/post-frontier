@@ -105,14 +105,20 @@ Every map is one continuous battlefield with broad routes and few obstacles (REA
 
 | Map | Setting | Notes |
 | --- | --- | --- |
-| **Campus Zero** (`/Game/Maps/CampusZero`) | Edge of a hyperscale data-centre campus at dusk; a human scrapyard in the west, server halls and cooling towers in the east | First greybox. Laid out around the prototype's hard-coded site and HQ coordinates; Boot stays the default and the automated tests still use it. Regenerate with `Build/GenerateCampusZero.py` (command in its docstring); the lighting knobs `SUN_LUX`, `SKY_INTENSITY`, `EXPOSURE_BIAS`, `SUN_COLOR`, `SKY_COLOR` and the `POOL_*` spot-cone settings sit at the top of that script. Keep the sun near-neutral: a warm sun tints every surface tan |
+| **Campus Zero** (`/Game/Maps/CampusZero`) | Edge of a hyperscale data-centre campus at dusk; a human scrapyard in the west, server halls and cooling towers in the east | First themed map. Laid out around the prototype's hard-coded site and HQ coordinates; Boot stays the default and the automated tests still use it. Halls, towers, chillers, transformers, pylons, containers, wrecks, sandbags, barrels, fences and cable spools are environment-kit pieces (see "Art pipeline": import the kit before generating). Regenerate with `Build/GenerateCampusZero.py` (command in its docstring); the lighting knobs `SUN_LUX`, `SKY_INTENSITY`, `EXPOSURE_BIAS`, `SUN_COLOR`, `SKY_COLOR` and the `POOL_*` spot-cone settings sit at the top of that script. Keep the sun near-neutral: a warm sun tints every surface tan |
 | **Smart Suburb** | A cul-de-sac taken over by delivery drones and smart homes | Houses act as cover clusters, and doorbell cameras could reveal vision |
 | **Cold Storage** | Arctic server farm | Snow, big heat plumes, long sightlines |
 | **The Training Grounds** | A field of giant CAPTCHA tiles | Tile zones that switch between "traffic light" and "not traffic light" |
 
 ### How to play Campus Zero
 
-The packaged build cooks only Boot, so run the editor binary in game mode:
+The packaged build cooks Boot and Campus Zero (`+MapsToCook` in `Config/DefaultGame.ini`; Boot stays `GameDefaultMap`). From the repository root, after packaging with the README command:
+
+```bash
+./Builds/Linux/CoopRTS.sh /Game/Maps/CampusZero -windowed -ResX=1280 -ResY=720
+```
+
+From source, run the editor binary in game mode instead:
 
 ```bash
 "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject" /Game/Maps/CampusZero -game -windowed -ResX=1600 -ResY=900
@@ -125,6 +131,7 @@ Controls are unchanged from Boot (README "Battlefield and camera"). Reading the 
 - **Objectives:** three ringed sites, each joined to the Cluster by a cyan cable. Substation 7 is the near site south of the scrapyard. Fibre Junction is on the south flank. The Cooling Plant sits in front of the enemy, next to the centre.
 - **Centre:** Data Hall 0 blocks the direct line between the bases. Routes go round it north or south, and the south road runs from the Bunker through the campus gate.
 - The enemy commander starts by grabbing the Cooling Plant. Expect it to reach the other two sites next.
+- **Milestone 9 objective (DISRUPT GRID):** hold Substation 7 and the Cooling Plant at the same time, with living friendly units on both rings and no enemies inside either, for 30 seconds. Ownership alone does not count and any contest resets the hold. The Fibre Junction is not a power link. The enemy planner scores contesting a held link ("grid denial"), so expect raids on the links while you charge them. When the hold completes, the Cluster's shield drops for good (HUD phase `ASSAULT`) and Q on the Cluster does damage; until then the HUD shows `Enemy shield UP` and the Cluster is labelled `SHIELDED`.
 
 ## Colour language
 
@@ -163,3 +170,32 @@ Notes:
 - The Machine Ranged drone hovers by design (its lowest point is at about z = -32 against ground at -60), so the import check accepts that. The Human Siege bounding box is rear-heavy (wheels and mount); its jaws still point +X.
 - Lighting and exposure knobs sit at the top of `Build/ImportUnitMeshes.py`, like CampusZero's.
 - The meshes are not referenced by gameplay yet.
+
+### Environment kit and Campus Zero
+
+Campus Zero is built from 17 kit pieces (`Art/Environment/SM_Env_*.fbx`, from `Build/GenerateEnvironmentKit.py`). The order is fixed, each step its own Unreal process (editor closed, no other Unreal process from this repo running):
+
+```bash
+# 1. Blender (only when the kit design changes): writes Art/Environment/SM_Env_*.fbx, Environment.blend and previews.
+blender -b --factory-startup -P Build/GenerateEnvironmentKit.py
+
+# 2. Unreal: imports the 17 FBXs to /Game/Art/Environment, gives every slot an MI_Env* material, replaces the
+#    collision and checks footprint, height, centring and base. Log must contain ENV_KIT_IMPORTED 17 and no RuntimeError.
+"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor-Cmd" "$PWD/CoopRTS.uproject" \
+  -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/ImportEnvironmentKit.py" \
+  -unattended -nullrhi -nosplash
+
+# 3. Unreal (after compiling CoopRTSEditor): places the kit and regenerates /Game/Maps/CampusZero.
+#    Log must contain CAMPUS_ZERO_GENERATED ... blocking=49. Without step 2 it stops at "run Build/ImportEnvironmentKit.py first".
+"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor-Cmd" "$PWD/CoopRTS.uproject" \
+  -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/GenerateCampusZero.py" \
+  -unattended -nullrhi -nosplash
+```
+
+Notes:
+
+- Rerun steps 2 and 3 together after any change to a kit look or collision: the map stores only mesh references. Reruns of step 3 replace every actor.
+- Collision comes from the mesh: one box of the mesh bounds for rectangular pieces, one 10-DOP prism for round ones, and for the pylon a 150 x 150 box (`EnvKit.GROUND_FOOTPRINT`) because its 7 m cross-arm is 11 m up. Each `CAMPUS_ZERO_BLOCK` line in the generator log is the real blocking footprint.
+- `blocking=49` (was 52 with primitives): the pylon's four leg posts became one body box. No other footprint changed.
+- Halls are assembled from wall, door, corner and roof modules (`EnvKit.assemble_hall`); doors are named by Unreal world side (N = +Y). Every hall's parapet is 6.0 m with lamps and corner beacons to 6.5 / 7.0 m (DataHall0 was 5.2 m as a box). The campus spot lights flank the door faces (HallA west, HallB north, HallC south); move them with the door if either changes.
+- Containers, wrecks and sandbags override the Shell slot per actor (`MI_ContainerBlue`, `MI_Rust`, `MI_Olive`, `MI_Sandbag`), so the scrapyard is not one colour. Kit look tables (`LOOKS`) are at the top of `Build/ImportEnvironmentKit.py`; keep Machine accent glow low (about 1.0), since 8.0 clips red to peach at this exposure.

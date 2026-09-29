@@ -5,11 +5,21 @@ the prototype's hard-coded gameplay coordinates in ACommandGameMode (sites, HQs,
 homes) and the +/-4500 arena bounds, so the existing match plays unchanged on it.
 Boot and the automated tests are untouched.
 
-Run after compiling CoopRTSEditor (from the project root, editor closed):
+Run order (from the project root, editor closed, each step its own editor process, no other Unreal process
+from this repo running):
+  1. Build/ImportEnvironmentKit.py   imports the /Game/Art/Environment kit this map places; require
+                                     ENV_KIT_IMPORTED 17 in its log
+  2. Build/GenerateCampusZero.py     after compiling CoopRTSEditor:
   "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor-Cmd" "$PWD/CoopRTS.uproject" \
     -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/GenerateCampusZero.py" \
     -unattended -nullrhi -nosplash
-Require CAMPUS_ZERO_GENERATED in the log. Reruns replace every actor in CampusZero.
+Require CAMPUS_ZERO_GENERATED in the log. Reruns replace every actor in CampusZero. Without step 1 the
+script stops at its first check ("run Build/ImportEnvironmentKit.py first"); there is no primitive fallback.
+
+Halls, towers, chillers, transformers, the pylons, the mast, containers, wrecks, sandbags, barrels, the
+generator shack, fences and cable spools are environment-kit pieces (Build/EnvKit.py) placed at the footprint
+the old boxes and cylinders had, and still pass footprint_clear() / KEEP_OUT. Their collision is the simple
+collision baked into the imported meshes. Glow strips, road/ground/ring decals and lights stay primitives.
 """
 import math
 import os
@@ -19,6 +29,7 @@ import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ArtMaterials as art  # noqa: E402
+import EnvKit  # noqa: E402
 
 require = art.require
 assets = art.assets
@@ -34,10 +45,17 @@ FRIENDLY_HQ = (-3500, -600)
 ENEMY_HQ = (3200, 2300)
 ENEMY_HOME = (1800, 2300)
 HOMES = [(x, y) for x in (-1800, -2800) for y in (0, -850, 850, -1700, 1700)]
-# Keep-out circles for blocking geometry: capture ring + margin, formation space, HQ bodies.
+# Keep-out circles for blocking geometry: capture ring + margin, formation space, HQ bodies, and the
+# milestone 9 finale spots below. The objective itself reuses the two Resource sites' CaptureRadius rings
+# (ACapturePoint scan); the shield-down assault hits the enemy HQ body. No M9 actor or position is new.
+# Dev-only spots mirrored so fixtures can run here: ArmyNetworkVerification's HQ assault anchor
+# (enemy HQ + (900, 700), units spread +-110) and ArmyObjectiveTests' parking points for off-site units.
+M9_ASSAULT_ANCHOR = (ENEMY_HQ[0] + 900, ENEMY_HQ[1] + 700)
+M9_PARKING = [(4300, 4300), (4100, 4300)]
 KEEP_OUT = ([(p, CAPTURE_RADIUS + 120) for p in SITES.values()]
             + [(p, 450) for p in HOMES + [ENEMY_HOME]]
-            + [(FRIENDLY_HQ, 420), (ENEMY_HQ, 420)])
+            + [(FRIENDLY_HQ, 420), (ENEMY_HQ, 420)]
+            + [(M9_ASSAULT_ANCHOR, 300)] + [(p, 200) for p in M9_PARKING])
 # Lighting knobs (dusk mood): tuned from in-game captures, see Saved/Verification/campus-zero-*.
 SUN_LUX = 5.0
 SKY_INTENSITY = 3.5
@@ -54,21 +72,26 @@ scrap_ground = art.surface("MI_ScrapGround", (0.088, 0.085, 0.08), 0.95)
 campus_ground = art.surface("MI_CampusConcrete", (0.12, 0.13, 0.14), 0.75)
 road_line = art.surface("MI_RoadLine", (0.55, 0.45, 0.18), 0.6)
 concrete = art.surface("MI_Concrete", (0.22, 0.22, 0.23), 0.85)
-hall_shell = art.surface("MI_HallShell", (0.28, 0.30, 0.33), 0.45, 0.3)
-hall_dark = art.surface("MI_HallDark", (0.05, 0.055, 0.065), 0.5, 0.4)
-tower_mat = art.surface("MI_CoolingTower", (0.26, 0.28, 0.31), 0.8)
-rust = art.surface("MI_Rust", (0.2, 0.11, 0.07), 0.9, 0.2)
-olive = art.surface("MI_Olive", (0.1, 0.12, 0.09), 0.85)
-container_blue = art.surface("MI_ContainerBlue", (0.05, 0.12, 0.2), 0.8, 0.2)
-sandbag = art.surface("MI_Sandbag", (0.2, 0.19, 0.16), 0.95)
 steel = art.surface("MI_Steel", (0.18, 0.19, 0.2), 0.4, 0.9)
 cyan = art.glow("MI_GlowMachine", art.MACHINE_GLOW, 4.0)
 cyan_dim = art.glow("MI_GlowCable", art.MACHINE_GLOW, 1.6)
+# Paint jobs for the Human kit pieces (Shell slot override): without them every container and wreck shares the
+# kit's one khaki Human look and the scrapyard reads as one colour.
+rust = art.surface("MI_Rust", (0.2, 0.11, 0.07), 0.9, 0.2)
+olive = art.surface("MI_Olive", (0.1, 0.12, 0.09), 0.85)
+container_blue = art.surface("MI_ContainerBlue", (0.05, 0.12, 0.2), 0.8, 0.2)
+sandbag = art.surface("MI_Sandbag", (0.13, 0.12, 0.10), 0.95)  # v8's (0.2, 0.19, 0.16) clips under the work lamps
 amber = art.glow("MI_GlowHuman", art.HUMAN_GLOW, 5.0)
-machine_red = art.glow("MI_GlowMachineEye", (1.0, 0.05, 0.03), 8.0)
 team_materials = [require(assets.load_asset("/Game/Materials/MI_CommandTeam" + str(i)),
                           "Run Build/GenerateCommandMap.py first: missing team material")
                   for i in range(5)]
+
+# The kit is placed as-is; check before the level is touched so a missing import leaves CampusZero unchanged.
+require(assets.does_directory_exist(EnvKit.MESH_FOLDER),
+        "%s is missing: run Build/ImportEnvironmentKit.py first" % EnvKit.MESH_FOLDER)
+for piece in EnvKit.SPEC:
+    require(assets.does_asset_exist(EnvKit.mesh_path(piece)),
+            "Missing %s: run Build/ImportEnvironmentKit.py first" % EnvKit.mesh_path(piece))
 
 # ---------------------------------------------------------------- level
 map_path = "/Game/Maps/CampusZero"
@@ -113,13 +136,18 @@ def footprint_clear(center, size, yaw):
         raise RuntimeError("Blocking geometry at %s leaves the arena" % (center,))
 
 
+def register_block(label, center, size, yaw, round_shape):
+    """Vet a blocking footprint against the keep-outs and record it: one CAMPUS_ZERO_BLOCK line per footprint."""
+    footprint_clear(center, size, yaw)
+    blocking.append(label)
+    unreal.log("CAMPUS_ZERO_BLOCK %s cx=%.0f cy=%.0f sx=%.0f sy=%.0f yaw=%.0f cyl=%d" % (
+        label, center[0], center[1], size[0], size[1], yaw, round_shape))
+
+
 def block(label, center, size, surface, yaw=0.0, base=0.0, collision=True, mesh=cube, check=True):
     """Place a box/cylinder by footprint centre, size in cm, and base height."""
     if collision and check:
-        footprint_clear(center, size, yaw)
-        blocking.append(label)
-        unreal.log("CAMPUS_ZERO_BLOCK %s cx=%.0f cy=%.0f sx=%.0f sy=%.0f yaw=%.0f cyl=%d" % (
-            label, center[0], center[1], size[0], size[1], yaw, mesh is cylinder))
+        register_block(label, center, size, yaw, mesh is cylinder)
     actor = spawn(unreal.StaticMeshActor, label, (center[0], center[1], base + size[2] / 2),
                   unreal.Rotator(yaw=yaw))
     component = actor.static_mesh_component
@@ -129,6 +157,49 @@ def block(label, center, size, surface, yaw=0.0, base=0.0, collision=True, mesh=
     component.set_collision_profile_name("BlockAll" if collision else "NoCollision")
     actor.set_actor_scale3d(unreal.Vector(size[0] / 100, size[1] / 100, size[2] / 100))
     return actor
+
+
+def kit_footprint(name, size):
+    """Fail if kit piece `name` is not the footprint of the primitive it replaces (cm, within 1 cm)."""
+    fx, fy, _ = EnvKit.piece_size(name)
+    require(abs(fx - size[0]) <= 1.0 and abs(fy - size[1]) <= 1.0,
+            "Kit piece %s is %.0f x %.0f cm but the map expects %.0f x %.0f" % (name, fx, fy, size[0], size[1]))
+
+
+def kit(name, label, center, size, yaw=0.0, base=0.0, collision=True, round_shape=False, materials=None):
+    """Place one kit piece where block() put a box/cylinder: footprint centre, size (x, y) cm, yaw, base height.
+    `materials` overrides kit slots for this actor (see EnvKit.place_piece)."""
+    kit_footprint(name, size)
+    if collision:
+        register_block(label, center, EnvKit.collision_size(name), yaw, round_shape)
+    return EnvKit.place_piece(name, center, yaw, base, label=label, collision=collision, materials=materials)
+
+
+def kit_hall(label, center, size, doors):
+    """Assemble a data hall from kit modules; the whole outer rectangle is one blocking footprint.
+    `doors` counts door modules per Unreal world side (N = +Y)."""
+    register_block(label, center, size, 0.0, False)
+    return EnvKit.assemble_hall(label, center, size, doors)
+
+
+def kit_run(name, label, center, size, along_local_x, materials=None):
+    """Tile a straight wall footprint (x, y size in cm) with kit segments; the run is one blocking footprint.
+    Segments are long along their local X (fences) or local Y (sandbags) and stretch to fill the run."""
+    fx, fy, _ = EnvKit.piece_size(name)
+    piece_length, piece_width = (fx, fy) if along_local_x else (fy, fx)
+    run_along_y = size[1] >= size[0]
+    length, width = (size[1], size[0]) if run_along_y else (size[0], size[1])
+    require(abs(width - piece_width) <= 1.0,
+            "Kit piece %s is %.0f cm thick but the run %s is %.0f" % (name, piece_width, label, width))
+    count = max(1, int(round(length / piece_length)))
+    stretch = length / (count * piece_length)
+    yaw = 90.0 if run_along_y == along_local_x else 0.0
+    scale = (stretch, 1.0, 1.0) if along_local_x else (1.0, stretch, 1.0)
+    register_block(label, center, size, 0.0, False)
+    for index in range(count):
+        offset = (index + 0.5) * length / count - length / 2
+        point = (center[0], center[1] + offset) if run_along_y else (center[0] + offset, center[1])
+        EnvKit.place_piece(name, point, yaw, 0.0, scale, "%sSeg%d" % (label, index), True, materials=materials)
 
 
 def strip(label, a, b, width, surface, height=2.0, base=0.0):
@@ -186,41 +257,22 @@ for index, (a, b) in enumerate((((-3500, -1150), (-850, -1150)), ((-850, -1150),
               (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1), 18, road_line, 2.5)
 
 # ---------------------------------------------------------------- centre: Data Hall 0
-# Same footprint as Boot's CentralObstacle so crossing times stay comparable.
-block("DataHall0", (0, 0), (1200, 2000, 520), hall_shell)
-block("DataHall0Roof", (0, 0), (1000, 1800, 60), hall_dark, base=520, collision=False)
-for side, y in (("South", -1004), ("North", 1004)):
-    block("DataHall0Glow" + side, (0, y), (1100, 10, 24), cyan, base=380, collision=False)
-for side, x in (("West", -604), ("East", 604)):
-    block("DataHall0Glow" + side, (x, 0), (10, 1900, 24), cyan, base=380, collision=False)
-    for door, y in enumerate((-600, 0, 600)):
-        block("DataHall0Door%s%d" % (side, door), (x, y), (12, 220, 300), hall_dark, collision=False)
-for index, (x, y) in enumerate(((-300, -600), (300, -600), (-300, 0), (300, 0), (-300, 600), (300, 600))):
-    block("DataHall0Chiller%d" % index, (x, y), (320, 320, 120), steel, base=580, collision=False)
-    block("DataHall0Fan%d" % index, (x, y), (220, 220, 8), cyan_dim, base=700, collision=False, mesh=cylinder)
+# Same footprint as Boot's CentralObstacle so crossing times stay comparable. The kit hall has its own roof,
+# glow seams and loading doors (two per long side), so the old roof, seam, door and rooftop primitives are gone.
+kit_hall("DataHall0", (0, 0), (1200, 2000), {"E": 2, "W": 2})
 
 # ---------------------------------------------------------------- east: the campus
-halls = (("HallA", (3550, 450), (900, 1300)), ("HallB", (3300, -1650), (1300, 800)),
-         ("HallC", (500, 3650), (1700, 700)), ("HallD", (2900, 3750), (1100, 600)))
-for name, center, (sx, sy) in halls:
-    block(name, center, (sx, sy, 600), hall_shell)
-    block(name + "Roof", center, (sx - 120, sy - 120, 50), hall_dark, base=600, collision=False)
-    for side, offset in (("S", -1), ("N", 1)):
-        block("%sGlow%s" % (name, side), (center[0], center[1] + offset * (sy / 2 + 4)),
-              (sx - 100, 10, 20), cyan, base=460, collision=False)
-    for side, offset in (("W", -1), ("E", 1)):
-        block("%sGlow%s" % (name, side), (center[0] + offset * (sx / 2 + 4), center[1]),
-              (10, sy - 100, 20), cyan, base=460, collision=False)
+# Door sides are Unreal world directions, one door module per hall. They sit on the faces the CampusSpot pairs
+# below flank (HallA west, HallB north, HallC south), so each door has a pool of light either side.
+halls = (("HallA", (3550, 450), (900, 1300), {"W": 1}), ("HallB", (3300, -1650), (1300, 800), {"N": 1}),
+         ("HallC", (500, 3650), (1700, 700), {"S": 1}), ("HallD", (2900, 3750), (1100, 600), {}))
+for name, center, size, doors in halls:
+    kit_hall(name, center, size, doors)
 for index, (x, y) in enumerate(((2400, -3200), (3500, -3300), (3950, -2600))):
-    block("CoolingTower%d" % index, (x, y), (560, 560, 900), tower_mat, mesh=cylinder)
-    block("CoolingTowerRim%d" % index, (x, y), (600, 600, 40), hall_dark, base=900, collision=False, mesh=cylinder)
-    block("CoolingTowerPlume%d" % index, (x, y), (380, 380, 6), cyan_dim, base=942, collision=False, mesh=cylinder)
+    kit("CoolingTower", "CoolingTower%d" % index, (x, y), (560, 560), round_shape=True)
 # Campus perimeter fence with wide gates (north and south spans only; the middle stays open).
 for index, (x0, y0, y1) in enumerate(((1900, 2850, 4400), (1150, -4400, -2750))):
-    block("CampusFence%d" % index, (x0, (y0 + y1) / 2), (30, y1 - y0, 220), steel)
-    for post in range(int((y1 - y0) // 400) + 1):
-        block("CampusFence%dLamp%d" % (index, post), (x0, y0 + post * 400), (40, 40, 30), cyan,
-              base=220, collision=False)
+    kit_run("FenceSegment", "CampusFence%d" % index, (x0, (y0 + y1) / 2), (30, y1 - y0), along_local_x=True)
 # Machine HQ plaza: a lit ring the Cluster (AHeadquarters) stands in; nothing blocks inside it.
 block("ClusterPlaza", ENEMY_HQ, (900, 900, 2), concrete, collision=False, mesh=cylinder)
 block("ClusterPlazaRing", ENEMY_HQ, (940, 940, 1.5), cyan, collision=False, mesh=cylinder)
@@ -228,33 +280,24 @@ for index, angle in enumerate(range(0, 360, 45)):
     x = ENEMY_HQ[0] + 650 * math.cos(math.radians(angle))
     y = ENEMY_HQ[1] + 650 * math.sin(math.radians(angle))
     if abs(x) < ARENA - 100 and abs(y) < ARENA - 100:
-        block("ClusterPylon%d" % index, (x, y), (70, 70, 420), hall_shell)
-        block("ClusterPylonEye%d" % index, (x, y), (80, 80, 40), machine_red, base=420, collision=False)
+        kit("ClusterPylon", "ClusterPylon%d" % index, (x, y), (70, 70))
 
 # ---------------------------------------------------------------- capture sites
 # Substation 7: transformer yard and a pylon; cables run to the Cluster.
 sx, sy = SITES["Substation7"]
 for index, (dx, dy) in enumerate(((-600, -550), (600, -450), (650, 250))):
-    block("Substation7Transformer%d" % index, (sx + dx, sy + dy), (220, 170, 260), steel)
-    block("Substation7Coil%d" % index, (sx + dx, sy + dy), (60, 60, 90), cyan, base=260, collision=False, mesh=cylinder)
-for index, (dx, dy) in enumerate(((-60, -60), (60, -60), (-60, 60), (60, 60))):
-    block("Substation7PylonLeg%d" % index, (sx + dx, sy - 900 + dy), (30, 30, 1300), steel)
-block("Substation7PylonArm", (sx, sy - 900), (700, 40, 40), steel, base=1150, collision=False)
-for side in (-1, 1):
-    block("Substation7Insulator%d" % (side + 1), (sx + side * 320, sy - 900), (40, 40, 70), cyan,
-          base=1080, collision=False)
+    kit("Transformer", "Substation7Transformer%d" % index, (sx + dx, sy + dy), (220, 170))
+# The pylon blocks only its 150 x 150 body; its 700 cm cross-arm is 11 m up (EnvKit.GROUND_FOOTPRINT).
+kit("Pylon", "Substation7Pylon", (sx, sy - 900), (700, 150))
 # Cooling Plant: chiller drums around the Machine side of the ring.
 cx, cy = SITES["CoolingPlant"]
 for index, (dx, dy) in enumerate(((700, -150), (700, 350), (250, -750))):
-    block("CoolingPlantChiller%d" % index, (cx + dx, cy + dy), (260, 260, 300), tower_mat, mesh=cylinder)
-    block("CoolingPlantFan%d" % index, (cx + dx, cy + dy), (200, 200, 6), cyan_dim, base=300,
-          collision=False, mesh=cylinder)
+    kit("Chiller", "CoolingPlantChiller%d" % index, (cx + dx, cy + dy), (260, 260), round_shape=True)
 # Fibre Junction: comms mast and cable spools.
 fx, fy = SITES["FibreJunction"]
-block("FibreJunctionMast", (fx + 150, fy - 650), (80, 80, 1500), steel)
-block("FibreJunctionMastBeacon", (fx + 150, fy - 650), (100, 100, 60), cyan, base=1500, collision=False)
+kit("CommsMast", "FibreJunctionMast", (fx + 150, fy - 650), (80, 80))
 for index, (dx, dy) in enumerate(((-720, -150), (-640, 380), (720, 250))):
-    block("FibreJunctionSpool%d" % index, (fx + dx, fy + dy), (200, 200, 140), rust, mesh=cylinder)
+    kit("CableSpool", "FibreJunctionSpool%d" % index, (fx + dx, fy + dy), (200, 200), round_shape=True)
 # Cyan cables from every site to the Cluster (future hook: tint amber while humans hold the site).
 for name, (x, y) in SITES.items():
     corner = (2600, y)
@@ -269,43 +312,43 @@ for name, center in SITES.items():
           collision=False, mesh=cylinder)
 
 # ---------------------------------------------------------------- west: the scrapyard
-for index, (center, yaw, surface_mat) in enumerate((((-3900, 1600), 90, container_blue), ((-3650, 2700), 10, rust),
-                                                    ((-2300, 3400), 0, olive), ((-3900, -2500), 80, rust),
-                                                    ((-2500, -3350), -8, container_blue), ((-1200, 3500), 20, rust))):
-    block("Container%d" % index, center, (600, 245, 260), surface_mat, yaw)
-    block("ContainerStack%d" % index, (center[0] + 40, center[1]), (600, 245, 260), olive if index % 2 else rust,
-          yaw + 4, base=260, collision=False)
-for index, (center, yaw) in enumerate((((-1100, 2600), 30), ((-400, -3500), -20), ((-4000, 3700), 70),
-                                       ((-3200, -3900), 5), ((-600, 2300), -60))):
-    block("Wreck%d" % index, center, (420, 190, 130), rust, yaw)
-    block("WreckCab%d" % index, center, (200, 170, 90), steel, yaw, base=130, collision=False)
+for index, (center, yaw, paint) in enumerate((((-3900, 1600), 90, container_blue), ((-3650, 2700), 10, rust),
+                                              ((-2300, 3400), 0, olive), ((-3900, -2500), 80, rust),
+                                              ((-2500, -3350), -8, container_blue), ((-1200, 3500), 20, rust))):
+    kit("Container", "Container%d" % index, center, (600, 245), yaw, materials={"Shell": paint})
+    kit("Container", "ContainerStack%d" % index, (center[0] + 40, center[1]), (600, 245), yaw + 4, base=260,
+        collision=False, materials={"Shell": olive if index % 2 else rust})
+for index, (center, yaw, paint) in enumerate((((-1100, 2600), 30, rust), ((-400, -3500), -20, olive),
+                                              ((-4000, 3700), 70, rust), ((-3200, -3900), 5, olive),
+                                              ((-600, 2300), -60, rust))):
+    kit("Wreck", "Wreck%d" % index, center, (420, 190), yaw, materials={"Shell": paint})
 # The Bunker's yard: sandbag walls behind and beside the HQ, a flag mast, work lamps.
 hx, hy = FRIENDLY_HQ
-for index, (center, size) in enumerate((((hx - 520, hy), (120, 900, 110)), ((hx - 150, hy + 560), (600, 120, 110)),
-                                        ((hx - 150, hy - 560), (600, 120, 110)))):
-    block("BunkerSandbags%d" % index, center, size, sandbag)
+for index, (center, size) in enumerate((((hx - 520, hy), (120, 900)), ((hx - 150, hy + 560), (600, 120)),
+                                        ((hx - 150, hy - 560), (600, 120)))):
+    kit_run("SandbagWall", "BunkerSandbags%d" % index, center, size, along_local_x=False,
+            materials={"Shell": sandbag})
 block("BunkerMast", (hx - 520, hy + 520), (40, 40, 900), steel)
 block("BunkerBanner", (hx - 520, hy + 600), (10, 140, 200), team_materials[0], base=650, collision=False)
 for index, (dx, dy) in enumerate(((-520, -400), (-520, 400), (180, 560), (180, -560))):
     block("BunkerLamp%d" % index, (hx + dx, hy + dy), (50, 50, 50), amber, base=110, collision=False)
-    light("BunkerLampLight%d" % index, (hx + dx, hy + dy, 220), art.HUMAN_GLOW, 260, 500)
+    # v8's intensity 260 clips the kit's bevelled sandbags
+    light("BunkerLampLight%d" % index, (hx + dx, hy + dy, 220), art.HUMAN_GLOW, 150, 500)
 # Army home pads, matching Boot's markers so players can find their formations.
 for index, y in enumerate((0, -850, 850, -1700, 1700)):
     block("ArmyHome%d" % index, (-1800, y), (500, 500, 4), team_materials[index], base=0, collision=False, mesh=cylinder)
-# Scavenged power: burn barrels and a generator shack beside the scrapyard.
+# Scavenged power: burn barrels (fire is part of the kit piece) and a generator shack beside the scrapyard.
 for index, (x, y) in enumerate(((-2300, -700), (-2300, 1300), (-1300, -2500), (-1300, 2300))):
-    block("BurnBarrel%d" % index, (x, y), (70, 70, 100), rust, mesh=cylinder)
-    block("BurnBarrelFire%d" % index, (x, y), (60, 60, 10), amber, base=100, collision=False, mesh=cylinder)
+    kit("BurnBarrel", "BurnBarrel%d" % index, (x, y), (70, 70), round_shape=True)
     light("BurnBarrelLight%d" % index, (x, y, 260), art.HUMAN_GLOW, 100, 380)
-block("GeneratorShack", (-4100, 500), (300, 400, 250), olive)
-block("GeneratorLamp", (-3945, 500), (10, 120, 40), amber, base=180, collision=False)
+kit("GeneratorShack", "GeneratorShack", (-4100, 500), (300, 400))
 
 # ---------------------------------------------------------------- campus lights
-# Wall-mounted spots under each hall's cyan seam; the cone edge makes a small, sharp pool instead of a blob.
+# Wall-mounted spots beside each hall's glow seam; the cone edge makes a small, sharp pool instead of a blob.
 for index, (point, outward) in enumerate((
         ((3100, 100), (-1, 0)), ((3100, 800), (-1, 0)),  # HallA west face
         ((3000, -1250), (0, 1)), ((3600, -1250), (0, 1)), ((3300, -2050), (0, -1)),  # HallB
-        ((200, 3300), (0, -1)), ((1000, 3300), (0, -1)),  # HallC south face
+        ((200, 3300), (0, -1)), ((800, 3300), (0, -1)),  # HallC south face, flanking its door (x 300..700)
         ((2900, 3450), (0, -1)), ((2350, 3750), (-1, 0)))):  # HallD
     spot("CampusSpot%d" % index, point, outward, 440, 260, art.MACHINE_GLOW, POOL_INTENSITY)
 light("ClusterLight", (ENEMY_HQ[0], ENEMY_HQ[1], 450), (1.0, 0.15, 0.1), 1100, 800)
