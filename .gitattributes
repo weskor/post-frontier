@@ -1,0 +1,11 @@
+* text=auto
+*.cs text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.ini text eol=lf
+*.uproject text eol=lf
+*.sh text eol=lf
+*.uasset filter=lfs diff=lfs merge=lfs -text
+*.umap filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text

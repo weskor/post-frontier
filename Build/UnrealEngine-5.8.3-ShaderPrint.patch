@@ -1,0 +1,15 @@
+--- a/Engine/Shaders/Private/ShaderPrintCommon.ush
++++ b/Engine/Shaders/Private/ShaderPrintCommon.ush
+@@ -535,9 +535,10 @@
+ ///////////////////////////////////////////////////////////////////////////////////////////////////
+ // Vector type printing
+ 
++// Avoid invalid SPIR-V resource stores from forced unrolling (DXC issue #8417).
+ #define SHADER_PRINT_OVERLOAD_N(InNumComponent, InType) \
+-void   Print(inout FShaderPrintContext Ctx, InType Value, FFontColor Color, uint MaxDigit=MAX_DIGIT_COUNT, uint MaxDecimal=MAX_DECIMAL_COUNT)	{ if (Ctx.bIsActive) { UNROLL for (uint CompIt=0;CompIt<InNumComponent;++CompIt) { Ctx.Pos = ShaderPrintValue_Internal(Ctx, Ctx.Pos, Value[CompIt], Color, MaxDigit, MaxDecimal); } } } \
+-void   Print(inout FShaderPrintContext Ctx, InType Value)																						{ if (Ctx.bIsActive) { UNROLL for (uint CompIt=0;CompIt<InNumComponent;++CompIt) { Ctx.Pos = ShaderPrintValue_Internal(Ctx, Ctx.Pos, Value[CompIt], GetDefaultFontColor(), MAX_DIGIT_COUNT, MAX_DECIMAL_COUNT); } } }
++void   Print(inout FShaderPrintContext Ctx, InType Value, FFontColor Color, uint MaxDigit=MAX_DIGIT_COUNT, uint MaxDecimal=MAX_DECIMAL_COUNT)	{ if (Ctx.bIsActive) { for (uint CompIt=0;CompIt<InNumComponent;++CompIt) { Ctx.Pos = ShaderPrintValue_Internal(Ctx, Ctx.Pos, Value[CompIt], Color, MaxDigit, MaxDecimal); } } } \
++void   Print(inout FShaderPrintContext Ctx, InType Value)																						{ if (Ctx.bIsActive) { for (uint CompIt=0;CompIt<InNumComponent;++CompIt) { Ctx.Pos = ShaderPrintValue_Internal(Ctx, Ctx.Pos, Value[CompIt], GetDefaultFontColor(), MAX_DIGIT_COUNT, MAX_DECIMAL_COUNT); } } }
+ 
+ // Print(X) version
+ SHADER_PRINT_OVERLOAD_1(1, float)

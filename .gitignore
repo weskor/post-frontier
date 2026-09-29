@@ -1,0 +1,17 @@
+/Binaries/
+/DerivedDataCache/
+/Intermediate/
+/Saved/
+/Builds/
+/.vs/
+/.vscode/
+/.idea/
+*.sln
+*.suo
+*.VC.db
+*.code-workspace
+/Makefile
+/compile_commands.json
+/Build/Linux/FileOpenOrder/
+__pycache__/
+*.blend1

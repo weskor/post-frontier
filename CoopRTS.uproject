@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "UE_5.8.3",
+	"Category": "Games",
+	"Description": "Cooperative army-command RTS roguelite.",
+	"Modules": [
+		{
+			"Name": "CoopRTS",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "ModelContextProtocol",
+			"Enabled": true
+		},
+		{
+			"Name": "AllToolsets",
+			"Enabled": true
+		}
+	],
+	"TargetPlatforms": ["Linux"]
+}
