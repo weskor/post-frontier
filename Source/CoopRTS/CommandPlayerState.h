@@ -26,19 +26,24 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Commander")
 	int32 CommanderIndex = -1;
 
+	UPROPERTY(ReplicatedUsing = OnRep_TeamIndex, BlueprintReadOnly, Category = "Commander")
+	int32 TeamIndex = 0;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
 	int32 Resources = InitialResources;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Doctrine")
 	EArmyDoctrine Doctrine = EArmyDoctrine::None;
-	// Seamless travel carries PlayerStates; a new Boot world must not inherit match economy or doctrine.
+	// Carried human PlayerStates retain only their slot; match economy and doctrine reset.
 	void ResetForNewMatch();
 
 	int32 GetIncomePerSecond() const;
 	bool TrySpend(int32 Cost);
 	void AddResources(int32 Amount);
 private:
+	UFUNCTION()
+	void OnRep_TeamIndex();
+
 	friend class ACommandBuilding;
 	// Only a paid workshop purchase may commit research.
 	bool TryChooseDoctrine(EArmyDoctrine Choice);

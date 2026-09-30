@@ -52,7 +52,8 @@ void AEnemyCommander::Tick(float DeltaSeconds)
 ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center)
 {
 	const UBuildingDefinition* Definition = State->Content->Building(BuildingIndex);
-	if (!Definition || State->EnemyResources < ACommandBuilding::GetBuildCost(*Definition)) return nullptr;
+	if (!Definition || !IsValid(State->EnemyCommander)
+		|| State->EnemyCommander->Resources < ACommandBuilding::GetBuildCost(*Definition)) return nullptr;
 	// Deterministic candidate positions use the same collision, territory and
 	// navigation validation as player construction; the planner cannot cheat.
 	for (int32 Ring = 0; Ring < 4; ++Ring)
@@ -64,7 +65,7 @@ ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, int32 Bui
 			FVector Location = Center + FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0.f);
 			Location.Z = 5.f;
 			FString Reason;
-			if (ACommandBuilding* Building = State->TryPlaceBuilding(BuildingIndex, Location, nullptr, 5, Reason))
+			if (ACommandBuilding* Building = State->TryPlaceBuilding(BuildingIndex, Location, State->EnemyCommander, 5, Reason))
 				return Building;
 		}
 	}
@@ -75,7 +76,7 @@ void AEnemyCommander::EvaluatePlan()
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !State || !State->Content || State->MatchResult != EMatchResult::Ongoing
-		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters)) return;
+		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters) || !IsValid(State->EnemyCommander)) return;
 	const UMatchContent& Content = *State->Content;
 	const int32 ProducerIndex = FirstBuildingWith(Content, &UBuildingDefinition::bProducesForces);
 	const int32 OutpostIndex = FirstBuildingWith(Content, &UBuildingDefinition::bEstablishesSector);
@@ -222,13 +223,13 @@ void AEnemyCommander::EvaluatePlan()
 	const int32 ReplacementReserve = ACommandBuilding::GetUnitCost(Infantry) * ACommandBuilding::GetForceCapacity(Infantry);
 	const UBuildingDefinition* WorkshopDefinition = Content.Building(WorkshopIndex);
 	if (!Intruders && Established > 0 && Barracks.Num() < 3
-		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(*Content.Building(ProducerIndex)) + ReplacementReserve)
+		&& State->EnemyCommander->Resources >= ACommandBuilding::GetBuildCost(*Content.Building(ProducerIndex)) + ReplacementReserve)
 		BuildNear(State, ProducerIndex, Home);
 	else if (!Workshop && Established > 0 && WorkshopDefinition
-		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(*WorkshopDefinition) + ReplacementReserve)
+		&& State->EnemyCommander->Resources >= ACommandBuilding::GetBuildCost(*WorkshopDefinition) + ReplacementReserve)
 		BuildNear(State, WorkshopIndex, Home);
-	else if (Workshop && Workshop->IsComplete() && State->EnemyDoctrine == EArmyDoctrine::None
-		&& State->EnemyResources >= ACommandBuilding::ResearchCost + ReplacementReserve)
+	else if (Workshop && Workshop->IsComplete() && State->EnemyCommander->Doctrine == EArmyDoctrine::None
+		&& State->EnemyCommander->Resources >= ACommandBuilding::ResearchCost + ReplacementReserve)
 		Workshop->TryResearch(EArmyDoctrine::FieldRepairs);
 	State->ForceNetUpdate();
 }

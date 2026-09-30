@@ -22,6 +22,10 @@ public:
 		AEnemyCommander* Planner = nullptr;
 		for (TActorIterator<AEnemyCommander> It(World); It && !Planner; ++It) Planner = *It;
 		if (!Planner) return Fail(TEXT("New match must create the economic enemy commander"));
+		if (!IsValid(State->EnemyCommander) || State->EnemyCommander->CommanderIndex != -1
+			|| State->EnemyCommander->TeamIndex != 5 || State->EnemyCommander->GetOwner()
+			|| State->PlayerArray.Contains(State->EnemyCommander))
+			return Fail(TEXT("Enemy wallet must be a controllerless team-5 commander outside the human roster"));
 		if (Stage == 3)
 		{
 			if (!Recovery.IsValid() || !Production.IsValid() || Production->ForceGroup != Recovery.Get()
@@ -55,14 +59,14 @@ public:
 			for (TActorIterator<ACommandBuilding> It(World); It; ++It) if (It->TeamIndex == 5) It->Destroy();
 			for (TActorIterator<AArmyGroup> It(World); It; ++It) if (It->TeamIndex == 5) It->Destroy();
 			State->bVerificationIncomePaused = true;
-			State->EnemyResources = 600;
+			State->EnemyCommander->Resources = 600;
 			HumanBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
 			Planner->EvaluatePlan();
 			for (ACommandBuilding* Building : State->Buildings)
 				if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer()) Production = Building;
 			const int32 BarracksCost = State->Content->FindBuilding(TEXT("barracks"))->BuildCost;
-			if (!Production.IsValid() || State->EnemyResources != 600 - BarracksCost
-				|| Production->OwningPlayerState || Production->IsComplete())
+			if (!Production.IsValid() || State->EnemyCommander->Resources != 600 - BarracksCost
+				|| Production->OwningPlayerState != State->EnemyCommander || Production->IsComplete())
 				return Fail(TEXT("Enemy must pay its own wallet for an unfinished barracks through shared construction"));
 			Stage = 1;
 			Test->AddInfo(TEXT("Enemy paid construction observed; waiting for normal construction and single-unit production ticks."));
@@ -77,7 +81,8 @@ public:
 			const int32 Count = Joined + Travelling;
 			if (Count != 1 || !Production->bForceConfigured || Produced->ProductionBuilding != Production.Get()
 				|| !Produced->bAutomaticFront || Produced->FrontOrder != EFrontOrder::Secure
-				|| State->EnemyResources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
+				|| Produced->OwningPlayerState != State->EnemyCommander
+				|| State->EnemyCommander->Resources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
 				|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 				return Fail(TEXT("First enemy production must create one paid infantry unit, not a batch, in its producer force"));
 			Recovery = Produced;
@@ -94,7 +99,7 @@ public:
 			if (IsValid(Building) && Building->TeamIndex == 5)
 				ConstructionSpend += Building->GetDefinition() ? Building->GetDefinition()->BuildCost : 0;
 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->ProductionBuilding != Production.Get()
-			|| State->EnemyResources != 600 - ConstructionSpend - Count * 20
+			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
 			|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 			return Fail(TEXT("Enemy infantry including travellers uses six independent slots and pays 20 per unit from enemy wallet"));
 		bool bEstablished = false;
@@ -117,7 +122,7 @@ public:
 			if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
 				Unit->ReceiveAttack(Unit->Health - FMath::Max(1, Unit->MaxHealth() / 4), Threat->Units[0]);
 		Threat->Destroy();
-		State->EnemyResources = 2000; // Paid second producer and repairs setup, not asserted income.
+		State->EnemyCommander->Resources = 2000; // Paid second producer and repairs setup, not asserted income.
 		OtherProduction = PlaceEnemy(State, TEXT("barracks"), State->EnemyHeadquarters->GetActorLocation());
 		ACommandBuilding* Workshop = PlaceEnemy(State, TEXT("workshop"), State->EnemyHeadquarters->GetActorLocation());
 		if (!OtherProduction.IsValid() || !Workshop) return Fail(TEXT("Recovery isolation fixtures have no legal footprints"));
@@ -145,7 +150,8 @@ private:
 				FVector Location = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 110.f);
 				Location.Z = 5.f;
 				FString Reason;
-				if (ACommandBuilding* Building = State->TryPlaceBuilding(State->Content->BuildingIndexOf(Id), Location, nullptr, 5, Reason)) return Building;
+				if (ACommandBuilding* Building = State->TryPlaceBuilding(State->Content->BuildingIndexOf(Id), Location,
+					State->EnemyCommander, 5, Reason)) return Building;
 			}
 		return nullptr;
 	}

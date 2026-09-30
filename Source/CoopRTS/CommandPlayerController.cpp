@@ -272,7 +272,7 @@ bool ACommandPlayerController::IsOwnedArmy(const AArmyGroup* Army) const
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->TeamIndex == 0
-		&& IsValid(OwnState) && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
+		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
 		&& Army->OwningPlayerState == OwnState;
 }
 
@@ -280,7 +280,7 @@ bool ACommandPlayerController::IsOwnedBuilding(const ACommandBuilding* Building)
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
 	return IsValid(Building) && Building->GetWorld() == GetWorld() && Building->IsAlive()
-		&& Building->TeamIndex == 0 && IsValid(OwnState) && OwnState->CommanderIndex >= 0
+		&& Building->TeamIndex == 0 && IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0
 		&& OwnState->CommanderIndex < 5 && Building->OwningPlayerState == OwnState;
 }
 
@@ -449,7 +449,7 @@ void ACommandPlayerController::ServerPlaceBuilding_Implementation(int32 Building
 	FString Reason;
 	bool bAccepted = false;
 	if (!State || State->MatchResult != EMatchResult::Ongoing || !IsValid(Wallet)
-		|| Wallet->GetWorld() != GetWorld() || Wallet->CommanderIndex < 0 || Wallet->CommanderIndex >= 5)
+		|| Wallet->GetWorld() != GetWorld() || Wallet->TeamIndex != 0 || Wallet->CommanderIndex < 0 || Wallet->CommanderIndex >= 5)
 		Reason = TEXT("Placement rejected: match or commander unavailable.");
 	else if (!(bAccepted = State->TryPlaceBuilding(BuildingIndex, Location, Wallet, 0, Reason)))
 	{

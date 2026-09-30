@@ -58,7 +58,7 @@ void ACommandGameMode::RequestRestart(ACommandPlayerController* Requester)
 	const ACommandPlayerState* Commander = IsValid(Requester)
 		? Requester->GetPlayerState<ACommandPlayerState>() : nullptr;
 	if (!HasAuthority() || bRestartRequested || !IsValid(Requester) || Requester->GetWorld() != GetWorld()
-		|| !Commander || Commander->CommanderIndex < 0
+		|| !Commander || Commander->TeamIndex != 0 || Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5
 		|| !State || State->MatchResult == EMatchResult::Ongoing) return;
 	// Seamless travel keeps the net driver and player connections. The new level's GameState
 	// and actors are fresh; carried PlayerStates are reset when their controllers start.
@@ -94,6 +94,17 @@ void ACommandGameMode::InitGameState()
 		UE_LOG(LogTemp, Error, TEXT("Map %s cannot start a match: arena=%d friendlyHQ=%d enemyHQ=%d sectors=%d"),
 			*GetWorld()->GetMapName(), State->Arena != nullptr, State->FriendlyHeadquarters != nullptr,
 			State->EnemyHeadquarters != nullptr, State->CaptureSites.Num());
+	// Set the team before PlayerState registration; only human states survive seamless travel.
+	const FTransform Transform = FTransform::Identity;
+	State->EnemyCommander = GetWorld()->SpawnActorDeferred<ACommandPlayerState>(ACommandPlayerState::StaticClass(),
+		Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (ACommandPlayerState* Commander = State->EnemyCommander)
+	{
+		Commander->CommanderIndex = -1;
+		Commander->TeamIndex = 5;
+		Commander->FinishSpawning(Transform);
+		Commander->ResetForNewMatch();
+	}
 }
 
 void ACommandGameMode::BeginPlay()
@@ -166,6 +177,7 @@ void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController*
 	}
 	Commander->ResetForNewMatch();
 	Commander->CommanderIndex = Slot;
+	Commander->TeamIndex = 0;
 	Commander->SetPlayerName(FString::Printf(TEXT("Commander %d"), Slot + 1));
 	Commander->ForceNetUpdate();
 	// The engine starts a new camera for initial and seamless players alike.

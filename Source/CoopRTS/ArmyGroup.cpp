@@ -105,11 +105,6 @@ AArmyGroup::AArmyGroup()
 
 EArmyDoctrine AArmyGroup::GetDoctrine() const
 {
-	if (TeamIndex == 5)
-	{
-		const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-		return State ? State->EnemyDoctrine : EArmyDoctrine::None;
-	}
 	return IsValid(OwningPlayerState) ? OwningPlayerState->Doctrine : EArmyDoctrine::None;
 }
 
@@ -127,9 +122,9 @@ bool AArmyGroup::SpawnUnits()
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	const UMatchContent* Content = State ? State->Content.Get() : nullptr;
 	if (!HasAuthority() || !Units.IsEmpty() || !Content
-		|| (TeamIndex == 0 ? !IsValid(OwningPlayerState) || OwningPlayerState->CommanderIndex < 0
-			|| OwningPlayerState->CommanderIndex >= 5
-			: TeamIndex != 5 || !bOpposingArmy || IsValid(OwningPlayerState)))
+		|| !IsValid(OwningPlayerState) || OwningPlayerState->GetWorld() != GetWorld() || OwningPlayerState->TeamIndex != TeamIndex
+		|| (TeamIndex == 0 ? OwningPlayerState->CommanderIndex < 0 || OwningPlayerState->CommanderIndex >= 5
+			: TeamIndex != 5 || !bOpposingArmy || OwningPlayerState != State->EnemyCommander))
 	{
 		return false;
 	}
@@ -174,8 +169,9 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 		|| !ProductionBuilding->IsProducer() || !ProductionBuilding->bForceConfigured
 		|| ProductionBuilding->ForceGroup != this || ProductionBuilding->ProductionUnitIndex != UnitIndex
 		|| ProductionBuilding->TeamIndex != TeamIndex || ProductionBuilding->OwningPlayerState != OwningPlayerState
-		|| (TeamIndex == 0 ? !IsValid(OwningPlayerState) || OwningPlayerState->CommanderIndex < 0
-			|| OwningPlayerState->CommanderIndex >= 5 : TeamIndex != 5 || IsValid(OwningPlayerState))
+		|| !IsValid(OwningPlayerState) || OwningPlayerState->GetWorld() != GetWorld() || OwningPlayerState->TeamIndex != TeamIndex
+		|| (TeamIndex == 0 ? OwningPlayerState->CommanderIndex < 0 || OwningPlayerState->CommanderIndex >= 5
+			: TeamIndex != 5 || OwningPlayerState != State->EnemyCommander)
 		|| Capacity == 0 || !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation)) return false;
 	uint32 Occupied = 0;
 	int32 Living = 0;

@@ -38,10 +38,19 @@ bool ACommandPlayerState::TryChooseDoctrine(EArmyDoctrine Choice)
 	return true;
 }
 
+void ACommandPlayerState::OnRep_TeamIndex()
+{
+	// Client actors register before their initial replicated team arrives.
+	if (TeamIndex == 5)
+		if (ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr)
+			State->RemovePlayerState(this);
+}
+
 int32 ACommandPlayerState::GetIncomePerSecond() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	return State ? State->GetIncomePerSecond() : ACommandGameState::BaselineIncomePerSecond;
+	return State ? (TeamIndex == 5 ? State->GetEnemyIncomePerSecond() : State->GetIncomePerSecond())
+		: ACommandGameState::BaselineIncomePerSecond;
 }
 
 bool ACommandPlayerState::TrySpend(int32 Cost)
@@ -65,4 +74,5 @@ void ACommandPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ACommandPlayerState, Resources);
 	DOREPLIFETIME(ACommandPlayerState, Doctrine);
 	DOREPLIFETIME(ACommandPlayerState, CommanderIndex);
+	DOREPLIFETIME(ACommandPlayerState, TeamIndex);
 }

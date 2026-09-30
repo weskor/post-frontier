@@ -62,6 +62,10 @@ inline ACommandPlayerController* Controller(UWorld* World)
 }
 inline AArmyGroup* SpawnGroup(UWorld* World, ACommandPlayerController* Owner, int32 Index, const FVector& Home)
 {
+	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	ACommandPlayerState* Wallet = Owner ? Owner->GetPlayerState<ACommandPlayerState>()
+		: State ? State->EnemyCommander.Get() : nullptr;
+	if (!IsValid(Wallet)) return nullptr;
 	const FTransform Transform(Home);
 	AArmyGroup* Group = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 		Owner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
@@ -70,7 +74,7 @@ inline AArmyGroup* SpawnGroup(UWorld* World, ACommandPlayerController* Owner, in
 	Group->TeamIndex = Owner ? 0 : 5;
 	Group->ArmyIndex = Index;
 	Group->bOpposingArmy = !Owner;
-	Group->OwningPlayerState = Owner ? Owner->GetPlayerState<ACommandPlayerState>() : nullptr;
+	Group->OwningPlayerState = Wallet;
 	Group->FinishSpawning(Transform);
 	if (!Group->SpawnUnits()) { Group->Destroy(); return nullptr; }
 	return Group;

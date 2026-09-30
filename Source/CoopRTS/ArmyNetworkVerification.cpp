@@ -90,7 +90,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Number(Result, TEXT("result"), static_cast<int32>(State->MatchResult));
 	Result->SetBoolField(TEXT("placementValid"), bPlacementCandidateValid);
 	Vector(Result, TEXT("placementCandidate"), PlacementCandidate);
-	Number(Result, TEXT("enemyResources"), State->EnemyResources);
+	Number(Result, TEXT("enemyResources"), IsValid(State->EnemyCommander) ? State->EnemyCommander->Resources : 0);
 	if (IsValid(State->Arena))
 		Result->SetArrayField(TEXT("arenaHalfExtent"), {MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X),
 			MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y)});
@@ -493,6 +493,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 			if (!Hostile) return TEXT("hostile casualty fixture allocation failed");
 			Hostile->TeamIndex = 5;
+			Hostile->OwningPlayerState = State->EnemyCommander;
 			Hostile->bOpposingArmy = true;
 			Hostile->HomeLocation = Transform.GetLocation();
 			Hostile->ArmyIndex = -1;

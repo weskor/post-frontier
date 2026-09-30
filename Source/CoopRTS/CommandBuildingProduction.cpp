@@ -16,14 +16,10 @@ namespace
 {
 	bool GetBalance(const ACommandBuilding& Building, const ACommandGameState& State, int32& Balance)
 	{
-		if (Building.TeamIndex == 5 && !Building.OwningPlayerState)
-		{
-			Balance = State.EnemyResources;
-			return true;
-		}
 		const ACommandPlayerState* Owner = Building.OwningPlayerState;
-		if (Building.TeamIndex != 0 || !IsValid(Owner) || Owner->GetWorld() != Building.GetWorld()
-			|| Owner->CommanderIndex < 0 || Owner->CommanderIndex >= 5) return false;
+		if (!IsValid(Owner) || Owner->GetWorld() != Building.GetWorld() || Owner->TeamIndex != Building.TeamIndex
+			|| (Building.TeamIndex == 0 ? Owner->CommanderIndex < 0 || Owner->CommanderIndex >= 5
+				: Building.TeamIndex != 5 || Owner != State.EnemyCommander)) return false;
 		Balance = Owner->Resources;
 		return true;
 	}
