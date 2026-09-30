@@ -8,8 +8,9 @@ The single source of truth is Build/Maps/<Map>.json (arena, HQs, sectors, elevat
 chokes, decoration zones, proposals); the Unreal generator is meant to read the same file. This script:
 
   1. rasterises the regions onto a 100 cm grid (X = minimap-up, Y = minimap-right, like the game's minimap),
-  2. runs the design checks the docs rely on (level overlap and cliff bands, ramp slopes and widths, sectors on
-     one level, ramps and chokes outside every territory disc, choke widths, rot180 symmetry, reachability),
+  2. runs the design checks the docs rely on (level overlap, terrain-kit grid alignment, ramp slopes and lane
+     widths, sectors on one level, ramps and chokes outside every territory disc, choke widths, rot180 symmetry,
+     reachability, Phase A heights against the placement rules),
   3. measures real walking distances at the unit speed in the file (16-neighbour Dijkstra with a 100 cm
      clearance ring, then line-of-sight smoothing; within about 1 % of a nav path),
   4. counts building placements with the 2D rules of ACommandGameState::ValidateBuildingPlacement,
@@ -88,15 +89,22 @@ class Grid:
         self.levels = [lv["id"] for lv in data["elevation"]]
         nx, ny = self.nx, self.ny
         self.cover = [[0] * ny for _ in range(nx)]       # bit per level id
-        self.ramp = [[-1] * ny for _ in range(nx)]       # ramp index
+        self.ramp = [[-1] * ny for _ in range(nx)]       # ramp index of a walkable strip cell
         self.block = [[False] * ny for _ in range(nx)]
         for region in data["regions"]:
             bit = 1 << self.levels.index(region["level"])
             for i, j in self.cells_in(region["poly"]):
                 self.cover[i][j] |= bit
+        # A ramp piece's footprint is closed by its parapets except along the walkable strip.
         for index, ramp in enumerate(data["ramps"]):
-            for i, j in self.cells_in(ramp["poly"]):
-                self.ramp[i][j] = index
+            for footprint in ramp["footprints"]:
+                for i, j in self.cells_in(footprint):
+                    self.block[i][j] = True
+            for strip in ramp["strips"]:
+                for i, j in self.cells_in(strip):
+                    self.block[i][j] = False
+                    self.ramp[i][j] = index
+                    self.cover[i][j] |= 0  # ramp cells keep whatever region covers them
         for blocker in data["blockers"]:
             for i, j in self.cells_in(blocker["poly"]):
                 self.block[i][j] = True
@@ -106,7 +114,26 @@ class Grid:
                 self.cover[i][j] |= 1 << self.levels.index("L0")
         self.walk = [[(self.cover[i][j] != 0 or self.ramp[i][j] >= 0) and not self.block[i][j] for j in range(ny)]
                      for i in range(nx)]
-        self.nav = [[self.walk[i][j] and all(self.is_walk(i + a, j + b) for a in (-1, 0, 1) for b in (-1, 0, 1))
+        # lvl: level index, -1 on a ramp strip (joins any level), -2 off the map.
+        self.lvl = [[-2] * ny for _ in range(nx)]
+        for i in range(nx):
+            for j in range(ny):
+                if self.ramp[i][j] >= 0:
+                    self.lvl[i][j] = -1
+                elif self.cover[i][j]:
+                    self.lvl[i][j] = (self.cover[i][j] & -self.cover[i][j]).bit_length() - 1
+        # Two walkable cells of different levels may never be neighbours: the boundary is a cliff.
+        self.boundary = [[False] * ny for _ in range(nx)]
+        for i in range(nx):
+            for j in range(ny):
+                a = self.lvl[i][j]
+                if a >= 0 and self.walk[i][j]:
+                    for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                        ni, nj = i + di, j + dj
+                        if self.in_range(ni, nj) and self.walk[ni][nj] and self.lvl[ni][nj] >= 0 and self.lvl[ni][nj] != a:
+                            self.boundary[i][j] = True
+        self.nav = [[self.walk[i][j] and not self.boundary[i][j]
+                     and all(self.is_walk(i + a, j + b) for a in (-1, 0, 1) for b in (-1, 0, 1))
                      for j in range(ny)] for i in range(nx)]
 
     def centre(self, i, j):
@@ -157,7 +184,7 @@ class Grid:
     def edge_distance(self):
         """Approximate distance (cm) from each walkable cell to the nearest non-walkable cell (two-pass chamfer)."""
         big = 1e9
-        d = [[0.0 if not self.walk[i][j] else big for j in range(self.ny)] for i in range(self.nx)]
+        d = [[0.0 if (not self.walk[i][j] or self.boundary[i][j]) else big for j in range(self.ny)] for i in range(self.nx)]
         fwd = [(-1, -1, 1.4142), (-1, 0, 1.0), (-1, 1, 1.4142), (0, -1, 1.0)]
         bwd = [(1, 1, 1.4142), (1, 0, 1.0), (1, -1, 1.4142), (0, 1, 1.0)]
         for i in range(self.nx):
@@ -200,6 +227,9 @@ class Grid:
                         continue
                     if abs(a) == 1 and abs(b) == 1 and not (nav[ni][j] and nav[i][nj]):
                         continue
+                    la, lb = self.lvl[i][j], self.lvl[ni][nj]
+                    if la >= 0 and lb >= 0 and la != lb:
+                        continue
                     nd = d + w * CELL
                     if nd < dist[ni][nj]:
                         dist[ni][nj] = nd
@@ -208,6 +238,7 @@ class Grid:
         return dist, parent
 
     def line_clear(self, a, b, closed):
+        """Straight segment stays on navigable cells; a level boundary is a non-navigable cliff cell, so it cannot be crossed."""
         (ax, ay), (bx, by) = a, b
         n = max(1, int(math.hypot(bx - ax, by - ay) // (CELL / 2)))
         for k in range(n + 1):
@@ -261,46 +292,77 @@ class Analysis:
 
     # ---- structure
     def check_levels(self):
+        """Regions of different levels may touch (the boundary is a cliff) but never overlap."""
         g = self.grid
         overlap = 0
-        thin = 0
         for i in range(g.nx):
             for j in range(g.ny):
                 bits = g.cover[i][j]
-                if bits & (bits - 1) and g.ramp[i][j] < 0:
+                if bits & (bits - 1):
                     overlap += 1
-                if bits and bits & (bits - 1) == 0 and g.ramp[i][j] < 0:
-                    for a in range(-3, 4):
-                        for b in range(-3, 4):
-                            if g.in_range(i + a, j + b) and g.ramp[i + a][j + b] < 0:
-                                other = g.cover[i + a][j + b]
-                                if other and other != bits and not other & bits:
-                                    thin += 1
         if overlap:
-            self.err("regions of different levels overlap on %d cells (outside ramps)" % overlap)
-        if thin:
-            self.err("cliff band under 300 cm between two levels on %d cell pairs" % thin)
+            self.err("regions of different levels overlap on %d cells" % overlap)
+
+    def check_grid(self):
+        """Everything the terrain kit places must sit on its 400 cm grid (Build/GenerateTerrainKit.py)."""
+        grid = self.data["grid"]
+        cell = grid["cell"]
+        half = cell // 2
+
+        def on_line(v):
+            return (v - half) % cell == 0
+
+        for region in self.data["regions"]:
+            for x, y in region["poly"]:
+                if not (on_line(x) and on_line(y)):
+                    self.err("region %s has a vertex (%s, %s) off the kit grid" % (region["id"], x, y))
+        for ramp in self.data["ramps"]:
+            for piece in ramp["pieces"]:
+                x, y = piece["centre"]
+                if not (on_line(x) and on_line(y)):
+                    self.err("%s piece at (%s, %s) is not centred on a cell corner" % (ramp["id"], x, y))
+                if piece["yaw"] % 90:
+                    self.err("%s piece yaw %s is not a multiple of 90" % (ramp["id"], piece["yaw"]))
+            if ramp["length"] != grid["ramp_run"] or ramp["lane_width"] != grid["ramp_walkable_width"]:
+                self.err("%s does not match the kit ramp (run %d, walkable %d)" % (ramp["id"], grid["ramp_run"], grid["ramp_walkable_width"]))
+        for blocker in self.data["blockers"]:
+            for x, y in blocker["poly"]:
+                if not (on_line(x) and on_line(y)):
+                    self.err("blocker %s has a vertex off the kit grid" % blocker["id"])
+        for tower in self.data["proposals"]["vision_points"]:
+            x, y = tower["pos"]
+            if x % cell or y % cell:
+                self.err("%s is not on a cell centre" % tower["id"])
 
     def check_ramps(self):
         g = self.grid
-        limit = 12.0
         for ramp in self.data["ramps"]:
             rid = ramp["id"]
-            for end, level in (("top", ramp["from_level"]), ("foot", ramp["to_level"])):
-                x, y = ramp[end]
-                i, j = g.cell(x, y)
-                # The end point sits on the level's boundary; look one cell inward.
-                ok = any(g.level_of(i + a, j + b) == level for a in (-1, 0, 1) for b in (-1, 0, 1) if g.in_range(i + a, j + b))
-                if not ok:
-                    self.err("%s: %s point is not on level %s" % (rid, end, level))
+            ux, uy = ramp["foot"][0] - ramp["top"][0], ramp["foot"][1] - ramp["top"][1]
+            norm = math.hypot(ux, uy)
+            ux, uy = ux / norm, uy / norm
+            for end, level, sign in (("top", ramp["from_level"], -1), ("foot", ramp["to_level"], 1)):
+                found = False
+                for lane in ramp["pieces"]:
+                    # Probe 100 cm past the end of the ramp, on the lane centre line.
+                    cx, cy = lane["centre"]
+                    px = cx + ux * sign * (ramp["length"] / 2 + 100)
+                    py = cy + uy * sign * (ramp["length"] / 2 + 100)
+                    i, j = g.cell(px, py)
+                    if g.in_range(i, j) and g.level_of(i, j) == level and g.walk[i][j]:
+                        found = True
+                if not found:
+                    self.err("%s: nothing walkable on level %s beyond its %s" % (rid, level, end))
             for name in ("z_cm", "z_sc2_cm"):
                 rise = abs(self.z[ramp["from_level"]][name] - self.z[ramp["to_level"]][name])
-                slope = math.degrees(math.atan2(rise, ramp["length"]))
-                ramp["slope_" + name] = slope
-                if name == "z_cm" and slope > limit:
-                    self.err("%s: slope %.1f deg over %.0f" % (rid, slope, limit))
-            if ramp["width"] < 3 * self.const["force_width"]:
-                self.err("%s: width %d is under three force widths" % (rid, ramp["width"]))
+                ramp["rise_" + name] = rise
+                ramp["slope_" + name] = math.degrees(math.atan2(rise, ramp["length"]))
+            if ramp["rise_z_sc2_cm"] != self.data["grid"]["step"]:
+                self.err("%s: SC2 rise %d is not one 300 cm step" % (rid, ramp["rise_z_sc2_cm"]))
+            if ramp["slope_z_sc2_cm"] > 30:
+                self.err("%s: kit ramp slope limit is 30 degrees" % rid)
+            if ramp["lane_width"] < 3 * self.const["force_width"]:
+                self.err("%s: lane width %d is under three force widths" % (rid, ramp["lane_width"]))
 
     def territory_discs(self):
         discs = []
@@ -315,7 +377,7 @@ class Analysis:
         self.margins = []
         for name, pos, radius, _side in self.territory_discs():
             for ramp in self.data["ramps"]:
-                d = poly_dist(pos[0], pos[1], ramp["poly"])
+                d = min(poly_dist(pos[0], pos[1], fp) for fp in ramp["footprints"])
                 self.margins.append((ramp["id"], name, d - radius))
                 if d - radius < 0:
                     self.err("%s lies inside the %.0f territory of %s (%.0f cm)" % (ramp["id"], radius, name, d - radius))
@@ -403,7 +465,8 @@ class Analysis:
         g = self.grid
         cells = set()
         for rid in ramp_ids:
-            cells.update(g.cells_in(self.ramps[rid]["poly"]))
+            for strip in self.ramps[rid]["strips"]:
+                cells.update(g.cells_in(strip))
         return cells
 
     def measure(self):
@@ -488,12 +551,12 @@ class Analysis:
             if math.hypot(x - bx, y - by) <= radius + br + 55:
                 return False
         i, j = g.cell(x, y)
-        if not g.in_range(i, j):
+        if not g.in_range(i, j) or g.ramp[i][j] >= 0:
             return False
         level = g.level_of(i, j)
         for a, b in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (.707, .707), (-.707, .707), (.707, -.707), (-.707, -.707)):
             si, sj = g.cell(x + a * (radius + 65), y + b * (radius + 65))
-            if not (g.in_range(si, sj) and g.walk[si][sj] and not (g.ramp[si][sj] >= 0 and not g.cover[si][sj])
+            if not (g.in_range(si, sj) and g.walk[si][sj] and g.ramp[si][sj] < 0
                     and g.level_of(si, sj) == level) or self.edge[si][sj] < 60:
                 return False
         return True
@@ -606,27 +669,35 @@ class Analysis:
                 self.err("JEV cannot place an outpost for %s" % s["name"])
 
     def check_elevation(self):
-        """Buildable levels against ACommandGameState::ValidateBuildingPlacement's height rules.
+        """Height of buildable ground against ACommandGameState::ValidateBuildingPlacement's rules.
 
         1. The overlap box spans Location.Z + 10 .. + 120 (centre +65, half height 55), so a surface higher than
            Location.Z + 10 blocks the footprint; Location.Z is 0 for a click (CursorGround) and 5 for JEV (BuildNear).
         2. Nav samples must project within 110 cm of Location.Z.
-        Margins: 5 cm on the first, 15 cm on the second (navmesh cell height is about 10 cm).
+        Phase A (`z_cm`) must satisfy both, with 5 cm and 15 cm margins (the navmesh cell height is about 10 cm).
+        Phase B (`z_sc2_cm`) is reported, not enforced: it is what proposal P1 has to make legal.
         """
         tol = self.const["placement_z_tolerance"]
         box = self.const["placement_overlap_box"]
         top = box["centre_z_offset"] - box["half_z"]
+        self.phase_b_violations = []
         for lv in self.data["elevation"]:
-            for ref_name in ("click_plane_z", "jev_build_z"):
-                ref = self.const[ref_name]
-                lv["gap_" + ref_name] = abs(lv["z_cm"] - ref)
-                if lv["z_cm"] > ref + top - 5:
-                    self.err("level %s at %+d cm rises into the placement overlap box (reference z %d)" % (lv["id"], lv["z_cm"], ref))
-                if abs(lv["z_cm"] - ref) > tol - 15:
-                    self.err("level %s at %+d cm is more than %d cm from z %d" % (lv["id"], lv["z_cm"], tol - 15, ref))
+            for key, enforce in (("z_cm", True), ("z_sc2_cm", False)):
+                for ref_name in ("click_plane_z", "jev_build_z"):
+                    ref = self.const[ref_name]
+                    z = lv[key]
+                    bad = None
+                    if z > ref + top - 5:
+                        bad = "rises into the placement overlap box (z %d)" % ref
+                    elif abs(z - ref) > tol - 15:
+                        bad = "is more than %d cm from z %d" % (tol - 15, ref)
+                    if bad and enforce:
+                        self.err("level %s at %+d cm %s" % (lv["id"], z, bad))
+                    elif bad:
+                        self.phase_b_violations.append("%s %+d cm %s" % (lv["id"], z, bad))
         step = self.const["character_max_step_height"]
         for ramp in self.data["ramps"]:
-            rise = abs(self.z[ramp["from_level"]]["z_cm"] - self.z[ramp["to_level"]]["z_cm"])
+            rise = ramp["rise_z_cm"]
             if 0 < rise <= step:
                 self.err("%s: a %d cm step is within the character's %d cm step height" % (ramp["id"], rise, step))
 
@@ -640,6 +711,7 @@ class Analysis:
 
     def run(self):
         self.check_levels()
+        self.check_grid()
         self.check_ramps()
         self.check_wall_off()
         self.check_sectors()
@@ -699,8 +771,8 @@ class Analysis:
         add("")
         add("Ramps")
         for r in d["ramps"]:
-            add("  %-14s %4d wide x %4d long  slope %.1f deg (phase A)  %.1f deg (SC2 heights)"
-                % (r["id"], r["width"], r["length"], r["slope_z_cm"], r["slope_z_sc2_cm"]))
+            add("  %-14s %d x %s (%d wide lanes) x %d long  slope %.1f deg (Phase A)  %.1f deg (Phase B, rise %d)"
+                % (r["id"], r["lanes"], r["kit_piece"], r["lane_width"], r["length"], r["slope_z_cm"], r["slope_z_sc2_cm"], r["rise_z_sc2_cm"]))
         add("")
         add("Tightest ramp/choke clearance from any territory disc (cm beyond the disc edge)")
         worst = sorted(self.margins, key=lambda m: m[2])[:6]
@@ -721,8 +793,7 @@ class Analysis:
         add("Build bays authored: %d, closest pair %.0f cm" % (sum(len(p.get("bays", [])) for p in d["build_pockets"]), self.bay_min_gap))
         add("JEV BuildNear replay: %s" % ", ".join("%s %s" % (k, "ok" if sp else "FAIL") for k, sp in self.jev_builds))
         add("JEV outpost candidates: %s" % ", ".join("%s %s" % (k, "ok" if v else "FAIL") for k, v in self.jev_outposts.items()))
-        add("Level height gaps to the click plane (z 0) / JEV build height (z 5), cm: %s" % ", ".join(
-            "%s %d/%d" % (lv["id"], lv["gap_click_plane_z"], lv["gap_jev_build_z"]) for lv in d["elevation"]))
+        add("Phase B levels above today's buildable ceiling (proposal P1): %s" % (", ".join(sorted(set(v.split(" rises")[0].split(" is more")[0] for v in self.phase_b_violations))) or "none"))
         add("")
         add("Errors: %s" % ("none" if not self.errors else ""))
         for e in self.errors:
@@ -801,15 +872,15 @@ class Svg:
         x0, y0 = self.P(self.hx, -self.hy)
         add('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="url(#rim)" stroke="#39414d" stroke-width="3"/>'
             % (x0, y0, 2 * self.hy * s, 2 * self.hx * s))
-        # Cliff shadows first (a wide dark stroke centred on each high region's edge), then the fills.
+        # Fills by level, then a dark cliff line and a light lip line on every region that stands above a neighbour.
         order = {lv["id"]: k for k, lv in enumerate(d["elevation"])}
         regions = sorted(d["regions"], key=lambda r: order[r["level"]])
         for r in regions:
-            if order[r["level"]] > 0:
-                add('<polygon points="%s" fill="%s" stroke="%s" stroke-width="%.1f" stroke-linejoin="round" opacity="0.92"/>'
-                    % (self.pts(r["poly"]), CLIFF, CLIFF, 2 * 300 * s * 1.0))
-        for r in regions:
             add('<polygon points="%s" fill="%s" stroke="#0b0e12" stroke-width="2" stroke-linejoin="round"/>' % (self.pts(r["poly"]), LEVEL_FILL[r["level"]]))
+        for r in regions:
+            if order[r["level"]] > 0:
+                add('<polygon points="%s" fill="none" stroke="%s" stroke-width="9" stroke-linejoin="round" opacity="0.95"/>' % (self.pts(r["poly"]), CLIFF))
+                add('<polygon points="%s" fill="none" stroke="#d9e4f0" stroke-width="1.6" stroke-linejoin="round" opacity="0.55" transform="translate(0 0)"/>' % self.pts(r["poly"]))
         # HQ territory pockets
         for h in d["headquarters"]:
             if h["side"] != "H":
@@ -854,28 +925,29 @@ class Svg:
                 self.text(px0, py1 + 20, "%+d" % (k * 10), 14, "#9aa7b6", "middle", halo=False)
         self.text(12, self.mt - 22, "X (m)  N = +X, up", 14, "#9aa7b6", "start", halo=False)
         self.text(self.ml + 2 * self.hy * s, self.mt + 2 * self.hx * s + 42, "Y (m)  E = +Y, right", 14, "#9aa7b6", "end", halo=False)
-        # Ramps
+        # Ramps: each kit piece footprint (parapet outline) with its walkable strip on top.
         for r in d["ramps"]:
-            add('<polygon points="%s" fill="url(#g_%s)" stroke="#e8eef5" stroke-width="2"/>' % (self.pts(r["poly"]), r["id"]))
             tx, ty = r["top"]
             fx, fy = r["foot"]
             l = math.hypot(fx - tx, fy - ty)
             ux, uy = (fx - tx) / l, (fy - ty) / l
             nx, ny = -uy, ux
-            h = r["width"] / 2.0
-            steps = int(l // 100)
-            for k in range(1, steps):
-                px = tx + ux * k * 100
-                py = ty + uy * k * 100
-                a_ = self.P(px + nx * h, py + ny * h)
-                b_ = self.P(px - nx * h, py - ny * h)
-                add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#0b0e12" stroke-width="1" opacity="0.45"/>' % (a_[0], a_[1], b_[0], b_[1]))
-            mid = ((tx + fx) / 2, (ty + fy) / 2)
-            up0 = self.P(mid[0] + ux * 250, mid[1] + uy * 250)
-            up1 = self.P(mid[0] - ux * 250, mid[1] - uy * 250)
-            flat = abs(self.a.z[r["from_level"]]["z_cm"] - self.a.z[r["to_level"]]["z_cm"]) == 0
-            add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#ffffff" stroke-width="3.5" marker-end="url(#arrow)"%s opacity="0.95"/>'
-                % (up0[0], up0[1], up1[0], up1[1], ' marker-start="url(#arrow)"' if flat else ""))
+            for footprint, strip, piece in zip(r["footprints"], r["strips"], r["pieces"]):
+                add('<polygon points="%s" fill="#161b22" stroke="#e8eef5" stroke-width="2"/>' % self.pts(footprint))
+                add('<polygon points="%s" fill="url(#g_%s)" stroke="none"/>' % (self.pts(strip), r["id"]))
+                cx, cy = piece["centre"]
+                h = r["lane_width"] / 2.0
+                for k in range(-3, 4):
+                    px = cx + ux * k * 100
+                    py = cy + uy * k * 100
+                    a_ = self.P(px + nx * h, py + ny * h)
+                    b_ = self.P(px - nx * h, py - ny * h)
+                    add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#0b0e12" stroke-width="1" opacity="0.4"/>' % (a_[0], a_[1], b_[0], b_[1]))
+                up0 = self.P(cx + ux * 260, cy + uy * 260)
+                up1 = self.P(cx - ux * 260, cy - uy * 260)
+                flat = r["rise_z_cm"] == 0
+                add('<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="#ffffff" stroke-width="3.5" marker-end="url(#arrow)"%s opacity="0.95"/>'
+                    % (up0[0], up0[1], up1[0], up1[1], ' marker-start="url(#arrow)"' if flat else ""))
         # Territory rings and markers
         cap = self.const_r("capture_radius") * s
         terr = self.const_r("sector_territory_radius") * s
@@ -945,7 +1017,8 @@ class Svg:
             side = 1 if c["center"][1] < 0 else -1
             offx, offy = (24 * side, 5) if c["across"][1] == 0 else (0, -12)
             anchor = ("start" if side > 0 else "end") if c["across"][1] == 0 else "middle"
-            self.text(mx + offx, my + offy, "%s %d" % (c["name"], c["width"]), 14, "#ffffff", anchor, "bold")
+            if c["name"]:
+                self.text(mx + offx, my + offy, c["name"] if "lanes" in c["name"] else "%s %d" % (c["name"], c["width"]), 14, "#ffffff", anchor, "bold")
         # Vision proposals
         for v in d["proposals"]["vision_points"]:
             cx, cy = self.P(*v["pos"])
@@ -957,18 +1030,18 @@ class Svg:
         for r in d["regions"]:
             lv = self.a.z[r["level"]]
             top = r["name"].upper()
-            sub = "%s %+d cm" % (r["level"], lv["z_cm"])
+            sub = "%s  %+d / %+d cm" % (r["level"], lv["z_cm"], lv["z_sc2_cm"])
             sign = -1 if r["side"] == "H" else 1
             spots = {"pass_W": (1500, -5450), "pass_E": (-1500, 5450),
-                     "terrace_H": (-3450, -7000), "terrace_J": (3450, 7000),
+                     "terrace_H": (-5750, -2900), "terrace_J": (5750, 2900),
                      "main_H": (-6900, -5800), "main_J": (8250, 5450),
                      "pocket_SE": (-7600, 300), "pocket_NW": (7600, -300)}
             x, y = spots[r["id"]]
             dark = r["level"] == "L2"
             self.world_text(x, y, top, size=15, anchor="middle", weight="bold", fill="#0b0e12" if dark else "#e3ecf6", halo=not dark)
             self.world_text(x - 260, y, sub, size=14, anchor="middle", italic=True, fill="#0b0e12" if dark else "#c9d6e4", halo=not dark)
-        self.world_text(1500 - 520, -5450, "open field 54 x 47 m", size=13, anchor="middle", italic=True, fill="#c2cfdd")
-        self.world_text(-1500 + 520, 5450, "open field 54 x 47 m", size=13, anchor="middle", italic=True, fill="#c2cfdd")
+        self.world_text(1500 - 520, -5450, "open field 52 x 48 m", size=13, anchor="middle", italic=True, fill="#c2cfdd")
+        self.world_text(-1500 + 520, 5450, "open field 52 x 48 m", size=13, anchor="middle", italic=True, fill="#c2cfdd")
         self.world_text(-9350, 0, "HUMAN FORWARD BASE (SOUTH)", size=22, anchor="middle", weight="bold", fill=HUMAN)
         self.world_text(9150, 0, "MACHINE CAMPUS (NORTH)", size=22, anchor="middle", weight="bold", fill=MACHINE)
         self.world_text(-9350, 5500, "rock rim · out of play", size=14, anchor="middle", italic=True, fill="#7d8896")
@@ -1013,22 +1086,22 @@ class Svg:
         x = self.panel_x
         y = self.mt - 10
         add = self.add
-        self.text(x, y, "ELEVATION (phase A z / SC2-height z, cm)", 17, "#ffffff", weight="bold", halo=False)
+        self.text(x, y, "LEVELS (Phase A z / Phase B z, cm)", 17, "#ffffff", weight="bold", halo=False)
         y += 12
         for lv in reversed(d["elevation"]):
             y += 34
             add('<rect x="%.1f" y="%.1f" width="46" height="24" fill="%s" stroke="#e8eef5" stroke-width="1.5"/>' % (x, y - 18, LEVEL_FILL[lv["id"]]))
-            self.text(x + 60, y, "%s %s: %+d cm / %+d cm  (%s)" % (lv["id"], lv["name"], lv["z_cm"], lv["z_sc2_cm"], lv["note"]), 16, "#dfe7f1", halo=False)
+            self.text(x + 60, y, "%s %s: %+d / %+d cm  (%s)" % (lv["id"], lv["name"], lv["z_cm"], lv["z_sc2_cm"], lv["note"]), 16, "#dfe7f1", halo=False)
         y += 34
         add('<rect x="%.1f" y="%.1f" width="46" height="24" fill="%s" stroke="#e8eef5" stroke-width="1.5"/>' % (x, y - 18, CLIFF))
-        self.text(x + 60, y, "Cliff or rock-wall band, 300 cm (no walking)", 16, "#dfe7f1", halo=False)
+        self.text(x + 60, y, "Cliff line: Cliff_* pieces on the higher level's edge", 16, "#dfe7f1", halo=False)
         y += 44
         self.text(x, y, "SYMBOLS", 17, "#ffffff", weight="bold", halo=False)
         items = [
             ("circle", NEUTRAL, "Sector: capture ring 430 (solid), territory 1000 (dashed)"),
             ("ring", HUMAN, "Human HQ, 900 territory disc; halves = pockets A/B with bays A1-B4"),
             ("ring", MACHINE, "JEV HQ (The Cluster) and its 900 territory disc"),
-            ("ramp", "#e8eef5", "Ramp (arrow uphill; two heads = flat gap in a wall); label = width in cm"),
+            ("ramp", "#e8eef5", "Ramp_Wide piece (arrow uphill in Phase B); walkable lane 700 cm"),
             ("route1", ROUTE_COLORS["no_door"], "Route A (orange): Cluster > West door > NW pocket > West Pass > North gate"),
             ("route2", ROUTE_COLORS["no_gate"], "Route B (magenta): Cluster > South gate > East Pass > SE pocket > East door"),
             ("dots", "#7df9ff", "JEV expansion walks (its two nearest sectors)"),
@@ -1069,7 +1142,7 @@ class Svg:
         s4 = a.table["HQ_H"]["S4"][0]
         rows.append("Bunker to sectors 1-4: %.0f, %.0f, %.0f, %.0f s" % (a.secs(s1), a.secs(s2), a.secs(s3), a.secs(s4)))
         rows.append("Cluster to sectors 8, 7, 6, 5: %.0f, %.0f, %.0f, %.0f s" % tuple(a.secs(a.table["HQ_J"]["S%d" % k][0]) for k in (8, 7, 6, 5)))
-        rows.append("Narrowest passage: main ramp 700 cm = 3.9 formation widths")
+        rows.append("Narrowest lane: one Ramp_Wide strip, 700 cm = 3.9 force widths")
         rows.append("Terrace edge to Cluster: %.0f cm (JEV intruder ring 1500)" % a.intruder_edge)
         for row in rows:
             y += 27
@@ -1095,14 +1168,14 @@ class Svg:
         y += 46
         self.text(x, y, "RAMPS (identical on both sides)", 17, "#ffffff", weight="bold", halo=False)
         y += 28
-        for col, head in ((0, "ramp"), (250, "width x length"), (450, "phase A slope (rise)"), (610, "SC2 slope (rise)")):
+        for col, head in ((0, "ramp"), (250, "kit pieces"), (450, "phase A slope (rise)"), (610, "SC2 slope (rise)")):
             self.text(x + col, y, head, 14, "#9aa7b6", halo=False)
         for r in d["ramps"]:
             if r["side"] != "H":
                 continue
             y += 26
             self.text(x, y, r["name"].replace("Human ", ""), 15, "#ffffff", halo=False)
-            self.text(x + 250, y, "%d x %d cm" % (r["width"], r["length"]), 15, "#dfe7f1", halo=False)
+            self.text(x + 250, y, "%d x %s" % (r["lanes"], r["kit_piece"].replace("_Machine", "")), 15, "#dfe7f1", halo=False)
             rise_a = abs(self.a.z[r["from_level"]]["z_cm"] - self.a.z[r["to_level"]]["z_cm"])
             rise_b = abs(self.a.z[r["from_level"]]["z_sc2_cm"] - self.a.z[r["to_level"]]["z_sc2_cm"])
             self.text(x + 450, y, "%.1f deg (%d cm)" % (r["slope_z_cm"], rise_a), 15, "#dfe7f1", halo=False)
