@@ -3,6 +3,7 @@
 #include "CommandGameState.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
+#include "Rules/EconomyPolicy.h"
 
 ACommandPlayerState::ACommandPlayerState()
 {
@@ -46,7 +47,7 @@ int32 ACommandPlayerState::GetIncomePerSecond() const
 
 bool ACommandPlayerState::TrySpend(int32 Cost)
 {
-	if (!HasAuthority() || Cost <= 0 || Resources < Cost) return false;
+	if (!HasAuthority() || !EconomyPolicy::CanAfford(Resources, Cost)) return false;
 	Resources -= Cost;
 	ForceNetUpdate();
 	return true;
@@ -55,7 +56,7 @@ bool ACommandPlayerState::TrySpend(int32 Cost)
 void ACommandPlayerState::AddResources(int32 Amount)
 {
 	if (!HasAuthority() || Amount <= 0) return;
-	Resources = static_cast<int32>(FMath::Min<int64>(MAX_int32, static_cast<int64>(Resources) + Amount));
+	Resources = EconomyPolicy::AddResources(Resources, Amount);
 	ForceNetUpdate();
 }
 
