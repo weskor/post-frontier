@@ -44,6 +44,8 @@ Scaffolds obey the same footprint rule (crane arms may overhang up to +10%).
 
 Outputs (Art/Buildings/, relative to the repo root)
     SM_*.fbx            fifteen meshes
+                        Each carries the colour attribute SC2Mask (R Edge, G Cavity, B Ground, A 1; linear, see
+                        Build/MasterMaterials.py), re-imported and checked against the baked values on every run.
     Buildings.blend     the same meshes in a grid for editing (NOT at the origin; always export from this
                         script, never from the .blend), with faction preview materials linked per object.
                         Rewritten on EVERY run, including when a build step or check fails.
@@ -62,6 +64,9 @@ import types
 import bmesh
 import bpy
 from mathutils import Euler, Matrix, Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import MasterMaterials  # noqa: E402  (bake_masks writes the SC2Mask colour attribute before export)
 
 try:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1414,13 +1419,86 @@ def verify(objects):
         raise
 
 
+def export_fbx(obj, path):
+    """U.export_fbx with one change: vertex colours are written linear, so the SC2Mask values survive unencoded."""
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.export_scene.fbx(
+        filepath=path, use_selection=True, object_types={"MESH"}, global_scale=1.0,
+        apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE", use_mesh_modifiers=True,
+        mesh_smooth_type="OFF", use_triangles=True, add_leaf_bones=False, bake_anim=False,
+        colors_type="LINEAR", **U.FBX_AXES)
+
+
+def verify_fbx_masks(obj, masks, path):
+    """Re-import the exported FBX into a fresh scene and require its colour attribute to be the baked SC2Mask:
+    RGBA float layout, R Edge / G Cavity / B Ground, alpha 1, every corner within 1/255 of the baked value of
+    the vertex at that position (linear, not sRGB-encoded). Returns the largest deviation seen."""
+    assert not obj.modifiers, "%s still has modifiers; the export would not match the baked vertices" % obj.name
+    source = {}
+    for vert, mask in zip(obj.data.vertices, masks):
+        source.setdefault(tuple(round(c, 4) for c in vert.co), set()).add(tuple(mask))
+    scene = bpy.data.scenes.new("VerifyFBX")
+    known = set(bpy.data.objects)
+    try:
+        with bpy.context.temp_override(scene=scene):
+            bpy.ops.import_scene.fbx(filepath=path, colors_type="LINEAR", **U.FBX_AXES)
+        imported = [o for o in bpy.data.objects if o not in known and o.type == "MESH"]
+        assert len(imported) == 1, "%s re-imported as %d meshes" % (obj.name, len(imported))
+        new = imported[0]
+        mesh = new.data
+        assert len(mesh.color_attributes) == 1, "%s: FBX carries colour attributes %s" % (
+            obj.name, [a.name for a in mesh.color_attributes])
+        attr = mesh.color_attributes[0]
+        assert attr.name == MasterMaterials.MASK_ATTR, "%s: colour attribute is %r" % (obj.name, attr.name)
+        assert attr.domain == "CORNER" and len(attr.data) == len(mesh.loops), (attr.domain, len(attr.data))
+        worst = 0.0
+        seen = set()
+        for poly in mesh.polygons:
+            for k in poly.loop_indices:
+                pos = tuple(round(c, 4) for c in (new.matrix_world @ mesh.vertices[mesh.loops[k].vertex_index].co))
+                assert pos in source, "%s: re-imported vertex %s is not in the source mesh" % (obj.name, pos)
+                seen.add(pos)
+                got = tuple(attr.data[k].color)
+                assert abs(got[3] - 1.0) < 1e-3, "%s: alpha %.4f" % (obj.name, got[3])
+                dev = min(max(abs(got[i] - want[i]) for i in range(3)) for want in source[pos])
+                worst = max(worst, dev)
+        assert worst <= 1.0 / 255.0 + 1e-6, "%s: FBX colours deviate from SC2Mask by %.4f (> 1/255)" % (obj.name, worst)
+        assert seen == set(source), "%s: %d source vertices missing after re-import" % (obj.name, len(set(source) - seen))
+    finally:
+        for stray in [o for o in bpy.data.objects if o not in known]:
+            mesh = stray.data
+            bpy.data.objects.remove(stray)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+        bpy.data.scenes.remove(scene)
+    return worst
+
+
+def export_with_masks(obj, path):
+    """Bake SC2Mask (R Edge, G Cavity, B Ground) into obj, export it and prove the FBX carries it linearly."""
+    masks = MasterMaterials.bake_masks(obj, MasterMaterials.scope_of(obj.name, "bld"))
+    assert masks and len(masks) == len(obj.data.vertices), obj.name
+    peaks = [max(m[i] for m in masks) for i in range(3)]
+    assert max(peaks) > 0.0, "%s: baked masks are all zero" % obj.name
+    export_fbx(obj, path)
+    worst = verify_fbx_masks(obj, masks, path)
+    return peaks, worst
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     objects = build_all(U.canonical_materials())
     verify(objects)
-    for obj in objects:
-        U.export_fbx(obj, os.path.join(OUT, obj.name + ".fbx"))
+    try:
+        for obj in objects:
+            peaks, worst = export_with_masks(obj, os.path.join(OUT, obj.name + ".fbx"))
+            print("MASKS %s | max Edge %.3f Cavity %.3f Ground %.3f | FBX deviation %.5f" % (obj.name, *peaks, worst))
+    except Exception:
+        save_layout(objects)
+        raise
     print("MESH | bounds min | bounds max | size (x y z) | tris | upward Team m2 (share of footprint box)")
     for obj in objects:
         lo, hi = bounds(obj)

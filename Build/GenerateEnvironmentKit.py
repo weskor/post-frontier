@@ -98,7 +98,10 @@ FBX export axis settings (bpy.ops.export_scene.fbx), identical to Build/Generate
     axis_forward='Y', axis_up='Z', global_scale=1.0, apply_unit_scale=True,
     apply_scale_options='FBX_SCALE_NONE', object_types={'MESH'}, use_selection=True,
     use_mesh_modifiers=True, mesh_smooth_type='OFF' (normals only), use_triangles=True,
-    add_leaf_bones=False, bake_anim=False.
+    add_leaf_bones=False, bake_anim=False, colors_type='LINEAR'.
+Every mesh carries the colour attribute "SC2Mask" (R Edge, G Cavity, B Ground, linear floats), baked by
+MasterMaterials.bake_masks(obj, "env") right before export; main() re-imports each FBX into a fresh scene
+and asserts the values equal the bake within 1/255.
 Blender's forward='Y', up='Z' is an identity transform (see the unit script docstring for why Unreal
 needs exactly this). Unreal import: Import Uniform Scale 1, Convert Scene on, Force Front X Axis off.
 """
@@ -108,7 +111,10 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler, Matrix, Vector, kdtree
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import MasterMaterials  # noqa: E402
 
 try:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1054,7 +1060,58 @@ def export_fbx(obj, path):
         filepath=path, use_selection=True, object_types={"MESH"}, global_scale=1.0,
         apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE", use_mesh_modifiers=True,
         mesh_smooth_type="OFF", use_triangles=True, add_leaf_bones=False, bake_anim=False,
-        **FBX_AXES)
+        colors_type="LINEAR", **FBX_AXES)
+
+
+def verify_masks(obj, masks, path):
+    """Re-import the FBX into a fresh scene; its SC2Mask colours must equal the baked masks (linear, 1/255).
+    The importer reads the raw FBX values (colors_type LINEAR, float attribute): the default SRGB import would
+    decode them and hide whether the export wrote the linear mask unchanged."""
+    attr = MasterMaterials.MASK_ATTR
+    scene = bpy.data.scenes.new("VerifyMasks")
+    before = set(bpy.data.objects)
+    with bpy.context.temp_override(scene=scene, view_layer=scene.view_layers[0]):
+        bpy.ops.import_scene.fbx(filepath=path, colors_type="LINEAR")
+    imported = [o for o in bpy.data.objects if o not in before]
+    assert len(imported) == 1 and imported[0].type == "MESH", "%s: re-import gave %s" % (obj.name, imported)
+    mesh = imported[0].data
+    assert attr in mesh.color_attributes, "%s: no %s in FBX, has %s" % (
+        obj.name, attr, [a.name for a in mesh.color_attributes])
+    layer = mesh.color_attributes[attr]
+    assert len(mesh.color_attributes) == 1, "%s: extra colour attributes %s" % (
+        obj.name, [a.name for a in mesh.color_attributes])
+    tree = kdtree.KDTree(len(obj.data.vertices))
+    for v in obj.data.vertices:
+        tree.insert(v.co, v.index)
+    tree.balance()
+    corner = layer.domain == "CORNER"
+    assert corner or layer.domain == "POINT", "%s: colour domain %s" % (obj.name, layer.domain)
+    worst, mid, sample = 0.0, 0, "none in 0.05..0.95"
+    seen = set()
+    for i, item in enumerate(layer.data):
+        vertex = mesh.loops[i].vertex_index if corner else i
+        # Several source vertices can share a position (separate parts of one mesh) with different masks, so a
+        # re-imported corner must equal the mask of one of the source vertices at its position.
+        near = [index for _, index, _ in tree.find_range(mesh.vertices[vertex].co, 1e-3)]
+        assert near, "%s: re-imported vertex %d has no source vertex within 1 mm" % (obj.name, vertex)
+        seen.update(near)
+        c = item.color
+        assert abs(c[3] - 1.0) < 1.0 / 255.0, "%s: alpha %.4f, expected 1" % (obj.name, c[3])
+        index = min(near, key=lambda k: max(abs(c[ch] - masks[k][ch]) for ch in range(3)))
+        for channel in range(3):
+            want = masks[index][channel]
+            worst = max(worst, abs(c[channel] - want))
+            if 0.05 < want < 0.95:
+                mid += 1
+                if mid == 1:
+                    sample = "v%d (%.4f, %.4f, %.4f) -> (%.4f, %.4f, %.4f)" % (index, *masks[index], *c[:3])
+    assert worst <= 1.0 / 255.0, "%s: FBX mask differs from the bake by %.4f (> 1/255)" % (obj.name, worst)
+    assert len(seen) == len(obj.data.vertices), "%s: mask covers %d of %d vertices" % (
+        obj.name, len(seen), len(obj.data.vertices))
+    bpy.data.objects.remove(imported[0])
+    bpy.data.meshes.remove(mesh)
+    bpy.data.scenes.remove(scene)
+    return worst, mid, sample
 
 
 # --------------------------------------------------------------------------------------
@@ -1293,8 +1350,18 @@ def main():
         objects.append(obj)
     check_hall_footprints(objects)
 
+    masks = {}
     for obj in objects:
+        masks[obj.name] = MasterMaterials.bake_masks(obj, MasterMaterials.scope_of(obj.name, "env"))
         export_fbx(obj, os.path.join(OUT, obj.name + ".fbx"))
+
+    print("MASK VERIFY | mesh | max |FBX - baked| | mid-range samples | sample vertex: baked (R,G,B) -> FBX (R,G,B)")
+    total_mid = 0
+    for obj in objects:
+        worst, mid, sample = verify_masks(obj, masks[obj.name], os.path.join(OUT, obj.name + ".fbx"))
+        total_mid += mid
+        print("MASK VERIFY | %s | %.5f | %d | %s" % (obj.name, worst, mid, sample))
+    assert total_mid > 0, "no mid-range mask values: the sRGB-versus-linear check proves nothing"
 
     cursor = 0.0
     for obj in objects:

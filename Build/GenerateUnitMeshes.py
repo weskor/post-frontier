@@ -71,7 +71,10 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler, Matrix, Vector, kdtree
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import MasterMaterials  # noqa: E402
 
 try:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -969,7 +972,60 @@ def export_fbx(obj, path):
         filepath=path, use_selection=True, object_types={"MESH"}, global_scale=1.0,
         apply_unit_scale=True, apply_scale_options="FBX_SCALE_NONE", use_mesh_modifiers=True,
         mesh_smooth_type="OFF", use_triangles=True, add_leaf_bones=False, bake_anim=False,
+        colors_type="LINEAR",   # SC2Mask holds data, not colour: no sRGB encoding
         **FBX_AXES)
+
+
+MASK_TOLERANCE = 1.0 / 255.0
+
+
+def verify_masks(obj, path):
+    """Re-import the exported FBX and compare its colour attribute with the SC2Mask baked on obj.
+
+    Every imported corner is matched to the nearest source vertex by position (the import may reorder); each
+    channel must agree within 1/255, which an sRGB-encoded export (0.5 -> 0.735) would not. Returns
+    (max abs error, number of corners, number of channel values strictly between 0.05 and 0.95).
+    """
+    src = obj.data.color_attributes[MasterMaterials.MASK_ATTR]
+    assert src.domain == "POINT" and src.data_type == "FLOAT_COLOR", (obj.name, src.domain, src.data_type)
+    expected = [tuple(item.color) for item in src.data]
+    tree = kdtree.KDTree(len(obj.data.vertices))
+    for vertex in obj.data.vertices:
+        tree.insert(vertex.co, vertex.index)
+    tree.balance()
+
+    before_objects, before_meshes = set(bpy.data.objects), set(bpy.data.meshes)
+    before_materials = set(bpy.data.materials)
+    bpy.ops.import_scene.fbx(filepath=path, colors_type="LINEAR", **FBX_AXES)   # raw values, no sRGB decode
+    imported = [o for o in bpy.data.objects if o not in before_objects]
+    try:
+        assert len(imported) == 1 and imported[0].type == "MESH", (obj.name, [o.name for o in imported])
+        mesh = imported[0].data
+        attr = mesh.color_attributes.get(MasterMaterials.MASK_ATTR)
+        assert attr is not None, "%s: FBX has colour attributes %s, no %s" % (
+            obj.name, [a.name for a in mesh.color_attributes], MasterMaterials.MASK_ATTR)
+        assert attr.data_type == "FLOAT_COLOR" and attr.domain == "CORNER", (obj.name, attr.data_type, attr.domain)
+        # the importer may scale or rotate the object; bring vertices back to the source's frame
+        to_source = imported[0].matrix_world
+        worst, middling = 0.0, 0
+        for loop in mesh.loops:
+            co = to_source @ mesh.vertices[loop.vertex_index].co
+            # parts touch, so several source vertices can coincide with different masks: best match wins
+            candidates = tree.find_range(co, 1e-4)
+            assert candidates, "%s: imported vertex %s has no source vertex" % (obj.name, tuple(co))
+            got = tuple(attr.data[loop.index].color)
+            worst = max(worst, min(max(abs(want - have) for want, have in zip(expected[index], got))
+                                   for _, index, _ in candidates))
+            middling += sum(0.05 < have < 0.95 for have in got)
+        assert worst <= MASK_TOLERANCE, "%s: imported mask differs from baked by %.5f (> 1/255)" % (obj.name, worst)
+        return worst, len(mesh.loops), middling
+    finally:
+        for o in imported:
+            bpy.data.objects.remove(o)
+        for mesh in [m for m in bpy.data.meshes if m not in before_meshes]:
+            bpy.data.meshes.remove(mesh)
+        for mat in [m for m in bpy.data.materials if m not in before_materials]:
+            bpy.data.materials.remove(mat)
 
 
 # --------------------------------------------------------------------------------------
@@ -1201,7 +1257,9 @@ def main():
         check(obj)
         objects.append(obj)
 
+    # SC2 material masks: Edge / Cavity / Ground in the SC2Mask colour attribute, written to the FBX linear.
     for obj in objects:
+        MasterMaterials.bake_masks(obj, MasterMaterials.scope_of(obj.name, "unit"))
         export_fbx(obj, os.path.join(OUT, obj.name + ".fbx"))
 
     # Units.blend: the eight meshes in a row along +X, wearing the preview palette (Machine pearl, Human
@@ -1214,6 +1272,15 @@ def main():
             slot.link = "OBJECT"
             slot.material = material
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Units.blend"))
+
+    # Re-import every FBX and compare with the baked SC2Mask (after the save: the import is cleaned up).
+    mid_total = 0
+    for obj in objects:
+        worst, corners, middling = verify_masks(obj, os.path.join(OUT, obj.name + ".fbx"))
+        mid_total += middling
+        print("MASK_VERIFY %s: %d corners, max |imported - baked| = %.6f, %d mid-range values" % (
+            obj.name, corners, worst, middling))
+    assert mid_total > 0, "no mid-range mask values: the linear-versus-sRGB check proved nothing"
 
     print("MESH | bounds min | bounds max | tris | slots")
     for obj in objects:
