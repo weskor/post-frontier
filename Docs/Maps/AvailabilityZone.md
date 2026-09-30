@@ -305,3 +305,11 @@ Needs `rsvg-convert` or ImageMagick, no Python packages. Checks: level overlap, 
 3. **Second start.** Do you want the per-player start proposal (P2) built before the friend test, or is the shared Bunker with paint bays enough for the first co-op session?
 4. **JEV at two players.** Should JEV's income scale with the commander count for 2P, or should the first friend test show the raw difference?
 5. **Names.** The map name and sector names are placeholders in the World.md tone; confirm or replace them before art and HUD copy depend on them.
+
+## v2 direction (user feedback)
+
+Recorded from the owner's review of the v1 design. None of it changes the v1 build (Phase A flat, one shared Bunker, two routes); it is the brief for the next map revision.
+
+- **A bigger map with real choices.** The player chooses which area to focus on and expand into. v1's two primitive routes (west gate, east door) are too few; v2 needs more than two routes and more areas worth taking, so that where to expand is a decision and not a walk down the only corridor.
+- **Heights come back after P1.** Height adds real value (ramps as chokes, high-ground bases, readable levels), so Phase B (kit heights, +300 and +600) returns as soon as proposal P1 (ground-height-aware placement, orders and JEV) lands. The flat Phase A greybox is a stepping stone to it, not the end state.
+- **More area ideas to come.** The owner has more area ideas to discuss later; nothing in this document fixes v2's areas, sizes or routes.
