@@ -1,14 +1,21 @@
-"""Generate the Campus Zero environment kit for CoopRTS in Blender ("Neon Nightfall").
+"""Generate the Campus Zero environment kit for CoopRTS in Blender ("Neon Nightfall", StarCraft 2-style pass v2).
 
 Run headless from the repo root (Blender 5.2.1, no assets, no network, deterministic):
 
     blender -b --factory-startup -P Build/GenerateEnvironmentKit.py
 
 The kit replaces the primitive boxes and cylinders placed by `block(...)` in
-Build/GenerateCampusZero.py. Every piece is one mesh object built from bmesh parts (bevelled boxes,
-lathes, lofts, lattice rods, corrugated slabs). Units are metres, +Z up, origin at the centre of the
-footprint, base at z = 0, front (doors, cab, lamps) = +X unless noted. Nothing is random except
-through fixed-seed generators, so re-running reproduces identical files.
+Build/GenerateCampusZero.py. Every piece is one mesh object built from bmesh parts (bevelled boxes with
+2-3 segment chamfers, lathes, lofts, extruded profiles, hazard-stripe panels), smooth shaded with weighted
+normals. Units are metres, +Z up, origin at the centre of the footprint, base at z = 0, front (doors,
+cab, lamps) = +X unless noted. Nothing is random, so re-running reproduces identical files.
+
+Art direction (Saved/AgentBriefs/sc2-style.md): the Machine data halls are sleek megastructure segments
+(pearl armour plates on dark cores, cyan light channels, hovering roof slabs with fins and a crystal, a red
+lens per module) and its cooling tower, chiller, transformer, pylon, mast and fence are advanced energy
+infrastructure with glowing cores. The human side is a fortified forward base: armoured crates with hazard
+stripes, a wrecked armoured vehicle, modular barricade walls with floodlights, a prefab generator with a
+reactor stack, a brazier post and a heavy cable reel.
 
 Outputs (relative to the repo root)
     Art/Environment/SM_Env_<Name>.fbx   one mesh per file, exported at the origin (same FBX settings
@@ -16,7 +23,7 @@ Outputs (relative to the repo root)
     Art/Environment/Environment.blend   every piece spread along +X for editing (NOT at the origin;
                                         always export from this script, never from the .blend)
     Art/Environment/Preview.png         side lineup in three rows (tall Machine kit, halls and utilities,
-                                        scrapyard), orthographic, camera looks along +Y
+                                        forward base), orthographic, camera looks along +Y
     Art/Environment/PreviewRTS.png      the same three rows from a 50 degree pitch RTS camera
                                         (perspective), every piece beside a 1.2 m human-scale capsule
     Art/Environment/PreviewHalls.png    the five Campus Zero halls assembled from the hall modules
@@ -47,15 +54,16 @@ Height is the top of the whole mesh, including rooftop kit, beacons and lamps.
 
 Only the slots a mesh uses exist on it, always in the order Shell, Dark, Glow, Accent. The canonical
 materials carry neutral values; Unreal (or the previews) override them per piece. Intended looks:
-    Shell   Machine campus: pale blue-grey panel metal (cluster obelisk: glossy white). Human: khaki
-            sheet metal, canvas, timber
-    Dark    recesses, frames, vents, tyres, cable
-    Glow    Machine: cyan-white seams and lamp tips. Human: amber work lamps and fire
-    Accent  Machine: red status lens / lights. Human: paint stripe, rust, patched plates
+    Shell   Machine: polished pearl / white armour (cluster obelisk: glossy white). Human: painted
+            gunmetal / steel-blue armour
+    Dark    dark gunmetal cores, recesses, frames, vents, tracks, cable
+    Glow    Machine: cyan light channels, energy cores, lamp tips. Human: amber floodlights, reactor and fire
+    Accent  Machine: red lens / status lights. Human: hazard-stripe yellow paint (SandbagWall has no Glow
+            slot, so its floodlight lenses are Accent)
 
 The map's heights are collision boxes: halls were 6.0 m (DataHall0 5.2 m) tall, transformers 2.6 m,
-the wreck body 1.3 m (the cab sat above it with collision off) and so on. Only footprints are
-contractual; the hall wall (parapet top) is 6.0 m for every hall, so DataHall0 gains 0.8 m.
+the wreck body 1.3 m and so on. Only footprints are contractual; the hall wall (parapet top) is 6.0 m
+for every hall, so DataHall0 gains 0.8 m. Triangle budget: below 25000 per piece.
 
 Hall assembly (Data halls). A hall of outer size SX x SY (multiples of 1 m, both >= 6 m) is a ring of
 3 m deep wall bands around a roof infill. Local +X of every wall module runs along the wall; its
@@ -96,7 +104,6 @@ needs exactly this). Unreal import: Import Uniform Scale 1, Convert Scene on, Fo
 """
 import math
 import os
-import random
 import sys
 
 import bmesh
@@ -134,7 +141,7 @@ SPEC = {
     "FenceSegment": (4.0, 0.3, 2.2, "Shell Dark Glow Accent"),
     "CableSpool": (2.0, 2.0, 1.4, "Shell Dark Accent"),
 }
-TRI_LIMIT = 15000
+TRI_LIMIT = 25000
 
 
 # --------------------------------------------------------------------------------------
@@ -159,10 +166,10 @@ def make_material(name, color, emission=0.0, metallic=0.0, roughness=0.5, coat=0
 
 def canonical_materials():
     return [
-        make_material("Shell", (0.60, 0.63, 0.68), roughness=0.45),
-        make_material("Dark", (0.05, 0.055, 0.06), metallic=0.5, roughness=0.5),
+        make_material("Shell", (0.78, 0.81, 0.86), metallic=0.3, roughness=0.3),
+        make_material("Dark", (0.03, 0.035, 0.045), metallic=0.6, roughness=0.45),
         make_material("Glow", (0.4, 0.9, 1.0), emission=3.0),
-        make_material("Accent", (0.75, 0.22, 0.06), roughness=0.7),
+        make_material("Accent", (0.95, 0.62, 0.05), roughness=0.55),
     ]
 
 
@@ -173,16 +180,23 @@ def rot_matrix(rot):
     return Euler([math.radians(v) for v in rot], "XYZ").to_matrix()
 
 
-def trap(t):
-    """Trapezoid corrugation wave in [0, 1] with four samples per period: 0, 1, 1, 0."""
-    t %= 1.0
-    if t < 0.25:
-        return t / 0.25
-    if t < 0.5:
-        return 1.0
-    if t < 0.75:
-        return 1.0 - (t - 0.5) / 0.25
-    return 0.0
+def clip_poly(pts, axis, value, keep_greater):
+    """Sutherland-Hodgman clip of a 2D polygon against one axis-aligned half plane."""
+    out = []
+    for i, p in enumerate(pts):
+        q = pts[(i + 1) % len(pts)]
+        p_in = p[axis] >= value if keep_greater else p[axis] <= value
+        q_in = q[axis] >= value if keep_greater else q[axis] <= value
+        if p_in:
+            out.append(p)
+        if p_in != q_in:
+            t = (value - p[axis]) / (q[axis] - p[axis])
+            out.append((p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])))
+    return out
+
+
+def poly_area(pts):
+    return 0.5 * sum(p[0] * q[1] - q[0] * p[1] for p, q in zip(pts, pts[1:] + pts[:1]))
 
 
 class Model:
@@ -326,51 +340,49 @@ class Model:
             bm.faces.new((bot[i], bot[j], top[j], top[i]))
         self._commit(bm, mat, xform, recalc=True)
 
-    def slab(self, origin, u_dir, v_dir, n_dir, us, vs, front, mat_fn, edge_mat=DARK):
-        """Closed panel: flat back on the n = 0 plane, front surface at n = front(u, v) > 0."""
-        bm = self._mark()
-        o, U, V, N = Vector(origin), Vector(u_dir), Vector(v_dir), Vector(n_dir)
-        grid = [[bm.verts.new(o + U * u + V * v + N * front(u, v)) for v in vs] for u in us]
-        nu, nv = len(us), len(vs)
-        for i in range(nu - 1):
-            for j in range(nv - 1):
-                face = bm.faces.new((grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]))
-                face.material_index = mat_fn((us[i] + us[i + 1]) / 2, (vs[j] + vs[j + 1]) / 2)
-        loop = ([(i, 0) for i in range(nu)] + [(nu - 1, j) for j in range(1, nv)]
-                + [(i, nv - 1) for i in range(nu - 2, -1, -1)] + [(0, j) for j in range(nv - 2, 0, -1)])
-        fronts = [grid[i][j] for i, j in loop]
-        backs = [bm.verts.new(o + U * us[i] + V * vs[j]) for i, j in loop]
-        for k in range(len(loop)):
-            m = (k + 1) % len(loop)
-            bm.faces.new((fronts[k], fronts[m], backs[m], backs[k])).material_index = edge_mat
-        bm.faces.new(backs).material_index = edge_mat
-        self._commit(bm, None, None, recalc=True)
+    def profile_x(self, pts, x0, x1, mat):
+        """Polygon in the (y, z) plane extruded along +X from x0 to x1."""
+        self.prism(pts, x1 - x0, mat, Matrix(((0, 0, 1, x0), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1))))
 
-    # -- composites -----------------------------------------------------------------
-    def lattice(self, z0, z1, h0, h1, panels, leg_r0, leg_r1, brace_r, leg_mat, brace_mat,
-                leg_segs=8, brace_segs=6, rings=True):
-        """Square lattice mast: four legs at (+-h, +-h) tapering from h0 to h1, X-braced faces."""
-        corners = [(1, 1), (-1, 1), (-1, -1), (1, -1)]
+    def profile_y(self, pts, y0, y1, mat):
+        """Polygon in the (x, z) plane extruded along +Y from y0 to y1."""
+        self.prism(pts, y1 - y0, mat, Matrix(((1, 0, 0, 0), (0, 0, 1, y0), (0, 1, 0, 0), (0, 0, 0, 1))))
 
-        def h(z):
-            return h0 + (h1 - h0) * (z - z0) / (z1 - z0)
+    def plane_prism(self, pts, depth, mat, origin, u, v, n):
+        """Polygon in the (u, v) plane through `origin`, extruded `depth` along n."""
+        rot = Matrix((Vector(u), Vector(v), Vector(n))).transposed().to_4x4()
+        self.prism(pts, depth, mat, Matrix.Translation(origin) @ rot)
 
-        for sx, sy in corners:
-            self.rod((sx * h0, sy * h0, z0), (sx * h1, sy * h1, z1), leg_r0, leg_mat, r1=leg_r1, segs=leg_segs)
-        levels = [z0 + (z1 - z0) * k / panels for k in range(panels + 1)]
-        for k in range(panels):
-            za, zb = levels[k], levels[k + 1]
-            for c in range(4):
-                (ax, ay), (bx, by) = corners[c], corners[(c + 1) % 4]
-                for (px, py), (qx, qy) in (((ax, ay), (bx, by)), ((bx, by), (ax, ay))):
-                    self.rod((px * h(za), py * h(za), za), (qx * h(zb), qy * h(zb), zb), brace_r, brace_mat,
-                             segs=brace_segs)
-        if rings:
-            for z in levels[1:-1]:
-                for c in range(4):
-                    (ax, ay), (bx, by) = corners[c], corners[(c + 1) % 4]
-                    self.rod((ax * h(z), ay * h(z), z), (bx * h(z), by * h(z), z), brace_r, brace_mat,
-                             segs=brace_segs)
+    def hazard(self, origin, u, v, n, ulen, vlen, depth=0.03, stripe=0.13, base=DARK, paint=ACCENT):
+        """Hazard-stripe panel: `ulen` x `vlen` rectangle on the (u, v) plane, raised `depth` along n."""
+        e = 0.004
+        self.plane_prism([(e, e), (ulen - e, e), (ulen - e, vlen - e), (e, vlen - e)], depth, base, origin, u, v, n)
+        a = -vlen
+        while a < ulen:
+            poly = [(a, 0.0), (a + stripe, 0.0), (a + stripe + vlen, vlen), (a + vlen, vlen)]
+            poly = clip_poly(clip_poly(poly, 0, 0.0, True), 0, ulen, False)
+            poly = [p for i, p in enumerate(poly) if i == 0 or (abs(p[0] - poly[i - 1][0]) + abs(p[1] - poly[i - 1][1])) > 1e-6]
+            if len(poly) >= 3 and abs(poly_area(poly)) > 1e-4:
+                self.plane_prism(poly, depth + 0.006, paint, origin, u, v, n)
+            a += 2.0 * stripe
+
+    def stamp(self, build, xform):
+        """Build a sub-piece with `build(model)` and merge it transformed (a mirror is fine: normals are recomputed)."""
+        sub = Model("stamp")
+        build(sub)
+        self._commit(sub.bm, None, xform, recalc=True)
+
+    def diamond(self, x, y, z0, z1, r, mat, mid=0.5):
+        """Square bipyramid (crystal) with its equator radius r at z0 + mid * (z1 - z0)."""
+        self.lathe([(0.0, z0), (r, z0 + (z1 - z0) * mid), (0.0, z1)], 4, mat, loc=(x, y, 0.0))
+
+    def ring_stripes(self, z0, h, r0, r1, n, mats=(ACCENT, DARK), loc=(0.0, 0.0)):
+        """Annulus cut into n sectors alternating between two materials."""
+        for k in range(n):
+            a0, a1 = 2.0 * math.pi * k / n, 2.0 * math.pi * (k + 1) / n
+            pts = [(r0 * math.cos(a0), r0 * math.sin(a0)), (r1 * math.cos(a0), r1 * math.sin(a0)),
+                   (r1 * math.cos(a1), r1 * math.sin(a1)), (r0 * math.cos(a1), r0 * math.sin(a1))]
+            self.prism(pts, h, mats[k % 2], Matrix.Translation((loc[0], loc[1], z0)))
 
     # -- finish ---------------------------------------------------------------------
     def finish(self, materials):
@@ -390,149 +402,164 @@ class Model:
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
         bpy.ops.object.shade_smooth_by_angle(angle=math.radians(38.0))
+        mod = obj.modifiers.new("WeightedNormal", "WEIGHTED_NORMAL")
+        mod.keep_sharp = True
+        mod.weight = 50
+        with bpy.context.temp_override(object=obj, active_object=obj, selected_objects=[obj]):
+            bpy.ops.object.modifier_apply(modifier=mod.name)
         return obj
 
 
 
 # --------------------------------------------------------------------------------------
-# Machine: data halls (wall band modules, 3 m deep, parapet top at 6.0 m, rooftop kit to 6.5 m)
+# Machine: data halls (megastructure wall modules, 3 m deep, parapet top 6.0 m, floating roof kit to 6.5 m)
 # --------------------------------------------------------------------------------------
 ROOF_Z = 5.5     # roof deck height
 WALL_TOP = 6.0   # parapet top
 
 
-def hall_panel_rows(m, xs, rows, width=0.92):
-    """Shell panels standing proud of the dark wall core (front face y = -1.48)."""
-    for z0, z1 in rows:
-        for x in xs:
-            m.box((x, -1.42, (z0 + z1) / 2), (width, 0.12, z1 - z0), SHELL, bevel=0.03)
+def hall_core(m, x0, x1):
+    """Dark structural core of a wall band: outer skin y = -1.36, inner face y = 1.5, deck at 5.5 m."""
+    m.box(((x0 + x1) / 2, (-1.36 + 1.5) / 2, ROOF_Z / 2), (x1 - x0, 2.86, ROOF_Z), DARK)
 
 
-def hall_seams(m, x0, x1):
-    """Horizontal cyan channel above the second panel row, recessed behind the panel faces."""
-    m.box(((x0 + x1) / 2, -1.40, 4.125), (x1 - x0, 0.04, 0.12), GLOW)
-    m.box(((x0 + x1) / 2, -1.38, 3.98), (x1 - x0, 0.03, 0.05), DARK)
-    m.box(((x0 + x1) / 2, -1.38, 4.27), (x1 - x0, 0.03, 0.05), DARK)
+def hall_panel(m, cx, width, z0, z1, inset=True):
+    """Pearl armour plate standing proud of the core (face y = -1.44) with a raised centre plate."""
+    zc, h = (z0 + z1) / 2, z1 - z0
+    m.box((cx, -1.37, zc), (width, 0.14, h), SHELL, bevel=0.06, seg=2)
+    if inset:
+        m.box((cx, -1.445, zc), (width - 0.24, 0.04, h - 0.34), SHELL, bevel=0.02, seg=2)
 
 
-def hall_parapet(m, x0, x1):
-    m.box(((x0 + x1) / 2, -1.34, 5.75), (x1 - x0, 0.28, 0.5), SHELL, bevel=0.04)
+def hall_cornice(m, x0, x1):
+    """Two swept pearl cornice bands with a recessed cyan light channel between them; top at 6.0 m."""
+    m.profile_x([(-1.36, 4.55), (-1.5, 4.75), (-1.5, 5.05), (-0.9, 5.05), (-0.9, 4.55)], x0, x1, SHELL)
+    m.box(((x0 + x1) / 2, -1.42, 5.15), (x1 - x0, 0.1, 0.2), GLOW)
+    m.profile_x([(-1.5, 5.25), (-1.5, 5.62), (-1.32, WALL_TOP), (-0.9, WALL_TOP), (-0.9, 5.25)], x0, x1, SHELL)
 
 
-def roof_chiller(m, cx, cy, w, d):
-    """Rooftop chiller: boxy Shell housing, dark grille, cyan fan ring; hub tops out at 6.5 m."""
-    m.box((cx, cy, ROOF_Z + 0.45), (w, d, 0.9), SHELL, bevel=0.05)
-    dia = min(w, d) * 0.78
-    m.cyl((cx, cy, 6.425), 0.05, dia, DARK, segs=24)
-    m.tor((cx, cy, 6.45), dia * 0.42, 0.025, GLOW, segs=24, minor_segs=6)
-    for angle in (0, 60, 120):
-        m.box((cx, cy, 6.46), (dia * 0.92, 0.05, 0.03), DARK, rot=(0, 0, angle))
-    m.cyl((cx, cy, 6.45), 0.1, 0.18, DARK, segs=12)
-    for k in range(4):
-        m.box((cx, cy + d / 2 + 0.005, ROOF_Z + 0.2 + k * 0.17), (w - 0.3, 0.03, 0.06), DARK)
+def hall_front(m, x0, x1):
+    """Outer skin of a wall run from x0 to x1: plinth, two armour rows, cyan channels, cornice, red lens."""
+    mid, w = (x0 + x1) / 2, x1 - x0
+    m.box((mid, -1.35, 0.25), (w, 0.3, 0.5), DARK, bevel=0.04, seg=2)
+    m.box((mid, -1.485, 0.525), (w - 0.06, 0.03, 0.05), GLOW)
+    cols = max(1, int(round(w)))
+    pitch = w / cols
+    for k in range(cols):
+        cx = x0 + pitch * (k + 0.5)
+        hall_panel(m, cx, pitch - 0.1, 0.62, 2.95)
+        hall_panel(m, cx, pitch - 0.1, 3.1, 4.4)
+        if k:
+            m.box((x0 + pitch * k, -1.375, 2.51), (0.05, 0.05, 3.78), GLOW)
+    m.box((mid, -1.385, 3.025), (w, 0.05, 0.07), GLOW)
+    for k in range(5):                                              # louvres on the first lower plate
+        m.box((x0 + pitch * 0.5, -1.47, 0.98 + k * 0.2), (max(0.2, pitch - 0.5), 0.03, 0.06), DARK)
+    hall_cornice(m, x0, x1)
+    m.sph((mid, -1.45, 5.43), (0.2, 0.1, 0.2), ACCENT, segs=12)
 
 
-def roof_vent(m, x, y):
-    m.cyl((x, y, ROOF_Z + 0.175), 0.35, 0.3, DARK, segs=12)
-    m.cyl((x, y, ROOF_Z + 0.385), 0.07, 0.46, SHELL, segs=12)
+def hall_deck(m, x0, x1, y0=-0.85, y1=1.45):
+    """Pearl roof deck plate with a dark seam all round."""
+    m.box(((x0 + x1) / 2, (y0 + y1) / 2, ROOF_Z + 0.03), (x1 - x0 - 0.1, y1 - y0, 0.06), SHELL, bevel=0.025, seg=2)
+
+
+def roof_hover(m, cx, cy, w, d, tip):
+    """Anti-grav roof element: dark emitter pad, cyan underlight, floating pearl slab with fins up to `tip`."""
+    base = ROOF_Z + 0.06
+    m.box((cx, cy, base + 0.05), (w - 0.3, d - 0.3, 0.1), DARK, bevel=0.03, seg=2)
+    m.box((cx, cy, base + 0.16), (w - 0.5, d - 0.5, 0.03), GLOW)
+    m.box((cx, cy, base + 0.42), (w, d, 0.16), SHELL, bevel=0.06, seg=2)
+    for sy in (-1, 1):
+        m.box((cx, cy + sy * (d / 2 - 0.16), base + 0.505), (w - 0.5, 0.05, 0.02), GLOW)   # cyan slab edge lights
+    for sx in (-1, 1):
+        x = cx + sx * w * 0.3
+        m.profile_x([(cy - 0.5, base + 0.5), (cy + 0.5, base + 0.5), (cy + 0.14, tip), (cy - 0.14, tip)],
+                    x - 0.04, x + 0.04, SHELL)
+    m.diamond(cx, cy, base + 0.54, tip - 0.1, 0.13, GLOW)
 
 
 def data_hall_bay():
     m = Model("DataHallBay")
-    length = 2.0
-    m.box((0, 0.06, 2.75), (length, 2.88, ROOF_Z), DARK)
-    m.box((0, -1.40, 0.25), (length, 0.2, 0.5), DARK, bevel=0.03)
-    hall_panel_rows(m, (-0.5, 0.5), ((0.6, 2.25), (2.3, 3.95), (4.3, 5.45)))
-    hall_seams(m, -1.0, 1.0)
-    m.box((0, -1.41, 2.28), (0.03, 0.02, 3.35), GLOW)            # vertical seam between the columns
-    for k in range(5):                                            # louvres on the lower left panel
-        m.box((-0.5, -1.485, 0.9 + k * 0.25), (0.6, 0.03, 0.08), DARK)
-    hall_parapet(m, -1.0, 1.0)
-    m.box((0, -1.485, 5.75), (0.18, 0.03, 0.09), ACCENT)
-    roof_chiller(m, 0.0, -0.35, 1.5, 1.2)
-    for x in (-0.55, 0.0, 0.55):
-        roof_vent(m, x, 1.0)
+    hall_core(m, -1.0, 1.0)
+    hall_front(m, -1.0, 1.0)
+    hall_deck(m, -1.0, 1.0)
+    roof_hover(m, 0.0, 0.3, 1.86, 1.9, 6.5)
     return m
 
 
 def data_hall_door():
     m = Model("DataHallDoor")
-    m.box((0, 0.06, 2.75), (4.0, 2.88, ROOF_Z), DARK)
+    hall_core(m, -2.0, 2.0)
+    m.box((0, -1.3, 0.06), (2.4, 0.4, 0.12), DARK)                    # dock plate
+    m.box((0, -1.42, 0.145), (2.0, 0.03, 0.05), GLOW)
     for sx in (-1, 1):
-        m.box((sx * 1.625, -1.40, 0.25), (0.75, 0.2, 0.5), DARK, bevel=0.03)
-        for z0, z1 in ((0.6, 2.25), (2.3, 3.95)):
-            m.box((sx * 1.60, -1.42, (z0 + z1) / 2), (0.7, 0.12, z1 - z0), SHELL, bevel=0.03)
-    m.box((0, -1.42, 3.63), (2.3, 0.12, 0.64), SHELL, bevel=0.03)   # lintel panel above the door
-    hall_seams(m, -2.0, 2.0)
-    hall_panel_rows(m, (-1.5, -0.5, 0.5, 1.5), ((4.3, 5.45),))
-    # Door frame, roll-up door part raised, cyan light spilling from the dock.
+        m.box((sx * 1.625, -1.35, 0.25), (0.75, 0.3, 0.5), DARK, bevel=0.04, seg=2)
+        m.box((sx * 1.27, -1.35, 1.78), (0.2, 0.3, 3.32), SHELL, bevel=0.05, seg=2)   # jambs
+        m.profile_y([(sx * 1.17, 3.44), (sx * 1.17, 2.9), (sx * 0.62, 3.44)], -1.5, -1.2, SHELL)   # arch gussets
+        hall_panel(m, sx * 1.69, 0.5, 0.62, 2.95, inset=False)
+        hall_panel(m, sx * 1.69, 0.5, 3.1, 4.4, inset=False)
+        m.box((sx * 1.69, -1.385, 3.025), (0.55, 0.05, 0.07), GLOW)
+        m.box((sx * 1.2, -1.36, 4.19), (0.46, 0.14, 0.42), SHELL, bevel=0.05, seg=2)
+        m.box((sx * 0.5, -1.36, 4.19), (0.9, 0.14, 0.42), SHELL, bevel=0.05, seg=2)
+    m.box((0, -1.35, 3.665), (2.94, 0.3, 0.45), SHELL, bevel=0.06, seg=2)   # lintel
+    # Energy gate: cyan curtain behind dark louvre bars.
+    m.box((0, -1.3, 1.72), (2.3, 0.03, 3.2), GLOW)
+    for k in range(-3, 4):
+        m.box((k * 0.33, -1.335, 1.75), (0.12, 0.05, 3.3), DARK, bevel=0.015)
+    m.box((0, -1.335, 1.9), (2.3, 0.06, 0.1), DARK)
+    m.sph((0, -1.45, 3.665), (0.22, 0.1, 0.22), ACCENT, segs=12)      # red gate lens
+    m.tor((0, -1.47, 3.665), 0.17, 0.02, GLOW, segs=24, minor_segs=6, rot=(90, 0, 0))
+    hall_cornice(m, -2.0, 2.0)
+    hall_deck(m, -2.0, 2.0)
     for sx in (-1, 1):
-        m.box((sx * 1.175, -1.42, 1.65), (0.15, 0.16, 3.3), SHELL, bevel=0.03)
-    m.box((0, -1.42, 3.275), (2.5, 0.16, 0.15), SHELL, bevel=0.03)
-    for k in range(6):
-        m.box((0, -1.40, 3.1 - k * 0.36 + 0.0), (2.2, 0.08, 0.3), DARK, bevel=0.015)
-    m.box((0, -1.37, 0.5), (2.1, 0.02, 0.85), GLOW)
-    m.box((0, -1.25, 0.06), (2.2, 0.5, 0.12), DARK)               # dock plate
-    m.sph((0, -1.39, 3.5), (0.22, 0.22, 0.22), ACCENT, segs=12)   # red loading lamp
-    hall_parapet(m, -2.0, 2.0)
-    for x in (-1.0, 1.0):
-        m.box((x, -1.485, 5.75), (0.18, 0.03, 0.09), ACCENT)
-    roof_chiller(m, -1.0, -0.35, 1.7, 1.2)
-    roof_chiller(m, 1.0, -0.35, 1.7, 1.2)
-    for x in (-1.2, 0.0, 1.2):
-        roof_vent(m, x, 1.0)
+        roof_hover(m, sx * 1.0, 0.3, 1.86, 1.9, 6.5)
     return m
+
+
+SWAP_XY = Matrix(((0, 1, 0, 0), (1, 0, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)))   # mirror across the diagonal
 
 
 def data_hall_corner():
     m = Model("DataHallCorner")
-    m.box((0.06, 0.06, 2.75), (2.88, 2.88, ROOF_Z), DARK)
-    m.box((0, -1.40, 0.25), (3.0, 0.2, 0.5), DARK, bevel=0.03)
-    m.box((-1.40, 0.0, 0.25), (0.2, 3.0, 0.5), DARK, bevel=0.03)
-    # Panels on the -Y face (x from the column to the next bay) and on the -X face (rotated copy).
-    for z0, z1 in ((0.6, 2.25), (2.3, 3.95), (4.3, 5.45)):
-        zc, h = (z0 + z1) / 2, z1 - z0
-        m.box((-0.08, -1.42, zc), (1.08, 0.12, h), SHELL, bevel=0.03)
-        m.box((1.0, -1.42, zc), (0.92, 0.12, h), SHELL, bevel=0.03)
-        m.box((-1.42, -0.08, zc), (0.12, 1.08, h), SHELL, bevel=0.03)
-        m.box((-1.42, 1.0, zc), (0.12, 0.92, h), SHELL, bevel=0.03)
-    hall_seams(m, -1.0, 1.5)
-    m.box((-1.40, 0.25, 4.125), (0.04, 2.5, 0.12), GLOW)
-    m.box((-1.38, 0.25, 3.98), (0.03, 2.5, 0.05), DARK)
-    m.box((-1.38, 0.25, 4.27), (0.03, 2.5, 0.05), DARK)
-    # Corner column with vertical seams, parapets, beacon mast.
-    m.box((-1.08, -1.08, 3.0), (0.8, 0.8, WALL_TOP), SHELL, bevel=0.08)
-    m.box((-1.08, -1.5 + 0.015, 3.0), (0.06, 0.03, 4.6), GLOW)
-    m.box((-1.5 + 0.015, -1.08, 3.0), (0.03, 0.06, 4.6), GLOW)
-    m.box((-1.08, -1.08, 6.06), (0.8, 0.8, 0.12), DARK, bevel=0.03)
-    m.cyl((-1.08, -1.08, 6.46), 0.68, 0.1, DARK, segs=8)
-    m.sph((-1.08, -1.08, 6.9), (0.2, 0.2, 0.2), ACCENT, segs=12)
-    m.box((0.0, -1.34, 5.75), (3.0, 0.28, 0.5), SHELL, bevel=0.04)
-    m.box((-1.34, 0.0, 5.75), (0.28, 3.0, 0.5), SHELL, bevel=0.04)
-    m.box((0.0, -1.485, 5.75), (0.18, 0.03, 0.09), ACCENT)
-    m.box((-1.485, 0.0, 5.75), (0.03, 0.18, 0.09), ACCENT)
-    # Rooftop access bulkhead.
-    m.box((0.35, 0.35, ROOF_Z + 0.45), (1.3, 1.3, 0.9), SHELL, bevel=0.05)
-    m.box((0.35, -0.305, ROOF_Z + 0.4), (0.6, 0.03, 0.7), DARK)
-    m.box((0.35, -0.29, ROOF_Z + 0.82), (0.7, 0.02, 0.06), GLOW)
-    roof_vent(m, 1.0, 1.05)
+    m.box((0.07, 0.07, ROOF_Z / 2), (2.86, 2.86, ROOF_Z), DARK)
+    hall_front(m, -0.6, 1.5)                                          # -Y face
+    m.stamp(lambda s: hall_front(s, -0.6, 1.5), SWAP_XY)              # -X face
+    hall_deck(m, -0.75, 1.5, y0=-0.85, y1=1.5)
+    # Corner tower: pearl column, cyan channels, swept fin, floating red lens and crystal.
+    m.box((-1.05, -1.05, 0.25), (0.9, 0.9, 0.5), DARK, bevel=0.05, seg=2)
+    m.box((-1.02, -1.02, 3.3), (0.86, 0.86, 5.6), SHELL, bevel=0.12, seg=3)
+    m.box((-1.02, -1.475, 3.3), (0.1, 0.05, 4.6), GLOW)
+    m.box((-1.475, -1.02, 3.3), (0.05, 0.1, 4.6), GLOW)
+    for z in (1.2, 3.3, 5.3):
+        m.box((-1.02, -1.02, z), (0.92, 0.92, 0.12), DARK, bevel=0.03, seg=2)
+    d = Vector((-0.7071, -0.7071, 0.0))
+    n = Vector((-0.7071, 0.7071, 0.0))
+    m.plane_prism([(0.3, 2.0), (0.62, 2.6), (0.62, 5.4), (0.5, 6.0), (0.3, 6.0)], 0.07, SHELL,
+                  Vector((-1.02, -1.02, 0.0)) + d * 0.0 - n * 0.035, d, (0, 0, 1), n)
+    m.box((-1.02, -1.02, 6.16), (0.92, 0.92, 0.12), DARK, bevel=0.04, seg=2)
+    m.sph((-1.02, -1.02, 6.32), (0.2, 0.2, 0.2), ACCENT, segs=12)
+    m.tor((-1.02, -1.02, 6.32), 0.24, 0.025, GLOW, segs=24, minor_segs=6)
+    m.diamond(-1.02, -1.02, 6.5, 7.0, 0.13, GLOW)
+    roof_hover(m, 0.5, 0.5, 1.5, 1.5, 6.5)
     return m
 
 
 def data_hall_roof():
     m = Model("DataHallRoof")
-    m.box((0, 0, 2.75), (2.0, 2.0, ROOF_Z), DARK)
+    m.box((0, 0, ROOF_Z / 2), (2.0, 2.0, ROOF_Z), DARK)
     for sx in (-1, 1):
         for sy in (-1, 1):
-            m.box((sx * 0.5, sy * 0.5, ROOF_Z + 0.02), (0.9, 0.9, 0.04), SHELL, bevel=0.02)
-    m.cyl((0, 0, ROOF_Z + 0.1), 0.2, 0.5, DARK, segs=16)
-    m.tor((0, 0, ROOF_Z + 0.2), 0.27, 0.03, GLOW, segs=24, minor_segs=6)
-    m.cyl((0, 0, ROOF_Z + 0.25), 0.1, 0.7, SHELL, segs=16)
+            m.box((sx * 0.5, sy * 0.5, ROOF_Z + 0.03), (0.92, 0.92, 0.06), SHELL, bevel=0.025, seg=2)
+    m.box((0, 0, ROOF_Z + 0.012), (1.96, 0.05, 0.024), GLOW)
+    m.box((0, 0, ROOF_Z + 0.012), (0.05, 1.96, 0.024), GLOW)
+    m.cyl((0, 0, ROOF_Z + 0.11), 0.1, 0.8, DARK, segs=24)
+    m.tor((0, 0, ROOF_Z + 0.18), 0.34, 0.03, GLOW, segs=32, minor_segs=6)
+    m.cyl((0, 0, ROOF_Z + 0.255), 0.09, 0.8, SHELL, segs=24, taper=0.8)
     return m
 
 
 # --------------------------------------------------------------------------------------
-# Machine: cooling and power
+# Machine: energy infrastructure (cooling and power)
 # --------------------------------------------------------------------------------------
 TOWER_K = (2.8 ** 2 - 1.85 ** 2) / 6.2 ** 2
 
@@ -543,414 +570,358 @@ def tower_r(z):
 
 def cooling_tower():
     m = Model("CoolingTower")
-    zs = [0.0, 0.6, 1.5, 2.5, 3.5, 4.5, 5.5, 6.2, 7.0, 7.8, 8.5, 8.85]
-    inner_top = tower_r(8.85) - 0.32
-    profile = [(0.0, 0.0)] + [(tower_r(z), z) for z in zs] + [(inner_top, 8.85), (tower_r(7.7) - 0.32, 7.7),
-                                                             (0.0, 7.7)]
-    m.lathe(profile, 128, SHELL, radial=lambda i, r, z: 0.06 if i % 4 >= 2 and z < 8.85 else 0.0)
-    m.lathe([(2.55, 0.0), (2.8, 0.0), (2.72, 0.85), (2.55, 0.85)], 64, DARK, closed=True)
-    for z, mat, band in ((1.6, DARK, 0.16), (5.0, DARK, 0.16), (3.3, GLOW, 0.09), (7.4, GLOW, 0.09)):
-        r = tower_r(z) + 0.05
-        m.lathe([(r - 0.12, z - band / 2), (r, z - band / 2), (r, z + band / 2), (r - 0.12, z + band / 2)],
-                64, mat, closed=True)
-    for k in range(12):                                          # base ventilation arches
-        a = math.radians(k * 30.0)
-        m.box((2.62 * math.cos(a), 2.62 * math.sin(a), 0.6), (0.2, 0.75, 1.1), DARK,
-              rot=(0, 0, math.degrees(a)), bevel=0.03)
-    rim_top = tower_r(9.0) + 0.06
-    m.lathe([(inner_top - 0.03, 8.75), (rim_top, 8.75), (rim_top, 9.0), (inner_top - 0.03, 9.0)], 64, DARK,
-            closed=True)
-    # Fan grille inside the throat.
-    m.cyl((0, 0, 7.75), 0.1, 3.1, DARK, segs=32)
-    for r, mat in ((1.3, GLOW), (0.75, DARK)):
-        m.tor((0, 0, 7.82), r, 0.045, mat, segs=48, minor_segs=6)
-    for angle in range(0, 180, 30):
-        m.box((0, 0, 7.83), (3.0, 0.07, 0.06), DARK, rot=(0, 0, angle))
-    m.cyl((0, 0, 7.9), 0.25, 0.5, DARK, segs=16)
-    m.sph((0, 0, 8.03), (0.36, 0.36, 0.2), GLOW, segs=16)
-    for k in range(4):                                           # red warning lamps on the rim
-        a = math.radians(45 + k * 90.0)
-        r = (inner_top + rim_top) / 2
-        m.sph((r * math.cos(a), r * math.sin(a), 8.93), (0.14, 0.14, 0.14), ACCENT, segs=8)
+    m.lathe([(0.0, 0.0), (2.8, 0.0), (2.8, 0.2), (2.6, 0.42), (0.0, 0.42)], 64, DARK)
+    m.lathe([(2.1, 0.42), (2.45, 0.42), (2.45, 0.46), (2.1, 0.46)], 64, GLOW, closed=True)
+    for k in range(4):                                                # red status lenses on the plinth
+        a = math.radians(45 + 90 * k)
+        m.sph((2.7 * math.cos(a), 2.7 * math.sin(a), 0.2), (0.16, 0.16, 0.16), ACCENT, segs=10)
+    m.cyl((0, 0, 4.4), 7.9, 2.3, GLOW, segs=32)                       # energy core, seen through the gaps
+    m.lathe([(1.1, 8.3), (1.62, 8.3), (1.62, 8.38), (1.1, 8.38)], 64, DARK, closed=True)   # throat floor ring
+    tiers = ((0.5, 2.4), (2.6, 4.5), (4.7, 6.5), (6.7, 8.4))
+    for z0, z1 in tiers:                                              # floating fluted pearl rings
+        zs = [z0 + (z1 - z0) * k / 5 for k in range(6)]
+        ring = [(tower_r(z), z) for z in zs] + [(tower_r(z) - 0.4, z) for z in reversed(zs)]
+        m.lathe(ring, 64, SHELL, closed=True, radial=lambda i, r, z: 0.05 if i % 4 >= 2 else 0.0)
+        r = tower_r(z1)
+        m.lathe([(r - 0.06, z1 - 0.1), (r + 0.02, z1 - 0.1), (r + 0.02, z1 - 0.04), (r - 0.06, z1 - 0.04)], 64,
+                GLOW, closed=True)
+        rb = tower_r(z0)
+        m.lathe([(rb - 0.4, z0), (rb + 0.03, z0), (rb + 0.03, z0 + 0.12), (rb - 0.4, z0 + 0.12)], 64, DARK, closed=True)
+    for (_a, z0), (z1, _b) in zip(tiers[:-1], tiers[1:]):             # dark struts hold the rings apart
+        zc = (z0 + z1) / 2
+        for k in range(8):
+            a = math.radians(45 * k + 22.5)
+            r = tower_r(zc) - 0.2
+            m.box((r * math.cos(a), r * math.sin(a), zc), (0.3, 0.16, z1 - z0 + 0.06), DARK,
+                  rot=(0, 0, math.degrees(a)))
+    ro = tower_r(8.4)
+    m.lathe([(ro - 0.4, 8.4), (ro + 0.04, 8.4), (ro + 0.04, 8.5), (ro - 0.4, 8.5)], 64, DARK, closed=True)
+    m.cyl((0, 0, 8.55), 0.4, 0.5, GLOW, segs=16)
+    for k in range(4):                                                # arms carrying the floating halos
+        a = math.radians(90 * k)
+        m.rod((1.75 * math.cos(a), 1.75 * math.sin(a), 8.5), (1.35 * math.cos(a), 1.35 * math.sin(a), 8.72), 0.035,
+              DARK, segs=6)
+    m.tor((0, 0, 8.72), 1.35, 0.06, GLOW, segs=48, minor_segs=8)
+    m.tor((0, 0, 8.94), 0.9, 0.06, GLOW, segs=48, minor_segs=8)
     return m
 
 
 def chiller():
     m = Model("Chiller")
-    m.cyl((0, 0, 0.15), 0.3, 2.6, DARK, segs=32)
-    m.cyl((0, 0, 1.4), 2.2, 2.3, SHELL, segs=32)
-    for z in (0.75, 1.4, 2.05):
-        m.cyl((0, 0, z), 0.1, 2.38, DARK, segs=32)
+    m.lathe([(0.0, 0.0), (1.3, 0.0), (1.3, 0.16), (1.15, 0.34), (0.0, 0.34)], 32, DARK)
+    m.lathe([(0.98, 0.34), (1.12, 0.34), (1.12, 0.38), (0.98, 0.38)], 32, GLOW, closed=True)
+    m.cyl((0, 0, 1.45), 2.1, 1.7, GLOW, segs=24)                      # core, glowing through the plate seams
+    for k in range(8):                                                # armour plates around the core
+        a = math.radians(45 * k)
+        m.box((0.95 * math.cos(a), 0.95 * math.sin(a), 1.45), (0.5, 0.78, 1.9), SHELL, rot=(0, 0, math.degrees(a)),
+              bevel=0.09, seg=2)
+    for z in (0.55, 2.35):
+        m.lathe([(0.8, z - 0.05), (1.25, z - 0.05), (1.25, z + 0.05), (0.8, z + 0.05)], 32, DARK, closed=True)
+    m.lathe([(0.8, 1.4), (1.25, 1.4), (1.25, 1.5), (0.8, 1.5)], 32, DARK, closed=True)
+    m.lathe([(0.0, 2.4), (1.15, 2.4), (1.0, 2.6), (0.0, 2.6)], 32, DARK)
+    m.tor((0, 0, 2.75), 0.85, 0.05, GLOW, segs=40, minor_segs=8)     # floating halo
+    m.sph((0, 0, 2.8), (0.4, 0.4, 0.4), GLOW, segs=16)
     for k in range(4):
-        a = math.radians(45 + 90 * k)
-        m.box((1.15 * math.cos(a), 1.15 * math.sin(a), 1.4), (0.05, 0.14, 1.3), GLOW, rot=(0, 0, math.degrees(a)))
-        b = math.radians(90 * k)
-        m.cyl((1.05 * math.cos(b), 1.05 * math.sin(b), 1.0), 0.5, 0.22, DARK, axis="x", segs=8,
-              rot=(0, 0, math.degrees(b)))
-    m.rod((1.22 * math.cos(0.5), 1.22 * math.sin(0.5), 0.3), (1.22 * math.cos(0.5), 1.22 * math.sin(0.5), 2.5), 0.08,
-          DARK, segs=8)
-    m.lathe([(0.98, 2.5), (1.2, 2.5), (1.2, 2.85), (0.98, 2.85)], 32, DARK, closed=True)
-    m.cyl((0, 0, 2.7), 0.06, 1.96, DARK, segs=32)
-    m.tor((0, 0, 2.74), 0.6, 0.04, GLOW, segs=32, minor_segs=6)
-    for angle in range(0, 180, 45):
-        m.box((0, 0, 2.75), (1.9, 0.06, 0.04), DARK, rot=(0, 0, angle))
-    m.cyl((0, 0, 2.85), 0.3, 0.3, DARK, segs=12)
-    for sx in (-1, 1):
-        m.sph((sx * 1.2 * math.cos(1.0), 1.2 * math.sin(1.0) * sx, 0.75), (0.14, 0.14, 0.14), ACCENT, segs=8)
+        a = math.radians(90 * k + 45)
+        m.sph((1.22 * math.cos(a), 1.22 * math.sin(a), 0.22), (0.16, 0.16, 0.16), ACCENT, segs=8)
+        m.rod((0.9 * math.cos(a), 0.9 * math.sin(a), 2.6), (0.55 * math.cos(a), 0.55 * math.sin(a), 2.72), 0.03, DARK,
+              segs=6)
     return m
 
 
 def transformer():
     m = Model("Transformer")
-    m.box((0, 0, 0.125), (2.2, 1.7, 0.25), DARK, bevel=0.03)
-    m.box((0, 0, 1.0), (1.5, 1.56, 1.5), SHELL, bevel=0.06)
-    m.box((0, 0, 1.8), (1.62, 1.66, 0.1), DARK, bevel=0.02)
-    for sx in (-1, 1):
-        for k in range(12):
-            m.box((sx * 0.925, -0.66 + k * 0.12, 1.0), (0.35, 0.04, 1.3), SHELL)
-        m.box((sx * 0.925, 0, 0.32), (0.35, 1.5, 0.1), DARK)
-        m.box((sx * 0.925, 0, 1.68), (0.35, 1.5, 0.1), DARK)
-    m.cyl((0, 0.35, 2.05), 1.5, 0.42, DARK, axis="x", segs=16)
-    for sx in (-0.5, 0.5):
-        m.box((sx, 0.35, 1.95), (0.1, 0.3, 0.2), DARK)
-    for x in (-0.5, 0.0, 0.5):                                    # bushing insulators with cyan tips
-        m.cyl((x, -0.3, 1.93), 0.16, 0.24, DARK, segs=12)
-        m.cyl((x, -0.3, 2.2), 0.7, 0.13, SHELL, segs=8)
-        for k in range(5):
-            m.cyl((x, -0.3, 2.06 + k * 0.1), 0.05, 0.32 - k * 0.02, SHELL, segs=12)
-        m.cyl((x, -0.3, 2.5), 0.06, 0.16, DARK, segs=8)
-        m.cyl((x, -0.3, 2.56), 0.08, 0.14, GLOW, segs=8)
-    m.box((0, -0.79, 1.0), (1.2, 0.02, 0.05), GLOW)
-    m.box((0, 0.79, 1.0), (1.2, 0.02, 0.05), GLOW)
-    m.box((0.3, -0.795, 1.35), (0.42, 0.02, 0.26), ACCENT)
-    m.box((-0.3, 0.795, 1.35), (0.42, 0.02, 0.26), ACCENT)
+    m.box((0, 0, 0.1), (2.2, 1.7, 0.2), DARK, bevel=0.04, seg=2)
+    m.box((0, 0, 0.87), (1.9, 1.3, 1.34), SHELL, bevel=0.1, seg=3)
+    for sy in (-1, 1):
+        m.box((0, sy * 0.7, 0.87), (1.7, 0.08, 0.85), GLOW)          # glow behind the radiator fins
+        for k in range(10):
+            m.box((-0.8 + 0.1778 * k, sy * 0.74, 0.87), (0.05, 0.22, 1.0), SHELL, bevel=0.015)
+    m.box((0.955, 0, 1.3), (0.03, 1.0, 0.07), GLOW)                   # front light channel
+    m.box((0.955, 0, 0.55), (0.03, 0.5, 0.2), ACCENT)
+    m.box((0, 0, 1.58), (1.6, 1.1, 0.08), DARK, bevel=0.02)
+    for x in (-0.55, 0.0, 0.55):                                      # insulator spires with cyan tips
+        m.cyl((x, -0.15, 1.66), 0.08, 0.34, DARK, segs=12)
+        m.cyl((x, -0.15, 2.09), 0.78, 0.3, SHELL, segs=12, taper=0.4)
+        for z in (1.85, 2.05, 2.25):
+            m.cyl((x, -0.15, z), 0.05, 0.4 - (z - 1.85) * 0.5, SHELL, segs=12)
+        m.tor((x, -0.15, 2.2), 0.24, 0.02, GLOW, segs=20, minor_segs=6)
+        m.sph((x, -0.15, 2.53), (0.14, 0.14, 0.14), GLOW, segs=10)
+    m.cyl((0, 0.4, 1.8), 1.3, 0.2, DARK, axis="x", segs=12)          # bus bar
+    for x in (-0.65, 0.65):
+        m.box((x, 0.4, 1.68), (0.1, 0.2, 0.2), DARK)
     return m
 
 
 def pylon():
     m = Model("Pylon")
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            m.box((sx * 0.57, sy * 0.57, 0.2), (0.36, 0.36, 0.4), DARK, bevel=0.03)
-    m.lattice(0.2, 10.4, 0.62, 0.27, 9, 0.13, 0.085, 0.05, SHELL, SHELL)
-    m.lattice(10.4, 11.9, 0.27, 0.2, 2, 0.085, 0.07, 0.05, SHELL, SHELL)
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            m.rod((sx * 0.2, sy * 0.2, 11.9), (0, 0, 12.85), 0.07, SHELL, r1=0.05, segs=8)
-    m.cyl((0, 0, 12.7), 0.3, 0.16, DARK, segs=8)
-    m.sph((0, 0, 12.9), (0.2, 0.2, 0.2), ACCENT, segs=10)
-    # Cross-arm: two planar trusses joined by ties, tapering toward the ends.
-    def zb(x):
-        return 10.9 + 0.35 * abs(x) / 3.5
+    m.box((0, 0, 0.25), (1.5, 1.5, 0.5), DARK, bevel=0.1, seg=2)
 
-    def zt(x):
-        return 11.75 - 0.4 * abs(x) / 3.5
+    def hx(z):
+        return 0.58 - 0.30 * (z - 0.5) / 10.1
 
-    xs = [-3.42 + 0.855 * k for k in range(9)]
-    for py in (-0.18, 0.18):
-        for a, b in zip(xs, xs[1:]):
-            m.rod((a, py, zb(a)), (b, py, zb(b)), 0.06, SHELL)
-            m.rod((a, py, zt(a)), (b, py, zt(b)), 0.06, SHELL)
-        for k, x in enumerate(xs):
-            m.rod((x, py, zb(x)), (x, py, zt(x)), 0.05, SHELL)
-        for k in range(8):
-            a, b = xs[k], xs[k + 1]
-            if k % 2 == 0:
-                m.rod((a, py, zb(a)), (b, py, zt(b)), 0.045, SHELL)
-            else:
-                m.rod((a, py, zt(a)), (b, py, zb(b)), 0.045, SHELL)
-    for x in xs:
-        m.rod((x, -0.18, zb(x)), (x, 0.18, zb(x)), 0.045, SHELL)
+    m.loft([(0.5, 0.58, 0.58, 0.16), (10.6, 0.28, 0.28, 0.09)], SHELL)
+    slope = math.degrees(math.atan(0.30 / 10.1))
+    for k in range(4):                                                # cyan channels tilted with the taper
+        off = Vector((hx(5.7) + 0.005, 0.0, 5.7))
+        off.rotate(Euler((0, 0, math.radians(90 * k))))
+        m.box(off, (0.03, 0.08, 8.4), GLOW, rot=(0, -slope, 90 * k))
+    for z in (2.8, 5.6, 8.4):
+        m.box((0, 0, z), (2 * hx(z) + 0.1, 2 * hx(z) + 0.1, 0.2), DARK, bevel=0.03, seg=2)
+    for sx in (-1, 1):                                                # base buttress fins
+        m.profile_y([(sx * 0.45, 0.8), (sx * 0.75, 0.5), (sx * 0.75, 0.9), (sx * 0.4, 3.8)], -0.09, 0.09, SHELL)
+        m.profile_x([(sx * 0.45, 0.8), (sx * 0.75, 0.5), (sx * 0.75, 0.9), (sx * 0.4, 3.8)], -0.09, 0.09, SHELL)
+    m.box((0, 0, 10.68), (0.62, 0.62, 0.16), DARK, bevel=0.04, seg=2)
+    m.cyl((0, 0, 11.015), 0.51, 0.16, GLOW, segs=12)                  # energy column carrying the floating arm
+    m.box((0, 0, 11.45), (5.4, 0.5, 0.36), SHELL, bevel=0.1, seg=2)
     for sx in (-1, 1):
-        m.box((sx * 3.45, 0, 11.3), (0.1, 0.5, 0.36), DARK)
-        for x in (sx * 3.0, sx * 1.5):
-            m.box((x, 0, zb(x) - 0.05), (0.16, 0.5, 0.1), DARK)
-            m.rod((x, 0, zb(x) - 0.1), (x, 0, zb(x) - 0.95), 0.03, DARK, segs=6)
-            for k in range(7):
-                m.cyl((x, 0, zb(x) - 0.2 - k * 0.11), 0.05, 0.32, SHELL, segs=10)
-            m.sph((x, 0, zb(x) - 1.02), (0.22, 0.22, 0.22), GLOW, segs=10)
+        m.profile_y([(sx * 2.5, 11.27), (sx * 3.46, 11.4), (sx * 3.46, 11.62), (sx * 2.5, 11.63)], -0.2, 0.2, SHELL)
+        m.box((sx * 3.47, 0, 11.51), (0.06, 0.3, 0.14), GLOW)
+        m.sph((sx * 3.2, 0, 11.7), (0.14, 0.14, 0.14), ACCENT, segs=8)
+        for x in (sx * 1.2, sx * 2.4):                                # hanging cyan insulators
+            m.rod((x, 0, 11.27), (x, 0, 10.75), 0.03, DARK, segs=6)
+            m.diamond(x, 0, 10.4, 10.85, 0.12, GLOW)
+    m.box((0, -0.255, 11.45), (5.0, 0.03, 0.06), GLOW)
+    m.box((0, 0.255, 11.45), (5.0, 0.03, 0.06), GLOW)
+    m.cyl((0, 0, 11.965), 0.67, 0.14, DARK, segs=8)
+    m.tor((0, 0, 12.0), 0.3, 0.03, GLOW, segs=28, minor_segs=6)
+    m.diamond(0, 0, 12.35, 13.0, 0.2, GLOW, mid=0.55)
     return m
 
 
 def comms_mast():
     m = Model("CommsMast")
-    m.box((0, 0, 0.1), (0.8, 0.8, 0.2), DARK, bevel=0.02)
-    m.lattice(0.15, 13.5, 0.34, 0.15, 9, 0.06, 0.045, 0.028, SHELL, SHELL)
+    m.box((0, 0, 0.15), (0.8, 0.8, 0.3), DARK, bevel=0.06, seg=2)
+    m.loft([(0.3, 0.26, 0.26, 0.08), (6.0, 0.17, 0.17, 0.06), (13.2, 0.09, 0.09, 0.03)], SHELL)
+    for sx in (-1, 1):
+        for prof in ([(sx * 0.2, 0.3), (sx * 0.4, 0.3), (sx * 0.4, 0.6), (sx * 0.2, 3.4)],
+                     [(sx * 0.14, 8.6), (sx * 0.4, 8.9), (sx * 0.4, 9.5), (sx * 0.12, 10.4)]):
+            m.profile_y(prof, -0.03, 0.03, SHELL)
+            m.profile_x(prof, -0.03, 0.03, SHELL)
+    for z in (4.2, 6.6, 11.0):                                        # floating cyan halos
+        m.tor((0, 0, z), 0.32, 0.025, GLOW, segs=28, minor_segs=6)
+        for k in range(2):
+            a = math.radians(180 * k)
+            m.rod((0.12 * math.cos(a), 0.12 * math.sin(a), z), (0.3 * math.cos(a), 0.3 * math.sin(a), z), 0.018, DARK,
+                  segs=6)
     for z in (5.0, 10.0):
-        m.box((0, 0, z), (0.8, 0.8, 0.07), DARK)
-    for z, spread in ((9.7, 0.32), (12.0, 0.2)):                    # sector antennas on the four faces
-        for k in range(4):
-            a = math.radians(90 * k)
-            m.box((spread * math.cos(a), spread * math.sin(a), z), (0.1, 0.24, 1.0), DARK, rot=(0, 0, 90 * k))
-            m.box((spread * math.cos(a), spread * math.sin(a), z + 0.55), (0.08, 0.18, 0.06), ACCENT,
-                  rot=(0, 0, 90 * k))
-    m.cyl((0, 0.3, 7.2), 0.1, 0.72, SHELL, axis="y", segs=16, taper=1.0)  # dish disc
-    m.cyl((0, 0.3, 7.2), 0.14, 0.2, DARK, axis="y", segs=10)
-    m.box((0, 0, 13.55), (0.5, 0.5, 0.1), DARK, bevel=0.02)
-    m.cyl((0, 0, 13.85), 0.5, 0.3, DARK, segs=12)
-    m.sph((0, 0, 14.2), (0.42, 0.42, 0.42), GLOW, segs=14)
-    m.rod((0, 0, 14.4), (0, 0, 14.85), 0.02, DARK, segs=6)
-    m.sph((0, 0, 14.85), (0.3, 0.3, 0.3), ACCENT, segs=10)
+        m.box((0, 0, z), (0.5, 0.5, 0.08), DARK, bevel=0.02, seg=2)
+    m.box((0, 0, 13.3), (0.36, 0.36, 0.2), DARK, bevel=0.04, seg=2)
+    m.sph((0, 0, 13.7), (0.44, 0.44, 0.44), GLOW, segs=16)
+    m.lathe([(0.0, 13.95), (0.07, 14.0), (0.0, 15.0)], 6, SHELL)
+    m.sph((0, 0, 14.35), (0.24, 0.24, 0.24), ACCENT, segs=12)
     return m
 
 
 def cluster_pylon():
     m = Model("ClusterPylon")
-    m.box((0, 0, 0.1), (0.7, 0.7, 0.2), DARK, bevel=0.03)
-    m.loft([(0.2, 0.3, 0.3, 0.07), (3.5, 0.2, 0.2, 0.05)], SHELL)
-    # Four cyan seams tilted to follow the taper (half size 0.30 at z 0.2, 0.20 at z 3.5).
-    slope = math.degrees(math.atan(0.1 / 3.3))
-    for k in range(4):
-        offset = Vector((0.256, 0.0, 1.85))
-        offset.rotate(Euler((0, 0, math.radians(90 * k))))
-        m.box(offset, (0.03, 0.05, 2.7), GLOW, rot=(0, -slope, 90 * k))
-    m.box((0, 0, 3.05), (0.5, 0.5, 0.1), DARK, bevel=0.02)
-    m.cyl((0, 0, 3.6), 0.22, 0.42, DARK, segs=16)
-    m.tor((0, 0, 3.72), 0.26, 0.03, GLOW, segs=24, minor_segs=6)
-    m.sph((0, 0, 3.95), (0.5, 0.5, 0.5), ACCENT, segs=20)
+    m.box((0, 0, 0.12), (0.7, 0.7, 0.24), DARK, bevel=0.06, seg=2)
+    m.loft([(0.24, 0.29, 0.29, 0.09), (2.2, 0.23, 0.23, 0.08), (3.1, 0.19, 0.19, 0.07)], SHELL)
+    slope = math.degrees(math.atan(0.06 / 1.96))
+    for k in range(4):                                                # cyan seams on the four faces
+        off = Vector((0.262, 0.0, 1.35))
+        off.rotate(Euler((0, 0, math.radians(90 * k))))
+        m.box(off, (0.03, 0.05, 2.2), GLOW, rot=(0, -slope, 90 * k))
+    for z in (0.75, 1.9):
+        m.box((0, 0, z), (0.58 - (z - 0.75) * 0.05, 0.58 - (z - 0.75) * 0.05, 0.1), DARK, bevel=0.025, seg=2)
+    m.box((0, 0, 3.15), (0.5, 0.5, 0.1), DARK, bevel=0.03, seg=2)
+    for sx in (-1, 1):                                                # crescent prongs cradling the lens
+        prong = [(sx * 0.16, 3.12), (sx * 0.34, 3.45), (sx * 0.34, 3.95), (sx * 0.29, 3.85), (sx * 0.29, 3.5),
+                 (sx * 0.14, 3.2)]
+        m.profile_y(prong, -0.03, 0.03, SHELL)
+        m.profile_x(prong, -0.03, 0.03, SHELL)
+    m.sph((0, 0, 3.66), (0.5, 0.5, 0.5), ACCENT, segs=24)            # red lens
+    m.tor((0, 0, 3.66), 0.32, 0.025, GLOW, segs=28, minor_segs=6, rot=(70, 0, 20))
+    m.diamond(0, 0, 4.0, 4.2, 0.09, GLOW)
     return m
 
 
 # --------------------------------------------------------------------------------------
-# Human scrapyard: containers, wreck, sandbags, barrel, generator shack
+# Human forward base: armoured crates, wrecked vehicle, barricade, brazier post, prefab generator
 # --------------------------------------------------------------------------------------
 def container():
     m = Model("Container")
-    rng = random.Random(11)
-    period, periods = 0.28, 21
-    us = [k * period / 4 for k in range(periods * 4 + 1)]           # 5.88 m of corrugation
-    zlines = [0.24, 0.5, 0.78, 1.05, 1.3, 1.55, 1.85, 2.15, 2.44]    # stripe rows 1.05 .. 1.55
-    for side in (1, -1):
-        dents = [(rng.uniform(0.6, 5.3), rng.uniform(0.6, 2.0), rng.uniform(0.25, 0.4), rng.uniform(0.035, 0.05))
-                 for _ in range(3)]
-
-        def front(u, v, dents=dents):
-            dent = sum(d * math.exp(-((u - u0) ** 2 + (v - v0) ** 2) / (2 * s * s)) for u0, v0, s, d in dents)
-            return max(0.02, 0.06 + 0.05 * trap(u / period) - dent)
-
-        m.slab((-2.94, side * 1.08, 0), (1, 0, 0), (0, 0, 1), (0, side, 0), us, zlines, front,
-               lambda u, v: ACCENT if 1.05 < v < 1.55 else SHELL)
-    end_us = [k * 0.275 / 4 for k in range(8 * 4 + 1)]
-    m.slab((-2.86, -1.1, 0), (0, 1, 0), (0, 0, 1), (-1, 0, 0), end_us, [0.24, 1.34, 2.44],
-           lambda u, v: 0.05 + 0.04 * trap(u / 0.275), lambda u, v: SHELL)
-    m.box((0, 0, 1.3), (5.88, 2.18, 2.4), DARK)
+    m.box((0, 0, 0.1), (5.9, 2.3, 0.2), DARK, bevel=0.04, seg=2)      # skid
+    m.box((0, 0, 1.25), (5.7, 2.1, 2.3), DARK)                        # core
     for sx in (-1, 1):
         for sy in (-1, 1):
-            m.box((sx * 2.92, sy * 1.145, 1.3), (0.16, 0.16, 2.6), DARK, bevel=0.02)
-        m.box((0, sx * 1.175, 2.53), (5.68, 0.1, 0.14), DARK)
-        m.box((0, sx * 1.175, 0.1), (5.68, 0.1, 0.2), DARK)
-        m.box((sx * 2.95, 0, 2.53), (0.1, 2.3, 0.14), DARK)
-        m.box((sx * 2.95, 0, 0.1), (0.1, 2.3, 0.2), DARK)
-    m.box((0, 0, 2.54), (5.88, 2.3, 0.06), SHELL)
-    for k in range(14):
-        m.box((-2.7 + 0.4154 * k, 0, 2.585), (0.1, 2.3, 0.03), SHELL)
-    # Doors at +X: two leaves, ribs, locking bars, painted band.
+            m.box((sx * 2.85, sy * 1.075, 1.3), (0.3, 0.3, 2.6), DARK, bevel=0.05, seg=2)   # corner castings
+    for side in (-1, 1):
+        for k in range(6):                                            # armour plates
+            x = -2.25 + 0.9 * k
+            m.box((x, side * 1.14, 1.425), (0.84, 0.1, 1.75), SHELL, bevel=0.05, seg=2)
+            m.box((x, side * 1.185, 1.425), (0.56, 0.05, 1.3), SHELL, bevel=0.02, seg=2)
+        m.hazard((-2.7, side * 1.05, 0.24), (1, 0, 0), (0, 0, 1), (0, side, 0), 5.4, 0.23, depth=0.04)
+    m.box((0, 0, 2.45), (5.5, 2.0, 0.1), SHELL, bevel=0.04, seg=2)
+    for k in range(4):
+        m.box((-2.0 + 1.333 * k, 0, 2.525), (0.12, 2.0, 0.05), DARK, bevel=0.015)
+    m.box((-0.7, 0, 2.55), (0.9, 0.7, 0.1), SHELL, bevel=0.03, seg=2)
+    m.hazard((2.05, -0.9, 2.5), (0, 1, 0), (1, 0, 0), (0, 0, 1), 1.8, 0.65, depth=0.03)
+    # Blast doors at +X.
+    m.box((2.86, 0, 1.3), (0.06, 1.9, 2.1), DARK)
     for sy in (-1, 1):
-        m.box((2.92, sy * 0.56, 1.34), (0.08, 1.1, 2.2), SHELL, bevel=0.01)
-        m.box((2.96, sy * 0.56, 1.3), (0.02, 1.1, 0.5), ACCENT)
-        for k in range(3):
-            m.box((2.97, sy * (0.13 + k * 0.34), 1.34), (0.02, 0.05, 2.1), SHELL)
-        for y in (sy * 0.2, sy * 0.92):
-            m.rod((2.98, y, 0.22), (2.98, y, 2.5), 0.018, DARK, segs=6)
-            m.box((2.985, y, 0.5), (0.03, 0.12, 0.06), DARK)
-            m.box((2.985, y, 2.2), (0.03, 0.12, 0.06), DARK)
-        m.box((2.985, sy * 0.2 + sy * 0.12, 1.2), (0.03, 0.04, 0.3), DARK)
+        m.box((2.92, sy * 0.46, 1.3), (0.1, 0.88, 1.95), SHELL, bevel=0.03, seg=2)
+        for y in (sy * 0.12, sy * 0.8):
+            m.rod((2.975, y, 0.4), (2.975, y, 2.2), 0.02, DARK, segs=6)
+    m.hazard((2.97, -0.9, 0.55), (0, 1, 0), (0, 0, 1), (1, 0, 0), 1.8, 0.32, depth=0.024)
+    m.tor((2.955, 0, 1.45), 0.14, 0.03, DARK, segs=16, minor_segs=6, rot=(0, 90, 0))
+    m.hazard((-2.7, -0.9, 0.55), (0, 1, 0), (0, 0, 1), (-1, 0, 0), 1.8, 0.4, depth=0.03)
     return m
 
 
 def wreck():
     m = Model("Wreck")
-    m.box((0, 0, 0.42), (4.0, 1.5, 0.3), DARK, bevel=0.05)
-    m.box((-0.78, 0, 0.79), (2.55, 1.7, 0.72), SHELL, bevel=0.12, seg=2)      # rear tub
-    m.box((1.28, 0, 0.68), (1.5, 1.7, 0.5), SHELL, bevel=0.1, seg=2)          # front tub
-    m.box((1.3, 0, 1.0), (0.9, 0.9, 0.25), DARK)                              # exposed engine
-    m.box((1.35, 0, 1.22), (1.45, 1.62, 0.1), SHELL, rot=(0, -9, 0), bevel=0.03)   # popped hood
-    m.box((-0.35, 0, 1.405), (1.9, 1.6, 0.57), SHELL, bevel=0.06)             # cab
-    for sy in (-1, 1):
-        m.box((-0.35, sy * 0.805, 1.45), (1.4, 0.02, 0.3), DARK)
-    m.box((0.61, 0, 1.45), (0.02, 1.2, 0.3), DARK)
-    m.box((-1.31, 0, 1.45), (0.02, 1.2, 0.3), DARK)
-    m.box((-0.35, 0, 1.696), (1.7, 1.4, 0.008), DARK)                         # burnt roof
-    m.box((1.36, 0, 1.33), (1.25, 1.5, 0.02), DARK, rot=(0, -9, 0))           # burnt hood
-    for sy in (-1, 1):                                                        # soot up the flanks
-        m.box((-0.5, sy * 0.855, 1.0), (2.2, 0.02, 0.34), DARK)
-    m.box((0.0, 0.85, 0.85), (1.1, 0.02, 0.3), ACCENT)                        # rust patches
-    m.box((-1.4, -0.85, 0.9), (0.9, 0.02, 0.25), ACCENT)
-    m.box((-1.2, 0.3, 1.16), (0.8, 0.5, 0.02), ACCENT)
-    m.box((2.04, 0, 0.55), (0.12, 1.6, 0.16), DARK, bevel=0.02)
-    m.box((-2.04, 0, 0.55), (0.12, 1.6, 0.16), DARK, bevel=0.02)
-    for x in (-1.35, 1.35):
-        for y in (-0.825, 0.825):
-            if x > 0 and y < 0:                                                # this wheel is gone
-                m.cyl((x, y, 0.3), 0.2, 0.3, ACCENT, axis="y", segs=12)
-                continue
-            m.cyl((x, y, 0.34), 0.22, 0.68, DARK, axis="y", segs=16)
-            m.cyl((x, y, 0.34), 0.25, 0.36, ACCENT, axis="y", segs=12)
+    m.profile_y([(-2.07, 0.45), (-2.07, 0.95), (-1.7, 1.15), (0.6, 1.15), (1.7, 0.85), (2.1, 0.62), (2.1, 0.45)],
+                -0.72, 0.72, SHELL)
+    m.box((0, 0, 0.42), (4.0, 1.3, 0.3), DARK, bevel=0.05, seg=2)
+    # Tracks: the -Y side has lost its front half.
+    m.box((0, 0.83, 0.31), (3.9, 0.24, 0.62), DARK, bevel=0.1, seg=2)
+    m.box((-0.8, -0.83, 0.31), (2.3, 0.24, 0.62), DARK, bevel=0.1, seg=2)
+    m.box((0, 0.83, 0.72), (3.9, 0.24, 0.1), SHELL, bevel=0.04, seg=2)
+    m.box((-0.8, -0.83, 0.72), (2.3, 0.24, 0.1), SHELL, bevel=0.04, seg=2)
+    for x in (-1.5, -0.75, 0.0, 0.75, 1.5):
+        m.cyl((x, 0.92, 0.31), 0.05, 0.46, SHELL, axis="y", segs=16)
+        if x <= 0.0:
+            m.cyl((x, -0.92, 0.31), 0.05, 0.46, SHELL, axis="y", segs=16)
+    for x in (0.75, 1.5):                                             # bare axles where the track is gone
+        m.rod((x, -0.9, 0.31), (x, -0.5, 0.31), 0.05, DARK, segs=8)
+    # Turret knocked askew, drooping gun, bent antenna.
+    m.cyl((-0.3, 0, 1.2), 0.1, 1.0, DARK, segs=20)
+    m.box((-0.5, 0.05, 1.35), (1.3, 1.1, 0.4), SHELL, rot=(9, 0, -26), bevel=0.12, seg=2)
+    m.box((0.2, 0.3, 1.34), (0.25, 0.4, 0.3), DARK, rot=(0, 0, -26), bevel=0.04, seg=2)
+    m.rod((0.3, 0.32, 1.32), (1.75, 0.5, 0.96), 0.07, DARK, r1=0.06, segs=10)
+    m.rod((1.6, 0.49, 1.0), (1.85, 0.52, 0.92), 0.1, DARK, segs=10)
+    m.rod((-1.25, 0.55, 1.15), (-1.4, 0.6, 1.694), 0.022, DARK, segs=6)
+    # Battle damage: blast holes, scorched engine deck, peeled plate, fallen track link, hazard-striped rear.
+    m.box((0.6, 0.735, 0.97), (1.0, 0.03, 0.25), DARK)
+    m.box((-1.2, 0, 1.17), (0.8, 0.7, 0.04), DARK)
+    m.box((1.1, -0.2, 1.02), (0.55, 0.45, 0.05), DARK, rot=(0, 15, 0))
+    m.box((1.25, 0.4, 1.1), (0.7, 0.05, 0.5), SHELL, rot=(35, -10, 20), bevel=0.015)
+    m.box((1.2, -0.8, 0.2), (1.1, 0.26, 0.18), DARK, rot=(0, -10, 0), bevel=0.05, seg=2)
+    m.hazard((-1.65, -0.6, 1.15), (0, 1, 0), (1, 0, 0), (0, 0, 1), 1.2, 0.4, depth=0.03)
+    m.hazard((-2.07, -0.7, 0.5), (0, 1, 0), (0, 0, 1), (-1, 0, 0), 1.4, 0.35, depth=0.024)
     return m
 
 
 def sandbag_wall():
     m = Model("SandbagWall")
-    rng = random.Random(5)
-    h = 0.22
-    layers = [[(-0.3, 0.6), (0.3, 0.6)]] * 3 + [[(-0.225, 0.45), (0.225, 0.45)], [(0.0, 0.7)]]
-    for course, columns in enumerate(layers):
-        if course % 2 == 0:
-            spans = [(-1.5 + 0.75 * k, -1.5 + 0.75 * (k + 1)) for k in range(4)]
-        else:
-            spans = [(-1.5, -1.125)] + [(-1.125 + 0.75 * k, -1.125 + 0.75 * (k + 1)) for k in range(3)] + [(1.125, 1.5)]
-        for x, width in columns:
-            for y0, y1 in spans:
-                roll = rng.random()
-                mat = DARK if roll < 0.14 else ACCENT if roll < 0.2 else SHELL
-                m.box((x, (y0 + y1) / 2, course * h + h / 2), (width, y1 - y0, h), mat, bevel=0.095, seg=3)
+    m.box((0, 0, 0.3), (1.0, 3.0, 0.6), DARK)
+    length = (3.0 - 2 * 0.05) / 3
+    body = [(-0.55, 0.0), (0.55, 0.0), (0.55, 0.5), (0.4, 0.85), (-0.4, 0.85), (-0.55, 0.5)]
+    for k in range(3):
+        y0 = -1.5 + k * (length + 0.05)
+        y1 = y0 + length
+        yc = (y0 + y1) / 2
+        m.profile_y(body, y0, y1, SHELL)
+        m.hazard((-0.4, y0 + 0.06, 0.85), (1, 0, 0), (0, 1, 0), (0, 0, 1), 0.8, length - 0.12, depth=0.04, stripe=0.12)
+        for sx in (-1, 1):
+            m.hazard((sx * 0.55, y0 + 0.08, 0.1), (0, 1, 0), (0, 0, 1), (sx, 0, 0), length - 0.16, 0.3, depth=0.044,
+                     stripe=0.1)
+        if k != 1:                                                    # floodlights on the end blocks
+            m.cyl((0.0, yc, 0.925), 0.07, 0.08, DARK, segs=8)
+            m.box((0.04, yc, 1.02), (0.28, 0.5, 0.16), DARK, bevel=0.035, seg=2)
+            m.box((0.19, yc, 1.02), (0.02, 0.44, 0.11), ACCENT)   # no Glow slot on this piece: hazard-yellow lens
     return m
 
 
 def burn_barrel():
     m = Model("BurnBarrel")
-    m.lathe([(0.0, 0.0), (0.3, 0.0), (0.32, 0.05), (0.32, 0.8), (0.3, 0.82), (0.26, 0.82), (0.26, 0.7),
-             (0.0, 0.7)], 24, SHELL)
-    for z in (0.22, 0.6):
-        m.lathe([(0.3, z - 0.035), (0.35, z - 0.035), (0.35, z + 0.035), (0.3, z + 0.035)], 24, DARK, closed=True)
-    m.lathe([(0.29, 0.0), (0.335, 0.0), (0.335, 0.1), (0.29, 0.1)], 24, ACCENT, closed=True)
-    m.lathe([(0.25, 0.79), (0.335, 0.79), (0.335, 0.84), (0.25, 0.84)], 24, ACCENT, closed=True)
-    m.cyl((0, 0, 0.72), 0.04, 0.5, GLOW, segs=16)
-    for base, r, top, tilt in (((0, 0, 0.72), 0.14, 1.0, (0, 0)), ((0.12, 0.02, 0.72), 0.08, 0.93, (0.02, 0)),
-                               ((-0.09, 0.1, 0.72), 0.08, 0.95, (-0.02, 0.03)),
-                               ((-0.05, -0.12, 0.72), 0.07, 0.9, (0, -0.03)),
-                               ((0.06, -0.1, 0.72), 0.06, 0.88, (0.03, -0.02))):
-        m.rod(base, (base[0] + tilt[0], base[1] + tilt[1], top), r, GLOW, r1=0.025, segs=8)
+    m.lathe([(0.0, 0.0), (0.35, 0.0), (0.35, 0.06), (0.3, 0.3), (0.0, 0.3)], 24, DARK)
+    m.ring_stripes(0.06, 0.16, 0.3, 0.35, 16)
+    m.cyl((0, 0, 0.46), 0.32, 0.34, SHELL, segs=16, taper=0.85)
+    for k in range(4):                                                # brackets to the bowl
+        a = math.radians(90 * k + 45)
+        m.box((0.2 * math.cos(a), 0.2 * math.sin(a), 0.6), (0.14, 0.05, 0.18), DARK, rot=(0, 0, math.degrees(a)))
+    m.lathe([(0.0, 0.6), (0.18, 0.6), (0.33, 0.78), (0.33, 0.83), (0.29, 0.83), (0.15, 0.7), (0.0, 0.7)], 24, SHELL)
+    m.cyl((0, 0, 0.715), 0.02, 0.3, GLOW, segs=16)
+    m.lathe([(0.0, 0.72), (0.18, 0.78), (0.12, 0.9), (0.0, 1.0)], 8, GLOW)
+    for base, r, top in (((0.1, 0.04, 0.72), 0.05, 0.9), ((-0.08, 0.08, 0.72), 0.05, 0.86), ((-0.03, -0.11, 0.72), 0.045, 0.83)):
+        m.rod(base, (base[0], base[1], top), r, GLOW, r1=0.012, segs=6)
     return m
-
-
-def corr_wall(m, origin, u_dir, n_dir, ulen, z0, z1, mat, crest=0.06, amp=0.06):
-    periods = max(1, round(ulen / 0.28))
-    us = [ulen * k / (4 * periods) for k in range(4 * periods + 1)]
-    m.slab(origin, u_dir, (0, 0, 1), n_dir, us, [z0, (z0 + z1) / 2, z1],
-           lambda u, v: crest + amp * trap(u * periods / ulen), lambda u, v: mat)
-
-
-def wall_plate(m, axis, sign, along, z, w, h, mat, face):
-    """Bolted plate on a wall whose corrugation crest is at `face` (plate 4 cm thick, bolt heads to face + 0.06)."""
-    t = 0.04
-    p = sign * (face + t / 2)
-    b = sign * (face + t + 0.01)
-    if axis == "x":
-        m.box((p, along, z), (t, w, h), mat)
-    else:
-        m.box((along, p, z), (w, t, h), mat)
-    for du in (-1, 1):
-        for dv in (-1, 1):
-            u, v = along + du * (w / 2 - 0.08), z + dv * (h / 2 - 0.08)
-            if axis == "x":
-                m.cyl((b, u, v), 0.02, 0.07, DARK, axis="x", segs=6)
-            else:
-                m.cyl((u, b, v), 0.02, 0.07, DARK, axis="y", segs=6)
 
 
 def generator_shack():
     m = Model("GeneratorShack")
-    slope = math.degrees(math.atan(0.1))
-    m.box((0, 0, 0.075), (3.0, 4.0, 0.15), DARK, bevel=0.02)
-    m.box((0, 0, 1.25), (2.62, 3.62, 2.2), DARK)
-    # Corrugated walls: back planes at |x| = 1.32 and |y| = 1.82, crests at 1.44 and 1.94.
-    corr_wall(m, (1.32, -1.82, 0), (0, 1, 0), (1, 0, 0), 1.1, 0.15, 2.36, SHELL)
-    corr_wall(m, (1.32, 0.72, 0), (0, 1, 0), (1, 0, 0), 1.1, 0.15, 2.36, SHELL)
-    corr_wall(m, (1.32, -0.72, 0), (0, 1, 0), (1, 0, 0), 1.44, 2.15, 2.36, SHELL)
-    corr_wall(m, (-1.32, -1.82, 0), (0, 1, 0), (-1, 0, 0), 3.64, 0.15, 2.1, SHELL)
+    m.box((0, 0, 0.11), (3.0, 4.0, 0.22), DARK, bevel=0.05, seg=2)   # skid
+    m.box((0, 0, 0.92), (2.7, 3.6, 1.4), SHELL, bevel=0.12, seg=3)   # prefab body
+    m.box((0, 0, 1.67), (2.5, 3.4, 0.1), SHELL, bevel=0.05, seg=2)   # roof plate
     for sy in (-1, 1):
-        corr_wall(m, (-1.32, sy * 1.82, 0), (1, 0, 0), (0, sy, 0), 2.64, 0.15, 2.1, SHELL, amp=0.06)
-        y0 = 1.82 if sy > 0 else -1.94
-        m.prism([(-1.32, 2.1), (1.32, 2.1), (1.32, 2.362)], 0.12, SHELL,
-                Matrix(((1, 0, 0, 0), (0, 0, 1, y0), (0, 1, 0, 0), (0, 0, 0, 1))))
-    # Door in the front wall, work lamp above it.
-    for sy in (-1, 1):
-        m.box((1.46, sy * 0.75, 1.15), (0.08, 0.1, 2.0), SHELL, bevel=0.01)
-    m.box((1.46, 0, 1.15), (0.06, 1.4, 2.0), DARK)
-    m.box((1.495, 0.25, 1.1), (0.01, 0.7, 0.55), ACCENT)
-    m.box((1.49, -0.5, 1.1), (0.02, 0.06, 0.3), DARK)
-    for z in (0.5, 1.8):
-        m.box((1.485, 0.6, z), (0.03, 0.08, 0.14), DARK)
-    m.box((1.49, 0, 2.26), (0.02, 1.2, 0.12), GLOW)
-    for k in range(7):
-        m.box((1.49, -0.6 + k * 0.2, 2.26), (0.02, 0.03, 0.18), DARK)
-    m.box((1.49, 0, 2.355), (0.02, 1.26, 0.03), DARK)
-    m.box((1.49, 0, 2.165), (0.02, 1.26, 0.03), DARK)
-    for sy in (-1, 1):                                            # side lamps
-        m.box((1.05, sy * 1.965, 2.0), (0.06, 0.06, 0.16), DARK)
-        m.sph((1.05, sy * 1.915, 1.95), (0.16, 0.16, 0.16), GLOW, segs=10)
-    # Bolted patch plates.
-    for sy in (-1, 1):
-        wall_plate(m, "y", sy, -0.5, 1.4, 0.9, 0.7, ACCENT, 1.94)
-        wall_plate(m, "y", sy, 0.7, 0.9, 0.8, 0.6, DARK, 1.94)
-        wall_plate(m, "x", sy * -1, sy * 0.8, 1.2, 0.8, 0.7, DARK if sy > 0 else ACCENT, 1.44)
-    wall_plate(m, "x", 1, -1.2, 1.3, 0.8, 0.7, ACCENT, 1.44)
-    wall_plate(m, "x", 1, 1.25, 0.9, 0.7, 0.6, DARK, 1.44)
-    # Monopitch roof: top of the ribs runs from z = 2.5 at the front to 2.2 at the back.
-    rm = rot_matrix((0, -slope, 0))
-    n = rm @ Vector((0, 0, 1))
-    length = 3.0 / math.cos(math.radians(slope)) - 0.02
-    surface = Vector((0, 0, 2.31))
-    m.box(surface - n * 0.04, (length, 4.0, 0.08), SHELL, rot=(0, -slope, 0))
-    c = surface + n * 0.02
-    for k in range(10):
-        m.box((c.x, -1.8 + 0.4 * k, c.z), (length, 0.09, 0.04), DARK, rot=(0, -slope, 0))
-    m.cyl((-0.7, 1.0, 2.34), 0.26, 0.22, DARK, segs=10)
-    m.cyl((-0.7, 1.0, 2.485), 0.03, 0.3, ACCENT, segs=10)
+        for x in (-0.85, 0.0, 0.85):
+            m.box((x, sy * 1.83, 0.92), (0.78, 0.06, 1.0), SHELL, bevel=0.03, seg=2)
+        m.box((0, sy * 1.85, 0.3), (2.4, 0.06, 0.14), DARK)
+    for y0 in (-1.7, 0.75):                                           # hazard panels flanking the door
+        m.hazard((1.35, y0, 0.3), (0, 1, 0), (0, 0, 1), (1, 0, 0), 0.95, 0.6, depth=0.05, stripe=0.1)
+    # Front door and lamps.
+    m.box((1.37, 0, 0.82), (0.08, 1.3, 1.25), DARK, bevel=0.02)
+    m.box((1.42, 0, 0.8), (0.05, 1.0, 1.1), SHELL, bevel=0.02, seg=2)
+    m.box((1.4, 0, 1.55), (0.04, 0.9, 0.09), GLOW)
+    m.hazard((1.35, -0.5, 1.4), (0, 1, 0), (0, 0, 1), (1, 0, 0), 1.0, 0.12, depth=0.04, stripe=0.06)
+    m.hazard((0.4, -1.6, 1.72), (0, 1, 0), (1, 0, 0), (0, 0, 1), 3.2, 0.7, depth=0.03)
+    # Reactor stack and cooling stack.
+    m.cyl((-0.55, 0.6, 1.79), 0.12, 1.3, DARK, segs=24)
+    m.cyl((-0.55, 0.6, 2.06), 0.44, 1.1, SHELL, segs=24)
+    m.ring_stripes(1.9, 0.16, 0.55, 0.585, 16, loc=(-0.55, 0.6))
+    m.lathe([(0.53, 2.14), (0.575, 2.14), (0.575, 2.2), (0.53, 2.2)], 24, GLOW, closed=True, loc=(-0.55, 0.6, 0.0))
+    m.cyl((-0.55, 0.6, 2.32), 0.1, 1.2, DARK, segs=24)
+    m.sph((-0.55, 0.6, 2.3), (0.7, 0.7, 0.4), GLOW, segs=16)
+    m.cyl((-0.55, -1.0, 1.95), 0.46, 0.7, SHELL, segs=16)
+    m.cyl((-0.55, -1.0, 2.2), 0.06, 0.8, DARK, segs=16)
+    m.cyl((-0.55, -1.0, 1.98), 0.06, 0.74, GLOW, segs=16)
+    m.rod((-0.55, 0.6, 1.95), (-0.55, -1.0, 1.95), 0.05, DARK, segs=8)
+    for sy in (-1, 1):                                                # amber floodlight masts
+        m.rod((1.15, sy * 1.6, 1.72), (1.15, sy * 1.6, 2.2), 0.04, DARK, segs=8)
+        m.box((1.2, sy * 1.6, 2.28), (0.24, 0.3, 0.16), DARK, bevel=0.03, seg=2)
+        m.box((1.33, sy * 1.6, 2.28), (0.02, 0.24, 0.11), GLOW)
     return m
 
 
 # --------------------------------------------------------------------------------------
-# Machine perimeter fence and Fibre Junction spool
+# Perimeter fence and cable reel
 # --------------------------------------------------------------------------------------
 def fence_segment():
     m = Model("FenceSegment")
-    m.box((0, 0, 0.08), (3.64, 0.3, 0.16), SHELL, bevel=0.02)
     for sx in (-1, 1):
-        m.box((sx * 1.91, 0, 1.0), (0.18, 0.2, 2.0), DARK, bevel=0.02)
-        m.box((sx * 1.91, 0, 2.04), (0.18, 0.22, 0.08), DARK, bevel=0.015)
-        m.cyl((sx * 1.91, 0, 2.14), 0.12, 0.12, GLOW, segs=8)
-        for dy in (-1, 1):
-            m.rod((sx * 1.91, 0, 1.9), (sx * 1.91, dy * 0.12, 2.12), 0.025, DARK, segs=6)
-    for z, dia in ((1.95, 0.08), (1.0, 0.05), (0.22, 0.06)):
-        m.cyl((0, 0, z), 3.64, dia, DARK, axis="x", segs=8)
-    for dy in (-1, 1):
-        m.rod((-1.82, dy * 0.12, 2.12), (1.82, dy * 0.12, 2.12), 0.018, DARK, segs=5)
-    xa, xb, za, zb = -1.82, 1.82, 0.22, 1.95
-    pitch = 0.44
-    for family in (1, -1):
-        y = 0.012 * family
-        cs = [xa - zb - 0.2 + pitch * k for k in range(16)] if family > 0 else [xa + za - 0.2 + pitch * k for k in range(16)]
-        for c in cs:
-            if family > 0:                         # z = x - c
-                lo, hi = max(xa, za + c), min(xb, zb + c)
-                p, q = (lo, y, lo - c), (hi, y, hi - c)
-            else:                                  # z = c - x
-                lo, hi = max(xa, c - zb), min(xb, c - za)
-                p, q = (lo, y, c - lo), (hi, y, c - hi)
-            if hi - lo > 0.05:
-                m.rod(p, q, 0.028, SHELL, segs=5)
-    m.box((0, 0, 1.3), (0.34, 0.03, 0.22), ACCENT)
+        x = sx * 1.85
+        m.box((x, 0, 0.1), (0.3, 0.3, 0.2), DARK, bevel=0.03, seg=2)
+        m.box((x, 0, 1.05), (0.26, 0.26, 1.7), SHELL, bevel=0.05, seg=2)
+        m.box((x, -0.135, 1.1), (0.08, 0.03, 1.2), GLOW)
+        m.box((x, 0.135, 1.1), (0.08, 0.03, 1.2), GLOW)
+        m.box((x, 0, 1.95), (0.3, 0.3, 0.1), DARK, bevel=0.03, seg=2)
+        m.cyl((x, 0, 2.03), 0.06, 0.2, DARK, segs=12)
+        m.cyl((x, 0, 2.14), 0.12, 0.18, GLOW, segs=12)
+    m.box((0, 0, 0.36), (3.4, 0.16, 0.56), SHELL, bevel=0.05, seg=2)   # armoured base wall
+    m.box((0, 0, 0.06), (3.4, 0.2, 0.12), DARK)
+    m.sph((0, -0.09, 0.4), (0.16, 0.06, 0.16), ACCENT, segs=10)
+    for z in (0.7, 1.85):
+        m.box((0, 0, z), (3.4, 0.09, 0.09), DARK, bevel=0.02)
+    for z in (0.95, 1.2, 1.45, 1.7):                                  # energy bars
+        m.box((0, 0, z), (3.4, 0.03, 0.045), GLOW)
+    for k in range(9):
+        m.box((-1.7 + 0.425 * k, 0, 1.28), (0.05, 0.08, 1.15), DARK)
+    m.box((0, 0, 2.0), (3.4, 0.09, 0.07), SHELL, bevel=0.02)
     return m
 
 
 def cable_spool():
     m = Model("CableSpool")
-    m.cyl((0, 0, 0.05), 0.1, 2.0, SHELL, segs=32)
-    m.cyl((0, 0, 1.33), 0.1, 1.96, SHELL, segs=32)
-    m.lathe([(0.9, 1.28), (1.0, 1.28), (1.0, 1.39), (0.9, 1.39)], 32, ACCENT, closed=True)
-    m.cyl((0, 0, 0.69), 1.18, 0.7, DARK, segs=16)
-    coil = [(0.0, 0.1)] + [(0.86 if k % 2 == 0 else 0.81, 0.1 + 0.084 * k) for k in range(15)] + [(0.0, 1.28)]
+    m.lathe([(0.0, 0.0), (0.94, 0.0), (1.0, 0.05), (1.0, 0.09), (0.94, 0.14), (0.0, 0.14)], 32, SHELL)
+    m.lathe([(0.0, 1.22), (0.94, 1.22), (1.0, 1.26), (1.0, 1.31), (0.94, 1.36), (0.0, 1.36)], 32, SHELL)
+    m.ring_stripes(0.03, 0.08, 0.9, 1.0, 24)
+    m.ring_stripes(1.36, 0.04, 0.72, 0.94, 24)
+    m.cyl((0, 0, 0.68), 1.1, 0.5, DARK, segs=16)
+    coil = [(0.0, 0.14)] + [(0.86 if k % 2 == 0 else 0.81, 0.14 + 0.078 * k) for k in range(15)] + [(0.0, 1.22)]
     m.lathe(coil, 32, DARK)
     for z in (0.4, 0.95):
         m.lathe([(0.8, z - 0.05), (0.875, z - 0.05), (0.875, z + 0.05), (0.8, z + 0.05)], 32, ACCENT, closed=True)
+    for k in range(6):                                                # bracing plates between the flanges
+        a = math.radians(60 * k + 30)
+        m.box((0.95 * math.cos(a), 0.95 * math.sin(a), 0.68), (0.08, 0.22, 1.1), DARK, rot=(0, 0, math.degrees(a)),
+              bevel=0.02)
+    m.cyl((0, 0, 1.38), 0.04, 0.4, DARK, segs=16)
     for k in range(8):
         a = math.radians(45 * k)
-        m.cyl((0.62 * math.cos(a), 0.62 * math.sin(a), 1.39), 0.02, 0.1, DARK, segs=6)
-    m.cyl((0, 0, 1.39), 0.02, 0.34, DARK, segs=12)
+        m.cyl((0.3 * math.cos(a), 0.3 * math.sin(a), 1.38), 0.04, 0.07, DARK, segs=6)
     return m
-
 
 BUILDERS = (
     ("DataHallBay", data_hall_bay), ("DataHallDoor", data_hall_door), ("DataHallCorner", data_hall_corner),
@@ -1096,10 +1067,9 @@ RTS_SIZE = (3000, 1800)
 HALLS_SIZE = (2400, 1350)
 CAPSULE_HEIGHT, CAPSULE_RADIUS = 1.2, 0.34
 
-# Which look each piece is previewed with (see the docstring; Unreal assigns the real materials).
-LOOKS = {"ClusterPylon": "cluster", "Container": "scrap", "Wreck": "scrap", "SandbagWall": "scrap",
-         "BurnBarrel": "scrap", "GeneratorShack": "scrap", "CableSpool": "scrap"}
-# Three rows (tall Machine kit, Machine halls and utilities, scrapyard). Side view stacks the rows in Z,
+LOOKS = {"ClusterPylon": "cluster", "Container": "human", "Wreck": "human", "SandbagWall": "human",
+         "BurnBarrel": "human", "GeneratorShack": "human", "CableSpool": "human"}
+# Three rows (tall Machine kit, Machine halls and utilities, forward base). Side view stacks the rows in Z,
 # RTS view spreads them in Y (first row farthest from the camera).
 ROWS = (("Pylon", "CommsMast", "ClusterPylon", "CoolingTower"),
         ("DataHallBay", "DataHallDoor", "DataHallCorner", "DataHallRoof", "Chiller", "Transformer",
@@ -1114,25 +1084,25 @@ PREVIEW_YAW = {"SandbagWall": 90, "GeneratorShack": -90}
 def preview_palettes():
     def campus():
         return {
-            "Shell": make_material("PV_C_Shell", (0.34, 0.38, 0.45), roughness=0.45, metallic=0.25),
-            "Dark": make_material("PV_C_Dark", (0.018, 0.02, 0.026), metallic=0.6, roughness=0.45),
-            "Glow": make_material("PV_C_Glow", (0.35, 0.9, 1.0), emission=9.0),
+            "Shell": make_material("PV_C_Shell", (0.62, 0.67, 0.76), roughness=0.3, metallic=0.35),
+            "Dark": make_material("PV_C_Dark", (0.02, 0.028, 0.045), metallic=0.6, roughness=0.4),
+            "Glow": make_material("PV_C_Glow", (0.1, 0.78, 1.0), emission=5.0),
             "Accent": make_material("PV_C_Accent", (1.0, 0.03, 0.03), emission=6.0),
         }
 
     return {
         "campus": campus(),
         "cluster": {
-            "Shell": make_material("PV_W_Shell", (0.86, 0.88, 0.9), roughness=0.22, coat=0.6),
-            "Dark": make_material("PV_W_Dark", (0.03, 0.035, 0.045), metallic=0.4, roughness=0.4),
-            "Glow": make_material("PV_W_Glow", (0.45, 0.95, 1.0), emission=9.0),
+            "Shell": make_material("PV_W_Shell", (0.85, 0.88, 0.92), roughness=0.18, coat=0.6),
+            "Dark": make_material("PV_W_Dark", (0.02, 0.028, 0.045), metallic=0.4, roughness=0.4),
+            "Glow": make_material("PV_W_Glow", (0.1, 0.78, 1.0), emission=5.0),
             "Accent": make_material("PV_W_Accent", (1.0, 0.02, 0.02), emission=8.0),
         },
-        "scrap": {
-            "Shell": make_material("PV_S_Shell", (0.46, 0.40, 0.26), roughness=0.85, metallic=0.05),
-            "Dark": make_material("PV_S_Dark", (0.14, 0.145, 0.155), roughness=0.6, metallic=0.3),
-            "Glow": make_material("PV_S_Glow", (1.0, 0.55, 0.15), emission=9.0),
-            "Accent": make_material("PV_S_Accent", (0.6, 0.22, 0.07), roughness=0.75),
+        "human": {
+            "Shell": make_material("PV_H_Shell", (0.18, 0.27, 0.42), roughness=0.4, metallic=0.45),
+            "Dark": make_material("PV_H_Dark", (0.045, 0.05, 0.06), roughness=0.45, metallic=0.6),
+            "Glow": make_material("PV_H_Glow", (1.0, 0.5, 0.08), emission=5.0),
+            "Accent": make_material("PV_H_Accent", (0.95, 0.62, 0.03), roughness=0.5),
         },
     }
 

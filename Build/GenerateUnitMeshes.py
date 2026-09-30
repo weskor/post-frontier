@@ -1,21 +1,33 @@
-"""Generate the unit and HQ meshes for CoopRTS in Blender.
+"""Generate the unit and HQ meshes for CoopRTS in Blender (v3, StarCraft 2-style stylized sci-fi).
 
 Run headless from the repo root (Blender 5.2.1, no assets, no network, deterministic):
 
     blender -b --factory-startup -P Build/GenerateUnitMeshes.py
 
-Every mesh is built from bmesh primitives plus Bevel modifiers (applied) and joined into one
-object. Units are metres, +Z up, forward = +X. Ground units are centred on a capsule of radius
-0.34 m and half-height 0.60 m (ground contact at z = -0.60). HQs are 3.0 x 3.0 x 2.0 m boxes
-centred on the origin (base at z = -1.0). Budgets, asserted in check(): at most 12000 triangles per
-unit and 30000 per HQ; unit footprints stay inside +/-0.47 m (Siege +/-0.67 m) in X and Y. Detail
-comes from Frame / plate / seams / groove / vent / cable helpers on Model (panel breaks, bevelled
-plates, rivets, Glow seam grooves, hoses), not from noise.
+Art direction is Saved/AgentBriefs/sc2-style.md and Docs/World.md ("The Offline" = blue-collar sci-fi,
+"The Machine" = elegant pearl-white AI). Every mesh is built from bmesh primitives plus Bevel modifiers
+(applied) and joined into one object, then given smooth shading with weighted normals. Chamfered armour
+plates come from Model.armor (a box with a scaled / slid top face), panel breaks from Model.seams, hazard
+tape and lit windows from Model.hazard / Model.lamp, lenses from Model.lens. Units are metres, +Z up,
+forward = +X. Ground units are centred on a capsule of radius 0.34 m and half-height 0.60 m (ground
+contact at z = -0.60; the Machine Ranged drone hovers with its lowest point at z >= -0.35). HQs are
+3.0 x 3.0 m footprints centred on the origin (base at z = -1.0, top at most z = 1.8). Budgets, asserted in
+check(): at most 15000 triangles per unit and 35000 per HQ; unit footprints stay inside +/-0.47 m
+(Siege +/-0.67 m) in X and Y.
+
+The eight meshes
+    Machine (team 5): SOL 6000 (Frontline: pearl sentinel, floating shoulder shells, red lens), Autocomplete
+        Drone (Ranged: hovering pod, floating halo, cyan core), Hallucinator (Siege: quadruped with an
+        energy-prism lance), The Cluster (HQ: floating-segment monolith around one huge red lens).
+    Human (The Offline): Luddite (Frontline: power armour, riot shield, hydraulic sledgehammer), Offline
+        Ranger (Ranged: light armour, rail rifle, sensor backpack), Unplugger (Siege: mech walker with giant
+        bolt-cutter jaws), The Bunker (HQ: prefab command post on landing struts, blast doors, reactor stack).
 
 Outputs (relative to the repo root)
     Art/Units/SM_<Name>.fbx   one mesh object named SM_<Name> per file, exported at the origin
-    Art/Units/Units.blend     the same eight meshes spread along +X for editing (NOT at the origin;
-                              always export from this script, never from the .blend)
+    Art/Units/Units.blend     the same eight meshes in a row along +X for editing, wearing the preview
+                              palette as object-level material overrides (NOT at the origin; always export
+                              from this script, never from the .blend). Saved on every run.
     Art/Units/Preview.png     side view lineup (orthographic, camera looks along +Y, +X is right)
     Art/Units/PreviewRTS.png  the same lineup from a 50 degree pitch RTS camera (perspective, 25
                               degrees azimuth so unit fronts (+X) turn toward the camera)
@@ -29,15 +41,15 @@ Preview lineup order. Columns left to right: Frontline, Ranged, Siege, HQ. Machi
     Human:   SM_Human_Frontline,   SM_Human_Ranged,   SM_Human_Siege,   SM_Human_HQ
 
 Material slots, in this order on every mesh (all four are used by every mesh):
-    0 Team   player colour accent (Machine: lens eye plus a top-mounted status lamp or strips; Human:
-             painted stripe, shield band, shoulder plates, lid, flag, roof and parapet paint)
-    1 Shell  faction body
-    2 Dark   joints, weapons, underside
-    3 Glow   small emissive accents
+    0 Team   player colour: big painted plates (Human: pauldrons, pack lids, shield faces, roof plates,
+             door canopy, barrier caps; Machine: the red lens dome plus inlays on shells and crowns)
+    1 Shell  faction body (Human gunmetal / steel-blue, Machine pearl white)
+    2 Dark   joints, weapons, underside, panel-line beds
+    3 Glow   emissive accents (Human amber windows, exhausts and hazard-tape bars; Machine cyan seams and cores)
 The materials carry neutral colours; the preview renders swap in per-faction colours per object
-(Machine: red lens / white shell / cyan glow; Human: blue team paint / khaki shell / amber glow).
+(Machine: red lens / pearl shell / cyan glow; Human: blue team paint / steel-blue shell / amber glow).
 Human surface values are the HUMAN_* constants below and must equal FACTION_MATERIALS["Human"] in
-Build/ImportUnitMeshes.py.
+Build/ImportUnitMeshes.py; the MACHINE_* constants likewise for FACTION_MATERIALS["Machine"].
 
 FBX export axis settings (bpy.ops.export_scene.fbx). Blender's native forward='Y', up='Z' is an
 identity transform (vertices keep their Blender XYZ; +X forward stays +X) and writes the FBX
@@ -55,7 +67,6 @@ Unreal import: Import Uniform Scale 1, Convert Scene on (default), Force Front X
 """
 import math
 import os
-import random
 import sys
 
 import bmesh
@@ -71,8 +82,8 @@ OUT = os.path.join(ROOT, "Art", "Units")
 TEAM, SHELL, DARK, GLOW = range(4)
 SLOT_NAMES = ("Team", "Shell", "Dark", "Glow")
 FBX_AXES = dict(axis_forward="Y", axis_up="Z")
-TRI_BUDGET_UNIT = 12000   # triangles per unit mesh
-TRI_BUDGET_HQ = 30000     # triangles per HQ mesh
+TRI_BUDGET_UNIT = 15000   # triangles per unit mesh
+TRI_BUDGET_HQ = 35000     # triangles per HQ mesh
 FOOTPRINT_UNIT = 0.47     # max |x| or |y| in metres for units (the fixed footprint, +/-0.45 m plus bevels)
 FOOTPRINT_SIEGE = 0.67    # same for the two Siege units
 
@@ -137,11 +148,11 @@ class Model:
 
     # -- core -----------------------------------------------------------------------
     def add(self, kind, loc, dims, mat, rot=(0, 0, 0), aim=None, bevel=0.0, seg=2,
-            mirror=False, verts=16, taper=1.0):
+            mirror=False, verts=16, taper=1.0, skew=(0.0, 0.0)):
         for flip in ((False, True) if mirror else (False,)):
-            self._make(kind, loc, dims, mat, rot, aim, bevel, seg, flip, verts, taper)
+            self._make(kind, loc, dims, mat, rot, aim, bevel, seg, flip, verts, taper, skew)
 
-    def _make(self, kind, loc, dims, mat, rot, aim, bevel, seg, flip, verts, taper):
+    def _make(self, kind, loc, dims, mat, rot, aim, bevel, seg, flip, verts, taper, skew):
         loc = Vector(loc)
         if aim is not None:
             a = Vector(aim).normalized()
@@ -161,6 +172,13 @@ class Model:
         scale = Matrix.Diagonal((dims[0], dims[1], dims[2]))
         if kind == "box":
             bmesh.ops.create_cube(bm, size=1.0)
+        elif kind == "frust":  # box whose +Z face is scaled by taper (x, y) and slid by skew (cube fractions)
+            bmesh.ops.create_cube(bm, size=1.0)
+            tx, ty = taper if isinstance(taper, (tuple, list)) else (taper, taper)
+            for v in bm.verts:
+                if v.co.z > 0.0:
+                    v.co.x = v.co.x * tx + skew[0]
+                    v.co.y = v.co.y * ty + skew[1]
         elif kind == "cyl":  # axis along local X, +X end has radius * taper
             bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=verts,
                                   radius1=0.5, radius2=0.5 * taper, depth=1.0)
@@ -195,7 +213,7 @@ class Model:
             mod.width = width
             mod.segments = seg
             mod.limit_method = "ANGLE"
-            mod.angle_limit = math.radians(40.0)
+            mod.angle_limit = math.radians(30.0)
             bpy.context.view_layer.objects.active = obj
             with bpy.context.temp_override(object=obj, active_object=obj, selected_objects=[obj]):
                 bpy.ops.object.modifier_apply(modifier=mod.name)
@@ -203,6 +221,28 @@ class Model:
     # -- shape helpers --------------------------------------------------------------
     def box(self, loc, dims, mat, **kw):
         self.add("box", loc, dims, mat, **kw)
+
+    def armor(self, loc, dims, mat=SHELL, top=(0.8, 0.8), skew=(0.0, 0.0), bevel=0.03, seg=3, **kw):
+        """Chamfered armour plate: a box whose top face is scaled by `top` (x, y) and slid by `skew`."""
+        self.add("frust", loc, dims, mat, taper=top, skew=skew, bevel=bevel, seg=seg, **kw)
+
+    def hazard(self, loc, normal, along, length, height, n=5, mat=GLOW, **kw):
+        """Small hazard-tape patch on a surface: dark bed with slanted lit bars (amber Glow = hazard yellow)."""
+        f = Frame.surface(self, loc, normal, along)
+        f.box((0, 0, 0), (length, height, 0.012), DARK, **kw)
+        lean = math.radians(32)
+        margin = 0.5 * height * math.tan(lean)  # slanted bars must not overhang the bed
+        span = max(0.0, length - 2 * margin)
+        pitch = span / max(1, n - 1)
+        for i in range(n):
+            f.box((-span / 2 + pitch * i, 0, 0.006), (max(0.012, pitch * 0.4), height / math.cos(lean) * 0.98, 0.012),
+                  mat, rot=(0, 0, math.degrees(lean)), **kw)
+
+    def lamp(self, loc, normal, along, size, depth=0.05, mat=GLOW, **kw):
+        """Lit window or floodlight lens: dark hood block with a Glow face; size = (along, across)."""
+        f = Frame.surface(self, loc, normal, along)
+        f.box((0, 0, depth / 2), (size[0] * 1.12, size[1] * 1.12, depth), DARK, bevel=min(size) * 0.12, **kw)
+        f.box((0, 0, depth), (size[0] * 0.86, size[1] * 0.86, 0.012), mat, **kw)
 
     def sph(self, loc, dims, mat, **kw):
         self.add("sph", loc, dims, mat, **kw)
@@ -235,12 +275,6 @@ class Model:
         self.sph(c + a * h, (0.9 * r, 1.4 * r, 1.4 * r), TEAM, aim=a, verts=20)
 
     # -- detail helpers -------------------------------------------------------------
-    def groove(self, loc, length, normal, along, width=0.014, depth=0.012):
-        """Inlaid seam on a surface: dark bed with a lit Glow core. loc lies on the surface."""
-        f = Frame.surface(self, loc, normal, along)
-        f.box((0, 0, 0), (length + 2 * width, width * 3.2, depth), DARK)
-        f.box((0, 0, depth * 0.35), (length, width, depth), GLOW)
-
     def seams(self, loc, dims, mat, cuts, rot=(0, 0, 0), gap=0.02, depth=0.014, bevel=0.012,
               core=GLOW, **kw):
         """Shell block cut into bevelled plates by grooves. cuts = ((axis, fraction), ...) with the
@@ -269,36 +303,6 @@ class Model:
         for a, b in zip(pts, pts[1:]):
             self.rod(a, b, r, mat, verts=verts, **kw)
 
-    def plate(self, loc, normal, along, size, thick, mat, bevel=0.012, rivets=None, rivet_mat=DARK,
-              inset=0.03, r=0.011, **kw):
-        """Bolted scrap plate lying on a surface: size = (along, across), rivets = (nu, nv) border grid."""
-        f = Frame.surface(self, loc, normal, along)
-        f.box((0, 0, 0), (size[0], size[1], thick), mat, bevel=bevel, **kw)
-        if rivets:
-            f.rivets(size, z=thick / 2, nu=rivets[0], nv=rivets[1], inset=inset, r=r, mat=rivet_mat, **kw)
-        return f
-
-    def face(self, loc, dims, face, rot=(0, 0, 0)):
-        """Surface frame on one face ('+x' ... '-z') of a box centred at loc; returns (frame, (u, v))."""
-        R = Euler([math.radians(v) for v in rot], "XYZ").to_matrix()
-        axis = "xyz".index(face[1])
-        n = Vector((0.0, 0.0, 0.0))
-        n[axis] = 1.0 if face[0] == "+" else -1.0
-        if axis == 0:
-            along, size = (0, 0, 1), (dims[2], dims[1])
-        elif axis == 1:
-            along, size = (1, 0, 0), (dims[0], dims[2])
-        else:
-            along, size = (1, 0, 0), (dims[0], dims[1])
-        return Frame.surface(self, Vector(loc) + R @ (n * dims[axis] / 2), R @ n, R @ Vector(along)), size
-
-    def ring_rivets(self, c, radius, n, mat=DARK, r=0.011, phase=0.0):
-        """Rivet heads spaced around a vertical cylinder of the given radius centred on c."""
-        for k in range(n):
-            a = phase + 2.0 * math.pi * k / n
-            radial = Vector((math.cos(a), math.sin(a), 0.0))
-            Frame.surface(self, Vector(c) + radial * radius, radial, (0, 0, 1)).rivet((0, 0, 0), r=r, mat=mat)
-
     def lens(self, c, r, aim=(1, 0, 0), clamps=4, collar=0.5, ring_verts=28):
         """Machine lens housing: dark barrel, shell collar with clamp blocks, Glow ring, Team dome.
         `collar` is how far along the barrel (in barrel-length units) the collar and clamps sit."""
@@ -315,27 +319,6 @@ class Model:
             f = Frame.surface(self, c + a * (h * collar) + radial * (r * 1.02 + 0.012), radial, a)
             f.box((0, 0, 0), (h * 1.15, r * 0.36, 0.045), SHELL, bevel=0.01)
 
-    def wheel(self, loc, radius, width, lugs=16, lug=0.03, hub=SHELL):
-        """Tyre with chevron tread lugs, axis along Y. The lowest lug corner sits at exactly loc.z - radius."""
-        loc = Vector(loc)
-        self.ycyl(loc, width, 2 * (radius - lug * 0.6), DARK, bevel=0.03, verts=24)
-        tang = 2.0 * math.pi * radius / lugs * 0.5
-        tmax = 0.5 * tang * math.cos(math.radians(22)) + 0.46 * width * math.sin(math.radians(22))
-        angles = [2.0 * math.pi * k / lugs for k in range(lugs)]
-        # tilted lug corners reach lower than the lug face centre: pull the outer faces in so no corner
-        # dips below the ground plane and the lowest corner touches it exactly
-        rf = min((radius - tmax * abs(math.sin(a))) / math.cos(a) for a in angles if math.cos(a) > 0.05)
-        for k, th in enumerate(angles):
-            radial = Vector((math.sin(th), 0.0, -math.cos(th)))
-            f = Frame.surface(self, loc + radial * (rf - lug / 2), radial, (0, 1, 0))
-            f.box((0, 0, 0), (width * 0.92, tang, lug), DARK, rot=(0, 0, 22 if k % 2 else -22))
-        self.ycyl(loc, width + 0.03, radius * 0.95, hub, verts=14)
-        self.ycyl(loc, width + 0.05, radius * 0.5, DARK, verts=12)
-        for k in range(5):
-            th = 2.0 * math.pi * k / 5
-            self.ycyl(loc + Vector((math.sin(th), 0, math.cos(th))) * radius * 0.3, width + 0.07, 0.03,
-                      hub, verts=6)
-
     # -- finish ---------------------------------------------------------------------
     def finish(self):
         bpy.ops.object.select_all(action="DESELECT")
@@ -347,11 +330,14 @@ class Model:
         obj.name = self.name
         obj.data.name = self.name
         bpy.ops.object.shade_smooth_by_angle(angle=math.radians(38.0))
+        # weighted normals: big faces dominate the vertex normal, so chamfers stay crisp and panels stay flat
+        mod = obj.modifiers.new("WeightedNormal", "WEIGHTED_NORMAL")
+        mod.mode = "FACE_AREA"
+        mod.weight = 60
+        mod.keep_sharp = True
+        with bpy.context.temp_override(object=obj, active_object=obj, selected_objects=[obj]):
+            bpy.ops.object.modifier_apply(modifier=mod.name)
         return obj
-
-
-def local_point(loc, rot, offset):
-    return Vector(loc) + Euler([math.radians(v) for v in rot], "XYZ").to_matrix() @ Vector(offset)
 
 
 class Frame:
@@ -390,6 +376,10 @@ class Frame:
     def sph(self, off, dims, mat, **kw):
         self.m.add("sph", self.p(off), dims, mat, rot=self.R, **kw)
 
+    def armor(self, off, dims, mat=SHELL, top=(0.8, 0.8), skew=(0.0, 0.0), bevel=0.03, seg=3, rot=None, **kw):
+        R = self.R if rot is None else self.R @ Euler([math.radians(v) for v in rot], "XYZ").to_matrix()
+        self.m.add("frust", self.p(off), dims, mat, rot=R, taper=top, skew=skew, bevel=bevel, seg=seg, **kw)
+
     def rivet(self, off, r=0.011, mat=DARK, axis=(0, 0, 1), **kw):
         n = Vector(axis).normalized()
         self.m.add("cyl", self.p(off) + self.d(n * r * 0.3), (r, 2 * r, 2 * r), mat, aim=self.d(n),
@@ -415,694 +405,518 @@ class Frame:
 
 
 # --------------------------------------------------------------------------------------
-# Machine units: symmetric, glossy white shells, one lens eye, cyan-white seams
+# Machine units: symmetric pearl-white shells, floating segments, cyan seams, one red lens
 # --------------------------------------------------------------------------------------
 def machine_frontline(mats):
     m = Model("SM_Machine_Frontline", mats)
-    y = 0.19
-    # feet: dark tread sole, shell boot, toe cap, heel block, Glow edge seam
-    m.box((0.05, y, -0.5875), (0.44, 0.28, 0.025), DARK, mirror=True)
-    m.box((0.05, y, -0.525), (0.44, 0.28, 0.10), SHELL, bevel=0.035, mirror=True)
-    m.box((0.20, y, -0.475), (0.15, 0.24, 0.05), SHELL, rot=(0, -12, 0), bevel=0.02, mirror=True)
-    m.box((-0.11, y, -0.47), (0.13, 0.24, 0.06), SHELL, bevel=0.02, mirror=True)
-    m.box((0.05, y + 0.142, -0.525), (0.36, 0.008, 0.018), GLOW, mirror=True)
-    # ankle, shin plates cut by a Glow seam, shin guard, rear vents, hydraulic piston
-    m.vcyl((0.0, y, -0.44), 0.10, 0.17, DARK, mirror=True)
-    m.seams((0.0, y, -0.30), (0.30, 0.26, 0.26), SHELL, ((2, 0.4),), bevel=0.025, mirror=True)
-    m.box((0.155, y, -0.29), (0.04, 0.19, 0.20), SHELL, rot=(0, -7, 0), bevel=0.015, mirror=True)
-    for dz in (-0.05, 0.0, 0.05):
-        m.box((-0.155, y, -0.30 + dz), (0.014, 0.17, 0.02), DARK, mirror=True)
-    m.rod((-0.17, y, -0.46), (-0.19, y, -0.14), 0.02, DARK, mirror=True)
-    m.rod((-0.17, y, -0.46), (-0.18, y, -0.32), 0.032, SHELL, mirror=True)
-    # knee: dark joint, shell cap with Glow slit
-    m.sph((0.0, y, -0.14), (0.24, 0.24, 0.24), DARK, mirror=True)
-    m.box((0.10, y, -0.14), (0.07, 0.17, 0.13), SHELL, bevel=0.03, mirror=True)
-    m.box((0.138, y, -0.14), (0.01, 0.10, 0.02), GLOW, mirror=True)
-    # hips: three plates, front skirt, side plates, dark waist ring
-    m.seams((0.0, 0.0, -0.10), (0.34, 0.50, 0.14), SHELL, ((1, 0.33), (1, 0.67)), bevel=0.03)
-    m.box((0.185, 0.0, -0.14), (0.05, 0.32, 0.12), SHELL, rot=(0, 12, 0), bevel=0.02)
-    m.box((0.0, 0.265, -0.09), (0.22, 0.05, 0.12), SHELL, bevel=0.02, mirror=True)
-    m.box((0.0, 0.0, -0.02), (0.42, 0.46, 0.03), DARK)
-    # rounded-box torso, belt band with lit ring, flank plates, side vents, chest lens
-    m.box((0.0, 0.0, 0.20), (0.50, 0.58, 0.50), SHELL, bevel=0.10, seg=3)
-    m.box((0.0, 0.0, 0.06), (0.53, 0.61, 0.045), SHELL, bevel=0.015)
-    m.box((0.0, 0.0, 0.094), (0.52, 0.60, 0.014), GLOW)
+    # slender legs: pointed foot, ankle ball, pearl shin spindle with floating greave blade, ringed knee, thigh shell
     for s in (1, -1):
-        m.box((0.265, 0.27 * s, 0.24), (0.06, 0.12, 0.32), SHELL, rot=(0, -6, 0), bevel=0.025, seg=2)
-        m.groove((0.298, 0.27 * s, 0.24), 0.24, (1, 0, 0), (0, 0, 1))
-    Frame.surface(m, (0.0, 0.295, 0.20), (0, 1, 0), (1, 0, 0)).vent((0, 0, 0), (0.24, 0.20), slats=5, mirror=True)
-    m.lens((0.20, 0.0, 0.30), 0.19, aim=(1, 0, 0.7))
-    # head module: neck, crown plate, Team status bar, Glow visor slit, ear pods
-    m.vcyl((0.0, 0.0, 0.445), 0.06, 0.16, DARK)
-    m.box((0.0, 0.0, 0.52), (0.30, 0.36, 0.14), SHELL, bevel=0.05)
-    m.box((0.155, 0.0, 0.53), (0.02, 0.24, 0.03), GLOW)
-    m.box((-0.005, 0.0, 0.595), (0.24, 0.30, 0.025), SHELL, bevel=0.01)
-    m.box((0.03, 0.0, 0.6125), (0.12, 0.20, 0.012), TEAM)
-    m.ycyl((0.0, 0.205, 0.52), 0.05, 0.12, DARK, mirror=True)
-    m.ycyl((0.0, 0.23, 0.52), 0.02, 0.06, GLOW, mirror=True)
-    # heavy layered shoulder plates, guard wing, dark ball joints
-    m.box((0.0, 0.325, 0.46), (0.36, 0.22, 0.14), SHELL, rot=(-14, 0, 0), bevel=0.05, mirror=True)
-    m.box((0.0, 0.325, 0.535), (0.26, 0.03, 0.015), GLOW, rot=(-14, 0, 0), mirror=True)
-    m.box((0.0, 0.425, 0.40), (0.30, 0.04, 0.16), SHELL, rot=(-14, 0, 0), bevel=0.02, mirror=True)
-    m.sph((0.0, 0.365, 0.32), (0.20, 0.20, 0.20), DARK, mirror=True)
-    # arms: dark core, armour sleeve, Glow ring, piston, fist with finger grooves and knuckle guard
-    m.vcyl((0.02, 0.375, 0.15), 0.30, 0.13, DARK, mirror=True)
-    m.vcyl((0.02, 0.375, 0.20), 0.15, 0.165, SHELL, verts=14, mirror=True)
-    m.tor((0.02, 0.375, 0.115), 0.075, 0.009, GLOW, verts=16, mirror=True)
-    m.rod((0.105, 0.375, 0.02), (0.105, 0.375, 0.30), 0.016, DARK, mirror=True)
-    m.rod((0.105, 0.375, 0.16), (0.105, 0.375, 0.30), 0.024, SHELL, mirror=True)
-    m.box((0.08, 0.375, -0.04), (0.20, 0.16, 0.20), SHELL, bevel=0.04, mirror=True)
-    for dy in (-0.045, 0.0, 0.045):
-        m.box((0.182, 0.375 + dy, -0.06), (0.008, 0.006, 0.15), DARK, mirror=True)
-    m.box((0.18, 0.375, 0.03), (0.03, 0.14, 0.05), SHELL, bevel=0.01, mirror=True)
-    # power pack: two plates, cooling fins, exhaust nozzles, cables to the shoulders
-    m.seams((-0.30, 0.0, 0.22), (0.14, 0.34, 0.30), SHELL, ((2, 0.5),), bevel=0.03)
-    for i in range(4):
-        m.box((-0.385, 0.0, 0.11 + 0.055 * i), (0.03, 0.30, 0.02), SHELL, bevel=0.006)
-    m.cyl((-0.33, 0.10, 0.41), (0.10, 0.07, 0.07), DARK, aim=(-0.3, 0, 1), mirror=True)
-    m.cyl((-0.345, 0.10, 0.455), (0.02, 0.055, 0.055), GLOW, aim=(-0.3, 0, 1), mirror=True)
-    m.cable((-0.30, 0.10, 0.37), (-0.15, 0.31, 0.33), (-0.03, 0.36, 0.34), 0.012, mirror=True)
+        y = 0.13 * s
+        m.armor((0.05, y, -0.555), (0.34, 0.15, 0.09), SHELL, top=(0.5, 0.8), skew=(-0.16, 0.0), bevel=0.035)
+        m.sph((-0.04, y, -0.49), (0.11, 0.11, 0.11), DARK, verts=12)
+        m.sph((-0.03, y, -0.39), (0.15, 0.13, 0.25), SHELL, verts=20)
+        m.armor((0.085, y, -0.37), (0.05, 0.09, 0.20), SHELL, top=(0.35, 0.7), skew=(-0.2, 0.0), bevel=0.012, seg=2)
+        m.sph((0.0, y, -0.255), (0.11, 0.11, 0.11), DARK, verts=12)
+        m.tor((0.0, y, -0.255), 0.07, 0.009, GLOW, aim=(0, 1, 0), verts=20)
+        m.sph((0.01, y, -0.125), (0.18, 0.15, 0.24), SHELL, verts=20)
+        m.box((0.09, y, -0.125), (0.008, 0.02, 0.15), GLOW)
+    # floating pelvis, waist ring, tapered chest with a cyan core, floating chest plate
+    m.armor((0.0, 0.0, 0.03), (0.26, 0.32, 0.09), SHELL, top=(1.1, 1.0), bevel=0.035)
+    m.vcyl((0.0, 0.0, 0.095), 0.05, 0.14, DARK)
+    m.tor((0.0, 0.0, 0.095), 0.078, 0.009, GLOW, verts=24)
+    m.armor((0.02, 0.0, 0.245), (0.30, 0.32, 0.26), SHELL, top=(1.05, 1.5), bevel=0.06)
+    m.armor((0.20, 0.0, 0.25), (0.06, 0.30, 0.20), SHELL, top=(0.4, 0.8), bevel=0.02, seg=3)
+    m.tor((0.185, 0.0, 0.24), 0.062, 0.012, DARK, aim=(1, 0, 0), verts=20)
+    m.sph((0.19, 0.0, 0.24), (0.09, 0.09, 0.09), GLOW, verts=12)
+    for s in (1, -1):
+        m.box((0.10, 0.16 * s, 0.33), (0.10, 0.008, 0.012), GLOW)
+    # head: elongated pearl helm with the single red lens, swept crest, halo ring
+    m.vcyl((0.0, 0.0, 0.395), 0.05, 0.08, DARK)
+    m.sph((0.02, 0.0, 0.48), (0.26, 0.19, 0.17), SHELL, verts=20)
+    m.lens((0.115, 0.0, 0.48), 0.082, aim=(1, 0, 0), clamps=4)
+    m.armor((-0.06, 0.0, 0.575), (0.30, 0.03, 0.06), SHELL, top=(0.35, 1.0), skew=(-0.25, 0.0), bevel=0.01, seg=2)
+    m.tor((-0.14, 0.0, 0.48), 0.15, 0.010, GLOW, aim=(1, 0, 0), verts=32)
+    # big floating shoulder shells: red inlays, glowing joints, swept crystal blades
+    for s in (1, -1):
+        m.sph((0.0, 0.27 * s, 0.27), (0.11, 0.11, 0.11), DARK, verts=12)
+        m.tor((0.0, 0.285 * s, 0.31), 0.06, 0.008, GLOW, verts=20)
+    f = Frame(m, (0.0, 0.29, 0.36), rot=(-22, 0, 0))
+    f.sph((0, 0, 0), (0.40, 0.27, 0.15), SHELL, verts=24, mirror=True)
+    f.sph((0, 0, -0.075), (0.28, 0.19, 0.06), SHELL, verts=16, mirror=True)
+    f.armor((0.01, 0, 0.066), (0.24, 0.15, 0.03), TEAM, top=(0.7, 0.7), bevel=0.012, seg=2, mirror=True)
+    m.armor((-0.10, 0.33, 0.47), (0.06, 0.06, 0.20), SHELL, top=(0.3, 0.5), rot=(-14, -12, 0), bevel=0.01, seg=2,
+            mirror=True)
+    # arms: upper sleeve, three floating forearm segments strung on a Glow core, hovering fist
+    for s in (1, -1):
+        a, e, h = Vector((0, 0.27 * s, 0.26)), Vector((0.02, 0.34 * s, 0.10)), Vector((0.16, 0.36 * s, -0.12))
+        m.rod(a, e, 0.038, SHELL, verts=10)
+        m.sph(e, (0.08, 0.08, 0.08), DARK, verts=10)
+        m.rod(e, h, 0.016, GLOW, verts=8)
+        for t, w in ((0.25, 0.09), (0.52, 0.085), (0.78, 0.075)):
+            m.sph(e.lerp(h, t), (0.12, w, w), SHELL, aim=h - e, verts=14)
+        m.armor(h + Vector((0.02, 0, -0.035)), (0.13, 0.11, 0.13), SHELL, top=(0.8, 0.8), bevel=0.03)
+    # swept back fins and rear power crystal
+    m.armor((-0.23, 0.11, 0.22), (0.04, 0.15, 0.44), SHELL, top=(0.5, 0.6), rot=(0, -22, 0), bevel=0.012, seg=2,
+            mirror=True)
+    m.box((-0.245, 0.11, 0.22), (0.012, 0.03, 0.30), GLOW, rot=(0, -22, 0), mirror=True)
+    m.sph((-0.19, 0.0, 0.22), (0.10, 0.10, 0.10), GLOW, verts=10)
     return m.finish()
 
 
 def machine_ranged(mats):
     m = Model("SM_Machine_Ranged", mats)
-    m.sph((0.0, 0.0, 0.18), (0.62, 0.46, 0.46), SHELL, verts=24)
-    for x, r in ((-0.03, 0.233), (0.12, 0.216), (-0.17, 0.197)):  # Glow seam rings around the hull
-        m.tor((x, 0.0, 0.18), r, 0.012, GLOW, rot=(0, 90, 0), verts=28)
-
-    def on_hull(x, y):  # point and outward normal on the ellipsoid hull
-        z = 0.23 * math.sqrt(max(0.0, 1.0 - (x / 0.31) ** 2 - (y / 0.23) ** 2))
-        return Vector((x, y, 0.18 + z)), Vector((x / 0.31 ** 2, y / 0.23 ** 2, z / 0.23 ** 2))
-
-    # layered shell pads on the upper hull, carapace disc with Team lamp
-    for ang in (50, 130, 230, 310):
-        c, s = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-        p, n = on_hull(0.19 * c, 0.15 * s)
-        Frame.surface(m, p, n, (-s, c, 0)).sph((0, 0, -0.012), (0.20, 0.14, 0.07), SHELL, verts=12)
-    m.vcyl((0.02, 0.0, 0.405), 0.03, 0.26, SHELL, taper=0.9, verts=24, bevel=0.01)
-    m.vcyl((0.02, 0.0, 0.424), 0.012, 0.21, TEAM, verts=24)
-    # glowing underside with stabiliser fins
-    m.vcyl((0.0, 0.0, -0.12), 0.16, 0.30, DARK, taper=0.6)
-    m.vcyl((0.0, 0.0, -0.235), 0.05, 0.19, GLOW)
-    m.sph((0.0, 0.0, -0.27), (0.2, 0.2, 0.11), GLOW)
-    for ang in (90, 210, 330):
-        c, s = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-        f = Frame.surface(m, (0.17 * c, 0.17 * s, -0.12), (-s, c, 0), (c, s, 0))
-        f.box((0, 0, 0), (0.17, 0.11, 0.024), SHELL, bevel=0.008)
-    # halo ring held off the body by spokes, with clamp blocks
-    m.tor((0.0, 0.0, 0.235), 0.40, 0.028, SHELL, verts=40)
-    m.tor((0.0, 0.0, 0.125), 0.40, 0.028, SHELL, verts=40)
-    m.tor((0.0, 0.0, 0.18), 0.395, 0.02, GLOW, verts=40)
-    for ang in (55, 125, 235, 305):
-        c, s = math.cos(math.radians(ang)), math.sin(math.radians(ang))
-        m.rod((0.2 * c, 0.2 * s, 0.18), (0.40 * c, 0.40 * s, 0.18), 0.018, DARK, verts=8)
+    # pearl pod hull with floating carapace plates, red status inlay and a dorsal fin
+    m.sph((0.0, 0.0, 0.12), (0.60, 0.42, 0.32), SHELL, verts=28)
+    m.armor((0.0, 0.0, 0.30), (0.36, 0.28, 0.04), SHELL, top=(0.85, 0.85), bevel=0.014, seg=3)
+    m.armor((0.04, 0.0, 0.335), (0.22, 0.16, 0.02), TEAM, top=(0.85, 0.85), bevel=0.008, seg=2)
+    m.armor((-0.06, 0.0, 0.41), (0.26, 0.03, 0.16), SHELL, top=(0.55, 1.0), skew=(-0.1, 0.0), bevel=0.012, seg=2)
+    m.box((-0.06, 0.017, 0.42), (0.18, 0.006, 0.012), GLOW, mirror=True)
+    m.rod((-0.12, 0.0, 0.48), (-0.15, 0.0, 0.63), 0.008, SHELL, verts=6)
+    m.sph((-0.15, 0.0, 0.64), (0.035, 0.035, 0.035), GLOW, verts=8)
+    # equatorial seam and the cyan belly core in a cradle with a visible gap
+    m.tor((0.0, 0.0, 0.10), 0.262, 0.009, GLOW, verts=32)
+    m.vcyl((0.0, 0.0, -0.065), 0.05, 0.24, DARK, taper=0.75, verts=20)
+    m.sph((0.0, 0.0, -0.14), (0.22, 0.22, 0.22), GLOW, verts=16)
+    # halo: eight floating pearl arcs around a lit inner ring, held off the hull
+    m.tor((0.0, 0.0, 0.12), 0.335, 0.008, GLOW, verts=48)
     for k in range(8):
-        ang = math.radians(45.0 * k + 22.5)
-        c, s = math.cos(ang), math.sin(ang)
-        Frame.surface(m, (0.40 * c, 0.40 * s, 0.18), (c, s, 0), (0, 0, 1)).box(
-            (0, 0, 0), (0.135, 0.07, 0.05), DARK, bevel=0.01)
-    # lens eye and twin emitter prongs with mounts and coils
-    m.lens((0.22, 0.0, 0.23), 0.15, aim=(1, 0, 0.6))
-    m.box((0.2, 0.13, 0.07), (0.12, 0.08, 0.10), SHELL, bevel=0.02, mirror=True)
-    m.cyl((0.29, 0.13, 0.06), (0.14, 0.10, 0.10), SHELL, verts=12, mirror=True)
-    m.rod((0.22, 0.13, 0.06), (0.42, 0.13, 0.06), 0.034, DARK, verts=10, mirror=True)
-    for x in (0.37, 0.395):
-        m.cyl((x, 0.13, 0.06), (0.014, 0.085, 0.085), DARK, verts=12, mirror=True)
-    m.sph((0.425, 0.13, 0.06), (0.09, 0.09, 0.09), GLOW, verts=10, mirror=True)
-    # top fin with mast, rear exhaust and stabiliser blades
-    m.box((-0.03, 0.0, 0.47), (0.30, 0.045, 0.10), SHELL, bevel=0.015)
-    m.box((-0.06, 0.0, 0.545), (0.20, 0.04, 0.06), SHELL, bevel=0.012)
-    m.box((-0.09, 0.0, 0.60), (0.10, 0.035, 0.05), SHELL, bevel=0.01)
-    m.box((-0.04, 0.026, 0.50), (0.20, 0.006, 0.012), GLOW, mirror=True)
-    m.box((0.06, 0.0, 0.47), (0.07, 0.06, 0.03), DARK)
-    m.rod((0.07, 0.0, 0.52), (0.07, 0.0, 0.60), 0.008, DARK, verts=6)
-    m.sph((0.07, 0.0, 0.605), (0.05, 0.05, 0.05), GLOW, verts=8)
-    m.cyl((-0.325, 0.0, 0.16), (0.08, 0.16, 0.16), DARK)
-    m.cyl((-0.362, 0.0, 0.16), (0.02, 0.12, 0.12), GLOW)
-    m.box((-0.29, 0.13, 0.17), (0.15, 0.02, 0.15), SHELL, rot=(0, 0, 14), bevel=0.008, mirror=True)
+        a = math.radians(45 * k + 22.5)
+        c, s = math.cos(a), math.sin(a)
+        f = Frame.surface(m, Vector((0.375 * c, 0.375 * s, 0.12)), (c, s, 0), (-s, c, 0))
+        f.armor((0, 0, 0), (0.27, 0.09, 0.05), SHELL, top=(0.95, 0.85), bevel=0.02, seg=3)
+    # three underside thrusters set the hover height (lowest tip about -0.325)
+    for k in range(3):
+        a = math.radians(120 * k + 90)
+        c, s = math.cos(a), math.sin(a)
+        m.vcyl((0.17 * c, 0.17 * s, -0.15), 0.12, 0.10, DARK, taper=0.55, verts=14)
+        m.vcyl((0.17 * c, 0.17 * s, -0.315), 0.02, 0.055, GLOW, verts=12)
+    # red lens and a long crystal prism emitter between floating focus rings
+    m.lens((0.25, 0.0, 0.16), 0.13, aim=(1, 0, 0.12), clamps=4)
+    m.cyl((0.30, 0.0, 0.01), (0.32, 0.07, 0.07), GLOW, verts=6, taper=0.5)
+    for x, r in ((0.19, 0.055), (0.29, 0.05), (0.38, 0.045)):
+        m.tor((x, 0.0, 0.01), r + 0.012, 0.009, SHELL, aim=(1, 0, 0), verts=18)
+    m.cyl((0.13, 0.0, 0.01), (0.06, 0.11, 0.11), DARK, verts=10)
+    # rear exhaust and swept side blades
+    m.cyl((-0.30, 0.0, 0.12), (0.06, 0.15, 0.15), DARK, verts=16)
+    m.cyl((-0.335, 0.0, 0.12), (0.02, 0.11, 0.11), GLOW, verts=16)
+    m.armor((-0.10, 0.27, 0.10), (0.26, 0.11, 0.025), SHELL, top=(0.8, 0.5), rot=(0, 0, -14), bevel=0.008, seg=2,
+            mirror=True)
     return m.finish()
 
 
 def machine_siege(mats):
     m = Model("SM_Machine_Siege", mats)
-    # hull: lower slab cut into plates by Glow seams, upper hull with a centre seam, vents
-    m.seams((0.0, 0.0, -0.20), (0.78, 0.60, 0.20), SHELL, ((0, 0.36), (0, 0.64)), bevel=0.04, seg=2)
-    m.box((0.0, 0.0, -0.32), (0.60, 0.44, 0.06), DARK)
-    m.seams((-0.05, 0.0, 0.0), (0.50, 0.42, 0.24), SHELL, ((1, 0.5),), bevel=0.06, seg=2)
-    m.groove((0.392, 0.0, -0.20), 0.30, (1, 0, 0), (0, 1, 0))
-    Frame.surface(m, (-0.30, 0.0, 0.0), (-1, 0, 0), (0, 1, 0)).vent((0, 0, 0), (0.28, 0.10), slats=4)
-    Frame.surface(m, (-0.05, 0.21, 0.0), (0, 1, 0), (1, 0, 0)).vent((0, 0, 0), (0.26, 0.12), slats=4, mirror=True)
-    Frame.surface(m, (-0.05, 0.302, -0.20), (0, 1, 0), (1, 0, 0)).vent((0, 0, 0), (0.30, 0.08), slats=3, mirror=True)
+    # sleek pearl body, floating dorsal plates, glowing seam rings, red lens head
+    m.sph((-0.02, 0.0, 0.10), (0.70, 0.34, 0.24), SHELL, verts=28)
+    m.armor((-0.14, 0.0, 0.225), (0.36, 0.22, 0.045), SHELL, top=(0.85, 0.8), bevel=0.014, seg=3)
+    m.armor((-0.18, 0.0, 0.258), (0.24, 0.16, 0.022), TEAM, top=(0.85, 0.85), bevel=0.008, seg=2)
+    m.armor((0.10, 0.0, 0.245), (0.16, 0.17, 0.03), SHELL, top=(0.85, 0.85), bevel=0.012, seg=2)
+    m.tor((0.0, 0.0, 0.10), 0.125, 0.009, GLOW, aim=(1, 0, 0), verts=24)
+    m.tor((-0.17, 0.0, 0.10), 0.145, 0.009, GLOW, aim=(1, 0, 0), verts=24)
+    m.lens((0.30, 0.0, 0.10), 0.115, aim=(1, 0, 0.1), clamps=4)
+    # long energy-prism lance: two counter-rotated hex crystals in a floating pearl cradle
+    m.cyl((0.27, 0.0, 0.34), (0.72, 0.11, 0.11), GLOW, verts=6, aim=(1, 0, 0.03), taper=0.45)
+    m.cyl((0.24, 0.0, 0.34), (0.50, 0.15, 0.15), GLOW, verts=6, aim=(1, 0, 0.03), taper=0.6, rot=(30, 0, 0))
+    m.cyl((0.605, 0.0, 0.35), (0.08, 0.05, 0.05), GLOW, verts=6, aim=(1, 0, 0.03), taper=0.1)
+    m.armor((-0.06, 0.0, 0.34), (0.14, 0.20, 0.14), SHELL, top=(0.9, 0.85), bevel=0.03)
+    for x in (0.08, 0.26, 0.44):
+        m.tor((x, 0.0, 0.34 + (x - 0.26) * 0.03), 0.105, 0.013, SHELL, aim=(1, 0, 0.03), verts=18)
     for s in (1, -1):
-        m.box((-0.06, 0.185 * s, 0.122), (0.34, 0.04, 0.012), TEAM)
-    # long forward barrel: breech shroud, recoil pistons, coil rings, dish and prism emitter
-    m.cyl((0.22, 0.0, 0.0), (0.20, 0.22, 0.22), SHELL, verts=20)
-    m.cyl((0.38, 0.0, 0.0), (0.34, 0.11, 0.11), SHELL, verts=16)
-    for x in (0.30, 0.42):
-        m.cyl((x, 0.0, 0.0), (0.03, 0.145, 0.145), DARK, verts=16)
-    for x in (0.48, 0.51):
-        m.cyl((x, 0.0, 0.0), (0.012, 0.128, 0.128), GLOW, verts=16)
-    for i in range(3):
-        m.box((0.16 + 0.05 * i, 0.0, 0.108), (0.03, 0.05, 0.012), DARK)
-    m.rod((0.20, 0.135, 0.0), (0.45, 0.135, 0.0), 0.018, DARK, verts=8, mirror=True)
-    m.rod((0.20, 0.135, 0.0), (0.32, 0.135, 0.0), 0.028, SHELL, verts=8, mirror=True)
-    m.cyl((0.575, 0.0, 0.0), (0.10, 0.10, 0.10), SHELL, verts=24, taper=3.0)
-    m.cyl((0.622, 0.0, 0.0), (0.012, 0.27, 0.27), GLOW, verts=24)
-    m.cyl((0.625, 0.0, 0.0), (0.08, 0.07, 0.07), GLOW, verts=3)
-    m.lens((-0.02, 0.0, 0.08), 0.15, aim=(0.35, 0, 1))
-    # four splayed legs: ball hip, armoured upper leg, hydraulic piston, Glow bands, knee, foot
+        m.rod((-0.06, 0.10 * s, 0.32), (0.12, 0.10 * s, 0.24), 0.018, SHELL, verts=8)
+    # four long pearl legs: ball hip, thigh spindle, ringed knee, tapered shin, hoof
     for sx in (1, -1):
-        a = Vector((0.26 * sx, 0.30, -0.20))
-        b = Vector((0.44 * sx, 0.52, -0.12))
-        c = Vector((0.48 * sx, 0.55, -0.55))
-        m.sph(a, (0.18, 0.18, 0.18), DARK, mirror=True)
-        m.rod(a, b, 0.06, SHELL, mirror=True)
-        m.rod(a.lerp(b, 0.25), a.lerp(b, 0.62), 0.078, SHELL, verts=12, bevel=0.01, mirror=True)
-        m.rod(a + Vector((0, 0, 0.10)), b + Vector((0, 0, 0.09)), 0.018, DARK, verts=8, mirror=True)
-        m.rod(a + Vector((0, 0, 0.10)), a.lerp(b, 0.5) + Vector((0, 0, 0.095)), 0.03, SHELL, verts=8,
-              mirror=True)
-        m.sph(b, (0.15, 0.15, 0.15), SHELL, mirror=True)
-        m.rod(b, c, 0.05, DARK, r1=0.038, mirror=True)
-        for t, r in ((0.3, 0.055), (0.7, 0.049)):
-            m.rod(b.lerp(c, t), b.lerp(c, t + 0.035), r, GLOW, verts=12, mirror=True)
-        m.vcyl((0.48 * sx, 0.55, -0.575), 0.05, 0.18, DARK, mirror=True)
-        m.vcyl((0.48 * sx, 0.55, -0.545), 0.03, 0.14, SHELL, taper=0.85, verts=14, mirror=True)
-        m.tor((0.48 * sx, 0.55, -0.56), 0.087, 0.006, GLOW, verts=16, mirror=True)
-    return m.finish()
-
-
-# --------------------------------------------------------------------------------------
-# Human units: scrappy, asymmetric, khaki / gunmetal plates, amber lamps
-# --------------------------------------------------------------------------------------
-def human_frontline(mats):
-    m = Model("SM_Human_Frontline", mats)
-    # boots (lugged soles, toe caps, straps), legs, shin guards and knee pads bolted on at odd angles
-    for s in (1, -1):
-        y = 0.115 * s
-        m.box((0.04, y, -0.5275), (0.27, 0.15, 0.105), DARK, bevel=0.03)
-        m.box((0.04, y, -0.585), (0.29, 0.16, 0.01), SHELL)
-        for i in range(5):
-            m.box((-0.06 + 0.06 * i, y, -0.595), (0.03, 0.155, 0.01), DARK)
-        m.box((0.155, y, -0.52), (0.09, 0.15, 0.08), SHELL, bevel=0.025)
-        m.box((0.0, y, -0.34), (0.19, 0.15, 0.30), SHELL, bevel=0.03)
-        m.box((0.0, y, -0.45), (0.21, 0.17, 0.03), DARK, bevel=0.008)
-    m.plate((0.105, 0.115, -0.36), (1, 0, 0), (0, 0, 1), (0.17, 0.11), 0.03, DARK, rivets=(2, 2), rivet_mat=SHELL)
-    m.plate((0.105, -0.115, -0.385), (1, 0.03, 0.06), (0, 0, 1), (0.13, 0.11), 0.03, DARK, rivets=(2, 2),
-            rivet_mat=SHELL)
-    m.plate((0.11, 0.115, -0.235), (1, 0, 0), (0, 0, 1), (0.10, 0.13), 0.04, DARK, bevel=0.015,
-            rivets=(2, 2), rivet_mat=SHELL)
-    m.plate((0.105, -0.12, -0.25), (1, -0.1, -0.12), (0, 0, 1), (0.11, 0.12), 0.04, DARK, bevel=0.015,
-            rivets=(2, 2), rivet_mat=SHELL)
-    # belt with buckle, flapped pouches, belt lamp, tool roll strapped across the back
-    m.box((0.0, 0.0, -0.12), (0.30, 0.36, 0.10), DARK, bevel=0.02)
-    m.plate((0.155, 0.0, -0.12), (1, 0, 0), (0, 0, 1), (0.075, 0.085), 0.02, SHELL, bevel=0.008)
-    m.box((0.14, 0.15, -0.135), (0.09, 0.08, 0.09), SHELL, rot=(0, 0, 8), bevel=0.015)
-    m.box((0.145, 0.15, -0.085), (0.10, 0.085, 0.03), DARK, rot=(0, 0, 8), bevel=0.01)
-    m.box((0.06, -0.19, -0.135), (0.10, 0.06, 0.09), SHELL, rot=(0, 0, -10), bevel=0.015)
-    m.box((0.065, -0.19, -0.085), (0.11, 0.065, 0.03), DARK, rot=(0, 0, -10), bevel=0.01)
-    m.box((0.12, -0.05, -0.12), (0.05, 0.05, 0.05), DARK)
-    m.sph((0.15, -0.05, -0.12), (0.07, 0.07, 0.07), GLOW, verts=8)
-    m.ycyl((-0.19, 0.0, -0.09), 0.30, 0.10, SHELL, verts=12)
-    for y in (-0.10, 0.10):
-        m.ycyl((-0.19, y, -0.09), 0.03, 0.112, DARK, verts=12)
-    for y in (-0.15, 0.15):
-        m.ycyl((-0.19, y, -0.09), 0.012, 0.105, DARK, verts=12)
-    # torso, riveted scrap chest plate, tape band
-    m.box((0.0, 0.0, 0.11), (0.32, 0.42, 0.44), SHELL, bevel=0.05)
-    m.box((0.175, -0.01, 0.15), (0.05, 0.32, 0.28), DARK, rot=(0, 0, 3), bevel=0.012)
-    Frame.surface(m, (0.20, -0.01, 0.15), (1, 0, 0), (0, 0, 1)).rivets((0.28, 0.30), nu=3, nv=3, inset=0.035,
-                                                                        mat=SHELL)
-    m.box((0.0, 0.0, 0.02), (0.34, 0.44, 0.05), SHELL, bevel=0.01)
-    # backpack with rear plate, Team lid stripe and an exhaust stack with rust bands
-    m.box((-0.215, 0.0, 0.12), (0.13, 0.30, 0.34), DARK, bevel=0.03)
-    m.plate((-0.283, 0.0, 0.12), (-1, 0, 0), (0, 0, 1), (0.26, 0.24), 0.02, SHELL, bevel=0.008, rivets=(3, 3))
-    m.box((-0.215, 0.0, 0.305), (0.13, 0.28, 0.03), SHELL, bevel=0.01)
-    m.box((-0.215, 0.0, 0.324), (0.10, 0.20, 0.012), TEAM)
-    m.vcyl((-0.25, 0.09, 0.40), 0.30, 0.055, DARK, verts=10)
-    for z in (0.32, 0.44):
-        m.vcyl((-0.25, 0.09, z), 0.03, 0.08, SHELL, verts=10)
-    m.vcyl((-0.25, 0.09, 0.565), 0.05, 0.05, DARK, taper=1.9, verts=10)
-    # layered shoulder plates with Team paint, riveted, and lower pads
-    m.box((0.0, 0.27, 0.35), (0.24, 0.22, 0.06), SHELL, rot=(-22, 0, 4), bevel=0.02)
-    m.box((-0.02, -0.26, 0.36), (0.30, 0.20, 0.05), DARK, rot=(18, -8, -6), bevel=0.02)
-    m.box(local_point((0.0, 0.27, 0.35), (-22, 0, 4), (0, 0, 0.033)), (0.16, 0.14, 0.012), TEAM,
-          rot=(-22, 0, 4))
-    m.box(local_point((-0.02, -0.26, 0.36), (18, -8, -6), (0, 0, 0.03)), (0.20, 0.14, 0.012), TEAM,
-          rot=(18, -8, -6))
-    Frame(m, (0.0, 0.27, 0.35), (-22, 0, 4)).rivets((0.24, 0.22), z=0.03, nu=2, nv=2, inset=0.025, r=0.010)
-    Frame(m, (-0.02, -0.26, 0.36), (18, -8, -6)).rivets((0.30, 0.20), z=0.025, nu=2, nv=2, inset=0.025,
-                                                         r=0.010, mat=SHELL)
-    m.box((0.0, 0.31, 0.30), (0.20, 0.18, 0.05), DARK, rot=(-34, 0, 4), bevel=0.015)
-    m.box((-0.02, -0.30, 0.30), (0.22, 0.17, 0.05), SHELL, rot=(28, -8, -6), bevel=0.015)
-    # helmet: dome, riveted rim, visor, neck guard, ear plates, Team stripe, lamp with hood and cable
-    m.vcyl((0.0, 0.0, 0.345), 0.06, 0.13, DARK)
-    m.sph((0.0, 0.0, 0.47), (0.26, 0.26, 0.22), SHELL, verts=16)
-    m.vcyl((0.0, 0.0, 0.395), 0.03, 0.29, DARK, verts=16)
-    m.ring_rivets((0.0, 0.0, 0.395), 0.145, 8, mat=SHELL, r=0.009)
-    m.box((0.11, 0.0, 0.42), (0.06, 0.20, 0.06), DARK)
-    m.box((-0.12, 0.0, 0.42), (0.05, 0.22, 0.10), DARK, rot=(0, 14, 0), bevel=0.01)
-    m.ycyl((0.0, 0.135, 0.45), 0.03, 0.10, DARK, mirror=True)
-    m.box((0.0, 0.0, 0.575), (0.24, 0.09, 0.02), TEAM, bevel=0.006)
-    m.box((0.08, -0.13, 0.50), (0.07, 0.06, 0.05), DARK)
-    m.sph((0.115, -0.135, 0.50), (0.085, 0.085, 0.085), GLOW, verts=8)
-    m.box((0.09, -0.13, 0.535), (0.09, 0.08, 0.015), DARK)
-    m.cable((0.02, -0.13, 0.44), (-0.12, -0.20, 0.36), (-0.21, -0.10, 0.30), 0.010)
-    # riot shield (three panels): Team stripes, edge trim, riveted faces, patch plate, lit viewport slit
-    panels = ((0.31, 0.0, 0.02, 0.30, 0), (0.279, 0.245, 0.02, 0.20, 18), (0.279, -0.245, 0.02, 0.20, -18))
-    for x, y, z, w, yaw in panels:
-        rot = (0, -8, yaw)
-        f = Frame(m, (x, y, z), rot)
-        m.box((x, y, z), (0.06, w, 0.66), DARK, rot=rot, bevel=0.02)
-        f.box((0, 0, 0.12), (0.075, w, 0.10), TEAM)
-        f.box((0, 0, 0.33), (0.12, w, 0.06), TEAM, bevel=0.01)
-        f.box((0, 0, 0.37), (0.13, w, 0.02), SHELL)
-        for e in (1, -1):
-            f.box((0.004, e * (w / 2 - 0.012), -0.03), (0.07, 0.024, 0.58), SHELL, bevel=0.006)
-        f.box((0.004, 0, -0.325), (0.07, w, 0.02), SHELL, bevel=0.006)
-        face = Frame.surface(m, f.p((0.03, 0, 0)), f.d((1, 0, 0)), f.d((0, 0, 1)))
-        face.rivets((0.58, w - 0.02), nu=5, nv=2, inset=0.03, r=0.011, mat=SHELL)
-        if yaw:
-            face.box((-0.06, 0, 0.007), (0.30, 0.024, 0.014), SHELL, rot=(0, 0, 40 if yaw > 0 else -40))
-        else:
-            face.box((0.21, 0, 0.007), (0.035, 0.20, 0.014), GLOW)
-            pf = Frame(m, face.p((-0.15, 0.06, 0.012)), matrix=face.R @ Euler((0, 0, math.radians(10))).to_matrix())
-            pf.box((0, 0, 0), (0.17, 0.15, 0.024), SHELL, bevel=0.008)
-            pf.rivets((0.17, 0.15), z=0.012, nu=2, nv=2, inset=0.02, r=0.009)
-    # shield arm with elbow pad and cuff, gauntlet
-    a, b = Vector((0.0, 0.25, 0.25)), Vector((0.26, 0.16, 0.02))
-    m.rod(a, b, 0.06, SHELL)
-    m.sph(a.lerp(b, 0.42), (0.09, 0.09, 0.09), DARK, verts=10)
-    m.rod(a.lerp(b, 0.78), a.lerp(b, 0.9), 0.072, DARK)
-    m.sph(b, (0.11, 0.11, 0.11), DARK, verts=10)
-    # sledgehammer over the right shoulder: taped handle, banded steel head
-    a2, b2 = Vector((0.0, -0.24, 0.24)), Vector((0.14, -0.29, 0.03))
-    m.rod(a2, b2, 0.06, SHELL)
-    m.sph(a2.lerp(b2, 0.4), (0.09, 0.09, 0.09), DARK, verts=10)
-    grip, tip = b2, Vector((-0.28, -0.20, 0.49))
-    m.rod(grip, tip, 0.028, DARK, verts=8)
-    for t0, t1 in ((0.12, 0.20), (0.50, 0.58)):
-        m.rod(grip.lerp(tip, t0), grip.lerp(tip, t1), 0.036, SHELL, verts=8)
-    m.rod(grip.lerp(tip, 0.28), grip.lerp(tip, 0.38), 0.04, TEAM, verts=8)
-    head = tip + Vector((-0.01, -0.005, 0.03))
-    m.box(head, (0.15, 0.26, 0.15), DARK, rot=(0, -43, 0), bevel=0.02)
-    hf = Frame(m, head, (0, -43, 0))
-    for e in (1, -1):
-        hf.box((0, 0.14 * e, 0), (0.165, 0.03, 0.165), DARK, bevel=0.01)
-        hf.box((0, 0.06 * e, 0), (0.172, 0.03, 0.172), SHELL, bevel=0.006)
-    m.sph(b2, (0.10, 0.10, 0.10), DARK, verts=10)
-    return m.finish()
-
-
-def human_ranged(mats):
-    m = Model("SM_Human_Ranged", mats)
-    # boots with lugged soles and toe caps, wrapped legs
-    for s in (1, -1):
-        y = 0.09 * s
-        m.box((0.03, y, -0.535), (0.22, 0.12, 0.09), DARK, bevel=0.025)
-        m.box((0.03, y, -0.59), (0.24, 0.13, 0.02), SHELL)
-        m.box((0.115, y, -0.51), (0.07, 0.115, 0.06), SHELL, bevel=0.02)
-        m.box((0.0, y, -0.34), (0.12, 0.11, 0.32), SHELL, bevel=0.02)
-        for i in range(3):
-            m.box((0.0, y, -0.45 + 0.07 * i), (0.135, 0.125, 0.022), DARK, bevel=0.005)
-    m.box((0.0, 0.0, -0.02), (0.20, 0.28, 0.30), SHELL, bevel=0.03)
-    # poncho: two layers, hem band, rope belt with buckle, flapped pouches, bandolier
-    m.vcyl((0.0, 0.0, -0.04), 0.40, 0.46, SHELL, taper=0.5, verts=12)
-    m.vcyl((0.0, 0.0, -0.235), 0.03, 0.47, DARK, verts=12)
-    m.vcyl((0.0, 0.0, 0.115), 0.14, 0.32, SHELL, taper=0.70, verts=12)
-    m.vcyl((0.0, 0.0, 0.0), 0.03, 0.34, DARK, verts=12)
-    m.box((0.17, 0.0, 0.0), (0.03, 0.05, 0.05), SHELL, bevel=0.01)
-    for ang in (60, 200):
-        a = math.radians(ang)
-        radial = Vector((math.cos(a), math.sin(a), 0.0))
-        f = Frame.surface(m, radial * 0.185 + Vector((0, 0, -0.045)), radial, (0, 0, 1))
-        f.box((0, 0, 0), (0.09, 0.09, 0.05), DARK, bevel=0.012)
-        f.box((0.03, 0, 0.008), (0.035, 0.095, 0.05), SHELL, bevel=0.008)
-        f.rivet((0.03, 0, 0.034), r=0.009, mat=DARK)
-    p0, p1 = Vector((0.06, 0.10, 0.19)), Vector((0.17, -0.06, -0.02))
-    m.rod(p0, p1, 0.02, DARK, verts=8)
-    for t in (0.2, 0.4, 0.6, 0.8):
-        m.box(p0.lerp(p1, t), (0.04, 0.035, 0.055), SHELL, bevel=0.006)
-    # hood, collar, face shadow, goggles with Glow lenses and strap, Team beret
-    m.vcyl((0.0, 0.0, 0.19), 0.03, 0.22, DARK, verts=12)
-    m.sph((0.0, 0.0, 0.29), (0.26, 0.26, 0.24), SHELL, verts=16)
-    m.box((0.115, 0.0, 0.28), (0.08, 0.14, 0.10), DARK, bevel=0.015)
-    m.vcyl((0.0, 0.0, 0.305), 0.04, 0.27, DARK, verts=16)
-    for sy in (1, -1):
-        m.cyl((0.145, 0.04 * sy, 0.30), (0.03, 0.06, 0.06), DARK, verts=12)
-        m.cyl((0.16, 0.04 * sy, 0.30), (0.012, 0.048, 0.048), GLOW, verts=12)
-    m.sph((0.0, 0.0, 0.36), (0.27, 0.27, 0.15), TEAM, verts=16)
-    m.sph((0.0, 0.0, 0.435), (0.04, 0.04, 0.03), TEAM, verts=8)
-    # long rifle pointing +X: stock, butt plate, magazine, vented handguard, scope, muzzle brake, Team tape
-    y0 = -0.10
-    m.box((0.0, y0, 0.14), (0.24, 0.06, 0.08), DARK, bevel=0.01)
-    m.box((0.0, y0, 0.183), (0.24, 0.03, 0.012), SHELL)
-    m.box((-0.14, y0, 0.12), (0.14, 0.05, 0.09), SHELL, rot=(0, -8, 0), bevel=0.01)
-    m.box((-0.205, y0, 0.115), (0.02, 0.055, 0.10), DARK, rot=(0, -8, 0))
-    m.box((0.16, y0, 0.14), (0.14, 0.05, 0.06), SHELL, bevel=0.01)
-    for x in (0.12, 0.16, 0.20):
-        m.box((x, y0, 0.172), (0.02, 0.03, 0.008), DARK)
-    m.box((0.02, y0, 0.085), (0.05, 0.045, 0.10), DARK, rot=(0, 8, 0), bevel=0.01)
-    m.cyl((0.28, y0, 0.14), (0.34, 0.035, 0.035), DARK, verts=8)
-    m.cyl((0.42, y0, 0.14), (0.06, 0.05, 0.05), DARK, verts=8)
-    m.cyl((0.02, y0, 0.205), (0.16, 0.04, 0.04), DARK, verts=8)
-    m.sph((0.105, y0, 0.205), (0.05, 0.05, 0.05), GLOW, verts=8)
-    for x in (-0.03, 0.06):
-        m.box((x, y0, 0.19), (0.02, 0.03, 0.03), DARK)
-    for x in (0.22, 0.36):
-        m.cyl((x, y0, 0.14), (0.03, 0.05, 0.05), SHELL, verts=8)
-    m.box((0.175, y0, 0.14), (0.025, 0.056, 0.066), TEAM, bevel=0.004)
-    # arms with elbow pads and gloves, team armband on the forward arm
-    m.rod((0.0, -0.16, 0.10), (0.06, -0.11, 0.12), 0.04, SHELL, verts=8)
-    a0, a1 = Vector((0.0, 0.16, 0.08)), Vector((0.18, -0.05, 0.13))
-    m.rod(a0, a1, 0.04, SHELL, verts=8)
-    m.rod(a0.lerp(a1, 0.32), a0.lerp(a1, 0.55), 0.056, TEAM, verts=10)
-    m.sph(a0, (0.09, 0.09, 0.09), DARK, verts=8)
-    m.sph((0.0, -0.16, 0.10), (0.09, 0.09, 0.09), DARK, verts=8)
-    m.sph(a1, (0.075, 0.075, 0.075), DARK, verts=8)
-    m.sph((0.06, -0.11, 0.12), (0.07, 0.07, 0.07), DARK, verts=8)
-    # backpack: strap, side pouches, lashed bedroll with Team bands, back lamp, bent antenna with pennant
-    m.box((-0.17, 0.0, 0.06), (0.14, 0.24, 0.28), SHELL, bevel=0.03)
-    m.box((-0.245, 0.0, 0.14), (0.02, 0.25, 0.03), DARK)
-    m.box((-0.252, 0.0, 0.14), (0.012, 0.04, 0.04), SHELL)
-    m.box((-0.17, 0.14, 0.0), (0.10, 0.06, 0.16), DARK, bevel=0.015, mirror=True)
-    m.box((-0.17, 0.14, 0.07), (0.11, 0.065, 0.03), SHELL, bevel=0.008, mirror=True)
-    m.ycyl((-0.17, 0.0, 0.25), 0.30, 0.12, SHELL, verts=12)
-    for y in (-0.09, 0.09):
-        m.ycyl((-0.17, y, 0.25), 0.06, 0.135, TEAM, verts=12)
-    for y in (-0.14, 0.14):
-        m.ycyl((-0.17, y, 0.25), 0.02, 0.13, DARK, verts=12)
-    m.box((-0.245, -0.06, 0.02), (0.03, 0.06, 0.05), DARK)
-    m.sph((-0.265, -0.06, 0.02), (0.07, 0.07, 0.07), GLOW, verts=8)
-    m.box((-0.22, 0.08, 0.20), (0.04, 0.04, 0.03), DARK)
-    m.rod((-0.22, 0.08, 0.2), (-0.24, 0.10, 0.42), 0.012, DARK, verts=6)
-    m.rod((-0.24, 0.10, 0.42), (-0.10, 0.16, 0.482), 0.012, DARK, verts=6)
-    m.sph((-0.10, 0.16, 0.482), (0.05, 0.05, 0.05), GLOW, verts=8)
-    m.box((-0.17, 0.13, 0.44), (0.09, 0.012, 0.045), TEAM, rot=(0, 0, 8))
-    return m.finish()
-
-
-def human_siege(mats):
-    m = Model("SM_Human_Siege", mats)
-    # tyres with chevron tread, hubs and lug nuts on bare axles
-    for sx in (1, -1):
-        for sy in (1, -1):
-            m.wheel((0.36 * sx, 0.50 * sy, -0.39), 0.21, 0.16, lugs=14, lug=0.03)
-        m.rod((0.36 * sx, 0.50, -0.39), (0.36 * sx, -0.50, -0.39), 0.03, DARK, verts=8)
-    # chassis cut into bolted panels, deck plates at odd angles, painted Team band on the deck
-    m.seams((0.0, 0.0, -0.22), (0.96, 0.64, 0.20), SHELL, ((0, 0.30), (0, 0.66)), gap=0.016, depth=0.015,
-            bevel=0.02, core=DARK)
-    m.box((-0.10, 0.0, -0.10), (0.5, 0.5, 0.05), DARK)
-    m.box((0.05, 0.34, -0.16), (0.34, 0.04, 0.22), SHELL, rot=(-10, 0, 3))
-    f, sz = m.face((0.05, 0.34, -0.16), (0.34, 0.04, 0.22), "+y", rot=(-10, 0, 3))
-    f.rivets(sz, nu=3, nv=2, inset=0.03)
-    m.box((-0.05, -0.34, -0.18), (0.44, 0.04, 0.20), DARK, rot=(12, 0, -2))
-    f, sz = m.face((-0.05, -0.34, -0.18), (0.44, 0.04, 0.20), "-y", rot=(12, 0, -2))
-    f.rivets(sz, nu=4, nv=2, inset=0.03, mat=SHELL)
-    m.box((0.22, 0.0, -0.105), (0.22, 0.62, 0.03), TEAM)
-    # bull bar, headlamps
-    m.box((0.51, 0.0, -0.235), (0.06, 0.58, 0.08), DARK, bevel=0.015)
-    for y in (-0.2, 0.0, 0.2):
-        m.rod((0.52, y, -0.235), (0.52, y, -0.08), 0.02, DARK, verts=8)
-    m.rod((0.52, -0.25, -0.08), (0.52, 0.25, -0.08), 0.02, DARK, verts=8)
-    m.box((0.44, 0.24, -0.06), (0.06, 0.08, 0.06), DARK)
-    m.sph((0.475, 0.24, -0.06), (0.085, 0.085, 0.085), GLOW, verts=8)
-    m.box((0.44, -0.24, -0.06), (0.06, 0.08, 0.06), DARK)
-    # cab: riveted side plates, windscreen slit, side windows, roof plate, beacon on a housing
-    m.box((-0.28, 0.06, 0.02), (0.30, 0.34, 0.24), SHELL, bevel=0.04)
-    for face_name in ("+y", "-y"):
-        f, sz = m.face((-0.28, 0.06, 0.02), (0.30, 0.34, 0.24), face_name)
-        f.rivets(sz, nu=3, nv=2, inset=0.035)
-    m.box((-0.128, 0.06, 0.06), (0.02, 0.24, 0.06), DARK)
-    for s in (1, -1):
-        m.box((-0.28, 0.06 + 0.172 * s, 0.06), (0.14, 0.012, 0.06), DARK)
-    m.box((-0.28, 0.06, 0.155), (0.34, 0.38, 0.03), DARK)
-    m.box((-0.22, 0.06, 0.176), (0.16, 0.28, 0.012), TEAM)
-    for s in (1, -1):
-        m.box((-0.28, 0.06 + 0.19 * s, 0.172), (0.34, 0.025, 0.02), SHELL)
-    m.vcyl((-0.37, 0.06, 0.185), 0.03, 0.09, DARK, verts=8)
-    m.sph((-0.37, 0.06, 0.215), (0.10, 0.10, 0.10), GLOW, verts=8)
-    # exhaust stack with heat-wrap bands, clamp and flared rain cap
-    m.rod((-0.40, 0.27, -0.12), (-0.42, 0.27, 0.28), 0.04, DARK, verts=8)
-    m.rod((-0.42, 0.27, 0.28), (-0.50, 0.27, 0.34), 0.04, DARK, verts=8)
-    m.cyl((-0.515, 0.27, 0.35), (0.07, 0.07, 0.07), DARK, aim=(-0.8, 0, 0.6), taper=1.7, verts=10)
-    for z in (0.0, 0.09, 0.18):
-        m.vcyl((-0.41, 0.27, z), 0.04, 0.10, SHELL, verts=8)
-    m.rod((-0.41, 0.27, 0.05), (-0.40, 0.20, 0.05), 0.012, DARK, verts=6)
-    # spare tyre, tool roll and jerrycan strapped to the deck
-    m.tor((-0.535, 0.0, -0.12), 0.13, 0.045, DARK, rot=(0, 90, 0), verts=20)
-    m.cyl((0.10, 0.26, -0.055), (0.32, 0.09, 0.09), SHELL, verts=10)
-    for x in (-0.02, 0.10, 0.22):
-        m.cyl((x, 0.26, -0.055), (0.025, 0.10, 0.10), DARK, verts=10)
-    m.box((-0.11, -0.25, -0.03), (0.14, 0.10, 0.17), SHELL, bevel=0.02, rot=(0, 0, -8))
-    m.vcyl((-0.075, -0.25, 0.065), 0.03, 0.04, DARK, verts=8)
-    # Team flag on a rear pole, trailing behind and rolled toward the camera
-    m.rod((-0.40, -0.22, -0.12), (-0.40, -0.22, 0.42), 0.02, DARK, verts=6)
-    m.sph((-0.40, -0.22, 0.435), (0.045, 0.045, 0.045), SHELL, verts=8)
-    m.box((-0.53, -0.22, 0.33), (0.26, 0.02, 0.18), TEAM, rot=(40, 0, 0))
-    # giant bolt-cutter jaws pointing +X: a long open V of blades, the opening plane rolled 50 degrees
-    # off vertical so the V reads in the side view (vertical spread) and from the RTS camera
-    # (lateral spread). Heavy pivot bolt, crossed handles running back to the cab.
-    roll, half_open, handle_open = math.radians(50.0), math.radians(34.0), math.radians(8.0)
-    spread = Vector((0.0, math.sin(roll), math.cos(roll)))     # jaw opening axis
-    normal = Vector((1.0, 0.0, 0.0)).cross(spread)             # jaw-plane normal (bolt axis)
-    pivot = Vector((-0.04, 0.0, 0.24))
-
-    def frame_rot(d):
-        z = d.cross(normal)
-        basis = Matrix(((d.x, normal.x, z.x), (d.y, normal.y, z.y), (d.z, normal.z, z.z)))
-        return tuple(math.degrees(a) for a in basis.to_euler("XYZ"))
-
-    # support gantry from the chassis up to the pivot
-    for s in (1, -1):
-        m.rod((0.0, 0.10 * s, -0.12), (-0.04, 0.07 * s, 0.20), 0.035, DARK, verts=8)
-    m.box((0.02, 0.0, -0.10), (0.26, 0.30, 0.05), DARK)
-    for s in (1, -1):
-        d = (Vector((1.0, 0.0, 0.0)) * math.cos(half_open) + spread * (s * math.sin(half_open)))
-        rot = frame_rot(d)
-        # blade: broad slab heel and body, chisel tip, inner cutting edge in Dark
-        m.box(pivot + d * 0.10, (0.24, 0.28, 0.16), SHELL, rot=rot, bevel=0.03)
-        for face_name in ("+y", "-y"):
-            f, sz = m.face(pivot + d * 0.10, (0.24, 0.28, 0.16), face_name, rot=rot)
-            f.rivets(sz, nu=2, nv=2, inset=0.03, r=0.012)
-        m.box(pivot + d * 0.32, (0.50, 0.25, 0.10), SHELL, rot=rot, bevel=0.015)
-        m.cyl(pivot + d * 0.67, (0.26, 0.32, 0.14), SHELL, rot=rot, taper=0.12, verts=4)
-        m.box(pivot + d * 0.38 - spread * (s * 0.06), (0.66, 0.06, 0.04), DARK, rot=rot)
-        m.box(pivot + d * 0.64 - spread * (s * 0.06), (0.16, 0.10, 0.03), DARK, rot=rot)
-        # crossed handle: back and to the opposite side of the pivot, with a grip sleeve
-        h = Vector((-math.cos(handle_open), 0.0, 0.0)) - spread * (s * math.sin(handle_open))
-        end = pivot + h * 0.52
-        m.rod(pivot, end, 0.032, SHELL, verts=8)
-        m.rod(pivot + h * 0.30, end, 0.05, DARK, verts=8)
-    m.rod((-0.36, 0.06, 0.16), pivot + Vector((-0.32, 0.0, 0.0)), 0.025, DARK, verts=6)
-    # pivot bolt: fat shaft along the jaw normal, hex head and nut, glowing wear ring
-    m.cyl(pivot, (0.34, 0.11, 0.11), DARK, aim=normal, verts=16)
-    m.cyl(pivot + normal * 0.17, (0.06, 0.20, 0.20), SHELL, aim=normal, verts=6)
-    m.cyl(pivot - normal * 0.17, (0.06, 0.20, 0.20), SHELL, aim=-normal, verts=6)
-    m.cyl(pivot + normal * 0.205, (0.02, 0.07, 0.07), GLOW, aim=normal, verts=10)
-    return m.finish()
-
-
-# --------------------------------------------------------------------------------------
-# HQs (3 x 3 x 2 m, base at z = -1.0)
-# --------------------------------------------------------------------------------------
-def human_hq(mats):
-    m = Model("SM_Human_HQ", mats)
-    rng = random.Random(6000)
-    m.box((0.0, 0.0, -0.95), (2.96, 2.96, 0.10), DARK, bevel=0.02)
-    # poured concrete panels with dark expansion joints, roof slab with parapet, corrugated sheet, Team paint
-    m.seams((-0.25, 0.0, -0.35), (1.90, 2.0, 1.10), SHELL, ((0, 0.36), (0, 0.68), (2, 0.5)), gap=0.03,
-            depth=0.03, bevel=0.025, core=DARK)
-    m.box((-0.25, 0.0, 0.29), (2.10, 2.15, 0.18), SHELL, bevel=0.04, seg=1)
-    m.box((-0.25, 0.0, 0.395), (1.9, 1.95, 0.03), DARK)
-    m.box((0.05, 0.0, 0.405), (0.36, 1.95, 0.035), TEAM)
-    for i in range(15):
-        m.box((-0.72, -0.84 + 0.12 * i, 0.417), (0.90, 0.05, 0.02), SHELL)
-    m.box((-1.285, 0.0, 0.44), (0.05, 2.15, 0.08), SHELL, bevel=0.01)
-    m.box((-1.285, 0.0, 0.483), (0.03, 2.05, 0.008), TEAM)
-    for s in (1, -1):
-        m.box((-0.25, 1.05 * s, 0.44), (2.05, 0.05, 0.08), SHELL, bevel=0.01)
-        m.box((-0.25, 1.05 * s, 0.483), (2.0, 0.03, 0.008), TEAM)
-    # door with frame, cross bars, rivets and a lit viewport slot; lintel, Team paint band above it
-    m.box((0.68, 0.0, -0.45), (0.10, 0.70, 0.85), DARK)
-    for s in (1, -1):
-        m.box((0.725, 0.39 * s, -0.45), (0.07, 0.06, 0.90), SHELL, bevel=0.01)
-    m.box((0.72, 0.0, -0.00), (0.08, 0.90, 0.05), SHELL, bevel=0.01)
-    m.box((0.715, 0.0, 0.07), (0.05, 1.5, 0.14), TEAM)
-    for z in (-0.28, -0.62):
-        m.box((0.745, 0.0, z), (0.03, 0.62, 0.05), SHELL, bevel=0.008)
-    Frame.surface(m, (0.73, 0.0, -0.45), (1, 0, 0), (0, 0, 1)).rivets((0.8, 0.62), nu=4, nv=2, inset=0.04,
-                                                                        mat=SHELL, r=0.012)
-    m.box((0.735, 0.0, -0.10), (0.02, 0.30, 0.05), GLOW)
-    m.box((0.86, 0.0, -0.875), (0.28, 0.9, 0.05), SHELL, bevel=0.01)
-    # bolted patch plates, door posts with rivets, shuttered side windows
-    m.plate((0.72, 0.78, -0.35), (1, -0.087, 0), (0, 0, 1), (0.45, 0.50), 0.04, DARK, bevel=0.01,
-            rivets=(3, 3), rivet_mat=SHELL)
-    m.plate((0.72, -0.80, -0.30), (1, 0.05, -0.07), (0, 0, 1), (0.40, 0.42), 0.04, SHELL, bevel=0.01,
-            rivets=(3, 3))
-    for s in (1, -1):
-        m.box((0.72, 0.98 * s, -0.35), (0.20, 0.20, 1.10), SHELL, bevel=0.02)
-        f, sz = m.face((0.72, 0.98 * s, -0.35), (0.20, 0.20, 1.10), "+x")
-        f.rivets(sz, nu=5, nv=2, inset=0.035)
-    for x in (0.2, -0.6):
-        for s in (1, -1):
-            m.box((x, 1.005 * s, -0.15), (0.50, 0.05, 0.07), DARK)
-            m.box((x, 1.014 * s, -0.15), (0.42, 0.02, 0.02), GLOW)
-            m.box((x, 1.03 * s, -0.085), (0.56, 0.04, 0.035), SHELL, bevel=0.008)
-    m.box((-0.25, 0.0, -0.55), (1.94, 2.04, 0.06), DARK)
-    # conduits and downpipes along the walls
-    for s in (1, -1):
-        m.rod((-1.10, 1.03 * s, -0.42), (0.55, 1.03 * s, -0.42), 0.03, DARK, verts=8)
-        for x in (-0.9, -0.3, 0.3):
-            m.box((x, 1.02 * s, -0.42), (0.05, 0.04, 0.09), SHELL, bevel=0.006)
-        m.rod((-1.13, 1.04 * s, -0.90), (-1.13, 1.04 * s, 0.30), 0.035, DARK, verts=8)
-    # back wall: ladder, generator with vented cover and a tall exhaust stack with rust bands
-    for y in (0.10, 0.28):
-        m.rod((-1.235, y, -0.90), (-1.235, y, 0.15), 0.02, DARK, verts=6)
-    for i in range(9):
-        m.rod((-1.235, 0.10, -0.85 + 0.11 * i), (-1.235, 0.28, -0.85 + 0.11 * i), 0.012, DARK, verts=6)
-    m.box((-1.34, -0.25, -0.74), (0.24, 0.62, 0.34), DARK, bevel=0.02)
-    Frame.surface(m, (-1.46, -0.25, -0.74), (-1, 0, 0), (0, 1, 0)).vent((0, 0, 0), (0.46, 0.24), slats=4)
-    m.box((-1.34, -0.25, -0.545), (0.20, 0.50, 0.05), SHELL, bevel=0.01)
-    m.box((-1.34, 0.065, -0.72), (0.05, 0.012, 0.05), GLOW)
-    m.rod((-1.37, -0.42, -0.52), (-1.37, -0.42, 0.58), 0.04, DARK, verts=8)
-    for z in (-0.30, 0.0, 0.30):
-        m.vcyl((-1.37, -0.42, z), 0.04, 0.10, SHELL, verts=8)
-    for z in (-0.10, 0.30):
-        m.rod((-1.37, -0.42, z), (-1.2, -0.42, z), 0.012, DARK, verts=6)
-    m.cyl((-1.37, -0.42, 0.62), (0.07, 0.06, 0.06), DARK, aim=(0, 0, 1), taper=1.7, verts=10)
-    # roof: scrap panel on posts, vent stack, water tank, AC unit, hatch
-    m.box((-0.55, -0.20, 0.50), (0.80, 0.50, 0.04), SHELL, rot=(6, -4, 12))
-    for x, y in ((-0.85, -0.05), (-0.25, -0.35)):
-        m.rod((x, y, 0.41), (x, y, 0.49), 0.02, DARK, verts=6)
-    m.box((-0.80, -0.55, 0.47), (0.30, 0.30, 0.14), DARK, rot=(0, 0, 8), bevel=0.02)
-    m.rod((-0.80, -0.55, 0.50), (-0.80, -0.55, 0.72), 0.03, DARK, verts=6)
-    m.vcyl((-1.0, 0.55, 0.62), 0.40, 0.42, SHELL, verts=14, bevel=0.01)
-    for z in (0.50, 0.74):
-        m.vcyl((-1.0, 0.55, z), 0.03, 0.435, DARK, verts=14)
-    m.vcyl((-1.0, 0.55, 0.83), 0.03, 0.16, DARK, verts=10)
-    m.box((-0.30, -0.62, 0.50), (0.42, 0.34, 0.18), DARK, bevel=0.02)
-    m.vcyl((-0.30, -0.62, 0.603), 0.02, 0.26, SHELL, verts=16)
-    m.box((-0.30, -0.62, 0.618), (0.24, 0.03, 0.008), DARK)
-    m.box((-0.30, -0.62, 0.618), (0.03, 0.24, 0.008), DARK)
-    m.box((-0.42, 0.0, 0.44), (0.34, 0.34, 0.05), DARK, bevel=0.01)
-    m.box((-0.42, 0.0, 0.47), (0.16, 0.03, 0.02), SHELL)
-    # amber lamps on posts with hoods
-    for s in (1, -1):
-        m.rod((0.84, 0.58 * s, -0.90), (0.84, 0.58 * s, -0.15), 0.03, DARK, verts=6)
-        m.box((0.78, 0.58 * s, -0.20), (0.12, 0.05, 0.05), DARK)
-        m.sph((0.84, 0.58 * s, -0.16), (0.13, 0.13, 0.13), GLOW, verts=10)
-        m.vcyl((0.84, 0.58 * s, -0.105), 0.03, 0.16, DARK, verts=10)
-        m.rod((0.70, 0.95 * s, 0.40), (0.70, 0.95 * s, 0.55), 0.025, DARK, verts=6)
-        m.sph((0.70, 0.95 * s, 0.58), (0.11, 0.11, 0.11), GLOW, verts=10)
-        m.vcyl((0.70, 0.95 * s, 0.63), 0.03, 0.14, DARK, verts=10)
-    # sandbags: front wings and side walls
-    def bag(x, y, z, along):
-        dims = (0.42, 0.30, 0.17) if along == "x" else (0.30, 0.42, 0.17)
-        m.box((x + rng.uniform(-0.015, 0.015), y + rng.uniform(-0.015, 0.015), z), dims, SHELL,
-              rot=(0, 0, rng.uniform(-7, 7)), bevel=0.055, seg=2)
-
-    for s in (1, -1):
-        for z, ys in ((-0.915, (0.62, 1.02, 1.26)), (-0.745, (0.82, 1.22)), (-0.575, (0.62, 1.02))):
-            for y in ys:
-                bag(1.28, y * s, z, "y")
-        for z, xs in ((-0.915, (0.95, 0.53, 0.11, -0.31, -0.73, -1.15)),
-                      (-0.745, (0.74, 0.32, -0.10, -0.52, -0.94))):
-            for x in xs:
-                bag(x, 1.27 * s, z, "x")
-    # antenna mast with guys, dish, beacon, banner pole
-    m.box((-0.60, 0.55, 0.42), (0.20, 0.20, 0.03), DARK)
-    m.rod((-0.60, 0.55, 0.41), (-0.60, 0.55, 0.90), 0.045, DARK, verts=8)
-    m.rod((-0.60, 0.55, 0.90), (-0.48, 0.60, 0.965), 0.025, DARK, verts=6)
-    m.sph((-0.48, 0.60, 0.965), (0.07, 0.07, 0.07), GLOW, verts=8)
-    m.box((-0.60, 0.55, 0.80), (0.03, 0.55, 0.03), DARK, rot=(0, 0, 9))
-    m.rod((-0.60, 0.55, 0.78), (-1.05, 0.95, 0.41), 0.01, DARK, verts=4)
-    m.rod((-0.60, 0.55, 0.78), (-0.15, 0.20, 0.41), 0.01, DARK, verts=4)
-    m.cyl((-0.52, 0.72, 0.68), (0.06, 0.08, 0.08), SHELL, aim=(1, 0.5, 0.3), taper=4.0, verts=12)
-    m.rod((0.55, -0.85, 0.41), (0.55, -0.85, 0.97), 0.025, DARK, verts=6)
-    m.rod((0.55, -0.85, 0.955), (0.55, -0.20, 0.955), 0.015, DARK, verts=6)
-    m.box((0.55, -0.52, 0.72), (0.03, 0.58, 0.44), TEAM, rot=(0, -15, 0), bevel=0.006)
-    # clutter: treaded tyre stack and two rust barrels at the back corners
-    for z in (-0.90, -0.71):
-        m.tor((-1.15, -1.10, z), 0.22, 0.10, DARK, verts=20)
-        for k in range(14):
-            a = 2.0 * math.pi * k / 14
-            radial = Vector((math.cos(a), math.sin(a), 0.0))
-            Frame.surface(m, Vector((-1.15, -1.10, z)) + radial * 0.322, radial, (0, 0, 1)).box(
-                (0, 0, 0), (0.12, 0.08, 0.035), DARK, rot=(0, 0, 18 if k % 2 else -18))
-    for by in (1.05, 0.68):
-        m.vcyl((-1.30, by, -0.78), 0.44, 0.34, SHELL, verts=14, bevel=0.015)
-        for z in (-0.94, -0.78, -0.62):
-            m.vcyl((-1.30, by, z), 0.03, 0.36, DARK, verts=14)
-        m.vcyl((-1.30, by, -0.555), 0.02, 0.30, DARK, verts=14)
+        hip = Vector((0.22 * sx, 0.17, 0.03))
+        knee = Vector((0.36 * sx, 0.34, -0.14))
+        ankle = Vector((0.40 * sx, 0.43, -0.52))
+        m.sph(hip, (0.14, 0.14, 0.14), DARK, verts=12, mirror=True)
+        m.sph(hip.lerp(knee, 0.5), (0.27, 0.13, 0.13), SHELL, aim=(knee - hip), verts=16, mirror=True)
+        m.sph(knee, (0.11, 0.11, 0.11), DARK, verts=10, mirror=True)
+        m.tor(knee, 0.064, 0.009, GLOW, aim=(0, 1, 0), verts=16, mirror=True)
+        m.sph(knee.lerp(ankle, 0.5), (0.44, 0.09, 0.09), SHELL, aim=(ankle - knee), verts=14, mirror=True)
+        m.rod(knee.lerp(ankle, 0.2), knee.lerp(ankle, 0.8), 0.016, GLOW, verts=6, mirror=True)
+        m.vcyl((0.40 * sx, 0.43, -0.575), 0.05, 0.13, DARK, verts=12, mirror=True)
+        m.vcyl((0.40 * sx, 0.43, -0.535), 0.04, 0.10, SHELL, taper=0.7, verts=12, mirror=True)
+    m.sph((-0.38, 0.0, 0.08), (0.11, 0.11, 0.11), GLOW, verts=10)
     return m.finish()
 
 
 def machine_hq(mats):
     m = Model("SM_Machine_HQ", mats)
-    m.box((0.0, 0.0, -0.94), (2.94, 2.94, 0.12), DARK, bevel=0.02)
-    for s in (1, -1):  # lit floor track around the plinth
-        m.box((1.42 * s, 0.0, -0.878), (0.02, 2.84, 0.012), GLOW)
-        m.box((0.0, 1.42 * s, -0.878), (2.84, 0.02, 0.012), GLOW)
-    # three tiers, each a grid of tiles with Glow joints
-    slabs = ((2.70, -0.78, 0.20), (2.50, -0.54, 0.22), (2.30, -0.29, 0.22))
-    for dim, z, h in slabs:
-        m.seams((0.0, 0.0, z), (dim, dim, h), SHELL, ((0, 0.30), (0, 0.70), (1, 0.30), (1, 0.70)), gap=0.02,
-                depth=0.02, bevel=0.03, seg=2)
-    # core with two Glow seam rings, roof plate with heat-sink fins and corner beacons
-    m.seams((0.0, 0.0, 0.375), (1.56, 1.56, 1.05), SHELL, ((2, 0.12), (2, 0.65)), gap=0.024, depth=0.02,
-            bevel=0.035, seg=2)
-    m.box((0.0, 0.0, 0.965), (1.36, 1.36, 0.07), SHELL, bevel=0.02)
-    for dim, z in ((2.56, -0.665), (2.36, -0.415), (1.62, -0.165), (1.42, 0.915)):
-        m.box((0.0, 0.0, z), (dim, dim, 0.03), GLOW)
-    for i in range(7):
-        m.box((-0.50 + 0.1667 * i, 0.0, 1.03), (0.05, 1.10, 0.06), SHELL, bevel=0.008)
-    for sx in (1, -1):
-        for sy in (1, -1):
-            m.sph((0.62 * sx, 0.62 * sy, 1.03), (0.06, 0.06, 0.06), GLOW, verts=8)
-    # server-rack vents with slats and LEDs on the two big tiers, all four faces
-    for k in range(4):
-        cs, sn = (round(math.cos(math.radians(90 * k))), round(math.sin(math.radians(90 * k))))
-        n, t = Vector((cs, sn, 0.0)), Vector((-sn, cs, 0.0))
-        for half, z in ((1.25, -0.54), (1.15, -0.29)):
-            for y in (-0.75, -0.25, 0.25, 0.75):
-                f = Frame.surface(m, n * half + t * y + Vector((0, 0, z)), n, t)
-                f.vent((0, 0, 0), (0.30, 0.10), slats=3)
-                f.box((0.115, 0, 0.012), (0.05, 0.03, 0.014), GLOW)
-    # Team status strips on the top tier, facing the lens
-    for s in (1, -1):
-        m.box((1.0, 0.55 * s, -0.173), (0.10, 0.42, 0.014), TEAM)
-    # core: corner seams, side slits; corner pylons with glow slits, spikes and cables to the core
-    for sx in (1, -1):
-        for sy in (1, -1):
-            m.box((0.78 * sx, 0.78 * sy, 0.375), (0.05, 0.05, 0.98), GLOW)
-            m.box((1.28 * sx, 1.28 * sy, -0.405), (0.24, 0.24, 0.55), SHELL, bevel=0.03)
-            m.box((1.28 * sx, 1.28 * sy, -0.66), (0.28, 0.28, 0.05), DARK, bevel=0.01)
-            m.box((1.28 * sx, 1.28 * sy, -0.115), (0.18, 0.18, 0.03), GLOW)
-            m.box((1.16 * sx, 1.28 * sy, -0.40), (0.012, 0.10, 0.34), GLOW)
-            m.box((1.28 * sx, 1.16 * sy, -0.40), (0.10, 0.012, 0.34), GLOW)
-            m.rod((1.28 * sx, 1.28 * sy, -0.10), (1.28 * sx, 1.28 * sy, 0.14), 0.035, SHELL, r1=0.012, verts=8)
-            m.sph((1.28 * sx, 1.28 * sy, 0.15), (0.06, 0.06, 0.06), GLOW, verts=8)
-            m.cable((1.20 * sx, 1.20 * sy, -0.10), (0.95 * sx, 0.95 * sy, 0.30), (0.80 * sx, 0.80 * sy, 0.05),
-                    0.02)
-    for x in (-0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6):
-        for sy in (1, -1):
-            m.box((x, 0.78 * sy, 0.325), (0.06, 0.03, 0.32), DARK)
-    # huge lens: dark bezel, Glow rim ring, collar with clamp blocks, lens eye
-    m.cyl((0.705, 0.0, 0.34), (0.16, 1.10, 1.10), DARK, verts=32)
-    m.tor((0.777, 0.0, 0.34), 0.52, 0.012, GLOW, aim=(1, 0, 0), verts=40)
-    m.lens((0.62, 0.0, 0.34), 0.46, aim=(1, 0, 0.45), clamps=8, collar=1.45, ring_verts=40)
-    # spire with seam rings, sensor disc and antenna whips
-    m.vcyl((0.0, 0.0, 1.39), 0.78, 0.18, SHELL, taper=0.2, verts=12)
-    for z, r in ((1.18, 0.083), (1.42, 0.056)):
-        m.tor((0.0, 0.0, z), r, 0.012, GLOW, verts=16)
-    m.vcyl((0.0, 0.0, 1.10), 0.025, 0.34, SHELL, verts=16)
-    m.tor((0.0, 0.0, 1.10), 0.17, 0.008, GLOW, verts=24)
+    # circular plinth: dark base, pearl step, lit floor rings
+    m.vcyl((0.0, 0.0, -0.95), 0.10, 2.92, DARK, verts=48, bevel=0.015)
+    m.vcyl((0.0, 0.0, -0.865), 0.07, 2.50, SHELL, verts=48, bevel=0.02)
+    m.tor((0.0, 0.0, -0.895), 1.36, 0.014, GLOW, verts=48)
+    m.tor((0.0, 0.0, -0.825), 1.22, 0.012, GLOW, verts=48)
+    # floating monolith segments (slightly twisted) with lit gaps and a cyan core column
+    m.box((0.0, 0.0, 0.40), (0.44, 0.44, 2.00), GLOW)
+    segs = ((-0.52, 0.28, 1.20, 0), (-0.14, 0.34, 1.05, 8), (0.36, 0.52, 1.00, 0), (0.86, 0.34, 0.90, -8),
+            (1.23, 0.26, 0.72, 6))
+    for i, (z, h, w, yaw) in enumerate(segs):
+        m.armor((0.0, 0.0, z), (w, w, h), SHELL, top=(0.94, 0.94), bevel=0.07, seg=3, rot=(0, 0, yaw))
+        if i:
+            zp, hp, wp, yp = segs[i - 1]
+            gz = (zp + hp / 2 + z - h / 2) / 2
+            m.box((0.0, 0.0, gz), (min(wp, w) * 0.86, min(wp, w) * 0.86, 0.10), GLOW, rot=(0, 0, yaw))
+    m.box((0.0, 0.0, -0.70), (0.90, 0.90, 0.10), GLOW)
+    m.armor((0.0, 0.0, 1.385), (0.44, 0.44, 0.03), TEAM, top=(0.9, 0.9), bevel=0.01, seg=2, rot=(0, 0, 6))
+    # lit vertical seams on the side and rear faces of the tall segments
     for k in range(3):
-        c, s = math.cos(math.radians(120 * k + 30)), math.sin(math.radians(120 * k + 30))
-        m.rod((0.10 * c, 0.10 * s, 1.03), (0.16 * c, 0.16 * s, 1.32), 0.012, DARK, verts=6)
-        m.sph((0.16 * c, 0.16 * s, 1.33), (0.035, 0.035, 0.035), GLOW, verts=6)
-    m.sph((0.0, 0.0, 1.765), (0.07, 0.07, 0.07), GLOW, verts=10)
+        a = math.radians(90 * k + 90)
+        n, t = Vector((math.cos(a), math.sin(a), 0.0)), Vector((-math.sin(a), math.cos(a), 0.0))
+        for z, h in ((0.36, 0.40), (0.86, 0.24), (-0.14, 0.22)):
+            for u in (-0.22, 0.22):
+                Frame.surface(m, n * 0.505 + t * u + Vector((0, 0, z)), n, (0, 0, 1)).box(
+                    (0, 0, 0), (h, 0.022, 0.014), GLOW)
+    # the huge red lens: dark bezel plate, lit rim, clamped housing, red dome
+    m.cyl((0.50, 0.0, 0.36), (0.09, 0.96, 0.96), DARK, verts=40)
+    m.tor((0.545, 0.0, 0.36), 0.47, 0.014, GLOW, aim=(1, 0, 0), verts=48)
+    m.lens((0.55, 0.0, 0.36), 0.40, aim=(1, 0, 0), clamps=8, collar=1.45, ring_verts=40)
+    # two tilted orbit rings with lit cores
+    m.tor((0.0, 0.0, -0.27), 1.15, 0.045, SHELL, rot=(8, 0, 0), verts=48)
+    m.tor((0.0, 0.0, -0.27), 1.15, 0.022, GLOW, rot=(8, 0, 0), verts=48)
+    m.tor((0.0, 0.0, 0.78), 0.95, 0.035, SHELL, rot=(-10, 6, 0), verts=48)
+    m.tor((0.0, 0.0, 0.78), 0.95, 0.016, GLOW, rot=(-10, 6, 0), verts=48)
+    # four floating crystal pylons on dark pads, with lit halos and tips
+    for sx in (1, -1):
+        for sy in (1, -1):
+            x, y = 1.12 * sx, 1.12 * sy
+            m.armor((x, y, -0.80), (0.36, 0.36, 0.06), DARK, top=(0.85, 0.85), bevel=0.02, seg=2)
+            m.tor((x, y, -0.735), 0.15, 0.010, GLOW, verts=20)
+            m.vcyl((x, y, -0.12), 1.05, 0.22, SHELL, taper=0.45, verts=6, bevel=0.01)
+            m.vcyl((x, y, -0.05), 0.60, 0.10, GLOW, taper=0.5, verts=6)
+            m.sph((x, y, 0.47), (0.07, 0.07, 0.07), GLOW, verts=8)
+    # crown: pearl fins around a glowing crystal spire
+    m.vcyl((0.0, 0.0, 1.61), 0.34, 0.16, GLOW, taper=0.25, verts=6)
+    for k in range(4):
+        yaw = 45 + 90 * k
+        c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        m.armor((0.21 * c, 0.21 * s, 1.555), (0.15, 0.03, 0.36), SHELL, top=(0.3, 1.0), rot=(0, 8, yaw),
+                bevel=0.008, seg=2)
+    return m.finish()
+
+
+# --------------------------------------------------------------------------------------
+# Human units: powered armour, prefab steel-blue plating, amber lamps, big team-colour plates
+# --------------------------------------------------------------------------------------
+def human_frontline(mats):
+    m = Model("SM_Human_Frontline", mats)
+    # legs: lugged boot, toe wedge, flared greave, hydraulic knee, layered thigh plate
+    for s in (1, -1):
+        y = 0.165 * s
+        m.box((0.03, y, -0.58), (0.40, 0.23, 0.04), DARK, bevel=0.015)
+        m.armor((0.0, y, -0.50), (0.32, 0.22, 0.12), SHELL, top=(0.92, 0.94))
+        m.armor((0.19, y, -0.51), (0.13, 0.20, 0.09), SHELL, top=(0.35, 0.9), skew=(-0.25, 0.0))
+        m.armor((-0.01, y, -0.31), (0.24, 0.21, 0.28), SHELL, top=(1.12, 1.08), skew=(0.03, 0.0))
+        m.box((-0.15, y, -0.31), (0.03, 0.15, 0.20), DARK)
+        m.sph((0.0, y, -0.145), (0.20, 0.20, 0.20), DARK, verts=12)
+        f = Frame.surface(m, (0.0, y, -0.145), (1, 0, 0), (0, 0, 1))
+        f.armor((0, 0, 0.10), (0.15, 0.20, 0.08), SHELL, top=(0.7, 0.8))
+        m.armor((0.0, y, -0.06), (0.24, 0.22, 0.14), SHELL, top=(1.1, 1.0))
+        m.rod((-0.12, y * 1.16, -0.27), (-0.12, y * 1.16, -0.09), 0.018, DARK, verts=8)
+        m.rod((-0.12, y * 1.16, -0.23), (-0.12, y * 1.16, -0.15), 0.028, SHELL, verts=8)
+    # patched greave plate on the right shin
+    m.armor((0.06, -0.272, -0.31), (0.14, 0.02, 0.15), DARK, top=(1, 1), bevel=0.008, seg=2)
+    # pelvis skirt, hip guards, belt with hazard tape
+    m.armor((0.0, 0.0, -0.03), (0.34, 0.42, 0.10), SHELL, top=(1.0, 1.0))
+    m.armor((0.0, 0.24, -0.04), (0.22, 0.06, 0.12), SHELL, top=(0.9, 0.9), mirror=True)
+    m.box((0.0, 0.0, 0.03), (0.32, 0.38, 0.06), DARK, bevel=0.015)
+    m.hazard((0.163, 0.0, 0.03), (1, 0, 0), (0, 1, 0), 0.24, 0.04, n=7)
+    # torso: broad tapered chest, front breastplate, lit sensor lamp, side vents
+    m.armor((0.0, 0.0, 0.18), (0.34, 0.40, 0.32), SHELL, top=(1.12, 1.4), bevel=0.05)
+    m.armor((0.20, 0.0, 0.19), (0.11, 0.36, 0.24), SHELL, top=(0.45, 0.85), bevel=0.035)
+    m.lamp((0.232, -0.09, 0.20), (1, 0, 0.35), (0, 1, 0), (0.07, 0.05), depth=0.03)
+    m.box((0.212, 0.09, 0.20), (0.05, 0.10, 0.02), DARK)
+    for s in (1, -1):
+        Frame.surface(m, (0.0, 0.265 * s, 0.18), (0, s, 0), (1, 0, 0)).vent((0, 0, 0), (0.18, 0.12), slats=3)
+    # power pack: dark casing, back plate, glowing cooling slots, team lid, twin exhausts
+    m.armor((-0.245, 0.0, 0.14), (0.17, 0.36, 0.32), DARK, top=(0.92, 0.92))
+    m.armor((-0.335, 0.0, 0.14), (0.03, 0.30, 0.26), SHELL, top=(0.9, 0.9), bevel=0.012, seg=2)
+    for dz in (-0.06, 0.0, 0.06):
+        m.box((-0.353, 0.0, 0.14 + dz), (0.012, 0.22, 0.02), GLOW)
+    m.armor((-0.245, 0.0, 0.318), (0.15, 0.30, 0.045), TEAM, top=(0.85, 0.85))
+    m.vcyl((-0.29, 0.11, 0.42), 0.16, 0.07, DARK, taper=1.3, mirror=True)
+    m.vcyl((-0.29, 0.11, 0.505), 0.02, 0.07, GLOW, mirror=True)
+    # big team-colour pauldrons on chamfered shell rims
+    f = Frame(m, (0.0, 0.325, 0.335), rot=(-16, 0, 0))
+    f.armor((0, 0, 0.02), (0.32, 0.22, 0.09), TEAM, top=(0.74, 0.70), bevel=0.04, mirror=True)
+    f.armor((0, 0, -0.045), (0.39, 0.27, 0.05), SHELL, top=(0.94, 0.94), bevel=0.02, mirror=True)
+    f.box((0.10, 0.10, 0.075), (0.09, 0.012, 0.012), GLOW, mirror=True)
+    # head: armoured helmet with lit visor, chin guard, crest and ear pods
+    m.vcyl((0.0, 0.0, 0.35), 0.06, 0.10, DARK)
+    m.armor((0.02, 0.0, 0.45), (0.23, 0.23, 0.16), SHELL, top=(0.8, 0.86), bevel=0.05)
+    m.box((0.12, 0.0, 0.44), (0.05, 0.17, 0.07), DARK, bevel=0.015)
+    m.box((0.148, 0.0, 0.44), (0.012, 0.14, 0.03), GLOW)
+    m.armor((0.09, 0.0, 0.385), (0.10, 0.16, 0.05), SHELL, top=(0.8, 0.9), bevel=0.02, seg=2)
+    m.armor((0.0, 0.0, 0.535), (0.12, 0.05, 0.03), TEAM, top=(0.9, 0.9), bevel=0.01, seg=2)
+    m.ycyl((0.0, 0.125, 0.45), 0.04, 0.09, DARK, mirror=True)
+    m.rod((-0.06, -0.10, 0.50), (-0.09, -0.10, 0.60), 0.008, DARK, verts=6)
+    # left arm: sleeve, elbow and gauntlet behind the shield
+    a, b = Vector((0.0, 0.30, 0.24)), Vector((0.26, 0.27, 0.04))
+    m.rod(a, b, 0.055, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.45), (0.10, 0.10, 0.10), DARK, verts=10)
+    m.sph(b, (0.11, 0.11, 0.11), DARK, verts=10)
+    # riot shield: three curved panels, big team upper face, hazard-taped lower guard, lit viewport
+    for x, y, yaw, w in ((0.37, 0.20, 0, 0.19), (0.335, 0.325, 26, 0.13), (0.335, 0.075, -26, 0.13)):
+        f = Frame(m, (x, y, -0.01), (0, -6, yaw))
+        f.armor((0, 0, 0), (0.055, w, 0.74), SHELL, top=(1, 1), bevel=0.02, seg=2)
+        f.armor((0.03, 0, 0.13), (0.03, w * 0.92, 0.42), TEAM, top=(1, 1), bevel=0.012, seg=2)
+        m.hazard(f.p((0.0315, 0, -0.25)), f.d((1, 0, 0)), f.d((0, 1, 0)), w * 0.84, 0.10, n=4)
+        Frame.surface(m, f.p((0.0455, 0, 0.13)), f.d((1, 0, 0)), f.d((0, 0, 1))).rivets(
+            (0.40, w * 0.84), nu=4, nv=2, inset=0.02, r=0.011, mat=SHELL)
+        f.box((0.0, 0, 0.375), (0.075, w, 0.03), SHELL, bevel=0.01)
+        for e in (1, -1):
+            f.box((0.0, e * (w / 2 - 0.008), 0.0), (0.07, 0.016, 0.74), SHELL, bevel=0.006, seg=1)
+    f = Frame(m, (0.37, 0.20, -0.01), (0, -6, 0))
+    f.box((0.05, 0, 0.30), (0.02, 0.14, 0.035), GLOW)
+    # right arm and hydraulic sledgehammer resting on the shoulder
+    a, b = Vector((0.0, -0.30, 0.24)), Vector((0.17, -0.335, 0.0))
+    m.rod(a, b, 0.055, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.45), (0.10, 0.10, 0.10), DARK, verts=10)
+    m.sph(b, (0.12, 0.12, 0.12), DARK, verts=10)
+    m.rod((0.22, -0.335, -0.12), (-0.12, -0.34, 0.46), 0.026, DARK, verts=8)
+    m.ycyl((-0.12, -0.34, 0.48), 0.18, 0.15, SHELL, verts=16, bevel=0.02)
+    for e in (1, -1):
+        m.ycyl((-0.12, -0.34 + 0.10 * e, 0.48), 0.03, 0.125, DARK, verts=16)
+    m.ycyl((-0.12, -0.34, 0.48), 0.035, 0.158, GLOW, verts=16)
+    m.rod((0.02, -0.395, 0.12), (-0.09, -0.395, 0.40), 0.030, SHELL, verts=8)
+    m.rod((0.02, -0.395, 0.12), (-0.05, -0.395, 0.30), 0.018, DARK, verts=8)
+    return m.finish()
+
+
+def human_ranged(mats):
+    m = Model("SM_Human_Ranged", mats)
+    # slim legs: boot, toe wedge, greave, hydraulic knee pad, thigh plate
+    for s in (1, -1):
+        y = 0.135 * s
+        m.box((0.03, y, -0.58), (0.34, 0.19, 0.04), DARK, bevel=0.012)
+        m.armor((0.0, y, -0.50), (0.28, 0.18, 0.12), SHELL, top=(0.92, 0.94))
+        m.armor((0.165, y, -0.51), (0.11, 0.17, 0.09), SHELL, top=(0.35, 0.9), skew=(-0.25, 0.0))
+        m.armor((-0.005, y, -0.32), (0.20, 0.17, 0.28), SHELL, top=(1.1, 1.05))
+        m.sph((0.0, y, -0.155), (0.16, 0.16, 0.16), DARK, verts=12)
+        f = Frame.surface(m, (0.0, y, -0.155), (1, 0, 0), (0, 0, 1))
+        f.armor((0, 0, 0.08), (0.13, 0.16, 0.07), SHELL, top=(0.7, 0.8))
+        m.armor((0.0, y, -0.07), (0.20, 0.18, 0.13), SHELL, top=(1.08, 1.0))
+        m.rod((-0.10, y * 1.2, -0.28), (-0.10, y * 1.2, -0.10), 0.014, DARK, verts=8)
+    # hips, belt with amber buckle lamp and pouches
+    m.armor((0.0, 0.0, -0.03), (0.28, 0.34, 0.09), SHELL, top=(1.0, 1.0))
+    m.box((0.0, 0.0, 0.02), (0.26, 0.30, 0.05), DARK, bevel=0.012)
+    m.lamp((0.135, 0.0, 0.02), (1, 0, 0), (0, 1, 0), (0.05, 0.04), depth=0.025)
+    m.armor((0.09, 0.175, -0.01), (0.09, 0.06, 0.10), DARK, top=(0.9, 0.9), bevel=0.015, seg=2, mirror=True)
+    # torso with breastplate and side vents
+    m.armor((0.0, 0.0, 0.17), (0.28, 0.32, 0.30), SHELL, top=(1.1, 1.35), bevel=0.045)
+    m.armor((0.16, 0.0, 0.18), (0.09, 0.28, 0.22), SHELL, top=(0.45, 0.85), bevel=0.03)
+    m.box((0.195, 0.0, 0.11), (0.03, 0.16, 0.014), GLOW)
+    # sensor backpack: casing, team lid, mast, tilted dish with lit feed, whip antenna
+    m.armor((-0.20, 0.0, 0.15), (0.15, 0.30, 0.30), DARK, top=(0.92, 0.92))
+    m.armor((-0.20, 0.0, 0.315), (0.13, 0.26, 0.05), TEAM, top=(0.88, 0.88))
+    m.armor((-0.275, 0.0, 0.15), (0.03, 0.24, 0.22), SHELL, top=(0.9, 0.9), bevel=0.012, seg=2)
+    m.box((-0.292, 0.0, 0.15), (0.012, 0.18, 0.02), GLOW)
+    m.rod((-0.24, 0.08, 0.34), (-0.24, 0.08, 0.50), 0.02, DARK, verts=8)
+    m.cyl((-0.22, 0.08, 0.54), (0.07, 0.27, 0.27), SHELL, aim=(0.5, 0.5, 0.8), taper=0.35, verts=20)
+    m.sph((-0.19, 0.11, 0.585), (0.06, 0.06, 0.06), GLOW, verts=8)
+    m.rod((-0.27, -0.10, 0.34), (-0.31, -0.13, 0.61), 0.008, DARK, verts=6)
+    # shoulder pads: big team paint on shell rims
+    f = Frame(m, (0.0, 0.27, 0.32), rot=(-14, 0, 0))
+    f.armor((0, 0, 0.02), (0.29, 0.20, 0.08), TEAM, top=(0.74, 0.70), bevel=0.035, mirror=True)
+    f.armor((0, 0, -0.04), (0.31, 0.22, 0.045), SHELL, top=(0.94, 0.94), bevel=0.018, mirror=True)
+    # head: helmet, lit visor band, side sensor monocle
+    m.vcyl((0.0, 0.0, 0.335), 0.06, 0.09, DARK)
+    m.armor((0.02, 0.0, 0.435), (0.20, 0.20, 0.15), SHELL, top=(0.8, 0.85), bevel=0.045)
+    m.box((0.115, 0.0, 0.425), (0.045, 0.15, 0.06), DARK, bevel=0.012)
+    m.box((0.14, 0.0, 0.425), (0.012, 0.12, 0.028), GLOW)
+    m.ycyl((0.09, -0.115, 0.46), 0.05, 0.07, DARK)
+    m.ycyl((0.09, -0.145, 0.46), 0.012, 0.05, GLOW)
+    m.armor((0.0, 0.0, 0.51), (0.14, 0.05, 0.03), TEAM, top=(0.9, 0.9), bevel=0.01, seg=2)
+    # long rail rifle: receiver, energy cell, shrouded barrel, twin rails with lit capacitor, scope, muzzle
+    m.armor((-0.02, -0.20, 0.06), (0.32, 0.09, 0.13), SHELL, top=(0.95, 0.9), bevel=0.025, seg=3)
+    m.box((-0.19, -0.20, 0.06), (0.06, 0.10, 0.11), DARK, bevel=0.012)
+    m.box((0.02, -0.20, -0.04), (0.10, 0.07, 0.11), DARK, bevel=0.012)
+    m.box((0.02, -0.20, -0.04), (0.07, 0.076, 0.05), GLOW)
+    m.cyl((0.30, -0.20, 0.06), (0.30, 0.07, 0.07), DARK, verts=12)
+    for e in (1, -1):
+        m.rod((0.14, -0.20 + 0.05 * e, 0.06), (0.43, -0.20 + 0.05 * e, 0.06), 0.017, SHELL, verts=8)
+    m.box((0.28, -0.20, 0.098), (0.22, 0.02, 0.014), GLOW)
+    m.cyl((0.435, -0.20, 0.06), (0.03, 0.10, 0.10), SHELL, verts=12)
+    m.cyl((0.452, -0.20, 0.06), (0.012, 0.075, 0.075), GLOW, verts=12)
+    m.cyl((0.03, -0.20, 0.155), (0.22, 0.06, 0.06), DARK, verts=12)
+    m.cyl((0.14, -0.20, 0.155), (0.012, 0.045, 0.045), GLOW, verts=12)
+    m.box((0.03, -0.20, 0.125), (0.08, 0.03, 0.04), DARK)
+    # arms reaching to the grips
+    a, b = Vector((0.0, -0.265, 0.235)), Vector((0.03, -0.22, 0.05))
+    m.rod(a, b, 0.045, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.5), (0.08, 0.08, 0.08), DARK, verts=10)
+    m.sph(b, (0.09, 0.09, 0.09), DARK, verts=10)
+    a, b = Vector((0.0, 0.265, 0.235)), Vector((0.28, -0.18, 0.05))
+    m.rod(a, b, 0.042, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.4), (0.08, 0.08, 0.08), DARK, verts=10)
+    m.sph(b, (0.09, 0.09, 0.09), DARK, verts=10)
+    return m.finish()
+
+
+def human_siege(mats):
+    m = Model("SM_Human_Siege", mats)
+    # two reverse-jointed legs on wide flat feet
+    for s in (1, -1):
+        y = 0.44 * s
+        hip = Vector((-0.02, 0.31 * s, -0.04))
+        knee = Vector((0.20, y, -0.25))
+        ankle = Vector((-0.04, y, -0.47))
+        m.box((0.03, y, -0.575), (0.40, 0.24, 0.05), DARK, bevel=0.02)
+        m.armor((0.01, y, -0.51), (0.32, 0.20, 0.09), SHELL, top=(0.8, 0.85), bevel=0.035)
+        m.armor((0.21, y, -0.535), (0.14, 0.19, 0.07), SHELL, top=(0.3, 0.9), skew=(-0.25, 0), bevel=0.025)
+        m.sph(hip, (0.19, 0.19, 0.19), DARK, verts=12)
+        m.rod(hip, knee, 0.075, DARK, verts=12)
+        m.add("frust", hip.lerp(knee, 0.5) + Vector((0, 0.0, 0.05)), (0.30, 0.15, 0.09), SHELL,
+              aim=(knee - hip), taper=(1.0, 0.75), bevel=0.03, seg=3)
+        m.sph(knee, (0.17, 0.17, 0.17), DARK, verts=12)
+        m.add("frust", knee, (0.13, 0.18, 0.10), SHELL, rot=(0, -20, 0), taper=(0.8, 0.8), bevel=0.03, seg=2)
+        m.rod(knee, ankle, 0.065, DARK, verts=12)
+        m.add("frust", knee.lerp(ankle, 0.45) + Vector((0.05, 0, 0.0)), (0.24, 0.12, 0.08), SHELL,
+              aim=(ankle - knee), taper=(1.0, 0.8), bevel=0.025, seg=2)
+        m.sph(ankle, (0.13, 0.13, 0.13), DARK, verts=10)
+        m.rod(hip + Vector((0.0, 0.0, 0.08)), knee + Vector((0.0, 0.0, 0.10)), 0.016, SHELL, verts=8)
+    # hull: chamfered lower body, skirts with hazard tape, team roof plates split by a vented spine
+    m.armor((-0.04, 0.0, -0.03), (0.64, 0.56, 0.22), SHELL, top=(0.88, 0.85), bevel=0.05)
+    m.armor((-0.06, 0.0, -0.16), (0.52, 0.44, 0.06), DARK, top=(0.9, 0.9), bevel=0.02, seg=2)
+    m.armor((-0.06, 0.0, 0.135), (0.48, 0.52, 0.06), SHELL, top=(0.95, 0.95), bevel=0.03)
+    for s in (1, -1):
+        m.armor((-0.08, 0.17 * s, 0.185), (0.36, 0.19, 0.05), TEAM, top=(0.86, 0.82), bevel=0.028, seg=3)
+        m.armor((-0.04, 0.30 * s, -0.03), (0.44, 0.05, 0.16), SHELL, top=(0.9, 0.7), bevel=0.02, seg=2)
+        m.box((0.10, 0.286 * s, -0.03), (0.04, 0.014, 0.10), GLOW)
+        m.hazard((-0.16, 0.281 * s, -0.03), (0, s, 0), (1, 0, 0), 0.18, 0.07, n=4)
+    Frame.surface(m, (-0.12, 0.0, 0.165), (0, 0, 1), (1, 0, 0)).vent((0, 0, 0), (0.26, 0.10), slats=4)
+    # cockpit cab: armoured block, team crown, lit canopy, side work lamps
+    m.armor((0.12, 0.0, 0.22), (0.30, 0.36, 0.16), SHELL, top=(0.70, 0.85), skew=(-0.08, 0), bevel=0.04)
+    m.armor((0.07, 0.0, 0.31), (0.16, 0.26, 0.03), TEAM, top=(0.8, 0.85), bevel=0.012, seg=2)
+    m.lamp((0.225, 0.0, 0.225), (1, 0, 0.15), (0, 1, 0), (0.26, 0.07), depth=0.03)
+    for s in (1, -1):
+        m.lamp((0.07, 0.185 * s, 0.245), (0, s, 0.1), (1, 0, 0), (0.09, 0.045), depth=0.02)
+    m.rod((0.0, 0.14, 0.30), (-0.05, 0.16, 0.50), 0.008, DARK, verts=6)
+    # rear power block: glowing vents, two exhaust stacks
+    m.armor((-0.37, 0.0, 0.05), (0.18, 0.40, 0.26), DARK, top=(0.9, 0.9), bevel=0.03)
+    for dz in (-0.05, 0.0, 0.05):
+        m.box((-0.463, 0.0, 0.05 + dz), (0.012, 0.30, 0.02), GLOW)
+    m.vcyl((-0.32, 0.13, 0.25), 0.20, 0.08, DARK, taper=1.3, mirror=True)
+    m.vcyl((-0.32, 0.13, 0.355), 0.02, 0.08, GLOW, mirror=True)
+    # front boom and giant hydraulic bolt-cutter jaws, opening sideways so the V reads from above
+    m.armor((0.22, 0.0, -0.03), (0.16, 0.34, 0.26), DARK, top=(0.85, 0.85), bevel=0.035)
+    pivot = Vector((0.27, 0.0, -0.03))
+    m.vcyl(pivot, 0.30, 0.20, DARK, verts=16)
+    m.vcyl(pivot + Vector((0, 0, 0.16)), 0.02, 0.10, GLOW, verts=16)
+    lean = math.radians(28)
+    c, s_ = math.cos(lean), math.sin(lean)
+    for sgn in (1, -1):
+        d = Vector((c, sgn * s_, 0.0))
+        inner = Vector((s_, -sgn * c, 0.0))
+        f = Frame.surface(m, pivot + d * 0.215, d, (0, 0, 1))
+        f.armor((0, 0, 0), (0.17, 0.16, 0.43), SHELL, top=(0.55, 0.45), bevel=0.035, seg=3)
+        # cutting edge: lit strip on the inner face, hazard tape on the flat top
+        Frame.surface(m, pivot + d * 0.25 + inner * 0.06, inner, d).box((0, 0, 0), (0.26, 0.05, 0.012), GLOW)
+        m.hazard(pivot + d * 0.13 + Vector((0, 0, 0.086)), (0, 0, 1), d, 0.16, 0.08, n=4)
+        root = pivot - d * 0.02 - inner * 0.10
+        for z in (0.0,):
+            m.rod(Vector((0.10, sgn * 0.15, -0.03)), root, 0.03, DARK, verts=8)
+            m.rod(Vector((0.10, sgn * 0.15, -0.03)), Vector((0.10, sgn * 0.15, -0.03)).lerp(root, 0.45), 0.045,
+                  SHELL, verts=8)
+    return m.finish()
+
+
+def human_hq(mats):
+    m = Model("SM_Human_HQ", mats)
+    # landing pad with hazard-taped edge and four heavy landing struts
+    m.armor((0.0, 0.0, -0.96), (2.96, 2.96, 0.08), DARK, top=(1.0, 1.0), bevel=0.02, seg=2)
+    for sx in (0.75, -0.95):
+        for s in (1, -1):
+            m.armor((sx, 0.90 * s, -0.905), (0.46, 0.46, 0.07), DARK, top=(0.8, 0.8), bevel=0.02, seg=2)
+            m.vcyl((sx, 0.90 * s, -0.60), 0.62, 0.20, SHELL, taper=1.0, verts=14, bevel=0.012)
+            m.vcyl((sx, 0.90 * s, -0.86), 0.10, 0.25, DARK, verts=14)
+            m.vcyl((sx, 0.90 * s, -0.42), 0.05, 0.25, DARK, verts=14)
+            m.rod((sx, 0.90 * s, -0.86), (sx, 1.04 * s, -0.30), 0.035, DARK, verts=8)
+    # undercroft power core between the struts
+    m.armor((-0.10, 0.0, -0.66), (1.5, 1.4, 0.42), DARK, top=(0.96, 0.96), bevel=0.03)
+    for s in (1, -1):
+        m.box((-0.10, 0.706 * s, -0.66), (1.2, 0.012, 0.05), GLOW)
+        m.box((0.652, 0.0, -0.66), (0.012, 0.9, 0.05), GLOW)
+    # prefab module: plated lower body cut by recessed panel lines, roof slab and parapet
+    m.seams((-0.10, 0.0, 0.05), (2.0, 2.1, 0.70), SHELL, ((0, 0.34), (0, 0.66), (1, 0.5), (2, 0.5)), gap=0.03,
+            depth=0.03, bevel=0.04, seg=2, core=DARK)
+    m.armor((-0.10, 0.0, -0.33), (2.12, 2.22, 0.06), DARK, top=(0.98, 0.98), bevel=0.02, seg=2)
+    m.armor((-0.10, 0.0, 0.43), (2.18, 2.28, 0.10), SHELL, top=(0.96, 0.96), bevel=0.05)
+    for s in (1, -1):
+        m.box((-0.10, 1.10 * s, 0.505), (2.10, 0.05, 0.07), SHELL, bevel=0.012)
+        m.box((-1.16, 0.0, 0.505), (0.05, 2.20, 0.07), SHELL, bevel=0.012)
+    # big team roof plates and a roof hatch
+    for s in (1, -1):
+        m.armor((0.18, 0.62 * s, 0.505), (0.98, 0.78, 0.05), TEAM, top=(0.92, 0.90), bevel=0.03, seg=3)
+    m.armor((0.18, 0.0, 0.50), (0.60, 0.24, 0.05), DARK, top=(0.9, 0.9), bevel=0.015, seg=2)
+    m.box((0.18, 0.0, 0.535), (0.40, 0.03, 0.012), GLOW)
+    Frame.surface(m, (-0.55, 0.0, 0.482), (0, 0, 1), (1, 0, 0)).vent((0, 0, 0), (0.50, 0.30), slats=5)
+    # blast door: posts, lintel, two heavy leaves with lit slits, hazard tape, team canopy
+    m.armor((0.99, 0.0, -0.01), (0.12, 1.30, 0.70), DARK, top=(0.9, 0.95), bevel=0.02, seg=2)
+    for s in (1, -1):
+        m.armor((0.985, 0.60 * s, -0.0), (0.16, 0.16, 0.72), SHELL, top=(0.85, 0.85), bevel=0.03)
+        Frame.surface(m, (1.062, 0.60 * s, -0.0), (1, 0, 0), (0, 0, 1)).rivets(
+            (0.60, 0.10), nu=5, nv=2, inset=0.03, r=0.012, mat=DARK)
+        m.box((1.0, 0.27 * s, -0.06), (0.06, 0.48, 0.52), DARK, bevel=0.012)
+        Frame.surface(m, (1.03, 0.27 * s, -0.06), (1, 0, 0), (0, 0, 1)).rivets(
+            (0.46, 0.44), nu=5, nv=3, inset=0.03, r=0.012, mat=SHELL)
+        m.lamp((1.03, 0.27 * s, 0.13), (1, 0, 0), (0, 1, 0), (0.34, 0.06), depth=0.02)
+        m.hazard((1.031, 0.27 * s, -0.16), (1, 0, 0), (0, 1, 0), 0.40, 0.10, n=6)
+    m.armor((1.03, 0.0, 0.40), (0.34, 1.44, 0.08), TEAM, top=(0.75, 0.95), bevel=0.03, seg=3)
+    # flanking front windows and side windows with hazard skirt tape
+    for s in (1, -1):
+        m.lamp((0.90, 0.82 * s, 0.14), (1, 0, 0), (0, 1, 0), (0.30, 0.18), depth=0.03)
+        for x in (-0.65, -0.10, 0.45):
+            m.lamp((x, 1.05 * s, 0.14), (0, s, 0), (1, 0, 0), (0.32, 0.16), depth=0.03)
+            m.hazard((x, 1.05 * s, -0.22), (0, s, 0), (1, 0, 0), 0.34, 0.07, n=5)
+    # entry ramp with rails
+    m.armor((1.20, 0.0, -0.62), (0.58, 0.90, 0.60), SHELL, top=(0.05, 1.0), skew=(-0.475, 0.0), bevel=0.02, seg=2)
+    for s in (1, -1):
+        m.armor((1.20, 0.50 * s, -0.66), (0.58, 0.10, 0.52), DARK, top=(0.1, 1.0), skew=(-0.45, 0.0), bevel=0.015,
+                seg=2)
+    m.hazard((1.26, 0.0, -0.87), (0, 0, 1), (1, 0, 0), 0.36, 0.10, n=5)
+    # armoured side barriers with team caps, front barrier blocks, floodlight masts
+    for s in (1, -1):
+        m.armor((-0.10, 1.32 * s, -0.72), (2.30, 0.26, 0.40), SHELL, top=(0.98, 0.6), bevel=0.035, seg=3)
+        m.armor((-0.10, 1.30 * s, -0.505), (2.20, 0.16, 0.035), TEAM, top=(0.98, 0.9), bevel=0.012, seg=2)
+        m.armor((1.30, 0.98 * s, -0.72), (0.40, 0.52, 0.40), SHELL, top=(0.6, 0.7), bevel=0.035, seg=3)
+        m.armor((1.30, 0.98 * s, -0.505), (0.28, 0.40, 0.03), TEAM, top=(0.9, 0.9), bevel=0.012, seg=2)
+        m.rod((0.84, 1.32 * s, -0.50), (0.84, 1.32 * s, 0.56), 0.04, DARK, verts=8)
+        m.armor((0.84, 1.32 * s, 0.60), (0.20, 0.34, 0.12), DARK, top=(0.9, 0.9), bevel=0.02, seg=2)
+        for k in (-1, 0, 1):
+            m.lamp((0.945, 1.32 * s + 0.105 * k, 0.60), (1, 0, 0), (0, 1, 0), (0.09, 0.09), depth=0.03)
+    # reactor stack: drum, ringed shaft with lit slits, cap and coolant pipes
+    rx, ry = -0.80, 0.62
+    m.vcyl((rx, ry, 0.62), 0.30, 0.66, SHELL, verts=20, bevel=0.02)
+    m.vcyl((rx, ry, 0.79), 0.05, 0.70, DARK, verts=20)
+    m.vcyl((rx, ry, 1.10), 0.60, 0.46, SHELL, taper=0.86, verts=20, bevel=0.012)
+    for z in (0.93, 1.13, 1.33):
+        m.vcyl((rx, ry, z), 0.035, 0.50 - (z - 0.93) * 0.10, DARK, verts=20)
+    for k in range(6):
+        a = math.radians(60 * k)
+        c, s_ = math.cos(a), math.sin(a)
+        Frame.surface(m, Vector((rx + 0.225 * c, ry + 0.225 * s_, 1.04)), (c, s_, 0), (0, 0, 1)).box(
+            (0, 0, 0), (0.30, 0.05, 0.02), GLOW)
+    m.vcyl((rx, ry, 1.44), 0.06, 0.38, DARK, verts=20)
+    m.sph((rx, ry, 1.47), (0.30, 0.30, 0.26), SHELL, verts=20)
+    m.vcyl((rx, ry, 1.60), 0.06, 0.09, GLOW, verts=12)
+    m.cable((rx + 0.30, ry, 0.70), (rx + 0.60, ry - 0.20, 0.62), (rx + 0.50, ry - 0.55, 0.52), 0.04)
+    # antenna mast with dish, guy wires and beacon
+    ax, ay = -0.75, -0.80
+    m.vcyl((ax, ay, 0.54), 0.06, 0.30, DARK, verts=12)
+    m.rod((ax, ay, 0.54), (ax, ay, 1.72), 0.035, DARK, verts=8)
+    m.box((ax, ay, 1.15), (0.03, 0.44, 0.03), DARK)
+    m.cyl((ax + 0.09, ay + 0.06, 1.38), (0.07, 0.42, 0.42), SHELL, aim=(1, 0.3, 0.35), taper=0.4, verts=24)
+    m.sph((ax + 0.19, ay + 0.09, 1.42), (0.07, 0.07, 0.07), GLOW, verts=8)
+    for a in (35, 155, 275):
+        c, s_ = math.cos(math.radians(a)), math.sin(math.radians(a))
+        m.rod((ax, ay, 1.10), (ax + 0.42 * c, ay + 0.42 * s_, 0.50), 0.008, DARK, verts=4)
+    m.sph((ax, ay, 1.75), (0.09, 0.09, 0.09), GLOW, verts=10)
+    # rear generators with lit vents and stacks
+    for s in (1, -1):
+        m.armor((-1.30, 0.55 * s, -0.66), (0.28, 0.62, 0.40), DARK, top=(0.9, 0.9), bevel=0.025, seg=2)
+        Frame.surface(m, (-1.445, 0.55 * s, -0.66), (-1, 0, 0), (0, 1, 0)).vent((0, 0, 0), (0.40, 0.20), slats=4)
+        m.box((-1.30, 0.55 * s, -0.445), (0.22, 0.50, 0.03), TEAM)
     return m.finish()
 
 
@@ -1139,7 +953,7 @@ def check(obj):
         limit = FOOTPRINT_SIEGE if "_Siege" in name else FOOTPRINT_UNIT
         assert max(-lo.x, -lo.y, hi.x, hi.y) <= limit, "%s footprint %s %s exceeds %.2f" % (name, lo, hi, limit)
     if name.endswith("_HQ"):
-        assert abs(lo.z + 1.0) < 1e-4 and hi.z <= 1.0 + 1e-4 + (0.8 if "Machine" in name else 0.0), (name, lo, hi)
+        assert abs(lo.z + 1.0) < 1e-4 and hi.z <= 1.8 + 1e-4, (name, lo, hi)  # Unreal import allows top z <= 1.85
         assert max(abs(lo.x), abs(lo.y), hi.x, hi.y) <= 1.5 + 1e-4, (name, lo, hi)
     elif name.endswith("_Ranged") and "Machine" in name:
         assert lo.z >= -0.35, (name, lo)
@@ -1187,24 +1001,28 @@ FIELD_LAYOUT = {
 # Human surfaces mirror FACTION_MATERIALS["Human"] in Build/ImportUnitMeshes.py (colour, roughness,
 # metallic) and HUMAN_GLOW in Build/ArtMaterials.py, so the previews predict the Unreal result.
 # Change them together. Team is a stand-in for the per-team tint applied in game.
-HUMAN_SHELL = ((0.46, 0.40, 0.26), 0.85, 0.05)
-HUMAN_DARK = ((0.30, 0.31, 0.33), 0.55, 0.3)
+HUMAN_SHELL = ((0.22, 0.27, 0.36), 0.40, 0.50)
+HUMAN_DARK = ((0.045, 0.05, 0.06), 0.5, 0.7)
 HUMAN_GLOW_COLOR = (1.0, 0.55, 0.15)
+MACHINE_SHELL = ((0.88, 0.90, 0.94), 0.15, 0.25)
+MACHINE_DARK = ((0.05, 0.06, 0.08), 0.3, 0.7)
+MACHINE_GLOW_COLOR = (0.35, 0.85, 1.0)
 
 
 def preview_materials():
     return {
         "Machine": [
             make_material("PV_M_Team", (1.0, 0.01, 0.01), emission=4.0),
-            make_material("PV_M_Shell", (0.82, 0.85, 0.88), roughness=0.22, coat=0.6),
-            make_material("PV_M_Dark", (0.035, 0.04, 0.05), metallic=0.4, roughness=0.4),
-            make_material("PV_M_Glow", (0.45, 0.95, 1.0), emission=6.0),
+            make_material("PV_M_Shell", MACHINE_SHELL[0], roughness=MACHINE_SHELL[1], metallic=MACHINE_SHELL[2],
+                          coat=0.7),
+            make_material("PV_M_Dark", MACHINE_DARK[0], roughness=MACHINE_DARK[1], metallic=MACHINE_DARK[2]),
+            make_material("PV_M_Glow", MACHINE_GLOW_COLOR, emission=1.3),
         ],
         "Human": [
-            make_material("PV_H_Team", (0.06, 0.25, 0.95), roughness=0.55),
+            make_material("PV_H_Team", (0.05, 0.30, 1.0), roughness=0.4, metallic=0.2),
             make_material("PV_H_Shell", HUMAN_SHELL[0], roughness=HUMAN_SHELL[1], metallic=HUMAN_SHELL[2]),
             make_material("PV_H_Dark", HUMAN_DARK[0], roughness=HUMAN_DARK[1], metallic=HUMAN_DARK[2]),
-            make_material("PV_H_Glow", HUMAN_GLOW_COLOR, emission=7.0),
+            make_material("PV_H_Glow", HUMAN_GLOW_COLOR, emission=1.6),
         ],
     }
 
@@ -1212,14 +1030,13 @@ def preview_materials():
 class PreviewRig:
     """Preview scene: lit lineup of copies with per-faction preview materials (originals hidden)."""
 
-    def __init__(self, objects):
+    def __init__(self, objects, pv):
         self.objects = objects
         scene = self.scene = bpy.context.scene
-        pv = preview_materials()
 
         scene.render.engine = "CYCLES"
         scene.cycles.device = "CPU"
-        scene.cycles.samples = 64
+        scene.cycles.samples = 48
         scene.cycles.use_denoising = True
         scene.render.resolution_x, scene.render.resolution_y = PREVIEW_SIZE
         scene.render.resolution_percentage = 100
@@ -1230,7 +1047,7 @@ class PreviewRig:
         scene.world = world
         world.use_nodes = True
         bg = world.node_tree.nodes["Background"]
-        bg.inputs["Color"].default_value = (0.012, 0.015, 0.02, 1.0)
+        bg.inputs["Color"].default_value = (0.20, 0.23, 0.28, 1.0)
         bg.inputs["Strength"].default_value = 1.0
 
         self.lights = {}
@@ -1362,8 +1179,8 @@ class PreviewRig:
         self.render(path)
 
 
-def render_previews(objects):
-    rig = PreviewRig(objects)
+def render_previews(objects, pv):
+    rig = PreviewRig(objects, pv)
     rig.place("side")
     rig.camera_side()
     rig.render(os.path.join(OUT, "Preview.png"))
@@ -1387,20 +1204,27 @@ def main():
     for obj in objects:
         export_fbx(obj, os.path.join(OUT, obj.name + ".fbx"))
 
-    for index, obj in enumerate(objects):
+    # Units.blend: the eight meshes in a row along +X, wearing the preview palette (Machine pearl, Human
+    # gunmetal) as object-level material overrides so the palette shows when editing. The FBXs above were
+    # written first, from the neutral Team / Shell / Dark / Glow materials.
+    pv = preview_materials()
+    for index, (obj, (faction, _)) in enumerate(zip(objects, MODELS)):
         obj.location = (index * 4.0, 0.0, 0.0)
+        for slot, material in zip(obj.material_slots, pv[faction]):
+            slot.link = "OBJECT"
+            slot.material = material
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Units.blend"))
 
     print("MESH | bounds min | bounds max | tris | slots")
     for obj in objects:
         lo, hi = bounds(obj)
         print("%s | (%.3f, %.3f, %.3f) | (%.3f, %.3f, %.3f) | %d | %s" % (
-            obj.name, *lo, *hi, triangles(obj), "/".join(s.material.name for s in obj.material_slots)))
+            obj.name, *lo, *hi, triangles(obj), "/".join(mat.name for mat in obj.data.materials)))
     sys.stdout.flush()
 
     for obj in objects:
         obj.location = (0.0, 0.0, 0.0)
-    render_previews(objects)
+    render_previews(objects, pv)
     print("UNIT_MESHES_DONE")
 
 

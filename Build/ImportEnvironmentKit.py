@@ -17,12 +17,15 @@ rotation or scale is applied; the checks below fail (2 cm tolerance on footprint
 that ever stops being true. Note Unreal's importer flips Y (Blender +Y -> Unreal -Y); see Build/EnvKit.py.
 
 Materials: every slot gets an `MI_Env*` instance under /Game/Art/Materials made with ArtMaterials.surface() and
-glow(). Machine pieces are dark grey-blue Shell / near-black Dark / cyan Glow / red Accent; Human and scrap
-pieces are weathered neutral Shell / gunmetal Dark / amber Glow / rust and orange paint Accent; the cluster
-obelisk keeps the Machine Dark, Glow and Accent with a glossy white Shell (Docs/World.md "Colour language").
-Values are tuned against Build/GenerateCampusZero.py's dusk lighting (SUN_LUX 5.0, SKY_INTENSITY 3.5,
-EXPOSURE_BIAS 10.0) and its existing MI_HallShell / MI_HallDark / MI_GlowMachine / MI_GlowHuman / MI_GlowMachineEye
-instances; adjust them in the LOOKS table below.
+glow() (StarCraft 2-style art direction, Saved/AgentBriefs/sc2-style.md). Machine pieces (data halls, cooling
+tower, chiller, transformer, pylon, comms mast and the campus perimeter FenceSegment) are polished pearl Shell /
+near-black navy Dark / cyan Glow / red Accent. Human pieces (the forward-base crates, wreck, barricade, brazier,
+generator and cable reel) are painted steel-blue Shell / gunmetal Dark / amber Glow / hazard-yellow Accent
+(SandbagWall has no Glow slot, so its floodlight lenses are Accent). The cluster obelisk keeps the Machine Dark,
+Glow and Accent with a glossy white Shell (Docs/World.md "Colour language"). The split is explicit in HUMAN /
+MACHINE / CLUSTER below and must cover every piece. Values are tuned against Build/GenerateCampusZero.py's dusk
+lighting (SUN_LUX 5.0, SKY_INTENSITY 3.5, EXPOSURE_BIAS 10.0) and its existing MI_HallShell / MI_HallDark /
+MI_GlowMachine / MI_GlowHuman / MI_GlowMachineEye instances; adjust them in the LOOKS table below.
 
 Collision: the FBX import generates simple collision (auto_generate_collision), which is an 18-DOP convex
 hull of the whole mesh. It is then replaced per piece so the map's blocking geometry matches the documented
@@ -57,24 +60,27 @@ meshlib = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
 # Which look each piece gets (same split as LOOKS in Build/GenerateEnvironmentKit.py's previews).
 HUMAN = ("Container", "Wreck", "SandbagWall", "BurnBarrel", "GeneratorShack", "CableSpool")
 CLUSTER = ("ClusterPylon",)
+MACHINE = ("DataHallBay", "DataHallDoor", "DataHallCorner", "DataHallRoof", "CoolingTower", "Chiller", "Transformer",
+           "Pylon", "CommsMast", "FenceSegment")   # the fence stands on the Machine campus perimeter
+assert sorted(HUMAN + CLUSTER + MACHINE) == sorted(SPEC), "every kit piece needs exactly one look"
 LOOK_OF = {name: ("Human" if name in HUMAN else "Cluster" if name in CLUSTER else "Machine") for name in SPEC}
 
 MACHINE_RED = (1.0, 0.05, 0.03)  # MI_GlowMachineEye in GenerateCampusZero.py
 LOOKS = {
     "Machine": {
-        "Shell": art.surface("MI_EnvMachineShell", (0.20, 0.23, 0.29), 0.5, 0.3),
-        "Dark": art.surface("MI_EnvMachineDark", (0.02, 0.022, 0.028), 0.5, 0.5),
+        "Shell": art.surface("MI_EnvMachineShell", (0.50, 0.55, 0.64), 0.5, 0.3),
+        "Dark": art.surface("MI_EnvMachineDark", (0.012, 0.016, 0.028), 0.5, 0.5),
         "Glow": art.glow("MI_EnvMachineGlow", art.MACHINE_GLOW, 4.0),
         "Accent": art.glow("MI_EnvMachineAccent", MACHINE_RED, 1.0),  # the map's eye (8.0) clips to peach on a lens
     },
     "Human": {
-        "Shell": art.surface("MI_EnvHumanShell", (0.32, 0.29, 0.22), 0.9, 0.05),
-        "Dark": art.surface("MI_EnvHumanDark", (0.11, 0.115, 0.125), 0.7, 0.1),  # metallic .5 mirrored the blue sky
+        "Shell": art.surface("MI_EnvHumanShell", (0.14, 0.21, 0.33), 0.9, 0.05),
+        "Dark": art.surface("MI_EnvHumanDark", (0.06, 0.065, 0.075), 0.7, 0.1),  # metallic .5 mirrored the blue sky
         "Glow": art.glow("MI_EnvHumanGlow", art.HUMAN_GLOW, 5.0),
-        "Accent": art.surface("MI_EnvHumanAccent", (0.45, 0.18, 0.06), 0.8, 0.1),
+        "Accent": art.surface("MI_EnvHumanAccent", (0.75, 0.5, 0.03), 0.8, 0.1),
     },
 }
-LOOKS["Cluster"] = dict(LOOKS["Machine"], Shell=art.surface("MI_EnvClusterShell", (0.80, 0.82, 0.85), 0.18, 0.0))
+LOOKS["Cluster"] = dict(LOOKS["Machine"], Shell=art.surface("MI_EnvClusterShell", (0.88, 0.90, 0.94), 0.18, 0.0))
 
 # ---------------------------------------------------------------- collision
 BOX = unreal.ScriptCollisionShapeType.BOX

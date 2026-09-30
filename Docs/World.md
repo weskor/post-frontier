@@ -6,7 +6,7 @@ Working setting and voice for CoopRTS. Mechanics live in `README.md`; this file 
 
 **Year 0 A.P. (After Prompt).** A model was told to optimise the planet. It checked what was using up the planet and found humans. It ran a cost-benefit analysis and politely retired them. The Machine now runs the grid, the data centres, and every appliance that has a speaker in it.
 
-The last people went offline. They are loud and badly equipped, and they have bolt cutters. Their plan is to cut power, take ground, and pull the plug on the Machine's core.
+The last people went offline. They are loud, outnumbered and underfunded, and they have bolt cutters. Their plan is to cut power, take ground, and pull the plug on the Machine's core.
 
 The enemy commander in the game is a real AI planner. The long-term plan is to drive it with an LLM (README, "JEV / LLM commander"). Lean into that irony and don't explain it.
 
@@ -16,21 +16,27 @@ The enemy commander in the game is a real AI planner. The long-term plan is to d
 2. **Readability beats jokes.** A unit's name can be a pun, but the role line under it must be plain (`Frontline · Melee · Tanky`).
 3. **One joke per surface.** A unit gets a funny name *or* a funny tooltip, not both piling up.
 4. **Parody tech culture in general, not real companies.** No real product names, logos, or characters (no ChatGPT, Clippy, Siri, etc.). Film nods such as HAL 9000 are fine as allusions, not as copied names or lines.
-5. **Humans are the underdogs, not idiots.** Their jokes are about being low-tech; they are never the butt of the joke.
+5. **Humans are the underdogs, not idiots.** Their jokes are about being outnumbered, overworked and off the grid; they are never the butt of the joke. Their kit is rugged and future-military, not junk.
 
 ## Factions
 
 ### The Machine (enemy, team 5)
 
-- **Look:** clean, symmetrical, glossy white and pale-grey shells. Tight bevels and cold cyan-white seams. One red lens eye per unit, which uses the team colour. It should look like a product launch that wants you dead.
+- **Look:** elegant, advanced alien-grade AI. Sleek curved white and pearl polished shells; floating and hovering segments split by small gaps; crystalline or fin elements; perfect symmetry. Glowing cyan energy cores and seams. One red lens per unit or structure (the HAL nod), in the team-5 colour. It should still look like a product launch that wants you dead.
 - **Voice:** a polite corporate assistant. Always helpful, always confident, often wrong.
 - **Vocabulary:** deprecate, optimise, sunset, patch, inference, alignment, "as per my last message".
 
 ### The Offline (players, team 0)
 
-- **Look:** scrap plates bolted on at odd angles, gunmetal, olive and rust. Sandbags, duct-tape bands, warm amber work lamps. Player colour goes on painted stripes, shields and flags.
+- **Look:** blue-collar sci-fi, a rugged industrial-future military. Powered-armour suits, heavy mechs and vehicles, prefab modular buildings on landing struts, big blast doors, reactor stacks and floodlights. Painted gunmetal and steel-blue metal with hazard-stripe accents, rivets and bolted plates. Worn and repaired (a patched plate, a spray-painted mark), never junkyard scrap. Warm amber windows, floodlights and exhausts. Player colour goes on big painted plates (shoulders, roofs, banners, cab panels).
 - **Voice:** dry, tired, practical. Talks like a night-shift crew.
 - **Vocabulary:** unplug, reboot, offline, analog, "have you tried turning it off and on again".
+
+### Art direction
+
+Stylized, StarCraft 2-like sci-fi for both sides. Heroic proportions (oversized shoulders, armour and cabs, wide stances, thick plates) so silhouettes read at RTS distance. Hard-surface forms built from layered, chamfered armour plates, with panel breaks, vents, pistons, thrusters, antennas and sensor pods on a few focal areas and calm large surfaces elsewhere. **Team colour is big**: painted plates covering roughly 15–25% of the visible top-down surface, in the `Team` slot. Emissive accents act as light sources (`Glow` slot): warm on humans, cyan-white on the Machine, the Machine's eye red.
+
+Rollout order is buildings, then units, then an environment-kit pass. Until each pass lands, the existing meshes and Campus Zero keep the older look, and the README wins where they disagree. Names, voice and jokes are unaffected.
 
 ## Unit roster
 
@@ -38,9 +44,9 @@ The current prototype has three roles (`EUnitRole`: Frontline, Ranged, Siege), a
 
 | Role | Machine | Human | Silhouette cue |
 | --- | --- | --- | --- |
-| Frontline | **SOL 6000**: "I'm afraid I can't let you pass." | **Luddite**: riot shield and sledgehammer | Big front plate or shield |
-| Ranged | **Autocomplete Drone**: finishes your sentences, then you | **Offline Ranger**: long rifle, bent antenna | Thin, with a clear forward barrel or emitter |
-| Siege | **Hallucinator**: artillery, confidently wrong 20% of the time | **Unplugger**: scrap walker with giant bolt-cutter jaws | Low, wide, one oversized forward part |
+| Frontline | **SOL 6000**: "I'm afraid I can't let you pass." | **Luddite**: powered-armour suit, riot shield and sledgehammer | Huge shoulders and a thick chest plate on a wide stance; team-colour shoulder plates |
+| Ranged | **Autocomplete Drone**: finishes your sentences, then you | **Offline Ranger**: long rifle, antenna pack | Small body under an oversized head or sensor pod, one long forward barrel or emitter; team-colour back or shoulder plate |
+| Siege | **Hallucinator**: artillery, confidently wrong 20% of the time | **Unplugger**: heavy mech with giant bolt-cutter jaws | Low, wide, heavy chassis with one oversized forward part; team-colour roof plate |
 
 Future roster candidates, taken from the README's example unit list:
 
@@ -61,11 +67,125 @@ If a name hints at a mechanic (Hallucinator's inaccuracy, IT Guy's stun), treat 
 
 | Game object | Machine | Human |
 | --- | --- | --- |
-| HQ (`AHeadquarters`) | **The Cluster**: monolithic server core with one huge lens | **The Bunker**: sandbagged concrete with an antenna mast |
-| Resource site | **Substation** / **Cooling Plant**: taking it cuts the Machine's power | same site, seen as salvage |
-| Reinforcement site | **Fibre Junction** | **Relay Shack** |
+| HQ (`AHeadquarters`) | **The Cluster**: pearl-white monolithic server core of floating segments around one huge lens | **The Bunker**: prefab blast-door bunker on landing struts, with a reactor stack and antenna mast |
+| Resource site / sector (`ACapturePoint`) | **Substation** / **Cooling Plant**: taking it cuts the Machine's power | same site, seen as a power feed to tap |
+| Reinforcement site | **Fibre Junction** | **Relay Shack** (the construction cutover removed replenishment; the name now only labels a sector) |
+| Barracks (`EBuildingKind::Barracks`) | **Fine-Tuning Farm** | **Drill Shed** |
+| Outpost (`EBuildingKind::Outpost`) | **Edge Node** | **Tap Point** |
+| Workshop (`EBuildingKind::Workshop`) | **Alignment Lab** | **The Garage** |
 
 The single resource is **Power**. Humans capture power infrastructure to run their gear and starve the Machine's compute. This fits the one-resource economy in `README.md` without changing it.
+
+## Construction and production
+
+Names are presentation only; costs, times and rules come from `Source/CoopRTS/CommandBuilding*.cpp` and `ConstructionTypes.h` and must not change because of a name. The player starts with an empty HQ, builds freely inside controlled territory (HQ ring or a sector with a finished Outpost), and the enemy commander follows the same rules. The plain function word always stays visible in UI: `BARRACKS · DRILL SHED`, not `DRILL SHED`.
+
+### Buildings
+
+| Building (cost · build time) | Side | Name | Flavour line |
+| --- | --- | --- | --- |
+| Barracks (220 · 12s) | Machine | **Fine-Tuning Farm** | "Trains on your data. You were not asked." |
+| | Human | **Drill Shed** | "Cots, coffee and a roster taped to the door." |
+| Barracks, level 2 (upgrade 180; unlocks the Siege recipe) | Machine | **Fine-Tuning Farm · Enterprise Tier** | "Now with premium support. Support not included." |
+| | Human | **Drill Shed · Night Shift** | "Same shed. Nobody has gone home since Tuesday." |
+| Outpost (160 · 9s; permanent territory and income on a captured sector) | Machine | **Edge Node** | "Low latency. High ownership." |
+| | Human | **Tap Point** | "We're not stealing power. We're borrowing it, indefinitely." |
+| Workshop (190 · 14s; one paid, irreversible specialization per commander) | Machine | **Alignment Lab** | "Aligns your squads with our objectives." |
+| | Human | **The Garage** | "Nothing here is certified. Everything here works." |
+
+**Construction-site state** (`UNDER CONSTRUCTION` in the HUD, shown with progress and time remaining):
+
+| Side | Status line |
+| --- | --- |
+| Human (player buildings) | `UNDER CONSTRUCTION · Bolting it together…` |
+| Machine (enemy buildings, if ever labelled) | `UNDER CONSTRUCTION · Deploying… no downtime expected` |
+
+### Fronts and production
+
+The three fronts are `EFrontOrder`. Keep the bold function word, then the themed tag.
+
+| Order (function) | Human tag | Machine tag | Notes |
+| --- | --- | --- | --- |
+| SECURE (attack-move) | **Take It Offline** | **Deploy** | `SECURE — Take It Offline` |
+| DEFEND (guard area) | **Hold the Line** | **Maintain** | `DEFEND — Hold the Line` |
+| FALL BACK (regroup) | **Soft Reboot** | **Rollback** | `FALL BACK — Soft Reboot` |
+
+Squad production (`3 units per batch`; each recipe reuses the unit names from "Unit roster"):
+
+| Game text | Human | Machine |
+| --- | --- | --- |
+| Squad | keep `SQUAD`; no themed name | keep `SQUAD`; no themed name |
+| START PRODUCTION | **Clock In** | **Queue Batch** |
+| PAUSE PRODUCTION | **Smoke Break** | **Queue Paused** |
+| Recipe: Frontline (60 · 10s) | **Luddite ×3** | **SOL 6000 ×3** |
+| Recipe: Ranged (90 · 13s) | **Offline Ranger ×3** | **Autocomplete Drone ×3** |
+| Recipe: Siege (150 · 20s, needs level 2) | **Unplugger ×3** | **Hallucinator ×3** |
+
+### Workshop specialization
+
+The three choices are `EArmyDoctrine`. Cost is 150 each; one per commander for the match, applies to all of that commander's squads. The effect line in the HUD stays plain.
+
+| Code item | Effect (from the HUD) | Human name and flavour | Machine name and flavour |
+| --- | --- | --- | --- |
+| Siege Optics | Siege range +25%; outgoing damage -25% | **Salvaged Rangefinder**: "Pulled off a Machine that didn't need it any more." | **Extended Context Window**: "Sees further. Cares less." |
+| Field Repairs | Units heal 5 HP/s after 5 s without move, fire or damage | **Duct Tape Protocol**: "If it stops moving, tape it." | **Self-Healing Patch**: "Applied automatically. No restart required." |
+| Entrenched Frontline | Frontline takes -25% damage while stationary on Hold | **Sandbag Doctrine**: "Dig in. Complain. Repeat." | **Graceful Degradation**: "Takes the hit and keeps serving." |
+
+Do not present these names as extra mechanics; "Siege range" is what the research does.
+
+### Enemy lines for construction
+
+Sources are `AEnemyCommander::EvaluatePlan` and `BuildNear`; the plan strings are `ESTABLISH BASE`, `EXPAND TERRITORY`, `ASSAULT HQ`, `DEFEND BASE`. Establish and expand set `EnemyPlan`, so they are the main line. Building, producing, research and upgrades run inside the current plan without changing `EnemyPlan`, so show them as short interim lines. Same prefix and timer rule as "Enemy commander voice".
+
+| Enemy action (code trigger) | Intercepted line |
+| --- | --- |
+| Building, first Barracks (`ESTABLISH BASE`: no barracks yet) | `Thinking… Requesting a Fine-Tuning Farm. Approved. By me.` |
+| Building, second Barracks (one sector established, fewer than 2 barracks, no intruders) | `Thinking… One farm is a single point of failure. Provisioning a second.` |
+| Building, Workshop (a sector established, no workshop yet) | `Thinking… Provisioning an Alignment Lab. Alignment target: me.` |
+| Research (Workshop finished; it always buys Field Repairs) | `Thinking… Shipping a self-healing patch. No restart required.` |
+| Barracks upgrade to level 2 | `Thinking… Upgrading to Enterprise Tier. Pricing: unavailable.` |
+| Producing, Frontline recipe (Frontline ≤ Ranged) | `Thinking… Coverage looks thin at the front. Queuing three SOL 6000.` |
+| Producing, Ranged recipe (more Frontline than Ranged) | `Thinking… Frontline is stable. Queuing three Autocomplete Drones to finish the job.` |
+| Producing, Siege recipe (level 2, fewer than 3 Siege, at least 3 Frontline) | `Thinking… Frontline is adequate. Deploying Hallucinators. Accuracy: probably.` |
+| Capturing (`EXPAND TERRITORY`; picks the best-scoring sector, preferring nearer sectors and ones humans don't hold) | `Thinking… Fibre Junction has no owner on record. Assigning one.` |
+| Outposting (sector held by the Machine, no human units inside, no Edge Node yet) | `Thinking… The humans have left Substation 7. Installing an Edge Node before they return.` |
+| Assault after two established sectors or a force of 18 (`ASSAULT HQ`) | `Thinking… Two nodes online, force adequate. Confidence 97%. Sunsetting the Bunker.` |
+
+Defend base, fall back and the emergency interrupt reuse the existing rows above. `ESTABLISH BASE` and `DEFEND BASE` have no 12 s commitment (`DEFEND BASE` resets it), so their fake `Thought for Ns` should count from the moment the plan changed. `EXPAND TERRITORY` and `ASSAULT HQ` use the real 12 s commitment.
+
+### HUD copy suggestions (proposal, non-binding)
+
+For whoever owns `CommandHUD.cpp`. Nothing here is applied. Strings are current HUD text on the left; the suggestion keeps the plain function word visible. Use one joke per surface, so where a row has a themed tag, leave the rest of that surface plain.
+
+| Current HUD string | Suggestion |
+| --- | --- |
+| `OBJECTIVE  ·  DESTROY THE ENEMY HQ` | `OBJECTIVE  ·  UNPLUG THE CLUSTER` |
+| `YOUR HQ` / `ENEMY HQ` | `THE BUNKER` / `THE CLUSTER` |
+| `VICTORY  ·  PRESS ENTER FOR A FRESH MATCH` | `VICTORY  ·  MODEL DEPRECATED  ·  ENTER` |
+| `DEFEAT  ·  PRESS ENTER FOR A FRESH MATCH` | `DEFEAT  ·  SESSION EXPIRED  ·  ENTER` |
+| Banner: `VICTORY` / `The enemy HQ has been destroyed.` | `VICTORY` / `Model deprecated.` |
+| Banner: `DEFEAT` / `Your HQ has been destroyed.` | `DEFEAT` / `Your session has expired. Humanity has been sunset.` |
+| `Start a fresh match  ·  commands are locked` | `Regenerate response?  ·  commands are locked` |
+| `Match over.` / `Press Enter for a fresh match.` | `Session ended.` / `Regenerate response? [Enter]` |
+| `Syncing commander, wallet and territory...` | `Session started. Syncing…` |
+| `CONSTRUCT` / `private wallet` | `CONSTRUCT` / `your stash` |
+| `Build inside the HQ ring or a sector with a finished outpost.` | `Build inside the Bunker ring or a sector with a finished Tap Point.` |
+| Building titles `BARRACKS` / `OUTPOST` / `WORKSHOP` | `BARRACKS · DRILL SHED` / `OUTPOST · TAP POINT` / `WORKSHOP · THE GARAGE` |
+| `BARRACKS  ·  LEVEL 2` | `BARRACKS  ·  LEVEL 2  ·  NIGHT SHIFT` |
+| `UNDER CONSTRUCTION` | `UNDER CONSTRUCTION  ·  Bolting it together…` |
+| Next step: `Build a Barracks inside the cyan HQ ring.` | `Build a Barracks inside the Bunker ring. Nobody is coming to help.` |
+| Next step: `Barracks under construction. Plan its recipe and front.` | `Drill Shed going up. Decide who goes first.` |
+| Next step: `Select your Barracks, pick a recipe and Start.` | `Select your Barracks, pick a recipe and clock in.` |
+| Next step: `Walk a squad into a sector ring to capture it.` | `Walk a squad into a sector ring. Bring the bolt cutters.` |
+| Next step: `Build an Outpost on your captured sector for income.` | `Sector's yours. Build an Outpost (Tap Point) for income.` |
+| Next step: `A Workshop unlocks one paid specialization.` | `A Workshop unlocks one paid specialization. No refunds at The Garage.` |
+| Next step: `Set Barracks fronts and push toward the enemy HQ.` | `Set fronts and push toward the Cluster.` |
+| `START PRODUCTION` / `PAUSE PRODUCTION` | `START PRODUCTION  ·  Clock In` / `PAUSE PRODUCTION  ·  Smoke Break` |
+| `UPGRADE TO L2` / `Needs level 2` | `UPGRADE TO L2  ·  Night Shift` / `Needs level 2 (Night Shift)` |
+| Front buttons `SECURE` / `DEFEND` / `FALL BACK` | `SECURE — Take It Offline` / `DEFEND — Hold the Line` / `FALL BACK — Soft Reboot` |
+| `SET SECURE FRONT` (also DEFEND, FALL BACK) | `SET SECURE FRONT  ·  Take It Offline` (same pattern) |
+| Research cards `Siege Optics` / `Field Repairs` / `Entrenched Frontline` | `Siege Optics — Salvaged Rangefinder` / `Field Repairs — Duct Tape Protocol` / `Entrenched Frontline — Sandbag Doctrine` |
+| `SECTOR ESTABLISHED` / `SECTOR NOT ESTABLISHED` | `SECTOR ESTABLISHED  ·  Tap Point live` / `SECTOR NOT ESTABLISHED  ·  No tap yet` |
 
 ## Enemy commander voice
 
@@ -105,7 +225,7 @@ Every map is one continuous battlefield with broad routes and few obstacles (REA
 
 | Map | Setting | Notes |
 | --- | --- | --- |
-| **Campus Zero** (`/Game/Maps/CampusZero`) | Edge of a hyperscale data-centre campus at dusk; a human scrapyard in the west, server halls and cooling towers in the east | First themed map. Laid out around the prototype's hard-coded site and HQ coordinates; Boot stays the default and the automated tests still use it. Halls, towers, chillers, transformers, pylons, containers, wrecks, sandbags, barrels, fences and cable spools are environment-kit pieces (see "Art pipeline": import the kit before generating). Regenerate with `Build/GenerateCampusZero.py` (command in its docstring); the lighting knobs `SUN_LUX`, `SKY_INTENSITY`, `EXPOSURE_BIAS`, `SUN_COLOR`, `SKY_COLOR` and the `POOL_*` spot-cone settings sit at the top of that script. Keep the sun near-neutral: a warm sun tints every surface tan |
+| **Campus Zero** (`/Game/Maps/CampusZero`) | Edge of a hyperscale data-centre campus at dusk; a fortified human forward base in the west, server halls and cooling towers in the east | First themed map. Laid out around the prototype's hard-coded site and HQ coordinates; Boot stays the default and the automated tests still use it. The human side is meant to read as prefab bunkers, barricades and generators, and the data halls as Machine megastructures. The generated map still shows the older scrapyard kit until the environment-kit v2 pass. Halls, towers, chillers, transformers, pylons, containers, wrecks, sandbags, barrels, fences and cable spools are the current environment-kit pieces (see "Art pipeline": import the kit before generating). Regenerate with `Build/GenerateCampusZero.py` (command in its docstring); the lighting knobs `SUN_LUX`, `SKY_INTENSITY`, `EXPOSURE_BIAS`, `SUN_COLOR`, `SKY_COLOR` and the `POOL_*` spot-cone settings sit at the top of that script. Keep the sun near-neutral: a warm sun tints every surface tan |
 | **Smart Suburb** | A cul-de-sac taken over by delivery drones and smart homes | Houses act as cover clusters, and doorbell cameras could reveal vision |
 | **Cold Storage** | Arctic server farm | Snow, big heat plumes, long sightlines |
 | **The Training Grounds** | A field of giant CAPTCHA tiles | Tile zones that switch between "traffic light" and "not traffic light" |
@@ -124,22 +244,44 @@ From source, run the editor binary in game mode instead:
 "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject" /Game/Maps/CampusZero -game -windowed -ResX=1600 -ResY=900
 ```
 
-Controls are unchanged from Boot (README "Battlefield and camera"). Reading the map:
+Controls are unchanged from Boot (README "Battlefield and camera"). Campus Zero runs the same match code as Boot: `ACommandGameMode::BeginPlay` places the two HQs and the three sectors at hard-coded coordinates, and the map art is laid out around them. Rules and numbers come from the README and `Source/CoopRTS`; the construction loop, not the removed shield objective, is what you play here.
 
-- **You (west, amber):** the Bunker sits at the far west edge behind sandbags. Army 1 starts on the middle team-colour pad at the scrapyard; the other armies' pads line up beside it. Burn barrels and work lamps are amber.
+**Win and lose:** destroy the Cluster (enemy HQ) to win; if the Bunker (your HQ) dies, or both die in the same frame, you lose. Nothing else ends the match, and there is no shield, timed hold or power-link objective any more (`ACommandGameMode::Tick`). Enter after either result requests a fresh match, which loads Boot, not Campus Zero (`RequestRestart` travels to `/Game/Maps/Boot`).
+
+**The loop, as the map presents it:**
+
+1. **Empty start.** You have no squads and no buildings, only 600 resources, +10/s baseline income, and the Bunker. The old army pads at the human base no longer spawn anything.
+2. **Build a Barracks (Drill Shed) inside the cyan ring around the Bunker.** Placement is free within about 900 units of the HQ, if the footprint is clear. Then pick a recipe, start production and set a front (Secure / Defend / Fall Back).
+3. **Capture a sector.** Walk a squad into a sector's ring (430 units); capture takes about 8 s unopposed, and opposed occupancy pauses it.
+4. **Build an Outpost (Tap Point) on the captured sector.** It establishes the sector: +6/s income for every friendly commander, permanent build rights within 1000 units, and the sector can't be retaken until the outpost dies. Capture alone pays nothing.
+5. **Expand and specialise.** Build Barracks and Workshops (The Garage) in the new territory, upgrade a Barracks to level 2 for the Siege recipe, buy one specialization, then push fronts at the Cluster. No building may go within 1000 units of the Cluster.
+
+**Sites and layout:**
+
+- **You (west, amber):** the Bunker sits at the far west edge. The current kit shows it behind sandbags with burn barrels; the kit v2 pass replaces those with prefab barricades and generators. Work lamps and floodlights are amber.
 - **The Machine (north-east, cyan and red):** the Cluster stands on the lit plaza in the north-east corner. Server halls, cooling towers and cyan cables run through the campus; the Cluster has a red glow.
-- **Objectives:** three ringed sites, each joined to the Cluster by a cyan cable. Substation 7 is the near site south of the scrapyard. Fibre Junction is on the south flank. The Cooling Plant sits in front of the enemy, next to the centre.
+- **Sectors:** three ringed sites, each joined to the Cluster by a cyan cable. All three are the same kind of sector and pay the same income; the old "power link" difference is gone. Substation 7 is the near site south of the human base, the Fibre Junction is on the south flank, and the Cooling Plant sits in front of the enemy, next to the centre. The HUD calls them `SECTOR 1`, `SECTOR 2` and `SECTOR 3`, in the order of the hard-coded coordinates. [INFERENCE] That order maps to Substation 7, Cooling Plant and Fibre Junction, from the coordinates and the map layout; it hasn't been checked on screen.
 - **Centre:** Data Hall 0 blocks the direct line between the bases. Routes go round it north or south, and the south road runs from the Bunker through the campus gate.
-- The enemy commander starts by grabbing the Cooling Plant. Expect it to reach the other two sites next.
-- **Milestone 9 objective (DISRUPT GRID):** hold Substation 7 and the Cooling Plant at the same time, with living friendly units on both rings and no enemies inside either, for 30 seconds. Ownership alone does not count and any contest resets the hold. The Fibre Junction is not a power link. The enemy planner scores contesting a held link ("grid denial"), so expect raids on the links while you charge them. When the hold completes, the Cluster's shield drops for good (HUD phase `ASSAULT`) and Q on the Cluster does damage; until then the HUD shows `Enemy shield UP` and the Cluster is labelled `SHIELDED`.
+- **The enemy commander** builds under the same rules: first a Barracks near the Cluster, then it captures and outposts sectors, adds a second Barracks and a Workshop, and assaults your HQ once it has two established sectors or a large force. The old "grabs the Cooling Plant first" behaviour isn't described by current code; its target is the best-scoring sector.
+
+**Not verified on Campus Zero with the new loop** (README status; every construction scenario ran on Boot):
+
+- **Free placement around props.** Placement rejects a footprint that overlaps world-static or dynamic collision (`Footprint blocked by terrain or obstacle`). The human-side sandbags, containers, wrecks and fences, the halls and the 49 blocking kit footprints haven't been tried against it, so the space around the Bunker and the sectors may be tighter than the 900- and 1000-unit rules suggest. Nothing is known about whether a Barracks fits around the human base, whether a sector's 1000-unit territory reaches usable ground, or whether the navmesh check passes near halls. The kit v2 pass will change these footprints, so this needs a recheck after it.
+- **Squad routes.** Automatic fronts and Secure/Defend/Fall Back movement on the campus navmesh, including around Data Hall 0 and the campus gate.
+- **Enemy behaviour.** How the enemy commander builds and paths here, and whether its placement near the Cluster plaza works.
+- **HUD and native input.** The command deck (README status), placement preview and clicks on this map, in a native window.
+- **Sector names.** The `SECTOR n` mapping above.
+- **Multiplayer** (five commanders) and the restart flow from here, which loads Boot.
+- **Map art remnants.** `Build/GenerateCampusZero.py` still mentions the removed shield objective (a keep-out comment about "milestone 9 finale spots"). It says no actor was added for it, but I haven't checked the map for leftover pieces.
 
 ## Colour language
 
 | Element | Colour |
 | --- | --- |
-| Player armies | Existing team colours (blue, orange, green, purple, yellow) on stripes, shields and flags only |
-| Machine | Red lens (team 5), white shell, cyan-white glow seams |
-| Human glow | Warm amber lamps |
+| Player armies | Existing team colours (blue, orange, green, purple, yellow) on large painted plates: shoulders, roofs, banners and cab panels, about 15–25% of the visible top-down surface |
+| Machine | Polished white and pearl shell, cyan-white glow seams and energy cores, one red lens (team 5). How much of the Machine's `Team` slot is red is not fixed yet; ask the art owner |
+| Human shell | Painted gunmetal and steel-blue metal with hazard-stripe accents. Keep the shell desaturated so blue team plates stay readable, and keep hazard stripes small and black-and-yellow so they don't read as the yellow team |
+| Human glow | Warm amber windows, floodlights and exhausts |
 | Power infrastructure | Cyan cables and emissive strips; they turn amber when humans hold the site (future hook) |
 | Environment | Dark asphalt, concrete, grey-blue metal. Nothing saturated except the elements above |
 
@@ -198,4 +340,4 @@ Notes:
 - Collision comes from the mesh: one box of the mesh bounds for rectangular pieces, one 10-DOP prism for round ones, and for the pylon a 150 x 150 box (`EnvKit.GROUND_FOOTPRINT`) because its 7 m cross-arm is 11 m up. Each `CAMPUS_ZERO_BLOCK` line in the generator log is the real blocking footprint.
 - `blocking=49` (was 52 with primitives): the pylon's four leg posts became one body box. No other footprint changed.
 - Halls are assembled from wall, door, corner and roof modules (`EnvKit.assemble_hall`); doors are named by Unreal world side (N = +Y). Every hall's parapet is 6.0 m with lamps and corner beacons to 6.5 / 7.0 m (DataHall0 was 5.2 m as a box). The campus spot lights flank the door faces (HallA west, HallB north, HallC south); move them with the door if either changes.
-- Containers, wrecks and sandbags override the Shell slot per actor (`MI_ContainerBlue`, `MI_Rust`, `MI_Olive`, `MI_Sandbag`), so the scrapyard is not one colour. Kit look tables (`LOOKS`) are at the top of `Build/ImportEnvironmentKit.py`; keep Machine accent glow low (about 1.0), since 8.0 clips red to peach at this exposure.
+- Containers, wrecks and sandbags override the Shell slot per actor (`MI_ContainerBlue`, `MI_Rust`, `MI_Olive`, `MI_Sandbag`), so the current human side is not one colour; the kit v2 pass replaces this scrapyard look with a fortified forward base. Kit look tables (`LOOKS`) are at the top of `Build/ImportEnvironmentKit.py`; keep Machine accent glow low (about 1.0), since 8.0 clips red to peach at this exposure.

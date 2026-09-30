@@ -72,12 +72,12 @@ def team_instance(faction):
 
 FACTION_MATERIALS = {
     "Machine": {"Team": team_instance("Machine"),
-                "Shell": art.surface("MI_UnitMachineShell", (0.80, 0.82, 0.85), 0.18, 0.0),
-                "Dark": art.surface("MI_UnitMachineDark", (0.09, 0.10, 0.115), 0.35, 0.6),
+                "Shell": art.surface("MI_UnitMachineShell", (0.88, 0.90, 0.94), 0.15, 0.25),
+                "Dark": art.surface("MI_UnitMachineDark", (0.05, 0.06, 0.08), 0.3, 0.7),
                 "Glow": art.glow("MI_UnitMachineGlow", art.MACHINE_GLOW, 2.0)},
     "Human": {"Team": team_instance("Human"),
-              "Shell": art.surface("MI_UnitHumanShell", (0.46, 0.40, 0.26), 0.85, 0.05),
-              "Dark": art.surface("MI_UnitHumanDark", (0.30, 0.31, 0.33), 0.55, 0.3),
+              "Shell": art.surface("MI_UnitHumanShell", (0.22, 0.27, 0.36), 0.40, 0.50),
+              "Dark": art.surface("MI_UnitHumanDark", (0.045, 0.05, 0.06), 0.5, 0.7),
               "Glow": art.glow("MI_UnitHumanGlow", art.HUMAN_GLOW, 2.0)},
 }
 
