@@ -297,9 +297,9 @@ class NetworkRun:
             return states if not unready and predicate(states) else None
         return self.until(check, description, report_interval, names=active)
 
-    def isolate_fresh_host(self, previous_generation):
+    def isolate_fresh_host(self, previous_generation, site_count):
         states = self.await_states(["host"], lambda states:
-            states["host"]["generation"] > previous_generation and len(states["host"]["sites"]) == 3,
+            states["host"]["generation"] > previous_generation and len(states["host"]["sites"]) == site_count,
             "host exposes the initialized fresh world before autonomous play", allow_travel=True)
         state = states["host"]
         require(state["result"] == 0 and state["friendlyHQ"] == 900 and state["enemyHQ"] == 900
@@ -429,7 +429,7 @@ def connect(run):
     """Fresh host plus clients with isolated enemy, paused income and distinct commanders."""
     names = ["host", *(f"c{i}" for i in range(1, run.clients + 1))]
     run.start("host", host=True)
-    run.await_states(["host"], lambda s: s["host"]["localIndex"] >= 0 and len(s["host"]["sites"]) == 3,
+    run.await_states(["host"], lambda s: s["host"]["localIndex"] >= 0 and bool(s["host"]["sites"]),
                      "initialized construction host", allow_loading=True)
     run.request("host", "isolate")
     run.request("host", "income", paused=True)
@@ -437,6 +437,7 @@ def connect(run):
         run.start(name)
     states = run.await_states(names, lambda values: all(
         s["localIndex"] >= 0 and len(s["players"]) == len(names)
+        and len(s["sites"]) == len(values["host"]["sites"])
         and all(p["index"] >= 0 for p in s["players"]) for s in values.values()),
         "all independent commander identities", allow_loading=True)
     identities = {name: state["localIndex"] for name, state in states.items()}
@@ -667,7 +668,7 @@ def expand_and_research(run, s, index, squad):
 def restart_and_converge(run, s, old):
     """Connected restart: every peer converges on the fresh, fully reset world with preserved sockets."""
     run.request(s.peer, "restart")
-    run.isolate_fresh_host(old["host"]["generation"])
+    run.isolate_fresh_host(old["host"]["generation"], len(old["host"]["sites"]))
 
     def reset(name, state):
         return (state["generation"] > old[name]["generation"] and state["localIndex"] == s.identities[name]
@@ -676,14 +677,14 @@ def restart_and_converge(run, s, old):
                 and not any(a["team"] == 0 for a in state["armies"])
                 and not any(b["team"] == 0 for b in state["buildings"])
                 and all(p["doctrine"] == 0 and p["wallet"] >= 600 for p in state["players"])
-                and len(state["sites"]) == 3
+                and len(state["sites"]) == len(old["host"]["sites"])
                 and all(site["owner"] == -1 and site["progress"] == 0 for site in state["sites"]))
     states = run.await_states(s.names, lambda values: all(reset(name, state) for name, state in values.items()),
                               "same connected commanders converge on the reset construction world", allow_travel=True)
     for name, state in states.items():
         require(state["gameStateId"] != old[name]["gameStateId"] and state["netDriverId"] == old[name]["netDriverId"],
                 f"{name}: fresh world or preserved connection missing")
-    run.phase("fresh empty bases, three neutral sectors, research reset and preserved socket identities")
+    run.phase("fresh empty bases, all map sectors neutral, research reset and preserved socket identities")
 
 
 def ownership_scenario(run):

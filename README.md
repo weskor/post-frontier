@@ -4,13 +4,13 @@
 
 Construction-first cooperative RTS roguelite prototype (code name CoopRTS) and Unreal implementation notes. Title, setting and tone: [Docs/World.md](Docs/World.md).
 
-**Fixed-force cutover (2026-09-30):** each barracks maintains one type-locked force with individual, physical casualty reinforcements. Editor compilation, the final live paid-production scenario, and a fresh Linux package's offscreen HUD run passed (26 captures across four resolutions). Evidence and limits: `Saved/Verification/force-hud-package-a-20260930/RESULTS.md`. The broad host/client lifecycle was interrupted by request, not passed; native OS input and full multiplayer acceptance remain unverified.
+**Availability Zone integration:** the Linux package now defaults to the flat eight-sector Availability Zone; Boot and CampusZero remain included. Verification launchers accept `--map`, and JEV baseline income scales with human commander count. Current evidence and limits: `Saved/Verification/map-integration/RESULTS.md`. Heights, per-player HQs and route/expansion changes remain proposals.
 
 ## Game and current match
 
 One to five commanders cooperate on a continuous top-down battlefield against an enemy commander. Each owns a wallet, buildings, building-owned forces, and at most one purchased workshop specialization; the team shares resource-site control and wins by destroying the enemy HQ. Losing the friendly HQ ends the match. The design target is roughly 12–18 minutes, not a measured duration of this cutover.
 
-**Build first, then command fronts.** A new Boot match starts with two HQs, three neutral resource sectors and **no starting armies or buildings**. Each friendly commander starts with 600 resources. Baseline income is 10/s per commander, plus 6/s for each friendly sector with a completed, living outpost; the server pays every two seconds. Site capture alone does not increase income. Enemy production has its own wallet with the same initial balance; the enemy earns 10/s per human commander (counting at least one) plus 6/s per established enemy sector, with the per-sector bonus unscaled. Capturing a sector requires living troops inside its 430-unit capture radius; opposed occupancy pauses capture. Once captured, buy and complete an outpost in that sector to secure it. An established sector supplies team-wide income and building rights, even if another commander owns its outpost. Destroying the outpost removes those benefits. There is **no timed two-site shield hold or invulnerable enemy HQ**: taking ground funds an offensive HQ assault.
+**Build first, then command fronts.** A new match starts with two HQs, neutral resource sectors (three on Boot, eight on Availability Zone) and **no starting armies or buildings**. Each friendly commander starts with 600 resources. Baseline income is 10/s per commander, plus 6/s for each friendly sector with a completed, living outpost; the server pays every two seconds. Site capture alone does not increase income. Enemy production has its own wallet with the same initial balance; the enemy earns 10/s per human commander (counting at least one) plus 6/s per established enemy sector, with the per-sector bonus unscaled. Capturing a sector requires living troops inside its 430-unit capture radius; opposed occupancy pauses capture. Once captured, buy and complete an outpost in that sector to secure it. An established sector supplies team-wide income and building rights, even if another commander owns its outpost. Destroying the outpost removes those benefits. There is **no timed two-site shield hold or invulnerable enemy HQ**: taking ground funds an offensive HQ assault.
 
 ### Construction and production
 
@@ -61,17 +61,17 @@ Bindings in `CommandPlayerController` and click actions in `CommandHUD`; verific
 | Left-click owned building / clear world | Select building / clear selection; units are not individually selectable |
 | HUD on selected building | Cancel unfinished construction; for barracks choose type before first Start, lock/start/pause production or assign front; for workshop buy one specialization |
 | Left-click minimap | Pan camera only; remains usable in placement/front/hidden modes |
-| Enter after Victory or Defeat | Request a fresh Boot match with reset wallets, sites and research; no effect during play |
+| Enter after Victory or Defeat | Request a fresh match on the current map with reset wallets, sites and research; no effect during play |
 
 The compact Canvas HUD uses a maximum scale of 1 rather than growing across large monitors. It has a 980×32 maximum top status island, a 144-pixel bottom-left live minimap, 174-pixel vertical building choices and a 720×186 maximum contextual inspector. Smaller viewports scale down. Construction is always clickable, and accepted placement restores choices automatically. Barracks show joined strength/capacity, travelling recruits, vacancies, one building unit's timer, and actual pause/funds/full/deployment status. Enabled full production is distinct from explicit pause. The minimap shows HQs, living buildings/units/forces, sectors/contests, selected barracks front and camera ground footprint; clicking pans without a gameplay command. Building selection and camera are local; purchases, capture, spawning, damage and outcomes remain server-authoritative. Direct-IP listen-server play remains the network model; no matchmaking, NAT traversal, host migration or reconnect.
 
 ## Design direction and remaining plan
 
-The central promise is cooperative strategy through construction, composition, positioning, income, territory, fronts and coordinated HQ assaults rather than individual-unit micro. Each barracks creates a lasting commitment to one force type; building placement, outpost expansion and reinforcement travel make losses and multiple fronts matter. More barracks provide more independent force capacity, constrained by construction costs, territory and replacement spending rather than a hidden shared squad race. Test whether forward expansion and split responsibilities beat a single deathball. Boot and Campus Zero place their own arena, HQ and sector actors; `Build/MatchLayout.py` is the shared coordinate source for both generators.
+The central promise is cooperative strategy through construction, composition, positioning, income, territory, fronts and coordinated HQ assaults rather than individual-unit micro. Each barracks creates a lasting commitment to one force type; building placement, outpost expansion and reinforcement travel make losses and multiple fronts matter. More barracks provide more independent force capacity, constrained by construction costs, territory and replacement spending rather than a hidden shared squad race. Test whether forward expansion and split responsibilities beat a single deathball. Every map places its own arena, HQ and sector actors: Boot and Campus Zero use `Build/MatchLayout.py`; Availability Zone uses `Build/Maps/AvailabilityZone.json` and `Build/AvailabilityZoneLayout.py`.
 
 1. **Implemented:** empty construction bases, private wallets/buildings, paid placement, outpost income/territory, persistent type-locked forces with single-unit paid casualty replacement, building-scoped fronts, paid workshop specialization, economic enemy, HQ outcomes/seamless restart, compact HUD and clickable minimap. Human squad selection/manual controls are removed; internal order APIs remain for gameplay and verification.
-2. **Current proof (restructure waves 1–3, 2026-09-30):** `Saved/Verification/restructure-20260930/RESULTS.md` and `Saved/Verification/wave3-20260930/RESULTS.md`. Rules tier (13 `CoopRTS.Rules.*` tests, one process, ~10 s), every world scenario, network slices with a real remote, the packaged construction acceptance chain (3 min), editor and packaged HUD captures, and a throwaway fourth-unit asset rendering a fourth recipe row without C++ changes.
-3. **Verification limits:** HUD proof is offscreen Vulkan through controller click entry points, not native OS input or a human playthrough. The full network acceptance chain, five-player/fault topologies, Campus Zero play, delayed-peer restarts and human balance remain unverified. Evidence before the restructure belongs to older artifacts.
+2. **Current proof:** `Saved/Verification/map-integration/RESULTS.md`: 14 rules tests, strategy on Boot and Availability Zone, natural two-human income, Boot economy and eight-sector editor/packaged connected restart; all-three-map package, no-argument Availability Zone startup, cooked HUD and native solo/two-peer launcher smoke. Earlier restructure/wave-three proof remains in `Saved/Verification/restructure-20260930/RESULTS.md` and `Saved/Verification/wave3-20260930/RESULTS.md`; it includes the earlier Boot construction acceptance and fourth-unit data-driven recipe proof.
+3. **Verification limits:** the cooked HUD uses offscreen Vulkan/controller entry points. Native launch/focus/capture/Space smoke is recorded, but desktop captures are partly obscured and do not prove a native gameplay input sequence. Full new-map construction acceptance, five-player/fault topologies, CampusZero play, delayed-peer restarts and human balance remain unverified.
 4. **Human playtests still needed:** one-to-five-player readability, whether private wallets invite coordination, strategy variety, enemy pressure, HQ ending and whether a deathball dominates. Pacing and numerical balance remain prototype values.
 
 Future design candidates, not commitments, include roster drafting, additional units, commander abilities, richer enemy intelligence, shared objectives and bounded model-directed planning. The minimap is implemented. Free F1/F2/F3 doctrine choice, paid N casualty refill, fixed starting armies, individual squad controls and Disrupt Grid shield objective are removed. Supply networks, extensive tech trees, PvP, campaign and Internet discovery are not current gameplay.
@@ -139,14 +139,17 @@ Unit and building definitions plus the `DA_MatchContent` catalogue live in `Cont
 ```bash
 "$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh" BuildCookRun \
   -project="$PWD/CoopRTS.uproject" -noP4 -platform=Linux \
-  -clientconfig=Development -build -cook -map=/Game/Maps/Boot+/Game/Maps/CampusZero \
+  -clientconfig=Development -build -cook -map=/Game/Maps/Boot+/Game/Maps/CampusZero+/Game/Maps/AvailabilityZone \
   -stage -pak -iostore -package -archive \
   -archivedirectory="$PWD/Builds" -unattended -utf8output
 ./Builds/Linux/CoopRTS.sh -windowed -ResX=1280 -ResY=720
+./Builds/Linux/CoopRTS.sh /Game/Maps/Boot -windowed -ResX=1280 -ResY=720
 ./Builds/Linux/CoopRTS.sh /Game/Maps/CampusZero -windowed -ResX=1280 -ResY=720
 ```
 
 Distribute the entire `Builds/Linux` directory, not just the executable. Generated builds, caches, and logs are ignored by Git.
+
+Availability Zone is the packaged default (`GameDefaultMap`); it is currently flat Phase A with one shared friendly HQ and eight sectors. Heights and per-player HQs are not implemented. The editor startup map and verification tools still default to Boot; pass `--map /Game/Maps/AvailabilityZone` to the verification launchers.
 
 The enabled ModelContextProtocol/AllToolsets editor plugins activate GameFeatures. UE 5.8.3's `GameFeaturesEditorModule.cpp::AddDefaultGameDataRule` requires a `GameFeatureData` primary-asset scan with `CookRule=AlwaysCook`; without it, the cook reports two Asset Manager errors and exits 1. `Config/DefaultGame.ini` includes that exact rule. The first milestone 8 cook failed on the missing rule; the subsequent full BuildCookRun completed with `BUILD SUCCESSFUL` after adding it. No plugin was disabled.
 
@@ -156,12 +159,12 @@ The listen host owns authoritative combat, capture, construction, wallets, produ
 
 ```bash
 # Host (one terminal / one machine):
-./Builds/Linux/CoopRTS.sh '/Game/Maps/Boot?listen' -port=7777 -windowed -ResX=1280 -ResY=720
+./Builds/Linux/CoopRTS.sh '/Game/Maps/AvailabilityZone?listen' -port=7777 -windowed -ResX=1280 -ResY=720
 # Remote player (a separate machine or process; use the host's LAN address):
 ./Builds/Linux/CoopRTS.sh 192.168.1.42:7777 -windowed -ResX=1280 -ResY=720
 ```
 
-For two fresh editor game processes instead of a package, replace the executable with `"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject"`, then the same host Boot listen URL or client IP and `-game`. Do not launch a second client on top of the host process. Direct IP/LAN hosting is **not** matchmaking, Internet discovery, relaying, NAT traversal or a promise about public-network connectivity. Listen-host exit ends the match; terminal Enter requests a fresh Boot for connected players.
+For two fresh editor game processes instead of a package, replace the executable with `"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject"`, then the same selected-map listen URL or client IP and `-game`. Do not launch a second client on top of the host process. Direct IP/LAN hosting is **not** matchmaking, Internet discovery, relaying, NAT traversal or a promise about public-network connectivity. Listen-host exit ends the match; terminal Enter restarts the current map for connected players.
 
 ### Network verification
 
@@ -193,7 +196,7 @@ The original empty-map packaging milestone passed an earlier 60-second launch, w
 
 ### Current verification boundary
 
-Current proof is `Saved/Verification/restructure-20260930/RESULTS.md` (rules tier, world scenarios, four network slices, editor/packaged HUD captures, fourth-unit proof). Fixed-force production evidence before the restructure (`force-production-f-20260930`, `force-hud-package-a-20260930`) belongs to the pre-restructure artifacts. See the [verification skill](.agents/skills/verify-cooprts/SKILL.md) for the tier model (rules → world → network slice → presentation → acceptance) and proof selection.
+Current proof and exclusions are in `Saved/Verification/map-integration/RESULTS.md`. Earlier restructure/wave-three records cover their stated artifacts; pre-restructure fixed-force evidence (`force-production-f-20260930`, `force-hud-package-a-20260930`) is historical. See the [verification skill](.agents/skills/verify-cooprts/SKILL.md) for the tier model (rules → world → network slice → presentation → acceptance) and proof selection.
 
 ### Regenerating the arena
 

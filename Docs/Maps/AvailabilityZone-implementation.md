@@ -1,6 +1,6 @@
 # Availability Zone: implementation plan
 
-Companion to [AvailabilityZone.md](AvailabilityZone.md) (design) and `Build/Maps/AvailabilityZone.json` (data). Nothing here has been built. The steps are ordered so each can fail early and cheaply. Everything the current code cannot do is a numbered **proposal (P1–P8)** owned by the gameplay team.
+Companion to [AvailabilityZone.md](AvailabilityZone.md) (design) and `Build/Maps/AvailabilityZone.json` (data). Phase A is built; map-team nav/placement/match evidence is in `Saved/Verification/availability-zone-v1/RESULTS.md`, integration/package evidence in `Saved/Verification/map-integration/RESULTS.md`. The steps remain ordered so each can fail early and cheaply. Numbered proposals **P1–P8** belong to the gameplay team; P8 and P3-income are implemented as noted below.
 
 Two heights profiles come from the same JSON (`elevation[].z_cm` and `z_sc2_cm`):
 
@@ -98,6 +98,8 @@ Packaging: add `/Game/Maps/AvailabilityZone` to `+MapsToCook` in `Config/Default
 
 Nothing below is required to *start* a Phase A greybox except P8. Each names the code that has to change and what "done" looks like.
 
+Implemented: **P8** map selection in `verify.py`, `network.py`, `network_desktop.py` and `hud_capture.py` (Boot remains the harness default), and **P3-income only**: JEV baseline is 10/s per human commander with a minimum of one; its +6/s established-sector bonus is unscaled. Strategy passed on Boot and Availability Zone; a two-human socket smoke observed +20 each / +40 JEV per tick. Editor and packaged connected restart reset all eight sectors. Boot, CampusZero and AvailabilityZone are packaged; no-map package startup selects AvailabilityZone. Exact evidence and visual limits: `Saved/Verification/map-integration/RESULTS.md`. Route choice and continued expansion from P3, heights from P1 and per-player HQs from P2 remain unimplemented.
+
 | # | Proposal | Change | Done when |
 | --- | --- | --- | --- |
 | **P1** | **Ground-height-aware placement, orders and JEV** (unlocks Phase B: Terrace +300, Plateau +600) | `CursorGround` (`CommandPlayerController.cpp`): trace the ground and project to the navmesh instead of intersecting the plane z = 0; `ValidateBuildingPlacement`: take the nav-projected Z first and build the overlap box (`Z + 65`, half 55) and the ±110 sample test around **that** Z; `EnemyCommander::BuildNear` (`Location.Z = 5`), `Front.Z = 5`, the fall-back `HQ + (−500, 0, −Home.Z + 5)`: project onto the navmesh; `ArmyGroup` attack anchors (`Anchor.Z = 0`, about lines 431–434); `CommandCamera::FocusOn` and the minimap click use z = 0, which at +600 shifts the view by about 350 cm | A barracks places on +600 ground for a human and for JEV; `--profile kit` passes the placement checks; the camera and minimap land on the clicked plateau point |
@@ -107,7 +109,7 @@ Nothing below is required to *start* a Phase A greybox except P8. Each names the
 | **P5** | **Vision towers and high ground** | Minimum: towers reveal minimap markers within `radius` for the owning team. Full: fog of war; a high-ground range or line-of-sight rule in `AArmyUnit::WeaponRange` and target acquisition (today range is `Dist2D`, so siege on the lip reaches bays A1–B2). Only meaningful after P1 | Units on the Terrace do not hit the plateau's north half; a tower shows its radius |
 | **P6** | **Non-square arenas** | `AArenaBounds` is a centred axis-aligned rectangle and the minimap stretches it into a square. Only needed if a future map is not square | Minimap shows the true aspect |
 | **P7** | **Level-aware territory** | `Near()` is 2D; a disc over a cliff also covers ground on the other level. Optional: require the same level as the anchor | A sector's disc does not authorise building across a cliff |
-| **P8** | **Harness map argument** | `.agents/skills/verify-cooprts/scripts/verify.py` (line 262) and `network.py` (lines 124, 127) hard-code `/Game/Maps/Boot`; add `--map`. `Build/MatchLayout.py` hard-codes Boot's coordinates | `verify.py regression --scenario strategy --map /Game/Maps/AvailabilityZone` runs |
+| **P8** | **Harness map argument — implemented** | `--map` selects the requested world in `verify.py`, `network.py`, `network_desktop.py` and `hud_capture.py`; missing-map readiness fails instead of accepting fallback. Startup/HUD/restart use the map's sector count. Boot coordinate fixtures remain deliberately Boot-specific | Strategy passes on AvailabilityZone; eight-sector editor/package socket restart and native solo/two-peer launch are recorded in `Saved/Verification/map-integration/RESULTS.md` |
 
 **Where the height limit comes from** (the reason for P1): a footprint overlap box `Location.Z + 10 … + 120` (centre +65, half 55) tests world collision, and `Location.Z` is **0** for a click (`CursorGround` forces z = 0) and **5** for JEV. Ground higher than about +10 cm blocks every building on it. The navmesh sample must project within 110 cm of the same Z, so ground lower than about −95 cm is unplaceable. Buildable relief is therefore about 100 cm, less than one 300 cm kit step.
 
@@ -177,4 +179,4 @@ Native window: building preview and clicks on the Plateau (Phase B parallax at +
 - **Ties between routes A and B** (0.01 %) are inside the raster's error; the real navmesh may prefer one every time. If so the map still has two routes, but JEV will not use both until P3.
 - **JEV never takes thirds and fourths**: free real estate for the human by design of the current planner; may make 1P too easy.
 - **Kit cell classification** at the pocket and pass corners produces concave and convex corners on both sides of the same cliff line; `check_assembly` in the kit only covers its own preview layout, so assert seams on the real map.
-- **Outside this task**: `Config`, `.agents/skills`, README and World.md would change; none was edited.
+- **Outside the map-generation lane**: that lane did not edit `Config`, `.agents/skills`, README or World.md. Subsequent P8/P3-income integration changed the default-map config, harness and README as recorded above; World.md remains unchanged.

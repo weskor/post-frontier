@@ -122,7 +122,7 @@ def boot(run, capture, resolution):
     """Rendered, isolated listen host with a fresh expanded deck at the requested viewport."""
     run.start("host", host=True)
     pid = run.peers["host"]["process"].pid
-    state = capture.wait(lambda s: s["localIndex"] >= 0 and len(s["sites"]) == 3 and s["viewportWidth"] > 0,
+    state = capture.wait(lambda s: s["localIndex"] >= 0 and bool(s["sites"]) and s["viewportWidth"] > 0,
                          "rendered listen host with commander and sectors")
     no_compositor_windows(run, pid)
     run.request("host", "isolate")
