@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
+#include "ArmyTestSetup.h"
 #include "AIController.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
@@ -67,8 +68,7 @@ public:
 			TEXT("Both groups, their controller and the opposing army survive"))) return true;
 		for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 		{
-			const int32 ExpectedCount = GroupIndex == 0 && !Newcomer.IsValid() ? 5 : 6;
-			if (!Check(Groups[GroupIndex]->Units.Num() == ExpectedCount, TEXT("No units disappear or appear unexpectedly"))) return true;
+			if (!Check(Groups[GroupIndex]->Units.Num() == 6, TEXT("No units disappear or appear unexpectedly"))) return true;
 			for (AArmyUnit* Unit : Groups[GroupIndex]->Units)
 			{
 				if (!Check(IsValid(Unit) && Unit->Group == Groups[GroupIndex].Get(), TEXT("Every unit retains its own group"))) return true;
@@ -85,45 +85,6 @@ public:
 
 		switch (Stage)
 		{
-		case EStage::PurchaseMoving:
-			if (Now - StageStarted >= .15)
-			{
-				AArmyGroup* Group = Groups[0].Get();
-				ACommandPlayerState* Wallet = Controller->GetPlayerState<ACommandPlayerState>();
-				if (!Check(Wallet && Group->GetReinforcementCost() > 0
-					&& Wallet->Resources >= Group->GetReinforcementCost()
-					&& Group->CanReinforceAtCurrentLocation(), TEXT("Moving casualty has funds and a valid nearby base source"))) return true;
-				const uint32 Serial = Group->OrderSerial;
-				const FVector Destination = Group->Destination;
-				const int32 Before = Wallet->Resources;
-				const int32 Quote = Group->GetReinforcementCost();
-				Controller->ServerReinforce(Group);
-				if (!Check(Group->Units.Num() == 6 && Wallet->Resources == Before - Quote,
-					TEXT("Owner RPC buys exactly the missing member at the quoted price"))) return true;
-				Newcomer = Group->Units.Last().Get();
-				if (!Check(Newcomer.IsValid() && Newcomer->UnitRole == EUnitRole::Frontline && Newcomer->Group == Group,
-					TEXT("Paid restoration returns the missing frontline role to its group"))
-					|| !Check(FVector::Dist2D(Newcomer->GetActorLocation(), Group->HomeLocation) < 450.,
-						TEXT("Replacement starts near its valid home source"))
-					|| !Check(Group->OrderSerial == Serial && Group->Order == EArmyOrder::Move && Group->Destination.Equals(Destination),
-						TEXT("Purchase preserves the moving order"))
-					|| !CaptureGoals(0)) return true;
-				NewcomerStart = Newcomer->GetActorLocation();
-				SetStage(EStage::NewcomerMoving, Now);
-			}
-			break;
-		case EStage::NewcomerMoving:
-			if (Now - StageStarted >= .8)
-			{
-				if (!Check(FVector::Dist2D(NewcomerStart, Newcomer->GetActorLocation()) > 30.,
-					TEXT("Purchased casualty travels along the inherited move path"))) return true;
-				Controller->ServerIssueOrder(Groups[0].Get(), EArmyOrder::Move, Groups[1]->HomeLocation);
-				if (!Check(Groups[0]->Order == EArmyOrder::Move && FVector::Dist2D(Groups[0]->Destination, Groups[1]->HomeLocation) < 100.,
-					TEXT("First army starts the long crossing"))
-					|| !CaptureGoals(0) || !Move(1, Groups[0]->HomeLocation)) return true;
-				SetStage(EStage::Exchange, Now);
-			}
-			break;
 		case EStage::Exchange:
 			if (AllArrived())
 			{
@@ -186,7 +147,7 @@ public:
 					const uint32 Serial = Groups[GroupIndex]->OrderSerial;
 					Controller->ServerIssueOrder(Groups[GroupIndex].Get(), EArmyOrder::Hold, FVector::ZeroVector);
 					if (!Check(Groups[GroupIndex]->Order == EArmyOrder::Hold && Groups[GroupIndex]->OrderSerial > Serial,
-						TEXT("Immediate Hold replaces travel, including the purchased member"))) return true;
+						TEXT("Immediate Hold replaces travel for every member"))) return true;
 					RememberPositions(GroupIndex);
 				}
 				SetStage(EStage::Held, Now);
@@ -218,7 +179,7 @@ public:
 				for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
 					for (AArmyUnit* Unit : Group->Units)
 						if (!Check(WentAroundObstacle.Contains(Unit), FString::Printf(TEXT("%s crossed around the central obstacle"), *Unit->GetName()))) return true;
-				Test->AddInfo(TEXT("TwoGroups passed: paid moving casualty restoration, independent armies, every-unit exchange and obstacle crossing, eight rapid replacements, atomic invalid orders with continued motion, immediate per-unit Hold, and all twelve units at their latest goals."));
+				Test->AddInfo(TEXT("TwoGroups passed: independent armies, every-unit exchange and obstacle crossing, eight rapid replacements, atomic invalid orders with continued motion, immediate per-unit Hold, and all twelve units at their latest goals."));
 				return true;
 			}
 			break;
@@ -228,7 +189,7 @@ public:
 	}
 
 private:
-	enum class EStage : uint8 { FindGroups, PurchaseMoving, NewcomerMoving, Exchange, RapidReplacement, BeforeRejection, AfterRejection, Crossing, Held, FinalArrival, Settled };
+	enum class EStage : uint8 { FindGroups, Exchange, RapidReplacement, BeforeRejection, AfterRejection, Crossing, Held, FinalArrival, Settled };
 
 	bool Check(bool bCondition, const FString& Message)
 	{
@@ -258,6 +219,7 @@ private:
 			}
 		}
 		if (!Controller.IsValid()) return false;
+		if (!ArmyTestSetup::CombatActors(Controller->GetWorld())) return false;
 		for (TActorIterator<AArmyGroup> It(Controller->GetWorld()); It; ++It)
 		{
 			if (It->bOpposingArmy) Enemy = *It;
@@ -302,12 +264,8 @@ private:
 		if (Groups[0]->OrderSerial == 0) return false;
 		if (!Check(Groups[1]->OrderSerial == 0 && Groups[1]->Order == EArmyOrder::Hold,
 			TEXT("Ordering army zero does not order army one"))) return true;
-		AArmyUnit* Casualty = Groups[0]->Units[0];
-		Casualty->ReceiveAttack(Casualty->Health, Enemy->Units[0]);
-		if (!Check(Groups[0]->Units.Num() == 5 && !Groups[0]->Units.Contains(Casualty),
-			TEXT("Lethal server damage creates one real casualty before purchase"))
-			|| !CaptureGoals(0)) return true;
-		SetStage(EStage::PurchaseMoving, Now);
+		if (!Move(0, Groups[1]->HomeLocation) || !Move(1, Groups[0]->HomeLocation)) return true;
+		SetStage(EStage::Exchange, Now);
 		return false;
 	}
 
@@ -387,11 +345,9 @@ private:
 	TWeakObjectPtr<ACommandPlayerController> Controller;
 	TWeakObjectPtr<AArmyGroup> Groups[2];
 	TWeakObjectPtr<AArmyGroup> Enemy;
-	TWeakObjectPtr<AArmyUnit> Newcomer;
 	TArray<FVector> Goals[2];
 	TArray<FVector> Positions[2];
 	TSet<AArmyUnit*> WentAroundObstacle;
-	FVector NewcomerStart = FVector::ZeroVector;
 	EStage Stage = EStage::FindGroups;
 	int32 ReplacementCount = 0;
 	bool bFailed = false;

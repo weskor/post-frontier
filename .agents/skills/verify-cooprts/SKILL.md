@@ -9,27 +9,52 @@ Use live Unreal state assertions for gameplay rules; use the packaged game for i
 
 This is a project-local OMP/Agent Skills skill, not a Cursor plugin. Discovery occurs at session startup; after adding it, a fresh session can use `/skill:verify-cooprts`. Within an existing session, read this file directly. Commands below run from the repository root. Read `features/README.md`, then the files for the affected features. For a complete baseline, cover every mapped feature.
 
+## Development checks versus acceptance runs
+
+**Default to targeted development verification, not the full milestone matrix.** Before launching, state the changed behavior, the smallest scenario that exercises it, the observable pass condition, and any required native input/rendering check. Start with one scenario; add another only for a distinct affected contract that the first cannot prove.
+
+- For an ordinary multiplayer change, start with host plus one remote. Use five players, packet loss or a stopped peer when the specific failure requires that topology/fault, or during a separately scheduled acceptance run—not automatically after every change.
+- `network.py` supports only `--scenario construction` (also the default), for paid buildings, locked forces, producer-scoped fronts and casualty reinforcements, outposts, research, HQ damage and connected restart. It accepts `--clients 0|1|4`; use host plus one remote for ordinary ownership/replication checks. The former full/restart/objective scenarios are unavailable. If this broad scenario does not cover the changed behavior, state the gap rather than naming an unsupported option.
+- The full construction socket lifecycle is an acceptance run, not a development gate. Use it only when its broad economy/outcome/restart scope is needed; otherwise exercise the changed RPC/state path directly and record exactly those assertions. Stop an owned stalled run instead of withholding build/HUD work for unrelated later stages. An interrupted or partial encounter is not a full network PASS.
+- Full gameplay baselines and the complete multiplayer/fault matrix are explicit milestone/release verification activities. Implementing a milestone slice does not automatically authorize repeating the entire matrix. Record deferred acceptance work without claiming full milestone completion.
+- Run one scenario at a time and inspect its result before scheduling another. Do not queue a long build/test/retest chain that can monopolize the shared artifact or hide a stalled stage.
+- A failed check blocks claims about the affected behavior, not unrelated development. Preserve its evidence and separate product defects from harness/setup failures. Make a targeted correction and rerun the affected scenario; if it still fails or stalls, record the blocker and move further investigation into an explicit task rather than silently expanding the current feature task.
+- Acquire the shared build/runtime window only for the selected build or check. Stop owned processes and release that window before unrelated investigation, documentation work or a deferred verification task. A background run is not nonblocking if it still holds the artifact/desktop lock.
+
+## No command timeout does not mean unattended waiting
+
+Do not add command deadlines, `-seconds`, or longer travel delays to force a result. Supervise meaningful progress instead:
+
+1. When reports repeat the same pending condition without relevant state advancing, inspect the exact predicate and current peer snapshots/logs immediately. A living process, increasing request IDs or repeated successful `observe` replies are not gameplay progress. Changing construction progress, squad production, roster replication or travel generation can be.
+2. Determine whether the expected state is still reachable. Separate replication/loading convergence from assertions about a completed state. Do not wait indefinitely for a transient condition—such as neutral territory after autonomous play has resumed—to become true again.
+3. If the predicate is impossible, a terminal error is present, or progress cannot be established, interrupt the exact owned runner through its cleanup path. Preserve the run as failed/interrupted, confirm owned children stopped, and release shared resources. This is an evidence-based stop, not an elapsed-time test failure.
+4. Resume only with a concrete diagnosis and a targeted next check. Do not restart an unchanged stalled scenario, weaken its assertions, or keep polling while investigating unrelated work.
+
+For reset tests, observe initial state before autonomous play can change it. A controlled fixture may then stop gameplay to permit delayed replica inspection, but must not manufacture the reset values being asserted. Document this setup separately from normal gameplay proof.
+
 ## Choose the proof before running
 
 1. Name the changed behavior and its failure condition. Read the relevant source and [feature map](features/README.md); select the scenarios and surface checks that actually exercise it.
-2. Run live assertions first for damage, targeting, pursuit, order transitions, navigation, paid casualty replacement, capture, income and per-unit arrival. These worlds use real actors/AI/navmesh, not mocks. A standalone authoritative world does not prove client/server replication or hostile-client validation.
+2. Run live assertions first for construction, paid production, fronts, capture/outpost income, research, damage, targeting, order transitions, navigation and per-unit arrival. Legacy combat/orders/movement effect scenarios create controlled squad fixtures; they do not demonstrate the new-match construction loop. A standalone authoritative world does not prove client/server replication or hostile-client validation.
 3. Exercise real packaged input when bindings, hit testing, selection, cursor handling or input-to-order integration changed. Correlate input attempts with the resulting order/state, not just key delivery.
 4. Inspect rendering when camera behavior, HUD, cursor, assets or effects changed. Use the smallest set of captures that proves the visual transition; a before/after pair is often enough. Temporal visuals may need a short sequence. Numeric gameplay invariants belong in assertions, not screenshot counting.
 5. For a new gameplay feature, include a short packaged end-to-end encounter as well as its assertions. For a targeted correction, do not repeat every baseline recipe. A full milestone/release baseline covers all mapped features.
 
 | Changed path | Primary live scenario | Additional surface proof |
 | --- | --- | --- |
-| Combat rules, role stats, target lifetime or pursuit | `combat` | New encounter: attack input plus visible combat feedback; later rule-only changes: target any unproven integration edge |
-| Move/Hold/Retreat order replacement or validation | `orders`; add `combat` when combat precedence changes | Changed bindings/feedback: one relevant input transition |
-| Enemy planner, commitment or paid recovery | `strategy` | Packaged encounter: watch enemy move to a site, inspect changing ownership, plan and rationale, retreat/recovery and HQ defense if reached |
-| HQ damage, outcome, terminal commands or restart | `match-win` and `match-loss`; add `strategy` if planner changed | Fresh packaged encounter: target enemy HQ with Q; inspect HQ health/outcome, blocked commands and Enter reset |
-| Formation paths, crowd movement, boundary rejection or joining units | `movement`; add `orders` if cancellation changes | Changed controls/markers/arena: relevant route or joining presentation, not a second exhaustive assertion pass |
-| Capture, wallet income, purchase eligibility, casualty restoration or wiped-army rebuild | `economy`; add `movement` for joining-path changes | Packaged capture and N purchase/rebuild with wallet, quote, eligibility and feedback visible |
-| Controller input, selection, HUD or cursor | Matching `orders`/`combat`/`economy` scenario if semantics changed | Actual affected input and its visible result; use unwarped motion for cursor defects |
-| Camera or visual-only assets/effects | No existing numeric camera/rendering scenario | Native input and inspected rendering; do not claim numeric limits without measuring them |
-| Doctrine choice, owned effect scope, healing or stationary protection | `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline`, `doctrine-restart`; fresh Boot per choice | Fresh package: inspect F1/F2/F3 or cards, locked choice, and a short affected combat/recovery encounter; see [doctrines](features/doctrines.md) |
-| Real multiplayer ownership, joining, economy, outcomes or travel | [Real network recipe](features/multiplayer.md): editor host+remote, packaged host+remote, packaged host+four, then active UE packet emulation | Distinct native host/client windows, local-focused selection/order/camera/HUD and five-player roster view; human five-player coordination/deathball remains unverified |
-| Verification docs only | Check commands and assertions against their implementations | No game rebuild or repeated desktop run just for prose; demonstrate the revised workflow on applicable runtime evidence |
+| Construction placement, cost, territory, cancellation or outpost income | `construction` | Fresh package: build at HQ, capture sector, place outpost, inspect completion, wallet and sustained income; see [construction](features/construction.md) |
+| Barracks type configuration, capacity, production, front or casualty recruitment | `production`; add `movement` only for changed fixture paths | Fresh package: lock a force type, inspect individual production/full/pause/funds states, front movement and physical replacement |
+| Enemy construction, production, expansion or defense | `strategy` | Fresh package: observe paid enemy barracks/production, capture, outpost and defensive front if reached |
+| Combat rules, role stats, target lifetime or pursuit | `combat` (fixture-owned groups) | Automatic-front encounter and visible hit/health when applicable |
+| Internal Move/Hold/Retreat order replacement or validation | `orders` (fixture-owned groups); add `combat` if precedence changed | Player-facing changes use barracks fronts, not removed manual squad controls |
+| HQ damage, outcome, terminal commands or restart | `match-win` and `match-loss`; add `strategy` if planner changed | Fresh package: actual HQ weapon damage, terminal guard, Enter reset to empty construction bases |
+| Formation paths, crowd movement or boundary rejection | `movement` for fixture crossings; `production` for actual force recruitment; add `orders` if cancellation changes | Relevant paid-force routes and physical arrival, not just accepted destination markers |
+| Capture, wallet income or established territory | `construction`; add `strategy` for enemy economy | Packaged capture followed by completed outpost and sustained territory income; bare capture is insufficient |
+| Workshop specialization and owned effects | `construction` for purchase, plus the affected `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline` or `doctrine-restart` for effect/restart | Click an owned completed workshop purchase card; verify wallet/choice, then the relevant produced-squad effect |
+| Controller input, selection, HUD, minimap or cursor | Matching construction/production scenario; `doctrine-frontline` for stationary Defend mitigation | Actual affected building/HUD/minimap input and visible result. `scripts/hud_capture.py` renders offscreen and checks shared hit geometry/camera-only minimap dispatch; it does not prove OS input |
+| Camera or visual-only assets/effects | No numeric camera/rendering scenario | Native input and inspected rendering; do not claim numeric limits without measuring them |
+| Real multiplayer ownership, economy, outcome or travel | [Real network recipe](features/multiplayer.md): `network.py --scenario construction` with host+remote; five-player/fault only if required | Focused native host/client proof for affected input/HUD; human coordination remains unverified |
+| Verification docs only | Check commands and assertions against implementations | No game rebuild or repeated desktop run just for prose; identify existing current runtime evidence and limits |
 
 Select each required scenario once, even if several features map to it. The full recipe lists below are probe menus, not a requirement to capture every step for every change. Existing visual evidence may be reused only when the relevant packaged build and visual/input path are unchanged; cite its run and explain the exclusion. Never reuse old runtime evidence as proof of changed gameplay.
 
@@ -40,28 +65,34 @@ No packaged launch, compositor access or screenshot is needed for these scenario
 ```bash
 V=.agents/skills/verify-cooprts/scripts/verify.py
 LOGIC_RUN=Saved/Verification/change-logic-unique
-"$V" --run "$LOGIC_RUN" regression --scenario combat
+"$V" --run "$LOGIC_RUN" regression --scenario construction
 ```
 
-Replace the directory suffix with a fresh identifier and choose the scenario from the table, not always `combat`. `regression` defaults to `orders`. `movement` runs `CoopRTS.Movement.TwoGroups`; `combat` runs `CoopRTS.Combat.Encounter`; `economy` runs `CoopRTS.Economy.CaptureIncomeRecovery`; `orders` runs `CoopRTS.Orders.ReplaceHoldRetreat`; `strategy` runs `CoopRTS.Enemy.StrategicDecisions`; `match-win` and `match-loss` run `CoopRTS.Match.VictoryRestart` and `CoopRTS.Match.DefeatRestart`. The `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline`, `doctrine-restart` scenarios run `CoopRTS.Doctrine.SiegeOptics`, `CoopRTS.Doctrine.FieldRepairs`, `CoopRTS.Doctrine.EntrenchedFrontline`, `CoopRTS.Doctrine.Restart`, respectively. Each command starts its own fresh standalone Boot world. Serialize these with builds and other game instances; never mutate binaries/assets while a check is using them.
+Replace the suffix with a fresh identifier. `regression` defaults to `construction`; explicit `construction` runs `CoopRTS.Construction.Lifecycle`, and `production` runs `CoopRTS.Construction.Production`. `strategy` runs `CoopRTS.Enemy.ConstructionEconomy`. Existing `orders`, `movement`, `combat`, `match-win`, `match-loss` map to `CoopRTS.Orders.ReplaceHoldRetreat`, `CoopRTS.Movement.TwoGroups`, `CoopRTS.Combat.Encounter`, `CoopRTS.Match.VictoryRestart`, `CoopRTS.Match.DefeatRestart`. The `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline`, `doctrine-restart` choices map to `CoopRTS.Doctrine.SiegeOptics`, `CoopRTS.Doctrine.FieldRepairs`, `CoopRTS.Doctrine.EntrenchedFrontline`, `CoopRTS.Doctrine.Restart`. No `economy`, `objective` or `objective-defeat` regression choice exists. Each run needs its own fresh standalone Boot world; serialize with builds and game instances.
 
-Require process exit zero AND the exact scenario's `Test Completed. Result={Success}`. The four doctrine scenarios additionally require `**** TEST COMPLETE. EXIT CODE: 0 ****` from UE `Automation SoftQuit`, rather than `-seconds` or a subprocess timeout; the older scenarios retain their existing deadline guards. Preserve the matching log, stdout and `regression-result` action record. A timed exit, an unrelated test's success, or `Attack accepted` is not a pass. Failures remain failures: diagnose the assertion and state, fix the cause, then run in a new evidence directory. Do not extend old deadlines or loosen tolerances merely to get green.
+Fixed-force production evidence (2026-09-30): `Saved/Verification/force-production-f-20260930/production.log` contains the final Success/SoftQuit result after correcting depleted-formation rendezvous, navigation projection and final-approach crowd avoidance without relaxing physical arrival. It covers independent 4/6/2 producer capacities, permanent type, Siege configuration, individual payment, moving arrival, casualties/wipe, pause/starvation/obstruction, terminal guards and producer destruction. `Saved/Verification/force-hud-package-a-20260930/RESULTS.md` records the fresh packaged offscreen HUD PASS (26 captures, four resolutions), earlier scenario chronology and interrupted network limits. Native OS input and complete multiplayer acceptance remain unverified; shared-cap/batch evidence is historical only.
 
-Coverage is limited to assertions actually present in the test. For example, `movement` checks every member's path success, distance and velocity; `orders` checks return of the group center, not every member's home arrival. There is no general packaged-world state-query API in this helper. An editor MCP or debugger could aid diagnosis, but neither is installed or required by this workflow, and editor observations are not automatically packaged-game evidence.
+Require process exit zero, the exact scenario's `Test Completed. Result={Success}`, and `**** TEST COMPLETE. EXIT CODE: 0 ****` from UE Automation SoftQuit. The regression runner waits for natural completion without `-seconds` or a subprocess timeout. Preserve the matching log, stdout and `regression-result` action record. A timed exit, an unrelated test's success, or `Attack accepted` is not a pass. Failures remain failures: diagnose the assertion and state, fix the cause, then run in a new evidence directory. Do not loosen assertions merely to get green.
 
-## Real multiplayer sockets (milestone 8)
+Coverage is limited to assertions actually present. `construction` checks paid/rejected placement, completion, cancellation, owner isolation, configuration lock, workshop purchase, real capture, completed outpost income and destruction. `production` checks type/configuration costs, no premature unit, independent capacities including travellers, per-unit payment, dynamic recruitment and actual arrival, recruit death, complete-wipe identity/refill, pause/starvation/blocked deployment, terminal guards and destroyed-producer survivors. Both use setup budgets and controlled isolation, not native playthroughs. `strategy` checks the enemy's paid units, capture/outpost income, reactive defense and producer-scoped recovery through natural repairs. Fixture `movement` checks per-member path success/distance/velocity; `orders` checks center return. The explicit Development probe can read standalone diagnostic worlds as well as network worlds; authority fixtures remain restricted to an opted-in listen host. Standalone observations do not prove replication.
 
-Standalone automation cannot prove client ownership, replicated wallets or travel. Build the fresh editor target after all source handoffs, package only after the editor host+remote run passes, then use the [multiplayer recipe](features/multiplayer.md). Each run starts separate game processes, listens on an IPv4 loopback socket, drives the existing owning-controller Server RPC from an actual remote client world, and independently reads each world's replicated actors. Nothing in this probe runs without explicit per-process Development command-line opt-in; only the host gets a separate authority-fixture switch. No source changes or package mutation during a run. Do not enable fixtures on public servers.
+## Real multiplayer sockets
+
+Standalone automation cannot prove client ownership, replicated wallets or travel. For a selected network check, build the fresh editor target after source handoffs. For full acceptance, establish editor host+remote proof before packaging and proceeding through the [multiplayer recipe](features/multiplayer.md). Each run starts separate game processes, listens on an IPv4 loopback socket, drives the existing owning-controller Server RPC from an actual remote client world, and independently reads each world's replicated actors. Nothing in this probe runs without explicit per-process Development command-line opt-in; only the host gets a separate authority-fixture switch. No source changes or package mutation during a run. Do not enable fixtures on public servers.
+
+The following is a **construction topology/fault acceptance menu**, not a per-change script or proof of the former full/objective/three-cycle delayed-peer checks. Run individually and inspect each result; all select the single current scenario:
 
 ```bash
 N=.agents/skills/verify-cooprts/scripts/network.py
-"$N" --run Saved/Verification/m8-editor-two-unique --mode editor --clients 1 --max-fps 60
-"$N" --run Saved/Verification/m8-package-two-unique --mode packaged --clients 1 --max-fps 60
-"$N" --run Saved/Verification/m8-package-five-unique --mode packaged --clients 4 --max-fps 60
-"$N" --run Saved/Verification/m8-package-five-loss-unique --mode packaged --clients 4 --emulation --max-fps 60
+"$N" --run Saved/Verification/construction-editor-two-unique --mode editor --clients 1 --scenario construction --max-fps 60
+"$N" --run Saved/Verification/construction-package-two-unique --mode packaged --clients 1 --scenario construction --max-fps 60
+"$N" --run Saved/Verification/construction-package-five-unique --mode packaged --clients 4 --scenario construction --max-fps 60
+"$N" --run Saved/Verification/construction-package-five-loss-unique --mode packaged --clients 4 --scenario construction --emulation --max-fps 60
 ```
 
 Require the runner's PASS record, native net-mode/peer identity, per-peer `responses.jsonl` and game logs, observed replicated convergence, and pidfd cleanup. The emulated run must read actual net-driver `PktLag=120` and `PktLoss=8` from every world. Network waits have no wall-clock deadline: the runner prints the pending predicate, elapsed time, latest peer state/connection health, and fails on terminal network/travel failures, contradictory states, process exit or artifact mutation. Positional wait numbers are reporting intervals, never success/failure deadlines. An unstarted packaged `-nullrhi` session is a blocker; report it, do not infer success. Separate native-window visual/input proof uses `network_desktop.py` from the recipe and focused per-peer `doctor`/`focus`/`capture`/`key`/`click`. The original `verify.py` remains single-instance. Numeric snapshots do **not** prove readable five-player teamplay or absence of a deathball; require a human five-player session for that criterion.
+
+The current construction socket scenario has one connected restart cycle; the earlier three-cycle forced-delay result remains historical and was not rerun after cutover. See [multiplayer](features/multiplayer.md); a current socket PASS must not be presented as delayed-peer acceptance.
 
 If packaged `-nullrhi` actually fails on the fresh artifact, preserve that failure and rerun in a new directory with `--rendered` (same sockets and assertions, Vulkan windows). The exact example and visual limits are in the multiplayer recipe. Do not assume package NullRHI support before observing it.
 
@@ -80,7 +111,7 @@ RUN=Saved/Verification/change-desktop-unique
 "$V" --run "$RUN" capture baseline
 ```
 
-The helper invokes `Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS CoopRTS` directly with windowed 1600x900, stdout and an absolute per-run log. It compiles the bundled pointer helper into the evidence directory. Readiness requires the owned process, one mapped window, `Bringing up level for play` and UE `5.8.3` in that run's log. Readiness does NOT prove rendering: inspect the baseline. For a full baseline, use 1 / 2 and Space to confirm both six-unit groups and the command HUD; for a targeted check, establish only the required starting state.
+The helper launches `Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS CoopRTS` windowed at 1600x900 with isolated logs and owned identity. Readiness requires the owned mapped window, level-up log and UE5.8.3, not rendering proof: inspect a baseline. Fresh matches have HQs but no player squads/buildings. Human control is building/front-only; former squad keys are no-ops.
 
 Launch failures terminate only the process just started. Record the failure, inspect retained logs, and use a new directory after fixing it. A missing/stale package is a prerequisite failure, not a passing check.
 
@@ -105,22 +136,15 @@ Every input and capture rechecks doctor and requires the owned game to be focuse
 "$V" --run "$RUN" scroll -3
 "$V" --run "$RUN" drag 100 50
 "$V" --run "$RUN" click left --x .5 --y .7
-"$V" --run "$RUN" key 1
-"$V" --run "$RUN" key 2
 "$V" --run "$RUN" click right --x .7 --y .65
+"$V" --run "$RUN" key escape
+"$V" --run "$RUN" key f4
 "$V" --run "$RUN" point --x .7 --y .65
-"$V" --run "$RUN" key q
-"$V" --run "$RUN" key h
-"$V" --run "$RUN" key r
-"$V" --run "$RUN" key n
-"$V" --run "$RUN" key f1
-"$V" --run "$RUN" key f2
-"$V" --run "$RUN" key f3
 "$V" --run "$RUN" key enter
-"$V" --run "$RUN" capture after-retreat
+"$V" --run "$RUN" capture after-transition
 ```
 
-These illustrate supported controls, not a blind test sequence. F1/F2/F3 choose one doctrine per ongoing match and cannot all be accepted in one run; use separate fresh sessions for distinct choices. Q uses the live cursor hit: point at an observed enemy unit or HQ for targeted Attack, or reachable ground for attack-location; A remains camera pan-left. Enter requests restart only after Victory or Defeat. `point` delivers real pointer motion without issuing a click or zoom, so selection is preserved. Select targets from the current screenshot using the feature recipes. `--x`/`--y` are fractions of the owned window's logical rectangle; they are not screenshot pixels. The helper computes compositor coordinates from current geometry, then emits real Wayland pointer events. For a screenshot point, convert physical pixels to compositor logical coordinates using the monitor origin/scale from doctor, then to window fractions. On this workstation scale is often 1.5; do not hardcode it. Avoid the HUD, obstacle tops, and unit bodies when requesting ground movement. Coordinates must remain between .05 and .95; drag from near the center so its end stays inside the window.
+Click inspected HUD targets to build, choose a force type before first Start, lock/start/pause production, set Secure/Defend/Fall Back fronts or research. Siege's first Start costs 180 once; type stays locked during pause/wipe. Ground clicks commit placement/fronts; right-click/Escape cancels. Accepted placement reopens choices; persistent Construction reopens them even with F4-hidden context. Minimap clicks always pan only, including during targeting. Space focuses selected building or HQ; Enter restarts only after an outcome. Tab/Q/H/R have no human squad bindings. Driver x/y are fractions of the owned logical window, not image pixels: use doctor origin/scale and current captures. Avoid panels/raised obstacles for ground input.
 
 A compositor cursor warp alone did not reliably update Unreal's hit-test position during initial verification. `pointer.c` emits a real motion event after the warp before clicking/dragging/scrolling. It sends discrete wheel ticks separately so Unreal's Started bindings receive each tick. Positive scroll zooms out; negative zooms in.
 
@@ -151,7 +175,7 @@ Separate implemented, verified, previously verified unchanged, and unverified. A
 "$V" --run "$RUN" stop
 ```
 
-Run after the last drive and after a failed verification iteration. Cleanup uses the recorded PID identity and a Linux pidfd, not a process name; it sends TERM, then KILL only if that same owned process will not stop. Already-exited instances are left alone. The old `regression` scenarios retain subprocess deadlines; the new doctrine scenarios wait for UE Automation SoftQuit to exit naturally, with no subprocess timeout.
+Run after the last drive and after a failed verification iteration. Cleanup uses the recorded PID identity and a Linux pidfd, not a process name; already-exited instances are left alone. Regression scenarios wait for UE Automation SoftQuit to exit naturally, with no subprocess timeout.
 
 Do not delete the evidence directory. Confirm PNGs, action history and logs remain after cleanup, and the recorded process is absent. The compiled `RUN/pointer` is a disposable build artifact within ignored `Saved/`; it can remain with the proof. Never terminate a user's existing editor/game to clear a verification blocker.
 

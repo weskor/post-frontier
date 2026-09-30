@@ -9,6 +9,23 @@ ACommandPlayerState::ACommandPlayerState()
 	bReplicates = true;
 }
 
+void ACommandPlayerState::CopyProperties(APlayerState* NewPlayerState)
+{
+	Super::CopyProperties(NewPlayerState);
+	// Engine seamless travel creates a new controller/PlayerState pair. Keep only
+	// the reserved slot; economy and doctrine are fresh per match.
+	if (ACommandPlayerState* NewCommander = Cast<ACommandPlayerState>(NewPlayerState))
+		NewCommander->CommanderIndex = CommanderIndex;
+}
+
+void ACommandPlayerState::ResetForNewMatch()
+{
+	if (!HasAuthority()) return;
+	Resources = InitialResources;
+	Doctrine = EArmyDoctrine::None;
+	ForceNetUpdate();
+}
+
 bool ACommandPlayerState::TryChooseDoctrine(EArmyDoctrine Choice)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;

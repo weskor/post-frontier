@@ -16,6 +16,10 @@ import time
 from verify import ROOT, BINARY, SCRIPTS, READY, execute, identity, package_stamp
 
 
+class WindowNotReady(RuntimeError):
+    pass
+
+
 def event(run, action, **fields):
     with (run / "actions.jsonl").open("a") as file:
         file.write(json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -42,8 +46,10 @@ def doctor(run, peer, *, focused=False):
     log_path = run / peer / "game.log"
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
     if READY not in log or "5.8.3" not in log:
-        raise RuntimeError(f"{peer} Unreal 5.8.3 Boot readiness missing")
+        raise WindowNotReady(f"{peer} Unreal 5.8.3 Boot readiness missing")
     owned = [window for window in windows() if window["pid"] == item["pid"] and window.get("mapped")]
+    if not owned:
+        raise WindowNotReady(f"{peer} owned window not mapped yet")
     if len(owned) != 1:
         raise RuntimeError(f"{peer} expected one mapped owned window, got {len(owned)}")
     window = owned[0]
@@ -76,7 +82,7 @@ def stop(run):
     print(f"Stopped recorded game processes only; evidence retained in {run}")
 
 
-def launch(run, clients):
+def launch(run, clients, probe):
     package = package_stamp()
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
@@ -85,7 +91,7 @@ def launch(run, clients):
     run.mkdir(parents=True, exist_ok=False)
     flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
     execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", run / "pointer", *flags])
-    record = {"package": package, "clients": clients, "peers": {}}
+    record = {"package": package, "clients": clients, "probe": probe, "peers": {}}
     (run / "session.json").write_text(json.dumps(record, indent=2))
     # Connect to loopback only; use a freely chosen port to avoid adopting a different listen server.
     import socket
@@ -102,6 +108,10 @@ def launch(run, clients):
                        "-FullStdOutLogOutput", f"-abslog={folder / 'game.log'}"]
             if index == 0:
                 command.append(f"-port={port}")
+            if probe:
+                command += [f"-CoopRTSNetVerifyDir={folder}", f"-CoopRTSNetVerifyPeer={name}"]
+                if index == 0:
+                    command.append("-CoopRTSNetVerifyAuthority")
             with (folder / "stdout.log").open("w") as output:
                 process = subprocess.Popen(command, cwd=ROOT / "Builds/Linux", stdout=output,
                                            stderr=subprocess.STDOUT, start_new_session=True)
@@ -123,7 +133,7 @@ def launch(run, clients):
                     print(json.dumps({"ready": name, "pid": process.pid,
                                       "window": report["window"]["address"]}))
                     break
-                except RuntimeError:
+                except WindowNotReady:
                     if process.poll() is not None:
                         raise RuntimeError(f"{name} did not become a mapped Boot window; inspect per-peer logs")
                     time.sleep(.3)
@@ -145,6 +155,8 @@ def main():
     commands = parser.add_subparsers(dest="action", required=True)
     launch_command = commands.add_parser("launch")
     launch_command.add_argument("--clients", type=int, choices=(1, 4), required=True)
+    launch_command.add_argument("--probe", action="store_true",
+                                help="opt into Development observations and host-only encounter fixtures")
     commands.add_parser("stop")
     for action in ("doctor", "focus", "capture", "key", "click", "point"):
         command = commands.add_parser(action)
@@ -152,7 +164,7 @@ def main():
         if action == "capture":
             command.add_argument("label")
         if action == "key":
-            command.add_argument("key", choices=("1", "2", "space", "h", "r", "n", "q", "f1", "f2", "f3", "enter"))
+            command.add_argument("key", choices=("w", "a", "s", "d", "tab", "space", "h", "r", "q", "escape", "f4", "enter"))
         if action in ("point", "click"):
             command.add_argument("--x", type=fraction, default=.5)
             command.add_argument("--y", type=fraction, default=.5)
@@ -161,7 +173,7 @@ def main():
     args = parser.parse_args()
     run = args.run.resolve()
     if args.action == "launch":
-        launch(run, args.clients)
+        launch(run, args.clients, args.probe)
         return
     if args.action == "stop":
         stop(run)
@@ -186,7 +198,7 @@ def main():
         event(run, "capture", peer=args.peer, path=str(target))
         print(target)
     elif args.action == "key":
-        key = "Return" if args.key == "enter" else args.key.upper() if args.key.startswith("f") else args.key
+        key = {"enter": "Return", "tab": "Tab", "escape": "Escape", "f4": "F4"}.get(args.key, args.key)
         execute(["wtype", "-k", key])
         event(run, "key", peer=args.peer, key=args.key)
     else:

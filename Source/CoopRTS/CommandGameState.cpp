@@ -1,7 +1,13 @@
 #include "CommandGameState.h"
 
 #include "CapturePoint.h"
+#include "ArmyGroup.h"
+#include "ArmyUnit.h"
+#include "CommandBuilding.h"
 #include "CommandPlayerState.h"
+#include "Headquarters.h"
+#include "EngineUtils.h"
+#include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 
 ACommandGameState::ACommandGameState()
@@ -22,13 +28,10 @@ void ACommandGameState::Tick(float DeltaSeconds)
 	{
 		IncomeElapsed -= 2.f;
 		for (APlayerState* Player : PlayerArray)
-		{
 			if (ACommandPlayerState* Wallet = Cast<ACommandPlayerState>(Player))
-			{
 				Wallet->AddResources(GetIncomePerSecond() * 2);
-			}
-		}
-		EnemyResources += GetEnemyIncomePerSecond() * 2;
+		EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
+			static_cast<int64>(EnemyResources) + GetEnemyIncomePerSecond() * 2));
 		ForceNetUpdate();
 	}
 }
@@ -37,7 +40,7 @@ int32 ACommandGameState::GetEnemyIncomePerSecond() const
 {
 	int32 Sites = 0;
 	for (const ACapturePoint* Site : CaptureSites)
-		if (IsValid(Site) && Site->SiteKind == ECaptureSiteKind::Resource && Site->ControllingTeam == 5) ++Sites;
+		if (IsValid(Site) && Site->IsEstablishedForTeam(5)) ++Sites;
 	return BaselineIncomePerSecond + ResourceIncomePerSecond * Sites;
 }
 
@@ -45,31 +48,230 @@ void ACommandGameState::RefreshTerritory()
 {
 	if (!HasAuthority()) return;
 	int32 Sites = 0;
-	int32 Forward = -1;
 	for (const ACapturePoint* Site : CaptureSites)
-	{
-		if (!IsValid(Site)) continue;
-		if (Site->SiteKind == ECaptureSiteKind::Resource && Site->ControllingTeam == 0) ++Sites;
-		if (Site->SiteKind == ECaptureSiteKind::Reinforcement) Forward = Site->ControllingTeam;
-	}
-	if (Sites != ControlledResourceSites || Forward != ForwardSiteTeam)
+		if (IsValid(Site) && Site->IsEstablishedForTeam(0)) ++Sites;
+	if (Sites != ControlledResourceSites)
 	{
 		ControlledResourceSites = Sites;
-		ForwardSiteTeam = Forward;
 		ForceNetUpdate();
 	}
+}
+
+bool ACommandGameState::ValidateBuildingPlacement(EBuildingKind Kind, int32 Team, const FVector& Location, FString& OutReason) const
+{
+	OutReason.Reset();
+	UWorld* World = GetWorld();
+	if (!World || MatchResult != EMatchResult::Ongoing || (Team != 0 && Team != 5)
+		|| ACommandBuilding::GetBuildCost(Kind) == 0)
+	{
+		OutReason = TEXT("Invalid building, team or match");
+		return false;
+	}
+	if (!FMath::IsFinite(Location.X) || !FMath::IsFinite(Location.Y) || !FMath::IsFinite(Location.Z)
+		|| FMath::Abs(Location.X) > 4400.f || FMath::Abs(Location.Y) > 4400.f || FMath::Abs(Location.Z) > 1000.f)
+	{
+		OutReason = TEXT("Outside arena bounds");
+		return false;
+	}
+	const float Radius = ACommandBuilding::GetFootprintRadius(Kind);
+	const AHeadquarters* Home = Team == 0 ? FriendlyHeadquarters : EnemyHeadquarters;
+	const AHeadquarters* HostileHQ = Team == 0 ? EnemyHeadquarters : FriendlyHeadquarters;
+	if (!IsValid(Home) || !Home->IsAlive() || !IsValid(HostileHQ))
+	{
+		OutReason = TEXT("Headquarters unavailable");
+		return false;
+	}
+	const auto Near = [&Location](const FVector& Center, float Range)
+	{
+		return FVector::DistSquared2D(Location, Center) <= FMath::Square(Range);
+	};
+	if (Near(HostileHQ->GetActorLocation(), 1000.f + Radius))
+	{
+		OutReason = TEXT("Too close to enemy headquarters");
+		return false;
+	}
+	bool bHomeTerritory = Near(Home->GetActorLocation(), 900.f - Radius);
+	const ACapturePoint* TargetSector = nullptr;
+	float NearestSectorDistance = TNumericLimits<float>::Max();
+	for (const ACapturePoint* Site : CaptureSites)
+	{
+		if (!IsValid(Site) || !Near(Site->GetActorLocation(), ACapturePoint::TerritoryRadius - Radius)) continue;
+		if ((Team == 0 && Site->bEnemyPresent) || (Team == 5 && Site->bFriendlyPresent))
+		{
+			OutReason = TEXT("Sector is contested");
+			return false;
+		}
+		if (Site->ControllingTeam != Team) continue;
+		if (Kind == EBuildingKind::Outpost)
+		{
+			const float Distance = FVector::DistSquared2D(Location, Site->GetActorLocation());
+			if (Distance < NearestSectorDistance) { TargetSector = Site; NearestSectorDistance = Distance; }
+		}
+		else if (Site->IsEstablishedForTeam(Team)) bHomeTerritory = true;
+	}
+	if (TargetSector)
+		for (const ACommandBuilding* Existing : Buildings)
+			if (IsValid(Existing) && Existing->IsAlive() && Existing->Kind == EBuildingKind::Outpost
+				&& Existing->OutpostSite == TargetSector)
+			{
+				OutReason = TEXT("Sector already has an outpost");
+				return false;
+			}
+	if (Kind == EBuildingKind::Outpost ? !TargetSector : !bHomeTerritory)
+	{
+		OutReason = Kind == EBuildingKind::Outpost ? TEXT("Capture a resource sector first")
+			: TEXT("Build inside headquarters or established outpost territory");
+		return false;
+	}
+	for (TActorIterator<AArmyGroup> It(World); It; ++It)
+	{
+		if (It->TeamIndex == Team) continue;
+		for (const AArmyUnit* Unit : It->Units)
+			if (IsValid(Unit) && Unit->IsAlive() && Near(Unit->GetActorLocation(), Radius + 330.f))
+			{
+				OutReason = TEXT("Enemy troops too close");
+				return false;
+			}
+	}
+	for (const ACommandBuilding* Existing : Buildings)
+		if (IsValid(Existing) && Existing->IsAlive()
+			&& Near(Existing->GetActorLocation(), Radius + ACommandBuilding::GetFootprintRadius(Existing->Kind) + 55.f))
+		{
+			OutReason = TEXT("Building footprint overlaps");
+			return false;
+		}
+	if (Near(Home->GetActorLocation(), Radius + 210.f) || Near(HostileHQ->GetActorLocation(), Radius + 210.f))
+	{
+		OutReason = TEXT("Too close to headquarters");
+		return false;
+	}
+	const FVector Center(Location.X, Location.Y, Location.Z + 65.f);
+	FCollisionObjectQueryParams Objects;
+	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
+	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+	Objects.AddObjectTypesToQuery(ECC_Pawn);
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(BuildingPlacement), false);
+	if (World->OverlapAnyTestByObjectType(Center, FQuat::Identity, Objects,
+		FCollisionShape::MakeBox(FVector(Radius, Radius, 55.f)), Query))
+	{
+		OutReason = TEXT("Footprint blocked by terrain or obstacle");
+		return false;
+	}
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	if (!Navigation || !Navigation->GetDefaultNavDataInstance(FNavigationSystem::DontCreate))
+	{
+		if (HasAuthority())
+		{
+			OutReason = TEXT("Navigation unavailable");
+			return false;
+		}
+		OutReason = TEXT("Navigation checked by server");
+		return true;
+	}
+	const FVector Offsets[] = { FVector::ZeroVector, FVector(1, 0, 0), FVector(-1, 0, 0),
+		FVector(0, 1, 0), FVector(0, -1, 0), FVector(.707f, .707f, 0),
+		FVector(-.707f, .707f, 0), FVector(.707f, -.707f, 0), FVector(-.707f, -.707f, 0) };
+	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Offsets); ++Index)
+	{
+		const FVector Sample = Location + Offsets[Index] * (Radius + 65.f);
+		FNavLocation Projected;
+		if (!Navigation->ProjectPointToNavigation(Sample, Projected, FVector(45.f, 45.f, 200.f))
+			|| FVector::DistSquared2D(Sample, Projected.Location) > FMath::Square(45.f)
+			|| FMath::Abs(Sample.Z - Projected.Location.Z) > 110.f)
+		{
+			OutReason = TEXT("Footprint needs clear navigable ground");
+			return false;
+		}
+	}
+	OutReason = TEXT("Valid placement");
+	return true;
+}
+
+ACommandBuilding* ACommandGameState::TryPlaceBuilding(EBuildingKind Kind, const FVector& Location,
+	ACommandPlayerState* Commander, int32 Team, FString& OutReason)
+{
+	OutReason.Reset();
+	if (!HasAuthority())
+	{
+		OutReason = TEXT("Server authority required");
+		return nullptr;
+	}
+	if (!ValidateBuildingPlacement(Kind, Team, Location, OutReason)) return nullptr;
+	if ((Team == 0 && (!IsValid(Commander) || Commander->GetWorld() != GetWorld()
+			|| Commander->CommanderIndex < 0
+			|| !PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player)
+				{ return Player.Get() == Commander; })))
+		|| (Team == 5 && Commander))
+	{
+		OutReason = TEXT("Invalid building owner");
+		return nullptr;
+	}
+	const int32 Cost = ACommandBuilding::GetBuildCost(Kind);
+	if (Team == 0 ? Commander->Resources < Cost : EnemyResources < Cost)
+	{
+		OutReason = TEXT("Insufficient resources");
+		return nullptr;
+	}
+	FNavLocation Ground;
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Ground, FVector(45.f, 45.f, 200.f)))
+	{
+		OutReason = TEXT("Navigation unavailable");
+		return nullptr;
+	}
+	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, 65.f));
+	ACommandBuilding* Building = GetWorld()->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(),
+		Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Building)
+	{
+		OutReason = TEXT("Building spawn failed");
+		return nullptr;
+	}
+	Building->Kind = Kind;
+	Building->TeamIndex = Team;
+	Building->OwningPlayerState = Commander;
+	if (Kind == EBuildingKind::Outpost)
+	{
+		float Nearest = TNumericLimits<float>::Max();
+		for (ACapturePoint* Site : CaptureSites)
+		{
+			if (!IsValid(Site) || Site->ControllingTeam != Team) continue;
+			const float Distance = FVector::DistSquared2D(Location, Site->GetActorLocation());
+			if (Distance <= FMath::Square(ACapturePoint::TerritoryRadius - ACommandBuilding::GetFootprintRadius(Kind))
+				&& Distance < Nearest) { Nearest = Distance; Building->OutpostSite = Site; }
+		}
+	}
+	Building->Health = Building->MaxHealth();
+	Building->FrontLocation = Ground.Location;
+	Building->FinishSpawning(Transform);
+	if (!IsValid(Building))
+	{
+		OutReason = TEXT("Building spawn failed");
+		return nullptr;
+	}
+	const bool bPaid = Team == 0 ? Commander->TrySpend(Cost) : EnemyResources >= Cost;
+	if (!bPaid)
+	{
+		Building->Destroy();
+		OutReason = TEXT("Insufficient resources");
+		return nullptr;
+	}
+	if (Team == 5) { EnemyResources -= Cost; ForceNetUpdate(); }
+	OutReason = TEXT("Construction started");
+	return Building;
 }
 
 void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ACommandGameState, ControlledResourceSites);
-	DOREPLIFETIME(ACommandGameState, ForwardSiteTeam);
 	DOREPLIFETIME(ACommandGameState, CaptureSites);
+	DOREPLIFETIME(ACommandGameState, Buildings);
 	DOREPLIFETIME(ACommandGameState, MatchResult);
 	DOREPLIFETIME(ACommandGameState, FriendlyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, EnemyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, EnemyPlan);
 	DOREPLIFETIME(ACommandGameState, EnemyPlanRationale);
 	DOREPLIFETIME(ACommandGameState, EnemyResources);
+	DOREPLIFETIME(ACommandGameState, EnemyDoctrine);
 }

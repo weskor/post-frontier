@@ -212,7 +212,7 @@ void AArmyUnit::OnRep_Attack()
 void AArmyUnit::FireAt(AActor* Victim)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || !IsAlive() || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
+	if (!HasAuthority() || !IsAlive() || bReinforcing || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
 		|| !CombatTarget::IsAliveHostile(Victim, TeamIndex)
 		|| FVector::Dist2D(GetActorLocation(), Victim->GetActorLocation()) > WeaponRange())
@@ -238,9 +238,9 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
 		|| Attacker->TeamIndex == TeamIndex || Damage <= 0) return;
 	ResetRepairTimer();
-	const int32 AppliedDamage = UnitRole == EUnitRole::Frontline
+	const int32 AppliedDamage = !bReinforcing && UnitRole == EUnitRole::Frontline
 		&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
-		&& IsValid(Group) && Group->Order == EArmyOrder::Hold
+		&& IsValid(Group) && Group->bAutomaticFront && Group->FrontOrder == EFrontOrder::Defend
 		&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
 		? Damage * 3 / 4 : Damage;
 	Health = FMath::Max(0, Health - AppliedDamage);
@@ -273,6 +273,7 @@ void AArmyUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(AArmyUnit, Definition);
 	DOREPLIFETIME(AArmyUnit, UnitRole);
 	DOREPLIFETIME(AArmyUnit, CompositionSlot);
+	DOREPLIFETIME(AArmyUnit, bReinforcing);
 	DOREPLIFETIME(AArmyUnit, Health);
 	DOREPLIFETIME(AArmyUnit, Target);
 	DOREPLIFETIME(AArmyUnit, AttackCount);

@@ -1,30 +1,16 @@
-# Group crossing and obstacle navigation
+# Force recruitment navigation and fixture crossing
 
-## Sub-features
+`regression --scenario movement` (`CoopRTS.Movement.TwoGroups`) checks two controlled six-member fixtures crossing the central obstacle, order replacement/Hold, rejected destinations and per-member successful arrival/proximity/low velocity. Its existing internal 90-second stage guard is not permission for a command timeout. No friendly player starts with these fixtures.
 
-Two independently commanded six-member formations navigate around one another and the central obstacle using Unreal navmesh and built-in Detour crowd avoidance, with Character RVO disabled. A paid casualty replacement joins an already-moving group near a valid home source before the long crossing. Retreat returns each army to its own home. Source: `ArmyGroup.cpp`, `ArmyUnit.cpp`, `ArmyMovementTests.cpp`, and the generated arena in `Build/GenerateCommandMap.py`.
+`regression --scenario production` covers actual fixed forces: paid individual exits, capacity including travellers, recruitment that retargets a moving formation, physical join, missing-slot correction, killed recruits and complete-wipe rebuild. Travellers do not bias the joined center. Their rendezvous uses the moving anchor recovered from joined positions and composition offsets, not that biased center plus a slot offset. A front replacement validates joined paths atomically and preserves intent on rejection; empty producer-owned forces retain a complete route to their front.
 
-## Primary proof and selection
+Keep desired rendezvous separate from its accepted navigation projection: retargeting compares old/new desired formation positions; physical arrival compares the body with the accepted path endpoint. A projection offset near geometry is not force motion and must not permanently prevent a physically arrived recruit from joining.
 
-Run `"$V" --run "$LOGIC_RUN" regression --scenario movement` first with the current editor build. `CoopRTS.Movement.TwoGroups` checks crossing, obstacle traversal, eight replacements per group, rejected requests preserving motion, purchased casualty joining a live Move, Hold, and every restored member's latest arrival. Successful path completion, proximity and velocity are checked together; idle alone is not success. The scenario has a 90-second deadline and the wrapper allows 150 game seconds. Require exact Success and exit zero; retain `movement.log` and `movement-stdout.log`.
+For the last capsule-diameter-plus-35 units of a recruit's accepted route, predictive velocity avoidance is disabled so it does not predict continuing past the finite goal into members behind that slot. Physical capsule collision and the validated navigation corridor remain enabled; predictive avoidance resumes on a farther retarget or after joining. The 35-unit physical arrival requirement is unchanged.
 
-This run covers moving-newcomer path and Hold behavior; `economy` covers purchase/source/payment/role/rebuild invariants. Desktop probes below cover changed route presentation, arena geometry or input integration. For a targeted pathfinding correction, choose a representative changed route rather than repeating the entire automated crossing/boundary matrix in pictures.
+Keep unrelated stationary forces outside the recruitment fixture's corridor. Paid replacement and scoped fronts are separate from escaping a solid friendly crowd grid; standing members can still physically obstruct a route. The blocked-exit fixture separately checks no-charge retry rather than teleporting through obstruction.
 
-## How to get to it (user POV)
+Choose `movement` for changed fixture path/crossing behavior and `production` for changed force/recruitment paths. Neither standalone run proves replication or native input. `network.py --scenario construction` observes real peer movement, casualty replacement and arrival; offscreen HUD proof provides the visible joined/travelling surface.
 
-Begin near the cyan home marker with the army selected. Zoom out and pan to see ground on the opposite side of the central rectangular obstacle. Do not regenerate the map for verification.
+For native proof, complete a barracks, lock/start its type and assign a front beyond an obstacle on navigable floor. Compare bodies to landmarks and inspect actual arrival, not just accepted markers. Two fronts require two barracks, paid units and independent fronts. Observe a casualty replacement following a changed front without teleporting. Obstacle tops and HUD panels are not ground targets. A rejected front must preserve movement and accepted intent. Historical N-refill probes are not the current input path.
 
-## Targeted desktop probes
-
-1. Send `key 1`, `key space`, then positive scroll ticks until enough of the arena is visible. Capture `navigation-home`.
-2. Pan forward with a short `key w --hold <milliseconds>` and capture `navigation-target`. Choose clear floor beyond the far edge of the central obstacle. Use the screenshot, not a canned click position; the obstacle top is not the destination.
-3. Right-click that observed point. Capture intermediate movement and the accepted destination in the HUD/log. Allow traversal, then capture `navigation-arrived` and count all six units near the destination ring. The obstacle must lie between the starting marker and destination; a same-side move does not cover this feature.
-4. Send `key r`. Capture the return while moving. Once settled, send `key space`, capture `navigation-returned` and count all six units at home. Confirm the destination changed to home and the order is Retreat.
-5. For the two-group crossing, return both groups home first. Zoom out until both formations are visible. Order army 1 to army 2's observed starting area, switch with `key 2`, and order army 2 to army 1's original area. Capture the exchange in progress and after arrival. Count every member of each army; no permanent jam or stranded unit is acceptable.
-6. Order both groups to distinct clear areas beyond the central obstacle, switching selection without stopping either group's orders. Inspect intermediate routes and both final formations. Their destinations must have enough spacing for two formations, rather than asking both to occupy identical slots.
-
-## Gotchas
-
-Dynamic navmesh generation can briefly reject orders immediately after load. Wait for the initial arena to settle, doctor, and retry one observed reachable request; do not hide persistent rejection behind unlimited retries. Slot projection is deliberately tight: a navigable center near a wall can still be rejected when the whole formation will not fit. A rejected request must leave the serial, destination, and existing unit movement intact. The scenario covers selected crossing and boundary cases, not arbitrary crowd density, every passage, or multiplayer.
-
-The obstacle's dark-blue shadow is walkable floor, not the raised obstacle itself. For a rejected obstacle click, target the light-colored raised surface and require rejection feedback with unchanged order serial/destination. A move accepted on its shadow is correct behavior. The per-unit scenario requires successful path completion as well as proximity, idle status, and low velocity; idle after a blocked move is not success.

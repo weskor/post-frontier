@@ -1,5 +1,6 @@
 #include "CommandPlayerController.h"
-#include "ArmyUnit.h"
+#include "CommandBuilding.h"
+#include "CapturePoint.h"
 #include "CommandCamera.h"
 #include "CommandGameMode.h"
 #include "CommandGameState.h"
@@ -8,7 +9,6 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/LocalPlayer.h"
 #include "EngineUtils.h"
-#include "Engine/StaticMeshActor.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
@@ -28,10 +28,43 @@ void ACommandPlayerController::BeginPlay()
 	{
 		FInputModeGameAndUI Mode;
 		Mode.SetHideCursorDuringCapture(false);
-		// RTS pointing uses a visible absolute cursor, not a confined FPS cursor.
 		Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		SetInputMode(Mode);
 	}
+}
+
+void ACommandPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (InputSubsystem.IsValid() && Mapping) InputSubsystem->RemoveMappingContext(Mapping);
+	InputSubsystem.Reset();
+	Super::EndPlay(EndPlayReason);
+}
+
+void ACommandPlayerController::ResetLocalMatchView()
+{
+	if (!IsLocalController()) return;
+	SelectedBuilding = nullptr;
+	bPlacingBuilding = false;
+	bAssigningFront = false;
+	bHUDExpanded = true;
+	bPlacementPending = false;
+	Feedback.Reset();
+	bInitialFocusPending = true;
+	PendingPan = FVector2D::ZeroVector;
+	PreviousDragPosition = FVector2D::ZeroVector;
+	bDragging = false;
+}
+
+void ACommandPlayerController::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)
+{
+	Super::GetSeamlessTravelActorList(bToEntry, ActorList);
+	if (!bToEntry) ResetLocalMatchView();
+}
+
+void ACommandPlayerController::PostSeamlessTravel()
+{
+	Super::PostSeamlessTravel();
+	ResetLocalMatchView();
 }
 
 void ACommandPlayerController::SetupInputComponent()
@@ -55,20 +88,14 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("ZoomIn"), EKeys::MouseScrollUp, &ThisClass::ZoomIn, ETriggerEvent::Started);
 	Bind(TEXT("ZoomOut"), EKeys::MouseScrollDown, &ThisClass::ZoomOut, ETriggerEvent::Started);
 	Bind(TEXT("Select"), EKeys::LeftMouseButton, &ThisClass::SelectUnderCursor, ETriggerEvent::Started);
-	Bind(TEXT("Move"), EKeys::RightMouseButton, &ThisClass::MoveUnderCursor, ETriggerEvent::Started);
-	Bind(TEXT("Attack"), EKeys::Q, &ThisClass::AttackUnderCursor, ETriggerEvent::Started);
-	Bind(TEXT("Hold"), EKeys::H, &ThisClass::Hold, ETriggerEvent::Started);
-	Bind(TEXT("Retreat"), EKeys::R, &ThisClass::Retreat, ETriggerEvent::Started);
-	Bind(TEXT("ArmyOne"), EKeys::One, &ThisClass::SelectArmyOne, ETriggerEvent::Started);
-	Bind(TEXT("ArmyTwo"), EKeys::Two, &ThisClass::SelectArmyTwo, ETriggerEvent::Started);
-	Bind(TEXT("DoctrineSiegeOptics"), EKeys::F1, &ThisClass::ChooseSiegeOptics, ETriggerEvent::Started);
-	Bind(TEXT("DoctrineFieldRepairs"), EKeys::F2, &ThisClass::ChooseFieldRepairs, ETriggerEvent::Started);
-	Bind(TEXT("DoctrineEntrenchedFrontline"), EKeys::F3, &ThisClass::ChooseEntrenchedFrontline, ETriggerEvent::Started);
-	Bind(TEXT("Reinforce"), EKeys::N, &ThisClass::Reinforce, ETriggerEvent::Started);
+	Bind(TEXT("CancelPointerMode"), EKeys::RightMouseButton, &ThisClass::CancelPointerMode, ETriggerEvent::Started);
+	Bind(TEXT("FocusSelection"), EKeys::SpaceBar, &ThisClass::FocusSelection, ETriggerEvent::Started);
+	Bind(TEXT("CancelMode"), EKeys::Escape, &ThisClass::CancelMode, ETriggerEvent::Started);
+	Bind(TEXT("ToggleHUD"), EKeys::F4, &ThisClass::ToggleHUD, ETriggerEvent::Started);
 	Bind(TEXT("Restart"), EKeys::Enter, &ThisClass::RequestRestart, ETriggerEvent::Started);
-	Bind(TEXT("FocusArmy"), EKeys::SpaceBar, &ThisClass::FocusArmy, ETriggerEvent::Started);
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
+		InputSubsystem = Subsystem;
 		Subsystem->AddMappingContext(Mapping, 0);
 	}
 }
@@ -77,40 +104,20 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 	if (!IsLocalController()) return;
-	if (const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>())
-	{
-		if (OwnState->Doctrine != LastObservedDoctrine)
-		{
-			LastObservedDoctrine = OwnState->Doctrine;
-			DoctrineFeedback.Reset();
-		}
-	}
-	if (SelectedArmy && !IsOwnedArmy(SelectedArmy)) SelectedArmy = nullptr;
-	if (!PendingPan.IsNearlyZero())
-	{
-		bInitialFocusPending = false;
-	}
+	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding)) { SelectedBuilding = nullptr; bAssigningFront = false; }
+	if (!PendingPan.IsNearlyZero()) bInitialFocusPending = false;
 	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Pan(PendingPan, DeltaTime);
 	PendingPan = FVector2D::ZeroVector;
-	if (PendingArmyIndex >= 0 && !SelectedArmy && (SelectionRetry -= DeltaTime) <= 0.f)
+	if (bInitialFocusPending)
 	{
-		SelectionRetry = .25f;
-		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (State && IsValid(State->FriendlyHeadquarters))
 		{
-			if (It->ArmyIndex == PendingArmyIndex && IsOwnedArmy(*It))
+			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
 			{
-				SelectedArmy = *It;
-				PendingArmyIndex = -1;
-				break;
+				Camera->FocusOn(State->FriendlyHeadquarters->GetActorLocation());
+				bInitialFocusPending = false;
 			}
-		}
-	}
-	if (bInitialFocusPending && SelectedArmy)
-	{
-		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
-		{
-			Camera->FocusOn(SelectedArmy->GetCenter());
-			bInitialFocusPending = false;
 		}
 	}
 	float MouseX, MouseY;
@@ -120,65 +127,112 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		if (bDragging && Position != PreviousDragPosition)
 		{
 			bInitialFocusPending = false;
-			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
-				Camera->Drag(Position - PreviousDragPosition);
+			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Drag(Position - PreviousDragPosition);
 		}
 		PreviousDragPosition = Position;
 		bDragging = true;
 	}
 	else bDragging = false;
-	if (!IsValid(SelectedArmy)) return;
-	for (AArmyUnit* Unit : SelectedArmy->Units)
+	if (bPlacingBuilding)
 	{
-		if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-		FVector Position = Unit->GetActorLocation();
-		Position.Z = 8.f;
-		DrawDebugCircle(GetWorld(), Position, 60.f, 32, FColor::Cyan, false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
-	}
-	FVector Home = SelectedArmy->HomeLocation;
-	Home.Z = 12.f;
-	DrawDebugCircle(GetWorld(), Home, 240.f, 40, FColor::White, false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
-	FVector Destination = SelectedArmy->Destination;
-	Destination.Z = 10.f;
-	const FColor Color = SelectedArmy->Order == EArmyOrder::Retreat ? FColor::Orange
-		: SelectedArmy->Order == EArmyOrder::Attack ? FColor::Red : FColor::Green;
-	DrawDebugCircle(GetWorld(), Destination, 110.f, 40, Color, false, -1.f, 0, 5.f, FVector::ForwardVector, FVector::RightVector, false);
-	DrawDebugLine(GetWorld(), SelectedArmy->GetCenter() + FVector(0, 0, 20), Destination, Color, false, -1.f, 0, 2.f);
-	if (SelectedArmy->Order == EArmyOrder::Attack && IsValid(SelectedArmy->AttackTarget))
-	{
-		const AActor* Target = SelectedArmy->AttackTarget.Get();
-		const AArmyUnit* Unit = Cast<AArmyUnit>(Target);
-		const AHeadquarters* HQ = Cast<AHeadquarters>(Target);
-		if ((Unit && Unit->IsAlive()) || (HQ && HQ->IsAlive()))
+		FVector Location;
+		FString Reason;
+		bool bCanPlace = false;
+		if (GetPlacementPreview(Location, Reason, bCanPlace))
 		{
-			FVector TargetPosition = Target->GetActorLocation();
-			TargetPosition.Z = 16.f;
-			DrawDebugCircle(GetWorld(), TargetPosition, 85.f, 32, FColor::Red, false, -1.f, 0, 4.f,
+			const float Radius = ACommandBuilding::GetFootprintRadius(PlacementKind);
+			DrawDebugCircle(GetWorld(), Location + FVector(0, 0, 12), Radius, 48,
+				bCanPlace ? FColor::Green : FColor::Red, false, -1.f, 0, 4.f,
 				FVector::ForwardVector, FVector::RightVector, false);
-			DrawDebugLine(GetWorld(), Destination, TargetPosition, FColor::Red, false, -1.f, 0, 2.f);
+		}
+		if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
+		{
+			const float Footprint = ACommandBuilding::GetFootprintRadius(PlacementKind);
+			if (PlacementKind != EBuildingKind::Outpost && IsValid(State->FriendlyHeadquarters))
+				DrawDebugCircle(GetWorld(), State->FriendlyHeadquarters->GetActorLocation() + FVector(0, 0, 10),
+					900.f - Footprint, 64, FColor::Cyan, false, -1.f, 0, 2.f,
+					FVector::ForwardVector, FVector::RightVector, false);
+			for (const ACapturePoint* Site : State->CaptureSites)
+				if (IsValid(Site) && Site->ControllingTeam == 0
+					&& (PlacementKind == EBuildingKind::Outpost || Site->IsEstablishedForTeam(0)))
+					DrawDebugCircle(GetWorld(), Site->GetActorLocation() + FVector(0, 0, 10),
+						ACapturePoint::TerritoryRadius - Footprint, 64,
+						Site->IsEstablishedForTeam(0) ? FColor::Green : FColor::Yellow,
+						false, -1.f, 0, 2.f, FVector::ForwardVector, FVector::RightVector, false);
 		}
 	}
+	if (bAssigningFront && IsOwnedBuilding(SelectedBuilding))
+	{
+		FVector Location;
+		if (CursorGround(Location))
+			DrawDebugCircle(GetWorld(), Location + FVector(0, 0, 13), 160.f, 32, FColor::Cyan,
+				false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
+	}
+	if (IsValid(SelectedBuilding))
+		DrawDebugCircle(GetWorld(), SelectedBuilding->GetActorLocation() + FVector(0, 0, 10),
+			ACommandBuilding::GetFootprintRadius(SelectedBuilding->Kind) + 30.f, 40, FColor::Cyan,
+			false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
+	if (IsValid(SelectedBuilding) && SelectedBuilding->Kind == EBuildingKind::Barracks
+		&& SelectedBuilding->HasConfiguredFront())
+		DrawDebugCircle(GetWorld(), SelectedBuilding->FrontLocation + FVector(0, 0, 16), 125.f, 32,
+			SelectedBuilding->FrontOrder == EFrontOrder::Secure ? FColor::Red
+			: SelectedBuilding->FrontOrder == EFrontOrder::Defend ? FColor::Green : FColor::Yellow,
+			false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
 }
 
-void ACommandPlayerController::PanForward() { PendingPan.X += 1.; }
-void ACommandPlayerController::PanBackward() { PendingPan.X -= 1.; }
-void ACommandPlayerController::PanLeft() { PendingPan.Y -= 1.; }
-void ACommandPlayerController::PanRight() { PendingPan.Y += 1.; }
-void ACommandPlayerController::ZoomIn()
-{
-	bInitialFocusPending = false;
-	if (auto* C = Cast<ACommandCamera>(GetPawn())) C->Zoom(1);
-}
-void ACommandPlayerController::ZoomOut()
-{
-	bInitialFocusPending = false;
-	if (auto* C = Cast<ACommandCamera>(GetPawn())) C->Zoom(-1);
-}
+void ACommandPlayerController::PanForward() { PendingPan.X += 1.f; }
+void ACommandPlayerController::PanBackward() { PendingPan.X -= 1.f; }
+void ACommandPlayerController::PanLeft() { PendingPan.Y -= 1.f; }
+void ACommandPlayerController::PanRight() { PendingPan.Y += 1.f; }
+void ACommandPlayerController::ZoomIn() { bInitialFocusPending = false; if (auto* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Zoom(1); }
+void ACommandPlayerController::ZoomOut() { bInitialFocusPending = false; if (auto* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Zoom(-1); }
 
 bool ACommandPlayerController::CursorHit(FHitResult& Hit) const
 {
 	return GetHitResultUnderCursor(ECC_Visibility, false, Hit);
 }
+
+bool ACommandPlayerController::CursorGround(FVector& Location) const
+{
+	float X, Y;
+	FVector Origin, Direction;
+	if (!GetMousePosition(X, Y) || !DeprojectScreenPositionToWorld(X, Y, Origin, Direction)
+		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER) return false;
+	const float Time = -Origin.Z / Direction.Z;
+	if (Time <= 0.f || !FMath::IsFinite(Time)) return false;
+	Location = Origin + Direction * Time;
+	Location.Z = 0.f;
+	return !Location.ContainsNaN();
+}
+
+bool ACommandPlayerController::GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const
+{
+	bCanPlace = false;
+	if (!bPlacingBuilding) return false;
+	if (!CursorGround(Location)) { Reason = TEXT("Point at ground to place."); return false; }
+	bCanPlace = CanPlaceBuildingAt(PlacementKind, Location, Reason);
+	return true;
+}
+
+bool ACommandPlayerController::CanPlaceBuildingAt(EBuildingKind Kind, const FVector& Location, FString& Reason) const
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
+	if (!State || !Wallet || Wallet->CommanderIndex < 0)
+	{
+		Reason = TEXT("Territory and wallet syncing.");
+		return false;
+	}
+	if (!State->ValidateBuildingPlacement(Kind, 0, Location, Reason)) return false;
+	const int32 Cost = ACommandBuilding::GetBuildCost(Kind);
+	if (Wallet->Resources < Cost)
+	{
+		Reason = FString::Printf(TEXT("Need %d more resources."), Cost - Wallet->Resources);
+		return false;
+	}
+	return true;
+}
+
 bool ACommandPlayerController::IsMatchTerminal() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
@@ -188,195 +242,257 @@ bool ACommandPlayerController::IsMatchTerminal() const
 bool ACommandPlayerController::CanIssueGameplayCommand()
 {
 	if (!IsMatchTerminal()) return true;
-	OrderFeedback = TEXT("Match over: press Enter to restart.");
+	Feedback = TEXT("Match over: press Enter to restart.");
 	return false;
 }
 
 void ACommandPlayerController::RequestRestart()
 {
-	if (IsMatchTerminal())
-	{
-		DoctrineFeedback.Reset();
-		ServerRequestRestart();
-	}
+	if (IsMatchTerminal()) ServerRequestRestart();
 }
 
 void ACommandPlayerController::ServerRequestRestart_Implementation()
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (State && State->MatchResult != EMatchResult::Ongoing)
-		if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>())
-			Mode->RequestRestart(this);
-}
-
-
-void ACommandPlayerController::ChooseSiegeOptics() { ChooseDoctrine(EArmyDoctrine::SiegeOptics); }
-void ACommandPlayerController::ChooseFieldRepairs() { ChooseDoctrine(EArmyDoctrine::FieldRepairs); }
-void ACommandPlayerController::ChooseEntrenchedFrontline() { ChooseDoctrine(EArmyDoctrine::EntrenchedFrontline); }
-
-void ACommandPlayerController::ChooseDoctrine(EArmyDoctrine Choice)
-{
-	DoctrineFeedback = TEXT("Doctrine choice sent; awaiting server.");
-	ServerChooseDoctrine(Choice);
+		if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>()) Mode->RequestRestart(this);
 }
 
 bool ACommandPlayerController::IsOwnedArmy(const AArmyGroup* Army) const
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->TeamIndex == 0
-		&& !Army->bOpposingArmy && IsValid(OwnState) && OwnState->CommanderIndex >= 0
-		&& OwnState->CommanderIndex < 5 && Army->OwningPlayerState == OwnState;
+		&& IsValid(OwnState) && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
+		&& Army->OwningPlayerState == OwnState;
 }
 
-bool ACommandPlayerController::IsCursorOverDoctrinePanel() const
+bool ACommandPlayerController::IsOwnedBuilding(const ACommandBuilding* Building) const
 {
-	float MouseX, MouseY;
-	const ACommandHUD* CommandHUD = Cast<ACommandHUD>(GetHUD());
-	return CommandHUD && GetMousePosition(MouseX, MouseY)
-		&& CommandHUD->IsDoctrinePanelPoint(FVector2D(MouseX, MouseY));
+	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
+	return IsValid(Building) && Building->GetWorld() == GetWorld() && Building->IsAlive()
+		&& Building->TeamIndex == 0 && IsValid(OwnState) && OwnState->CommanderIndex >= 0
+		&& OwnState->CommanderIndex < 5 && Building->OwningPlayerState == OwnState;
 }
 
-void ACommandPlayerController::ServerChooseDoctrine_Implementation(EArmyDoctrine Choice)
+bool ACommandPlayerController::IsValidBuildingCommand(const ACommandBuilding* Building) const
 {
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!State || State->MatchResult != EMatchResult::Ongoing)
-	{
-		ClientDoctrineFeedback(TEXT("Doctrine rejected: match over or unavailable."));
-		return;
-	}
-	ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
-	if (!IsValid(OwnState) || OwnState->GetWorld() != GetWorld())
-	{
-		ClientDoctrineFeedback(TEXT("Doctrine rejected: player state unavailable."));
-		return;
-	}
-	if (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
-		&& Choice != EArmyDoctrine::EntrenchedFrontline)
-	{
-		ClientDoctrineFeedback(TEXT("Doctrine rejected: invalid choice."));
-		return;
-	}
-	if (OwnState->Doctrine != EArmyDoctrine::None)
-	{
-		ClientDoctrineFeedback(TEXT("Doctrine rejected: already chosen for this match."));
-		return;
-	}
-	if (!OwnState->TryChooseDoctrine(Choice))
-		ClientDoctrineFeedback(TEXT("Doctrine rejected: choice unavailable."));
+	return !IsMatchTerminal() && IsOwnedBuilding(Building);
 }
 
-void ACommandPlayerController::ClientDoctrineFeedback_Implementation(const FString& Message)
+void ACommandPlayerController::CancelMode()
 {
-	DoctrineFeedback = Message;
+	bPlacingBuilding = false;
+	bAssigningFront = false;
+	bPlacementPending = false;
+	bHUDExpanded = true;
+}
+
+void ACommandPlayerController::ToggleHUD()
+{
+	bHUDExpanded = !bHUDExpanded;
+}
+
+bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
+{
+	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+	if (!HUD) return false;
+	FVector WorldPosition;
+	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
+	{
+		bInitialFocusPending = false;
+		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->FocusOn(WorldPosition);
+		return true;
+	}
+	if (!HUD->IsPanelPoint(Position)) return false;
+	HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
+	return true;
+}
+
+void ACommandPlayerController::SelectActor(AActor* Actor)
+{
+	bInitialFocusPending = false;
+	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
+	if (SelectedBuilding) bHUDExpanded = true;
 }
 
 void ACommandPlayerController::SelectUnderCursor()
 {
-	if (IsCursorOverDoctrinePanel())
+	float MouseX, MouseY;
+	if (GetMousePosition(MouseX, MouseY) && HandleHUDClick(FVector2D(MouseX, MouseY))) return;
+	if (bPlacingBuilding)
 	{
-		float MouseX, MouseY;
-		if (GetMousePosition(MouseX, MouseY))
-			if (const ACommandHUD* CommandHUD = Cast<ACommandHUD>(GetHUD()))
-			{
-				const EArmyDoctrine Choice = CommandHUD->GetDoctrineAtScreenPosition(FVector2D(MouseX, MouseY));
-				if (Choice != EArmyDoctrine::None) ChooseDoctrine(Choice);
-			}
-		return;
-	}
-	FHitResult Hit;
-	PendingArmyIndex = -1;
-	bInitialFocusPending = false;
-	SelectedArmy = nullptr;
-	OrderFeedback.Reset();
-	if (CursorHit(Hit))
-	{
-		if (AArmyUnit* Unit = Cast<AArmyUnit>(Hit.GetActor()))
+		if (!CanIssueGameplayCommand() || bPlacementPending) return;
+		FVector Location;
+		FString Reason;
+		bool bCanPlace = false;
+		if (!GetPlacementPreview(Location, Reason, bCanPlace) || !bCanPlace)
 		{
-			if (IsValid(Unit) && IsOwnedArmy(Unit->Group)) SelectedArmy = Unit->Group;
-		}
-	}
-}
-
-void ACommandPlayerController::SelectArmyOne() { SelectArmy(0); }
-void ACommandPlayerController::SelectArmyTwo() { SelectArmy(1); }
-
-void ACommandPlayerController::SelectArmy(int32 ArmyIndex)
-{
-	PendingArmyIndex = ArmyIndex;
-	bInitialFocusPending = false;
-	SelectedArmy = nullptr;
-	OrderFeedback.Reset();
-	SelectionRetry = 0.f;
-	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
-	{
-		if (It->ArmyIndex == ArmyIndex && IsOwnedArmy(*It))
-		{
-			SelectedArmy = *It;
-			PendingArmyIndex = -1;
+			Feedback = Reason.IsEmpty() ? TEXT("Point at ground to place.") : Reason;
 			return;
 		}
+		bPlacementPending = true;
+		ServerPlaceBuilding(PlacementKind, Location);
+		Feedback = TEXT("Placement sent; server checks navigation and cost.");
+		return;
 	}
-}
-
-void ACommandPlayerController::FocusArmy()
-{
-	if (IsOwnedArmy(SelectedArmy))
+	if (bAssigningFront)
 	{
-		bInitialFocusPending = false;
-		if (auto* Camera = Cast<ACommandCamera>(GetPawn())) Camera->FocusOn(SelectedArmy->GetCenter());
-	}
-}
-
-void ACommandPlayerController::MoveUnderCursor()
-{
-	if (IsCursorOverDoctrinePanel()) return;
-	if (!CanIssueGameplayCommand()) return;
-	FHitResult Hit;
-	if (IsOwnedArmy(SelectedArmy) && CursorHit(Hit)) ServerIssueOrder(SelectedArmy, EArmyOrder::Move, Hit.ImpactPoint);
-}
-
-void ACommandPlayerController::AttackUnderCursor()
-{
-	if (IsCursorOverDoctrinePanel()) return;
-	if (!CanIssueGameplayCommand()) return;
-	if (!IsOwnedArmy(SelectedArmy))
-	{
-		OrderFeedback = TEXT("Attack rejected: select your army first.");
+		if (!CanIssueGameplayCommand()) return;
+		FVector Location;
+		if (IsOwnedBuilding(SelectedBuilding) && CursorGround(Location))
+		{
+			ServerAssignFront(SelectedBuilding, PendingFrontOrder, Location);
+			bAssigningFront = false;
+			bHUDExpanded = true;
+			Feedback = TEXT("Front sent; awaiting server.");
+		}
+		else Feedback = TEXT("Point at ground to assign a front.");
 		return;
 	}
 	FHitResult Hit;
-	if (!CursorHit(Hit))
-	{
-		OrderFeedback = TEXT("Attack rejected: point at an enemy unit, enemy HQ or reachable ground.");
-		return;
-	}
-	AActor* HitActor = Hit.GetActor();
-	// Boot's traversable arena floor is a flat static mesh at Z=0. Other actor hits
-	// remain explicit targets, so unsupported geometry cannot silently become an area order.
-	const bool bGround = !HitActor || (Cast<AStaticMeshActor>(HitActor)
-		&& FMath::Abs(Hit.ImpactPoint.Z) <= 5.f && Hit.ImpactNormal.Z > .8f);
-	AActor* Target = bGround ? nullptr : HitActor;
-	ServerIssueAttack(SelectedArmy, Hit.ImpactPoint, Target);
+	if (CursorHit(Hit)) SelectActor(Hit.GetActor());
 }
-void ACommandPlayerController::Hold() { if (CanIssueGameplayCommand() && IsOwnedArmy(SelectedArmy)) ServerIssueOrder(SelectedArmy, EArmyOrder::Hold, FVector::ZeroVector); }
-void ACommandPlayerController::Retreat() { if (CanIssueGameplayCommand() && IsOwnedArmy(SelectedArmy)) ServerIssueOrder(SelectedArmy, EArmyOrder::Retreat, FVector::ZeroVector); }
-void ACommandPlayerController::Reinforce()
+
+void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 {
+	if (Action == EHUDAction::None) return;
+	if (Action == EHUDAction::Construction) { CancelMode(); return; }
 	if (!CanIssueGameplayCommand()) return;
-	if (!IsOwnedArmy(SelectedArmy))
+	if (Action == EHUDAction::BuildBarracks || Action == EHUDAction::BuildOutpost || Action == EHUDAction::BuildWorkshop)
 	{
-		OrderFeedback = TEXT("Recovery rejected: select your army with 1 / 2 first.");
+		PlacementKind = Action == EHUDAction::BuildBarracks ? EBuildingKind::Barracks
+			: Action == EHUDAction::BuildOutpost ? EBuildingKind::Outpost : EBuildingKind::Workshop;
+		bPlacingBuilding = true;
+		bAssigningFront = false;
+		bHUDExpanded = false;
+		Feedback = TEXT("Left-click valid ground; right-click/Esc cancels.");
 		return;
 	}
-	ServerReinforce(SelectedArmy);
+	if (!IsOwnedBuilding(SelectedBuilding)) { Feedback = TEXT("Select your building first."); return; }
+	if (Action == EHUDAction::CancelConstruction)
+	{
+		ServerCancelBuilding(SelectedBuilding);
+		return;
+	}
+	if (Action == EHUDAction::ResearchSiege || Action == EHUDAction::ResearchRepairs || Action == EHUDAction::ResearchEntrenched)
+	{
+		ServerResearch(SelectedBuilding, Action == EHUDAction::ResearchSiege ? EArmyDoctrine::SiegeOptics
+			: Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs : EArmyDoctrine::EntrenchedFrontline);
+		return;
+	}
+	if (SelectedBuilding->Kind != EBuildingKind::Barracks) return;
+	if (Action == EHUDAction::FrontSecure || Action == EHUDAction::FrontDefend || Action == EHUDAction::FrontFallBack)
+	{
+		PendingFrontOrder = Action == EHUDAction::FrontSecure ? EFrontOrder::Secure
+			: Action == EHUDAction::FrontDefend ? EFrontOrder::Defend : EFrontOrder::FallBack;
+		bAssigningFront = true;
+		bPlacingBuilding = false;
+		bHUDExpanded = false;
+		Feedback = TEXT("Choose a front on ground; right-click/Esc cancels.");
+		return;
+	}
+	if (Action == EHUDAction::ToggleProduction)
+	{
+		ServerConfigureProduction(SelectedBuilding, SelectedBuilding->ProductionRole, !SelectedBuilding->bProductionEnabled);
+		return;
+	}
+	if (Action != EHUDAction::RecipeFrontline && Action != EHUDAction::RecipeRanged && Action != EHUDAction::RecipeSiege) return;
+	if (SelectedBuilding->bForceConfigured) return; // Locked even while paused; no role-change RPC.
+	const EUnitRole Role = Action == EHUDAction::RecipeFrontline ? EUnitRole::Frontline
+		: Action == EHUDAction::RecipeRanged ? EUnitRole::Ranged : EUnitRole::Siege;
+	ServerConfigureProduction(SelectedBuilding, Role, false);
+}
+
+
+void ACommandPlayerController::FocusSelection()
+{
+	FVector Target;
+	if (IsOwnedBuilding(SelectedBuilding)) Target = SelectedBuilding->GetActorLocation();
+	else
+	{
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (!State || !IsValid(State->FriendlyHeadquarters)) return;
+		Target = State->FriendlyHeadquarters->GetActorLocation();
+	}
+	bInitialFocusPending = false;
+	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->FocusOn(Target);
+}
+
+	void ACommandPlayerController::CancelPointerMode()
+	{
+		if (bPlacingBuilding || bAssigningFront)
+		{
+			CancelMode();
+			Feedback = TEXT("Mode cancelled.");
+		}
+	}
+
+void ACommandPlayerController::ServerPlaceBuilding_Implementation(EBuildingKind Kind, FVector Location)
+{
+	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
+	FString Reason;
+	bool bAccepted = false;
+	if (!State || State->MatchResult != EMatchResult::Ongoing || !IsValid(Wallet)
+		|| Wallet->GetWorld() != GetWorld() || Wallet->CommanderIndex < 0 || Wallet->CommanderIndex >= 5)
+		Reason = TEXT("Placement rejected: match or commander unavailable.");
+	else if (!(bAccepted = State->TryPlaceBuilding(Kind, Location, Wallet, 0, Reason)))
+	{
+		if (Reason.IsEmpty()) Reason = TEXT("Placement rejected by server.");
+	}
+	else Reason = TEXT("Building placed; construction started.");
+	ClientPlacementFeedback(Reason, bAccepted);
+}
+
+void ACommandPlayerController::ServerCancelBuilding_Implementation(ACommandBuilding* Building)
+{
+	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Cancel rejected: not your living building or match ended.")); return; }
+	ClientConstructionFeedback(Building->CancelConstruction() ? TEXT("Construction cancelled; unbuilt portion refunded.")
+		: TEXT("Cancel rejected: building is complete."));
+}
+
+void ACommandPlayerController::ServerConfigureProduction_Implementation(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
+{
+	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Production rejected: not your living building or match ended.")); return; }
+	ClientConstructionFeedback(Building->SetProduction(Recipe, bEnabled)
+		? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *Building->GetProductionStatus())
+		: FString::Printf(TEXT("Production rejected: %s"), *Building->GetProductionStatus()));
+}
+
+void ACommandPlayerController::ServerAssignFront_Implementation(ACommandBuilding* Building, EFrontOrder Order, FVector Location)
+{
+	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Front rejected: not your living building or match ended.")); return; }
+	ClientConstructionFeedback(Building->SetFront(Order, Location) ? TEXT("Front assigned to this building's force.")
+		: TEXT("Front rejected: select a completed barracks and valid ground inside the arena."));
+}
+
+
+void ACommandPlayerController::ServerResearch_Implementation(ACommandBuilding* Building, EArmyDoctrine Choice)
+{
+	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Research rejected: not your living building or match ended.")); return; }
+	ClientConstructionFeedback(Building->TryResearch(Choice) ? TEXT("Workshop specialization purchased for your forces.")
+		: FString::Printf(TEXT("Research rejected: requires completed workshop, no existing specialization, and %d resources."), ACommandBuilding::ResearchCost));
+}
+
+void ACommandPlayerController::ClientConstructionFeedback_Implementation(const FString& Message) { Feedback = Message; }
+
+void ACommandPlayerController::ClientPlacementFeedback_Implementation(const FString& Message, bool bAccepted)
+{
+	Feedback = Message;
+	bPlacementPending = false;
+	if (bAccepted)
+	{
+		bPlacingBuilding = false;
+		bHUDExpanded = true;
+	}
 }
 
 void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army, FVector Destination, AActor* Target)
 {
 	bool bAccepted = false;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army)
-		&& Army->GetOwner() == this)
+	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army) && Army->GetOwner() == this)
 	{
 		if (Target)
 		{
@@ -389,32 +505,28 @@ void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army
 						&& Unit->TeamIndex != Army->TeamIndex;
 				else if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
 					bValidTarget = HQ->IsAlive() && HQ->TeamIndex != Army->TeamIndex;
+				else if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
+					bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->TeamIndex;
 			}
-			if (!bValidTarget)
-			{
-				ClientAttackFeedback(false);
-				return;
-			}
+			if (!bValidTarget) { ClientAttackFeedback(false); return; }
 			Destination = Target->GetActorLocation();
 		}
 		if (!Destination.ContainsNaN() && FMath::Abs(Destination.X) <= 4500.f
 			&& FMath::Abs(Destination.Y) <= 4500.f && FMath::Abs(Destination.Z) <= 1000.f)
-		{
 			bAccepted = Army->IssueAttack(Destination, Target);
-		}
 	}
 	ClientAttackFeedback(bAccepted);
 }
 
 void ACommandPlayerController::ClientAttackFeedback_Implementation(bool bAccepted)
 {
-	OrderFeedback = bAccepted ? TEXT("Attack order accepted.") :
-		TEXT("Attack rejected: choose a live enemy unit, enemy HQ or reachable ground inside the arena.");
+	Feedback = bAccepted ? TEXT("Attack order accepted; manual order overrides automatic front.")
+		: TEXT("Attack rejected: choose a live enemy unit, building, HQ or reachable ground.");
 }
 
 void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army, EArmyOrder Order, FVector Destination)
 {
-	bool Accepted = false;
+	bool bAccepted = false;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army)
 		&& Army->GetOwner() == this && !Destination.ContainsNaN()
@@ -422,59 +534,17 @@ void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army,
 	{
 		switch (Order)
 		{
-		case EArmyOrder::Move: Accepted = Army->IssueMove(Destination); break;
-		case EArmyOrder::Hold: Accepted = Army->IssueHold(); break;
-		case EArmyOrder::Retreat: Accepted = Army->IssueRetreat(); break;
+		case EArmyOrder::Move: bAccepted = Army->IssueMove(Destination); break;
+		case EArmyOrder::Hold: bAccepted = Army->IssueHold(); break;
+		case EArmyOrder::Retreat: bAccepted = Army->IssueRetreat(); break;
 		default: break;
 		}
 	}
-	ClientOrderFeedback(Accepted);
+	ClientOrderFeedback(bAccepted);
 }
 
 void ACommandPlayerController::ClientOrderFeedback_Implementation(bool bAccepted)
 {
-	OrderFeedback = bAccepted ? TEXT("") : TEXT("Order rejected: choose reachable ground inside the arena.");
-}
-
-void ACommandPlayerController::ServerReinforce_Implementation(AArmyGroup* Army)
-{
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!State || State->MatchResult != EMatchResult::Ongoing)
-	{
-		ClientReinforcementFeedback(TEXT("Recovery rejected: match over."));
-		return;
-	}
-	if (!IsOwnedArmy(Army) || Army->GetOwner() != this)
-	{
-		ClientReinforcementFeedback(TEXT("Recovery rejected: this is not your army."));
-		return;
-	}
-
-	const int32 Cost = Army->GetReinforcementCost();
-	bool bWasEmpty = true;
-	for (const AArmyUnit* Unit : Army->Units)
-	{
-		if (IsValid(Unit) && Unit->IsAlive()) { bWasEmpty = false; break; }
-	}
-	FVector Source;
-	bool bBase = false;
-	const bool bHasSource = Army->GetReinforcementSource(Source, bBase);
-	if (Army->TryReinforce())
-	{
-		ClientReinforcementFeedback(FString::Printf(TEXT("%s at %s for %d resources."),
-			bWasEmpty ? TEXT("Army rebuilt") : TEXT("Casualties restored"),
-			bHasSource && !bBase ? TEXT("forward site") : TEXT("base"), Cost));
-	}
-	else
-	{
-		const FString Status = Army->GetReinforcementStatus();
-		ClientReinforcementFeedback(Status == TEXT("READY")
-			? TEXT("Recovery rejected: deployment failed; no resources spent.")
-			: FString::Printf(TEXT("Recovery rejected: %s"), *Status));
-	}
-}
-
-void ACommandPlayerController::ClientReinforcementFeedback_Implementation(const FString& Message)
-{
-	OrderFeedback = Message;
+	Feedback = bAccepted ? TEXT("Manual order accepted; automatic front disabled for this squad.")
+		: TEXT("Order rejected: choose reachable ground inside the arena.");
 }

@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
+#include "ArmyTestSetup.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandPlayerController.h"
@@ -39,6 +40,7 @@ public:
 			{
 				UWorld* World = Context.World();
 				if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_Client) continue;
+				if (!ArmyTestSetup::CombatActors(World)) continue;
 				for (TActorIterator<AArmyGroup> It(World); It; ++It)
 				{
 					if (auto* Owner = Cast<ACommandPlayerController>(It->GetOwner()))

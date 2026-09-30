@@ -90,9 +90,15 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Army")
 	int32 CommanderIndex = -1;
 
-	// Stable fixed-composition slot; casualties do not renumber survivors.
+	// Stable unique slot within the producer's capacity; fixtures retain slots 0..5.
 	UPROPERTY(Replicated)
 	int32 CompositionSlot = -1;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	bool bReinforcing = false;
+	// Authority-only desired rendezvous and its accepted navigation projection.
+	FVector ReinforcementGoal = FVector::ZeroVector;
+	FVector ReinforcementRendezvous = FVector::ZeroVector;
+	bool bHasReinforcementPath = false;
 
 protected:
 	virtual void BeginPlay() override;

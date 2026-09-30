@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
+#include "ArmyTestSetup.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandPlayerController.h"
@@ -186,6 +187,7 @@ private:
 			if (Context.World() && Context.World()->IsGameWorld() && Context.World()->GetNetMode() == NM_Standalone)
 				{ World = Context.World(); break; }
 		if (!World) return false;
+		if (!ArmyTestSetup::CombatActors(World)) return false;
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 		{
 			if (It->bOpposingArmy) Enemy = *It;

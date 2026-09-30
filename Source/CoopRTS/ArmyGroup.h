@@ -2,10 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "ConstructionTypes.h"
 #include "ArmyGroup.generated.h"
 
 class AArmyUnit;
+class ACommandBuilding;
 enum class EArmyDoctrine : uint8;
+enum class EUnitRole : uint8;
 class UArmyUnitDefinition;
 class ACommandPlayerState;
 
@@ -28,11 +31,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	bool SpawnUnits();
-	int32 GetReinforcementCost() const;
-	bool GetReinforcementSource(FVector& OutLocation, bool& bBase) const;
-	bool CanReinforceAtCurrentLocation() const;
-	FString GetReinforcementStatus() const;
-	bool TryReinforce();
+	bool SpawnReinforcement(EUnitRole Role, const FVector& SpawnLocation);
+	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
 	bool IssueMove(FVector InDestination);
 	bool IssueAttack(FVector InDestination, AActor* InTarget);
 	bool IssueHold();
@@ -67,6 +67,14 @@ public:
 	int32 ArmyIndex = 0;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	TObjectPtr<AActor> AttackTarget;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	EFrontOrder FrontOrder = EFrontOrder::Defend;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	FVector FrontLocation = FVector::ZeroVector;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	bool bAutomaticFront = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	TObjectPtr<ACommandBuilding> ProductionBuilding;
 
 	static constexpr float PursuitRadius = 1050.f;
 	bool bOpposingArmy = false;
@@ -86,7 +94,12 @@ private:
 
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination);
 	void UpdateCombat();
+	void UpdateReinforcements();
+	FVector ReinforcementTarget(const AArmyUnit& Unit) const;
 	float CombatAccumulator = 0.f;
+	float FrontMaintenanceSeconds = 0.f;
+	bool bProducedGroup = false;
+	int32 ForceCapacity = 0;
 	void StopAllUnits();
 	void LogOrder() const;
 	FVector FormationOffset(int32 Index) const;

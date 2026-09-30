@@ -1,26 +1,13 @@
-# Move, Attack, Hold and Retreat
+# Barracks fronts and internal force orders
 
-## Sub-features
+Players command each persistent force through its own barracks: Secure attack-moves, Defend guards an area, and Fall Back regroups at the chosen front. Replacing a barracks front updates only that force and its travelling recruits; another producer's force/front is untouched. Wiped forces retain front and identity; destroyed-producer survivors keep their last front without receiving replacements or transferring. Squad selection and manual Tab/Q/H/R/right-click orders are removed. Internal Move/Attack/Hold/Retreat APIs remain for combat and explicit fixtures; rejected orders preserve accepted intent/serial. Source: `CommandPlayerController.cpp`, `CommandBuildingProduction.cpp`, `ArmyGroup.cpp`, `ArmyOrderTests.cpp`, `ConstructionTests.cpp`.
 
-Right-click ground replaces Move; Q at a live hostile or on valid ground issues targeted/area Attack (see [Combat](combat.md)); H immediately holds; R retreats home. Accepted orders change the serial and destination display; rejected requests preserve accepted intent. Source: `CommandPlayerController.cpp`, `ArmyGroup.cpp`, `ArmyOrderTests.cpp`, `ArmyCombatTests.cpp`.
+## Live proof selection
 
-## Primary proof and selection
+`regression --scenario orders` (`CoopRTS.Orders.ReplaceHoldRetreat`) exercises controlled fixture orders: replacement approach, Hold, rejected boundary request and center retreat. It does not prove every member arrived or current human controls. `production` checks paid building-owned forces, producer-scoped fronts and recruitment that follows a moving force to physical arrival. Add `combat` for changed attack precedence and `movement` for changed fixture crossing. Use fresh worlds with exact Success and SoftQuit markers.
 
-Run `"$V" --run "$LOGIC_RUN" regression --scenario orders` first with the current editor build. `CoopRTS.Orders.ReplaceHoldRetreat` exercises the owning controller in a real world: initial movement, replacement approach, individual Hold positions, rejected out-of-bounds serial preservation, and group-center return within 150 units of home. It does not prove every member arrived home. Use `movement` for individual arrival; add `combat` when Attack replacement or Retreat combat precedence changes.
+## Targeted native proof
 
-The probes below are for changed controls, visible feedback or a complete baseline. For a targeted rule fix, rely on assertions and exercise only the relevant input transition instead of reproducing all stages as screenshots.
+Complete a barracks, choose its force type and Start & Lock, then click Secure, Defend or Fall Back followed by navigable world ground. Compare accepted fronts/serials with real travel. Give a second barracks a separate front and verify it is unaffected. Observe an individual paid replacement walking to the moving force after a casualty. Right-click or Escape during targeting cancels; right-click outside a mode issues no squad order. Minimap clicks pan without committing placement/fronts. Tab/Q/H/R must not replace automatic orders.
 
-## How to get to it (user POV)
-
-Select the local army with 1. Space centers it. Choose reachable floor in the current image; a valid formation needs space for every unit, not only the center.
-
-## Targeted desktop probes
-
-1. Capture `orders-before`. Right-click observed ground away from the group. Capture `orders-moving` while moving: HUD Move serial increments, destination ring appears, and units leave their original location.
-2. Before arrival, right-click a different observed destination. Capture `orders-replaced`: another serial increments, destination changes, and units move toward the replacement rather than finishing the first route. Arrange both commands in one short sequence if tool-call latency would allow arrival first.
-3. During movement send `key h`. Capture `orders-hold` and a second `orders-held-later` after at least one second. Positions relative to static ground must remain unchanged; HUD says Hold with a new serial. Do not substitute arrival at a Move destination for this check.
-4. Send `key r`, capture `orders-retreat`, then wait for home arrival and capture `orders-home`. HUD says Retreat and the destination indicator turns orange. Confirm all six units return near the home marker.
-
-## Gotchas
-
-Log acceptance alone does not prove units moved or stopped. The HUD retains Move/Retreat after arrival; there is no separate idle order. Rejected ground requests can occur near obstacles/bounds even if the clicked center looks reachable, because every slot must have a complete path. Do not change that expectation without a product decision. The current single local controller does not prove network ownership checks under two players. For Q and combat transitions use the combat recipe and its separate live scenario.
+The `orders` scenario's center-distance check is weaker than the `movement` scenario's every-member path success/arrival. The historical six-member packaged probes and `key 1`/`key 2` recipes are not valid for a new construction game.

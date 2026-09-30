@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "Misc/AutomationTest.h"
+#include "ArmyTestSetup.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
@@ -50,6 +51,7 @@ struct FDoctrineActors
 		for (TActorIterator<ACommandPlayerController> It(InWorld); It; ++It)
 			if (It->IsLocalController()) { Controller = *It; break; }
 		if (!Controller.IsValid()) return false;
+		if (!ArmyTestSetup::CombatActors(InWorld)) return false;
 		for (TActorIterator<AArmyGroup> It(InWorld); It; ++It)
 		{
 			if (It->bOpposingArmy) Enemy = *It;
@@ -155,17 +157,17 @@ private:
 		const int32 BaseDamage = WeaponHit(Siege, Victim);
 		if (!Check(BaseDamage > 0, TEXT("Unchosen siege inflicts actual weapon damage"))) return true;
 		Victim->Health = Victim->MaxHealth(); // Keep the same live target for comparable shots.
-		Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::None);
-		Actors.Controller->ServerChooseDoctrine(static_cast<EArmyDoctrine>(255));
+		ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::None);
+		ArmyTestSetup::Research(Actors.Controller.Get(), static_cast<EArmyDoctrine>(255));
 		if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::None && Actors.Wallet->Resources == WalletBefore,
 			TEXT("None and invalid enum requests reject without spending or selecting"))) return true;
-		Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::SiegeOptics);
-		if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics && Actors.Wallet->Resources == WalletBefore,
-			TEXT("Owned RPC selects SiegeOptics once without touching the wallet"))) return true;
-		Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::FieldRepairs);
-		if (!Check(!Actors.Wallet->TryChooseDoctrine(EArmyDoctrine::EntrenchedFrontline)
-			&& Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics,
-			TEXT("A selected doctrine cannot be replaced through RPC or player state"))) return true;
+		ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::SiegeOptics);
+		if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics && Actors.Wallet->Resources == WalletBefore - ACommandBuilding::ResearchCost,
+			TEXT("Owned workshop purchase selects SiegeOptics and pays once"))) return true;
+		ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::FieldRepairs);
+		if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics
+			&& Actors.Wallet->Resources == WalletBefore - ACommandBuilding::ResearchCost,
+			TEXT("A purchased specialization cannot be replaced or charged twice"))) return true;
 		if (!Check(FMath::IsNearlyEqual(Siege->WeaponRange(), BaseRange * 1.25f)
 			&& FMath::IsNearlyEqual(OtherSiege->WeaponRange(), BaseRange * 1.25f)
 			&& FMath::IsNearlyEqual(EnemySiege->WeaponRange(), BaseRange)
@@ -192,10 +194,11 @@ private:
 			&& FMath::IsNearlyEqual(Ally->Units[4]->WeaponRange(), BaseRange),
 			TEXT("Other player's same-team siege does not inherit optics"))) return true;
 		const int32 TeammateBalance = TeammateWallet->Resources;
-		Teammate->ServerChooseDoctrine(EArmyDoctrine::FieldRepairs);
+		ArmyTestSetup::Research(Teammate, EArmyDoctrine::FieldRepairs);
 		if (!Check(TeammateWallet->Doctrine == EArmyDoctrine::FieldRepairs
 			&& Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics
-			&& TeammateWallet->Resources == TeammateBalance && Actors.Wallet->Resources == WalletBefore
+			&& TeammateWallet->Resources == TeammateBalance - ACommandBuilding::ResearchCost
+			&& Actors.Wallet->Resources == WalletBefore - ACommandBuilding::ResearchCost
 			&& FMath::IsNearlyEqual(Ally->Units[4]->WeaponRange(), BaseRange)
 			&& FMath::IsNearlyEqual(Siege->WeaponRange(), BaseRange * 1.25f),
 			TEXT("Another player's choice and wallet remain independent on a shared team"))) return true;
@@ -230,25 +233,20 @@ private:
 			false, nullptr, ETeleportType::TeleportPhysics);
 		Siege->NextAttackTime = 0.f;
 		const int32 HQBefore = HQ->Health;
+		Siege->NextAttackTime = 0.f;
 		Siege->FireAt(HQ);
 		Siege->SetActorLocation(SiegeHome, false, nullptr, ETeleportType::TeleportPhysics);
 		if (!Check(HQ->Health == HQBefore - OpticsDamage && HQ->IsAlive(),
 			TEXT("Optics siege range and reduced damage also hit a real hostile HQ"))) return true;
-		// A paid casualty replacement uses the existing group owner, not an asset edit.
-		Siege->ReceiveAttack(Siege->Health, Victim);
-		if (!Check(Actors.Armies[0]->Units.Num() == 5, TEXT("Siege casualty opens a real replacement slot"))) return true;
-		Actors.Controller->ServerReinforce(Actors.Armies[0].Get());
-		AArmyUnit* Replacement = nullptr;
-		for (AArmyUnit* Unit : Actors.Armies[0]->Units)
-			if (Unit->CompositionSlot == 4) Replacement = Unit;
-		if (!Check(Replacement && Replacement != Siege && Replacement->IsAlive()
-			&& FMath::IsNearlyEqual(Replacement->WeaponRange(), BaseRange * 1.25f)
-			&& Actors.Wallet->Resources == WalletBefore - 80,
-			TEXT("Paid new siege inherits owner doctrine without changing the shared asset"))) return true;
+		AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
+		AArmyUnit* Replacement = Later ? Later->Units[4].Get() : nullptr;
+		if (!Check(Replacement && Replacement->IsAlive()
+			&& FMath::IsNearlyEqual(Replacement->WeaponRange(), BaseRange * 1.25f),
+			TEXT("Units created after research inherit the owner effect without changing the asset"))) return true;
 		Victim->Health = Victim->MaxHealth();
 		if (!Check(WeaponHit(Replacement, Victim) == OpticsDamage,
 			TEXT("Replacement siege fires with the same reduced real weapon damage"))) return true;
-		Test->AddInfo(TEXT("Optics: real extended unit/HQ hits, outgoing damage tradeoff, both armies, paid replacement, irreversible validation, enemy isolation."));
+		Test->AddInfo(TEXT("Optics: real extended unit/HQ hits, outgoing damage tradeoff, existing and later units, paid irreversible research, owner isolation."));
 		return true;
 	}
 };
@@ -265,7 +263,7 @@ private:
 		AArmyUnit* Attacker = Actors.Enemy->Units[0];
 		if (Stage == 0)
 		{
-			Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::FieldRepairs);
+			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::FieldRepairs);
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::FieldRepairs,
 				TEXT("FieldRepairs choice accepted for the owning player"))) return true;
 			Patient->Health = Patient->MaxHealth() - 55;
@@ -429,26 +427,28 @@ private:
 			if (!Check(Baseline > 0, TEXT("Hostile real weapon establishes unchosen frontline damage"))) return true;
 			Held->Health = Held->MaxHealth();
 			Moving->Health = Moving->MaxHealth();
-			Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::EntrenchedFrontline);
+			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::EntrenchedFrontline);
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::EntrenchedFrontline,
 				TEXT("EntrenchedFrontline is the player's irreversible choice"))) return true;
+			for (const TWeakObjectPtr<AArmyGroup>& Group : Actors.Armies)
+				if (!Check(Group->AssignFront(EFrontOrder::Defend, Group->GetCenter()),
+					TEXT("Owned armies can adopt a Defend front at their current position"))) return true;
 			const int32 Protected = WeaponHit(Enemy, Held);
-			if (!Check(Protected > 0 && Protected < Baseline && Actors.Armies[0]->Order == EArmyOrder::Hold
-				&& Held->GetCharacterMovement()->Velocity.Size2D() < 5.f,
-				TEXT("Stationary Hold frontline takes less real incoming weapon damage"))) return true;
+			if (!Check(Protected == Baseline * 3 / 4 && Actors.Armies[0]->bAutomaticFront
+				&& Held->GetCharacterMovement()->Velocity.Size2D() <= 1.f,
+				TEXT("Stationary Defend frontline takes exactly 25 percent less real weapon damage"))) return true;
 			const int32 OtherProtected = WeaponHit(Enemy, Moving);
-			if (!Check(OtherProtected == Protected && Actors.Armies[1]->Order == EArmyOrder::Hold,
-				TEXT("Second owned Hold army gains identical protection"))) return true;
+			if (!Check(OtherProtected == Protected && Actors.Armies[1]->bAutomaticFront,
+				TEXT("Second owned Defend army gains identical protection"))) return true;
 			AArmyUnit* Ranged = Actors.Armies[0]->Units[2];
 			if (!Check(Ranged->UnitRole == EUnitRole::Ranged
 				&& WeaponHit(Enemy, Ranged) == Baseline,
-				TEXT("Stationary Hold ranged units do not inherit frontline-only mitigation"))) return true;
+				TEXT("Stationary Defend ranged units do not inherit frontline-only mitigation"))) return true;
 			Moving->Health = Moving->MaxHealth();
 			Start = Moving->GetActorLocation();
-			Actors.Controller->ServerIssueOrder(Actors.Armies[1].Get(), EArmyOrder::Move,
-				Actors.Armies[1]->HomeLocation + FVector(0.f, 650.f, 0.f));
-			if (!Check(Actors.Armies[1]->Order == EArmyOrder::Move,
-				TEXT("Owned second army accepts a real navigation order"))) return true;
+			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::Defend,
+				Actors.Armies[1]->HomeLocation + FVector(0.f, 650.f, 0.f)),
+				TEXT("Second army can travel to a new Defend front"))) return true;
 			BaseDamage = Baseline;
 			Next(1, Now);
 			return false;
@@ -457,12 +457,12 @@ private:
 		{
 			if (!After(Now, .7)) return false;
 			if (!Check(FVector::Dist2D(Moving->GetActorLocation(), Start) > 30.f,
-				TEXT("Unprotected Move frontline actually changes position"))) return true;
+				TEXT("Frontline traveling to its Defend front actually changes position"))) return true;
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 				TEXT("Moving frontline takes full real weapon damage despite chosen doctrine"))) return true;
-			Actors.Controller->ServerIssueOrder(Actors.Armies[1].Get(), EArmyOrder::Retreat, FVector::ZeroVector);
-			if (!Check(Actors.Armies[1]->Order == EArmyOrder::Retreat,
-				TEXT("Retreat replaces Move on the protected player's second army"))) return true;
+			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::FallBack, Actors.Armies[1]->HomeLocation)
+				&& Actors.Armies[1]->Order == EArmyOrder::Retreat,
+				TEXT("Fall Back replaces the traveling Defend front"))) return true;
 			Start = Moving->GetActorLocation();
 			Next(2, Now);
 			return false;
@@ -473,36 +473,33 @@ private:
 			if (!Check(FVector::Dist2D(Moving->GetActorLocation(), Start) > 30.f,
 				TEXT("Retreating frontline really moves toward home"))) return true;
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
-				TEXT("Retreat cannot obtain stationary Hold protection"))) return true;
-			// Paid frontline replacement while the first group is still holding at home.
-			Held->ReceiveAttack(Held->Health * 2, Enemy); // Hold mitigation still applies to lethal setup.
-			if (!Check(Actors.Armies[0]->Units.Num() == 5,
-				TEXT("Frontline casualty creates a legitimate paid replacement slot"))) return true;
-			Actors.Controller->ServerReinforce(Actors.Armies[0].Get());
-			AArmyUnit* Replacement = nullptr;
-			for (AArmyUnit* Unit : Actors.Armies[0]->Units)
-				if (Unit->CompositionSlot == 0) Replacement = Unit;
-			if (!Check(Replacement && Replacement != Held && Replacement->IsAlive(),
-				TEXT("Owner purchases a new frontline for the protected army"))) return true;
+				TEXT("Fall Back cannot obtain stationary Defend protection"))) return true;
+			AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
+			LaterFrontline = Later ? Later->Units[0].Get() : nullptr;
+			if (!Check(LaterFrontline.IsValid(), TEXT("New frontline exists after research"))) return true;
+			if (!Check(Later->AssignFront(EFrontOrder::Defend, Later->GetCenter()),
+				TEXT("New squad adopts Defend after research"))) return true;
 			Next(3, Now);
 			return false;
 		}
 		if (Stage == 3)
 		{
 			if (!After(Now, .5)) return false;
-			AArmyUnit* Replacement = nullptr;
-			for (AArmyUnit* Unit : Actors.Armies[0]->Units)
-				if (Unit->CompositionSlot == 0) Replacement = Unit;
-			if (!Check(Replacement && WeaponHit(Enemy, Replacement) > 0
-				&& Replacement->Health > Replacement->MaxHealth() - BaseDamage,
-				TEXT("New stationary Hold frontline inherits protection against a real shot"))) return true;
-			Test->AddInfo(TEXT("Entrenched: two stationary Hold armies mitigate actual hits; moving/retreating members do not; paid newcomer inherits."));
+			AArmyUnit* Replacement = LaterFrontline.Get();
+			if (!Check(Replacement && WeaponHit(Enemy, Replacement) == BaseDamage * 3 / 4,
+				TEXT("New stationary Defend frontline inherits protection against a real shot"))) return true;
+			Replacement->Health = Replacement->MaxHealth();
+			if (!Check(Replacement->Group->AssignFront(EFrontOrder::Secure, Replacement->Group->GetCenter())
+				&& WeaponHit(Enemy, Replacement) == BaseDamage,
+				TEXT("Stationary Secure frontline does not receive Defend mitigation"))) return true;
+			Test->AddInfo(TEXT("Entrenched: stationary Defend mitigates real hits; traveling, retreating and Secure members do not; later units inherit."));
 			return true;
 		}
 		return true;
 	}
 	int32 BaseDamage = 0;
 	FVector Start = FVector::ZeroVector;
+	TWeakObjectPtr<AArmyUnit> LaterFrontline;
 };
 
 class FRestartScenario final : public FDoctrineScenario
@@ -515,7 +512,7 @@ private:
 	{
 		if (Stage == 0)
 		{
-			Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::SiegeOptics);
+			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::SiegeOptics);
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics,
 				TEXT("Old match owns a selected doctrine before the HQ assault"))) return true;
 			AHeadquarters* HQ = Actors.State->EnemyHeadquarters;
@@ -537,14 +534,10 @@ private:
 			if (Actors.State->MatchResult == EMatchResult::Ongoing) return false;
 			if (!Check(Actors.State->MatchResult == EMatchResult::Victory,
 				TEXT("Weapon-caused HQ destruction ends the match"))) return true;
-			ACommandPlayerState* LateWallet = Actors.World->SpawnActor<ACommandPlayerState>();
-			if (!Check(LateWallet && LateWallet->Doctrine == EArmyDoctrine::None
-				&& !LateWallet->TryChooseDoctrine(EArmyDoctrine::FieldRepairs)
-				&& LateWallet->Doctrine == EArmyDoctrine::None,
-				TEXT("Terminal match rejects an otherwise eligible fresh wallet"))) return true;
-			Actors.Controller->ServerChooseDoctrine(EArmyDoctrine::EntrenchedFrontline);
-			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics,
-				TEXT("Terminal RPC does not replace the old selection"))) return true;
+			const int32 TerminalBalance = Actors.Wallet->Resources;
+			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::EntrenchedFrontline);
+			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics && Actors.Wallet->Resources == TerminalBalance,
+				TEXT("Terminal research RPC neither replaces the purchase nor charges again"))) return true;
 			OldWorld = Actors.World;
 			Actors.Controller->ServerRequestRestart();
 			Next(2, Now);
@@ -554,15 +547,17 @@ private:
 		{
 			UWorld* FreshWorld = StandaloneWorld();
 			if (!FreshWorld || FreshWorld == OldWorld.Get()) return false;
-			FDoctrineActors Fresh;
-			if (!Fresh.Find(FreshWorld)) return false;
-			if (!Check(Fresh.State->MatchResult == EMatchResult::Ongoing
-				&& Fresh.Wallet->Doctrine == EArmyDoctrine::None
-				&& Fresh.Armies[0]->Units.Num() == 6 && Fresh.Armies[1]->Units.Num() == 6,
-				TEXT("Fresh Boot world resets selected doctrine and owned rosters"))) return true;
-			Fresh.Controller->ServerChooseDoctrine(EArmyDoctrine::FieldRepairs);
-			if (!Check(Fresh.Wallet->Doctrine == EArmyDoctrine::FieldRepairs,
-				TEXT("Fresh match can select another doctrine exactly once"))) return true;
+			ACommandPlayerController* FreshController = ArmyTestSetup::Controller(FreshWorld);
+			ACommandGameState* FreshState = FreshWorld->GetGameState<ACommandGameState>();
+			ACommandPlayerState* FreshWallet = FreshController ? FreshController->GetPlayerState<ACommandPlayerState>() : nullptr;
+			if (!FreshState || !FreshWallet || FreshWallet->CommanderIndex < 0) return false;
+			if (!Check(FreshState->MatchResult == EMatchResult::Ongoing && FreshWallet->Doctrine == EArmyDoctrine::None,
+				TEXT("Fresh world clears the purchased research"))) return true;
+			for (TActorIterator<AArmyGroup> It(FreshWorld); It; ++It)
+				if (!Check(It->OwningPlayerState != FreshWallet, TEXT("Restart does not recreate fixed player armies"))) return true;
+			ArmyTestSetup::Research(FreshController, EArmyDoctrine::FieldRepairs);
+			if (!Check(FreshWallet->Doctrine == EArmyDoctrine::FieldRepairs,
+				TEXT("Fresh match permits a different paid workshop specialization"))) return true;
 			Test->AddInfo(TEXT("Real siege HQ kill, terminal doctrine rejection, fresh-world None reset, independent new selection."));
 			return true;
 		}

@@ -23,24 +23,27 @@ def require(condition, explanation):
 
 
 class NetworkRun:
-    def __init__(self, directory, mode, clients, emulation, rendered=False, max_fps=None):
+    def __init__(self, directory, mode, clients, emulation, rendered=False, max_fps=None, offscreen=None):
         self.run = directory
         self.mode = mode
         self.clients = clients
         self.emulation = emulation
         self.rendered = rendered
         self.max_fps = max_fps
+        # (width, height): real Vulkan rendering into an offscreen viewport; no window is created.
+        self.offscreen = offscreen
         self.peers = {}
         self.sequences = {}
         self.latest_states = {}
         self.latest_errors = {}
         self.connection_health = {}
         self.pending = {}
+        self.stopped = set()
         self.artifact = editor_stamp() if mode == "editor" else package_stamp()
         self.run.mkdir(parents=True, exist_ok=False)
         (self.run / "run.json").write_text(json.dumps({"mode": mode, "clients": clients, "emulation": emulation,
                                                      "rendered": rendered, "max_fps": max_fps,
-                                                     "artifact": self.artifact}, indent=2))
+                                                     "offscreen": offscreen, "artifact": self.artifact}, indent=2))
         self.events = (self.run / "events.jsonl").open("a", buffering=1)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
@@ -110,12 +113,14 @@ class NetworkRun:
         if self.mode == "editor":
             command = [str(EDITOR), str(ROOT / "CoopRTS.uproject"),
                        "/Game/Maps/Boot?listen" if host else f"127.0.0.1:{self.port}",
-                       "-game", "-nullrhi", "-nosound", "-unattended"]
+                       "-game", "-nosound", "-unattended"]
         else:
             command = [str(BINARY), "/Game/Maps/Boot?listen" if host else f"127.0.0.1:{self.port}",
                        "-nosound", "-unattended"]
-            if not self.rendered:
-                command.append("-nullrhi")
+        if self.offscreen:
+            command += ["-RenderOffScreen", "-windowed", f"-ResX={self.offscreen[0]}", f"-ResY={self.offscreen[1]}"]
+        elif self.mode == "editor" or not self.rendered:
+            command.append("-nullrhi")
         command += ["-log", "-stdout", "-FullStdOutLogOutput", f"-abslog={folder / 'game.log'}",
                     f"-CoopRTSNetVerifyDir={folder}", f"-CoopRTSNetVerifyPeer={name}"]
         if host:
@@ -153,6 +158,31 @@ class NetworkRun:
         entry = self.peers[name]
         return entry["identity"] is not None and identity(entry["process"].pid) == entry["identity"]
 
+    def signal_owned(self, name, signum):
+        entry = self.peers[name]
+        require(self.live(name), f"{name} PID identity changed before {signal.Signals(signum).name}")
+        fd = os.pidfd_open(entry["process"].pid)
+        try:
+            require(self.live(name), f"{name} PID identity changed before {signal.Signals(signum).name}")
+            signal.pidfd_send_signal(fd, signum)
+            self.event("signal", peer=name, pid=entry["process"].pid,
+                       identity=entry["identity"], signal=signal.Signals(signum).name)
+        finally:
+            os.close(fd)
+
+    def pause(self, name):
+        require(name not in self.stopped, f"{name} already paused")
+        self.signal_owned(name, signal.SIGSTOP)
+        self.stopped.add(name)
+
+    def resume(self, name):
+        if name in self.stopped:
+            try:
+                if self.live(name):
+                    self.signal_owned(name, signal.SIGCONT)
+            finally:
+                self.stopped.remove(name)
+
     def until(self, predicate, explanation, report_interval, *, names=None):
         names = list(names if names is not None else self.peers)
         started = time.monotonic()
@@ -181,7 +211,7 @@ class NetworkRun:
         return self.live(name) and (self.peers[name]["folder"] / "game.log").exists() and "Network verification enabled peer=" in (
             self.peers[name]["folder"] / "game.log").read_text(errors="replace")
 
-    def request(self, name, action="observe", *, allow_unavailable=False, **fields):
+    def request(self, name, action="observe", *, allow_unavailable=False, expect_rejection=False, **fields):
         entry = self.peers[name]
         require(self.live(name), f"{name} process is not owned/live")
         self.sequences[name] += 1
@@ -191,7 +221,7 @@ class NetworkRun:
         temp = folder / "request.tmp"
         temp.write_text(json.dumps(payload))
         os.replace(temp, folder / "request.json")
-        self.event("request", peer=name, **payload)
+        self.event("request", peer=name, command=payload)
         self.pending[name] = f"{action} response id={command_id}"
         try:
             response = self.until(lambda: self.get_response(name, command_id),
@@ -202,9 +232,12 @@ class NetworkRun:
             log.write(json.dumps(response) + "\n")
         self.event("response", peer=name, id=command_id, error=response["error"])
         self.latest_errors[name] = response["error"]
-        require(response["peer"] == name
-                and (not response["error"] or (allow_unavailable and response["error"] == "game world unavailable")),
-                f"{name} {action}: {response['error']}")
+        require(response["peer"] == name, f"{name} {action} returned wrong peer identity")
+        if expect_rejection:
+            require(bool(response["error"]), f"{name} {action}: unavailable action unexpectedly accepted")
+        else:
+            require(not response["error"] or (allow_unavailable and response["error"] == "game world unavailable"),
+                    f"{name} {action}: {response['error']}")
         return response["state"]
 
     def get_response(self, name, expected):
@@ -240,7 +273,23 @@ class NetworkRun:
             return states if not unready and predicate(states) else None
         return self.until(check, description, report_interval, names=active)
 
+    def isolate_fresh_host(self, previous_generation):
+        states = self.await_states(["host"], lambda states:
+            states["host"]["generation"] > previous_generation and len(states["host"]["sites"]) == 3,
+            "host exposes the initialized fresh world before autonomous play", allow_travel=True)
+        state = states["host"]
+        require(state["result"] == 0 and state["friendlyHQ"] == 900 and state["enemyHQ"] == 900
+                and not any(a["team"] == 0 for a in state["armies"])
+                and not any(b["team"] == 0 for b in state["buildings"])
+                and all(site["owner"] == -1 and site["progress"] == 0 for site in state["sites"]),
+                "new authoritative world did not expose fresh HQs, empty player bases and neutral sectors")
+        # Preserve the observed reset while delayed clients replicate. This
+        # stops autonomous orders; it does not clear sites, health or progress.
+        self.request("host", "isolate")
+        self.phase("fresh authoritative reset observed before stopping autonomous play for peer convergence")
+
     def stop(self, name):
+        self.resume(name)
         entry = self.peers[name]
         pid = entry["process"].pid
         if self.live(name):
@@ -258,8 +307,13 @@ class NetworkRun:
     def rejected(self, name, text):
         entry = self.peers[name]
         log = entry["folder"] / "game.log"
-        self.until(lambda: text in log.read_text(errors="replace") if log.exists() else False,
-                   f"{name} expected server rejection {text!r}", 45, names=["host"])
+        def observed_rejection():
+            if log.exists() and text in log.read_text(errors="replace"):
+                return True
+            require(entry["process"].poll() is None,
+                    f"{name} exited before expected server rejection {text!r}; see logs")
+            return False
+        self.until(observed_rejection, f"{name} expected server rejection {text!r}", 45, names=["host"])
         # Rejection must not leave a controller with an assigned commander/world.
         if self.live(name) and self.reply_ready(name):
             snapshot = self.request(name, allow_unavailable=True)
@@ -281,325 +335,272 @@ def wallet(state, commander):
     return matches[0]
 
 
-def complete(states, count):
-    return all(state["localIndex"] >= 0 and len(state["players"]) == count
-               and len(state["armies"]) == count * 2 + 1
-               and all(len(group["units"]) == 6 and
-                       (group["owner"] in range(5) or group["team"] == 5)
-                       for group in state["armies"])
-               for state in states.values())
+def owned_buildings(state, owner, kind=None):
+    return [b for b in state["buildings"] if b["owner"] == owner and (kind is None or b["kind"] == kind)]
 
 
-def roster(states, count):
-    for name, state in states.items():
-        require(state["ready"] and state["netMode"] == (2 if name == "host" else 3),
-                f"{name}: expected independent listen/client network world")
-        require(len(state["players"]) == count, f"{name}: player roster not {count}")
-        indices = [p["index"] for p in state["players"]]
-        require(len(set(indices)) == count and set(indices) <= set(range(5)), f"{name}: invalid/duplicate identities {indices}")
-        for index in indices:
-            for group_number in (0, 1):
-                group = army(state, index, group_number)
-                require(group["team"] == 0 and len(group["units"]) == 6, f"{name}: wrong owned army composition")
-                require(sorted((u["slot"], u["role"], u["owner"]) for u in group["units"]) == [
-                    (s, s // 2, index) for s in range(6)], f"{name}: missing, duplicated or foreign unit roles")
-        require(len([a for a in state["armies"] if a["team"] == 5]) == 1, f"{name}: enemy spawned more than once")
+def building(state, index):
+    matches = [b for b in state["buildings"] if b["index"] == index]
+    require(len(matches) == 1, f"expected living building {index}, got {len(matches)}")
+    return matches[0]
+
+
+def force(state, owner, index):
+    producer = building(state, index)
+    return army(state, owner, producer["forceID"])
+
+
+def alive_units(group):
+    return [u for u in group["units"] if u["health"] > 0]
+
+
+def distance2(a, b):
+    return sum((a[i] - b[i]) ** 2 for i in (0, 1))
+
+
+def force_counts_match(state, owner, index):
+    producer = building(state, index)
+    matches = [a for a in state["armies"] if a["owner"] == owner and a["army"] == producer["forceID"]]
+    if len(matches) != 1:
+        return False  # Actor references and their fields can replicate in separate updates.
+    group = matches[0]
+    members = alive_units(group)
+    travelling = sum(u["reinforcing"] for u in members)
+    slots = [u["slot"] for u in members]
+    return (producer["configured"] and group["producer"] == index
+            and producer["travelling"] == travelling and producer["joined"] == len(members) - travelling
+            and len(members) <= producer["capacity"] and len(set(slots)) == len(slots)
+            and all(0 <= u["slot"] < producer["capacity"] and u["owner"] == owner
+                    and u["role"] == producer["recipe"] and u["producer"] == index for u in members))
 
 
 def converged(run, names, predicate, description, report_interval=5):
     return run.await_states(names, lambda states: all(predicate(s) for s in states.values()),
                             description, report_interval)
 
-def verify_live_income(run, commanders):
-    before = run.observe("host")
 
-    def earned(states):
-        current = states["host"]
-        deltas = [wallet(current, index)["wallet"] - wallet(before, index)["wallet"]
-                  for index in commanders]
-        if not any(delta > 0 for delta in deltas):
-            return False
-        require(len(set(deltas)) == 1 and deltas[0] > 0 and deltas[0] % 32 == 0,
-                f"each separate wallet must receive identical live +32 captured-site ticks: {deltas}")
-        run.event("live_income", commanders=commanders, deltas=deltas)
-        return True
-
-    run.await_states(["host"], earned, "authoritative captured-site income reaches every wallet", 35)
-
-
-
-def main_scenario(run):
-    run.start("host", host=True)
-    run.await_states(["host"], lambda s: s["host"]["netMode"] == 2
-                     and s["host"]["localIndex"] >= 0 and len(s["host"]["armies"]) == 3,
-                     "listen server bound and spawned before remote connects", 90, allow_loading=True)
-    run.start("c1")
-    peers = ["host", "c1"]
-    states = run.await_states(peers, lambda s: complete(s, 2),
-                              "two distinct connected worlds with full replicated roster", 75,
-                              allow_loading=True)
-    roster(states, 2)
-    a, b = states["host"]["localIndex"], states["c1"]["localIndex"]
-    require(a != b, "host/client identity collision")
-    run.phase("two live peer worlds agree on complete owned rosters")
-    run.request("host", "isolate")
-    run.request("host", "kill", owner=a, army=0, slot=4)
-    converged(run, peers, lambda s: len(army(s, a, 0)["units"]) == 5,
-              "server-caused casualty replicated before foreign purchase")
-    before = run.all_states(peers)
-    foreign = army(before["host"], a, 0)
-    run.request("c1", "order", owner=a, army=0, order=1, x=-850, y=-1800)
-    run.await_states(["c1"], lambda s: s["c1"].get("orderFeedback", "").startswith("Order rejected"),
-                     "foreign move RPC rejected by server with owning-client feedback", 15)
-    run.request("c1", "buy", owner=a, army=0, repeat=12)
-    run.await_states(["c1"], lambda s: s["c1"].get("orderFeedback", "").startswith("Recovery rejected"),
-                     "foreign paid request rejected by server", 15)
-    run.request("c1", "attack", owner=a, army=0)
-    run.await_states(["c1"], lambda s: s["c1"].get("orderFeedback", "").startswith("Attack rejected"),
-                     "foreign targeted attack RPC rejected by server", 15)
-    run.request("c1", "doctrine", choice=255)
-    run.request("c1", "doctrine", choice=2)
-    run.request("host", "doctrine", choice=1)
-    run.request("c1", "doctrine", choice=3)
-    converged(run, peers, lambda s: wallet(s, a)["doctrine"] == 1 and wallet(s, b)["doctrine"] == 2
-              and all(army(s, i, n)["doctrine"] == (1 if i == a else 2)
-                      for i in (a, b) for n in (0, 1)), "owner-isolated irreversible doctrine replication")
-    # The client's later doctrine RPC is a reliable channel barrier after its foreign requests.
-    converged(run, peers, lambda s: army(s, a, 0)["serial"] == foreign["serial"]
-              and len(army(s, a, 0)["units"]) == 5, "foreign order/attack/purchase preserve owner state")
-    require(wallet(run.observe("host"), a)["wallet"] >= wallet(before["host"], a)["wallet"],
-            "foreign client spent or removed server-owned resources")
-    run.request("host", "capture", owner=a, army=1, site=0)
-    converged(run, peers, lambda s: next(t for t in s["sites"] if t["index"] == 0)["owner"] == 0
-              and s["resourceSites"] == 1, "actual ticking capture agrees across worlds", 30)
-    verify_live_income(run, (a, b))
-    run.request("host", "income", paused=True)
-    require(run.observe("host")["incomePaused"], "authority fixture did not pause further income")
-    run.phase("capture and live shared income agree before payment audit")
-    run.request("host", "kill", owner=b, army=0, slot=4)
-    converged(run, peers, lambda s: len(army(s, b, 0)["units"]) == 5
-              and 4 not in [u["slot"] for u in army(s, b, 0)["units"]], "hostile weapon death resolves once")
-    # Clear prior foreign-order feedback and wait for this owning Hold RPC
-    # before checking a new purchase's exact server rejection.
-    prior = army(run.observe("host"), b, 0)["serial"]
-    run.request("c1", "order", owner=b, army=0, order=0, x=0, y=0)
-    run.await_states(["c1"], lambda s: army(s["c1"], b, 0)["serial"] > prior
-                     and s["c1"].get("orderFeedback", "") == "",
-                     "owning Hold clears stale feedback before insufficient-funds probe")
-    run.request("host", "fund", owner=b, army=0, amount=0)
-    converged(run, peers, lambda s: wallet(s, b)["wallet"] == 0,
-              "paused zero-resource wallet replicates to both worlds")
-    barrier = army(run.observe("host"), b, 0)["serial"]
-    run.request("c1", "buy", owner=b, army=0, repeat=4)
-    def insufficient(states):
-        feedback = states["c1"].get("orderFeedback", "")
-        if feedback.startswith("Recovery rejected:") and "INSUFFICIENT RESOURCES" not in feedback:
-            raise AssertionError(f"expected insufficient funds, got contradictory server response {feedback!r}")
-        return "INSUFFICIENT RESOURCES" in feedback
-    run.await_states(["c1"], insufficient, "client receives server insufficient-funds rejection")
-    run.request("c1", "order", owner=b, army=0, order=0, x=0, y=0)
-    converged(run, peers, lambda s: army(s, b, 0)["serial"] > barrier
-              and len(army(s, b, 0)["units"]) == 5 and wallet(s, b)["wallet"] == 0,
-              "insufficient paid spam does not grant units or debit wallet")
-    run.request("host", "fund", owner=b, army=0, amount=360)
-    converged(run, peers, lambda s: wallet(s, b)["wallet"] == 360,
-              "paused paid fixture wallet replicates exactly")
-    run.phase("paused zero wallet rejects insufficient-funds RPCs")
-    pre_buy = run.all_states(peers)
-    run.request("c1", "buy", owner=b, army=0, repeat=24)
-    # A subsequent reliable RPC on the same owning controller is a barrier for every
-    # purchase attempt; observing only the first replacement would miss late overspend.
-    run.request("c1", "order", owner=b, army=0, order=0, x=0, y=0)
-    def paid_barrier(states):
-        if states["c1"].get("orderFeedback", "").startswith("Order rejected"):
-            raise AssertionError("owning Hold rejected; cannot use it as a paid-RPC processing barrier")
-        return army(states["host"], b, 0)["serial"] > army(pre_buy["host"], b, 0)["serial"]
-    run.await_states(["host", "c1"], paid_barrier, "owning Hold processed after all paid RPCs")
-    charged = run.observe("host")
-    debit = ((wallet(charged, a)["wallet"] - wallet(pre_buy["host"], a)["wallet"])
-             - (wallet(charged, b)["wallet"] - wallet(pre_buy["host"], b)["wallet"]))
-    require(debit == 80 and len(army(charged, b, 0)["units"]) == 6,
-            f"owning RPCs must buy exactly one 80-resource siege role, observed debit={debit}")
-    converged(run, peers, lambda s: len(army(s, b, 0)["units"]) == 6
-              and army(s, b, 0)["doctrine"] == 2, "paid army and owner doctrine agree across peers")
-    post_buy = run.all_states(peers)
-    require(all(sorted(u["slot"] for u in army(s, b, 0)["units"]) == list(range(6))
-                for s in post_buy.values()), "paid spam exceeded exact role roster")
-    run.phase("paid replacement charged exactly once; owner doctrines replicated")
-    serial = army(run.observe("host"), b, 0)["serial"]
-    run.request("c1", "order", owner=b, army=0, order=1, x=-1550, y=-1600)
-    converged(run, peers, lambda s: army(s, b, 0)["order"] == 1
-              and abs(army(s, b, 0)["destination"][1] + 1600) < 80,
-              "first remote movement order accepted", 20)
-    run.request("c1", "order", owner=b, army=0, order=0, x=0, y=0)
-    converged(run, peers, lambda s: army(s, b, 0)["order"] == 0,
-              "remote Hold replaces movement", 15)
-    run.request("c1", "order", owner=b, army=0, order=1, x=-1600, y=-2200)
-    converged(run, peers, lambda s: army(s, b, 0)["order"] == 1
-              and army(s, b, 0)["serial"] >= serial + 3
-              and abs(army(s, b, 0)["destination"][1] + 2200) < 80,
-              "latest replacement move accepted and replicated", 20)
-    def arrived(s):
-        return all((u["position"][0] - (-1600 + (1 - u["slot"] // 2) * 220)) ** 2
-                   + (u["position"][1] - (-2200 + (140 if u["slot"] % 2 else -140))) ** 2 < 250 ** 2
-                   for u in army(s, b, 0)["units"])
-    converged(run, peers, arrived, "all six distinct slots, including purchased siege, arrive", 85)
-    run.phase("remote orders remain usable and every purchased unit reaches its formation slot")
-    for win, result in ((True, 1), (False, 2)):
-        initial = run.all_states(peers)
-        run.request("host", "finish", owner=a, army=0, win=win)
-        converged(run, peers, lambda s: s["result"] == result
-                  and s["enemyHQ" if win else "friendlyHQ"] == 0,
-                  "weapon-caused HQ result and replicated victory/defeat", 20)
-        terminal = run.all_states(peers)
-        run.request("c1", "order", owner=b, army=0, order=1, x=-800, y=-800)
-        run.await_states(["c1"], lambda s: s["c1"].get("orderFeedback", "").startswith("Order rejected"),
-                         "terminal move RPC explicitly rejected by server", 15)
-        converged(run, peers, lambda s: army(s, b, 0)["serial"] == army(terminal["host"], b, 0)["serial"],
-                  "terminal rejection preserves order serial")
-        generation = {name: initial[name]["generation"] for name in peers}
-        run.request("c1", "restart")
-        states = run.await_states(peers, lambda s: complete(s, 2) and all(
-                    v["generation"] > generation[name] and v["result"] == 0
-                    for name, v in s.items()), "all connected clients travel to fresh ongoing Boot world", 90,
-                    allow_travel=True)
-        roster(states, 2)
-        require(all(p["doctrine"] == 0 for v in states.values() for p in v["players"]),
-                "restart must reset each doctrine")
-        a, b = states["host"]["localIndex"], states["c1"]["localIndex"]
-        require(a != b, "connected restart merged host/client identities")
-        run.phase(f"{'victory' if win else 'defeat'} and connected two-peer fresh restart")
-        run.request("host", "isolate")
-    if run.clients == 4:
-        for name in ("c2", "c3", "c4"):
-            run.start(name)
-            peers.append(name)
-            states = run.await_states(peers, lambda s: complete(s, len(peers)),
-                                      f"{name} joined ongoing match and all worlds agree", 75,
-                                      allow_loading=True)
-            roster(states, len(peers))
-        indices = [states[name]["localIndex"] for name in peers]
-        require(len(set(indices)) == 5, "five client identities collide")
-        run.phase("five independent player worlds agree on ownership and roster")
-        commander = states["c4"]["localIndex"]
-        host_index = states["host"]["localIndex"]
-        run.request("c4", "doctrine", choice=3)
-        run.request("host", "doctrine", choice=1)
-        converged(run, peers, lambda s: wallet(s, commander)["doctrine"] == 3
-                  and wallet(s, host_index)["doctrine"] == 1,
-                  "five-world doctrine ownership separation")
-        run.request("host", "capture", owner=host_index, army=1, site=0)
-        converged(run, peers, lambda s: s["resourceSites"] == 1
-                  and next(t for t in s["sites"] if t["index"] == 0)["owner"] == 0,
-                  "one captured site replicated across all five worlds", 35)
-        verify_live_income(run, indices)
-        run.request("host", "income", paused=True)
-        require(run.observe("host")["incomePaused"], "five-player income fixture not paused")
-        run.request("host", "kill", owner=commander, army=0, slot=5)
-        converged(run, peers, lambda s: len(army(s, commander, 0)["units"]) == 5
-                  and 5 not in [u["slot"] for u in army(s, commander, 0)["units"]],
-                  "one actual death replicated across five worlds")
-        run.request("host", "fund", owner=commander, army=0, amount=360)
-        converged(run, peers, lambda s: wallet(s, commander)["wallet"] == 360,
-                  "five peers observe controlled paid wallet")
-        payment_before = run.observe("host")
-        run.request("c4", "buy", owner=commander, army=0, repeat=20)
-        run.request("c4", "order", owner=commander, army=0, order=0, x=0, y=0)
-        def five_barrier(states):
-            if states["c4"].get("orderFeedback", "").startswith("Order rejected"):
-                raise AssertionError("five-player owning Hold rejected before purchase audit")
-            return army(states["host"], commander, 0)["serial"] > army(payment_before, commander, 0)["serial"]
-        run.await_states(["host", "c4"], five_barrier, "all five-world paid RPCs precede owning Hold")
-        paid = run.observe("host")
-        debit = (wallet(paid, host_index)["wallet"] - wallet(payment_before, host_index)["wallet"]
-                 - wallet(paid, commander)["wallet"] + wallet(payment_before, commander)["wallet"])
-        require(debit == 80 and len(army(paid, commander, 0)["units"]) == 6,
-                f"five-player purchase must charge one 80-resource siege role, debit={debit}")
-        converged(run, peers, lambda v: len(army(v, commander, 0)["units"]) == 6
-                  and army(v, commander, 0)["doctrine"] == 3,
-                  "five peers agree on one paid role replacement", 35)
-        run.phase("five peers observe capture, death and one exact paid replacement")
-        run.start("c5", rejection=True)
-        run.rejected("c5", "Match full (five commanders maximum)")
-        roster(run.all_states(peers), 5)
-        run.phase("sixth connection rejected without an orphan army")
-        left = states["c3"]["localIndex"]
-        run.stop("c3")
-        peers.remove("c3")
-        run.await_states(peers, lambda s: all(len(v["players"]) == 4
-                    and not any(a["owner"] == left for a in v["armies"]) for v in s.values()),
-                    "leave removes owner armies and roster entry", 35)
-        run.phase("disconnect removes two armies and frees the commander slot")
-        run.start("c6")
-        peers.append("c6")
-        states = run.await_states(peers, lambda s: complete(s, 5),
-                                  "late replacement reuses freed commander slot", 75, allow_loading=True)
-        roster(states, 5)
-        require(states["c6"]["localIndex"] == left, "leave slot not reused")
-        run.phase("late joining client reuses the freed slot")
-        generations = {name: state["generation"] for name, state in states.items()}
-        run.request("host", "finish", owner=states["host"]["localIndex"], army=0, win=True)
-        converged(run, peers, lambda s: s["result"] == 1 and s["enemyHQ"] == 0,
-                  "five connected peer worlds agree on replicated HQ victory")
-        run.request("c6", "restart")
-        states = run.await_states(peers, lambda s: complete(s, 5) and all(
-                    v["generation"] > generations[name] and v["result"] == 0
-                    and all(p["doctrine"] == 0 for p in v["players"]) for name, v in s.items()),
-                    "five connected clients travel to a fresh shared match", 100, allow_travel=True)
-        roster(states, 5)
-        run.phase("five connected worlds restart after shared HQ victory")
-    else:
-        run.request("host", "finish", owner=a, army=0, win=True)
-        converged(run, peers, lambda s: s["result"] == 1, "terminal match before late join")
-        run.start("late", rejection=True)
-        run.rejected("late", "Match finished; rejoin after restart")
-        roster(run.all_states(peers), 2)
-    if run.emulation:
-        for name, state in run.all_states(peers).items():
-            require(state.get("pktLag") == 120 and state.get("pktLoss") == 8,
-                    f"{name} network emulation not active on native net driver: {state.get('pktLag')}/{state.get('pktLoss')}")
-    run.event("PASS", peers=peers, mode=run.mode, emulation=run.emulation)
-
-
-def focused_restart_scenario(run):
+def construction_scenario(run):
     names = ["host", *(f"c{i}" for i in range(1, run.clients + 1))]
     run.start("host", host=True)
-    run.await_states(["host"], lambda s: complete(s, 1), "listen host ready", 35,
-                     allow_loading=True)
+    run.await_states(["host"], lambda s: s["host"]["localIndex"] >= 0 and len(s["host"]["sites"]) == 3,
+                     "initialized construction host", allow_loading=True)
+    run.request("host", "isolate")
+    run.request("host", "income", paused=True)
     for name in names[1:]:
         run.start(name)
-        states = run.await_states(names[:names.index(name) + 1],
-                                  lambda s: complete(s, len(s)),
-                                  f"connected {name} enters one shared match", 35,
-                                  allow_loading=True)
-        roster(states, len(states))
-        run.phase(f"{name} joined focused restart match ({len(states)} worlds)")
-    for number in range(3):
-        states = run.all_states(names)
-        generations = {name: state["generation"] for name, state in states.items()}
-        owner = states["host"]["localIndex"]
-        run.request("host", "finish", owner=owner, army=0, win=True)
-        converged(run, names, lambda s: s["result"] == 1 and s["enemyHQ"] == 0,
-                  f"restart cycle {number + 1} replicates actual HQ victory")
-        run.request(names[-1], "restart")
-        states = run.await_states(names, lambda s: complete(s, len(names)) and all(
-                    state["generation"] > generations[name] and state["result"] == 0
-                    and all(player["doctrine"] == 0 for player in state["players"])
-                    for name, state in s.items()),
-                    f"restart cycle {number + 1} travels all connected peers", 30,
-                    allow_travel=True)
-        roster(states, len(names))
-        run.phase(f"connected restart {number + 1}/3 across {len(names)} actual worlds")
-    run.event("PASS", peers=names, mode=run.mode, scenario="restart")
+    states = run.await_states(names, lambda values: all(
+        s["localIndex"] >= 0 and len(s["players"]) == len(names)
+        and all(p["index"] >= 0 for p in s["players"]) for s in values.values()),
+        "all independent commander identities", allow_loading=True)
+    identities = {name: state["localIndex"] for name, state in states.items()}
+    require(len(set(identities.values())) == len(names), "peers do not own distinct commanders")
+    for name, state in states.items():
+        require(state["netMode"] == (2 if name == "host" else 3), f"{name}: not a real listen/client world")
+        require(not any(a["team"] == 0 for a in state["armies"]), f"{name}: obsolete fixed starting armies")
+        if run.emulation:
+            require(state.get("pktLag") == 120 and state.get("pktLoss") == 8, f"{name}: emulation not active")
+    run.phase("fresh real sockets and empty player armies with independent identities")
+    peer = names[-1]
+    owner = identities[peer]
+    run.request("host", "fund", owner=owner, amount=1000)
+    converged(run, names, lambda s: wallet(s, owner)["wallet"] == 1000, "explicit encounter budget replicated")
+
+    candidate = run.request("host", "placement", kind=0)["placementCandidate"]
+    run.request(peer, "build", kind=0, x=candidate[0], y=candidate[1])
+    states = converged(run, names, lambda s: len(owned_buildings(s, owner, 0)) == 1,
+                       "remote-owned barracks construction replicates")
+    producer = owned_buildings(states["host"], owner, 0)[0]
+    index = producer["index"]
+    balance = wallet(states["host"], owner)["wallet"]
+    require(balance == 780, "barracks placement did not charge exactly 220")
+    run.request(peer, "build", kind=0, x=candidate[0], y=candidate[1])
+    run.request(peer, "build", kind=0, x=100000, y=0)
+    if peer != "host":
+        run.request("host", "production", building=index, recipe=1, enabled=True)
+        run.request("host", "cancel", building=index)
+    states = converged(run, names, lambda s: owned_buildings(s, owner, 0)[0]["construction"] == 1,
+                       "normal game-time building construction")
+    require(all(wallet(s, owner)["wallet"] == balance and len(owned_buildings(s, owner, 0)) == 1
+                and not owned_buildings(s, owner, 0)[0]["enabled"] for s in states.values()),
+            "invalid placement or foreign role/cancel command mutated construction or debited a wallet")
+    run.request(peer, "front", building=index, frontOrder=0, x=-1800, y=1700)
+    # Exactly the configuration price leaves no funds for a recruit; observe the
+    # accepted Start independently of automatic production and replication timing.
+    run.request("host", "fund", owner=owner, amount=180)
+    converged(run, names, lambda s: wallet(s, owner)["wallet"] == 180, "siege configuration budget")
+    run.request(peer, "production", building=index, recipe=2, enabled=True)
+    states = converged(run, names, lambda s: building(s, index)["configured"]
+                       and building(s, index)["recipe"] == 2 and wallet(s, owner)["wallet"] == 0,
+                       "first Start permanently configures siege for exactly 180")
+    squad_index = building(states["host"], index)["forceID"]
+    require(building(states["host"], index)["capacity"] == 2
+            and building(states["host"], index)["unitCost"] == 50
+            and abs(building(states["host"], index)["unitTime"] - 20 / 3) < .001,
+            "siege per-unit economy/capacity mismatch")
+    run.request(peer, "production", building=index, recipe=2, enabled=False)
+    converged(run, names, lambda s: not building(s, index)["enabled"], "configuration pause")
+    before = run.observe("host")
+    run.request(peer, "production", building=index, recipe=1, enabled=True)
+    run.request(peer, "production", building=index, recipe=255, enabled=True)
+    if peer != "host":
+        foreign_before = wallet(before, identities["host"])["wallet"]
+        run.request("host", "production", building=index, recipe=0, enabled=True)
+        run.request("host", "front", building=index, frontOrder=2, x=-1800, y=0)
+        require(wallet(run.observe("host"), identities["host"])["wallet"] == foreign_before,
+                "foreign RPC debited issuing commander's wallet")
+    # Reliable RPC order on the same owning controller supplies a behavioral
+    # delivery barrier; do not assert localized feedback wording or sleep for RPCs.
+    run.request(peer, "production", building=index, recipe=2, enabled=True)
+    converged(run, names, lambda s: building(s, index)["enabled"], "owner resume after rejected role RPCs")
+    run.request(peer, "production", building=index, recipe=2, enabled=False)
+    converged(run, names, lambda s: not building(s, index)["enabled"], "owner pauses after rejection barrier")
+    rejected = run.observe("host")
+    require(not building(rejected, index)["enabled"] and building(rejected, index)["recipe"] == 2
+            and building(rejected, index)["front"] == building(before, index)["front"]
+            and building(rejected, index)["forceID"] == squad_index
+            and building(rejected, index)["productionSeconds"] == building(before, index)["productionSeconds"]
+            and wallet(rejected, owner)["wallet"] == 0,
+            "locked/invalid/foreign commands changed force configuration, progress, front or wallet")
+
+    run.request("host", "fund", owner=owner, amount=50)
+    converged(run, names, lambda s: wallet(s, owner)["wallet"] == 50, "one-unit budget")
+    run.request(peer, "production", building=index, recipe=2, enabled=True)
+    states = converged(run, names, lambda s: building(s, index)["joined"] + building(s, index)["travelling"] == 1
+                       and force_counts_match(s, owner, index) and wallet(s, owner)["wallet"] == 0,
+                       "one physical siege recruit, not batch production, replicated for exactly 50")
+    run.request(peer, "production", building=index, recipe=2, enabled=False)
+    converged(run, names, lambda s: not building(s, index)["enabled"], "single recruit pause")
+    first = alive_units(force(states["host"], owner, index))[0]
+    require(first["reinforcing"] and first["role"] == 2 and first["owner"] == owner
+            and distance2(first["position"], building(states["host"], index)["position"]) < 1200 ** 2
+            and distance2(first["position"], building(states["host"], index)["front"]) > 500 ** 2,
+            "recruit did not physically leave its producer toward the distant front")
+    first_position = first["position"]
+    converged(run, names, lambda s: distance2(alive_units(force(s, owner, index))[0]["position"], first_position) > 200 ** 2,
+              "recruit travels on host and remote, not just a count increase")
+    converged(run, names, lambda s: building(s, index)["joined"] == 1 and building(s, index)["travelling"] == 0
+              and force_counts_match(s, owner, index), "physical arrival joins the force on all peers")
+    run.request("host", "fund", owner=owner, amount=50)
+    run.request(peer, "production", building=index, recipe=2, enabled=True)
+    converged(run, names, lambda s: building(s, index)["joined"] == 2 and building(s, index)["travelling"] == 0
+              and building(s, index)["productionStatus"] == "FORCE COMPLETE"
+              and wallet(s, owner)["wallet"] == 0 and force_counts_match(s, owner, index),
+              "siege force naturally fills two alive slots without repeated configuration charge")
+    run.request(peer, "production", building=index, recipe=2, enabled=False)
+    converged(run, names, lambda s: not building(s, index)["enabled"]
+              and building(s, index)["productionStatus"] == "PAUSED", "full siege force explicitly paused")
+
+    # Same commander, second producer: no shared slots and no global front scope.
+    run.request("host", "fund", owner=owner, amount=1000)
+    candidate = run.request("host", "placement", kind=0)["placementCandidate"]
+    run.request(peer, "build", kind=0, x=candidate[0], y=candidate[1])
+    states = converged(run, names, lambda s: len(owned_buildings(s, owner, 0)) == 2
+                       and all(b["construction"] == 1 for b in owned_buildings(s, owner, 0)),
+                       "second owned producer completes normally")
+    second = next(b["index"] for b in owned_buildings(states["host"], owner, 0) if b["index"] != index)
+    run.request(peer, "front", building=second, frontOrder=1, x=-1800, y=-1700)
+    run.request("host", "fund", owner=owner, amount=120)
+    run.request(peer, "production", building=second, recipe=1, enabled=True)
+    states = converged(run, names, lambda s: building(s, second)["joined"] == 4
+                       and building(s, second)["travelling"] == 0 and force_counts_match(s, owner, second)
+                       and wallet(s, owner)["wallet"] == 0, "independent ranged force fills four paid slots")
+    require(building(states["host"], second)["forceID"] != squad_index,
+            "two producers reused the same force identity")
+    run.request(peer, "production", building=second, recipe=1, enabled=False)
+    converged(run, names, lambda s: not building(s, second)["enabled"], "second producer paused")
+    second_front = building(states["host"], second)["front"]
+    run.request(peer, "front", building=index, frontOrder=1, x=-1800, y=2500)
+    converged(run, names, lambda s: building(s, index)["frontOrder"] == 1
+              and building(s, second)["front"] == second_front and building(s, second)["frontOrder"] == 1,
+              "building-only front scope replicates without moving other force")
+    victim = alive_units(force(run.observe("host"), owner, index))[0]
+    run.request("host", "kill", owner=owner, army=squad_index, slot=victim["slot"])
+    converged(run, names, lambda s: building(s, index)["joined"] + building(s, index)["travelling"] == 1
+              and force_counts_match(s, owner, index), "real hostile damage opens one replicated vacancy")
+    run.request("host", "fund", owner=owner, amount=50)
+    run.request(peer, "production", building=index, recipe=2, enabled=True)
+    states = converged(run, names, lambda s: building(s, index)["travelling"] == 1
+                       and building(s, index)["joined"] == 1 and force_counts_match(s, owner, index)
+                       and wallet(s, owner)["wallet"] == 0, "one causal paid casualty replacement travels on all peers")
+    recruit = next(u for u in alive_units(force(states["host"], owner, index)) if u["reinforcing"])
+    origin = recruit["position"]
+    run.request(peer, "production", building=index, recipe=2, enabled=False)
+    run.request(peer, "front", building=index, frontOrder=1, x=-1800, y=900)
+    converged(run, names, lambda s: any(u["reinforcing"] and distance2(u["position"], origin) > 200 ** 2
+              for u in alive_units(force(s, owner, index))), "replacement retargets while force front moves")
+    states = converged(run, names, lambda s: building(s, index)["joined"] == 2
+                       and building(s, index)["travelling"] == 0 and force_counts_match(s, owner, index),
+                       "replacement physically arrives and joins moving force")
+    require(all(building(s, second)["joined"] == 4 and building(s, second)["front"] == second_front
+                and wallet(s, owner)["wallet"] == 0 for s in states.values()),
+            "replacement stole another force's capacity/front or charged more than one unit")
+    run.phase("owner RPCs, permanent siege config, per-unit debit, independent fronts and causal replacement travel/arrival")
+
+    # Natural force movement/capture, rather than teleporting an expected occupant.
+    site_position = next(site["position"] for site in run.observe("host")["sites"] if site["index"] == 0)
+    run.request(peer, "front", building=index, frontOrder=1, x=site_position[0], y=site_position[1])
+    states = converged(run, names, lambda s: next(site for site in s["sites"] if site["index"] == 0)["owner"] == 0,
+                       "produced force naturally reaches and secures a sector")
+    require(all(s["resourceSites"] == 0 for s in states.values()), "bare capture incorrectly provides income")
+    run.request("host", "fund", owner=owner, amount=160)
+    run.request(peer, "build", kind=1, x=-450, y=-1800)
+    converged(run, names, lambda s: any(b["kind"] == 1 and b["construction"] == 1 for b in owned_buildings(s, owner)),
+              "paid outpost establishes secured sector")
+    run.request(peer, "front", building=index, frontOrder=1, x=-1800, y=1700)
+    converged(run, names, lambda s: s["resourceSites"] == 1
+              and next(site for site in s["sites"] if site["index"] == 0)["established"]
+              and not next(site for site in s["sites"] if site["index"] == 0)["friendlyPresent"],
+              "outpost holds territory after real force departure")
+    run.phase("natural capture and paid persistent outpost across peers")
+
+    candidate = run.request("host", "placement", kind=2)["placementCandidate"]
+    run.request("host", "fund", owner=owner, amount=200)
+    run.request(peer, "build", kind=2, x=candidate[0], y=candidate[1])
+    states = converged(run, names, lambda s: any(b["kind"] == 2 and b["construction"] == 1 for b in owned_buildings(s, owner)),
+                       "workshop construction")
+    workshop = owned_buildings(states["host"], owner, 2)[0]["index"]
+    # Budget for this research is an explicit setup action, not claimed income.
+    run.request("host", "fund", owner=owner, amount=200)
+    run.request(peer, "research", building=workshop, choice=1)
+    converged(run, names, lambda s: wallet(s, owner)["doctrine"] == 1 and wallet(s, owner)["wallet"] == 50,
+              "paid owner-scoped workshop research")
+    run.request(peer, "research", building=workshop, choice=2)
+    hq_position = run.observe("host")["enemyHQPosition"]
+    run.request(peer, "front", building=index, frontOrder=0, x=hq_position[0], y=hq_position[1])
+    converged(run, names, lambda s: s["enemyHQ"] < 900, "automatic force front causes actual HQ weapon damage")
+    # Shorten only the remaining outcome fixture; this is RPC/state proof, never native Q proof.
+    run.request("host", "finish", owner=owner, army=squad_index, win=True)
+    states = converged(run, names, lambda s: s["result"] == 1 and s["enemyHQ"] == 0, "weapon-caused victory replicates")
+    require(all(wallet(s, owner)["doctrine"] == 1 and wallet(s, owner)["wallet"] == 50 for s in states.values()),
+            "repeat research changed choice or charged twice")
+    run.phase("research, automatic-front weapon damage and victory")
+    old = states
+    run.request(peer, "restart")
+    run.isolate_fresh_host(old["host"]["generation"])
+    states = run.await_states(names, lambda values: all(
+        s["generation"] > old[name]["generation"] and s["localIndex"] == identities[name]
+        and len(s["players"]) == len(names) for name, s in values.items()),
+        "same connected commanders enter fresh construction world", allow_travel=True)
+    for name, state in states.items():
+        require(state["gameStateId"] != old[name]["gameStateId"]
+                and state["netDriverId"] == old[name]["netDriverId"], f"{name}: fresh world or preserved connection missing")
+        require(state["result"] == 0 and state["enemyHQ"] == 900 and state["friendlyHQ"] == 900
+                and not any(a["team"] == 0 for a in state["armies"])
+                and not any(b["team"] == 0 for b in state["buildings"])
+                and all(p["doctrine"] == 0 and p["wallet"] >= 600 for p in state["players"]),
+                f"{name}: stale army/building/research/economy after restart")
+    run.phase("fresh empty bases, research reset and preserved socket identities")
+    run.event("PASS", peers=names, mode=run.mode, scenario="construction", emulation=run.emulation)
+
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True, type=Path, help="fresh Saved/Verification/<id> directory")
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
-    parser.add_argument("--clients", type=int, choices=(1, 4), required=True)
-    parser.add_argument("--scenario", choices=("full", "restart"), default="full",
-                        help="full acceptance run, or focused three-cycle connected restart repro")
+    parser.add_argument("--clients", type=int, choices=(0, 1, 4), required=True)
+    parser.add_argument("--scenario", choices=("construction",), default="construction",
+                        help="paid building/production/front/expansion/research and connected restart")
     parser.add_argument("--emulation", action="store_true", help="require observed native PktLag=120/PktLoss=8 on every peer")
     parser.add_argument("--rendered", action="store_true",
                         help="packaged Vulkan fallback if the real artifact rejects -nullrhi; no automatic visual proof")
@@ -612,7 +613,7 @@ def main():
     run = NetworkRun(args.run.resolve(), args.mode, args.clients, args.emulation,
                      args.rendered, args.max_fps)
     try:
-        (focused_restart_scenario if args.scenario == "restart" else main_scenario)(run)
+        construction_scenario(run)
         print(f"PASS: {args.scenario} {args.mode} host + {args.clients} remote clients; evidence: {run.run}")
     except BaseException as error:
         run.event("FAIL", error=repr(error))

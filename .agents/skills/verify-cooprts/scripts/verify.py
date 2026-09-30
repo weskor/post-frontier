@@ -181,7 +181,7 @@ def drive(run, args):
     report = doctor(run, focused=True)
     record(run, "input", action=args.command, parameters={k: v for k, v in vars(args).items() if k != "run"})
     if args.command == "key":
-        key = "Return" if args.key == "enter" else args.key.upper() if args.key in ("f1", "f2", "f3") else args.key
+        key = {"enter": "Return", "tab": "Tab", "escape": "Escape", "f4": "F4"}.get(args.key, args.key)
         if args.hold:
             execute(["wtype", "-P", key, "-s", str(args.hold), "-p", key])
         else:
@@ -215,8 +215,9 @@ def regression(run, scenario):
         "orders": ("CoopRTS.Orders.ReplaceHoldRetreat", "regression"),
         "movement": ("CoopRTS.Movement.TwoGroups", "movement"),
         "combat": ("CoopRTS.Combat.Encounter", "combat"),
-        "economy": ("CoopRTS.Economy.CaptureIncomeRecovery", "economy"),
-        "strategy": ("CoopRTS.Enemy.StrategicDecisions", "strategy"),
+        "construction": ("CoopRTS.Construction.Lifecycle", "construction"),
+        "production": ("CoopRTS.Construction.Production", "production"),
+        "strategy": ("CoopRTS.Enemy.ConstructionEconomy", "strategy"),
         "match-win": ("CoopRTS.Match.VictoryRestart", "match-win"),
         "match-loss": ("CoopRTS.Match.DefeatRestart", "match-loss"),
         "doctrine-siege": ("CoopRTS.Doctrine.SiegeOptics", "doctrine-siege"),
@@ -261,10 +262,10 @@ def main():
     for name in ("launch", "doctor", "focus", "stop"):
         commands.add_parser(name)
     regression_parser = commands.add_parser("regression")
-    regression_parser.add_argument("--scenario", choices=["orders", "movement", "combat", "economy", "strategy", "match-win", "match-loss",
-                                                           "doctrine-siege", "doctrine-repairs", "doctrine-frontline", "doctrine-restart"], default="orders")
+    regression_parser.add_argument("--scenario", choices=["orders", "movement", "combat", "construction", "production", "strategy", "match-win", "match-loss",
+                                                           "doctrine-siege", "doctrine-repairs", "doctrine-frontline", "doctrine-restart"], default="construction")
     snap = commands.add_parser("capture"); snap.add_argument("label")
-    key = commands.add_parser("key"); key.add_argument("key", choices=["w", "a", "s", "d", "h", "r", "n", "q", "1", "2", "space", "enter", "f1", "f2", "f3"])
+    key = commands.add_parser("key"); key.add_argument("key", choices=["w", "a", "s", "d", "h", "r", "q", "tab", "space", "enter", "escape", "f4"])
     key.add_argument("--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000", help="Hold milliseconds, zero taps")
     for name in ("click", "scroll", "drag", "move", "point"):
         sub = commands.add_parser(name)

@@ -4,9 +4,9 @@
 #include "GameFramework/Actor.h"
 #include "EnemyCommander.generated.h"
 
-class AArmyGroup;
-class ACapturePoint;
-class AArmyUnit;
+class ACommandBuilding;
+class ACommandGameState;
+enum class EBuildingKind : uint8;
 
 UCLASS()
 class COOPRTS_API AEnemyCommander : public AActor
@@ -16,13 +16,9 @@ public:
 	AEnemyCommander();
 	virtual void Tick(float DeltaSeconds) override;
 	void EvaluatePlan();
-	UPROPERTY()
-	TObjectPtr<AArmyGroup> Army;
 private:
-	enum class EGoal : uint8 { None, Capture, Contest, DefendHQ, RetreatReinforce, AttackHQ };
-	EGoal Goal = EGoal::None;
-	TWeakObjectPtr<ACapturePoint> GoalSite;
+	ACommandBuilding* BuildNear(ACommandGameState* State, EBuildingKind Kind, const FVector& Center);
 	float CommitUntil = 0.f;
+	FVector CommittedFront = FVector::ZeroVector;
 	float EvaluateElapsed = 0.f;
-	bool Choose(EGoal Next, ACapturePoint* Site, AArmyUnit* Threat, const FString& Reason, bool bEmergency);
 };

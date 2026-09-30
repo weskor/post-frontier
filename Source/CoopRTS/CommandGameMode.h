@@ -19,9 +19,11 @@ public:
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	void RequestRestart(ACommandPlayerController* Requester);
-	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 private:
 	UPROPERTY()
 	TObjectPtr<AEnemyCommander> EnemyCommander;
+	bool bRestartRequested = false;
+	TSet<TWeakObjectPtr<APlayerController>> StartedCommanders;
 };

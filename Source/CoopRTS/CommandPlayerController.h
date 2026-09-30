@@ -3,11 +3,16 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "ArmyGroup.h"
+#include "ArmyUnit.h"
+#include "ConstructionTypes.h"
 #include "CommandPlayerState.h"
 #include "CommandPlayerController.generated.h"
 
+class ACommandBuilding;
 class UInputAction;
 class UInputMappingContext;
+class UEnhancedInputLocalPlayerSubsystem;
+enum class EHUDAction : uint8;
 
 UCLASS()
 class COOPRTS_API ACommandPlayerController : public APlayerController
@@ -16,10 +21,34 @@ class COOPRTS_API ACommandPlayerController : public APlayerController
 public:
 	ACommandPlayerController();
 	virtual void PlayerTick(float DeltaTime) override;
-	AArmyGroup* GetSelectedArmy() const { return SelectedArmy; }
-	const FString& GetOrderFeedback() const { return OrderFeedback; }
-	const FString& GetDoctrineFeedback() const { return DoctrineFeedback; }
+	ACommandBuilding* GetSelectedBuilding() const { return SelectedBuilding; }
+	const FString& GetOrderFeedback() const { return Feedback; }
+	bool IsHUDExpanded() const { return bHUDExpanded; }
+	bool IsPlacingBuilding() const { return bPlacingBuilding; }
+	EBuildingKind GetPlacementKind() const { return PlacementKind; }
+	bool GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const;
+	bool CanPlaceBuildingAt(EBuildingKind Kind, const FVector& Location, FString& Reason) const;
+	bool IsAssigningFront() const { return bAssigningFront; }
+	EFrontOrder GetPendingFrontOrder() const { return PendingFrontOrder; }
+	// Left-click entry points shared by real input and the Development verification probe.
+	// Returns true when Position lies on a HUD panel; the click then never reaches the world.
+	bool HandleHUDClick(const FVector2D& Position);
+	void SelectActor(AActor* Actor);
 
+	UFUNCTION(Server, Reliable)
+	void ServerPlaceBuilding(EBuildingKind Kind, FVector Location);
+	UFUNCTION(Server, Reliable)
+	void ServerCancelBuilding(ACommandBuilding* Building);
+	UFUNCTION(Server, Reliable)
+	void ServerConfigureProduction(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled);
+	UFUNCTION(Server, Reliable)
+	void ServerAssignFront(ACommandBuilding* Building, EFrontOrder Order, FVector Location);
+	UFUNCTION(Server, Reliable)
+	void ServerResearch(ACommandBuilding* Building, EArmyDoctrine Choice);
+	UFUNCTION(Client, Reliable)
+	void ClientConstructionFeedback(const FString& Message);
+	UFUNCTION(Client, Reliable)
+	void ClientPlacementFeedback(const FString& Message, bool bAccepted);
 	UFUNCTION(Server, Reliable)
 	void ServerIssueOrder(AArmyGroup* Army, EArmyOrder Order, FVector Destination);
 	UFUNCTION(Server, Reliable)
@@ -29,59 +58,50 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientOrderFeedback(bool bAccepted);
 	UFUNCTION(Server, Reliable)
-	void ServerReinforce(AArmyGroup* Army);
-	UFUNCTION(Client, Reliable)
-	void ClientReinforcementFeedback(const FString& Message);
-	UFUNCTION(Server, Reliable)
 	void ServerRequestRestart();
-	UFUNCTION(Server, Reliable)
-	void ServerChooseDoctrine(EArmyDoctrine Choice);
-	UFUNCTION(Client, Reliable)
-	void ClientDoctrineFeedback(const FString& Message);
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupInputComponent() override;
+	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
+	virtual void PostSeamlessTravel() override;
 
 private:
-	UPROPERTY(Transient) TObjectPtr<AArmyGroup> SelectedArmy;
+	UPROPERTY(Transient) TObjectPtr<ACommandBuilding> SelectedBuilding;
 	UPROPERTY(Transient) TObjectPtr<UInputMappingContext> Mapping;
 	UPROPERTY(Transient) TArray<TObjectPtr<UInputAction>> Actions;
-	FString OrderFeedback;
-	FString DoctrineFeedback;
-	EArmyDoctrine LastObservedDoctrine = EArmyDoctrine::None;
-	// Group and player-state replication may arrive in either order. Resolve a
-	// requested slot once, without undoing a later click or camera movement.
-	int32 PendingArmyIndex = 0;
-	float SelectionRetry = 0.f;
+	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> InputSubsystem;
+	FString Feedback;
+	bool bPlacingBuilding = false;
+	EBuildingKind PlacementKind = EBuildingKind::Barracks;
+	bool bAssigningFront = false;
+	bool bHUDExpanded = true;
+	bool bPlacementPending = false;
+	EFrontOrder PendingFrontOrder = EFrontOrder::Defend;
 	bool bInitialFocusPending = true;
 	FVector2D PreviousDragPosition = FVector2D::ZeroVector;
 	bool bDragging = false;
+	FVector2D PendingPan = FVector2D::ZeroVector;
 	void PanForward();
 	void PanBackward();
-	FVector2D PendingPan = FVector2D::ZeroVector;
 	void PanLeft();
 	void PanRight();
 	void ZoomIn();
 	void ZoomOut();
 	void SelectUnderCursor();
-	void MoveUnderCursor();
-	void AttackUnderCursor();
-	void Hold();
-	void Retreat();
-	void Reinforce();
+	void CancelPointerMode();
+	void CancelMode();
+	void ToggleHUD();
 	void RequestRestart();
-	void ChooseSiegeOptics();
-	void ChooseFieldRepairs();
-	void ChooseEntrenchedFrontline();
-	void ChooseDoctrine(EArmyDoctrine Choice);
+	void FocusSelection();
+	void HandleHUDAction(EHUDAction Action);
 	bool IsOwnedArmy(const AArmyGroup* Army) const;
-	bool IsCursorOverDoctrinePanel() const;
+	bool IsOwnedBuilding(const ACommandBuilding* Building) const;
+	bool IsValidBuildingCommand(const ACommandBuilding* Building) const;
 	bool CanIssueGameplayCommand();
 	bool IsMatchTerminal() const;
-	void SelectArmyOne();
-	void SelectArmyTwo();
-	void SelectArmy(int32 ArmyIndex);
-	void FocusArmy();
 	bool CursorHit(FHitResult& Hit) const;
+	bool CursorGround(FVector& Location) const;
+	void ResetLocalMatchView();
 };

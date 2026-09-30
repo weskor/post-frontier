@@ -21,13 +21,20 @@ public:
 	ACapturePoint();
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	// A zero-time step refreshes occupancy without advancing capture.
 	void AdvanceCapture(float Seconds);
+	bool IsEstablishedForTeam(int32 Team) const;
 	static constexpr float CaptureRadius = 430.f;
+	static constexpr float TerritoryRadius = 1000.f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Capture, BlueprintReadOnly, Category = "Territory")
 	int32 ControllingTeam = -1;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	float CaptureProgress = 0.f;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
+	bool bFriendlyPresent = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
+	bool bEnemyPresent = false;
 	virtual void BeginPlay() override;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	ECaptureSiteKind SiteKind = ECaptureSiteKind::Resource;

@@ -10,6 +10,6 @@ public class CoopRTS : ModuleRules
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput",
 			"AIModule", "NavigationSystem", "GameplayTasks"
 		});
-		PrivateDependencyModuleNames.Add("Json");
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "SlateCore", "ApplicationCore" });
 	}
 }

@@ -3,7 +3,9 @@
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
+#include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "CommandPlayerState.h"
 #include "Headquarters.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -11,7 +13,7 @@
 AEnemyCommander::AEnemyCommander()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	bReplicates = false; // Plans and rationale are replicated through GameState.
+	bReplicates = false;
 }
 
 void AEnemyCommander::Tick(float DeltaSeconds)
@@ -22,151 +24,174 @@ void AEnemyCommander::Tick(float DeltaSeconds)
 	EvaluatePlan();
 }
 
-bool AEnemyCommander::Choose(EGoal Next, ACapturePoint* Site, AArmyUnit* Threat,
-	const FString& Reason, bool bEmergency)
+ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, EBuildingKind Kind, const FVector& Center)
 {
-	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!IsValid(Army) || !State || State->MatchResult != EMatchResult::Ongoing) return false;
-	const bool bSame = Goal == Next && GoalSite == Site;
-	const EArmyOrder Expected = Next == EGoal::RetreatReinforce ? EArmyOrder::Retreat : EArmyOrder::Attack;
-	if (bSame && (Army->Units.IsEmpty() || (Army->Order == Expected
-		&& (Next != EGoal::DefendHQ || Army->AttackTarget == Threat)))) return true;
-	bool bAccepted = false;
-	switch (Next)
+	if (State->EnemyResources < ACommandBuilding::GetBuildCost(Kind)) return nullptr;
+	// Deterministic candidate positions use the same collision, territory and
+	// navigation validation as player construction; the planner cannot cheat.
+	for (int32 Ring = 0; Ring < 4; ++Ring)
 	{
-	case EGoal::Capture:
-	case EGoal::Contest:
-		bAccepted = IsValid(Site) && Army->IssueAttack(Site->GetActorLocation(), nullptr);
-		break;
-	case EGoal::DefendHQ:
-		bAccepted = IsValid(Threat) && Army->IssueAttack(Threat->GetActorLocation(), Threat);
-		break;
-	case EGoal::AttackHQ:
-		bAccepted = IsValid(State->FriendlyHeadquarters)
-			&& Army->IssueAttack(State->FriendlyHeadquarters->GetActorLocation(), State->FriendlyHeadquarters.Get());
-		break;
-	case EGoal::RetreatReinforce:
-		bAccepted = Army->Units.IsEmpty() || Army->IssueRetreat();
-		break;
-	default: break;
+		const float Radius = 360.f + Ring * 150.f;
+		for (int32 Direction = 0; Direction < 12; ++Direction)
+		{
+			const float Angle = Direction * PI / 6.f;
+			FVector Location = Center + FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0.f);
+			Location.Z = 5.f;
+			FString Reason;
+			if (ACommandBuilding* Building = State->TryPlaceBuilding(Kind, Location, nullptr, 5, Reason))
+				return Building;
+		}
 	}
-	if (!bAccepted) return false; // Navigation rejects without replacing old intent.
-	Goal = Next;
-	GoalSite = Site;
-	CommitUntil = GetWorld()->GetTimeSeconds() + 9.f;
-	const TCHAR* Name = Next == EGoal::Capture ? TEXT("CAPTURE") : Next == EGoal::Contest ? TEXT("CONTEST")
-		: Next == EGoal::DefendHQ ? TEXT("DEFEND HQ") : Next == EGoal::RetreatReinforce ? TEXT("RETREAT / REINFORCE")
-		: TEXT("ATTACK HQ");
-	State->EnemyPlan = Site ? FString::Printf(TEXT("%s SITE %d"), Name, Site->SiteIndex + 1) : Name;
-	State->EnemyPlanRationale = FString::Printf(TEXT("%s%s"), bEmergency ? TEXT("EMERGENCY: ") : TEXT("COMMIT 9s: "), *Reason);
-	State->ForceNetUpdate();
-	UE_LOG(LogTemp, Display, TEXT("Enemy plan=%s rationale=%s"), *State->EnemyPlan, *State->EnemyPlanRationale);
-	return true;
+	return nullptr;
 }
 
 void AEnemyCommander::EvaluatePlan()
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || !IsValid(Army) || !State || State->MatchResult != EMatchResult::Ongoing
+	if (!HasAuthority() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters)) return;
-	const FVector Center = Army->GetCenter();
-	const FVector EnemyHQ = State->EnemyHeadquarters->GetActorLocation();
-	const FVector FriendlyHQ = State->FriendlyHeadquarters->GetActorLocation();
-	int32 Living = 0;
-	float HealthFraction = 0.f;
-	for (const AArmyUnit* Unit : Army->Units)
+
+	const FVector Home = State->EnemyHeadquarters->GetActorLocation();
+	TArray<ACommandBuilding*, TInlineAllocator<8>> Barracks;
+	ACommandBuilding* Workshop = nullptr;
+	for (ACommandBuilding* Building : State->Buildings)
 	{
-		if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-		++Living;
-		HealthFraction += static_cast<float>(Unit->Health) / FMath::Max(1, Unit->MaxHealth());
+		if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != 5) continue;
+		if (Building->Kind == EBuildingKind::Barracks) Barracks.Add(Building);
+		if (Building->Kind == EBuildingKind::Workshop) Workshop = Building;
 	}
-	if (Living) HealthFraction /= Living;
-	int32 NearbyThreats = 0;
-	int32 HQThreats = 0;
-	int32 PlayerHQDefenders = 0;
-	AArmyUnit* ClosestHQThreat = nullptr;
-	float ClosestHQDistance = TNumericLimits<float>::Max();
+	if (Barracks.IsEmpty())
+	{
+		BuildNear(State, EBuildingKind::Barracks, Home);
+		State->EnemyPlan = TEXT("ESTABLISH BASE");
+		State->EnemyPlanRationale = TEXT("Constructing paid production before deploying a persistent force");
+		State->ForceNetUpdate();
+		return;
+	}
+
+	int32 Frontline = 0;
+	int32 Ranged = 0;
+	int32 Siege = 0;
+	int32 Intruders = 0;
+	int32 FrontlineForces = 0, RangedForces = 0, SiegeForces = 0;
+	for (const ACommandBuilding* Building : Barracks)
+	{
+		if (!Building->bForceConfigured) continue;
+		if (Building->ProductionRole == EUnitRole::Frontline) ++FrontlineForces;
+		else if (Building->ProductionRole == EUnitRole::Ranged) ++RangedForces;
+		else ++SiegeForces;
+	}
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 	{
-		if (It->TeamIndex != 0) continue;
-		for (AArmyUnit* Unit : It->Units)
+		for (const AArmyUnit* Unit : It->Units)
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-			const FVector Location = Unit->GetActorLocation();
-			if (FVector::DistSquared2D(Location, Center) < FMath::Square(1400.f)) ++NearbyThreats;
-			if (FVector::DistSquared2D(Location, FriendlyHQ) < FMath::Square(1650.f)) ++PlayerHQDefenders;
-			const float HQDistance = FVector::DistSquared2D(Location, EnemyHQ);
-			if (HQDistance < FMath::Square(1550.f))
+			if (Unit->TeamIndex == 0)
 			{
-				++HQThreats;
-				if (HQDistance < ClosestHQDistance) { ClosestHQDistance = HQDistance; ClosestHQThreat = Unit; }
+				if (FVector::DistSquared2D(Unit->GetActorLocation(), Home) < FMath::Square(1500.f)) ++Intruders;
+			}
+			else if (Unit->TeamIndex == 5)
+			{
+				if (Unit->UnitRole == EUnitRole::Frontline) ++Frontline;
+				else if (Unit->UnitRole == EUnitRole::Ranged) ++Ranged;
+				else ++Siege;
 			}
 		}
 	}
-	// Both emergencies can interrupt commitment. An immediate threat to the HQ
-	// takes precedence unless fewer than two defenders can still fight.
-	if (Living >= 2 && HQThreats && IsValid(ClosestHQThreat))
-	{
-		Choose(EGoal::DefendHQ, nullptr, ClosestHQThreat,
-			FString::Printf(TEXT("%d intruders within 1550 of HQ"), HQThreats), true);
-		return;
-	}
-	const bool bBroken = Living <= 2 || (Living < 5 && NearbyThreats >= Living)
-		|| (HealthFraction < .48f && NearbyThreats >= 2 && FVector::DistSquared2D(Center, Army->HomeLocation) > FMath::Square(600.f));
-	if (bBroken)
-	{
-		Choose(EGoal::RetreatReinforce, nullptr, nullptr,
-			FString::Printf(TEXT("strength %d/6, health %.0f%%, nearby threats %d"), Living, HealthFraction * 100.f, NearbyThreats), true);
-		if (Army->CanReinforceAtCurrentLocation()) Army->TryReinforce();
-		return;
-	}
-	// A retreat commitment waits at a valid source for affordable paid recovery;
-	// never feed an incomplete roster back into the same fight.
-	if (Goal == EGoal::RetreatReinforce && Army->GetReinforcementCost() > 0)
-	{
-		if (Army->CanReinforceAtCurrentLocation()) Army->TryReinforce();
-		if (Army->GetReinforcementCost() > 0) return;
-	}
-	// A fully restored roster has completed this commitment; score fresh goals.
-	if (Goal == EGoal::RetreatReinforce && Army->GetReinforcementCost() == 0) CommitUntil = 0.f;
-	if (GetWorld()->GetTimeSeconds() < CommitUntil && Goal != EGoal::None
-		&& ((Goal != EGoal::Capture && Goal != EGoal::Contest)
-			|| (GoalSite.IsValid() && GoalSite->ControllingTeam != 5))) return;
 
-	ACapturePoint* BestSite = nullptr;
+	int32 Established = 0;
+	ACapturePoint* Target = nullptr;
 	float BestScore = -TNumericLimits<float>::Max();
-	float BestRisk = 0.f;
 	for (ACapturePoint* Site : State->CaptureSites)
 	{
-		if (!IsValid(Site) || Site->ControllingTeam == 5) continue;
-		int32 Defenders = 0;
-		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		if (!IsValid(Site)) continue;
+		if (Site->IsEstablishedForTeam(5)) { ++Established; continue; }
+		if (Site->ControllingTeam == 5 && !Site->bFriendlyPresent)
 		{
-			if (It->TeamIndex != 0) continue;
-			for (const AArmyUnit* Unit : It->Units)
-				if (IsValid(Unit) && Unit->IsAlive() && FVector::DistSquared2D(Unit->GetActorLocation(), Site->GetActorLocation()) < FMath::Square(1200.f)) ++Defenders;
+			bool bBuildingOutpost = false;
+			for (ACommandBuilding* Building : State->Buildings)
+				if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex == 5
+					&& Building->Kind == EBuildingKind::Outpost
+					&& FVector::DistSquared2D(Building->GetActorLocation(), Site->GetActorLocation())
+						< FMath::Square(ACapturePoint::TerritoryRadius))
+					bBuildingOutpost = true;
+			if (!bBuildingOutpost) BuildNear(State, EBuildingKind::Outpost, Site->GetActorLocation());
 		}
-		const float Travel = FVector::Dist2D(Center, Site->GetActorLocation()) / 700.f;
-		const float Risk = Defenders * (Living < Defenders ? 1.7f : .65f);
-		const float Value = Site->SiteKind == ECaptureSiteKind::Resource ? 8.f : 6.f;
-		const float Urgency = Site->ControllingTeam == 0 ? 3.f : 0.f;
-		const float Score = Value + Urgency - Travel - Risk;
-		if (Score > BestScore) { BestScore = Score; BestSite = Site; BestRisk = Risk; }
+		const float Score = (Site->ControllingTeam == 0 ? 3.f : 5.f)
+			- FVector::Dist2D(Home, Site->GetActorLocation()) / 1200.f;
+		if (Score > BestScore) { BestScore = Score; Target = Site; }
 	}
-	const bool bAdvantage = Living >= 4 && Living >= PlayerHQDefenders + 2;
-	const float AttackScore = bAdvantage ? 11.f - FVector::Dist2D(Center, FriendlyHQ) / 750.f
-		- PlayerHQDefenders * .8f : -TNumericLimits<float>::Max();
-	if (AttackScore > BestScore)
+
+	const float Now = GetWorld()->GetTimeSeconds();
+	EFrontOrder Order = EFrontOrder::Secure;
+	FVector Front = CommittedFront;
+	if (Intruders)
 	{
-		Choose(EGoal::AttackHQ, nullptr, nullptr,
-			FString::Printf(TEXT("advantage %d versus %d HQ defenders, score %.1f"), Living, PlayerHQDefenders, AttackScore), false);
+		Order = EFrontOrder::Defend;
+		Front = Home + FVector(-400.f, -250.f, 0.f);
+		CommitUntil = 0.f;
+		State->EnemyPlan = TEXT("DEFEND BASE");
+		State->EnemyPlanRationale = TEXT("Enemy presence near HQ interrupts expansion");
 	}
-	else if (BestSite)
+	else if (Now >= CommitUntil || CommittedFront.IsNearlyZero())
 	{
-		Choose(BestSite->ControllingTeam == 0 ? EGoal::Contest : EGoal::Capture, BestSite, nullptr,
-			FString::Printf(TEXT("value %d, travel %.1f, risk %.1f, urgency %d, score %.1f"),
-				BestSite->SiteKind == ECaptureSiteKind::Resource ? 8 : 6,
-				FVector::Dist2D(Center, BestSite->GetActorLocation()) / 700.f, BestRisk,
-				BestSite->ControllingTeam == 0 ? 3 : 0, BestScore), false);
+		const int32 AssaultStrength = ACommandBuilding::GetForceCapacity(EUnitRole::Frontline)
+			+ ACommandBuilding::GetForceCapacity(EUnitRole::Ranged)
+			+ ACommandBuilding::GetForceCapacity(EUnitRole::Siege);
+		const bool bAssault = Established >= 2 || (Frontline + Ranged + Siege >= AssaultStrength);
+		Front = bAssault || !Target ? State->FriendlyHeadquarters->GetActorLocation() : Target->GetActorLocation();
+		CommittedFront = Front;
+		CommitUntil = Now + 12.f;
+		State->EnemyPlan = bAssault || !Target ? TEXT("ASSAULT HQ") : TEXT("EXPAND TERRITORY");
+		State->EnemyPlanRationale = bAssault || !Target
+			? TEXT("Established economy or assembled force supports the offensive")
+			: TEXT("Secure a sector, establish an outpost, fund the next production line");
 	}
+	Front.Z = 5.f;
+	for (ACommandBuilding* Building : Barracks)
+	{
+		if (!Building->IsComplete()) continue;
+		// Composition decisions happen once per producer, not once per casualty or timer reset.
+		const EUnitRole Role = Building->bForceConfigured ? Building->ProductionRole
+			: FrontlineForces == 0 ? EUnitRole::Frontline : RangedForces == 0 ? EUnitRole::Ranged
+			: SiegeForces == 0 ? EUnitRole::Siege : FrontlineForces <= RangedForces ? EUnitRole::Frontline : EUnitRole::Ranged;
+		const bool bWasConfigured = Building->bForceConfigured;
+		if (!Building->bProductionEnabled) Building->SetProduction(Role, true);
+		if (!bWasConfigured && Building->bForceConfigured)
+		{
+			if (Role == EUnitRole::Frontline) ++FrontlineForces;
+			else if (Role == EUnitRole::Ranged) ++RangedForces;
+			else ++SiegeForces;
+		}
+		float Health = 0.f;
+		int32 Living = 0;
+		if (const AArmyGroup* Force = Building->ForceGroup; IsValid(Force))
+			for (const AArmyUnit* Unit : Force->Units)
+				if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
+				{
+					Health += float(Unit->Health) / Unit->MaxHealth();
+					++Living;
+				}
+		const bool bRecover = (Living > 0 && Health / Living < .35f)
+			|| (Building->FrontOrder == EFrontOrder::FallBack && (!Living || Health / Living < .8f));
+		const EFrontOrder Desired = bRecover ? EFrontOrder::FallBack : Order;
+		const FVector Destination = bRecover ? Home + FVector(-500.f, 0.f, -Home.Z + 5.f) : Front;
+		// Recovery changes only this producer's front. The stable force/backlink stays intact.
+		if (!Building->HasConfiguredFront() || Building->FrontOrder != Desired || !Building->FrontLocation.Equals(Destination, 50.f))
+			Building->SetFront(Desired, Destination);
+	}
+
+	// Reserve one full infantry force's replacement budget before optional investment.
+	const int32 ReplacementReserve = ACommandBuilding::GetUnitCost(EUnitRole::Frontline)
+		* ACommandBuilding::GetForceCapacity(EUnitRole::Frontline);
+	if (!Intruders && Established > 0 && Barracks.Num() < 3
+		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(EBuildingKind::Barracks) + ReplacementReserve)
+		BuildNear(State, EBuildingKind::Barracks, Home);
+	else if (!Workshop && Established > 0
+		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(EBuildingKind::Workshop) + ReplacementReserve)
+		BuildNear(State, EBuildingKind::Workshop, Home);
+	else if (Workshop && Workshop->IsComplete() && State->EnemyDoctrine == EArmyDoctrine::None
+		&& State->EnemyResources >= ACommandBuilding::ResearchCost + ReplacementReserve)
+		Workshop->TryResearch(EArmyDoctrine::FieldRepairs);
+	State->ForceNetUpdate();
 }
