@@ -12,6 +12,39 @@
 #include "EngineUtils.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Rules/PlacementPolicy.h"
+#include "Rules/EconomyPolicy.h"
+
+namespace
+{
+	using FPlacementSectors = TArray<FPlacementSector, TInlineAllocator<16>>;
+
+	void CollectPlacementSectors(const ACommandGameState& State, int32 Team, FPlacementSectors& Out)
+	{
+		Out.Reserve(State.CaptureSites.Num());
+		for (const ACapturePoint* Site : State.CaptureSites)
+		{
+			FPlacementSector Sector{};
+			Sector.ControllingTeam = -1;
+			if (IsValid(Site))
+			{
+				Sector.Position = Site->GetActorLocation();
+				Sector.ControllingTeam = Site->ControllingTeam;
+				Sector.bEnemyPresent = Site->bEnemyPresent;
+				Sector.bFriendlyPresent = Site->bFriendlyPresent;
+				Sector.bEstablishedForTeam = Site->IsEstablishedForTeam(Team);
+				for (const ACommandBuilding* Existing : State.Buildings)
+					if (IsValid(Existing) && Existing->IsAlive() && Existing->Kind == EBuildingKind::Outpost
+						&& Existing->OutpostSite == Site)
+					{
+						Sector.bHasOutpost = true;
+						break;
+					}
+			}
+			Out.Add(Sector);
+		}
+	}
+}
 
 ACommandGameState::ACommandGameState()
 {
@@ -32,7 +65,8 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		IncomeElapsed -= 2.f;
 		for (APlayerState* Player : PlayerArray)
 			if (ACommandPlayerState* Wallet = Cast<ACommandPlayerState>(Player))
-				Wallet->AddResources(GetIncomePerSecond() * 2);
+				Wallet->AddResources(EconomyPolicy::IncomePerTick(BaselineIncomePerSecond,
+					ResourceIncomePerSecond, ControlledResourceSites, 2));
 		EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
 			static_cast<int64>(EnemyResources) + GetEnemyIncomePerSecond() * 2));
 		ForceNetUpdate();
@@ -65,89 +99,50 @@ bool ACommandGameState::ValidateBuildingPlacement(int32 BuildingIndex, int32 Tea
 	OutReason.Reset();
 	UWorld* World = GetWorld();
 	const UBuildingDefinition* Definition = IsValid(Content) ? Content->Building(BuildingIndex) : nullptr;
-	if (!World || MatchResult != EMatchResult::Ongoing || (Team != 0 && Team != 5)
+	if (!World || MatchResult != EMatchResult::Ongoing
 		|| !Definition || ACommandBuilding::GetBuildCost(*Definition) == 0)
 	{
 		OutReason = TEXT("Invalid building, team or match");
 		return false;
 	}
-	if (!IsValid(Arena) || !Arena->ContainsPlacement(Location))
-	{
-		OutReason = TEXT("Outside arena bounds");
-		return false;
-	}
-	const bool bSectorBuilding = Definition->bEstablishesSector;
 	const float Radius = ACommandBuilding::GetFootprintRadius(*Definition);
 	const AHeadquarters* Home = Team == 0 ? FriendlyHeadquarters : EnemyHeadquarters;
 	const AHeadquarters* HostileHQ = Team == 0 ? EnemyHeadquarters : FriendlyHeadquarters;
-	if (!IsValid(Home) || !Home->IsAlive() || !IsValid(HostileHQ))
-	{
-		OutReason = TEXT("Headquarters unavailable");
-		return false;
-	}
-	const auto Near = [&Location](const FVector& Center, float Range)
-	{
-		return FVector::DistSquared2D(Location, Center) <= FMath::Square(Range);
-	};
-	if (Near(HostileHQ->GetActorLocation(), 1000.f + Radius))
-	{
-		OutReason = TEXT("Too close to enemy headquarters");
-		return false;
-	}
-	bool bHomeTerritory = Near(Home->GetActorLocation(), 900.f - Radius);
-	const ACapturePoint* TargetSector = nullptr;
-	float NearestSectorDistance = TNumericLimits<float>::Max();
-	for (const ACapturePoint* Site : CaptureSites)
-	{
-		if (!IsValid(Site) || !Near(Site->GetActorLocation(), ACapturePoint::TerritoryRadius - Radius)) continue;
-		if ((Team == 0 && Site->bEnemyPresent) || (Team == 5 && Site->bFriendlyPresent))
-		{
-			OutReason = TEXT("Sector is contested");
-			return false;
-		}
-		if (Site->ControllingTeam != Team) continue;
-		if (bSectorBuilding)
-		{
-			const float Distance = FVector::DistSquared2D(Location, Site->GetActorLocation());
-			if (Distance < NearestSectorDistance) { TargetSector = Site; NearestSectorDistance = Distance; }
-		}
-		else if (Site->IsEstablishedForTeam(Team)) bHomeTerritory = true;
-	}
-	if (TargetSector)
-		for (const ACommandBuilding* Existing : Buildings)
-			if (IsValid(Existing) && Existing->IsAlive() && Existing->Kind == EBuildingKind::Outpost
-				&& Existing->OutpostSite == TargetSector)
-			{
-				OutReason = TEXT("Sector already has an outpost");
-				return false;
-			}
-	if (bSectorBuilding ? !TargetSector : !bHomeTerritory)
-	{
-		OutReason = bSectorBuilding ? TEXT("Capture a resource sector first")
-			: TEXT("Build inside headquarters or established outpost territory");
-		return false;
-	}
+	FPlacementSectors Sectors;
+	CollectPlacementSectors(*this, Team, Sectors);
+	TArray<FPlacementBuilding, TInlineAllocator<32>> PlacementBuildings;
+	PlacementBuildings.Reserve(Buildings.Num());
+	for (const ACommandBuilding* Existing : Buildings)
+		if (IsValid(Existing) && Existing->GetDefinition())
+			PlacementBuildings.Add({ Existing->GetActorLocation(),
+				ACommandBuilding::GetFootprintRadius(*Existing->GetDefinition()), Existing->IsAlive() });
+	TArray<FVector, TInlineAllocator<64>> EnemyTroops;
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 	{
 		if (It->TeamIndex == Team) continue;
 		for (const AArmyUnit* Unit : It->Units)
-			if (IsValid(Unit) && Unit->IsAlive() && Near(Unit->GetActorLocation(), Radius + 330.f))
-			{
-				OutReason = TEXT("Enemy troops too close");
-				return false;
-			}
+			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
 	}
-	for (const ACommandBuilding* Existing : Buildings)
-		if (IsValid(Existing) && Existing->IsAlive()
-			&& Existing->GetDefinition() && Near(Existing->GetActorLocation(), Radius + ACommandBuilding::GetFootprintRadius(*Existing->GetDefinition()) + 55.f))
-		{
-			OutReason = TEXT("Building footprint overlaps");
-			return false;
-		}
-	if (Near(Home->GetActorLocation(), Radius + 210.f) || Near(HostileHQ->GetActorLocation(), Radius + 210.f))
+	const FPlacementDecision Decision = PlacementPolicy::Evaluate({ Team, Location,
+		IsValid(Home) ? Home->GetActorLocation() : FVector::ZeroVector,
+		IsValid(HostileHQ) ? HostileHQ->GetActorLocation() : FVector::ZeroVector,
+		Radius, ACapturePoint::TerritoryRadius, IsValid(Arena) && Arena->ContainsPlacement(Location),
+		IsValid(Home) && Home->IsAlive() && IsValid(HostileHQ), Definition->bEstablishesSector,
+		Sectors, PlacementBuildings, EnemyTroops });
+	switch (Decision.Verdict)
 	{
-		OutReason = TEXT("Too close to headquarters");
-		return false;
+	case EPlacementVerdict::Valid: break;
+	case EPlacementVerdict::Invalid: OutReason = TEXT("Invalid building, team or match"); return false;
+	case EPlacementVerdict::OutsideBounds: OutReason = TEXT("Outside arena bounds"); return false;
+	case EPlacementVerdict::HeadquartersUnavailable: OutReason = TEXT("Headquarters unavailable"); return false;
+	case EPlacementVerdict::EnemyHeadquartersTooClose: OutReason = TEXT("Too close to enemy headquarters"); return false;
+	case EPlacementVerdict::Contested: OutReason = TEXT("Sector is contested"); return false;
+	case EPlacementVerdict::OutpostExists: OutReason = TEXT("Sector already has an outpost"); return false;
+	case EPlacementVerdict::CaptureRequired: OutReason = TEXT("Capture a resource sector first"); return false;
+	case EPlacementVerdict::TerritoryRequired: OutReason = TEXT("Build inside headquarters or established outpost territory"); return false;
+	case EPlacementVerdict::EnemyTroopsTooClose: OutReason = TEXT("Enemy troops too close"); return false;
+	case EPlacementVerdict::BuildingOverlap: OutReason = TEXT("Building footprint overlaps"); return false;
+	case EPlacementVerdict::HeadquartersTooClose: OutReason = TEXT("Too close to headquarters"); return false;
 	}
 	const FVector Center(Location.X, Location.Y, Location.Z + 65.f);
 	FCollisionObjectQueryParams Objects;
@@ -237,14 +232,11 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 	Building->OwningPlayerState = Commander;
 	if (Definition.bEstablishesSector)
 	{
-		float Nearest = TNumericLimits<float>::Max();
-		for (ACapturePoint* Site : CaptureSites)
-		{
-			if (!IsValid(Site) || Site->ControllingTeam != Team) continue;
-			const float Distance = FVector::DistSquared2D(Location, Site->GetActorLocation());
-			if (Distance <= FMath::Square(ACapturePoint::TerritoryRadius - ACommandBuilding::GetFootprintRadius(Definition))
-				&& Distance < Nearest) { Nearest = Distance; Building->OutpostSite = Site; }
-		}
+		FPlacementSectors Sectors;
+		CollectPlacementSectors(*this, Team, Sectors);
+		const int32 Target = PlacementPolicy::SelectTargetSector(Team, Location, ACapturePoint::TerritoryRadius,
+			ACommandBuilding::GetFootprintRadius(Definition), Sectors);
+		if (Target != INDEX_NONE) Building->OutpostSite = CaptureSites[Target];
 	}
 	Building->Health = Building->MaxHealth();
 	Building->FrontLocation = Ground.Location;

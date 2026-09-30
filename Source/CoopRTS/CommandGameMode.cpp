@@ -17,6 +17,7 @@
 #include "EngineUtils.h"
 #include "Content/MatchContent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Rules/OutcomePolicy.h"
 
 ACommandGameMode::ACommandGameMode()
 {
@@ -37,11 +38,11 @@ void ACommandGameMode::Tick(float DeltaSeconds)
 	ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters)) return;
-	// Both lethal events in the same world frame resolve as defeat.
-	const bool bFriendlyLost = !State->FriendlyHeadquarters->IsAlive();
-	const bool bEnemyLost = !State->EnemyHeadquarters->IsAlive();
-	if (!bFriendlyLost && !bEnemyLost) return;
-	State->MatchResult = bFriendlyLost ? EMatchResult::Defeat : EMatchResult::Victory;
+	const EMatchResult Result = OutcomePolicy::Evaluate({ State->FriendlyHeadquarters->Health,
+		State->EnemyHeadquarters->Health, EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
+	if (Result == EMatchResult::Ongoing) return;
+	const bool bFriendlyLost = Result == EMatchResult::Defeat;
+	State->MatchResult = Result;
 	State->EnemyPlan = TEXT("MATCH COMPLETE");
 	State->EnemyPlanRationale = bFriendlyLost ? TEXT("Friendly HQ destroyed (ties are defeat)")
 		: TEXT("Enemy HQ destroyed");

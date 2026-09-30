@@ -13,6 +13,7 @@
 #include "NavAreas/NavArea_Null.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Rules/EconomyPolicy.h"
 
 ACommandBuilding::ACommandBuilding()
 {
@@ -256,7 +257,7 @@ bool ACommandBuilding::CancelConstruction()
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing) return false;
 	const UBuildingDefinition* Definition = GetDefinition();
-	const int32 Refund = Definition ? FMath::FloorToInt(GetBuildCost(*Definition) * (1.f - ConstructionProgress)) : 0;
+	const int32 Refund = Definition ? EconomyPolicy::CancellationRefund(GetBuildCost(*Definition), ConstructionProgress) : 0;
 	if (TeamIndex == 5)
 	{
 		State->EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
