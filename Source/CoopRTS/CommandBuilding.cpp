@@ -150,9 +150,9 @@ void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (IsValid(ForceGroup) && !ForceGroup->IsActorBeingDestroyed())
 		{
 			// Survivors and recruits keep their last accepted front, but never transfer.
-			ForceGroup->ProductionBuilding = nullptr;
+			ForceGroup->DetachProducer();
 			bool bSurvivors = false;
-			for (const AArmyUnit* Unit : ForceGroup->Units)
+			for (const AArmyUnit* Unit : ForceGroup->GetUnits())
 				if (IsValid(Unit) && Unit->IsAlive()) { bSurvivors = true; break; }
 			if (bSurvivors) ForceGroup->ForceNetUpdate();
 			else ForceGroup->Destroy();
@@ -226,7 +226,7 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
-		|| Attacker->TeamIndex == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing) return;
+		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing) return;
 	Health = FMath::Max(0, Health - Damage);
 	OnRep_Appearance();
 	ForceNetUpdate();

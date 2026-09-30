@@ -247,15 +247,15 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Actor))
 			{
 				if (Unit->IsAlive() && Map.Point(Unit->GetActorLocation(), Point))
-					Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), TeamColor(Unit->TeamIndex));
+					Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), TeamColor(Unit->GetTeamIndex()));
 			}
 			else if (const AArmyGroup* Squad = Cast<AArmyGroup>(Actor))
 			{
 				bool bAlive = false;
-				for (const AArmyUnit* Member : Squad->Units)
+				for (const AArmyUnit* Member : Squad->GetUnits())
 					if (IsValid(Member) && Member->IsAlive()) { bAlive = true; break; }
 				if (bAlive && Map.Point(Squad->GetCenter(), Point))
-					Map.Diamond(Point, 3.0, TeamColor(Squad->TeamIndex));
+					Map.Diamond(Point, 3.0, TeamColor(Squad->GetTeamIndex()));
 			}
 		}
 	}

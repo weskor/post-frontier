@@ -119,17 +119,17 @@ void AEnemyCommander::EvaluatePlan()
 	}
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 	{
-		for (const AArmyUnit* Unit : It->Units)
+		for (const AArmyUnit* Unit : It->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-			if (Unit->TeamIndex == 0)
+			if (Unit->GetTeamIndex() == 0)
 			{
 				if (FVector::DistSquared2D(Unit->GetActorLocation(), Home) < FMath::Square(1500.f)) ++Intruders;
 			}
-			else if (Unit->TeamIndex == 5)
+			else if (Unit->GetTeamIndex() == 5)
 			{
-				if (Unit->UnitRole == EUnitRole::Frontline) ++Frontline;
-				else if (Unit->UnitRole == EUnitRole::Ranged) ++Ranged;
+				if (Unit->GetUnitRole() == EUnitRole::Frontline) ++Frontline;
+				else if (Unit->GetUnitRole() == EUnitRole::Ranged) ++Ranged;
 				else ++Siege;
 			}
 		}
@@ -204,10 +204,10 @@ void AEnemyCommander::EvaluatePlan()
 		float Health = 0.f;
 		int32 Living = 0;
 		if (const AArmyGroup* Force = Building->ForceGroup; IsValid(Force))
-			for (const AArmyUnit* Unit : Force->Units)
-				if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
+			for (const AArmyUnit* Unit : Force->GetUnits())
+				if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
 				{
-					Health += float(Unit->Health) / Unit->MaxHealth();
+					Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 					++Living;
 				}
 		const bool bRecover = (Living > 0 && Health / Living < .35f)

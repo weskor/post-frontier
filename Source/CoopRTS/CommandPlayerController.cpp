@@ -271,9 +271,16 @@ void ACommandPlayerController::ServerRequestRestart_Implementation()
 bool ACommandPlayerController::IsOwnedArmy(const AArmyGroup* Army) const
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
-	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->TeamIndex == 0
+3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
+4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
+			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
+5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
+6: 		if (It->GetTeamIndex() == Team) continue;
+		for (const AArmyUnit* Unit : It->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
+7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
 		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
-		&& Army->OwningPlayerState == OwnState;
+		&& Army->GetOwningPlayerState() == OwnState;
 }
 
 bool ACommandPlayerController::IsOwnedBuilding(const ACommandBuilding* Building) const
@@ -518,13 +525,13 @@ void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army
 			if (IsValid(Target) && Target->GetWorld() == GetWorld())
 			{
 				if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target))
-					bValidTarget = Unit->IsAlive() && IsValid(Unit->Group)
-						&& Unit->Group->GetWorld() == GetWorld() && Unit->Group->TeamIndex == Unit->TeamIndex
-						&& Unit->TeamIndex != Army->TeamIndex;
+					bValidTarget = Unit->IsAlive() && IsValid(Unit->GetGroup())
+						&& Unit->GetGroup()->GetWorld() == GetWorld() && Unit->GetGroup()->GetTeamIndex() == Unit->GetTeamIndex()
+						&& Unit->GetTeamIndex() != Army->GetTeamIndex();
 				else if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
-					bValidTarget = HQ->IsAlive() && HQ->TeamIndex != Army->TeamIndex;
+					bValidTarget = HQ->IsAlive() && HQ->TeamIndex != Army->GetTeamIndex();
 				else if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
-					bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->TeamIndex;
+					bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->GetTeamIndex();
 			}
 			if (!bValidTarget) { ClientAttackFeedback(false); return; }
 			Destination = Target->GetActorLocation();

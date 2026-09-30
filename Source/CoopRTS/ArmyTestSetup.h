@@ -70,11 +70,16 @@ inline AArmyGroup* SpawnGroup(UWorld* World, ACommandPlayerController* Owner, in
 	AArmyGroup* Group = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 		Owner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Group) return nullptr;
-	Group->HomeLocation = Home;
-	Group->TeamIndex = Owner ? 0 : 5;
-	Group->ArmyIndex = Index;
-	Group->bOpposingArmy = !Owner;
-	Group->OwningPlayerState = Wallet;
+3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
+4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
+			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
+5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
+6: 		if (It->GetTeamIndex() == Team) continue;
+		for (const AArmyUnit* Unit : It->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
+7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
+		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
+		&& Army->GetOwningPlayerState() == OwnState;
 	Group->FinishSpawning(Transform);
 	if (!Group->SpawnUnits()) { Group->Destroy(); return nullptr; }
 	return Group;
@@ -91,8 +96,8 @@ inline bool CombatActors(UWorld* World)
 	bool Present[3] = {};
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 	{
-		if (It->TeamIndex == 5) Present[2] = true;
-		else if (It->GetOwner() == Owner && It->ArmyIndex >= 0 && It->ArmyIndex < 2) Present[It->ArmyIndex] = true;
+		if (It->GetTeamIndex() == 5) Present[2] = true;
+		else if (It->GetOwner() == Owner && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2) Present[It->GetArmyIndex()] = true;
 	}
 	for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
 	for (int32 Index = 0; Index < 2; ++Index)

@@ -29,19 +29,19 @@ public:
 		if (Stage == 3)
 		{
 			if (!Recovery.IsValid() || !Production.IsValid() || Production->ForceGroup != Recovery.Get()
-				|| Recovery->ProductionBuilding != Production.Get())
+				|| Recovery->GetProductionBuilding() != Production.Get())
 				return Fail(TEXT("Recovery must retain its living producer and stable force backlink"));
 			float Health = 0.f;
 			int32 Joined = 0;
-			for (const AArmyUnit* Unit : Recovery->Units)
-				if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
+			for (const AArmyUnit* Unit : Recovery->GetUnits())
+				if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
 				{
-					Health += float(Unit->Health) / Unit->MaxHealth();
+					Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 					++Joined;
 				}
 			Planner->EvaluatePlan();
 			if (!OtherProduction.IsValid() || OtherProduction->FrontOrder == EFrontOrder::FallBack
-				|| OtherProduction->ForceGroup->ProductionBuilding != OtherProduction.Get())
+				|| OtherProduction->ForceGroup->GetProductionBuilding() != OtherProduction.Get())
 				return Fail(TEXT("Recovering force cannot put another producer into fallback or take its units"));
 			if (!Joined || Health / Joined < .8f)
 			{
@@ -57,7 +57,7 @@ public:
 		if (Stage == 0)
 		{
 			for (TActorIterator<ACommandBuilding> It(World); It; ++It) if (It->TeamIndex == 5) It->Destroy();
-			for (TActorIterator<AArmyGroup> It(World); It; ++It) if (It->TeamIndex == 5) It->Destroy();
+			for (TActorIterator<AArmyGroup> It(World); It; ++It) if (It->GetTeamIndex() == 5) It->Destroy();
 			State->bVerificationIncomePaused = true;
 			State->EnemyCommander->Resources = 600;
 			HumanBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
@@ -75,11 +75,11 @@ public:
 		if (Stage == 1)
 		{
 			AArmyGroup* Produced = Production.IsValid() ? Production->ForceGroup.Get() : nullptr;
-			if (!IsValid(Produced) || Produced->Units.IsEmpty()) return false;
+			if (!IsValid(Produced) || Produced->GetUnits().IsEmpty()) return false;
 			int32 Joined, Travelling;
 			Production->GetForceCounts(Joined, Travelling);
 			const int32 Count = Joined + Travelling;
-			if (Count != 1 || !Production->bForceConfigured || Produced->ProductionBuilding != Production.Get()
+			if (Count != 1 || !Production->bForceConfigured || Produced->GetProductionBuilding() != Production.Get()
 				|| !Produced->bAutomaticFront || Produced->FrontOrder != EFrontOrder::Secure
 				|| Produced->OwningPlayerState != State->EnemyCommander
 				|| State->EnemyCommander->Resources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
@@ -98,8 +98,16 @@ public:
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5)
 				ConstructionSpend += Building->GetDefinition() ? Building->GetDefinition()->BuildCost : 0;
-		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->ProductionBuilding != Production.Get()
+3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
+4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
 			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
+5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
+6: 		if (It->GetTeamIndex() == Team) continue;
+		for (const AArmyUnit* Unit : It->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
+7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
+		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
+		&& Army->GetOwningPlayerState() == OwnState;
 			|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 			return Fail(TEXT("Enemy infantry including travellers uses six independent slots and pays 20 per unit from enemy wallet"));
 		bool bEstablished = false;
@@ -113,14 +121,14 @@ public:
 		Planner->EvaluatePlan();
 		bool bDefending = false;
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->TeamIndex == 5 && It->bAutomaticFront && It->FrontOrder == EFrontOrder::Defend) bDefending = true;
+			if (It->GetTeamIndex() == 5 && It->bAutomaticFront && It->FrontOrder == EFrontOrder::Defend) bDefending = true;
 		if (!bDefending) return Fail(TEXT("Real nearby attackers must interrupt expansion with a defensive front"));
 		if (!Production.IsValid() || Production->ForceGroup != Recovery.Get()
-			|| Recovery->ProductionBuilding != Production.Get())
+			|| Recovery->GetProductionBuilding() != Production.Get())
 			return Fail(TEXT("Recovery fixture must use the real producer-owned force"));
-		for (AArmyUnit* Unit : Recovery->Units)
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
-				Unit->ReceiveAttack(Unit->Health - FMath::Max(1, Unit->MaxHealth() / 4), Threat->Units[0]);
+		for (AArmyUnit* Unit : Recovery->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+				Unit->ReceiveAttack(Unit->GetHealth() - FMath::Max(1, Unit->MaxHealth() / 4), Threat->GetUnits()[0]);
 		Threat->Destroy();
 		State->EnemyCommander->Resources = 2000; // Paid second producer and repairs setup, not asserted income.
 		OtherProduction = PlaceEnemy(State, TEXT("barracks"), State->EnemyHeadquarters->GetActorLocation());
@@ -133,7 +141,7 @@ public:
 			return Fail(TEXT("Paid independent force and recovery research setup rejected"));
 		Planner->EvaluatePlan();
 		if (Production->FrontOrder != EFrontOrder::FallBack || Recovery->FrontOrder != EFrontOrder::FallBack
-			|| Recovery->ProductionBuilding != Production.Get() || OtherProduction->FrontOrder == EFrontOrder::FallBack)
+			|| Recovery->GetProductionBuilding() != Production.Get() || OtherProduction->FrontOrder == EFrontOrder::FallBack)
 			return Fail(TEXT("Real damage must retreat only the injured force's owning producer without detaching it"));
 		Planner->SetActorTickEnabled(false); // Explicit evaluations below observe natural return and repair ticks.
 		Stage = 3;

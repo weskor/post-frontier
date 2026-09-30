@@ -84,7 +84,7 @@ namespace
 			if (!Level) continue;
 			for (const AActor* Actor : Level->Actors)
 				if (const AArmyGroup* Group = Cast<AArmyGroup>(Actor); IsValid(Group))
-					Index = FMath::Max(Index, Group->ArmyIndex + 1);
+					Index = FMath::Max(Index, Group->GetArmyIndex() + 1);
 		}
 		return Index;
 	}
@@ -109,19 +109,14 @@ bool ACommandBuilding::SetProduction(int32 UnitIndex, bool bEnabled)
 		AArmyGroup* Group = GetWorld()->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 			ControllerOwner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (!Group) return false;
-		Group->TeamIndex = TeamIndex;
-		Group->bOpposingArmy = TeamIndex == 5;
-		Group->OwningPlayerState = OwningPlayerState;
-		Group->ArmyIndex = NextArmyIndex(*GetWorld());
-		Group->ProductionBuilding = this;
-		Group->HomeLocation = Assembly;
+		Group->Initialize({TeamIndex, OwningPlayerState.Get(), NextArmyIndex(*GetWorld()), this, Assembly});
 		Group->FinishSpawning(Transform);
 		bool bAcceptedFront = false;
 		if (IsValid(Group))
 		{
 			do
 			{
-				Group->HomeLocation = Assembly;
+				Group->SetAssemblyLocation(Assembly);
 				bAcceptedFront = Group->AssignFront(FrontOrder, bHasConfiguredFront ? FrontLocation : Assembly);
 			}
 			while (!bAcceptedFront && FindExit(*this, Assembly, ExitCursor));
@@ -170,10 +165,10 @@ void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) co
 {
 	OutJoined = OutTravelling = 0;
 	if (!IsValid(ForceGroup)) return;
-	for (const AArmyUnit* Unit : ForceGroup->Units)
+	for (const AArmyUnit* Unit : ForceGroup->GetUnits())
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-		if (Unit->bReinforcing) ++OutTravelling;
+		if (Unit->IsReinforcing()) ++OutTravelling;
 		else ++OutJoined;
 	}
 }
@@ -212,13 +207,7 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 	// only this new candidate; the persistent force and prior members are untouched.
 	if (!TrySpend(GetProductionCost()))
 	{
-		AArmyUnit* Candidate = ForceGroup->Units.Pop(EAllowShrinking::No);
-		if (IsValid(Candidate))
-		{
-			if (AController* Controller = Candidate->GetController()) Controller->Destroy();
-			Candidate->Destroy();
-		}
-		ForceGroup->ForceNetUpdate();
+		ForceGroup->RollbackLastReinforcement();
 		return;
 	}
 	ProductionProgressSeconds = 0.f;

@@ -54,15 +54,15 @@ struct FDoctrineActors
 		if (!ArmyTestSetup::CombatActors(InWorld)) return false;
 		for (TActorIterator<AArmyGroup> It(InWorld); It; ++It)
 		{
-			if (It->bOpposingArmy) Enemy = *It;
-			else if (It->GetOwner() == Controller.Get() && It->ArmyIndex >= 0 && It->ArmyIndex < 2)
-				Armies[It->ArmyIndex] = *It;
+			if (It->IsOpposingArmy()) Enemy = *It;
+			else if (It->GetOwner() == Controller.Get() && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
+				Armies[It->GetArmyIndex()] = *It;
 		}
 		State = InWorld->GetGameState<ACommandGameState>();
 		Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 		return State.IsValid() && Wallet.IsValid() && Enemy.IsValid()
 			&& Armies[0].IsValid() && Armies[1].IsValid()
-			&& Armies[0]->Units.Num() == 6 && Armies[1]->Units.Num() == 6 && Enemy->Units.Num() == 6;
+			&& Armies[0]->GetUnits().Num() == 6 && Armies[1]->GetUnits().Num() == 6 && Enemy->GetUnits().Num() == 6;
 	}
 
 	void IsolatePlanner() const
@@ -113,10 +113,28 @@ protected:
 		Shooter->SetActorLocation(Target->GetActorLocation() + FVector(90.f, 0.f, 0.f),
 			false, nullptr, ETeleportType::TeleportPhysics);
 		Shooter->NextAttackTime = 0.f;
-		const int32 Before = Target->Health;
+		const int32 Before = Target->GetHealth();
 		Shooter->FireAt(Target);
 		Shooter->SetActorLocation(Old, false, nullptr, ETeleportType::TeleportPhysics);
-		return Before - Target->Health;
+		return Before - Target->GetHealth();
+	}
+
+	int32 WeaponHitFresh(AArmyUnit* Shooter, const AArmyUnit* Equivalent) const
+	{
+		const AArmyGroup* Source = Equivalent->GetGroup();
+		AArmyGroup* Fixture = ArmyTestSetup::SpawnGroup(Actors.World.Get(),
+			Cast<ACommandPlayerController>(Source->GetOwner()), Source->GetArmyIndex(), Source->GetHomeLocation());
+		if (!Fixture) return 0;
+		if (Source->bAutomaticFront && !Fixture->AssignFront(Source->FrontOrder, Fixture->GetCenter()))
+		{
+			Fixture->Destroy();
+			return 0;
+		}
+		AArmyUnit* Target = Fixture->GetUnits()[Equivalent->GetCompositionSlot()];
+		Target->SetActorLocation(Equivalent->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+		const int32 Damage = Target->GetDefinition() == Equivalent->GetDefinition() ? WeaponHit(Shooter, Target) : 0;
+		Fixture->Destroy(); // EndPlay destroys every fixture member and its AI controller.
+		return Damage;
 	}
 
 	FAutomationTestBase* Test;
@@ -134,29 +152,28 @@ public:
 private:
 	bool Step(double Now) override
 	{
-		AArmyUnit* Siege = Actors.Armies[0]->Units[4];
-		AArmyUnit* OtherSiege = Actors.Armies[1]->Units[4];
-		AArmyUnit* EnemySiege = Actors.Enemy->Units[4];
-		AArmyUnit* Victim = Actors.Enemy->Units[0];
-		const float BaseRange = Siege->Definition->Range;
-		if (!Check(Siege->Definition == OtherSiege->Definition
-			&& Siege->Definition == EnemySiege->Definition,
+		AArmyUnit* Siege = Actors.Armies[0]->GetUnits()[4];
+		AArmyUnit* OtherSiege = Actors.Armies[1]->GetUnits()[4];
+		AArmyUnit* EnemySiege = Actors.Enemy->GetUnits()[4];
+		AArmyUnit* Victim = Actors.Enemy->GetUnits()[0];
+		const float BaseRange = Siege->GetDefinition()->Range;
+		if (!Check(Siege->GetDefinition() == OtherSiege->GetDefinition()
+			&& Siege->GetDefinition() == EnemySiege->GetDefinition(),
 			TEXT("All siege roles share the unmodified base asset"))) return true;
 		const FVector Original = Victim->GetActorLocation();
 		const int32 WalletBefore = Actors.Wallet->Resources;
 		const float ProbeRange = BaseRange * 1.125f;
 		Victim->SetActorLocation(Siege->GetActorLocation() + FVector(ProbeRange, 0.f, 0.f),
 			false, nullptr, ETeleportType::TeleportPhysics);
-		const int32 Outside = Victim->Health;
+		const int32 Outside = Victim->GetHealth();
 		const uint32 BeforeShots = Siege->AttackCount;
 		Siege->NextAttackTime = 0.f;
 		Siege->FireAt(Victim);
-		if (!Check(Victim->Health == Outside && Siege->AttackCount == BeforeShots,
+		if (!Check(Victim->GetHealth() == Outside && Siege->AttackCount == BeforeShots,
 			TEXT("Unchosen siege cannot hit at the future optics-only range"))) return true;
 		Victim->SetActorLocation(Original, false, nullptr, ETeleportType::TeleportPhysics);
-		const int32 BaseDamage = WeaponHit(Siege, Victim);
+		const int32 BaseDamage = WeaponHitFresh(Siege, Victim);
 		if (!Check(BaseDamage > 0, TEXT("Unchosen siege inflicts actual weapon damage"))) return true;
-		Victim->Health = Victim->MaxHealth(); // Keep the same live target for comparable shots.
 		ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::None);
 		ArmyTestSetup::Research(Actors.Controller.Get(), static_cast<EArmyDoctrine>(255));
 		if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::None && Actors.Wallet->Resources == WalletBefore,
@@ -171,7 +188,7 @@ private:
 		if (!Check(FMath::IsNearlyEqual(Siege->WeaponRange(), BaseRange * 1.25f)
 			&& FMath::IsNearlyEqual(OtherSiege->WeaponRange(), BaseRange * 1.25f)
 			&& FMath::IsNearlyEqual(EnemySiege->WeaponRange(), BaseRange)
-			&& FMath::IsNearlyEqual(Siege->Definition->Range, BaseRange),
+			&& FMath::IsNearlyEqual(Siege->GetDefinition()->Range, BaseRange),
 			TEXT("Both owned armies inherit optics; hostile siege and shared asset remain unchanged"))) return true;
 		// A second controller has its own PlayerState and an actual six-unit group.
 		// Sharing team and DataAsset must not share this player's doctrine.
@@ -185,13 +202,10 @@ private:
 		AArmyGroup* Ally = Actors.World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(),
 			AllyTransform, Teammate, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (!Check(Ally, TEXT("Second player's owned group spawns"))) return true;
-		Ally->HomeLocation = AllyTransform.GetLocation();
-		Ally->TeamIndex = 0;
-		Ally->OwningPlayerState = TeammateWallet;
-		Ally->ArmyIndex = 0;
+		Ally->Initialize({0, TeammateWallet, 0, nullptr, AllyTransform.GetLocation()});
 		Ally->FinishSpawning(AllyTransform);
-		if (!Check(Ally->SpawnUnits() && Ally->Units.Num() == 6 && TeammateWallet->Doctrine == EArmyDoctrine::None
-			&& FMath::IsNearlyEqual(Ally->Units[4]->WeaponRange(), BaseRange),
+		if (!Check(Ally->SpawnUnits() && Ally->GetUnits().Num() == 6 && TeammateWallet->Doctrine == EArmyDoctrine::None
+			&& FMath::IsNearlyEqual(Ally->GetUnits()[4]->WeaponRange(), BaseRange),
 			TEXT("Other player's same-team siege does not inherit optics"))) return true;
 		const int32 TeammateBalance = TeammateWallet->Resources;
 		ArmyTestSetup::Research(Teammate, EArmyDoctrine::FieldRepairs);
@@ -199,32 +213,30 @@ private:
 			&& Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics
 			&& TeammateWallet->Resources == TeammateBalance - ACommandBuilding::ResearchCost
 			&& Actors.Wallet->Resources == WalletBefore - ACommandBuilding::ResearchCost
-			&& FMath::IsNearlyEqual(Ally->Units[4]->WeaponRange(), BaseRange)
+			&& FMath::IsNearlyEqual(Ally->GetUnits()[4]->WeaponRange(), BaseRange)
 			&& FMath::IsNearlyEqual(Siege->WeaponRange(), BaseRange * 1.25f),
 			TEXT("Another player's choice and wallet remain independent on a shared team"))) return true;
-		Victim->SetActorLocation(Ally->Units[4]->GetActorLocation() + FVector(ProbeRange, 0.f, 0.f),
+		Victim->SetActorLocation(Ally->GetUnits()[4]->GetActorLocation() + FVector(ProbeRange, 0.f, 0.f),
 			false, nullptr, ETeleportType::TeleportPhysics);
-		const uint32 AllyShots = Ally->Units[4]->AttackCount;
-		Ally->Units[4]->NextAttackTime = 0.f;
-		Ally->Units[4]->FireAt(Victim);
-		if (!Check(Ally->Units[4]->AttackCount == AllyShots,
+		const uint32 AllyShots = Ally->GetUnits()[4]->AttackCount;
+		Ally->GetUnits()[4]->NextAttackTime = 0.f;
+		Ally->GetUnits()[4]->FireAt(Victim);
+		if (!Check(Ally->GetUnits()[4]->AttackCount == AllyShots,
 			TEXT("Unchosen teammate cannot land an optics-only siege hit"))) return true;
 		Victim->SetActorLocation(Original, false, nullptr, ETeleportType::TeleportPhysics);
 		Victim->SetActorLocation(Siege->GetActorLocation() + FVector(ProbeRange, 0.f, 0.f),
 			false, nullptr, ETeleportType::TeleportPhysics);
 		Siege->NextAttackTime = 0.f;
 		const uint32 Shots = Siege->AttackCount;
-		const int32 Before = Victim->Health;
+		const int32 Before = Victim->GetHealth();
 		Siege->FireAt(Victim);
-		if (!Check(Siege->AttackCount == Shots + 1 && Victim->Health < Before,
+		if (!Check(Siege->AttackCount == Shots + 1 && Victim->GetHealth() < Before,
 			TEXT("Optics siege lands a real hit beyond its former range"))) return true;
 		Victim->SetActorLocation(Original, false, nullptr, ETeleportType::TeleportPhysics);
-		Victim->Health = Victim->MaxHealth();
-		const int32 OpticsDamage = WeaponHit(Siege, Victim);
+		const int32 OpticsDamage = WeaponHitFresh(Siege, Victim);
 		if (!Check(OpticsDamage > 0 && OpticsDamage < BaseDamage,
 			TEXT("Optics trades actual outgoing siege weapon damage for range"))) return true;
-		Victim->Health = Victim->MaxHealth();
-		if (!Check(WeaponHit(OtherSiege, Victim) == OpticsDamage,
+		if (!Check(WeaponHitFresh(OtherSiege, Victim) == OpticsDamage,
 			TEXT("Second owned army applies the same outgoing damage tradeoff"))) return true;
 		AHeadquarters* HQ = Actors.State->EnemyHeadquarters;
 		if (!Check(IsValid(HQ) && HQ->IsAlive(), TEXT("Live hostile HQ exists for optics hit"))) return true;
@@ -239,12 +251,11 @@ private:
 		if (!Check(HQ->Health == HQBefore - OpticsDamage && HQ->IsAlive(),
 			TEXT("Optics siege range and reduced damage also hit a real hostile HQ"))) return true;
 		AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
-		AArmyUnit* Replacement = Later ? Later->Units[4].Get() : nullptr;
+		AArmyUnit* Replacement = Later ? Later->GetUnits()[4].Get() : nullptr;
 		if (!Check(Replacement && Replacement->IsAlive()
 			&& FMath::IsNearlyEqual(Replacement->WeaponRange(), BaseRange * 1.25f),
 			TEXT("Units created after research inherit the owner effect without changing the asset"))) return true;
-		Victim->Health = Victim->MaxHealth();
-		if (!Check(WeaponHit(Replacement, Victim) == OpticsDamage,
+		if (!Check(WeaponHitFresh(Replacement, Victim) == OpticsDamage,
 			TEXT("Replacement siege fires with the same reduced real weapon damage"))) return true;
 		Test->AddInfo(TEXT("Optics: real extended unit/HQ hits, outgoing damage tradeoff, existing and later units, paid irreversible research, owner isolation."));
 		return true;
@@ -258,28 +269,28 @@ public:
 private:
 	bool Step(double Now) override
 	{
-		AArmyUnit* Patient = Actors.Armies[0]->Units[0];
-		AArmyUnit* Other = Actors.Armies[1]->Units[0];
-		AArmyUnit* Attacker = Actors.Enemy->Units[0];
+		AArmyUnit* Patient = ClampPatient.IsValid() ? ClampPatient.Get() : Actors.Armies[0]->GetUnits()[0].Get();
+		AArmyUnit* Other = Actors.Armies[1]->GetUnits()[0];
+		AArmyUnit* Attacker = Actors.Enemy->GetUnits()[0];
 		if (Stage == 0)
 		{
 			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::FieldRepairs);
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::FieldRepairs,
 				TEXT("FieldRepairs choice accepted for the owning player"))) return true;
-			Patient->Health = Patient->MaxHealth() - 55;
-			Other->Health = Other->MaxHealth() - 55;
+			Patient->ReceiveAttack(55, Attacker);
+			Other->ReceiveAttack(55, Attacker);
 			// Damage is an interrupt and the unselected second owned army also inherits healing.
 			if (!Check(WeaponHit(Attacker, Patient) > 0 && WeaponHit(Attacker, Other) > 0,
 				TEXT("Actual hostile weapon damages both owned army members"))) return true;
-			Expected = Patient->Health;
-			OtherExpected = Other->Health;
+			Expected = Patient->GetHealth();
+			OtherExpected = Other->GetHealth();
 			Next(1, Now);
 			return false;
 		}
 		if (Stage == 1)
 		{
 			if (!After(Now, 4.7)) return false;
-			if (!Check(Patient->Health == Expected && Other->Health == OtherExpected,
+			if (!Check(Patient->GetHealth() == Expected && Other->GetHealth() == OtherExpected,
 				TEXT("Both stationary armies wait five uninterrupted seconds before healing"))) return true;
 			Next(2, Now);
 			return false;
@@ -287,24 +298,24 @@ private:
 		if (Stage == 2)
 		{
 			if (!After(Now, 1.2)) return false;
-			if (!Check(Patient->Health > Expected && Other->Health > OtherExpected
-				&& Patient->Health <= Patient->MaxHealth() && Other->Health <= Other->MaxHealth(),
+			if (!Check(Patient->GetHealth() > Expected && Other->GetHealth() > OtherExpected
+				&& Patient->GetHealth() <= Patient->MaxHealth() && Other->GetHealth() <= Other->MaxHealth(),
 				TEXT("Both owned armies gain real bounded health after the stationary delay"))) return true;
-			Expected = Patient->Health;
+			Expected = Patient->GetHealth();
 			if (!Check(WeaponHit(Attacker, Patient) > 0,
 				TEXT("Hostile weapon interrupts ongoing repairs"))) return true;
-			Expected = Patient->Health;
+			Expected = Patient->GetHealth();
 			Next(3, Now);
 			return false;
 		}
 		if (Stage == 3)
 		{
 			if (!After(Now, 3.0)) return false;
-			if (!Check(Patient->Health == Expected,
+			if (!Check(Patient->GetHealth() == Expected,
 				TEXT("Taking damage resets repairs and cannot spend banked healing"))) return true;
 			// Firing a real frontline weapon is a separate interrupt.
-			const int32 EnemyBefore = Attacker->Health;
-			if (!Check(WeaponHit(Patient, Attacker) > 0 && Attacker->Health < EnemyBefore,
+			const int32 EnemyBefore = Attacker->GetHealth();
+			if (!Check(WeaponHit(Patient, Attacker) > 0 && Attacker->GetHealth() < EnemyBefore,
 				TEXT("Repairing frontline fires an actual hostile-damaging shot"))) return true;
 			Next(4, Now);
 			return false;
@@ -312,7 +323,7 @@ private:
 		if (Stage == 4)
 		{
 			if (!After(Now, 4.7)) return false;
-			if (!Check(Patient->Health == Expected,
+			if (!Check(Patient->GetHealth() == Expected,
 				TEXT("Firing also restarts the full five-second quiet interval"))) return true;
 			Next(5, Now);
 			return false;
@@ -320,12 +331,12 @@ private:
 		if (Stage == 5)
 		{
 			if (!After(Now, 1.3)) return false;
-			if (!Check(Patient->Health > Expected, TEXT("Repairs resume after five seconds without fire"))) return true;
-			Patient->Health = Patient->MaxHealth() - 20;
-			Expected = Patient->Health;
+			if (!Check(Patient->GetHealth() > Expected, TEXT("Repairs resume after five seconds without fire"))) return true;
+			Patient->ReceiveAttack(20, Attacker);
+			Expected = Patient->GetHealth();
 			StartPosition = Patient->GetActorLocation();
 			Actors.Controller->ServerIssueOrder(Actors.Armies[0].Get(), EArmyOrder::Move,
-				Actors.Armies[0]->HomeLocation + FVector(0.f, -1700.f, 0.f));
+				Actors.Armies[0]->GetHomeLocation() + FVector(0.f, -1700.f, 0.f));
 			if (!Check(Actors.Armies[0]->Order == EArmyOrder::Move,
 				TEXT("Owned Move begins an actual navigation interruption"))) return true;
 			Next(6, Now);
@@ -336,7 +347,7 @@ private:
 			if (!After(Now, 2.)) return false;
 			if (!Check(FVector::Dist2D(Patient->GetActorLocation(), StartPosition) > 100.f
 				&& Patient->GetVelocity().SizeSquared2D() > FMath::Square(1.f)
-				&& Patient->Health == Expected,
+				&& Patient->GetHealth() == Expected,
 				TEXT("Navigating member remains in motion without healing before Hold"))) return true;
 			Actors.Controller->ServerIssueOrder(Actors.Armies[0].Get(), EArmyOrder::Hold, FVector::ZeroVector);
 			if (!Check(Actors.Armies[0]->Order == EArmyOrder::Hold,
@@ -347,7 +358,7 @@ private:
 		if (Stage == 7)
 		{
 			if (!After(Now, 4.7)) return false;
-			if (!Check(Patient->Health == Expected,
+			if (!Check(Patient->GetHealth() == Expected,
 				TEXT("Movement interruption cannot bank healing across the subsequent Hold"))) return true;
 			Next(8, Now);
 			return false;
@@ -355,9 +366,12 @@ private:
 		if (Stage == 8)
 		{
 			if (!After(Now, 1.4)) return false;
-			if (!Check(Patient->Health > Expected && Patient->Health <= Patient->MaxHealth(),
+			if (!Check(Patient->GetHealth() > Expected && Patient->GetHealth() <= Patient->MaxHealth(),
 				TEXT("Stationary survivor recovers after the new complete delay"))) return true;
-			Patient->Health = Patient->MaxHealth() - 1;
+			// Use an equivalent untouched group member for the near-max clamp probe.
+			Patient = Actors.Armies[0]->GetUnits()[1];
+			ClampPatient = Patient;
+			Patient->ReceiveAttack(1, Attacker);
 			WeaponHit(Attacker, Patient);
 			Next(9, Now);
 			return false;
@@ -365,15 +379,15 @@ private:
 		if (Stage == 9)
 		{
 			if (!After(Now, 8.)) return false;
-			if (!Check(Patient->Health == Patient->MaxHealth()
-				&& Other->Health == Other->MaxHealth(),
+			if (!Check(Patient->GetHealth() == Patient->MaxHealth()
+				&& Other->GetHealth() == Other->MaxHealth(),
 				TEXT("Continuous repairs clamp both living units to max health, never overflow"))) return true;
-			Patient->ReceiveAttack(Patient->Health, Attacker);
-			if (!Check(!Patient->IsAlive() && !Actors.Armies[0]->Units.Contains(Patient),
+			Patient->ReceiveAttack(Patient->GetHealth(), Attacker);
+			if (!Check(!Patient->IsAlive() && !Actors.Armies[0]->GetUnits().Contains(Patient),
 				TEXT("Lethal damage removes a patient; FieldRepairs cannot resurrect it"))) return true;
-			Other->Health = Other->MaxHealth() - 20;
+			Other->ReceiveAttack(20, Attacker);
 			AHeadquarters* HQ = Actors.State->EnemyHeadquarters;
-			AArmyUnit* Siege = Actors.Armies[1]->Units[4];
+			AArmyUnit* Siege = Actors.Armies[1]->GetUnits()[4];
 			if (!Check(IsValid(HQ) && Siege->IsAlive(),
 				TEXT("Live HQ and allied siege are available for terminal healing check"))) return true;
 			HQ->Health = 1;
@@ -392,14 +406,14 @@ private:
 			if (Actors.State->MatchResult == EMatchResult::Ongoing) return false;
 			if (!Check(Actors.State->MatchResult == EMatchResult::Victory,
 				TEXT("HQ weapon hit publishes terminal Victory"))) return true;
-			OtherExpected = Other->Health;
+			OtherExpected = Other->GetHealth();
 			Next(11, Now);
 			return false;
 		}
 		if (Stage == 11)
 		{
 			if (!After(Now, 6.)) return false;
-			if (!Check(Other->Health == OtherExpected && OtherExpected < Other->MaxHealth(),
+			if (!Check(Other->GetHealth() == OtherExpected && OtherExpected < Other->MaxHealth(),
 				TEXT("Terminal match blocks healing even after an uninterrupted six seconds"))) return true;
 			Test->AddInfo(TEXT("Repairs: five-second delay, health gain in both armies, damage/fire/movement resets, no banking, max cap, no resurrection or terminal healing."));
 			return true;
@@ -409,6 +423,7 @@ private:
 	int32 Expected = 0;
 	int32 OtherExpected = 0;
 	FVector StartPosition = FVector::ZeroVector;
+	TWeakObjectPtr<AArmyUnit> ClampPatient;
 };
 
 class FFrontlineScenario final : public FDoctrineScenario
@@ -418,15 +433,13 @@ public:
 private:
 	bool Step(double Now) override
 	{
-		AArmyUnit* Held = Actors.Armies[0]->Units[0];
-		AArmyUnit* Moving = Actors.Armies[1]->Units[0];
-		AArmyUnit* Enemy = Actors.Enemy->Units[0];
+		AArmyUnit* Held = Actors.Armies[0]->GetUnits()[0];
+		AArmyUnit* Moving = Actors.Armies[1]->GetUnits()[0];
+		AArmyUnit* Enemy = Actors.Enemy->GetUnits()[0];
 		if (Stage == 0)
 		{
-			const int32 Baseline = WeaponHit(Enemy, Held);
+			const int32 Baseline = WeaponHitFresh(Enemy, Held);
 			if (!Check(Baseline > 0, TEXT("Hostile real weapon establishes unchosen frontline damage"))) return true;
-			Held->Health = Held->MaxHealth();
-			Moving->Health = Moving->MaxHealth();
 			ArmyTestSetup::Research(Actors.Controller.Get(), EArmyDoctrine::EntrenchedFrontline);
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::EntrenchedFrontline,
 				TEXT("EntrenchedFrontline is the player's irreversible choice"))) return true;
@@ -437,17 +450,16 @@ private:
 			if (!Check(Protected == Baseline * 3 / 4 && Actors.Armies[0]->bAutomaticFront
 				&& Held->GetCharacterMovement()->Velocity.Size2D() <= 1.f,
 				TEXT("Stationary Defend frontline takes exactly 25 percent less real weapon damage"))) return true;
-			const int32 OtherProtected = WeaponHit(Enemy, Moving);
+			const int32 OtherProtected = WeaponHitFresh(Enemy, Moving);
 			if (!Check(OtherProtected == Protected && Actors.Armies[1]->bAutomaticFront,
 				TEXT("Second owned Defend army gains identical protection"))) return true;
-			AArmyUnit* Ranged = Actors.Armies[0]->Units[2];
-			if (!Check(Ranged->UnitRole == EUnitRole::Ranged
+			AArmyUnit* Ranged = Actors.Armies[0]->GetUnits()[2];
+			if (!Check(Ranged->GetUnitRole() == EUnitRole::Ranged
 				&& WeaponHit(Enemy, Ranged) == Baseline,
 				TEXT("Stationary Defend ranged units do not inherit frontline-only mitigation"))) return true;
-			Moving->Health = Moving->MaxHealth();
 			Start = Moving->GetActorLocation();
 			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::Defend,
-				Actors.Armies[1]->HomeLocation + FVector(0.f, 650.f, 0.f)),
+				Actors.Armies[1]->GetHomeLocation() + FVector(0.f, 650.f, 0.f)),
 				TEXT("Second army can travel to a new Defend front"))) return true;
 			BaseDamage = Baseline;
 			Next(1, Now);
@@ -460,7 +472,7 @@ private:
 				TEXT("Frontline traveling to its Defend front actually changes position"))) return true;
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 				TEXT("Moving frontline takes full real weapon damage despite chosen doctrine"))) return true;
-			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::FallBack, Actors.Armies[1]->HomeLocation)
+			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::FallBack, Actors.Armies[1]->GetHomeLocation())
 				&& Actors.Armies[1]->Order == EArmyOrder::Retreat,
 				TEXT("Fall Back replaces the traveling Defend front"))) return true;
 			Start = Moving->GetActorLocation();
@@ -475,7 +487,7 @@ private:
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 				TEXT("Fall Back cannot obtain stationary Defend protection"))) return true;
 			AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
-			LaterFrontline = Later ? Later->Units[0].Get() : nullptr;
+			LaterFrontline = Later ? Later->GetUnits()[0].Get() : nullptr;
 			if (!Check(LaterFrontline.IsValid(), TEXT("New frontline exists after research"))) return true;
 			if (!Check(Later->AssignFront(EFrontOrder::Defend, Later->GetCenter()),
 				TEXT("New squad adopts Defend after research"))) return true;
@@ -486,10 +498,9 @@ private:
 		{
 			if (!After(Now, .5)) return false;
 			AArmyUnit* Replacement = LaterFrontline.Get();
-			if (!Check(Replacement && WeaponHit(Enemy, Replacement) == BaseDamage * 3 / 4,
+			if (!Check(Replacement && WeaponHitFresh(Enemy, Replacement) == BaseDamage * 3 / 4,
 				TEXT("New stationary Defend frontline inherits protection against a real shot"))) return true;
-			Replacement->Health = Replacement->MaxHealth();
-			if (!Check(Replacement->Group->AssignFront(EFrontOrder::Secure, Replacement->Group->GetCenter())
+			if (!Check(Replacement->GetGroup()->AssignFront(EFrontOrder::Secure, Replacement->GetGroup()->GetCenter())
 				&& WeaponHit(Enemy, Replacement) == BaseDamage,
 				TEXT("Stationary Secure frontline does not receive Defend mitigation"))) return true;
 			Test->AddInfo(TEXT("Entrenched: stationary Defend mitigates real hits; traveling, retreating and Secure members do not; later units inherit."));
@@ -516,7 +527,7 @@ private:
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics,
 				TEXT("Old match owns a selected doctrine before the HQ assault"))) return true;
 			AHeadquarters* HQ = Actors.State->EnemyHeadquarters;
-			AArmyUnit* Siege = Actors.Armies[0]->Units[4];
+			AArmyUnit* Siege = Actors.Armies[0]->GetUnits()[4];
 			if (!Check(IsValid(HQ) && Siege->IsAlive(), TEXT("Real siege and enemy HQ are available"))) return true;
 			HQ->Health = 1; // Only the weapon, never the setup, delivers the lethal hit.
 			Siege->SetActorLocation(HQ->GetActorLocation() + FVector(150.f, 0.f, 0.f),
@@ -554,7 +565,7 @@ private:
 			if (!Check(FreshState->MatchResult == EMatchResult::Ongoing && FreshWallet->Doctrine == EArmyDoctrine::None,
 				TEXT("Fresh world clears the purchased research"))) return true;
 			for (TActorIterator<AArmyGroup> It(FreshWorld); It; ++It)
-				if (!Check(It->OwningPlayerState != FreshWallet, TEXT("Restart does not recreate fixed player armies"))) return true;
+				if (!Check(It->GetOwningPlayerState() != FreshWallet, TEXT("Restart does not recreate fixed player armies"))) return true;
 			ArmyTestSetup::Research(FreshController, EArmyDoctrine::FieldRepairs);
 			if (!Check(FreshWallet->Doctrine == EArmyDoctrine::FieldRepairs,
 				TEXT("Fresh match permits a different paid workshop specialization"))) return true;
