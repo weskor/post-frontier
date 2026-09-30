@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Barracks under construction</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const head = H.header('BARRACKS · DRILL SHED', H.ownerLine('your building'), { hp:[210,500],
+  status:'<span class="pill" style="--pc:var(--warn)">UNDER CONSTRUCTION</span>' });
+const body = '<div class="row" style="gap:12px;align-items:flex-start"><div class="col" style="width:112px;align-items:center"><div class="pframe" style="width:112px;height:112px;--kc:var(--warn)"><img src="'+H.bldPic('SM_Construction_Barracks')+'"></div></div>'
+ + '<div class="col" style="flex:1;gap:7px"><div class="row" style="height:12px"><span class="h3">CONSTRUCTION</span><span class="sp"></span><span class="warn-c" style="font:500 10.5px var(--f-body)">Bolting it together…</span></div>'
+ + '<div class="bar" style="height:20px;--c:var(--k-barracks)"><i style="width:42%"></i><b style="font-size:10.5px">42%  ·  7s remaining</b></div>'
+ + '<div class="kv" style="margin-top:6px"><span class="k">NEXT</span><span>When complete: choose a permanent force type, Start and set a front.</span></div>'
+ + '<div class="kv"><span class="k">REFUND</span><span class="muted">Cancelling returns the unbuilt share: <b class="gold" style="font-weight:500">127</b></span></div></div></div>';
+const cells = [null,null,null,null,null,null,null,null,null,null,{g:'cancel',hk:'Esc',lb:'Cancel build',span:2,state:'warn'}, null];
+cells.splice(11,1);
+H.mount(
+  H.top({ power:388, income:10, sectors:['captured','neutral','neutral'], army:'0 units', spec:'None', team:['C1'] })
+  + H.minimap({ dots:[], sectors:[['30','118','var(--amber)'],['68','150','#5a6a7b'],['120','78','#5a6a7b']] })
+  + H.construct({ stash:388 })
+  + H.info(head + body) + H.card(cells), '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-west-scrapyard.png');
+
+</script>

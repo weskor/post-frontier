@@ -1,0 +1,70 @@
+<!doctype html><meta charset="utf-8"><title>HUD style sheet</title><link rel="stylesheet" href="hud.css">
+<style>
+.stage { background: radial-gradient(ellipse at 30% 20%, #14202c 0, #080d13 70%); }
+.sw { display:flex; align-items:center; gap:6px; height:22px; font: 400 9.5px/11px var(--f-body); color: var(--text-2); }
+.sw i { width:30px; height:18px; border:1px solid #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); flex:none; }
+.sw b { display:block; font: 700 9px/10px var(--f-head); letter-spacing:.08em; color: var(--text); text-transform: uppercase; }
+.sec { position:absolute; }
+.cap { font: 700 10px/12px var(--f-head); letter-spacing:.16em; color: var(--text-3); text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #1c2733; padding-bottom: 3px; }
+.tile { display:flex; flex-direction:column; align-items:center; gap:5px; font: 700 9px var(--f-head); letter-spacing:.08em; color:var(--text-3); text-transform: uppercase; }
+</style>
+<body><div class="stage"></div><script src="hud.js"></script><script>
+const H = HUD;
+const sw = (n, hex, v) => `<div class="sw"><i style="background:${hex}"></i><span><b>${n}</b>${hex}</span></div>`;
+const group = (title, list) => `<div style="margin-bottom:8px"><div class="cap">${title}</div><div style="display:grid;grid-template-columns:1fr 1fr;column-gap:10px">${list.map(a => sw(...a)).join('')}</div></div>`;
+const colours =
+  group('Offline · surfaces', [['void','#05080c'],['panel','#0b1118'],['steel-900','#10161d'],['steel-800','#1a222c'],['steel-700','#26303b'],['steel-600','#354250'],['steel-500','#4a5a6b'],['steel-400','#6d8094'],['steel-300','#93a6b9']])
++ group('Text', [['text','#e9eff6'],['text-2','#a9b8c8'],['text-3','#74869a'],['text-off','#4b596a']])
++ group('Signal', [['hazard','#ffc21a'],['amber / warn','#ffb02e'],['gold (cost)','#ffd166'],['ok','#5fe07a'],['bad','#ff5442']])
++ group('Player (trim)', [['team-1 blue','#38bbff'],['team-2 yellow','#ffdd38'],['team-3 green','#6fed89'],['team-4 violet','#d389ff'],['team-5 teal','#38ede7']])
++ group('Machine', [['pearl','#eaf1f6'],['cyan','#6be6ff'],['lens red','#ff3b30'],['m-panel','#06121a']]);
+const colours2 =
+  group('Building kinds', [['barracks','#ff9440'],['outpost','#66e68c'],['workshop','#b885ff']])
++ group('Force types', [['frontline','#ffb454'],['ranged','#6ee7b7'],['siege','#c4a1ff']])
++ group('Fronts', [['secure','#ff5c4d'],['defend','#61eb7a'],['fall back','#ffdb52']]);
+const type = [
+  ['Banner  ·  72 cond bold  ·  +14% track', '<span style="font:700 40px/42px var(--f-head);letter-spacing:.14em">VICTORY</span>'],
+  ['Panel title (H2)  ·  15 cond bold  ·  +7%', '<span class="h2">BARRACKS · DRILL SHED</span>'],
+  ['Section label (H3)  ·  10 cond bold  ·  +12%', '<span class="h3">ROSTER  ·  LUDDITE ×6</span>'],
+  ['Numeral (big)  ·  22 cond bold', '<span class="big gold">960</span> <span class="ok" style="font:500 11px var(--f-body)">+16/s</span>'],
+  ['Body  ·  11 sans regular', '<span style="font:400 11px var(--f-body)">Build inside the Bunker ring or a sector with a finished Tap Point.</span>'],
+  ['Value  ·  13 sans medium, tabular', '<span class="num">17 units · 3 forces</span>'],
+  ['Caption  ·  9.5 sans regular (minimum)', '<span class="faint" style="font:400 9.5px var(--f-body)">click an empty slot to reinforce</span>'],
+  ['Command label  ·  8.5 cond bold, caps', '<span style="font:700 8.5px var(--f-head);letter-spacing:.06em;color:var(--text-2)">FALL BACK</span>'],
+  ['Machine readout  ·  10.5 mono', '<span class="mono" style="font-size:10.5px;color:var(--pearl)">Thinking… Approved. By me.<span class="cursor"></span></span>'],
+].map(a => `<div style="margin-bottom:6px"><div style="font:400 8.5px var(--f-body);color:var(--text-3);margin-bottom:1px">${a[0]}</div>${a[1]}</div>`).join('');
+
+const btn = (state, label, cls, extra = {}) => `<div class="tile"><div class="btn cmd ${cls}" style="${extra.tc ? '--tc:'+extra.tc : ''}"><span class="hk">Q</span>${extra.cost ? `<span class="cost ${extra.bad ? 'bad' : ''}">${extra.cost}</span>` : ''}<span class="ico" style="${extra.ic ? '--ic:'+extra.ic : ''}">${H.g('secure')}</span><span class="lb">Secure</span></div>${label}</div>`;
+const states = [
+  btn(0, 'Normal', ''), btn(0, 'Hover', 'hover'), btn(0, 'Pressed', 'pressed'), btn(0, 'Active', 'active', {tc:'var(--f-secure)', ic:'var(--f-secure)'}),
+  btn(0, 'Disabled', 'disabled'), btn(0, 'Unaffordable', 'bad', {cost:'220', bad:true}), btn(0, 'Warning', 'warn', {ic:'var(--warn)'}),
+].join('');
+const glyphs = ['move','attack','hold','fall_back','secure','defend','build','cancel','reinforce','power','lock','pause','start','role_frontline','role_ranged','role_siege']
+  .map(n => `<div class="tile"><div class="btn cmd" style="width:52px;height:48px"><span class="ico" style="top:5px">${H.g(n)}</span></div>${n.replace('role_','').replace('_',' ')}</div>`).join('');
+
+H.mount(`
+<div class="sec" style="left:24px;top:20px;width:300px">${colours}</div>
+<div class="sec" style="left:340px;top:20px;width:300px">${colours2}
+  <div class="cap" style="margin-top:14px">Skins</div>
+  <div class="panel" style="position:relative;width:296px;height:88px;margin-bottom:8px"><div class="col" style="gap:4px"><span class="h2">OFFLINE · GUNMETAL</span><span class="muted">Bevelled steel, hazard tab, player-colour trim.</span><div class="hz" style="width:120px"></div></div></div>
+  <div class="panel machine" style="position:relative;width:296px;height:88px;margin-top:6px"><div class="col" style="gap:4px;margin:-2px"><span class="h2" style="color:var(--pearl)"><i class="lens" style="margin-right:6px"></i>MACHINE · PEARL</span><span class="muted">Curved pearl shell, cyan trim, one red lens. Enemy intel only.</span><span class="mono" style="font-size:10px;color:var(--cyan)">Thinking…<span class="cursor"></span></span></div></div>
+</div>
+<div class="sec" style="left:660px;top:20px;width:340px"><div class="cap">Type ramp @ 1400×788</div>${type}</div>
+<div class="sec" style="left:1020px;top:20px;width:356px"><div class="cap">Command-card button states</div>
+  <div style="display:grid;grid-template-columns:repeat(4,72px);gap:14px 8px">${states}</div>
+  <div class="cap" style="margin-top:20px">Bars, pills, keys</div>
+  <div class="col" style="gap:8px">
+    <div class="bar" style="width:220px;height:16px;--c:var(--ok)"><i style="width:82%"></i><b>HP  410 / 500</b></div>
+    <div class="bar" style="width:220px;height:16px;--c:var(--warn)"><i style="width:34%"></i><b>HP  170 / 500</b></div>
+    <div class="bar" style="width:220px;height:16px;--c:var(--bad)"><i style="width:12%"></i><b>HP  60 / 500</b></div>
+    <div class="bar tick" style="width:220px;--c:var(--amber)"><i style="width:62%"></i></div>
+    <div class="row" style="gap:6px"><span class="pill" style="--pc:var(--ok)">PRODUCING</span><span class="pill" style="--pc:var(--warn)">UNCONFIGURED</span><span class="pill" style="--pc:var(--text-2)">PAUSED</span><span class="pill" style="--pc:var(--bad)">BLOCKED</span></div>
+    <div class="row" style="gap:6px"><span class="key">LMB</span><span class="key">RMB / Esc</span><span class="key">F4</span><span class="key">Enter</span></div>
+    <div class="hz" style="width:220px"></div>
+  </div></div>
+<div class="sec" style="left:24px;top:560px;width:640px"><div class="cap">Roster slot states</div><div class="row" style="gap:8px;align-items:flex-start">
+  ${['joined','joined','travel','build','buy','vacant'].map((k, i) => H.slot(i, 96, {k, hp: [140,52,140,0,0,0][i], p:.55, need:5}, 'Frontline')).join('')}
+  </div><div class="row" style="gap:8px;margin-top:4px;width:640px;font:700 9px var(--f-head);letter-spacing:.08em;color:var(--text-3);text-transform:uppercase"><span style="width:96px">joined · full</span><span style="width:96px">joined · hurt</span><span style="width:96px">en route</span><span style="width:96px">building</span><span style="width:96px">reinforce</span><span style="width:96px">unaffordable</span></div></div>
+<div class="sec" style="left:690px;top:560px;width:690px"><div class="cap">Glyph set (white, tinted at draw time)</div><div style="display:grid;grid-template-columns:repeat(8,74px);gap:10px 4px">${glyphs}</div></div>
+`, 'none');
+</script>

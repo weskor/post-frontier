@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Barracks selected: Siege force, complete</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD, R = H.ROLE.Siege;
+const o = { role:'Siege', frontText:'front: <b style="color:var(--f-secure)">SECURE</b> set',
+  statusText:'FORCE COMPLETE', statusColor:'var(--ok)', rosterNote:'2 slots  ·  Siege is locked',
+  slots:[{k:'joined',hp:110},{k:'joined',hp:47}],
+  prog:{ text:'<span class="ok">Force full: no spending. Losses open replacement slots.</span>', right:'', p:1, c:'var(--ok)' } };
+o.extra = '<div class="col" style="flex:1;gap:7px;padding:4px 0 0 14px;justify-content:flex-start">'
+ + '<div class="kv"><span class="k">PER UNIT</span><span><span class="gold">'+H.g('power','font-size:10px')+' 50</span> <span class="faint">·</span> 6.7s</span></div>'
+ + '<div class="kv"><span class="k">SETUP</span><span class="muted">paid once (180). Type cannot change.</span></div>'
+ + '<div class="kv"><span class="k">FRONT</span><span><b style="color:var(--f-secure);font-weight:700;letter-spacing:.04em">SECURE</b> — Take It Offline</span></div>'
+ + '<div class="kv"><span class="k">FORCE</span><span class="ok">2 of 2 slots filled</span></div></div>';
+H.mount(
+  H.top({ power:205, income:16, sectors:['established','established','captured'], secured:2, army:'20 units · 5 forces', spec:'Siege Optics', team:['C1'] })
+  + H.minimap({ dots:[[40,110,'#4da3ff'],[46,104,'#4da3ff'],[100,84,'#ff5c4d']], sectors:[['30','118','var(--team-1)'],['68','150','var(--team-1)'],['120','78','var(--amber)']] })
+  + H.construct({ stash:205 })
+  + H.barracks(o)
+  + H.card([
+  {g:'secure',hk:'Q',lb:'Secure',state:'active',tc:'var(--f-secure)',ic:'var(--f-secure)'}, {g:'defend',hk:'W',lb:'Defend',ic:'var(--f-defend)'}, {g:'fall_back',hk:'E',lb:'Fall Back',ic:'var(--f-fallback)'}, {g:'reinforce',hk:'R',lb:'Reinforce',state:'disabled'},
+  {g:'pause',hk:'A',lb:'Pause',state:'disabled'}, null, null, null,
+  null, null, null, {g:'cancel',hk:'Esc',lb:'Cancel',state:'disabled'}]), '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-west-scrapyard.png');
+
+</script>

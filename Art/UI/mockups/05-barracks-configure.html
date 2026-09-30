@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Barracks selected: one-time permanent type choice</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const head = H.header('BARRACKS · DRILL SHED', H.ownerLine('your building'), { hp:[500,500],
+  pill:'<span class="pill" style="--pc:var(--warn)">'+H.g('lock','font-size:10px')+'CHOOSE ONCE  ·  PERMANENT</span>',
+  status:'<span class="pill" style="--pc:var(--warn)">UNCONFIGURED</span>' });
+const sel = 'Ranged';
+const body = '<div class="row" style="gap:8px">' + ['Frontline','Ranged','Siege'].map(r => H.typeCard(r, { sel })).join('') + '</div>';
+const tip = H.tooltip({ title:'START PRODUCTION · Clock In', key:'A', c:'var(--warn)', h:132,
+  body:'The first Start locks this Drill Shed as <b style="color:var(--r-ranged)">Ranged</b> for the rest of the match. It cannot be changed, and there is no level 2.',
+  foot:'Setup fee: none  ·  first unit 30', footc:'var(--text-2)' });
+const cells = [
+  {g:'role_frontline',hk:'Q',lb:'Frontline',ic:'var(--r-frontline)'}, {g:'role_ranged',hk:'W',lb:'Ranged',state:'active',tc:'var(--r-ranged)',ic:'var(--r-ranged)'}, {g:'role_siege',hk:'E',lb:'Siege',cost:'180',ic:'var(--r-siege)'}, null,
+  {g:'start',hk:'A',lb:'Start · locks Ranged',span:2,state:'hover warn',ic:'var(--ok)'}, null, null,
+  {g:'secure',hk:'Z',lb:'Secure',ic:'var(--f-secure)'}, {g:'defend',hk:'X',lb:'Defend',ic:'var(--f-defend)'}, {g:'fall_back',hk:'C',lb:'Fall Back',ic:'var(--f-fallback)'}, {g:'cancel',hk:'Esc',lb:'Cancel',state:'disabled'}];
+H.mount(
+  H.top({ power:640, income:10, sectors:['captured','neutral','neutral'], army:'0 units', spec:'None', team:['C1'] })
+  + H.minimap({ dots:[], sectors:[['30','118','var(--amber)'],['68','150','#5a6a7b'],['120','78','#5a6a7b']] })
+  + H.construct({ stash:640 })
+  + H.feedback('Select a force type, then Start. Starting locks it for this building.')
+  + H.info(head + body) + H.card(cells, tip), '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-west-scrapyard.png');
+
+</script>

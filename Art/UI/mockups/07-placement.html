@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Placement mode</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const ghost = '<div class="abs" style="left:860px;top:330px;width:170px;height:170px"><div class="abs" style="inset:0;border:2px dashed #61eb7a;background:rgba(97,235,122,.10);box-shadow:0 0 18px rgba(97,235,122,.45), inset 0 0 22px rgba(97,235,122,.25);clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,22px 100%,0 calc(100% - 22px))"></div>'
+ + '<img src="'+H.bldPic('SM_Human_Barracks')+'" style="position:absolute;left:-8px;top:-30px;width:196px;opacity:.78;filter:drop-shadow(0 0 10px rgba(97,235,122,.7))"></div>';
+const ring = '<svg class="abs" style="left:0;top:0" width="1400" height="788"><ellipse cx="700" cy="368" rx="440" ry="284" fill="none" stroke="#6be6ff" stroke-width="2" stroke-dasharray="10 8" opacity=".75"/></svg>'
+ + '<div class="abs world-text" style="left:470px;top:632px;font:700 11px var(--f-head);letter-spacing:.14em;color:#8fefff">BUNKER RING · BUILD HERE</div>';
+const collapsed = '<div class="btn" style="position:absolute;left:226px;bottom:8px;width:232px;height:40px"><div class="row" style="height:26px;gap:8px;justify-content:center"><span class="h2" style="font-size:13px">CONSTRUCT</span><span class="key">F4</span><span class="faint">▲</span></div></div>';
+H.mount(
+  H.top({ power:640, income:10, sectors:['neutral','neutral','neutral'], army:'0 units', spec:'None', team:['C1'] })
+  + ring + ghost
+  + H.minimap({ dots:[], sectors:[['30','118','#5a6a7b'],['68','150','#5a6a7b'],['120','78','#5a6a7b']] })
+  + collapsed
+  + H.modeBar({ c:'var(--k-barracks)', img:H.bldPic('SM_Human_Barracks'), title:'PLACE BARRACKS · DRILL SHED', cost:'220', time:'12s build', okc:'#61eb7a', reason:'Footprint clear  ·  inside the Bunker ring', lmb:'Place' }),
+  '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-close-bunker.png');
+
+</script>

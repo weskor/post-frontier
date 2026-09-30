@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8"><title>Barracks selected: Ranged force, producing</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const o = { role:'Ranged', frontText:'front: <b style="color:var(--f-defend)">DEFEND</b> set',
+  statusText:'PRODUCING', statusColor:'var(--ok)', rosterNote:'4 slots  ·  Ranged is locked',
+  slots:[{k:'joined',hp:90},{k:'joined',hp:58},{k:'build',p:.62},{k:'vacant',need:5}],
+  prog:{ text:'<span class="h3">BUILDING</span><span>Offline Ranger 3 of 4</span><span class="faint">·</span><span class="amber" style="color:var(--amber)">2.7 / 4.3s</span>', right:'<span class="bad-c">'+H.g('power','font-size:10px')+' 30</span><span class="faint"> per unit  ·  paid on deploy</span>', p:.62, c:'var(--amber)' } };
+const cells = [
+  {g:'secure',hk:'Q',lb:'Secure',ic:'var(--f-secure)'}, {g:'defend',hk:'W',lb:'Defend',state:'active',tc:'var(--f-defend)',ic:'var(--f-defend)'}, {g:'fall_back',hk:'E',lb:'Fall Back',ic:'var(--f-fallback)'}, {g:'reinforce',hk:'R',lb:'Reinforce',cost:'30',costBad:true,state:'bad disabled'},
+  {g:'pause',hk:'A',lb:'Pause',ic:'var(--amber)'}, null, null, null,
+  null, null, null, {g:'cancel',hk:'Esc',lb:'Cancel',state:'disabled'}];
+H.mount(
+  H.top({ power:25, income:10, sectors:['captured','neutral','neutral'], secured:0, army:'6 units · 2 forces', spec:'None', team:['C1'] })
+  + H.minimap({ dots:[[40,110,'#4da3ff'],[46,104,'#4da3ff']], sectors:[['30','118','var(--amber)'],['68','150','#5a6a7b'],['120','78','#5a6a7b']] })
+  + H.construct({ stash:25 })
+  + H.feedback('Need 5 more power: production resumes with income.', undefined, undefined, undefined, 'var(--bad)')
+  + H.barracks(o) + H.card(cells), '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-west-scrapyard.png');
+
+</script>

@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>Barracks selected: Frontline force, per-unit reinforce</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const o = { role:'Frontline', frontText:'front: <b style="color:var(--f-secure)">SECURE</b> set',
+  statusText:'PAUSED', statusColor:'var(--text-2)', rosterNote:'click an empty slot to reinforce',
+  slots:[{k:'joined',hp:140},{k:'joined',hp:97},{k:'joined',hp:140},{k:'joined',hp:44},{k:'travel',hp:140},{k:'buy',hover:true}],
+  prog:{ text:'<span class="h3">NEXT UNIT</span><span>Luddite 6 of 6</span><span class="faint">·</span><span class="muted">paused at 41%</span>', right:'<span class="gold">'+H.g('power','font-size:10px')+' 20</span><span class="faint"> per unit  ·  3.3s</span>', p:.41, c:'var(--text-3)' } };
+const cells = [
+  {g:'secure',hk:'Q',lb:'Secure',state:'active',tc:'var(--f-secure)',ic:'var(--f-secure)'}, {g:'defend',hk:'W',lb:'Defend',ic:'var(--f-defend)'}, {g:'fall_back',hk:'E',lb:'Fall Back',ic:'var(--f-fallback)'}, {g:'reinforce',hk:'R',lb:'Reinforce',cost:'20',ic:'var(--gold)',state:'hover',tc:'var(--gold)'},
+  {g:'start',hk:'A',lb:'Start',ic:'var(--ok)'}, null, null, null,
+  null, null, null, {g:'cancel',hk:'Esc',lb:'Cancel',state:'disabled'}];
+const tip = H.tooltip({ title:'REINFORCE', key:'R', c:'var(--gold)', h:118,
+  body:'Pay for every empty slot in this force. Each unit is built at the Drill Shed, then walks to the front.',
+  foot: H.g('power','font-size:10px')+' 20  ·  1 open slot  ·  3.3s each' });
+H.mount(
+  H.top({ power:415, income:16, sectors:['established','captured','neutral'], secured:1, army:'11 units · 2 forces', spec:'None', team:['C1'] })
+  + H.minimap({ dots:[[40,110,'#4da3ff'],[46,104,'#4da3ff'],[110,66,'#ff5c4d']], sectors:[['30','118','var(--team-1)'],['68','150','var(--amber)'],['120','78','#5a6a7b']] })
+  + H.construct({ stash:415 })
+  + H.feedback('Reinforcement: 1 Luddite queued at the Drill Shed. Paid on deployment.')
+  + H.barracks(o) + H.card(cells, tip), '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-west-scrapyard.png');
+
+</script>

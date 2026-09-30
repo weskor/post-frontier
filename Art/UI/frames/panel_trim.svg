@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<pattern id="hz" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+<rect width="10" height="10" fill="#000"/><rect width="5" height="10" fill="#000"/></pattern>
+<filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter>
+<filter id="glow4" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>
+</defs>
+<path d="M14.00,38.00 L38.00,14.00 L104.00,14.00 L114.00,24.00 L114.00,90.00 L90.00,114.00 L24.00,114.00 L14.00,104.00 Z" fill="none" stroke="#ffffff" stroke-opacity="0.44" stroke-width="6.0" filter="url(#glow4)"/><path d="M14.00,38.00 L38.00,14.00 L104.00,14.00 L114.00,24.00 L114.00,90.00 L90.00,114.00 L24.00,114.00 L14.00,104.00 Z" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3.0" filter="url(#glow)"/><path d="M14.00,38.00 L38.00,14.00 L104.00,14.00 L114.00,24.00 L114.00,90.00 L90.00,114.00 L24.00,114.00 L14.00,104.00 Z" fill="none" stroke="#ffffff" stroke-width="2.0" stroke-linejoin="miter"/></svg>

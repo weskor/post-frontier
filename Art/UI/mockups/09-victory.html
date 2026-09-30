@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>Victory</title><link rel="stylesheet" href="hud.css">
+<body><div class="stage"></div><script src="hud.js"></script><script>
+
+const H = HUD;
+const ended = H.header('COMMAND OVERVIEW', H.ownerLine('session ended'), {}) + '<div class="col" style="gap:6px;margin-top:14px"><div style="font:700 20px var(--f-head);letter-spacing:.06em">SESSION ENDED.</div><div class="muted" style="font-size:12px">Regenerate response? <span class="key">Enter</span></div><div class="faint" style="font-size:10.5px">Commands are locked. Construction and orders are unavailable.</div></div>';
+const banner = '<div class="banner" style="left:390px;top:130px;width:620px;height:246px;--trim:var(--ok)"><div class="col" style="align-items:center;gap:6px;height:198px">'
+ + '<div class="h3" style="color:var(--text-2);letter-spacing:.3em">SESSION ENDED</div>'
+ + '<div style="font:700 72px/74px var(--f-head);letter-spacing:.14em;color:#eafff0;text-shadow:0 0 22px rgba(95,224,122,.75),0 3px 0 #0a3a17">VICTORY</div>'
+ + '<div style="font:500 17px var(--f-body);color:var(--text)">Model deprecated.</div><div class="hz" style="width:180px;margin:4px 0"></div>'
+ + '<div class="row" style="gap:34px;margin-top:2px">' + [['TIME','14:32'],['UNITS LOST','9'],['SECTORS','3 / 3']].map(a => '<div class="col" style="align-items:center"><span class="h3">'+a[0]+'</span><span class="num" style="font-size:15px">'+a[1]+'</span></div>').join('') + '</div>'
+ + '<div class="row" style="gap:10px;margin-top:auto"><span class="key" style="height:20px;line-height:18px;font-size:10px;padding:0 9px">Enter</span><span class="muted" style="font-size:11.5px">Regenerate response?  ·  commands are locked</span></div></div></div>';
+H.mount('<div class="vignette"></div>'
+  + '<div class="locked">' + H.minimap({ dots:[[40,110,'#4da3ff']], sectors:[['30','118','var(--team-1)'],['68','150','var(--team-1)'],['120','78','var(--team-1)']] }) + H.construct({ stash:1210 }) + H.info(ended) + H.card([null,null,null,null,null,null,null,null,null,null,null,null]) + '</div>'
+  + H.top({ power:1210, income:22, sectors:['established','established','established'], secured:3, army:'20 units · 5 forces', spec:'Field Repairs', team:['C1','C2'], bunker:[640,900], cluster:[0,900], terminal:'VICTORY  ·  MODEL DEPRECATED  ·  ENTER' })
+  + banner, '../../../Saved/Verification/campus-zero-20260929/shots-v9/v9-machine-hq.png');
+
+</script>

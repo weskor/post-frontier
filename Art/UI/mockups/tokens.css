@@ -1,0 +1,59 @@
+/* CoopRTS HUD design tokens. Authored at the 1400x788 reference; the page zooms to 1920x1080 for the mockups.
+   Names match the token tables in Art/UI/STYLE.md. */
+@font-face { font-family: "HUD Cond"; src: url(fonts/Roboto-BoldCondensed.ttf); font-weight: 700; }
+@font-face { font-family: "HUD Sans"; src: url(fonts/Roboto-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "HUD Sans"; src: url(fonts/Roboto-Medium.ttf); font-weight: 500; }
+@font-face { font-family: "HUD Sans"; src: url(fonts/Roboto-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "HUD Mono"; src: url(fonts/DroidSansMono.ttf); font-weight: 400; }
+
+:root {
+  /* Offline skin: gunmetal */
+  --void: #05080c;
+  --panel: #0b1118;
+  --steel-900: #10161d;
+  --steel-800: #1a222c;
+  --steel-700: #26303b;
+  --steel-600: #354250;
+  --steel-500: #4a5a6b;
+  --steel-400: #6d8094;
+  --steel-300: #93a6b9;
+  /* text */
+  --text: #e9eff6;
+  --text-2: #a9b8c8;
+  --text-3: #74869a;
+  --text-off: #4b596a;
+  /* player colours: sRGB display values of AArmyUnit::GetCommanderColor (its FLinearColor values, gamma-encoded) */
+  --team-1: #38bbff;
+  --team-2: #ffdd38;
+  --team-3: #6fed89;
+  --team-4: #d389ff;
+  --team-5: #38ede7;
+  --player: var(--team-1);
+  /* signal */
+  --hazard: #ffc21a;
+  --amber: #ffb02e;
+  --gold: #ffd166;
+  --ok: #5fe07a;
+  --warn: #ffb02e;
+  --bad: #ff5442;
+  /* Machine skin */
+  --pearl: #eaf1f6;
+  --cyan: #6be6ff;
+  --lens: #ff3b30;
+  --m-panel: #06121a;
+  /* building kinds and unit roles */
+  --k-barracks: #ff9440;
+  --k-outpost: #66e68c;
+  --k-workshop: #b885ff;
+  --r-frontline: #ffb454;
+  --r-ranged: #6ee7b7;
+  --r-siege: #c4a1ff;
+  /* fronts (match the world rings) */
+  --f-secure: #ff5c4d;
+  --f-defend: #61eb7a;
+  --f-fallback: #ffdb52;
+  /* type */
+  --f-head: "HUD Cond", "Roboto Condensed", sans-serif;
+  --f-body: "HUD Sans", Roboto, sans-serif;
+  --f-mono: "HUD Mono", monospace;
+}

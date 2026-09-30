@@ -1,0 +1,26 @@
+# 9-slice margins in texels: top right bottom left. Textures are 2 texels per reference pixel.
+banner_base            48 48 48 48
+banner_trim            48 48 48 48
+bar_track              8 8 8 8
+btn_disabled           14 14 14 14
+btn_hover              14 14 14 14
+btn_normal             14 14 14 14
+btn_pressed            14 14 14 14
+btn_trim               14 14 14 14
+hazard_tile            0 0 0 0
+machine_btn_disabled   16 16 16 16
+machine_btn_hover      16 16 16 16
+machine_btn_normal     16 16 16 16
+machine_btn_trim       16 16 16 16
+machine_panel_base     36 36 36 36
+machine_panel_trim     36 36 36 36
+minimap_base           36 36 36 36
+minimap_trim           36 36 36 36
+panel_base             32 32 32 32
+panel_trim             32 32 32 32
+portrait_base          28 28 28 28
+portrait_trim          28 28 28 28
+slot_base              20 20 20 20
+slot_trim              20 20 20 20
+strip_base             8 40 28 40
+strip_trim             8 40 28 40
