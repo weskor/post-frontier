@@ -11,8 +11,8 @@ bool CombatTarget::IsAliveHostile(const AActor* Target, int32 AttackerTeam)
 {
 	if (!IsValid(Target)) return false;
 	if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target))
-		return Unit->IsAlive() && Unit->TeamIndex != AttackerTeam && IsValid(Unit->Group)
-			&& Unit->Group->TeamIndex == Unit->TeamIndex && Unit->Group->Units.Contains(Unit);
+		return Unit->IsAlive() && Unit->GetTeamIndex() != AttackerTeam && IsValid(Unit->GetGroup())
+			&& Unit->GetGroup()->GetTeamIndex() == Unit->GetTeamIndex() && Unit->GetGroup()->GetUnits().Contains(Unit);
 	if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
 	{
 		const ACommandGameState* State = HQ->GetWorld()->GetGameState<ACommandGameState>();
@@ -30,7 +30,7 @@ bool CombatTarget::IsAliveHostile(const AActor* Target, int32 AttackerTeam)
 
 void CombatTarget::ReceiveAttack(AActor* Target, int32 Damage, AArmyUnit* Attacker)
 {
-	if (!IsValid(Attacker) || !CombatTarget::IsAliveHostile(Target, Attacker->TeamIndex)) return;
+	if (!IsValid(Attacker) || !CombatTarget::IsAliveHostile(Target, Attacker->GetTeamIndex())) return;
 	if (AArmyUnit* Unit = Cast<AArmyUnit>(Target)) Unit->ReceiveAttack(Damage, Attacker);
 	else if (AHeadquarters* HQ = Cast<AHeadquarters>(Target)) HQ->ReceiveAttack(Damage, Attacker);
 	else if (ACommandBuilding* Building = Cast<ACommandBuilding>(Target)) Building->ReceiveAttack(Damage, Attacker);

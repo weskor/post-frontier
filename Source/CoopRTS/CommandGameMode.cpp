@@ -191,7 +191,7 @@ void ACommandGameMode::Logout(AController* Exiting)
 	if (Commander)
 	{
 		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
-			if (It->OwningPlayerState == Commander) It->Destroy();
+			if (It->GetOwningPlayerState() == Commander) It->Destroy();
 		for (TActorIterator<ACommandBuilding> It(GetWorld()); It; ++It)
 			if (It->OwningPlayerState == Commander) It->Destroy();
 		UE_LOG(LogTemp, Display, TEXT("Commander left slot=%d"), Commander->CommanderIndex);

@@ -103,6 +103,39 @@ AArmyGroup::AArmyGroup()
 	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
 }
 
+void AArmyGroup::Initialize(const FArmyGroupSpawn& Spawn)
+{
+	TeamIndex = Spawn.TeamIndex;
+	bOpposingArmy = TeamIndex == 5;
+	OwningPlayerState = Spawn.OwningPlayerState;
+	ArmyIndex = Spawn.ArmyIndex;
+	ProductionBuilding = Spawn.ProductionBuilding;
+	HomeLocation = Spawn.HomeLocation;
+}
+
+void AArmyGroup::OnMemberDied(AArmyUnit* Unit)
+{
+	Units.Remove(Unit);
+	ForceNetUpdate();
+}
+
+void AArmyGroup::DetachProducer()
+{
+	ProductionBuilding = nullptr;
+}
+
+void AArmyGroup::RollbackLastReinforcement()
+{
+	AArmyUnit* Candidate = Units.Pop(EAllowShrinking::No);
+	DestroyUnit(Candidate);
+	ForceNetUpdate();
+}
+
+void AArmyGroup::SetAssemblyLocation(const FVector& Location)
+{
+	HomeLocation = Location;
+}
+
 EArmyDoctrine AArmyGroup::GetDoctrine() const
 {
 	if (TeamIndex == 5)
@@ -148,15 +181,8 @@ bool AArmyGroup::SpawnUnits()
 		{
 			return false;
 		}
-		Unit->Group = this;
-		Unit->TeamIndex = TeamIndex;
-		Unit->CommanderIndex = IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1;
-		Unit->CompositionSlot = Index;
-		Unit->ArmyIndex = ArmyIndex;
-		Unit->UnitIndex = Index / 2;
-		Unit->Definition = const_cast<UArmyUnitDefinition*>(Content->Unit(Unit->UnitIndex));
-		Unit->UnitRole = Unit->Definition->Role;
-		Unit->Health = Unit->MaxHealth();
+		Unit->Initialize(this, TeamIndex, IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1,
+			ArmyIndex, Index, Index / 2, const_cast<UArmyUnitDefinition*>(Content->Unit(Index / 2)));
 		Unit->FinishSpawning(Transform);
 		Units.Add(Unit);
 	}
@@ -206,16 +232,8 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	AArmyUnit* Candidate = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
 		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	if (!Candidate) return false;
-	Candidate->Group = this;
-	Candidate->TeamIndex = TeamIndex;
-	Candidate->CommanderIndex = IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1;
-	Candidate->CompositionSlot = Slot;
-	Candidate->ArmyIndex = ArmyIndex;
-	Candidate->UnitIndex = UnitIndex;
-	Candidate->Definition = const_cast<UArmyUnitDefinition*>(Definition);
-	Candidate->UnitRole = Definition->Role;
-	Candidate->Health = Candidate->MaxHealth();
-	Candidate->bReinforcing = true;
+	Candidate->Initialize(this, TeamIndex, IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1,
+		ArmyIndex, Slot, UnitIndex, const_cast<UArmyUnitDefinition*>(Definition), true);
 	Candidate->FinishSpawning(Transform);
 	AAIController* AI = GetReadyController(Candidate);
 	const bool bWasProduced = bProducedGroup;

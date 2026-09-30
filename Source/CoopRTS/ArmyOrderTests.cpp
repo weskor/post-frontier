@@ -45,7 +45,7 @@ public:
 				{
 					if (auto* Owner = Cast<ACommandPlayerController>(It->GetOwner()))
 					{
-						if (Owner->IsLocalController() && It->ArmyIndex == 0 && It->Units.Num() == 6) { Army = *It; Controller = Owner; break; }
+						if (Owner->IsLocalController() && It->GetArmyIndex() == 0 && It->GetUnits().Num() == 6) { Army = *It; Controller = Owner; break; }
 					}
 				}
 			}
@@ -78,7 +78,7 @@ public:
 		}
 		else if (Stage == 3 && Now - StageStarted >= .5)
 		{
-			for (AArmyUnit* Unit : Army->Units) HeldPositions.Add(Unit->GetActorLocation());
+			for (AArmyUnit* Unit : Army->GetUnits()) HeldPositions.Add(Unit->GetActorLocation());
 			Serial = Army->OrderSerial;
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, FVector(100000, 0, 0));
 			Test->TestEqual(TEXT("Out-of-bounds request preserves the accepted order"), Army->OrderSerial, Serial);
@@ -86,13 +86,13 @@ public:
 		}
 		else if (Stage == 4 && Now - StageStarted >= 1.)
 		{
-			for (int32 Index = 0; Index < Army->Units.Num(); ++Index)
-				Test->TestTrue(TEXT("Every unit stays stopped after Hold"), FVector::Dist2D(Army->Units[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
+			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
+				Test->TestTrue(TEXT("Every unit stays stopped after Hold"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, FVector::ZeroVector);
 			Test->TestTrue(TEXT("Retreat replaces Hold"), Army->Order == EArmyOrder::Retreat);
 			NextStage(Now);
 		}
-		else if (Stage == 5 && FVector::Dist2D(Army->GetCenter(), Army->HomeLocation) < 150.)
+		else if (Stage == 5 && FVector::Dist2D(Army->GetCenter(), Army->GetHomeLocation()) < 150.)
 		{
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, FVector::ZeroVector);
 			Test->AddInfo(TEXT("Live navigation passed: initial move, replacement, individual unit Hold, invalid destination, retreat home."));

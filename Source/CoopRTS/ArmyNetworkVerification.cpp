@@ -144,33 +144,33 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		const AArmyGroup* Group = *It;
 		auto Entry = Object();
 		Number(Entry, TEXT("actorId"), LifetimeId(Group));
-		Number(Entry, TEXT("owner"), IsValid(Group->OwningPlayerState) ? Group->OwningPlayerState->CommanderIndex : -1);
-		Number(Entry, TEXT("team"), Group->TeamIndex);
-		Number(Entry, TEXT("army"), Group->ArmyIndex);
+		Number(Entry, TEXT("owner"), IsValid(Group->GetOwningPlayerState()) ? Group->GetOwningPlayerState()->CommanderIndex : -1);
+		Number(Entry, TEXT("team"), Group->GetTeamIndex());
+		Number(Entry, TEXT("army"), Group->GetArmyIndex());
 		Number(Entry, TEXT("order"), static_cast<int32>(Group->Order));
 		Number(Entry, TEXT("serial"), Group->OrderSerial);
 		Number(Entry, TEXT("doctrine"), static_cast<int32>(Group->GetDoctrine()));
 		Number(Entry, TEXT("frontOrder"), static_cast<int32>(Group->FrontOrder));
-		Number(Entry, TEXT("producer"), IsValid(Group->ProductionBuilding) ? State->Buildings.IndexOfByKey(Group->ProductionBuilding) : -1);
+		Number(Entry, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
 		Entry->SetBoolField(TEXT("automaticFront"), Group->bAutomaticFront);
 		Vector(Entry, TEXT("front"), Group->FrontLocation);
 		Vector(Entry, TEXT("center"), Group->GetCenter());
 		Vector(Entry, TEXT("destination"), Group->Destination);
-		Vector(Entry, TEXT("home"), Group->HomeLocation);
+		Vector(Entry, TEXT("home"), Group->GetHomeLocation());
 		auto Units = TArray<TSharedPtr<FJsonValue>>();
-		for (const AArmyUnit* Unit : Group->Units)
+		for (const AArmyUnit* Unit : Group->GetUnits())
 		{
 			if (!IsValid(Unit)) continue;
 			auto Member = Object();
 			Number(Member, TEXT("actorId"), LifetimeId(Unit));
 			Number(Member, TEXT("maxHealth"), Unit->MaxHealth());
-			Number(Member, TEXT("slot"), Unit->CompositionSlot);
-			Number(Member, TEXT("role"), static_cast<int32>(Unit->UnitRole));
-			Number(Member, TEXT("health"), Unit->Health);
+			Number(Member, TEXT("slot"), Unit->GetCompositionSlot());
+			Number(Member, TEXT("role"), static_cast<int32>(Unit->GetUnitRole()));
+			Number(Member, TEXT("health"), Unit->GetHealth());
 			Number(Member, TEXT("attacks"), Unit->AttackCount);
-			Number(Member, TEXT("owner"), Unit->CommanderIndex);
-			Member->SetBoolField(TEXT("reinforcing"), Unit->bReinforcing);
-			Number(Member, TEXT("producer"), IsValid(Group->ProductionBuilding) ? State->Buildings.IndexOfByKey(Group->ProductionBuilding) : -1);
+			Number(Member, TEXT("owner"), Unit->GetCommanderIndex());
+			Member->SetBoolField(TEXT("reinforcing"), Unit->IsReinforcing());
+			Number(Member, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
 			Vector(Member, TEXT("position"), Unit->GetActorLocation());
 			Units.Add(MakeShared<FJsonValueObject>(Member));
 		}
@@ -193,7 +193,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		int32 Joined, Travelling;
 		Building->GetForceCounts(Joined, Travelling);
 		Entry->SetBoolField(TEXT("configured"), Building->bForceConfigured);
-		Number(Entry, TEXT("forceID"), IsValid(Building->ForceGroup) ? Building->ForceGroup->ArmyIndex : -1);
+		Number(Entry, TEXT("forceID"), IsValid(Building->ForceGroup) ? Building->ForceGroup->GetArmyIndex() : -1);
 		const UArmyUnitDefinition* Unit = ProductionDefinition(*State, *Building);
 		Number(Entry, TEXT("capacity"), Unit ? Unit->Capacity : 0);
 		Number(Entry, TEXT("joined"), Joined);
@@ -238,8 +238,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
 {
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
-		if (It->ArmyIndex == Index && IsValid(It->OwningPlayerState)
-			&& It->OwningPlayerState->CommanderIndex == Owner) return *It;
+		if (It->GetArmyIndex() == Index && IsValid(It->GetOwningPlayerState())
+			&& It->GetOwningPlayerState()->CommanderIndex == Owner) return *It;
 	return nullptr;
 }
 ACommandPlayerController* LocalController(UWorld* World)
@@ -375,7 +375,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->TeamIndex == 5) It->IssueHold();
+			if (It->GetTeamIndex() == 5) It->IssueHold();
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
 				Building->SetProduction(Building->ProductionUnitIndex, false);
@@ -428,8 +428,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		ACapturePoint* Site = nullptr;
 		for (ACapturePoint* Candidate : State->CaptureSites)
 			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex) Site = Candidate;
-		if (!Site || Army->Units.IsEmpty()) return TEXT("capture site or unit unavailable");
-		Army->Units[0]->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 95.f), false, nullptr, ETeleportType::TeleportPhysics);
+		if (!Site || Army->GetUnits().IsEmpty()) return TEXT("capture site or unit unavailable");
+		Army->GetUnits()[0]->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 95.f), false, nullptr, ETeleportType::TeleportPhysics);
 		return FString();
 	}
 	if (Action == TEXT("occupant"))
@@ -445,31 +445,31 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		AArmyGroup* SelectedGroup = Army;
 		if (bEnemy)
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->TeamIndex == 5) { SelectedGroup = *It; break; }
-		if (!Site || !IsValid(SelectedGroup) || SelectedGroup->TeamIndex != (bEnemy ? 5 : 0))
+				if (It->GetTeamIndex() == 5) { SelectedGroup = *It; break; }
+		if (!Site || !IsValid(SelectedGroup) || SelectedGroup->GetTeamIndex() != (bEnemy ? 5 : 0))
 			return TEXT("objective resource site or army unavailable");
 		AArmyUnit* Unit = nullptr;
-		for (AArmyUnit* Candidate : SelectedGroup->Units)
-			if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->CompositionSlot == Slot) Unit = Candidate;
+		for (AArmyUnit* Candidate : SelectedGroup->GetUnits())
+			if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetCompositionSlot() == Slot) Unit = Candidate;
 		if (!Unit) return TEXT("objective live unit slot unavailable");
 		// Only real units are moved; AdvanceCapture samples them on the normal server tick.
 		const FVector Location = bPresent
 			? Site->GetActorLocation() + FVector(bEnemy ? 370.f : -30.f, 0.f, 95.f)
-			: SelectedGroup->HomeLocation + FVector(0.f, 0.f, 95.f);
+			: SelectedGroup->GetHomeLocation() + FVector(0.f, 0.f, 95.f);
 		Unit->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
 		Unit->ForceNetUpdate();
 		return FString();
 	}
 	if (Action == TEXT("assaultSetup"))
 	{
-		if (!IsValid(State->EnemyHeadquarters) || Army->Units.IsEmpty() || Army->TeamIndex != 0)
+		if (!IsValid(State->EnemyHeadquarters) || Army->GetUnits().IsEmpty() || Army->GetTeamIndex() != 0)
 			return TEXT("objective friendly army or enemy HQ unavailable");
 		if (!Army->IssueHold()) return TEXT("objective friendly army could not hold");
 		const FVector Anchor = State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 700.f, 0.f);
-		for (AArmyUnit* Unit : Army->Units)
+		for (AArmyUnit* Unit : Army->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-			const FVector Offset(0.f, Unit->CompositionSlot % 2 ? 110.f : -110.f, 0.f);
+			const FVector Offset(0.f, Unit->GetCompositionSlot() % 2 ? 110.f : -110.f, 0.f);
 			Unit->SetActorLocation(Anchor + Offset, false, nullptr, ETeleportType::TeleportPhysics);
 			Unit->ForceNetUpdate();
 		}
@@ -479,10 +479,18 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		const int32 Slot = static_cast<int32>(Request->GetIntegerField(TEXT("slot")));
 		AArmyUnit* Victim = nullptr;
-		for (AArmyUnit* Unit : Army->Units) if (IsValid(Unit) && Unit->CompositionSlot == Slot) Victim = Unit;
+		for (AArmyUnit* Unit : Army->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == Slot) Victim = Unit;
+		if (!Victim) return TEXT("live casualty or hostile shooter unavailable");
 		AArmyUnit* Shooter = nullptr;
-		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->TeamIndex == 5 && !It->Units.IsEmpty()) { Shooter = It->Units[0]; break; }
+		for (TActorIterator<AArmyGroup> It(World); It && !Shooter; ++It)
+			if (It->GetTeamIndex() == 5 && It->GetTeamIndex() != Victim->GetTeamIndex())
+				for (AArmyUnit* Candidate : It->GetUnits())
+					if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetTeamIndex() != Victim->GetTeamIndex())
+					{
+						Shooter = Candidate;
+						break;
+					}
 		if (!IsValid(Shooter))
 		{
 			if (!IsValid(State->EnemyHeadquarters)) return TEXT("enemy HQ unavailable for hostile staging");
@@ -492,29 +500,28 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 			if (!Hostile) return TEXT("hostile casualty fixture allocation failed");
-			Hostile->TeamIndex = 5;
-			Hostile->bOpposingArmy = true;
-			Hostile->HomeLocation = Transform.GetLocation();
-			Hostile->ArmyIndex = -1;
+			Hostile->Initialize(FArmyGroupSpawn{5, nullptr, -1, nullptr, Transform.GetLocation()});
 			Hostile->FinishSpawning(Transform);
 			if (!Hostile->SpawnUnits()) { Hostile->Destroy(); return TEXT("hostile casualty fixture spawn failed"); }
 			Hostile->IssueHold();
 			Hostile->SetActorTickEnabled(false);
-			for (AArmyUnit* Unit : Hostile->Units) Unit->SetActorTickEnabled(false);
-			Shooter = Hostile->Units[0];
+			for (AArmyUnit* Unit : Hostile->GetUnits()) Unit->SetActorTickEnabled(false);
+			Shooter = Hostile->GetUnits()[0];
 		}
-		if (!Victim || !IsValid(Shooter)) return TEXT("live casualty or hostile shooter unavailable");
-		Victim->ReceiveAttack(Victim->Health, Shooter);
+		if (!IsValid(Shooter) || !Shooter->IsAlive() || Shooter->GetTeamIndex() == Victim->GetTeamIndex())
+			return TEXT("live casualty or hostile shooter unavailable");
+		// Twice the remaining health stays lethal through entrenched-frontline damage reduction.
+		Victim->ReceiveAttack(Victim->GetHealth() * 2, Shooter);
 		return !Victim->IsAlive() ? FString() : TEXT("hostile damage did not kill casualty");
 	}
 	if (Action == TEXT("finish"))
 	{
 		const bool bWin = Request->GetBoolField(TEXT("win"));
 		AHeadquarters* Target = bWin ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
-		AArmyUnit* Shooter = bWin && !Army->Units.IsEmpty() ? Army->Units[0] : nullptr;
+		AArmyUnit* Shooter = bWin && !Army->GetUnits().IsEmpty() ? Army->GetUnits()[0] : nullptr;
 		if (!bWin)
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->TeamIndex == 5 && !It->Units.IsEmpty()) { Shooter = It->Units[0]; break; }
+				if (It->GetTeamIndex() == 5 && !It->GetUnits().IsEmpty()) { Shooter = It->GetUnits()[0]; break; }
 		if (!IsValid(Target) || !IsValid(Shooter)) return TEXT("HQ or shooter unavailable");
 		Target->Health = 1;
 		Target->ForceNetUpdate();

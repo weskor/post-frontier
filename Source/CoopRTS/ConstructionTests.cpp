@@ -52,7 +52,7 @@ public:
 			State->bVerificationIncomePaused = true;
 			Wallet->Resources = 4000; // Budget fixture; configuration and every recruit use real paid authority paths.
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->TeamIndex == 0) return Fail(TEXT("Normal new match must not spawn fixed friendly armies"));
+				if (It->GetTeamIndex() == 0) return Fail(TEXT("Normal new match must not spawn fixed friendly armies"));
 			const UBuildingDefinition* Barracks = State->Content->Building(BarracksIndex);
 			if (!Barracks) return Fail(TEXT("Match content lacks the barracks definition"));
 			FVector Location;
@@ -111,7 +111,7 @@ public:
 			if (!Attacker.IsValid()) return Fail(TEXT("Hostile damage fixture failed"));
 			Attacker->IssueHold();
 			Attacker->SetActorTickEnabled(false);
-			for (AArmyUnit* Unit : Attacker->Units) Unit->SetActorTickEnabled(false);
+			for (AArmyUnit* Unit : Attacker->GetUnits()) Unit->SetActorTickEnabled(false);
 			Stage = 2;
 			return false;
 		}
@@ -177,9 +177,9 @@ public:
 			Squad = Building->ForceGroup;
 			if (!Check(Alive(Building.Get()) == 1 && Wallet->Resources == 1970,
 				TEXT("One completed ranged slot produces one unit, not a batch, for exactly 30"))) return true;
-			Recruit = Squad->Units[0];
-			if (!Check(Recruit->UnitRole == EUnitRole::Ranged && Recruit->CommanderIndex == Wallet->CommanderIndex
-				&& Recruit->Group == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation())
+			Recruit = Squad->GetUnits()[0];
+			if (!Check(Recruit->GetUnitRole() == EUnitRole::Ranged && Recruit->GetCommanderIndex() == Wallet->CommanderIndex
+				&& Recruit->GetGroup() == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation())
 					> State->Content->Building(BarracksIndex)->FootprintRadius,
 				TEXT("Paid recruit physically starts outside its owning producer"))) return true;
 			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
@@ -241,8 +241,8 @@ public:
 			PC->ServerAssignFront(Building.Get(), EFrontOrder::Secure, FromFriendlyHQ(State, 1700.f, -1100.f, 5.f));
 			if (!Check(Forces[1]->FrontLocation == OtherFront && Forces[1]->FrontOrder == OtherOrder,
 				TEXT("An owning commander's front change affects only the selected producer"))) return true;
-			AArmyUnit* Victim = Squad->Units[0];
-			Victim->ReceiveAttack(Victim->Health, Attacker->Units[0]);
+			AArmyUnit* Victim = Squad->GetUnits()[0];
+			Victim->ReceiveAttack(Victim->GetHealth(), Attacker->GetUnits()[0]);
 			if (!Check(!Victim->IsAlive() && Alive(Building.Get()) == 3, TEXT("Real lethal damage opens exactly one vacancy"))) return true;
 			ReplacementBalance = Wallet->Resources;
 			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
@@ -251,9 +251,9 @@ public:
 		}
 		if (Stage == 4)
 		{
-			for (AArmyUnit* Unit : Squad->Units)
-				if (IsValid(Unit) && Unit->IsAlive() && Unit->bReinforcing) Recruit = Unit;
-			if (!Recruit.IsValid() || !Recruit->bReinforcing) return false;
+			for (AArmyUnit* Unit : Squad->GetUnits())
+				if (IsValid(Unit) && Unit->IsAlive() && Unit->IsReinforcing()) Recruit = Unit;
+			if (!Recruit.IsValid() || !Recruit->IsReinforcing()) return false;
 			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			if (!Check(Wallet->Resources == ReplacementBalance - 30 && UnrelatedWallet->Resources == 777
 				&& Alive(Building.Get()) == 4 && Alive(Producers[1].Get()) == 6,
@@ -273,15 +273,15 @@ public:
 				TEXT("Moving force center remains independent of travelling recruit"))) return true;
 			bRecruitMoved |= FVector::Dist2D(RecruitStart, Recruit->GetActorLocation()) > 200.f;
 			bJoinedMoved |= FVector::Dist2D(JoinedStart, Squad->GetCenter()) > 200.f;
-			if (Recruit->bReinforcing || !bRecruitMoved || !bJoinedMoved) return false;
+			if (Recruit->IsReinforcing() || !bRecruitMoved || !bJoinedMoved) return false;
 			if (!Check(FVector::Dist2D(Recruit->GetActorLocation(), Squad->GetCenter()) < 500.f
 				&& Forces[1]->FrontLocation == OtherFront && Forces[1]->FrontOrder == OtherOrder,
 				TEXT("Recruit follows moving force to physical arrival without altering the other front"))) return true;
-			while (!Squad->Units.IsEmpty())
+			while (!Squad->GetUnits().IsEmpty())
 			{
-				AArmyUnit* Unit = Squad->Units.Last();
-				Unit->ReceiveAttack(Unit->Health, Attacker->Units[0]);
-				if (!Check(!Unit->IsAlive() && !Squad->Units.Contains(Unit), TEXT("Each lethal hit removes its force member"))) return true;
+				AArmyUnit* Unit = Squad->GetUnits().Last();
+				Unit->ReceiveAttack(Unit->GetHealth(), Attacker->GetUnits()[0]);
+				if (!Check(!Unit->IsAlive() && !Squad->GetUnits().Contains(Unit), TEXT("Each lethal hit removes its force member"))) return true;
 			}
 			if (!Check(IsValid(Building->ForceGroup) && Building->ForceGroup == Squad.Get() && Alive(Building.Get()) == 0,
 				TEXT("Complete wipe retains the same empty force identity"))) return true;
@@ -295,11 +295,11 @@ public:
 		{
 			if (Alive(Building.Get()) == 0) return false;
 			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
-			Recruit = Squad->Units[0];
-			if (!Check(Recruit->bReinforcing && Building->ForceGroup == Squad.Get()
+			Recruit = Squad->GetUnits()[0];
+			if (!Check(Recruit->IsReinforcing() && Building->ForceGroup == Squad.Get()
 				&& Squad->FrontLocation == RememberedFront && Wallet->Resources == ReplacementBalance - 30,
 				TEXT("Wiped force refills its remembered front under the original identity"))) return true;
-			Recruit->ReceiveAttack(Recruit->Health, Attacker->Units[0]);
+			Recruit->ReceiveAttack(Recruit->GetHealth(), Attacker->GetUnits()[0]);
 			if (!Check(!Recruit->IsAlive() && Alive(Building.Get()) == 0,
 				TEXT("Killing a travelling recruit reopens its paid vacancy"))) return true;
 			ReplacementBalance = Wallet->Resources;
@@ -312,10 +312,10 @@ public:
 			if (Alive(Building.Get()) == 0) return false;
 			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			if (!Check(Wallet->Resources == ReplacementBalance - 30, TEXT("Dead traveller replacement charges again"))) return true;
-			Building->ReceiveAttack(Building->Health, Attacker->Units[0]);
-			if (!Check(Squad.IsValid() && !IsValid(Squad->ProductionBuilding) && Squad->FrontLocation == RememberedFront,
+			Building->ReceiveAttack(Building->Health, Attacker->GetUnits()[0]);
+			if (!Check(Squad.IsValid() && !IsValid(Squad->GetProductionBuilding()) && Squad->FrontLocation == RememberedFront,
 				TEXT("Destroyed producer leaves survivors on their last front with no producer transfer"))) return true;
-			SurvivorCount = Squad->Units.Num();
+			SurvivorCount = Squad->GetUnits().Num();
 			ReplacementBalance = Wallet->Resources;
 			Blocker = World->SpawnActor<AActor>();
 			if (!Blocker.IsValid()) return Fail(TEXT("Deployment obstruction fixture could not spawn"));
@@ -326,11 +326,11 @@ public:
 			Box->SetCollisionResponseToAllChannels(ECR_Block);
 			Box->RegisterComponent();
 			Blocker->SetActorLocation(Producers[2]->GetActorLocation());
-			while (!Forces[2]->Units.IsEmpty())
+			while (!Forces[2]->GetUnits().IsEmpty())
 			{
-				AArmyUnit* Unit = Forces[2]->Units.Last();
-				Unit->ReceiveAttack(Unit->Health, Attacker->Units[0]);
-				if (!Check(!Unit->IsAlive() && !Forces[2]->Units.Contains(Unit), TEXT("Blocked-producer casualty is real lethal damage"))) return true;
+				AArmyUnit* Unit = Forces[2]->GetUnits().Last();
+				Unit->ReceiveAttack(Unit->GetHealth(), Attacker->GetUnits()[0]);
+				if (!Check(!Unit->IsAlive() && !Forces[2]->GetUnits().Contains(Unit), TEXT("Blocked-producer casualty is real lethal damage"))) return true;
 			}
 			Producers[2]->SetProduction(UnitIndex(State, EUnitRole::Siege), true);
 			Stage = 8;
@@ -368,8 +368,8 @@ public:
 			if (!Nav || Nav->IsNavigationBuildInProgress()) return false;
 			if (!Check(NewProducer->SetProduction(UnitIndex(State, EUnitRole::Frontline), true)
 				&& IsValid(NewProducer->ForceGroup) && NewProducer->ForceGroup != Squad.Get()
-				&& Alive(NewProducer.Get()) == 0 && Squad->Units.Num() == SurvivorCount
-				&& !IsValid(Squad->ProductionBuilding),
+				&& Alive(NewProducer.Get()) == 0 && Squad->GetUnits().Num() == SurvivorCount
+				&& !IsValid(Squad->GetProductionBuilding()),
 				TEXT("A new producer creates its own empty force instead of adopting orphan survivors"))) return true;
 			NewProducer->SetProduction(UnitIndex(State, EUnitRole::Frontline), false);
 			ReplacementBalance = Wallet->Resources;
@@ -380,7 +380,7 @@ public:
 			Producers[2]->TickProduction(60.f);
 			if (!Check(!Producers[2]->bProductionEnabled && Producers[2]->ProductionProgressSeconds == Progress
 				&& Wallet->Resources == ReplacementBalance && Forces[1]->FrontLocation == OtherFront
-				&& Squad->Units.Num() == SurvivorCount && !IsValid(Squad->ProductionBuilding),
+				&& Squad->GetUnits().Num() == SurvivorCount && !IsValid(Squad->GetProductionBuilding()),
 				TEXT("Terminal freezes production/front commands; orphan survivors receive no free refill or transfer"))) return true;
 			Test->AddInfo(TEXT("Fixed-force proof: one paid unit, permanent role, siege charge, 4/6/2 independent capacities, travel/arrival, casualty and traveller replacement, wipe identity, pause/starve/block/terminal and producer destruction."));
 			return true;
@@ -400,21 +400,21 @@ private:
 	{
 		FVector Sum = FVector::ZeroVector;
 		int32 Count = 0;
-		for (const AArmyUnit* Unit : Force->Units)
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing) { Sum += Unit->GetActorLocation(); ++Count; }
+		for (const AArmyUnit* Unit : Force->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing()) { Sum += Unit->GetActorLocation(); ++Count; }
 		return Count == 0 || FVector::Dist2D(Sum / Count, Force->GetCenter()) < 1.f;
 	}
 	static bool ValidMembers(const ACommandBuilding* Producer, int32 Capacity)
 	{
 		uint32 Slots = 0;
-		for (const AArmyUnit* Unit : Producer->ForceGroup->Units)
+		for (const AArmyUnit* Unit : Producer->ForceGroup->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-			if (Unit->UnitRole != Producer->ProductionRole || Unit->Group != Producer->ForceGroup
-				|| Unit->CommanderIndex != Producer->OwningPlayerState->CommanderIndex
-				|| Unit->CompositionSlot < 0 || Unit->CompositionSlot >= Capacity
-				|| (Slots & (1u << Unit->CompositionSlot))) return false;
-			Slots |= 1u << Unit->CompositionSlot;
+			if (Unit->GetUnitRole() != Producer->ProductionRole || Unit->GetGroup() != Producer->ForceGroup
+				|| Unit->GetCommanderIndex() != Producer->OwningPlayerState->CommanderIndex
+				|| Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity
+				|| (Slots & (1u << Unit->GetCompositionSlot()))) return false;
+			Slots |= 1u << Unit->GetCompositionSlot();
 		}
 		return true;
 	}
@@ -473,7 +473,7 @@ private:
 		ACommandBuilding* Outpost = State->TryPlaceBuilding(OutpostIndex, Location, Wallet, 0, Reason);
 		if (!Check(Outpost != nullptr, TEXT("Secured territory accepts outpost"))) return true;
 		Outpost->Tick(60.f);
-		for (AArmyUnit* Unit : Occupiers->Units) Unit->SetActorLocation(FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
 		Site->AdvanceCapture(20.f);
 		State->RefreshTerritory();
 		if (!Check(Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 1 && !Site->bFriendlyPresent,
@@ -486,7 +486,7 @@ private:
 			TEXT("Established outpost pays territory income through normal GameState economy"))) return true;
 		AArmyGroup* Enemy = SpawnGroup(World, nullptr, -1, HostileStaging(State));
 		if (!Enemy) return Fail(TEXT("Hostile destruction fixture failed"));
-		Outpost->ReceiveAttack(Outpost->Health, Enemy->Units[0]);
+		Outpost->ReceiveAttack(Outpost->Health, Enemy->GetUnits()[0]);
 		State->RefreshTerritory();
 		if (!Check(!Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 0 && Building.IsValid()
 			&& Building->OwningPlayerState == Wallet, TEXT("Destroyed outpost removes rights/income without converting surviving buildings"))) return true;

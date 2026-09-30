@@ -10,6 +10,15 @@ class ACommandBuilding;
 enum class EArmyDoctrine : uint8;
 class ACommandPlayerState;
 
+struct FArmyGroupSpawn
+{
+	int32 TeamIndex = 0;
+	ACommandPlayerState* OwningPlayerState = nullptr;
+	int32 ArmyIndex = 0;
+	ACommandBuilding* ProductionBuilding = nullptr;
+	FVector HomeLocation = FVector::ZeroVector;
+};
+
 UENUM(BlueprintType)
 enum class EArmyOrder : uint8
 {
@@ -28,6 +37,18 @@ public:
 	AArmyGroup();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	void Initialize(const FArmyGroupSpawn& Spawn);
+	void OnMemberDied(AArmyUnit* Unit);
+	void DetachProducer();
+	void RollbackLastReinforcement();
+	void SetAssemblyLocation(const FVector& Location);
+	int32 GetTeamIndex() const { return TeamIndex; }
+	ACommandPlayerState* GetOwningPlayerState() const { return OwningPlayerState.Get(); }
+	int32 GetArmyIndex() const { return ArmyIndex; }
+	ACommandBuilding* GetProductionBuilding() const { return ProductionBuilding.Get(); }
+	const FVector& GetHomeLocation() const { return HomeLocation; }
+	bool IsOpposingArmy() const { return bOpposingArmy; }
+	const TArray<TObjectPtr<AArmyUnit>>& GetUnits() const { return Units; }
 	bool SpawnUnits();
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
@@ -49,6 +70,21 @@ public:
 	uint32 OrderSerial = 0;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	TObjectPtr<AActor> AttackTarget;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	EFrontOrder FrontOrder = EFrontOrder::Defend;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	FVector FrontLocation = FVector::ZeroVector;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	bool bAutomaticFront = false;
+
+	static constexpr float PursuitRadius = 1050.f;
+
+
+protected:
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	TArray<TObjectPtr<AArmyUnit>> Units;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
@@ -64,23 +100,8 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	int32 ArmyIndex = 0;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	TObjectPtr<AActor> AttackTarget;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	EFrontOrder FrontOrder = EFrontOrder::Defend;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	FVector FrontLocation = FVector::ZeroVector;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	bool bAutomaticFront = false;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	TObjectPtr<ACommandBuilding> ProductionBuilding;
-
-	static constexpr float PursuitRadius = 1050.f;
 	bool bOpposingArmy = false;
-
-
-protected:
-	virtual void Tick(float DeltaSeconds) override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination);

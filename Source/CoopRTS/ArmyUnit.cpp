@@ -59,6 +59,22 @@ AArmyUnit::AArmyUnit()
 	}
 }
 
+void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InCommanderIndex,
+	int32 InArmyIndex, int32 InCompositionSlot, int32 InUnitIndex,
+	UArmyUnitDefinition* InDefinition, bool bInReinforcing)
+{
+	Group = InGroup;
+	TeamIndex = InTeamIndex;
+	CommanderIndex = InCommanderIndex;
+	ArmyIndex = InArmyIndex;
+	CompositionSlot = InCompositionSlot;
+	UnitIndex = InUnitIndex;
+	Definition = InDefinition;
+	UnitRole = Definition->Role;
+	Health = MaxHealth();
+	bReinforcing = bInReinforcing;
+}
+
 void AArmyUnit::BeginPlay()
 {
 	Super::BeginPlay();
@@ -231,8 +247,7 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		OnRep_Appearance();
 		if (IsValid(Group))
 		{
-			Group->Units.Remove(this);
-			Group->ForceNetUpdate();
+			Group->OnMemberDied(this);
 		}
 		SetLifeSpan(2.f);
 	}

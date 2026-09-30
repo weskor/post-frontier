@@ -129,8 +129,8 @@ bool ACommandGameState::ValidateBuildingPlacement(int32 BuildingIndex, int32 Tea
 	}
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 	{
-		if (It->TeamIndex == Team) continue;
-		for (const AArmyUnit* Unit : It->Units)
+		if (It->GetTeamIndex() == Team) continue;
+		for (const AArmyUnit* Unit : It->GetUnits())
 			if (IsValid(Unit) && Unit->IsAlive() && Near(Unit->GetActorLocation(), Radius + 330.f))
 			{
 				OutReason = TEXT("Enemy troops too close");

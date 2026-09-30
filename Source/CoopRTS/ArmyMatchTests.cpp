@@ -31,8 +31,8 @@ public:
 			State->bVerificationIncomePaused = true;
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			{
-				if (It->TeamIndex == 5) Enemy = *It;
-				else if (It->OwningPlayerState == Wallet && It->ArmyIndex == 0) Friendly = *It;
+				if (It->GetTeamIndex() == 5) Enemy = *It;
+				else if (It->GetOwningPlayerState() == Wallet && It->GetArmyIndex() == 0) Friendly = *It;
 			}
 			if (!Friendly.IsValid() || !Enemy.IsValid()) return Fail(TEXT("Live outcome fixture armies missing"));
 			ArmyTestSetup::Research(PC, EArmyDoctrine::SiegeOptics);
@@ -40,9 +40,9 @@ public:
 			AHeadquarters* Target = bVictory ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
 			AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
 			Target->Health = 80; // Short encounter fixture; real weapons deliver every subsequent hit.
-			for (AArmyUnit* Unit : Attacker->Units)
+			for (AArmyUnit* Unit : Attacker->GetUnits())
 			{
-				Unit->SetActorLocation(Target->GetActorLocation() + FVector(-650.f, Unit->CompositionSlot * 100.f, 0.f),
+				Unit->SetActorLocation(Target->GetActorLocation() + FVector(-650.f, Unit->GetCompositionSlot() * 100.f, 0.f),
 					false, nullptr, ETeleportType::TeleportPhysics);
 				BeforeShots += Unit->AttackCount;
 			}
@@ -64,7 +64,7 @@ public:
 				return Fail(TEXT("Weapon encounter resolved to the wrong outcome"));
 			const AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
 			uint32 AfterShots = 0;
-			for (const AArmyUnit* Unit : Attacker->Units) AfterShots += Unit->AttackCount;
+			for (const AArmyUnit* Unit : Attacker->GetUnits()) AfterShots += Unit->AttackCount;
 			if (AfterShots <= BeforeShots || (bVictory ? State->EnemyHeadquarters->Health : State->FriendlyHeadquarters->Health) != 0)
 				return Fail(TEXT("Outcome requires real attacks and zero target HQ health"));
 			const uint32 Serial = Friendly->OrderSerial;
@@ -93,7 +93,7 @@ public:
 			|| State->ControlledResourceSites != 0)
 			return Fail(TEXT("Restart must preserve commander identity but reset economy/research/HQs/territory"));
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->TeamIndex == 0) return Fail(TEXT("Fresh world must not recreate fixed player armies"));
+			if (It->GetTeamIndex() == 0) return Fail(TEXT("Fresh world must not recreate fixed player armies"));
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 0) return Fail(TEXT("Old player buildings must not survive restart"));
 		for (ACapturePoint* Site : State->CaptureSites)

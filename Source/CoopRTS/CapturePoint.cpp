@@ -83,12 +83,12 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 	bool bEnemy = false;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 	{
-		for (const AArmyUnit* Unit : It->Units)
+		for (const AArmyUnit* Unit : It->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()
 				|| FVector::DistSquared2D(Unit->GetActorLocation(), GetActorLocation()) > FMath::Square(CaptureRadius)) continue;
-			if (It->TeamIndex == 0) bFriendly = true;
-			else if (It->TeamIndex == 5) bEnemy = true;
+			if (It->GetTeamIndex() == 0) bFriendly = true;
+			else if (It->GetTeamIndex() == 5) bEnemy = true;
 		}
 	}
 	const bool bOccupancyChanged = bFriendlyPresent != bFriendly || bEnemyPresent != bEnemy;
