@@ -52,6 +52,14 @@ ACommandGameState::ACommandGameState()
 	PrimaryActorTick.bCanEverTick = true;
 }
 
+void ACommandGameState::AddPlayerState(APlayerState* PlayerState)
+{
+	// The controllerless enemy is match-local, not a human roster or travel member.
+	if (const ACommandPlayerState* Commander = Cast<ACommandPlayerState>(PlayerState))
+		if (Commander->TeamIndex == 5) return;
+	Super::AddPlayerState(PlayerState);
+}
+
 void ACommandGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -67,9 +75,7 @@ void ACommandGameState::Tick(float DeltaSeconds)
 			if (ACommandPlayerState* Wallet = Cast<ACommandPlayerState>(Player))
 				Wallet->AddResources(EconomyPolicy::IncomePerTick(BaselineIncomePerSecond,
 					ResourceIncomePerSecond, ControlledResourceSites, 2));
-		EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
-			static_cast<int64>(EnemyResources) + GetEnemyIncomePerSecond() * 2));
-		ForceNetUpdate();
+		if (IsValid(EnemyCommander)) EnemyCommander->AddResources(GetEnemyIncomePerSecond() * 2);
 	}
 }
 
@@ -197,17 +203,17 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 	}
 	if (!ValidateBuildingPlacement(BuildingIndex, Team, Location, OutReason)) return nullptr;
 	const UBuildingDefinition& Definition = *Content->Building(BuildingIndex);
-	if ((Team == 0 && (!IsValid(Commander) || Commander->GetWorld() != GetWorld()
-			|| Commander->CommanderIndex < 0
+	if (!IsValid(Commander) || Commander->GetWorld() != GetWorld() || Commander->TeamIndex != Team
+		|| (Team == 0 && (Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5
 			|| !PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player)
 				{ return Player.Get() == Commander; })))
-		|| (Team == 5 && Commander))
+		|| (Team == 5 && Commander != EnemyCommander))
 	{
 		OutReason = TEXT("Invalid building owner");
 		return nullptr;
 	}
 	const int32 Cost = ACommandBuilding::GetBuildCost(Definition);
-	if (Team == 0 ? Commander->Resources < Cost : EnemyResources < Cost)
+	if (Commander->Resources < Cost)
 	{
 		OutReason = TEXT("Insufficient resources");
 		return nullptr;
@@ -246,14 +252,12 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 		OutReason = TEXT("Building spawn failed");
 		return nullptr;
 	}
-	const bool bPaid = Team == 0 ? Commander->TrySpend(Cost) : EnemyResources >= Cost;
-	if (!bPaid)
+	if (!Commander->TrySpend(Cost))
 	{
 		Building->Destroy();
 		OutReason = TEXT("Insufficient resources");
 		return nullptr;
 	}
-	if (Team == 5) { EnemyResources -= Cost; ForceNetUpdate(); }
 	OutReason = TEXT("Construction started");
 	return Building;
 }
@@ -271,6 +275,5 @@ void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ACommandGameState, Arena);
 	DOREPLIFETIME(ACommandGameState, EnemyPlan);
 	DOREPLIFETIME(ACommandGameState, EnemyPlanRationale);
-	DOREPLIFETIME(ACommandGameState, EnemyResources);
-	DOREPLIFETIME(ACommandGameState, EnemyDoctrine);
+	DOREPLIFETIME(ACommandGameState, EnemyCommander);
 }

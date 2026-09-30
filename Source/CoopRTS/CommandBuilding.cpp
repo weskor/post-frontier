@@ -242,13 +242,8 @@ bool ACommandBuilding::TrySpend(int32 Cost)
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !State || State->MatchResult != EMatchResult::Ongoing || Cost <= 0) return false;
-	if (TeamIndex == 5 && !OwningPlayerState && State->EnemyResources >= Cost)
-	{
-		State->EnemyResources -= Cost;
-		State->ForceNetUpdate();
-		return true;
-	}
-	return TeamIndex == 0 && IsValid(OwningPlayerState) && OwningPlayerState->GetWorld() == GetWorld()
+	return IsValid(OwningPlayerState) && OwningPlayerState->GetWorld() == GetWorld()
+		&& OwningPlayerState->TeamIndex == TeamIndex
 		&& OwningPlayerState->TrySpend(Cost);
 }
 
@@ -258,13 +253,7 @@ bool ACommandBuilding::CancelConstruction()
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing) return false;
 	const UBuildingDefinition* Definition = GetDefinition();
 	const int32 Refund = Definition ? EconomyPolicy::CancellationRefund(GetBuildCost(*Definition), ConstructionProgress) : 0;
-	if (TeamIndex == 5)
-	{
-		State->EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
-			static_cast<int64>(State->EnemyResources) + Refund));
-		State->ForceNetUpdate();
-	}
-	else if (IsValid(OwningPlayerState)) OwningPlayerState->AddResources(Refund);
+	if (IsValid(OwningPlayerState)) OwningPlayerState->AddResources(Refund);
 	Destroy();
 	return true;
 }
@@ -276,12 +265,9 @@ bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
 	if (!Definition || !Definition->bOffersResearch || !IsComplete()
 		|| (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
 			&& Choice != EArmyDoctrine::EntrenchedFrontline)) return false;
-	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!State || (TeamIndex == 5 ? State->EnemyDoctrine != EArmyDoctrine::None
-		: !IsValid(OwningPlayerState) || OwningPlayerState->Doctrine != EArmyDoctrine::None)) return false;
+	if (!IsValid(OwningPlayerState) || OwningPlayerState->Doctrine != EArmyDoctrine::None) return false;
 	if (!TrySpend(ResearchCost)) return false;
-	if (TeamIndex == 5) { State->EnemyDoctrine = Choice; State->ForceNetUpdate(); }
-	else if (!OwningPlayerState->TryChooseDoctrine(Choice))
+	if (!OwningPlayerState->TryChooseDoctrine(Choice))
 	{
 		OwningPlayerState->AddResources(ResearchCost);
 		return false;

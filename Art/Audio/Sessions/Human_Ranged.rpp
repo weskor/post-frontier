@@ -1,0 +1,702 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_Ranged"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_Ranged_Fire_01" 1
+  MARKER 1 1.150000 "" 1
+  MARKER 2 3.000000 "SW_Human_Ranged_Fire_02" 1
+  MARKER 2 4.150000 "" 1
+  MARKER 3 6.000000 "SW_Human_Ranged_Fire_03" 1
+  MARKER 3 7.150000 "" 1
+  MARKER 4 9.000000 "SW_Human_Ranged_Fire_04" 1
+  MARKER 4 10.150000 "" 1
+  MARKER 5 12.000000 "SW_Human_Ranged_Impact_01" 1
+  MARKER 5 12.900000 "" 1
+  MARKER 6 15.000000 "SW_Human_Ranged_Impact_02" 1
+  MARKER 6 15.900000 "" 1
+  MARKER 7 18.000000 "SW_Human_Ranged_Impact_03" 1
+  MARKER 7 18.900000 "" 1
+  MARKER 8 21.000000 "SW_Human_Ranged_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Human_Ranged_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Human_Ranged_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  <TRACK
+    NAME "Rifle"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 1.150000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Rifle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Rifle.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 1.144646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Rifle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Rifle.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 1.150000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Rifle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Rifle.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 1.150000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Rifle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Rifle.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Rifle Low"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.537062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Rifle Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__RifleLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.520292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Rifle Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__RifleLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.528542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Rifle Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__RifleLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.536500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Rifle Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__RifleLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Shot"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Sci-Fi Shot"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Sci-FiShot.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Sci-Fi Shot"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Sci-FiShot.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Sci-Fi Shot"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Sci-FiShot.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Sci-Fi Shot"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Sci-FiShot.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Punch"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.327167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Sci-Fi Punch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Sci-FiPunch.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.327167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Sci-Fi Punch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Sci-FiPunch.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.327167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Sci-Fi Punch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Sci-FiPunch.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.327167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Sci-Fi Punch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Sci-FiPunch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Energy Tail"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 0.020000
+      LENGTH 0.801083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Energy Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__EnergyTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.020000
+      LENGTH 0.801083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Energy Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__EnergyTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.020000
+      LENGTH 0.801083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Energy Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__EnergyTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.020000
+      LENGTH 0.801083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Energy Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__EnergyTail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Outdoor Tail"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 0.030000
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Outdoor Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__OutdoorTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.030000
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Outdoor Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__OutdoorTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.030000
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Outdoor Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__OutdoorTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.030000
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Outdoor Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__OutdoorTail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Bolt"
+    VOLPAN 0.141254 0 -1 -1 1
+    <ITEM
+      POSITION 0.353389
+      LENGTH 0.556813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Bolt"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Bolt.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.344258
+      LENGTH 0.554958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Bolt"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Bolt.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.343156
+      LENGTH 0.554958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Bolt"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Bolt.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.384658
+      LENGTH 0.559917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Bolt"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Bolt.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo"
+    VOLPAN 0.100000 0 -1 -1 1
+    <ITEM
+      POSITION 0.373389
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.364258
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.363156
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.404658
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Servo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Casing"
+    VOLPAN 0.063096 0 -1 -1 1
+    <ITEM
+      POSITION 0.636915
+      LENGTH 0.440812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_01 Casing"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_01__Casing.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.658125
+      LENGTH 0.397729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_02 Casing"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_02__Casing.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.655253
+      LENGTH 0.425792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_03 Casing"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_03__Casing.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.687688
+      LENGTH 0.432104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Fire_04 Casing"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Fire_04__Casing.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Hit"
+    VOLPAN 0.891251 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.760062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_01 Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_01__Hit.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.765875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_02 Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_02__Hit.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.783875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_03 Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_03__Hit.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Hit"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_01 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_01__Sci-FiHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_02 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_02__Sci-FiHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_03 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_03__Sci-FiHit.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Armour"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 12.004000
+      LENGTH 0.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_01 Armour"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_01__Armour.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.004000
+      LENGTH 0.445646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_02 Armour"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_02__Armour.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.004000
+      LENGTH 0.529667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_03 Armour"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_03__Armour.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Energy"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 12.010000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_01 Energy"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_01__Energy.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.010000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_02 Energy"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_02__Energy.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.010000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_03 Energy"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_03__Energy.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Debris"
+    VOLPAN 0.223872 0 -1 -1 1
+    <ITEM
+      POSITION 12.010000
+      LENGTH 0.600000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_01 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_01__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.010000
+      LENGTH 0.600000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_02 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_02__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.010000
+      LENGTH 0.600000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Impact_03 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Impact_03__Debris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Vox"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.443688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_01 Vox"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_01__Vox.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.483646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_02 Vox"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_02__Vox.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.418833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_03 Vox"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_03__Vox.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.050000
+      LENGTH 1.189062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.050000
+      LENGTH 1.259458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.050000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_03__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Gear"
+    VOLPAN 0.281838 0 -1 -1 1
+    <ITEM
+      POSITION 21.120000
+      LENGTH 0.558042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_01 Gear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_01__Gear.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.120000
+      LENGTH 0.534208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_02 Gear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_02__Gear.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.120000
+      LENGTH 0.539375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_03 Gear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_03__Gear.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Armour Drop"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 21.403476
+      LENGTH 1.196524
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_01 Armour Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_01__ArmourDrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.332409
+      LENGTH 1.267591
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_02 Armour Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_02__ArmourDrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.370744
+      LENGTH 1.200000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_03 Armour Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_03__ArmourDrop.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Body Fall"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 21.413476
+      LENGTH 0.953396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_01 Body Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_01__BodyFall.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.342409
+      LENGTH 0.953396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_02 Body Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_02__BodyFall.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.380744
+      LENGTH 1.070167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Ranged_Death_03 Body Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Ranged/SW_Human_Ranged_Death_03__BodyFall.wav"
+      >
+    >
+  >
+>

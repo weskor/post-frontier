@@ -30,6 +30,7 @@ public:
 	ACommandGameState();
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	void RefreshTerritory();
 	int32 GetIncomePerSecond() const { return BaselineIncomePerSecond + ResourceIncomePerSecond * ControlledResourceSites; }
 	int32 GetEnemyIncomePerSecond() const;
@@ -61,9 +62,7 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
 	FString EnemyPlanRationale;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
-	int32 EnemyResources = ACommandPlayerState::InitialResources;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
-	EArmyDoctrine EnemyDoctrine = EArmyDoctrine::None;
+	TObjectPtr<ACommandPlayerState> EnemyCommander;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Explicit listen-host verification fixture; never present in shipping games.
 	bool bVerificationIncomePaused = false;

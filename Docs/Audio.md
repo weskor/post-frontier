@@ -2,7 +2,7 @@
 
 Sound design for **Post-Frontier** (CoopRTS). Tone, names and factions come from [World.md](World.md); rules and triggers come from `README.md` and source. StarCraft 2 is a **listening reference only**: no SC2 audio is extracted, sampled or imitated line-for-line.
 
-Status: design spec plus first renders. `Art/Audio/Human/Ranged/` holds the Offline Ranger's fire, impact and death one-shots (see "Sourcing and production pipeline"). There is no audio code or Unreal audio asset yet (`USound*`, `MetaSound`, `PlaySound` appear nowhere in `Source/`).
+Status: design spec plus the first unit. `Art/Audio/Human/Ranged/` holds the Offline Ranger's fire, impact and death one-shots, mixed from recorded layers (see "Sourcing and production pipeline"). There is no audio code or Unreal audio asset yet (`USound*`, `MetaSound`, `PlaySound` appear nowhere in `Source/`).
 
 ## What we take from SC2
 
@@ -48,7 +48,7 @@ Names are from World.md "Unit roster". Variant counts are minimums; the sound ra
 | Unit | Weapon / attack (4 var.) | Impact (3) | Death (3) | Movement / idle | Voice cues (3 each) |
 | --- | --- | --- | --- | --- | --- |
 | **Luddite** (Frontline, sledgehammer + riot shield) | Servo wind-up tick + metal hammer strike + low thud | Dull clang on shield, crunch on flesh/armour | Armour collapse, hydraulic hiss, shield drop | Heavy armoured footsteps, servo creak | Ready, Secure, Defend, Fall Back |
-| **Offline Ranger** (Ranged, long rifle, antenna pack) | Dry rifle crack + mechanical bolt + short outdoor slap | Ricochet / armour ping | Radio static burst cut off, body fall | Light gear rattle, antenna squelch | Ready, Secure, Defend, Fall Back |
+| **Offline Ranger** (Ranged, long rifle, antenna pack) | Dark and sci-fi: bolt-action rifle shot pitched down and rolled off + low rifle body + designed sci-fi shot + short sci-fi punch + electric-arc and outdoor tails, then bolt cycle with servo and casing drop | Bullet hit + sci-fi hit + armour plate ring + energy crackle + debris | Gasp, suit power-down, gear rattle, armoured body drop + body fall | Light gear rattle, antenna squelch | Ready, Secure, Defend, Fall Back |
 | **Unplugger** (Siege, mech with bolt-cutter jaws) | Hydraulic ram charge + huge shear crunch + electric arc | Heavy crunch, sparks, power cut "thunk" | Engine stall, metal groan, collapse | Diesel idle loop, heavy mech steps | Ready, Secure, Defend, Fall Back |
 
 ### Machine
@@ -171,7 +171,7 @@ One `MS_` per event with a random wave player: 3–5 variants, no immediate repe
 ### Source format and loudness
 
 - 48 kHz, 24-bit WAV; world one-shots mono, UI and music stereo.
-- Every variant of an event is matched to that event's integrated loudness, so round-robin variants sit at the same level: weapons -20 LUFS, impacts -22, deaths -20. True peak stays at or below -1 dBFS. Voice lines about -18 LUFS; music around -20 LUFS. Final balance happens in Sound Class volumes, not by re-exporting.
+- Every variant of an event is matched to that event's integrated loudness, so round-robin variants sit at the same level: weapons -20 LUFS, impacts -22, deaths -21. True peak stays at or below -1 dBFS (a limiter only acts when the loudness target would exceed it). Voice lines about -18 LUFS; music around -20 LUFS. Final balance happens in Sound Class volumes, not by re-exporting.
 
 ## Asset budget (first pass)
 
@@ -191,11 +191,12 @@ About 200 files. Units and buildings come first, because the fight is what makes
 
 ## Sourcing and production pipeline
 
-1. **Raw material:** CC0 packs fetched by `python3 Build/FetchAudioSources.py` (currently Kenney Impact Sounds and Sci-Fi Sounds) into the Git-ignored cache `Saved/AudioSources/`, plus synthesis. Larger libraries (Sonniss GDC bundles, CC0 Freesound) and generated layers (Stable Audio Open) can be added later. Every pack used is recorded in `Art/Audio/SOURCES.md`.
-2. **Layering and rendering:** `uv run Build/GenerateUnitAudio.py` builds each one-shot from code recipes (transient + body + weight + tail, bus compression, short room), loudness-matches the variants and writes `Art/Audio/<Faction>/<Role>/SW_<Faction>_<Role>_<Event>_NN.wav`. `<Faction>`/`<Role>` follow the mesh names (`SM_Human_Ranged`). Renders are deterministic (fixed seeds); a listening reel per unit goes to `Saved/AudioPreview/<Faction>_<Role>.wav`. REAPER (`sudo pacman -S reaper`, then reaper-mcp) is optional for hand-polishing a sound; export its result to the same path and name, and remove the recipe so the script does not overwrite it.
-3. **Voice:** local TTS (e.g. Piper) for drafts; a real voice actor for the final Offline crew is recommended. The Machine voice can stay synthesized; that fits the faction.
-4. **Import:** a `Build/ImportAudio.py` editor script, matching the existing art pipeline (`Build/Import*.py`), imports waves, builds the `MS_` sources and assigns classes, concurrency and attenuation.
-5. **Never** use extracted or re-recorded SC2 audio, or real product sounds (World.md tone rule 4 applies to audio too).
+1. **Raw material:** recordings from the Sonniss #GameAudioGDC bundles. `uv run Build/FetchAudioSources.py` pulls only the listed files out of the multi-GB bundle ZIPs (HTTP range requests) into the Git-ignored `Saved/AudioSources/Sonniss/`. Libraries and licence limits are in `Art/Audio/SOURCES.md`: the raw and re-designed sounds must not be passed on as sound effects, so this repository must not be published with them. Pure synthesis was tried first and sounded thin and "blippy"; recorded material is the baseline.
+2. **Layering (REAPER):** `uv run Build/GenerateUnitAudio.py` cuts single events out of the recordings (onset detection), applies each recipe's pitch/filter/timing, and writes one clip per layer to `Saved/AudioLayers/<Unit>/`. `Art/Audio/Sessions/<Faction>_<Role>.rpp` is the REAPER session: one track per layer (track faders hold the mix balance) and one region per output sound. The script creates a session only when missing (`--new-session` rebuilds it from the recipes), so open it in REAPER, change faders, timing, items or FX by ear, save, and rerun the script to render. Region names are the output file names.
+3. **Render:** the script renders every region headlessly (`reaper -renderproject`), trims the silent end, matches loudness and writes `Art/Audio/<Faction>/<Role>/SW_<Faction>_<Role>_<Event>_NN.wav`. `<Faction>`/`<Role>` follow the mesh names (`SM_Human_Ranged`). Unchanged sessions render identical files. A listening reel per unit goes to `Saved/AudioPreview/<Faction>_<Role>.wav`.
+4. **Voice:** local TTS (e.g. Piper) for drafts; a real voice actor for the final Offline crew is recommended. The Machine voice can stay synthesized; that fits the faction.
+5. **Import:** a `Build/ImportAudio.py` editor script, matching the existing art pipeline (`Build/Import*.py`), imports waves, builds the `MS_` sources and assigns classes, concurrency and attenuation.
+6. **Never** use extracted or re-recorded SC2 audio, or real product sounds (World.md tone rule 4 applies to audio too).
 
 ## Proposed code integration
 
