@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 
-from verify import ROOT, BINARY, editor_stamp, package_stamp, identity
+from verify import ROOT, BINARY, DEFAULT_MAP, editor_stamp, package_stamp, identity, map_package, map_started
 
 ENGINE = Path(os.environ.get("UE_ROOT", str(Path.home() / ".local/opt/unreal-engine/5.8.3")))
 EDITOR = ENGINE / "Engine/Binaries/Linux/UnrealEditor"
@@ -24,7 +24,9 @@ def require(condition, explanation):
 
 
 class NetworkRun:
-    def __init__(self, directory, mode, clients, emulation, rendered=False, max_fps=None, offscreen=None):
+    def __init__(self, directory, mode, clients, emulation, rendered=False, max_fps=None, offscreen=None, *,
+                 map_path=DEFAULT_MAP):
+        self.map_path = map_package(map_path)
         self.run = directory
         self.mode = mode
         self.clients = clients
@@ -42,7 +44,7 @@ class NetworkRun:
         self.stopped = set()
         self.artifact = editor_stamp() if mode == "editor" else package_stamp()
         self.run.mkdir(parents=True, exist_ok=False)
-        (self.run / "run.json").write_text(json.dumps({"mode": mode, "clients": clients, "emulation": emulation,
+        (self.run / "run.json").write_text(json.dumps({"map": self.map_path, "mode": mode, "clients": clients, "emulation": emulation,
                                                      "rendered": rendered, "max_fps": max_fps,
                                                      "offscreen": offscreen, "artifact": self.artifact}, indent=2))
         self.events = (self.run / "events.jsonl").open("a", buffering=1)
@@ -52,7 +54,7 @@ class NetworkRun:
 
     def event(self, kind, **fields):
         self.events.write(json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                                      "kind": kind, **fields}) + "\n")
+                                      "kind": kind, "map": self.map_path, **fields}) + "\n")
     def phase(self, label):
         self.event("phase", label=label)
         print(f"Verified: {label}", flush=True)
@@ -121,10 +123,10 @@ class NetworkRun:
         folder.mkdir()
         if self.mode == "editor":
             command = [str(EDITOR), str(ROOT / "CoopRTS.uproject"),
-                       "/Game/Maps/Boot?listen" if host else f"127.0.0.1:{self.port}",
+                       f"{self.map_path}?listen" if host else f"127.0.0.1:{self.port}",
                        "-game", "-nosound", "-unattended"]
         else:
-            command = [str(BINARY), "/Game/Maps/Boot?listen" if host else f"127.0.0.1:{self.port}",
+            command = [str(BINARY), f"{self.map_path}?listen" if host else f"127.0.0.1:{self.port}",
                        "-nosound", "-unattended"]
         if self.offscreen:
             command += ["-RenderOffScreen", "-windowed", f"-ResX={self.offscreen[0]}", f"-ResY={self.offscreen[1]}"]
@@ -149,9 +151,22 @@ class NetworkRun:
         self.event("launch", peer=name, pid=process.pid, command=command)
         # A process is never adopted by name or by a reused PID.
         self.until(lambda: self.establish_identity(name), f"{name} executable identity", 30, names=[name])
+        if host:
+            self.until(lambda: self.selected_map_ready(name), f"{name} selected map {self.map_path}", 5, names=[name])
         if not rejection:
             self.until(lambda: self.observe(name, ready=False) if self.reply_ready(name) else None,
                        f"{name} first probe response", 120, names=[name])
+
+    def selected_map_ready(self, name):
+        path = self.peers[name]["folder"] / "game.log"
+        if not path.exists():
+            return False
+        log = path.read_text(errors="replace")
+        if map_started(log, self.map_path):
+            return True
+        require(not any("Bringing World " in line and " up for play" in line for line in log.splitlines()),
+                f"{name} started a different map instead of {self.map_path}; see {path}")
+        return False
 
     def establish_identity(self, name):
         entry = self.peers[name]
@@ -728,6 +743,7 @@ def main():
                                      "no rendering, OS input or real network path is proved.")
     parser.add_argument("--run", required=True, type=Path, help="fresh Saved/Verification/<id> directory")
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
+    parser.add_argument("--map", type=map_package, default=DEFAULT_MAP, help="world package path (default: %(default)s)")
     parser.add_argument("--clients", type=int, choices=(0, 1, 4), required=True)
     parser.add_argument("--scenario", choices=list(SCENARIOS), default="construction",
                         help="independent slice, or the full construction acceptance chain (default)")
@@ -741,7 +757,7 @@ def main():
     if args.max_fps is not None and args.max_fps < 1:
         parser.error("--max-fps must be positive")
     run = NetworkRun(args.run.resolve(), args.mode, args.clients, args.emulation,
-                     args.rendered, args.max_fps)
+                     args.rendered, args.max_fps, map_path=args.map)
     scenario, _ = SCENARIOS[args.scenario]
     try:
         scenario(run)

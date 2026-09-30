@@ -17,6 +17,17 @@ ROOT = Path(__file__).resolve().parents[4]
 SCRIPTS = Path(__file__).resolve().parent
 BINARY = ROOT / "Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS"
 READY = "Bringing up level for play"
+DEFAULT_MAP = "/Game/Maps/Boot"
+
+
+def map_package(value):
+    if not re.fullmatch(r"/Game/(?:[A-Za-z0-9_]+/)*[A-Za-z0-9_]+", value):
+        raise argparse.ArgumentTypeError("Use a /Game/... package path without an extension or URL options")
+    return value
+
+
+def map_started(text, map_path):
+    return f"Bringing World {map_path}.{map_path.rsplit('/', 1)[1]} up for play" in text
 
 
 def execute(args, **kwargs):
@@ -98,6 +109,8 @@ def doctor(run, focused=False):
     log = (run / "game.log").read_text(errors="replace") if (run / "game.log").exists() else ""
     if READY not in log or "5.8.3" not in log:
         raise RuntimeError("Expected UE 5.8.3 game readiness not found in this run's log")
+    if not map_started(log, session["map"]):
+        raise RuntimeError(f"Launch failure: requested map {session['map']} has not started; inspect game.log")
     windows = json.loads(execute(["hyprctl", "clients", "-j"]))
     owned = [w for w in windows if w["pid"] == session["pid"] and w.get("mapped")]
     if len(owned) != 1:
@@ -132,14 +145,15 @@ def stop(run):
     print(f"Stopped owned instance only. Evidence preserved: {run}")
 
 
-def launch(run):
+def launch(run, map_path=DEFAULT_MAP):
+    map_path = map_package(map_path)
     stamp = package_stamp()
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
             raise RuntimeError(f"Missing dependency: {program}")
     execute(["hyprctl", "monitors", "-j"])
     run.mkdir(parents=True, exist_ok=False)
-    command = [str(BINARY), "CoopRTS", "-windowed", "-ResX=1600", "-ResY=900", "-log", "-stdout", "-FullStdOutLogOutput", f"-abslog={run / 'game.log'}"]
+    command = [str(BINARY), map_path, "-windowed", "-ResX=1600", "-ResY=900", "-log", "-stdout", "-FullStdOutLogOutput", f"-abslog={run / 'game.log'}"]
     flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
     execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", run / "pointer", *flags])
     with (run / "stdout.log").open("w") as out:
@@ -155,8 +169,9 @@ def launch(run):
             time.sleep(.05)
         else:
             raise RuntimeError("Could not establish game process identity")
-        (run / "session.json").write_text(json.dumps({"pid": process.pid, "identity": current, "package": stamp, "command": command}, indent=2))
-        record(run, "launch", command=command)
+        (run / "session.json").write_text(json.dumps({"pid": process.pid, "identity": current, "package": stamp,
+                                                    "map": map_path, "command": command}, indent=2))
+        record(run, "launch", map=map_path, command=command)
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if process.poll() is not None:
@@ -168,7 +183,8 @@ def launch(run):
             except RuntimeError:
                 time.sleep(.25)
         raise RuntimeError("Game did not become ready within 90 seconds")
-    except BaseException:
+    except BaseException as error:
+        record(run, "launch-failure", map=map_path, command=command, error=repr(error))
         if (run / "session.json").exists():
             stop(run)
         elif process.poll() is None:
@@ -250,7 +266,8 @@ def completed_tests(text, test):
             if path == test or path.startswith(test + ".")]
 
 
-def regression(run, scenario):
+def regression(run, scenario, map_path=DEFAULT_MAP):
+    map_path = map_package(map_path)
     editor = editor_stamp()
     run.mkdir(parents=True, exist_ok=True)
     test, prefix = SCENARIOS[scenario]
@@ -259,20 +276,24 @@ def regression(run, scenario):
         raise RuntimeError("Regression evidence already exists; use a fresh --run directory")
     engine = Path(os.environ.get("UE_ROOT", str(Path.home() / ".local/opt/unreal-engine/5.8.3")))
     command = [str(engine / "Engine/Binaries/Linux/UnrealEditor"), str(ROOT / "CoopRTS.uproject"),
-               "/Game/Maps/Boot", "-game", "-nullrhi", "-nosound", "-unattended",
+               map_path, "-game", "-nullrhi", "-nosound", "-unattended",
                f"-ExecCmds=Automation RunTests {test}; SoftQuit", f"-abslog={log}", "-stdout"]
-    record(run, "regression", command=command, editor=editor)
+    record(run, "regression", map=map_path, command=command, editor=editor)
     with (run / f"{prefix}-stdout.log").open("w") as out:
         result = subprocess.run(command, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
     if editor_stamp() != editor:
         raise RuntimeError("Editor module changed during regression; rerun after the build finishes in a fresh evidence directory.")
-    text = log.read_text(errors="replace")
+    text = log.read_text(errors="replace") if log.exists() else ""
     completed = completed_tests(text, test)
     failed = sorted({path for outcome, path in completed if outcome != "Success"})
-    passed = (result.returncode == 0 and bool(completed) and not failed
+    launch_failed = not map_started(text, map_path)
+    passed = (not launch_failed and result.returncode == 0 and bool(completed) and not failed
               and "**** TEST COMPLETE. EXIT CODE: 0 ****" in text)
-    record(run, "regression-result", test=test, passed=passed, exit_code=result.returncode,
-           completed=sorted({path for _, path in completed}), failed=failed)
+    record(run, "regression-result", map=map_path, test=test, passed=passed, exit_code=result.returncode,
+           launch_failed=launch_failed, completed=sorted({path for _, path in completed}), failed=failed)
+    if launch_failed:
+        raise RuntimeError(f"Launch failure: requested map {map_path} did not start; inspect {log}"
+                           f" and {run / f'{prefix}-stdout.log'}")
     if not passed:
         raise RuntimeError(f"Regression did not report explicit Success for every test under {test}"
                            f" (completed {len(completed)}, failed {failed}): {log}")
@@ -290,15 +311,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True, type=Path, help="Unique evidence directory, normally Saved/Verification/<name>")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("launch", "doctor", "focus", "stop"):
+    launch_parser = commands.add_parser("launch")
+    launch_parser.add_argument("--map", type=map_package, default=DEFAULT_MAP,
+                               help="level package path (default /Game/Maps/Boot); existence checked by the engine")
+    for name in ("doctor", "focus", "stop"):
         commands.add_parser(name)
     regression_parser = commands.add_parser(
         "regression", help="run one editor automation scenario headlessly (-nullrhi); evidence is the abslog",
         description="Editor-module automation. 'rules' runs every CoopRTS.Rules.* deterministic rule test in one "
                     "process and fails on any Result={Fail}; it proves rule precedence only, never navigation, "
-                    "replication or rendering. World scenarios run one latent test each on /Game/Maps/Boot.")
+                    "replication or rendering. World scenarios run one latent test each on the selected --map.")
     regression_parser.add_argument("--scenario", choices=list(SCENARIOS), default="construction",
                                    help="rules: all CoopRTS.Rules tests in one process; others: one world test (default construction)")
+    regression_parser.add_argument("--map", type=map_package, default=DEFAULT_MAP,
+                                   help="level package path (default /Game/Maps/Boot); existence checked by the engine")
     snap = commands.add_parser("capture"); snap.add_argument("label")
     key = commands.add_parser("key"); key.add_argument("key", choices=["w", "a", "s", "d", "h", "r", "q", "tab", "space", "enter", "escape", "f4"])
     key.add_argument("--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000", help="Hold milliseconds, zero taps")
@@ -317,7 +343,7 @@ def main():
             sub.add_argument("dy", type=int, choices=range(-200, 201), metavar="-200..200")
     args = parser.parse_args()
     run = args.run.resolve()
-    if args.command == "launch": launch(run)
+    if args.command == "launch": launch(run, args.map)
     elif args.command == "doctor": print(json.dumps(doctor(run), indent=2))
     elif args.command == "focus":
         report = doctor(run)
@@ -327,7 +353,7 @@ def main():
         record(run, "focus", address=address)
     elif args.command == "stop": stop(run)
     elif args.command == "capture": capture(run, args.label)
-    elif args.command == "regression": regression(run, args.scenario)
+    elif args.command == "regression": regression(run, args.scenario, args.map)
     else: drive(run, args)
 
 

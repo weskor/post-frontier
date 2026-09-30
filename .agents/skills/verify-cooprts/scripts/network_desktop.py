@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 
-from verify import ROOT, BINARY, SCRIPTS, READY, execute, identity, package_stamp
+from verify import ROOT, BINARY, DEFAULT_MAP, SCRIPTS, READY, execute, identity, package_stamp, map_package, map_started
 
 
 class WindowNotReady(RuntimeError):
@@ -45,8 +45,14 @@ def doctor(run, peer, *, focused=False):
         raise RuntimeError(f"{peer} executable/PID/start identity changed; no input sent")
     log_path = run / peer / "game.log"
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
-    if READY not in log or "5.8.3" not in log:
-        raise WindowNotReady(f"{peer} Unreal 5.8.3 Boot readiness missing")
+    if "TravelFailure:" in log or "BroadcastTravelFailure" in log:
+        raise RuntimeError(f"{peer} map travel failed; inspect {log_path}")
+    selected_map = map_started(log, record["map"])
+    if peer == "host" and not selected_map and any(
+            "Bringing World " in line and " up for play" in line for line in log.splitlines()):
+        raise RuntimeError(f"{peer} started a different map instead of {record['map']}; inspect {log_path}")
+    if not selected_map or READY not in log or "5.8.3" not in log:
+        raise WindowNotReady(f"{peer} Unreal 5.8.3 readiness for {record['map']} missing")
     owned = [window for window in windows() if window["pid"] == item["pid"] and window.get("mapped")]
     if not owned:
         raise WindowNotReady(f"{peer} owned window not mapped yet")
@@ -55,7 +61,7 @@ def doctor(run, peer, *, focused=False):
     window = owned[0]
     if focused and json.loads(execute(["hyprctl", "activewindow", "-j"])).get("address") != window["address"]:
         raise RuntimeError(f"{peer} window is not focused; no input or screenshot sent")
-    return {"peer": peer, "pid": item["pid"], "window": window,
+    return {"peer": peer, "pid": item["pid"], "map": record["map"], "window": window,
             "monitors": json.loads(execute(["hyprctl", "monitors", "-j"]))}
 
 
@@ -82,7 +88,8 @@ def stop(run):
     print(f"Stopped recorded game processes only; evidence retained in {run}")
 
 
-def launch(run, clients, probe):
+def launch(run, clients, probe, map_path=DEFAULT_MAP):
+    map_path = map_package(map_path)
     package = package_stamp()
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
@@ -91,7 +98,7 @@ def launch(run, clients, probe):
     run.mkdir(parents=True, exist_ok=False)
     flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
     execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", run / "pointer", *flags])
-    record = {"package": package, "clients": clients, "probe": probe, "peers": {}}
+    record = {"map": map_path, "package": package, "clients": clients, "probe": probe, "peers": {}}
     (run / "session.json").write_text(json.dumps(record, indent=2))
     # Connect to loopback only; use a freely chosen port to avoid adopting a different listen server.
     import socket
@@ -103,7 +110,7 @@ def launch(run, clients, probe):
             name = "host" if index == 0 else f"c{index}"
             folder = run / name
             folder.mkdir()
-            travel = "/Game/Maps/Boot?listen" if index == 0 else f"127.0.0.1:{port}"
+            travel = f"{map_path}?listen" if index == 0 else f"127.0.0.1:{port}"
             command = [str(BINARY), travel, "-windowed", "-ResX=1100", "-ResY=720", "-log", "-stdout",
                        "-FullStdOutLogOutput", f"-abslog={folder / 'game.log'}"]
             if index == 0:
@@ -125,8 +132,8 @@ def launch(run, clients, probe):
                 time.sleep(.1)
             record["peers"][name] = {"pid": process.pid, "identity": stamp, "command": command}
             (run / "session.json").write_text(json.dumps(record, indent=2))
-            event(run, "launch", peer=name, pid=process.pid, command=command)
-            # Wait for an owned mapped Boot window or the process's own exit.
+            event(run, "launch", peer=name, pid=process.pid, command=command, map=map_path)
+            # Wait for an owned mapped window on the selected map or the process's own exit.
             while True:
                 try:
                     report = doctor(run, name)
@@ -135,10 +142,13 @@ def launch(run, clients, probe):
                     break
                 except WindowNotReady:
                     if process.poll() is not None:
-                        raise RuntimeError(f"{name} did not become a mapped Boot window; inspect per-peer logs")
+                        raise RuntimeError(f"{name} did not become a mapped window on {map_path}; inspect per-peer logs")
                     time.sleep(.3)
-    except BaseException:
-        stop(run)
+    except BaseException as error:
+        try:
+            event(run, "launch-failed", map=map_path, error=repr(error))
+        finally:
+            stop(run)
         raise
 
 
@@ -155,6 +165,8 @@ def main():
     commands = parser.add_subparsers(dest="action", required=True)
     launch_command = commands.add_parser("launch")
     launch_command.add_argument("--clients", type=int, choices=(1, 4), required=True)
+    launch_command.add_argument("--map", type=map_package, default=DEFAULT_MAP,
+                                help="world package path (default: %(default)s)")
     launch_command.add_argument("--probe", action="store_true",
                                 help="opt into Development observations and host-only encounter fixtures")
     commands.add_parser("stop")
@@ -173,7 +185,7 @@ def main():
     args = parser.parse_args()
     run = args.run.resolve()
     if args.action == "launch":
-        launch(run, args.clients, args.probe)
+        launch(run, args.clients, args.probe, map_path=args.map)
         return
     if args.action == "stop":
         stop(run)
