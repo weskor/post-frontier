@@ -16,10 +16,18 @@ Prove the cheapest tier that can fail for the change, then move outward only for
 | Tier | Command | Proves | Cannot prove |
 | --- | --- | --- | --- |
 | Rules | `verify.py regression --scenario rules` | Every `CoopRTS.Rules.*` deterministic test in one editor process: production precedence, progress preservation, deployment-due boundary, terminal freeze, exactly as asserted in `Source/CoopRTS/RulesTests.cpp` | Navigation, actors, replication, rendering |
-| World | `verify.py regression --scenario <construction\|production\|strategy\|...>` | One latent test on a standalone Boot world with real navigation, placement, payment and arrival | Client ownership, replicated state, presentation |
+| World | `verify.py regression --scenario <construction\|production\|strategy\|...>` | One latent test on a fresh standalone selected world with real navigation, placement, payment and arrival | Client ownership, replicated state, presentation |
 | Network slice | `network.py --scenario ownership\|production\|economy\|restart` | One replicated contract on fresh host+clients over loopback sockets, observed through the in-process probe | Other slices, OS input, rendering, WAN |
 | Presentation | `hud_capture.py --quick <label>` (deck and selected-barracks inspector) or the full `hud_capture.py` sequence | Offscreen-rendered HUD states through shared hit geometry | OS/compositor input, focus, other resolutions than requested |
 | Acceptance | `network.py --scenario construction` plus the packaged full `hud_capture.py` and the desktop drive recipe | The whole chain in one continuous world | Human coordination, real WAN, unscripted play |
+
+- Rules: `verify.py regression --scenario rules --map <package path>` selects the launched level; Boot (`/Game/Maps/Boot`) remains the default and rules assertions remain world-free.
+- World: `verify.py regression --scenario <scenario> --map <package path>` selects the level; Boot remains the default.
+- Network slice: `network.py --map <package path>` selects the listen-host level that clients join; Boot remains the default.
+- Presentation: `hud_capture.py --map <package path>` selects the offscreen level for quick or full captures; Boot remains the default.
+- Acceptance: select the same level with `network.py --map`, `hud_capture.py --map`, and desktop `verify.py launch --map` or `network_desktop.py launch --map`; Boot remains the default.
+
+Map arguments accept `/Game/...` package paths without extensions or URL options; only argument shape is validated, and the engine resolves existence at launch. Missing or unstarted requested maps are launch failures, never PASS. Map selection adds no runtime evidence for additional levels.
 
 ## Development checks versus acceptance runs
 
@@ -89,7 +97,7 @@ LOGIC_RUN=Saved/Verification/change-logic-unique
 "$V" --run "$LOGIC_RUN" regression --scenario construction
 ```
 
-Replace the suffix with a fresh identifier. `regression` defaults to `construction`; explicit `construction` runs `CoopRTS.Construction.Lifecycle`, and `production` runs `CoopRTS.Construction.Production`. `strategy` runs `CoopRTS.Enemy.ConstructionEconomy`. Existing `orders`, `movement`, `combat`, `match-win`, `match-loss` map to `CoopRTS.Orders.ReplaceHoldRetreat`, `CoopRTS.Movement.TwoGroups`, `CoopRTS.Combat.Encounter`, `CoopRTS.Match.VictoryRestart`, `CoopRTS.Match.DefeatRestart`. The `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline`, `doctrine-restart` choices map to `CoopRTS.Doctrine.SiegeOptics`, `CoopRTS.Doctrine.FieldRepairs`, `CoopRTS.Doctrine.EntrenchedFrontline`, `CoopRTS.Doctrine.Restart`. No `economy`, `objective` or `objective-defeat` regression choice exists (`economy` is a network slice). Each run needs its own fresh standalone Boot world; serialize with builds and game instances.
+Replace the suffix with a fresh identifier. `regression` defaults to `construction`; explicit `construction` runs `CoopRTS.Construction.Lifecycle`, and `production` runs `CoopRTS.Construction.Production`. `strategy` runs `CoopRTS.Enemy.ConstructionEconomy`. Existing `orders`, `movement`, `combat`, `match-win`, `match-loss` map to `CoopRTS.Orders.ReplaceHoldRetreat`, `CoopRTS.Movement.TwoGroups`, `CoopRTS.Combat.Encounter`, `CoopRTS.Match.VictoryRestart`, `CoopRTS.Match.DefeatRestart`. The `doctrine-siege`, `doctrine-repairs`, `doctrine-frontline`, `doctrine-restart` choices map to `CoopRTS.Doctrine.SiegeOptics`, `CoopRTS.Doctrine.FieldRepairs`, `CoopRTS.Doctrine.EntrenchedFrontline`, `CoopRTS.Doctrine.Restart`. No `economy`, `objective` or `objective-defeat` regression choice exists (`economy` is a network slice). Each run needs its own fresh standalone world on the selected map (Boot by default); serialize with builds and game instances.
 
 Current evidence (restructure, 2026-09-30): `Saved/Verification/restructure-20260930/RESULTS.md` records the rules tier (4 `CoopRTS.Rules.Production.*` results in one 9.6 s process), construction/production/strategy/match-win/match-loss world scenarios, all four network slices on editor host+one remote (ownership 27 s, production 103 s, economy 122 s, restart 70 s), editor and packaged `--quick` captures, the full editor HUD sequence at two resolutions, and a throwaway fourth unit rendering a fourth recipe row without C++ changes. `force-production-f-20260930` and `force-hud-package-a-20260930` predate the restructure (definition indices, `EProductionState`, placed HQ/sector/arena actors, probe fields `productionState`/`constructionProgress`/`arenaHalfExtent`/`gameStateId`) and are historical. Native OS input, the full `construction` acceptance chain and five-player/fault topologies remain unverified on the restructured code.
 
@@ -148,7 +156,7 @@ RUN=Saved/Verification/change-desktop-unique
 "$V" --run "$RUN" capture baseline
 ```
 
-The helper launches `Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS CoopRTS` windowed at 1600x900 with isolated logs and owned identity. Readiness requires the owned mapped window, level-up log and UE5.8.3, not rendering proof: inspect a baseline. Fresh matches have HQs but no player squads/buildings. Human control is building/front-only; former squad keys are no-ops.
+The helper launches `Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS <package path>` windowed at 1600x900 with isolated logs and owned identity. Readiness requires the owned mapped window, the requested map's world-up log, level-up log and UE5.8.3, not rendering proof: inspect a baseline. Fresh Boot matches have HQs but no player squads/buildings. Human control is building/front-only; former squad keys are no-ops.
 
 Launch failures terminate only the process just started. Record the failure, inspect retained logs, and use a new directory after fixing it. A missing/stale package is a prerequisite failure, not a passing check.
 
@@ -190,6 +198,8 @@ For cursor checks, use `move -200 0` / `move 200 0` to emit relative motion with
 ## Evidence
 
 Desktop `RUN` contains `session.json` (identity, launch command, package stamps), `actions.jsonl` (timestamped inputs and outcomes), `game.log`, `stdout.log`, and named PNG captures with companion window/monitor JSON. Logic-only runs contain scenario logs, stdout and action results; absence of PNGs is expected. Inspect any images you rely on, not merely their existence. Avoid captures that add no new observation. Full-screen images can contain unrelated desktop content: keep them local, crop for review/sharing, and preserve the original evidence.
+
+Desktop sessions and launch actions, regression actions/results, and network/HUD `run.json` and `events.jsonl` record the selected map so evidence identifies the requested level.
 
 Captures include the native cursor via `grim -c`; companion JSON also records compositor cursor coordinates. Inspect the arrow itself and compare its position across unwarped motion, clicks, and drag release. Cursor coordinates alone cannot prove visibility.
 

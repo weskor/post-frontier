@@ -23,6 +23,7 @@ import sys
 
 from network import (NetworkRun, require, owned_buildings, wallet, building, force, alive_units, distance2,
                      force_counts_match, near, BARRACKS, WORKSHOP, RANGED, SIEGE)
+from verify import DEFAULT_MAP, map_package
 
 # EHUDAction ordinals from Source/CoopRTS/CommandHUD.h.
 BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, FRONT_SECURE, RESEARCH_REPAIRS = 1, 6, 7, 8, 9, 13
@@ -373,6 +374,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--run", required=True, type=Path, help="fresh Saved/Verification/<id> directory")
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
+    parser.add_argument("--map", type=map_package, default=DEFAULT_MAP, help="world package path (default: %(default)s)")
     parser.add_argument("--res", type=resolution, action="append",
                         help="viewport WxH set with r.SetRes; the first hosts the full state sequence, others "
                              "capture the selected barracks (default 1600x900); --quick uses only the first")
@@ -382,7 +384,8 @@ def main():
     parser.add_argument("--max-fps", type=int, default=30)
     args = parser.parse_args()
     resolutions = args.res or [(1600, 900)]
-    run = NetworkRun(args.run.resolve(), args.mode, 0, False, max_fps=args.max_fps, offscreen=resolutions[0])
+    run = NetworkRun(args.run.resolve(), args.mode, 0, False, max_fps=args.max_fps, offscreen=resolutions[0],
+                     map_path=args.map)
     try:
         if args.quick:
             quick(run, args.quick, resolutions[0])
