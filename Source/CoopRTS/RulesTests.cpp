@@ -205,6 +205,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementProximityTest, "CoopRTS.Rules.Placeme
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyIncomeTest, "CoopRTS.Rules.Economy.IncomeAndSaturation",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyEnemyScalingTest, "CoopRTS.Rules.Economy.EnemyScaling",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyRefundTest, "CoopRTS.Rules.Economy.Refund",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyAffordabilityTest, "CoopRTS.Rules.Economy.Affordability",
@@ -384,6 +386,31 @@ bool FEconomyIncomeTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Capped wallet stays capped"), EconomyPolicy::AddResources(MAX_int32, MAX_int32), MAX_int32);
 	TestEqual(TEXT("Zero addition preserves balance"), EconomyPolicy::AddResources(19, 0), 19);
 	TestEqual(TEXT("Negative addition does not debit"), EconomyPolicy::AddResources(19, -1), 19);
+	return true;
+}
+
+bool FEconomyEnemyScalingTest::RunTest(const FString& Parameters)
+{
+	constexpr int32 Baseline = 7, PerSite = 3, Sites = 4, HumanCommanders = 3;
+	TestEqual(TEXT("Empty human roster retains one baseline"),
+		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, 0), Baseline);
+	TestEqual(TEXT("One commander retains existing baseline"),
+		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, 1), Baseline);
+	TestEqual(TEXT("Multiple commanders scale baseline"),
+		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, HumanCommanders), Baseline * HumanCommanders);
+	const int32 SingleCommander = EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, 1);
+	TestEqual(TEXT("One commander with sites retains existing income"),
+		SingleCommander, EconomyPolicy::IncomePerTick(Baseline, PerSite, Sites, 1));
+	TestEqual(TEXT("Zero commanders with sites equals one commander"),
+		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, 0), SingleCommander);
+	const int32 ScaledIncome = EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, HumanCommanders);
+	TestEqual(TEXT("Sites add their unscaled bonus with multiple commanders"),
+		ScaledIncome - EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, HumanCommanders), PerSite * Sites);
+	TestEqual(TEXT("Each additional sector adds only one site bonus"),
+		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites + 1, HumanCommanders) - ScaledIncome, PerSite);
+	const int32 Payment = ScaledIncome * 2;
+	TestEqual(TEXT("Scaled two-second payment saturates through the existing wallet policy"),
+		EconomyPolicy::AddResources(MAX_int32 - Payment + 1, Payment), MAX_int32);
 	return true;
 }
 

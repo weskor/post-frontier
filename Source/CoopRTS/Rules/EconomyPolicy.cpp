@@ -5,6 +5,11 @@ int32 EconomyPolicy::IncomePerTick(int32 Baseline, int32 PerSite, int32 Sites, i
 	return (Baseline + PerSite * Sites) * TickSeconds;
 }
 
+int32 EconomyPolicy::EnemyIncomePerSecond(int32 Baseline, int32 PerSite, int32 Sites, int32 HumanCommanders)
+{
+	return Baseline * FMath::Max(1, HumanCommanders) + PerSite * Sites;
+}
+
 int32 EconomyPolicy::AddResources(int32 Balance, int32 Amount)
 {
 	return Amount > 0 ? static_cast<int32>(FMath::Min<int64>(MAX_int32, static_cast<int64>(Balance) + Amount)) : Balance;

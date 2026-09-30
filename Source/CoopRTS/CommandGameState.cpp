@@ -84,7 +84,12 @@ int32 ACommandGameState::GetEnemyIncomePerSecond() const
 	int32 Sites = 0;
 	for (const ACapturePoint* Site : CaptureSites)
 		if (IsValid(Site) && Site->IsEstablishedForTeam(5)) ++Sites;
-	return BaselineIncomePerSecond + ResourceIncomePerSecond * Sites;
+	int32 HumanCommanders = 0;
+	for (const APlayerState* Player : PlayerArray)
+		if (const ACommandPlayerState* Commander = Cast<ACommandPlayerState>(Player))
+			if (Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0) ++HumanCommanders;
+	return EconomyPolicy::EnemyIncomePerSecond(BaselineIncomePerSecond,
+		ResourceIncomePerSecond, Sites, HumanCommanders);
 }
 
 void ACommandGameState::RefreshTerritory()
