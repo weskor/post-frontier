@@ -81,7 +81,7 @@ public:
 			const int32 Count = Joined + Travelling;
 			if (Count != 1 || !Production->bForceConfigured || Produced->GetProductionBuilding() != Production.Get()
 				|| !Produced->bAutomaticFront || Produced->FrontOrder != EFrontOrder::Secure
-				|| Produced->OwningPlayerState != State->EnemyCommander
+				|| Produced->GetOwningPlayerState() != State->EnemyCommander
 				|| State->EnemyCommander->Resources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
 				|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 				return Fail(TEXT("First enemy production must create one paid infantry unit, not a batch, in its producer force"));
@@ -98,16 +98,8 @@ public:
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5)
 				ConstructionSpend += Building->GetDefinition() ? Building->GetDefinition()->BuildCost : 0;
-3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
-4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
+		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
 			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
-5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
-6: 		if (It->GetTeamIndex() == Team) continue;
-		for (const AArmyUnit* Unit : It->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
-7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
-		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
-		&& Army->GetOwningPlayerState() == OwnState;
 			|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 			return Fail(TEXT("Enemy infantry including travellers uses six independent slots and pays 20 per unit from enemy wallet"));
 		bool bEstablished = false;

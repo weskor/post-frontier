@@ -1,0 +1,715 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Machine_Ranged"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Machine_Ranged_Fire_01" 1
+  MARKER 1 1.150000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Ranged_Fire_02" 1
+  MARKER 2 4.150000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Ranged_Fire_03" 1
+  MARKER 3 7.150000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Ranged_Fire_04" 1
+  MARKER 4 10.150000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Ranged_Impact_01" 1
+  MARKER 5 12.900000 "" 1
+  MARKER 6 15.000000 "SW_Machine_Ranged_Impact_02" 1
+  MARKER 6 15.900000 "" 1
+  MARKER 7 18.000000 "SW_Machine_Ranged_Impact_03" 1
+  MARKER 7 18.900000 "" 1
+  MARKER 8 21.000000 "SW_Machine_Ranged_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Machine_Ranged_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Machine_Ranged_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  <TRACK
+    NAME "Key"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.088708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Key"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__Key.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.090813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Key"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__Key.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.087729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Key"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__Key.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.090104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Key"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__Key.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blaster"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.035000
+      LENGTH 0.646563
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Blaster"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__Blaster.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.035000
+      LENGTH 0.661542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Blaster"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__Blaster.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.035000
+      LENGTH 0.639667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Blaster"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__Blaster.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.035000
+      LENGTH 0.656458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Blaster"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__Blaster.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Laser"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 0.035000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Laser"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__Laser.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.035000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Laser"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__Laser.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.035000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Laser"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__Laser.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.035000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Laser"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__Laser.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Weight"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 0.035000
+      LENGTH 0.313812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.035000
+      LENGTH 0.321208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.035000
+      LENGTH 0.310563
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.035000
+      LENGTH 0.318812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__Weight.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Beam"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 0.040000
+      LENGTH 0.373604
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__Beam.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.040000
+      LENGTH 0.382167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__Beam.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.040000
+      LENGTH 0.369458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__Beam.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.040000
+      LENGTH 0.379271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__Beam.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Snap"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.045000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Glass Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__GlassSnap.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.045000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Glass Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__GlassSnap.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.045000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Glass Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__GlassSnap.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.045000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Glass Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__GlassSnap.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Tail"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.060000
+      LENGTH 1.068104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_01 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_01__GlassTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.060000
+      LENGTH 1.090000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_02 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_02__GlassTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.060000
+      LENGTH 1.037625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_03 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_03__GlassTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.060000
+      LENGTH 1.090000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Fire_04 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Fire_04__GlassTail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Energy Hit"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.392833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_01 Energy Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_01__EnergyHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.416187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_02 Energy Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_02__EnergyHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.381688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_03 Energy Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_03__EnergyHit.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shock"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.454562
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_01 Shock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_01__Shock.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.449958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_02 Shock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_02__Shock.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.441521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_03 Shock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_03__Shock.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Fizz"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 12.010000
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_01 Fizz"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_01__Fizz.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.010000
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_02 Fizz"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_02__Fizz.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.010000
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_03 Fizz"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_03__Fizz.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glitch"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 12.036020
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_01 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_01__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.042802
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_02 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_02__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.059636
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_03 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_03__Glitch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Debris"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 12.015000
+      LENGTH 0.538229
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_01 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_01__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.015000
+      LENGTH 0.564354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_02 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_02__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.015000
+      LENGTH 0.559917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Impact_03 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Impact_03__Debris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crack"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__Crack.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__Crack.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__Crack.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Death Glitch"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Death Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__DeathGlitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Death Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__DeathGlitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Death Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__DeathGlitch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 21.030000
+      LENGTH 0.944312
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.099180
+      LENGTH 0.524750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.030000
+      LENGTH 0.834000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__Chime.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.050000
+      LENGTH 1.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.050000
+      LENGTH 1.271187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.050000
+      LENGTH 1.066229
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo Fall"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 21.100000
+      LENGTH 0.825479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Servo Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__ServoFall.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.100000
+      LENGTH 0.818729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Servo Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__ServoFall.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.100000
+      LENGTH 0.795458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Servo Fall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__ServoFall.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Crash"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 21.645108
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Shell Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__ShellCrash.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.623930
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Shell Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__ShellCrash.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.582269
+      LENGTH 1.007562
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Shell Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__ShellCrash.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crash Weight"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 21.645108
+      LENGTH 0.476708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Crash Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__CrashWeight.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.623930
+      LENGTH 0.476708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Crash Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__CrashWeight.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.582269
+      LENGTH 0.476708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Crash Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__CrashWeight.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Rattle"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.665108
+      LENGTH 0.776917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_01 Rattle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_01__Rattle.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.643930
+      LENGTH 0.783875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_02 Rattle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_02__Rattle.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.602269
+      LENGTH 0.826458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Ranged_Death_03 Rattle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Ranged/SW_Machine_Ranged_Death_03__Rattle.wav"
+      >
+    >
+  >
+>

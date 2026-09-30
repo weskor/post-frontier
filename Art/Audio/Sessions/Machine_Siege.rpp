@@ -1,0 +1,755 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Machine_Siege"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Machine_Siege_Fire_01" 1
+  MARKER 1 2.400000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Siege_Fire_02" 1
+  MARKER 2 5.400000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Siege_Fire_03" 1
+  MARKER 3 8.400000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Siege_Fire_04" 1
+  MARKER 4 11.400000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Siege_Impact_01" 1
+  MARKER 5 13.600000 "" 1
+  MARKER 6 15.000000 "SW_Machine_Siege_Impact_02" 1
+  MARKER 6 16.600000 "" 1
+  MARKER 7 18.000000 "SW_Machine_Siege_Impact_03" 1
+  MARKER 7 19.600000 "" 1
+  MARKER 8 21.000000 "SW_Machine_Siege_Death_01" 1
+  MARKER 8 23.400000 "" 1
+  MARKER 9 24.000000 "SW_Machine_Siege_Death_02" 1
+  MARKER 9 26.400000 "" 1
+  MARKER 10 27.000000 "SW_Machine_Siege_Death_03" 1
+  MARKER 10 29.400000 "" 1
+  <TRACK
+    NAME "Charge"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.213250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.213250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.213250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.213250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Charge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Launch"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.160000
+      LENGTH 0.944458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Launch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Launch.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.160000
+      LENGTH 0.913000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Launch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Launch.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.160000
+      LENGTH 0.920917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Launch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Launch.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.160000
+      LENGTH 0.924937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Launch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Launch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Weight"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 0.160000
+      LENGTH 0.572083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.160000
+      LENGTH 0.552500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.160000
+      LENGTH 0.557417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.160000
+      LENGTH 0.559917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Weight.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Bloom"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION -0.040000
+      LENGTH 1.377125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Glass Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__GlassBloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 2.960000
+      LENGTH 1.459042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Glass Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__GlassBloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 5.960000
+      LENGTH 1.337458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Glass Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__GlassBloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 8.960000
+      LENGTH 1.417667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Glass Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__GlassBloom.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Detune"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 0.210000
+      LENGTH 1.349958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Detune"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Detune.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.210000
+      LENGTH 1.484021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Detune"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Detune.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.210000
+      LENGTH 1.303917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Detune"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Detune.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.210000
+      LENGTH 1.450896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Detune"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Detune.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shimmer"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 0.260000
+      LENGTH 1.683521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Shimmer.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.260000
+      LENGTH 1.683521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Shimmer.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.260000
+      LENGTH 1.683521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Shimmer.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.260000
+      LENGTH 1.683521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Shimmer.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glitch"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 0.725311
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.650588
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.738695
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.643538
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Glitch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 1.209964
+      LENGTH 0.314875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_01 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_01__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 4.243957
+      LENGTH 0.314875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_02 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_02__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.214701
+      LENGTH 0.314875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_03 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_03__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 10.173239
+      LENGTH 0.314875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Fire_04 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Fire_04__Servo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blast"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 1.090521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_01 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_01__Blast.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 1.098917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_02 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_02__Blast.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 1.062708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_03 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_03__Blast.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Energy Bloom"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 12.005000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_01 Energy Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_01__EnergyBloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.005000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_02 Energy Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_02__EnergyBloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.005000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_03 Energy Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_03__EnergyBloom.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sub Drop"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.800000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_01 Sub Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_01__SubDrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.847458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_02 Sub Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_02__SubDrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.755437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_03 Sub Drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_03__SubDrop.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Crack"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 12.003000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_01 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_01__GlassCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.003000
+      LENGTH 0.476708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_02 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_02__GlassCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.003000
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_03 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_03__GlassCrack.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Debris"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 12.030000
+      LENGTH 1.123604
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_01 Glass Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_01__GlassDebris.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.030000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_02 Glass Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_02__GlassDebris.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.030000
+      LENGTH 1.128688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Impact_03 Glass Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Impact_03__GlassDebris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.529667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__Chime.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime Fail"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.300000
+      LENGTH 0.857771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Chime Fail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__ChimeFail.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.300000
+      LENGTH 1.169750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Chime Fail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__ChimeFail.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.300000
+      LENGTH 0.932438
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Chime Fail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__ChimeFail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crash"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 21.517490
+      LENGTH 1.165271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__Crash.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.534524
+      LENGTH 1.234583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__Crash.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.505801
+      LENGTH 1.199583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__Crash.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Low Thump"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 21.517490
+      LENGTH 0.741542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Low Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__LowThump.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.534524
+      LENGTH 0.741542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Low Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__LowThump.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.505801
+      LENGTH 0.741542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Low Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__LowThump.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Shards"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 21.527490
+      LENGTH 0.938979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Shell Shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__ShellShards.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.544524
+      LENGTH 0.898896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Shell Shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__ShellShards.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.515801
+      LENGTH 0.910146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Shell Shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__ShellShards.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.467490
+      LENGTH 1.483062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.484524
+      LENGTH 1.483062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.455801
+      LENGTH 1.483062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Spark"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.567490
+      LENGTH 0.692708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__Spark.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.584524
+      LENGTH 0.692708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__Spark.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.555801
+      LENGTH 0.692708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__Spark.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Dropout"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 21.962848
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_01 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_01__Dropout.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.910028
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_02 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_02__Dropout.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.860930
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Siege_Death_03 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Siege/SW_Machine_Siege_Death_03__Dropout.wav"
+      >
+    >
+  >
+>

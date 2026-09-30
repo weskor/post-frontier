@@ -22,6 +22,8 @@ public:
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	void RequestRestart(ACommandPlayerController* Requester);
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
+	// Carried PlayerStates must not expose old-match economy/research in the fresh world, even for a frame.
+	virtual void HandleSeamlessTravelPlayer(AController*& Controller) override;
 	virtual void Logout(AController* Exiting) override;
 	// Catalogue handed to ACommandGameState::Content at BeginPlay; /Game/Content/DA_MatchContent by default.
 	UPROPERTY(EditDefaultsOnly, Category = "Content")

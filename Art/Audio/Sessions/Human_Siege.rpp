@@ -1,0 +1,897 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_Siege"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_Siege_Fire_01" 1
+  MARKER 1 2.300000 "" 1
+  MARKER 2 3.000000 "SW_Human_Siege_Fire_02" 1
+  MARKER 2 5.300000 "" 1
+  MARKER 3 6.000000 "SW_Human_Siege_Fire_03" 1
+  MARKER 3 8.300000 "" 1
+  MARKER 4 9.000000 "SW_Human_Siege_Fire_04" 1
+  MARKER 4 11.300000 "" 1
+  MARKER 5 12.000000 "SW_Human_Siege_Impact_01" 1
+  MARKER 5 13.300000 "" 1
+  MARKER 6 15.000000 "SW_Human_Siege_Impact_02" 1
+  MARKER 6 16.300000 "" 1
+  MARKER 7 18.000000 "SW_Human_Siege_Impact_03" 1
+  MARKER 7 19.300000 "" 1
+  MARKER 8 21.000000 "SW_Human_Siege_Death_01" 1
+  MARKER 8 23.600000 "" 1
+  MARKER 9 24.000000 "SW_Human_Siege_Death_02" 1
+  MARKER 9 26.600000 "" 1
+  MARKER 10 27.000000 "SW_Human_Siege_Death_03" 1
+  MARKER 10 29.600000 "" 1
+  <TRACK
+    NAME "Clamp"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.551896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Clamp"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Clamp.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.591021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Clamp"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Clamp.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.537062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Clamp"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Clamp.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.584125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Clamp"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Clamp.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shear"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 0.005000
+      LENGTH 0.386333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Shear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Shear.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.005000
+      LENGTH 0.390208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Shear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Shear.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.005000
+      LENGTH 0.387188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Shear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Shear.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.005000
+      LENGTH 0.397292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Shear"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Shear.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Report"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.015000
+      LENGTH 1.103771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Report"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Report.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.015000
+      LENGTH 1.114833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Report"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Report.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.015000
+      LENGTH 1.106208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Report"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Report.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.015000
+      LENGTH 1.135083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Report"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Report.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Cannon"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 0.010000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Sci-Fi Cannon"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Sci-FiCannon.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.010000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Sci-Fi Cannon"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Sci-FiCannon.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.010000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Sci-Fi Cannon"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Sci-FiCannon.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.010000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Sci-Fi Cannon"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Sci-FiCannon.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Weight"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.015000
+      LENGTH 0.833333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.015000
+      LENGTH 0.842125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.015000
+      LENGTH 0.835083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Weight.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.015000
+      LENGTH 0.857458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Weight.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Discharge"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 0.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Discharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Discharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Discharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Discharge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ram"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.200000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Ram"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Ram.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.200000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Ram"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Ram.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.200000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Ram"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Ram.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.200000
+      LENGTH 0.673417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Ram"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Ram.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Vent"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 1.003241
+      LENGTH 0.617292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Vent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Vent.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.989880
+      LENGTH 0.617292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Vent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Vent.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.064394
+      LENGTH 0.617292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Vent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Vent.wav"
+      >
+    >
+    <ITEM
+      POSITION 10.052658
+      LENGTH 0.617292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Vent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Vent.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 0.883241
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.869880
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.944394
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.932658
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Servo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Recock"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 1.253241
+      LENGTH 0.900917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_01 Recock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_01__Recock.wav"
+      >
+    >
+    <ITEM
+      POSITION 4.239880
+      LENGTH 0.918646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_02 Recock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_02__Recock.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.314394
+      LENGTH 0.906750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_03 Recock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_03__Recock.wav"
+      >
+    >
+    <ITEM
+      POSITION 10.302658
+      LENGTH 0.933333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Fire_04 Recock"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Fire_04__Recock.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crunch"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 1.102542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Crunch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Crunch.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 1.153417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Crunch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Crunch.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 1.138958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Crunch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Crunch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Hit"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Sci-FiHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Sci-FiHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Sci-Fi Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Sci-FiHit.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Metal"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 12.004000
+      LENGTH 0.728417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Metal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Metal.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.004000
+      LENGTH 0.761708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Metal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Metal.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.004000
+      LENGTH 0.751896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Metal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Metal.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sparks"
+    VOLPAN 1.412538 0 -1 -1 1
+    <ITEM
+      POSITION 12.010000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Sparks.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.010000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Sparks.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.010000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Sparks.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Breaker"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 12.117816
+      LENGTH 0.400542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Breaker.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.111756
+      LENGTH 0.424333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Breaker.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.124903
+      LENGTH 0.377854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Breaker.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Cut"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 12.127816
+      LENGTH 0.883104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Power Cut"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__PowerCut.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.121756
+      LENGTH 0.953396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Power Cut"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__PowerCut.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.134903
+      LENGTH 1.068104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Power Cut"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__PowerCut.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Debris"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 12.050000
+      LENGTH 0.900000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_01 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_01__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.050000
+      LENGTH 0.900000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_02 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_02__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.050000
+      LENGTH 0.900000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Impact_03 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Impact_03__Debris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Hydraulic Hiss"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Hydraulic Hiss"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__HydraulicHiss.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Hydraulic Hiss"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__HydraulicHiss.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 1.122354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Hydraulic Hiss"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__HydraulicHiss.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Arc Sputter"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 21.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Arc Sputter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__ArcSputter.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Arc Sputter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__ArcSputter.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.030000
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Arc Sputter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__ArcSputter.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Engine Stall"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 1.907979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Engine Stall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__EngineStall.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 1.907979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Engine Stall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__EngineStall.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 1.907979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Engine Stall"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__EngineStall.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.050000
+      LENGTH 1.851854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.050000
+      LENGTH 2.076333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.050000
+      LENGTH 1.627396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Groan"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 21.250000
+      LENGTH 1.694917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Groan"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__Groan.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.250000
+      LENGTH 1.694917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Groan"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__Groan.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.250000
+      LENGTH 1.694917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Groan"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__Groan.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Collapse"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 21.865138
+      LENGTH 1.082021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__Collapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.818626
+      LENGTH 1.732104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__Collapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.792846
+      LENGTH 1.752354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__Collapse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Collapse Weight"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.855138
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Collapse Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__CollapseWeight.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.808626
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Collapse Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__CollapseWeight.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.782846
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Collapse Weight"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__CollapseWeight.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Scrap"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.945138
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_01 Scrap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_01__Scrap.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.898626
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_02 Scrap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_02__Scrap.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.872846
+      LENGTH 1.000000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Siege_Death_03 Scrap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Siege/SW_Human_Siege_Death_03__Scrap.wav"
+      >
+    >
+  >
+>

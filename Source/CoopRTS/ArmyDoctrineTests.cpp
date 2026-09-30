@@ -550,6 +550,7 @@ private:
 			if (!Check(Actors.Wallet->Doctrine == EArmyDoctrine::SiegeOptics && Actors.Wallet->Resources == TerminalBalance,
 				TEXT("Terminal research RPC neither replaces the purchase nor charges again"))) return true;
 			OldWorld = Actors.World;
+			OldState = Actors.State;
 			Actors.Controller->ServerRequestRestart();
 			Next(2, Now);
 			return false;
@@ -561,9 +562,11 @@ private:
 			ACommandPlayerController* FreshController = ArmyTestSetup::Controller(FreshWorld);
 			ACommandGameState* FreshState = FreshWorld->GetGameState<ACommandGameState>();
 			ACommandPlayerState* FreshWallet = FreshController ? FreshController->GetPlayerState<ACommandPlayerState>() : nullptr;
-			if (!FreshState || !FreshWallet || FreshWallet->CommanderIndex < 0) return false;
+			// Seamless travel passes through a transition world that still carries the old GameState.
+			if (!FreshState || FreshState == OldState.Get() || !FreshWallet || FreshWallet->CommanderIndex < 0) return false;
 			if (!Check(FreshState->MatchResult == EMatchResult::Ongoing && FreshWallet->Doctrine == EArmyDoctrine::None,
-				TEXT("Fresh world clears the purchased research"))) return true;
+				*FString::Printf(TEXT("Fresh world clears the purchased research (result=%d doctrine=%d)"),
+					static_cast<int32>(FreshState->MatchResult), static_cast<int32>(FreshWallet->Doctrine)))) return true;
 			for (TActorIterator<AArmyGroup> It(FreshWorld); It; ++It)
 				if (!Check(It->GetOwningPlayerState() != FreshWallet, TEXT("Restart does not recreate fixed player armies"))) return true;
 			ArmyTestSetup::Research(FreshController, EArmyDoctrine::FieldRepairs);
@@ -575,6 +578,7 @@ private:
 		return true;
 	}
 	TWeakObjectPtr<UWorld> OldWorld;
+	TWeakObjectPtr<ACommandGameState> OldState;
 };
 }
 

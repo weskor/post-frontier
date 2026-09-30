@@ -1,6 +1,6 @@
 # Audio sources
 
-Game sounds in `Art/Audio/<Faction>/<Role>/` are mixed from recorded layers by `uv run Build/GenerateUnitAudio.py` (REAPER session per unit in `Art/Audio/Sessions/`). The raw recordings come from the Sonniss #GameAudioGDC bundles and are fetched by `uv run Build/FetchAudioSources.py` into `Saved/AudioSources/Sonniss/`; that script's `FILES` list is the authoritative record of which bundle and file each layer comes from.
+Game sounds in `Art/Audio/<Faction>/<Role>/` are mixed from recorded layers by `uv run Build/GenerateUnitAudio.py` (REAPER session per unit in `Art/Audio/Sessions/`). The raw recordings come from the Sonniss #GameAudioGDC bundles and are fetched by `uv run Build/FetchAudioSources.py` into `Saved/AudioSources/Sonniss/`; each unit recipe's `SOURCES` list (`Build/unit_audio/<faction>_<role>.py`) is the authoritative record of which bundle and file each layer comes from.
 
 ## Licence: Sonniss #GameAudioGDC bundle licence
 

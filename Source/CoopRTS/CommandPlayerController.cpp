@@ -271,14 +271,7 @@ void ACommandPlayerController::ServerRequestRestart_Implementation()
 bool ACommandPlayerController::IsOwnedArmy(const AArmyGroup* Army) const
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
-3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
-4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
-			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
-5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
-6: 		if (It->GetTeamIndex() == Team) continue;
-		for (const AArmyUnit* Unit : It->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
-7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
+	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
 		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
 		&& Army->GetOwningPlayerState() == OwnState;
 }

@@ -70,16 +70,7 @@ inline AArmyGroup* SpawnGroup(UWorld* World, ACommandPlayerController* Owner, in
 	AArmyGroup* Group = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 		Owner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Group) return nullptr;
-3: 			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
-4: 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->GetProductionBuilding() != Production.Get()
-			|| State->EnemyCommander->Resources != 600 - ConstructionSpend - Count * 20
-5: 	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
-6: 		if (It->GetTeamIndex() == Team) continue;
-		for (const AArmyUnit* Unit : It->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive()) EnemyTroops.Add(Unit->GetActorLocation());
-7: 	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
-		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
-		&& Army->GetOwningPlayerState() == OwnState;
+	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
 	Group->FinishSpawning(Transform);
 	if (!Group->SpawnUnits()) { Group->Destroy(); return nullptr; }
 	return Group;
