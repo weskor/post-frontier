@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Engine/DataAsset.h"
 #include "CoreMinimal.h"
+#include "Content/UnitDefinition.h"
 #include "GameFramework/Character.h"
 #include "ArmyUnit.generated.h"
 
@@ -9,31 +9,6 @@ class AArmyGroup;
 enum class EArmyDoctrine : uint8;
 class UStaticMeshComponent;
 class UStaticMesh;
-
-UENUM(BlueprintType)
-enum class EUnitRole : uint8
-{
-	Frontline,
-	Ranged,
-	Siege
-};
-
-UCLASS(BlueprintType)
-class COOPRTS_API UArmyUnitDefinition : public UDataAsset
-{
-	GENERATED_BODY()
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	EUnitRole Role = EUnitRole::Frontline;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	int32 MaxHealth = 140;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	int32 AttackDamage = 14;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	float Range = 175.f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	float Interval = .7f;
-};
 
 UCLASS()
 class COOPRTS_API AArmyUnit : public ACharacter
@@ -54,10 +29,13 @@ public:
 	// Visual identity only; combat/capture allegiance uses TeamIndex.
 	static FLinearColor GetCommanderColor(int32 InCommanderIndex);
 
+	// Index into ACommandGameState::Content->Units; the identity replicated to peers.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Combat")
+	int32 UnitIndex = -1;
+	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<UArmyUnitDefinition> Definition;
 
-
+	// Derived from Definition->Role on spawn; combat and doctrine logic branch on it.
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Combat")
 	EUnitRole UnitRole = EUnitRole::Frontline;
 
@@ -106,12 +84,6 @@ protected:
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Army")
 	TObjectPtr<UStaticMeshComponent> Body;
-
-	// Themed meshes indexed by EUnitRole; an empty entry (asset missing) falls back to the cube.
-	UPROPERTY()
-	TArray<TObjectPtr<UStaticMesh>> HumanMeshes;
-	UPROPERTY()
-	TArray<TObjectPtr<UStaticMesh>> MachineMeshes;
 
 	UFUNCTION()
 	void OnRep_Appearance();

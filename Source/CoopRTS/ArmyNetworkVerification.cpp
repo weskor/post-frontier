@@ -1,6 +1,7 @@
 // Development-only, explicit command-line opt-in. Each process observes its own game world;
 // only the listen host with the separate Authority switch can arrange encounters.
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "ArenaBounds.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
@@ -8,6 +9,7 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "CommandHUD.h"
+#include "Content/MatchContent.h"
 #include "GameFramework/Pawn.h"
 #include "CommandPlayerState.h"
 #include "EnemyCommander.h"
@@ -59,6 +61,14 @@ void Vector(const TSharedPtr<FJsonObject>& ObjectValue, const TCHAR* Key, FVecto
 	Coordinates.Add(MakeShared<FJsonValueNumber>(Value.Z));
 	ObjectValue->SetArrayField(Key, Coordinates);
 }
+// Unit definition currently selected by a producer; production rules read the same definition.
+const UArmyUnitDefinition* ProductionDefinition(const ACommandGameState& State, const ACommandBuilding& Building)
+{
+	if (!State.Content) return nullptr;
+	for (int32 Index = 0; const UArmyUnitDefinition* Definition = State.Content->Unit(Index); ++Index)
+		if (Definition->Role == Building.ProductionRole) return Definition;
+	return nullptr;
+}
 TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 {
 	auto Result = Object();
@@ -80,7 +90,9 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Result->SetBoolField(TEXT("placementValid"), bPlacementCandidateValid);
 	Vector(Result, TEXT("placementCandidate"), PlacementCandidate);
 	Number(Result, TEXT("enemyResources"), State->EnemyResources);
-	Number(Result, TEXT("gameStateId"), LifetimeId(State));
+	if (IsValid(State->Arena))
+		Result->SetArrayField(TEXT("arenaHalfExtent"), {MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X),
+			MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y)});
 	Number(Result, TEXT("resourceSites"), State->ControlledResourceSites);
 	Result->SetBoolField(TEXT("incomePaused"), State->bVerificationIncomePaused);
 	auto Wallets = TArray<TSharedPtr<FJsonValue>>();
@@ -181,17 +193,19 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Building->GetForceCounts(Joined, Travelling);
 		Entry->SetBoolField(TEXT("configured"), Building->bForceConfigured);
 		Number(Entry, TEXT("forceID"), IsValid(Building->ForceGroup) ? Building->ForceGroup->ArmyIndex : -1);
-		Number(Entry, TEXT("capacity"), ACommandBuilding::GetForceCapacity(Building->ProductionRole));
+		const UArmyUnitDefinition* Unit = ProductionDefinition(*State, *Building);
+		Number(Entry, TEXT("capacity"), Unit ? Unit->Capacity : 0);
 		Number(Entry, TEXT("joined"), Joined);
 		Number(Entry, TEXT("travelling"), Travelling);
-		Number(Entry, TEXT("unitCost"), ACommandBuilding::GetUnitCost(Building->ProductionRole));
-		Number(Entry, TEXT("unitTime"), ACommandBuilding::GetUnitDuration(Building->ProductionRole));
-		Number(Entry, TEXT("construction"), Building->ConstructionProgress);
+		Number(Entry, TEXT("unitCost"), Unit ? Unit->UnitCost : 0);
+		Number(Entry, TEXT("unitTime"), Unit ? Unit->UnitDuration : 0.f);
+		Number(Entry, TEXT("constructionProgress"), Building->ConstructionProgress);
 		Number(Entry, TEXT("recipe"), static_cast<int32>(Building->ProductionRole));
 		Number(Entry, TEXT("productionSeconds"), Building->ProductionProgressSeconds);
 		Number(Entry, TEXT("frontOrder"), static_cast<int32>(Building->FrontOrder));
 		Entry->SetBoolField(TEXT("enabled"), Building->bProductionEnabled);
-		Entry->SetStringField(TEXT("productionStatus"), Building->GetProductionStatus());
+		Entry->SetStringField(TEXT("productionState"),
+			StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState())));
 		Vector(Entry, TEXT("position"), Building->GetActorLocation());
 		Vector(Entry, TEXT("front"), Building->FrontLocation);
 		Buildings.Add(MakeShared<FJsonValueObject>(Entry));
@@ -249,7 +263,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		if (!Own || Own->CommanderIndex < 0 || !State) return TEXT("local owning controller unavailable");
 		if (Action == TEXT("build"))
-			PC->ServerPlaceBuilding(static_cast<EBuildingKind>(Request->GetIntegerField(TEXT("kind"))),
+			PC->ServerPlaceBuilding(static_cast<int32>(Request->GetIntegerField(TEXT("kind"))),
 				FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f));
 		else
 		{
@@ -362,14 +376,14 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->TeamIndex == 5) It->IssueHold();
 		for (ACommandBuilding* Building : State->Buildings)
-			if (IsValid(Building) && Building->TeamIndex == 5 && Building->Kind == EBuildingKind::Barracks)
-				Building->SetProduction(Building->ProductionRole, false);
+			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
+				Building->SetProduction(Building->ProductionUnitIndex, false);
 		return FString();
 	}
 	if (Action == TEXT("placement"))
 	{
 		bPlacementCandidateValid = false;
-		const EBuildingKind Kind = static_cast<EBuildingKind>(Request->GetIntegerField(TEXT("kind")));
+		const int32 BuildingIndex = static_cast<int32>(Request->GetIntegerField(TEXT("kind")));
 		if (!IsValid(State->FriendlyHeadquarters)) return TEXT("friendly HQ unavailable");
 		const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
 		for (int32 Ring = 0; Ring < 5; ++Ring)
@@ -379,7 +393,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 120.f);
 				Candidate.Z = 5.f;
 				FString Reason;
-				if (State->ValidateBuildingPlacement(Kind, 0, Candidate, Reason))
+				if (State->ValidateBuildingPlacement(BuildingIndex, 0, Candidate, Reason))
 				{
 					bPlacementCandidateValid = true;
 					PlacementCandidate = Candidate;
@@ -470,7 +484,10 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (It->TeamIndex == 5 && !It->Units.IsEmpty()) { Shooter = It->Units[0]; break; }
 		if (!IsValid(Shooter))
 		{
-			const FTransform Transform(FRotator::ZeroRotator, FVector(1800.f, 2300.f, 100.f));
+			if (!IsValid(State->EnemyHeadquarters)) return TEXT("enemy HQ unavailable for hostile staging");
+			// Hostile fixtures stage in front of the enemy HQ, never at a literal map coordinate.
+			const FTransform Transform(FRotator::ZeroRotator,
+				State->EnemyHeadquarters->GetActorLocation() + FVector(-1400.f, 0.f, -10.f));
 			AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 			if (!Hostile) return TEXT("hostile casualty fixture allocation failed");

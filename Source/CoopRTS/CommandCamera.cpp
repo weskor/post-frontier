@@ -1,5 +1,6 @@
 #include "CommandCamera.h"
 
+#include "ArenaBounds.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -7,9 +8,7 @@
 
 namespace
 {
-	constexpr double ArenaHalfExtent = 4500.0;
 	constexpr float MinArmLength = 700.0f;
-	constexpr float MaxArmLength = 4500.0f;
 }
 
 ACommandCamera::ACommandCamera()
@@ -98,16 +97,19 @@ void ACommandCamera::Drag(FVector2D PixelDelta)
 
 void ACommandCamera::Zoom(float Axis)
 {
-	if (!IsLocallyControlled()) return;
-	SpringArm->TargetArmLength = FMath::Clamp(
-		SpringArm->TargetArmLength * FMath::Pow(1.15f, -Axis), MinArmLength, MaxArmLength);
+	const AArenaBounds* Arena = IsLocallyControlled() ? AArenaBounds::Find(GetWorld()) : nullptr;
+	if (!Arena) return;
+	// Fully zoomed out, the arm spans the arena's half extent.
+	SpringArm->TargetArmLength = FMath::Clamp(SpringArm->TargetArmLength * FMath::Pow(1.15f, -Axis),
+		MinArmLength, static_cast<float>(Arena->HalfExtent.GetMax()));
 }
 
 void ACommandCamera::FocusOn(FVector Location)
 {
-	if (!IsLocallyControlled()) return;
-	Location.X = FMath::Clamp(Location.X, -ArenaHalfExtent, ArenaHalfExtent);
-	Location.Y = FMath::Clamp(Location.Y, -ArenaHalfExtent, ArenaHalfExtent);
+	const AArenaBounds* Arena = IsLocallyControlled() ? AArenaBounds::Find(GetWorld()) : nullptr;
+	if (!Arena) return;
+	Location.X = FMath::Clamp(Location.X, -Arena->HalfExtent.X, Arena->HalfExtent.X);
+	Location.Y = FMath::Clamp(Location.Y, -Arena->HalfExtent.Y, Arena->HalfExtent.Y);
 	Location.Z = 0.0;
 	SetActorLocation(Location);
 }

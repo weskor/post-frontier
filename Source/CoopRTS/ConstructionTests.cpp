@@ -4,9 +4,12 @@
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
 #include "CommandGameMode.h"
+#include "Content/BuildingDefinition.h"
 #include "Headquarters.h"
 #include "NavigationSystem.h"
 #include "Components/BoxComponent.h"
+
+using namespace ArmyTestSetup;
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionLifecycleTest, "CoopRTS.Construction.Lifecycle",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -15,7 +18,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionProductionTest, "CoopRTS.Construct
 
 namespace
 {
-bool FindPlacement(ACommandGameState* State, EBuildingKind Kind, const FVector& Center, FVector& Result)
+bool FindPlacement(ACommandGameState* State, int32 BuildingIndex, const FVector& Center, FVector& Result)
 {
 	for (int32 Ring = 0; Ring < 5; ++Ring)
 		for (int32 Direction = 0; Direction < 16; ++Direction)
@@ -24,7 +27,7 @@ bool FindPlacement(ACommandGameState* State, EBuildingKind Kind, const FVector& 
 			FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 110.f);
 			Point.Z = 5.f;
 			FString Reason;
-			if (State->ValidateBuildingPlacement(Kind, 0, Point, Reason)) { Result = Point; return true; }
+			if (State->ValidateBuildingPlacement(BuildingIndex, 0, Point, Reason)) { Result = Point; return true; }
 		}
 	return false;
 }
@@ -39,7 +42,7 @@ public:
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerState* Wallet = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
-		if (!PC || !State || !Wallet || Wallet->CommanderIndex < 0 || !IsValid(State->FriendlyHeadquarters)) return false;
+		if (!PC || !State || !Wallet || Wallet->CommanderIndex < 0 || !MapReady(State) || !State->Content) return false;
 		if (Stage == 0)
 		{
 			for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
@@ -49,30 +52,32 @@ public:
 			Wallet->Resources = 4000; // Budget fixture; configuration and every recruit use real paid authority paths.
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
 				if (It->TeamIndex == 0) return Fail(TEXT("Normal new match must not spawn fixed friendly armies"));
+			const UBuildingDefinition* Barracks = State->Content->Building(BarracksIndex);
+			if (!Barracks) return Fail(TEXT("Match content lacks the barracks definition"));
 			FVector Location;
-			if (!FindPlacement(State, EBuildingKind::Barracks, State->FriendlyHeadquarters->GetActorLocation(), Location))
+			if (!FindPlacement(State, BarracksIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 				return Fail(TEXT("No valid barracks footprint in HQ construction territory"));
 			const int32 Before = Wallet->Resources;
 			FString PreviewReason;
-			if (!Check(PC->CanPlaceBuildingAt(EBuildingKind::Barracks, Location, PreviewReason),
+			if (!Check(PC->CanPlaceBuildingAt(BarracksIndex, Location, PreviewReason),
 				TEXT("Construction preview permits a valid affordable footprint regardless of explanatory text"))) return true;
-			Wallet->Resources = ACommandBuilding::GetBuildCost(EBuildingKind::Barracks) - 1;
-			if (!Check(!PC->CanPlaceBuildingAt(EBuildingKind::Barracks, Location, PreviewReason),
+			Wallet->Resources = Barracks->BuildCost - 1;
+			if (!Check(!PC->CanPlaceBuildingAt(BarracksIndex, Location, PreviewReason),
 				TEXT("Construction preview rejects a valid footprint when one resource short"))) return true;
 			Wallet->Resources = Before;
-			PC->ServerPlaceBuilding(EBuildingKind::Barracks, Location);
+			PC->ServerPlaceBuilding(BarracksIndex, Location);
 			for (ACommandBuilding* Candidate : State->Buildings)
 				if (IsValid(Candidate) && Candidate->OwningPlayerState == Wallet && Candidate->Kind == EBuildingKind::Barracks) Building = Candidate;
-			if (!Check(Building.IsValid() && Wallet->Resources == Before - ACommandBuilding::GetBuildCost(EBuildingKind::Barracks),
+			if (!Check(Building.IsValid() && Wallet->Resources == Before - Barracks->BuildCost,
 				TEXT("Owned placement creates one paid barracks"))) return true;
 			if (!Check(!Building->IsComplete(), TEXT("Placement begins construction instead of instantly completing"))) return true;
 			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, true);
 			if (!Check(!Building->bProductionEnabled, TEXT("Unfinished production rejects activation"))) return true;
 			const int32 After = Wallet->Resources;
-			PC->ServerPlaceBuilding(EBuildingKind::Barracks, Location);
-			PC->ServerPlaceBuilding(EBuildingKind::Barracks, FVector(100000.f, 0.f, 5.f));
-			PC->ServerPlaceBuilding(static_cast<EBuildingKind>(255), Location + FVector(400.f, 0.f, 0.f));
-			if (!Check(Wallet->Resources == After, TEXT("Overlap, outside territory and invalid kind cannot debit wallet"))) return true;
+			PC->ServerPlaceBuilding(BarracksIndex, Location);
+			PC->ServerPlaceBuilding(BarracksIndex, OutsideArena(State));
+			PC->ServerPlaceBuilding(255, Location + FVector(400.f, 0.f, 0.f)); // No such definition index.
+			if (!Check(Wallet->Resources == After, TEXT("Overlap, outside territory and invalid definition cannot debit wallet"))) return true;
 			Building->Tick(60.f);
 			if (!Check(Building->IsComplete() && Building->Health > 0, TEXT("Game-time construction completes a living building"))) return true;
 			if (!bProduction) return Lifecycle(World, PC, State, Wallet);
@@ -88,9 +93,9 @@ public:
 			for (int32 Index = 0; Index < 2; ++Index)
 			{
 				FVector Location;
-				if (!FindPlacement(State, EBuildingKind::Barracks, State->FriendlyHeadquarters->GetActorLocation(), Location))
+				if (!FindPlacement(State, BarracksIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 					return Fail(TEXT("No footprint for independent force producer"));
-				ACommandBuilding* Added = State->TryPlaceBuilding(EBuildingKind::Barracks, Location, Wallet, 0, Reason);
+				ACommandBuilding* Added = State->TryPlaceBuilding(BarracksIndex, Location, Wallet, 0, Reason);
 				if (!Added) return Fail(TEXT("Independent producer placement rejected"));
 				Added->Tick(60.f);
 				Producers.Add(Added);
@@ -101,7 +106,7 @@ public:
 			UnrelatedWallet->CommanderIndex = 1;
 			UnrelatedWallet->Resources = 777;
 			State->AddPlayerState(UnrelatedWallet.Get());
-			Attacker = ArmyTestSetup::SpawnGroup(World, nullptr, -1, FVector(1800.f, 2300.f, 100.f));
+			Attacker = SpawnGroup(World, nullptr, -1, HostileStaging(State));
 			if (!Attacker.IsValid()) return Fail(TEXT("Hostile damage fixture failed"));
 			Attacker->IssueHold();
 			Attacker->SetActorTickEnabled(false);
@@ -160,25 +165,25 @@ public:
 			if (!Check(Forces[0] != Forces[1] && Forces[1] != Forces[2] && Forces[0] != Forces[2],
 				TEXT("Every producer owns a distinct stable force"))) return true;
 			Wallet->Resources = 0;
-			Building->SetProduction(EUnitRole::Ranged, true);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
 			const float StarvedProgress = Building->ProductionProgressSeconds;
 			Building->TickProduction(60.f);
 			if (!Check(Alive(Building.Get()) == 0 && Building->ProductionProgressSeconds == StarvedProgress
 				&& Wallet->Resources == 0, TEXT("Starvation cannot emit recruits or advance paid work"))) return true;
 			Wallet->Resources = 2000;
 			Building->TickProduction(Building->GetProductionDuration());
-			Building->SetProduction(EUnitRole::Ranged, false);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			Squad = Building->ForceGroup;
 			if (!Check(Alive(Building.Get()) == 1 && Wallet->Resources == 1970,
 				TEXT("One completed ranged slot produces one unit, not a batch, for exactly 30"))) return true;
 			Recruit = Squad->Units[0];
 			if (!Check(Recruit->UnitRole == EUnitRole::Ranged && Recruit->CommanderIndex == Wallet->CommanderIndex
 				&& Recruit->Group == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation())
-					> ACommandBuilding::GetFootprintRadius(EBuildingKind::Barracks),
+					> State->Content->Building(BarracksIndex)->FootprintRadius,
 				TEXT("Paid recruit physically starts outside its owning producer"))) return true;
-			Building->SetProduction(EUnitRole::Ranged, true);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
 			Building->TickProduction(Building->GetProductionDuration() * .25f);
-			Building->SetProduction(EUnitRole::Ranged, false);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			const float PausedProgress = Building->ProductionProgressSeconds;
 			const int32 PausedBalance = Wallet->Resources;
 			Building->TickProduction(60.f);
@@ -189,13 +194,14 @@ public:
 			for (int32 Index = 0; Index < Producers.Num(); ++Index)
 			{
 				ACommandBuilding* Producer = Producers[Index].Get();
-				const float FrontY = Index == 0 ? -1700.f : 1300.f + Index * 400.f;
-				// Keep unrelated stationary forces out of the recruit's later travel
-				// corridor; this scenario proves ownership/refill, not crowd-grid escape.
-				const float FrontX = Index == 0 ? -1800.f : -2500.f;
-				if (!Producer->SetFront(EFrontOrder::Defend, FVector(FrontX, FrontY, 5.f)))
+				// Fronts are HQ-relative: the first force east-south of the HQ, the others
+				// further north, out of the recruit's later travel corridor; this scenario
+				// proves ownership/refill, not crowd-grid escape.
+				const FVector Front = Index == 0 ? FromFriendlyHQ(State, 1700.f, -1100.f, 5.f)
+					: FromFriendlyHQ(State, 1000.f, 1900.f + Index * 400.f, 5.f);
+				if (!Producer->SetFront(EFrontOrder::Defend, Front))
 					return Fail(TEXT("Independent force front rejected"));
-				Producer->SetProduction(Producer->ProductionRole, true);
+				Producer->SetProduction(Producer->ProductionUnitIndex, true);
 			}
 			Stage = 3;
 			return false;
@@ -221,24 +227,24 @@ public:
 			{
 				const float Progress = Producer->ProductionProgressSeconds;
 				Producer->TickProduction(60.f);
-				if (!Check(Producer->ProductionProgressSeconds == Progress && Producer->GetProductionStatus() == TEXT("FORCE COMPLETE"),
+				if (!Check(Producer->ProductionProgressSeconds == Progress && Producer->GetProductionState() == EProductionState::ForceComplete,
 					TEXT("Enabled full forces stop work and report automatic capacity waiting"))) return true;
-				Producer->SetProduction(Producer->ProductionRole, false);
-				if (!Check(Producer->GetProductionStatus() == TEXT("PAUSED"),
+				Producer->SetProduction(Producer->ProductionUnitIndex, false);
+				if (!Check(Producer->GetProductionState() == EProductionState::Paused,
 					TEXT("Explicit pause takes presentation priority even on a full force"))) return true;
 			}
 			if (!Check(Wallet->Resources == FillBalance - 3 * 30 - 6 * 20 - 2 * 50,
 				TEXT("Twelve living units fill independent 4/6/2 forces without a shared cap"))) return true;
 			OtherFront = Forces[1]->FrontLocation;
 			OtherOrder = Forces[1]->FrontOrder;
-			PC->ServerAssignFront(Building.Get(), EFrontOrder::Secure, FVector(-1800.f, -1700.f, 5.f));
+			PC->ServerAssignFront(Building.Get(), EFrontOrder::Secure, FromFriendlyHQ(State, 1700.f, -1100.f, 5.f));
 			if (!Check(Forces[1]->FrontLocation == OtherFront && Forces[1]->FrontOrder == OtherOrder,
 				TEXT("An owning commander's front change affects only the selected producer"))) return true;
 			AArmyUnit* Victim = Squad->Units[0];
 			Victim->ReceiveAttack(Victim->Health, Attacker->Units[0]);
 			if (!Check(!Victim->IsAlive() && Alive(Building.Get()) == 3, TEXT("Real lethal damage opens exactly one vacancy"))) return true;
 			ReplacementBalance = Wallet->Resources;
-			Building->SetProduction(EUnitRole::Ranged, true);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
 			Stage = 4;
 			return false;
 		}
@@ -247,7 +253,7 @@ public:
 			for (AArmyUnit* Unit : Squad->Units)
 				if (IsValid(Unit) && Unit->IsAlive() && Unit->bReinforcing) Recruit = Unit;
 			if (!Recruit.IsValid() || !Recruit->bReinforcing) return false;
-			Building->SetProduction(EUnitRole::Ranged, false);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			if (!Check(Wallet->Resources == ReplacementBalance - 30 && UnrelatedWallet->Resources == 777
 				&& Alive(Building.Get()) == 4 && Alive(Producers[1].Get()) == 6,
 				TEXT("Replacement debits only its own commander, without taking another producer's capacity"))) return true;
@@ -256,7 +262,7 @@ public:
 			if (!Check(FVector::Dist2D(RecruitStart, Building->GetActorLocation()) < 1200.f
 				&& FVector::Dist2D(RecruitStart, JoinedStart) > 500.f && JoinedCenterMatches(Squad.Get()),
 				TEXT("Replacement leaves producer rather than spawning at force; center excludes travellers"))) return true;
-			PC->ServerAssignFront(Building.Get(), EFrontOrder::Defend, FVector(-1800.f, 2500.f, 5.f));
+			PC->ServerAssignFront(Building.Get(), EFrontOrder::Defend, FromFriendlyHQ(State, 1700.f, 3100.f, 5.f));
 			Stage = 5;
 			return false;
 		}
@@ -280,14 +286,14 @@ public:
 				TEXT("Complete wipe retains the same empty force identity"))) return true;
 			RememberedFront = Building->FrontLocation;
 			ReplacementBalance = Wallet->Resources;
-			Building->SetProduction(EUnitRole::Ranged, true);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
 			Stage = 6;
 			return false;
 		}
 		if (Stage == 6)
 		{
 			if (Alive(Building.Get()) == 0) return false;
-			Building->SetProduction(EUnitRole::Ranged, false);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			Recruit = Squad->Units[0];
 			if (!Check(Recruit->bReinforcing && Building->ForceGroup == Squad.Get()
 				&& Squad->FrontLocation == RememberedFront && Wallet->Resources == ReplacementBalance - 30,
@@ -296,14 +302,14 @@ public:
 			if (!Check(!Recruit->IsAlive() && Alive(Building.Get()) == 0,
 				TEXT("Killing a travelling recruit reopens its paid vacancy"))) return true;
 			ReplacementBalance = Wallet->Resources;
-			Building->SetProduction(EUnitRole::Ranged, true);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), true);
 			Stage = 7;
 			return false;
 		}
 		if (Stage == 7)
 		{
 			if (Alive(Building.Get()) == 0) return false;
-			Building->SetProduction(EUnitRole::Ranged, false);
+			Building->SetProduction(UnitIndex(State, EUnitRole::Ranged), false);
 			if (!Check(Wallet->Resources == ReplacementBalance - 30, TEXT("Dead traveller replacement charges again"))) return true;
 			Building->ReceiveAttack(Building->Health, Attacker->Units[0]);
 			if (!Check(Squad.IsValid() && !IsValid(Squad->ProductionBuilding) && Squad->FrontLocation == RememberedFront,
@@ -325,7 +331,7 @@ public:
 				Unit->ReceiveAttack(Unit->Health, Attacker->Units[0]);
 				if (!Check(!Unit->IsAlive() && !Forces[2]->Units.Contains(Unit), TEXT("Blocked-producer casualty is real lethal damage"))) return true;
 			}
-			Producers[2]->SetProduction(EUnitRole::Siege, true);
+			Producers[2]->SetProduction(UnitIndex(State, EUnitRole::Siege), true);
 			Stage = 8;
 			return false;
 		}
@@ -337,7 +343,7 @@ public:
 			if (!Check(Alive(Producers[2].Get()) == 0 && Wallet->Resources == ReplacementBalance,
 				TEXT("Physically blocked deployment never charges or emits a recruit"))) return true;
 			Blocker->Destroy();
-			Producers[2]->SetProduction(EUnitRole::Siege, false);
+			Producers[2]->SetProduction(UnitIndex(State, EUnitRole::Siege), false);
 			Stage = 9;
 			return false;
 		}
@@ -346,10 +352,10 @@ public:
 			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 			if (!Nav || Nav->IsNavigationBuildInProgress()) return false;
 			FVector Location;
-			if (!FindPlacement(State, EBuildingKind::Barracks, State->FriendlyHeadquarters->GetActorLocation(), Location))
+			if (!FindPlacement(State, BarracksIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 				return Fail(TEXT("No legal footprint for a replacement producer"));
 			FString Reason;
-			NewProducer = State->TryPlaceBuilding(EBuildingKind::Barracks, Location, Wallet, 0, Reason);
+			NewProducer = State->TryPlaceBuilding(BarracksIndex, Location, Wallet, 0, Reason);
 			if (!NewProducer.IsValid()) return Fail(TEXT("Replacement producer placement rejected"));
 			NewProducer->Tick(60.f);
 			Stage = 10;
@@ -359,17 +365,17 @@ public:
 		{
 			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 			if (!Nav || Nav->IsNavigationBuildInProgress()) return false;
-			if (!Check(NewProducer->SetProduction(EUnitRole::Frontline, true)
+			if (!Check(NewProducer->SetProduction(UnitIndex(State, EUnitRole::Frontline), true)
 				&& IsValid(NewProducer->ForceGroup) && NewProducer->ForceGroup != Squad.Get()
 				&& Alive(NewProducer.Get()) == 0 && Squad->Units.Num() == SurvivorCount
 				&& !IsValid(Squad->ProductionBuilding),
 				TEXT("A new producer creates its own empty force instead of adopting orphan survivors"))) return true;
-			NewProducer->SetProduction(EUnitRole::Frontline, false);
+			NewProducer->SetProduction(UnitIndex(State, EUnitRole::Frontline), false);
 			ReplacementBalance = Wallet->Resources;
 			State->MatchResult = EMatchResult::Victory; // Terminal guard fixture, not outcome proof.
 			const float Progress = Producers[2]->ProductionProgressSeconds;
 			PC->ServerConfigureProduction(Producers[2].Get(), EUnitRole::Siege, true);
-			PC->ServerAssignFront(Producers[1].Get(), EFrontOrder::FallBack, FVector(-1800.f, 0.f, 5.f));
+			PC->ServerAssignFront(Producers[1].Get(), EFrontOrder::FallBack, FromFriendlyHQ(State, 1700.f, 600.f, 5.f));
 			Producers[2]->TickProduction(60.f);
 			if (!Check(!Producers[2]->bProductionEnabled && Producers[2]->ProductionProgressSeconds == Progress
 				&& Wallet->Resources == ReplacementBalance && Forces[1]->FrontLocation == OtherFront
@@ -423,7 +429,7 @@ private:
 		const int32 Before = Wallet->Resources;
 		Other->ServerConfigureProduction(Building.Get(), EUnitRole::Ranged, true);
 		Other->ServerCancelBuilding(Building.Get());
-		Other->ServerAssignFront(Building.Get(), EFrontOrder::FallBack, FVector(-1800.f, 0.f, 5.f));
+		Other->ServerAssignFront(Building.Get(), EFrontOrder::FallBack, FromFriendlyHQ(State, 1700.f, 600.f, 5.f));
 		if (!Check(Building.IsValid() && !Building->bForceConfigured && !Building->bProductionEnabled
 			&& !Building->HasConfiguredFront() && Wallet->Resources == Before && OtherWallet->Resources == 777,
 			TEXT("Same-team foreign role/front/cancel commands change neither building nor either wallet"))) return true;
@@ -435,10 +441,10 @@ private:
 			&& !Building->bProductionEnabled && Building->ForceGroup == ConfiguredForce && Wallet->Resources == Before,
 			TEXT("Lifecycle retains first-Start configuration and rejects paused type changes without an upgrade path"))) return true;
 		FVector Location;
-		if (!FindPlacement(State, EBuildingKind::Workshop, State->FriendlyHeadquarters->GetActorLocation(), Location))
+		if (!FindPlacement(State, WorkshopIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 			return Fail(TEXT("No workshop footprint in HQ territory"));
 		FString Reason;
-		ACommandBuilding* Workshop = State->TryPlaceBuilding(EBuildingKind::Workshop, Location, Wallet, 0, Reason);
+		ACommandBuilding* Workshop = State->TryPlaceBuilding(WorkshopIndex, Location, Wallet, 0, Reason);
 		if (!Check(Workshop != nullptr, TEXT("Workshop construction accepted"))) return true;
 		Workshop->Tick(60.f);
 		const int32 ResearchBalance = Wallet->Resources;
@@ -446,10 +452,10 @@ private:
 		PC->ServerResearch(Workshop, EArmyDoctrine::FieldRepairs);
 		if (!Check(Wallet->Doctrine == EArmyDoctrine::SiegeOptics && Wallet->Resources == ResearchBalance - ACommandBuilding::ResearchCost
 			&& OtherWallet->Doctrine == EArmyDoctrine::None, TEXT("Research is paid exactly once and scoped to owning commander"))) return true;
-		if (!FindPlacement(State, EBuildingKind::Barracks, State->FriendlyHeadquarters->GetActorLocation(), Location))
+		if (!FindPlacement(State, BarracksIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 			return Fail(TEXT("No cancellation-test footprint"));
 		const int32 CancelBalance = Wallet->Resources;
-		ACommandBuilding* Cancelled = State->TryPlaceBuilding(EBuildingKind::Barracks, Location, Wallet, 0, Reason);
+		ACommandBuilding* Cancelled = State->TryPlaceBuilding(BarracksIndex, Location, Wallet, 0, Reason);
 		if (!Check(Cancelled && Cancelled->CancelConstruction() && Wallet->Resources == CancelBalance,
 			TEXT("Immediate cancellation refunds unbuilt construction exactly once"))) return true;
 		const int32 AfterCancel = Wallet->Resources;
@@ -462,11 +468,11 @@ private:
 		Site->AdvanceCapture(20.f);
 		if (!Check(Site->ControllingTeam == 0 && !Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 0,
 			TEXT("Occupation secures land but bare capture provides no outpost income"))) return true;
-		if (!FindPlacement(State, EBuildingKind::Outpost, Site->GetActorLocation(), Location)) return Fail(TEXT("No valid secured-sector outpost placement"));
-		ACommandBuilding* Outpost = State->TryPlaceBuilding(EBuildingKind::Outpost, Location, Wallet, 0, Reason);
+		if (!FindPlacement(State, OutpostIndex, Site->GetActorLocation(), Location)) return Fail(TEXT("No valid secured-sector outpost placement"));
+		ACommandBuilding* Outpost = State->TryPlaceBuilding(OutpostIndex, Location, Wallet, 0, Reason);
 		if (!Check(Outpost != nullptr, TEXT("Secured territory accepts outpost"))) return true;
 		Outpost->Tick(60.f);
-		for (AArmyUnit* Unit : Occupiers->Units) Unit->SetActorLocation(FVector(-1800.f, 0.f, 100.f));
+		for (AArmyUnit* Unit : Occupiers->Units) Unit->SetActorLocation(FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
 		Site->AdvanceCapture(20.f);
 		State->RefreshTerritory();
 		if (!Check(Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 1 && !Site->bFriendlyPresent,
@@ -477,7 +483,7 @@ private:
 		State->bVerificationIncomePaused = true;
 		if (!Check(Wallet->Resources == IncomeBefore + State->GetIncomePerSecond() * 2,
 			TEXT("Established outpost pays territory income through normal GameState economy"))) return true;
-		AArmyGroup* Enemy = ArmyTestSetup::SpawnGroup(World, nullptr, -1, FVector(1800.f, 2300.f, 100.f));
+		AArmyGroup* Enemy = SpawnGroup(World, nullptr, -1, HostileStaging(State));
 		if (!Enemy) return Fail(TEXT("Hostile destruction fixture failed"));
 		Outpost->ReceiveAttack(Outpost->Health, Enemy->Units[0]);
 		State->RefreshTerritory();

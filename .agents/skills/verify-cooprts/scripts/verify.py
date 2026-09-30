@@ -38,6 +38,24 @@ def record(run, kind, **data):
         out.write(json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(), "kind": kind, **data}) + "\n")
 
 
+# Staleness guard limit: only these directories/suffixes are compared against the artifact
+# mtimes. Edits elsewhere (plugins, Build/ scripts, engine, generated code) are not detected,
+# and an mtime newer than the artifact is a heuristic, not proof the artifact differs.
+SOURCE_SUFFIXES = {".h", ".cpp", ".cs"}
+COOKED = (("Config", {".ini"}), ("Content", {".uasset", ".umap"}))
+
+
+def stale_file(directory, suffixes, limit):
+    for root, dirs, files in os.walk(ROOT / directory):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for name in files:
+            if os.path.splitext(name)[1] in suffixes:
+                path = Path(root, name)
+                if path.stat().st_mtime_ns > limit:
+                    return path.relative_to(ROOT)
+    return None
+
+
 def package_stamp():
     if not BINARY.is_file():
         raise RuntimeError("Package missing. Follow README Linux build/package commands first.")
@@ -46,10 +64,9 @@ def package_stamp():
         raise RuntimeError("Packaged content missing")
     compiled = BINARY.stat().st_mtime_ns
     cooked = min(p.stat().st_mtime_ns for p in packages)
-    for directory, limit in (("Source", compiled), ("Config", cooked), ("Content", cooked)):
-        for path in (ROOT / directory).rglob("*"):
-            if path.is_file() and path.stat().st_mtime_ns > limit:
-                raise RuntimeError(f"Package may be stale: {path.relative_to(ROOT)} is newer. Rebuild/package first.")
+    for directory, suffixes, limit in (("Source", SOURCE_SUFFIXES, compiled), *((d, s, cooked) for d, s in COOKED)):
+        if newer := stale_file(directory, suffixes, limit):
+            raise RuntimeError(f"Package may be stale: {newer} is newer. Rebuild/package first.")
     if (ROOT / "CoopRTS.uproject").stat().st_mtime_ns > min(compiled, cooked):
         raise RuntimeError("Project descriptor is newer than package; rebuild first")
     return {str(p.relative_to(ROOT)): [p.stat().st_size, p.stat().st_mtime_ns] for p in [BINARY, *packages]}
@@ -60,9 +77,9 @@ def editor_stamp():
     if not module.is_file():
         raise RuntimeError("Editor module missing. Build CoopRTSEditor using the README command first.")
     compiled = module.stat().st_mtime_ns
-    for path in (ROOT / "Source").rglob("*"):
-        if path.is_file() and path.stat().st_mtime_ns > compiled:
-            raise RuntimeError(f"Editor module may be stale: {path.relative_to(ROOT)} is newer. Build CoopRTSEditor first.")
+    # Editor runs load uncooked content, so only compiled sources can invalidate the module.
+    if newer := stale_file("Source", SOURCE_SUFFIXES, compiled):
+        raise RuntimeError(f"Editor module may be stale: {newer} is newer. Build CoopRTSEditor first.")
     if (ROOT / "CoopRTS.uproject").stat().st_mtime_ns > compiled:
         raise RuntimeError("Project descriptor is newer than editor module; build CoopRTSEditor first.")
     return {str(module.relative_to(ROOT)): [module.stat().st_size, compiled]}
@@ -208,24 +225,35 @@ def drive(run, args):
     record(run, "input-complete", action=args.command)
 
 
+# scenario: (automation filter, evidence prefix). A filter without a leaf name (rules) runs
+# every test beneath it in one editor process; every reported result must be Success.
+SCENARIOS = {
+    "rules": ("CoopRTS.Rules", "rules"),
+    "orders": ("CoopRTS.Orders.ReplaceHoldRetreat", "regression"),
+    "movement": ("CoopRTS.Movement.TwoGroups", "movement"),
+    "combat": ("CoopRTS.Combat.Encounter", "combat"),
+    "construction": ("CoopRTS.Construction.Lifecycle", "construction"),
+    "production": ("CoopRTS.Construction.Production", "production"),
+    "strategy": ("CoopRTS.Enemy.ConstructionEconomy", "strategy"),
+    "match-win": ("CoopRTS.Match.VictoryRestart", "match-win"),
+    "match-loss": ("CoopRTS.Match.DefeatRestart", "match-loss"),
+    "doctrine-siege": ("CoopRTS.Doctrine.SiegeOptics", "doctrine-siege"),
+    "doctrine-repairs": ("CoopRTS.Doctrine.FieldRepairs", "doctrine-repairs"),
+    "doctrine-frontline": ("CoopRTS.Doctrine.EntrenchedFrontline", "doctrine-frontline"),
+    "doctrine-restart": ("CoopRTS.Doctrine.Restart", "doctrine-restart"),
+}
+
+
+def completed_tests(text, test):
+    """(result, path) for every automation completion at or beneath the requested filter."""
+    return [(result, path) for result, path in re.findall(r"Test Completed\. Result=\{(\w+)\}.*?Path=\{([^}]*)\}", text)
+            if path == test or path.startswith(test + ".")]
+
+
 def regression(run, scenario):
     editor = editor_stamp()
     run.mkdir(parents=True, exist_ok=True)
-    scenarios = {
-        "orders": ("CoopRTS.Orders.ReplaceHoldRetreat", "regression"),
-        "movement": ("CoopRTS.Movement.TwoGroups", "movement"),
-        "combat": ("CoopRTS.Combat.Encounter", "combat"),
-        "construction": ("CoopRTS.Construction.Lifecycle", "construction"),
-        "production": ("CoopRTS.Construction.Production", "production"),
-        "strategy": ("CoopRTS.Enemy.ConstructionEconomy", "strategy"),
-        "match-win": ("CoopRTS.Match.VictoryRestart", "match-win"),
-        "match-loss": ("CoopRTS.Match.DefeatRestart", "match-loss"),
-        "doctrine-siege": ("CoopRTS.Doctrine.SiegeOptics", "doctrine-siege"),
-        "doctrine-repairs": ("CoopRTS.Doctrine.FieldRepairs", "doctrine-repairs"),
-        "doctrine-frontline": ("CoopRTS.Doctrine.EntrenchedFrontline", "doctrine-frontline"),
-        "doctrine-restart": ("CoopRTS.Doctrine.Restart", "doctrine-restart"),
-    }
-    test, prefix = scenarios[scenario]
+    test, prefix = SCENARIOS[scenario]
     log = run / f"{prefix}.log"
     if log.exists():
         raise RuntimeError("Regression evidence already exists; use a fresh --run directory")
@@ -239,13 +267,16 @@ def regression(run, scenario):
     if editor_stamp() != editor:
         raise RuntimeError("Editor module changed during regression; rerun after the build finishes in a fresh evidence directory.")
     text = log.read_text(errors="replace")
-    passed = (result.returncode == 0
-              and re.search(r"Test Completed\. Result=\{Success\}.*Path=\{" + re.escape(test) + r"\}", text) is not None
+    completed = completed_tests(text, test)
+    failed = sorted({path for outcome, path in completed if outcome != "Success"})
+    passed = (result.returncode == 0 and bool(completed) and not failed
               and "**** TEST COMPLETE. EXIT CODE: 0 ****" in text)
-    record(run, "regression-result", test=test, passed=passed, exit_code=result.returncode)
+    record(run, "regression-result", test=test, passed=passed, exit_code=result.returncode,
+           completed=sorted({path for _, path in completed}), failed=failed)
     if not passed:
-        raise RuntimeError(f"Regression did not report explicit Success: {log}")
-    print(f"PASS: {test}; evidence: {log}")
+        raise RuntimeError(f"Regression did not report explicit Success for every test under {test}"
+                           f" (completed {len(completed)}, failed {failed}): {log}")
+    print(f"PASS: {test} ({len(completed)} test result(s)); evidence: {log}")
 
 
 def fraction(value):
@@ -261,9 +292,13 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("launch", "doctor", "focus", "stop"):
         commands.add_parser(name)
-    regression_parser = commands.add_parser("regression")
-    regression_parser.add_argument("--scenario", choices=["orders", "movement", "combat", "construction", "production", "strategy", "match-win", "match-loss",
-                                                           "doctrine-siege", "doctrine-repairs", "doctrine-frontline", "doctrine-restart"], default="construction")
+    regression_parser = commands.add_parser(
+        "regression", help="run one editor automation scenario headlessly (-nullrhi); evidence is the abslog",
+        description="Editor-module automation. 'rules' runs every CoopRTS.Rules.* deterministic rule test in one "
+                    "process and fails on any Result={Fail}; it proves rule precedence only, never navigation, "
+                    "replication or rendering. World scenarios run one latent test each on /Game/Maps/Boot.")
+    regression_parser.add_argument("--scenario", choices=list(SCENARIOS), default="construction",
+                                   help="rules: all CoopRTS.Rules tests in one process; others: one world test (default construction)")
     snap = commands.add_parser("capture"); snap.add_argument("label")
     key = commands.add_parser("key"); key.add_argument("key", choices=["w", "a", "s", "d", "h", "r", "q", "tab", "space", "enter", "escape", "f4"])
     key.add_argument("--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000", help="Hold milliseconds, zero taps")

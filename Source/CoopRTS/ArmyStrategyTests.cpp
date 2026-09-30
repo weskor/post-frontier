@@ -59,8 +59,9 @@ public:
 			HumanBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
 			Planner->EvaluatePlan();
 			for (ACommandBuilding* Building : State->Buildings)
-				if (IsValid(Building) && Building->TeamIndex == 5 && Building->Kind == EBuildingKind::Barracks) Production = Building;
-			if (!Production.IsValid() || State->EnemyResources != 600 - ACommandBuilding::GetBuildCost(EBuildingKind::Barracks)
+				if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer()) Production = Building;
+			const int32 BarracksCost = State->Content->FindBuilding(TEXT("barracks"))->BuildCost;
+			if (!Production.IsValid() || State->EnemyResources != 600 - BarracksCost
 				|| Production->OwningPlayerState || Production->IsComplete())
 				return Fail(TEXT("Enemy must pay its own wallet for an unfinished barracks through shared construction"));
 			Stage = 1;
@@ -76,7 +77,7 @@ public:
 			const int32 Count = Joined + Travelling;
 			if (Count != 1 || !Production->bForceConfigured || Produced->ProductionBuilding != Production.Get()
 				|| !Produced->bAutomaticFront || Produced->FrontOrder != EFrontOrder::Secure
-				|| State->EnemyResources != 600 - ACommandBuilding::GetBuildCost(EBuildingKind::Barracks) - 20
+				|| State->EnemyResources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
 				|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 				return Fail(TEXT("First enemy production must create one paid infantry unit, not a batch, in its producer force"));
 			Recovery = Produced;
@@ -91,7 +92,7 @@ public:
 		int32 ConstructionSpend = 0;
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5)
-				ConstructionSpend += ACommandBuilding::GetBuildCost(Building->Kind);
+				ConstructionSpend += Building->GetDefinition() ? Building->GetDefinition()->BuildCost : 0;
 		if (Count > 6 || Production->ForceGroup != Recovery.Get() || Recovery->ProductionBuilding != Production.Get()
 			|| State->EnemyResources != 600 - ConstructionSpend - Count * 20
 			|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
@@ -117,12 +118,12 @@ public:
 				Unit->ReceiveAttack(Unit->Health - FMath::Max(1, Unit->MaxHealth() / 4), Threat->Units[0]);
 		Threat->Destroy();
 		State->EnemyResources = 2000; // Paid second producer and repairs setup, not asserted income.
-		OtherProduction = PlaceEnemy(State, EBuildingKind::Barracks, State->EnemyHeadquarters->GetActorLocation());
-		ACommandBuilding* Workshop = PlaceEnemy(State, EBuildingKind::Workshop, State->EnemyHeadquarters->GetActorLocation());
+		OtherProduction = PlaceEnemy(State, TEXT("barracks"), State->EnemyHeadquarters->GetActorLocation());
+		ACommandBuilding* Workshop = PlaceEnemy(State, TEXT("workshop"), State->EnemyHeadquarters->GetActorLocation());
 		if (!OtherProduction.IsValid() || !Workshop) return Fail(TEXT("Recovery isolation fixtures have no legal footprints"));
 		OtherProduction->Tick(60.f);
 		Workshop->Tick(60.f);
-		if (!OtherProduction->SetProduction(EUnitRole::Ranged, true)
+		if (!OtherProduction->SetProduction(State->Content->UnitIndexForRole(EUnitRole::Ranged), true)
 			|| !Workshop->TryResearch(EArmyDoctrine::FieldRepairs))
 			return Fail(TEXT("Paid independent force and recovery research setup rejected"));
 		Planner->EvaluatePlan();
@@ -135,7 +136,7 @@ public:
 	}
 private:
 	bool Fail(const TCHAR* Message) { Test->AddError(Message); return true; }
-	ACommandBuilding* PlaceEnemy(ACommandGameState* State, EBuildingKind Kind, const FVector& Center)
+	ACommandBuilding* PlaceEnemy(ACommandGameState* State, FName Id, const FVector& Center)
 	{
 		for (int32 Ring = 0; Ring < 6; ++Ring)
 			for (int32 Direction = 0; Direction < 16; ++Direction)
@@ -144,7 +145,7 @@ private:
 				FVector Location = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 110.f);
 				Location.Z = 5.f;
 				FString Reason;
-				if (ACommandBuilding* Building = State->TryPlaceBuilding(Kind, Location, nullptr, 5, Reason)) return Building;
+				if (ACommandBuilding* Building = State->TryPlaceBuilding(State->Content->BuildingIndexOf(Id), Location, nullptr, 5, Reason)) return Building;
 			}
 		return nullptr;
 	}

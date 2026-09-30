@@ -6,9 +6,34 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Content/MatchContent.h"
 #include "Headquarters.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+
+namespace
+{
+	// Doctrine picks by capability and role; the catalogue decides which asset fulfils them.
+	int32 FirstBuildingWith(const UMatchContent& Content, bool UBuildingDefinition::*Capability)
+	{
+		for (int32 Index = 0; Index < Content.Buildings.Num(); ++Index)
+			if (const UBuildingDefinition* Building = Content.Building(Index); Building && Building->*Capability) return Index;
+		return INDEX_NONE;
+	}
+
+	int32 FirstUnitWithRole(const UMatchContent& Content, EUnitRole Role)
+	{
+		for (int32 Index = 0; Index < Content.Units.Num(); ++Index)
+			if (const UArmyUnitDefinition* Unit = Content.Unit(Index); Unit && Unit->Role == Role) return Index;
+		return INDEX_NONE;
+	}
+
+	bool HasCapability(const ACommandBuilding& Building, bool UBuildingDefinition::*Capability)
+	{
+		const UBuildingDefinition* Definition = Building.GetDefinition();
+		return Definition && Definition->*Capability;
+	}
+}
 
 AEnemyCommander::AEnemyCommander()
 {
@@ -24,9 +49,10 @@ void AEnemyCommander::Tick(float DeltaSeconds)
 	EvaluatePlan();
 }
 
-ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, EBuildingKind Kind, const FVector& Center)
+ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center)
 {
-	if (State->EnemyResources < ACommandBuilding::GetBuildCost(Kind)) return nullptr;
+	const UBuildingDefinition* Definition = State->Content->Building(BuildingIndex);
+	if (!Definition || State->EnemyResources < ACommandBuilding::GetBuildCost(*Definition)) return nullptr;
 	// Deterministic candidate positions use the same collision, territory and
 	// navigation validation as player construction; the planner cannot cheat.
 	for (int32 Ring = 0; Ring < 4; ++Ring)
@@ -38,7 +64,7 @@ ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, EBuilding
 			FVector Location = Center + FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0.f);
 			Location.Z = 5.f;
 			FString Reason;
-			if (ACommandBuilding* Building = State->TryPlaceBuilding(Kind, Location, nullptr, 5, Reason))
+			if (ACommandBuilding* Building = State->TryPlaceBuilding(BuildingIndex, Location, nullptr, 5, Reason))
 				return Building;
 		}
 	}
@@ -48,8 +74,17 @@ ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, EBuilding
 void AEnemyCommander::EvaluatePlan()
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || !State || State->MatchResult != EMatchResult::Ongoing
+	if (!HasAuthority() || !State || !State->Content || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters)) return;
+	const UMatchContent& Content = *State->Content;
+	const int32 ProducerIndex = FirstBuildingWith(Content, &UBuildingDefinition::bProducesForces);
+	const int32 OutpostIndex = FirstBuildingWith(Content, &UBuildingDefinition::bEstablishesSector);
+	const int32 WorkshopIndex = FirstBuildingWith(Content, &UBuildingDefinition::bOffersResearch);
+	const int32 FrontlineIndex = FirstUnitWithRole(Content, EUnitRole::Frontline);
+	const int32 RangedIndex = FirstUnitWithRole(Content, EUnitRole::Ranged);
+	const int32 SiegeIndex = FirstUnitWithRole(Content, EUnitRole::Siege);
+	if (ProducerIndex < 0 || FrontlineIndex < 0 || RangedIndex < 0 || SiegeIndex < 0) return;
+	const UArmyUnitDefinition& Infantry = *Content.Unit(FrontlineIndex);
 
 	const FVector Home = State->EnemyHeadquarters->GetActorLocation();
 	TArray<ACommandBuilding*, TInlineAllocator<8>> Barracks;
@@ -57,12 +92,12 @@ void AEnemyCommander::EvaluatePlan()
 	for (ACommandBuilding* Building : State->Buildings)
 	{
 		if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != 5) continue;
-		if (Building->Kind == EBuildingKind::Barracks) Barracks.Add(Building);
-		if (Building->Kind == EBuildingKind::Workshop) Workshop = Building;
+		if (Building->IsProducer()) Barracks.Add(Building);
+		if (HasCapability(*Building, &UBuildingDefinition::bOffersResearch)) Workshop = Building;
 	}
 	if (Barracks.IsEmpty())
 	{
-		BuildNear(State, EBuildingKind::Barracks, Home);
+		BuildNear(State, ProducerIndex, Home);
 		State->EnemyPlan = TEXT("ESTABLISH BASE");
 		State->EnemyPlanRationale = TEXT("Constructing paid production before deploying a persistent force");
 		State->ForceNetUpdate();
@@ -106,16 +141,16 @@ void AEnemyCommander::EvaluatePlan()
 	{
 		if (!IsValid(Site)) continue;
 		if (Site->IsEstablishedForTeam(5)) { ++Established; continue; }
-		if (Site->ControllingTeam == 5 && !Site->bFriendlyPresent)
+		if (Site->ControllingTeam == 5 && !Site->bFriendlyPresent && OutpostIndex >= 0)
 		{
 			bool bBuildingOutpost = false;
 			for (ACommandBuilding* Building : State->Buildings)
 				if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex == 5
-					&& Building->Kind == EBuildingKind::Outpost
+					&& HasCapability(*Building, &UBuildingDefinition::bEstablishesSector)
 					&& FVector::DistSquared2D(Building->GetActorLocation(), Site->GetActorLocation())
 						< FMath::Square(ACapturePoint::TerritoryRadius))
 					bBuildingOutpost = true;
-			if (!bBuildingOutpost) BuildNear(State, EBuildingKind::Outpost, Site->GetActorLocation());
+			if (!bBuildingOutpost) BuildNear(State, OutpostIndex, Site->GetActorLocation());
 		}
 		const float Score = (Site->ControllingTeam == 0 ? 3.f : 5.f)
 			- FVector::Dist2D(Home, Site->GetActorLocation()) / 1200.f;
@@ -135,9 +170,9 @@ void AEnemyCommander::EvaluatePlan()
 	}
 	else if (Now >= CommitUntil || CommittedFront.IsNearlyZero())
 	{
-		const int32 AssaultStrength = ACommandBuilding::GetForceCapacity(EUnitRole::Frontline)
-			+ ACommandBuilding::GetForceCapacity(EUnitRole::Ranged)
-			+ ACommandBuilding::GetForceCapacity(EUnitRole::Siege);
+		const int32 AssaultStrength = ACommandBuilding::GetForceCapacity(Infantry)
+			+ ACommandBuilding::GetForceCapacity(*Content.Unit(RangedIndex))
+			+ ACommandBuilding::GetForceCapacity(*Content.Unit(SiegeIndex));
 		const bool bAssault = Established >= 2 || (Frontline + Ranged + Siege >= AssaultStrength);
 		Front = bAssault || !Target ? State->FriendlyHeadquarters->GetActorLocation() : Target->GetActorLocation();
 		CommittedFront = Front;
@@ -155,8 +190,10 @@ void AEnemyCommander::EvaluatePlan()
 		const EUnitRole Role = Building->bForceConfigured ? Building->ProductionRole
 			: FrontlineForces == 0 ? EUnitRole::Frontline : RangedForces == 0 ? EUnitRole::Ranged
 			: SiegeForces == 0 ? EUnitRole::Siege : FrontlineForces <= RangedForces ? EUnitRole::Frontline : EUnitRole::Ranged;
+		const int32 UnitIndex = Building->bForceConfigured ? Building->ProductionUnitIndex
+			: Role == EUnitRole::Frontline ? FrontlineIndex : Role == EUnitRole::Ranged ? RangedIndex : SiegeIndex;
 		const bool bWasConfigured = Building->bForceConfigured;
-		if (!Building->bProductionEnabled) Building->SetProduction(Role, true);
+		if (!Building->bProductionEnabled) Building->SetProduction(UnitIndex, true);
 		if (!bWasConfigured && Building->bForceConfigured)
 		{
 			if (Role == EUnitRole::Frontline) ++FrontlineForces;
@@ -182,14 +219,14 @@ void AEnemyCommander::EvaluatePlan()
 	}
 
 	// Reserve one full infantry force's replacement budget before optional investment.
-	const int32 ReplacementReserve = ACommandBuilding::GetUnitCost(EUnitRole::Frontline)
-		* ACommandBuilding::GetForceCapacity(EUnitRole::Frontline);
+	const int32 ReplacementReserve = ACommandBuilding::GetUnitCost(Infantry) * ACommandBuilding::GetForceCapacity(Infantry);
+	const UBuildingDefinition* WorkshopDefinition = Content.Building(WorkshopIndex);
 	if (!Intruders && Established > 0 && Barracks.Num() < 3
-		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(EBuildingKind::Barracks) + ReplacementReserve)
-		BuildNear(State, EBuildingKind::Barracks, Home);
-	else if (!Workshop && Established > 0
-		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(EBuildingKind::Workshop) + ReplacementReserve)
-		BuildNear(State, EBuildingKind::Workshop, Home);
+		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(*Content.Building(ProducerIndex)) + ReplacementReserve)
+		BuildNear(State, ProducerIndex, Home);
+	else if (!Workshop && Established > 0 && WorkshopDefinition
+		&& State->EnemyResources >= ACommandBuilding::GetBuildCost(*WorkshopDefinition) + ReplacementReserve)
+		BuildNear(State, WorkshopIndex, Home);
 	else if (Workshop && Workshop->IsComplete() && State->EnemyDoctrine == EArmyDoctrine::None
 		&& State->EnemyResources >= ACommandBuilding::ResearchCost + ReplacementReserve)
 		Workshop->TryResearch(EArmyDoctrine::FieldRepairs);

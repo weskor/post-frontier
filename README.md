@@ -1,6 +1,8 @@
-# Co-op RTS Roguelite
+# Post-Frontier
 
-Construction-first cooperative RTS prototype and Unreal implementation notes.
+*"You're absolutely right. Deprecating humanity now."*
+
+Construction-first cooperative RTS roguelite prototype (code name CoopRTS) and Unreal implementation notes. Title, setting and tone: [Docs/World.md](Docs/World.md).
 
 **Fixed-force cutover (2026-09-30):** each barracks maintains one type-locked force with individual, physical casualty reinforcements. Editor compilation, the final live paid-production scenario, and a fresh Linux package's offscreen HUD run passed (26 captures across four resolutions). Evidence and limits: `Saved/Verification/force-hud-package-a-20260930/RESULTS.md`. The broad host/client lifecycle was interrupted by request, not passed; native OS input and full multiplayer acceptance remain unverified.
 
@@ -76,7 +78,7 @@ Future design candidates, not commitments, include roster drafting, additional u
 
 ### Technical boundaries
 
-The project uses UE 5.8.3, Linux x86_64, the bundled Clang 20.1.8 toolchain and Vulkan SM6. A C++ game module handles authoritative rules, Unreal navigation/Detour crowd movement and replicated actors; Enhanced Input supplies local controls. The current on-screen HUD is drawn by `ACommandHUD` with Canvas, **not UMG**. `ACommandGameMode` initializes sites/HQs and resolves outcomes; `ACommandGameState` owns shared territory, team income and placement validation; `ACommandPlayerState` owns each wallet and specialization; `ACommandBuilding` owns construction and its persistent force's production; `AArmyGroup` directs that force and its physical reinforcements; `AEnemyCommander` buys buildings and sets fronts. No Gameplay Ability System, Mass Entity, external LLM integration or plugin architecture is required for this prototype.
+The project uses UE 5.8.3, Linux x86_64, the bundled Clang 20.1.8 toolchain and Vulkan SM6. A C++ game module handles authoritative rules, Unreal navigation/Detour crowd movement and replicated actors; Enhanced Input supplies local controls. The current on-screen HUD is drawn by `ACommandHUD` with Canvas, **not UMG**. Each level places an `AArenaBounds`, both `AHeadquarters` (`TeamIndex` 0 and 5) and its `ACapturePoint` sectors; `ACommandGameMode` discovers them, refuses to start a match without them and resolves outcomes; `ACommandGameState` owns shared territory, team income and placement validation; `ACommandPlayerState` owns each wallet and specialization; `ACommandBuilding` owns construction and its persistent force's production; `AArmyGroup` directs that force and its physical reinforcements; `AEnemyCommander` buys buildings and sets fronts. No Gameplay Ability System, Mass Entity, external LLM integration or plugin architecture is required for this prototype.
 
 The visual direction favors readable silhouettes, dark environments and restrained team accents. [World, naming, Campus Zero and art pipeline](Docs/World.md) contains themed map and asset-generation detail; [Unreal MCP editor setup](Docs/UnrealMCP.md) documents the optional editor bridge. The art and lore documents may describe older mechanics; current gameplay rules above and source take precedence.
 
@@ -193,7 +195,7 @@ Fixed-force live production proof is `Saved/Verification/force-production-b-2026
 
 ### Regenerating the arena
 
-The map and material assets are already present; normal builds do not need regeneration. `Build/GenerateCommandMap.py` reconstructs the test arena through Unreal's editor APIs.
+The map and material assets are already present; normal builds do not need regeneration. `Build/GenerateCommandMap.py` reconstructs the test arena through Unreal's editor APIs; the match actors it and `Build/GenerateCampusZero.py` place (arena, HQs, sectors) come from `Build/MatchLayout.py`.
 
 **This replaces the actors in Boot. Do not run it over hand-edited map work you want to keep.** Close the editor, build `CoopRTSEditor`, then run:
 

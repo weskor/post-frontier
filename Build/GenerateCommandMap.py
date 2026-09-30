@@ -9,9 +9,17 @@ The editor actor factory constructs the NavMeshBoundsVolume's real brush. Its
 measured bounds, not assumed default brush dimensions, determine arena scale.
 Recast uses Dynamic generation so the saved map also navigates in cooked games
 without relying on an asynchronous editor navigation bake finishing before save.
+Match actors (ArenaBounds, HQs, sectors) come from Build/MatchLayout.py; floor,
+walls and navigation bounds are sized from the placed ArenaBounds.
 """
 
+import os
+import sys
+
 import unreal
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import MatchLayout  # noqa: E402
 
 
 assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
@@ -112,13 +120,14 @@ def primitive(label, location, scale, surface, mesh=cube, collision=True):
     return actor
 
 
-primitive("ArenaFloor", (0, 0, -50), (90, 90, 1), floor_material)
+arena_x, arena_y = MatchLayout.place(spawn)
+primitive("ArenaFloor", (0, 0, -50), (arena_x / 50, arena_y / 50, 1), floor_material)
 primitive("CentralObstacle", (0, 0, 300), (12, 20, 6), obstacle_material)
-# Keep characters on the playable floor as well as bounding orders.
-primitive("BoundaryNorth", (0, 4475, 60), (90, 0.5, 1.2), wall_material)
-primitive("BoundarySouth", (0, -4475, 60), (90, 0.5, 1.2), wall_material)
-primitive("BoundaryEast", (4475, 0, 60), (0.5, 90, 1.2), wall_material)
-primitive("BoundaryWest", (-4475, 0, 60), (0.5, 90, 1.2), wall_material)
+# Keep characters on the playable floor as well as bounding orders: 50 cm walls whose inner face is 50 cm inside the arena.
+primitive("BoundaryNorth", (0, arena_y - 25, 60), (arena_x / 50, 0.5, 1.2), wall_material)
+primitive("BoundarySouth", (0, -(arena_y - 25), 60), (arena_x / 50, 0.5, 1.2), wall_material)
+primitive("BoundaryEast", (arena_x - 25, 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
+primitive("BoundaryWest", (-(arena_x - 25), 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
 for index, y in enumerate((0, -850, 850, -1700, 1700)):
     primitive("ArmyHome" + str(index), (-1800, y, 2), (5, 5, 0.04), team_materials[index], cylinder, False)
 spawn(unreal.PlayerStart, "CommanderStart", (-1800, 0, 150))
@@ -139,9 +148,9 @@ bounds = spawn(unreal.NavMeshBoundsVolume, "ArenaNavigationBounds", (0, 0, 150))
 _, extent = bounds.get_actor_bounds(False)
 require(min(extent.x, extent.y, extent.z) > 0.0,
         "Editor factory did not construct a navigation brush; cannot scale an empty volume")
-bounds.set_actor_scale3d(unreal.Vector(4500 / extent.x, 4500 / extent.y, 450 / extent.z))
+bounds.set_actor_scale3d(unreal.Vector(arena_x / extent.x, arena_y / extent.y, 450 / extent.z))
 _, arena_extent = bounds.get_actor_bounds(False)
-require(abs(arena_extent.x - 4500) < 1 and abs(arena_extent.y - 4500) < 1,
+require(abs(arena_extent.x - arena_x) < 1 and abs(arena_extent.y - arena_y) < 1,
         "Navigation bounds did not resize to the arena")
 
 nav_meshes = [actor for actor in actors.get_all_level_actors() if isinstance(actor, unreal.RecastNavMesh)]
@@ -157,4 +166,4 @@ world.get_world_settings().set_editor_property(
                                  "Build CoopRTSEditor before generating the map")
 )
 require(levels.save_current_level(), "Could not save command arena")
-unreal.log("COMMAND_ARENA_GENERATED /Game/Maps/Boot bounds=+/-4500 floor_z=0 navigation=Dynamic")
+unreal.log("COMMAND_ARENA_GENERATED /Game/Maps/Boot bounds=+/-%d floor_z=0 navigation=Dynamic" % arena_x)

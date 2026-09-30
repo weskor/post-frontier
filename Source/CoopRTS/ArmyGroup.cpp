@@ -1,10 +1,12 @@
 #include "ArmyGroup.h"
 
 #include "AIController.h"
+#include "ArenaBounds.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CombatTarget.h"
 #include "CommandGameState.h"
+#include "Content/MatchContent.h"
 #include "Headquarters.h"
 #include "CommandPlayerState.h"
 #include "Components/SceneComponent.h"
@@ -17,7 +19,6 @@
 #include "NavigationData.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
-#include "UObject/ConstructorHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArmyOrders, Log, All);
 
@@ -33,10 +34,10 @@ namespace
 		FNavPathSharedPtr Path;
 	};
 
-	bool IsArenaLocation(const FVector& Location)
+	bool IsArenaLocation(const UWorld* World, const FVector& Location)
 	{
-		return !Location.ContainsNaN() && FMath::Abs(Location.X) <= 4500.0
-			&& FMath::Abs(Location.Y) <= 4500.0 && FMath::Abs(Location.Z) <= 1000.0;
+		const AArenaBounds* Arena = AArenaBounds::Find(World);
+		return Arena && Arena->ContainsTravel(Location);
 	}
 
 	AAIController* GetReadyController(AArmyUnit* Unit)
@@ -50,7 +51,7 @@ namespace
 		UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
 		FPreparedMove& Prepared, float ProjectionRadius = 35.0f)
 	{
-		if (!IsArenaLocation(Target))
+		if (!IsArenaLocation(Navigation.GetWorld(), Target))
 		{
 			return false;
 		}
@@ -58,7 +59,7 @@ namespace
 		FNavLocation Projected;
 		if (!NavData || !Navigation.ProjectPointToNavigation(Target, Projected,
 			FVector(ProjectionRadius, ProjectionRadius, 200.0f), NavData)
-			|| !IsArenaLocation(Projected.Location)
+			|| !IsArenaLocation(Navigation.GetWorld(), Projected.Location)
 			|| FVector::DistSquared2D(Target, Projected.Location) > FMath::Square(ProjectionRadius))
 		{
 			return false;
@@ -106,12 +107,6 @@ AArmyGroup::AArmyGroup()
 	PrimaryActorTick.bCanEverTick = true;
 	bAlwaysRelevant = true;
 	SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
-	static ConstructorHelpers::FObjectFinder<UArmyUnitDefinition> Frontline(TEXT("/Game/Units/DA_Frontline.DA_Frontline"));
-	static ConstructorHelpers::FObjectFinder<UArmyUnitDefinition> Ranged(TEXT("/Game/Units/DA_Ranged.DA_Ranged"));
-	static ConstructorHelpers::FObjectFinder<UArmyUnitDefinition> Siege(TEXT("/Game/Units/DA_Siege.DA_Siege"));
-	FrontlineDefinition = Frontline.Object;
-	RangedDefinition = Ranged.Object;
-	SiegeDefinition = Siege.Object;
 }
 
 EArmyDoctrine AArmyGroup::GetDoctrine() const
@@ -135,13 +130,18 @@ FVector AArmyGroup::FormationOffset(int32 Index) const
 
 bool AArmyGroup::SpawnUnits()
 {
-	if (!HasAuthority() || !Units.IsEmpty() || !FrontlineDefinition || !RangedDefinition || !SiegeDefinition
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	const UMatchContent* Content = State ? State->Content.Get() : nullptr;
+	if (!HasAuthority() || !Units.IsEmpty() || !Content
 		|| (TeamIndex == 0 ? !IsValid(OwningPlayerState) || OwningPlayerState->CommanderIndex < 0
 			|| OwningPlayerState->CommanderIndex >= 5
 			: TeamIndex != 5 || !bOpposingArmy || IsValid(OwningPlayerState)))
 	{
 		return false;
 	}
+	// Fixed starting force: two of each of the first three catalogue units.
+	for (int32 Index = 0; Index < InitialUnitCount; ++Index)
+		if (!Content->Unit(Index / 2)) return false;
 
 	Units.Reserve(MaxUnitCount);
 	for (int32 Index = 0; Index < InitialUnitCount; ++Index)
@@ -159,7 +159,8 @@ bool AArmyGroup::SpawnUnits()
 		Unit->CommanderIndex = IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1;
 		Unit->CompositionSlot = Index;
 		Unit->ArmyIndex = ArmyIndex;
-		Unit->Definition = Index < 2 ? FrontlineDefinition : Index < 4 ? RangedDefinition : SiegeDefinition;
+		Unit->UnitIndex = Index / 2;
+		Unit->Definition = const_cast<UArmyUnitDefinition*>(Content->Unit(Unit->UnitIndex));
 		Unit->UnitRole = Unit->Definition->Role;
 		Unit->Health = Unit->MaxHealth();
 		Unit->FinishSpawning(Transform);
@@ -169,24 +170,25 @@ bool AArmyGroup::SpawnUnits()
 	ForceNetUpdate();
 	return true;
 }
-bool AArmyGroup::SpawnReinforcement(EUnitRole Role, const FVector& SpawnLocation)
+bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	const int32 Capacity = ACommandBuilding::GetForceCapacity(Role);
+	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
+	const int32 Capacity = Definition ? ACommandBuilding::GetForceCapacity(*Definition) : 0;
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(ProductionBuilding) || !ProductionBuilding->IsAlive() || !ProductionBuilding->IsComplete()
-		|| ProductionBuilding->Kind != EBuildingKind::Barracks || !ProductionBuilding->bForceConfigured
-		|| ProductionBuilding->ForceGroup != this || ProductionBuilding->ProductionRole != Role
+		|| !ProductionBuilding->IsProducer() || !ProductionBuilding->bForceConfigured
+		|| ProductionBuilding->ForceGroup != this || ProductionBuilding->ProductionUnitIndex != UnitIndex
 		|| ProductionBuilding->TeamIndex != TeamIndex || ProductionBuilding->OwningPlayerState != OwningPlayerState
 		|| (TeamIndex == 0 ? !IsValid(OwningPlayerState) || OwningPlayerState->CommanderIndex < 0
 			|| OwningPlayerState->CommanderIndex >= 5 : TeamIndex != 5 || IsValid(OwningPlayerState))
-		|| Capacity == 0 || !IsArenaLocation(SpawnLocation)) return false;
+		|| Capacity == 0 || !IsArenaLocation(GetWorld(), SpawnLocation)) return false;
 	uint32 Occupied = 0;
 	int32 Living = 0;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive()) continue;
-		if (Unit->UnitRole != Role || Unit->CompositionSlot < 0 || Unit->CompositionSlot >= Capacity) return false;
+		if (Unit->UnitIndex != UnitIndex || Unit->CompositionSlot < 0 || Unit->CompositionSlot >= Capacity) return false;
 		Occupied |= 1u << Unit->CompositionSlot;
 		++Living;
 	}
@@ -194,16 +196,14 @@ bool AArmyGroup::SpawnReinforcement(EUnitRole Role, const FVector& SpawnLocation
 	int32 Slot = 0;
 	while (Slot < Capacity && (Occupied & (1u << Slot))) ++Slot;
 	if (Slot == Capacity) return false;
-	UArmyUnitDefinition* Definition = Role == EUnitRole::Frontline ? FrontlineDefinition.Get()
-		: Role == EUnitRole::Ranged ? RangedDefinition.Get() : SiegeDefinition.Get();
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	const double ExitDistance = FVector::DistSquared2D(SpawnLocation, ProductionBuilding->GetActorLocation());
-	const float Radius = ACommandBuilding::GetFootprintRadius(EBuildingKind::Barracks);
+	const float Radius = ACommandBuilding::GetFootprintRadius(*ProductionBuilding->GetDefinition());
 	FNavLocation Projected;
-	if (!Definition || !Navigation || ExitDistance < FMath::Square(Radius + 75.f)
+	if (!Navigation || ExitDistance < FMath::Square(Radius + 75.f)
 		|| ExitDistance > FMath::Square(Radius + 700.f)
 		|| !Navigation->ProjectPointToNavigation(SpawnLocation, Projected, FVector(45.f, 45.f, 200.f))
-		|| !IsArenaLocation(Projected.Location)
+		|| !IsArenaLocation(GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(SpawnLocation, Projected.Location) > FMath::Square(45.f)
 		|| FMath::Abs(SpawnLocation.Z - Projected.Location.Z) > 110.f
 		|| GetWorld()->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
@@ -217,8 +217,9 @@ bool AArmyGroup::SpawnReinforcement(EUnitRole Role, const FVector& SpawnLocation
 	Candidate->CommanderIndex = IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1;
 	Candidate->CompositionSlot = Slot;
 	Candidate->ArmyIndex = ArmyIndex;
-	Candidate->Definition = Definition;
-	Candidate->UnitRole = Role;
+	Candidate->UnitIndex = UnitIndex;
+	Candidate->Definition = const_cast<UArmyUnitDefinition*>(Definition);
+	Candidate->UnitRole = Definition->Role;
 	Candidate->Health = Candidate->MaxHealth();
 	Candidate->bReinforcing = true;
 	Candidate->FinishSpawning(Transform);
@@ -418,7 +419,7 @@ bool AArmyGroup::IssueMove(FVector InDestination)
 bool AArmyGroup::IssueAttack(FVector InDestination, AActor* InTarget)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!IsArenaLocation(InDestination) || (State && State->MatchResult != EMatchResult::Ongoing)) return false;
+	if (!IsArenaLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing)) return false;
 	FVector Anchor = InDestination;
 	if (InTarget)
 	{
@@ -447,7 +448,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || (Units.IsEmpty() && !IsValid(ProductionBuilding) && !bProducedGroup)
-		|| !IsArenaLocation(InDestination) || (State && State->MatchResult != EMatchResult::Ongoing))
+		|| !IsArenaLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing))
 	{
 		return false;
 	}
@@ -505,7 +506,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 		const ANavigationData* NavData = Navigation->GetNavDataForProps(Agent, HomeLocation);
 		FNavLocation Projected;
 		if (!NavData || !Navigation->ProjectPointToNavigation(InDestination, Projected,
-			FVector(75.f, 75.f, 200.f), NavData) || !IsArenaLocation(Projected.Location)
+			FVector(75.f, 75.f, 200.f), NavData) || !IsArenaLocation(GetWorld(), Projected.Location)
 			|| FVector::DistSquared2D(InDestination, Projected.Location) > FMath::Square(75.f)) return false;
 		FPathFindingQuery Query(this, *NavData, HomeLocation, Projected.Location);
 		Query.SetAllowPartialPaths(false);

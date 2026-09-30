@@ -1,5 +1,6 @@
 #include "CommandGameMode.h"
 
+#include "ArenaBounds.h"
 #include "ArmyGroup.h"
 #include "CapturePoint.h"
 #include "CommandBuilding.h"
@@ -14,6 +15,8 @@
 #include "GameFramework/GameSession.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Content/MatchContent.h"
+#include "UObject/ConstructorHelpers.h"
 
 ACommandGameMode::ACommandGameMode()
 {
@@ -24,6 +27,8 @@ ACommandGameMode::ACommandGameMode()
 	HUDClass = ACommandHUD::StaticClass();
 	GameStateClass = ACommandGameState::StaticClass();
 	PlayerStateClass = ACommandPlayerState::StaticClass();
+	static ConstructorHelpers::FObjectFinder<UMatchContent> Content(TEXT("/Game/Content/DA_MatchContent.DA_MatchContent"));
+	if (Content.Succeeded()) DefaultContent = Content.Object;
 }
 
 void ACommandGameMode::Tick(float DeltaSeconds)
@@ -55,12 +60,40 @@ void ACommandGameMode::RequestRestart(ACommandPlayerController* Requester)
 	if (!HasAuthority() || bRestartRequested || !IsValid(Requester) || Requester->GetWorld() != GetWorld()
 		|| !Commander || Commander->CommanderIndex < 0
 		|| !State || State->MatchResult == EMatchResult::Ongoing) return;
-	// Seamless travel keeps the net driver and player connections. Boot's new GameState
+	// Seamless travel keeps the net driver and player connections. The new level's GameState
 	// and actors are fresh; carried PlayerStates are reset when their controllers start.
 	// Explicit SeamlessTravel avoids the engine's 48-hour automatic hard-travel fallback.
 	bRestartRequested = true;
-	if (!GetWorld()->ServerTravel(TEXT("/Game/Maps/Boot?listen?SeamlessTravel"), false))
+	const FString Map = UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName());
+	if (!GetWorld()->ServerTravel(Map + TEXT("?listen?SeamlessTravel"), false))
 		bRestartRequested = false;
+}
+
+void ACommandGameMode::InitGameState()
+{
+	Super::InitGameState();
+	// Runs before the host's own login: the level places the arena, both HQs and the sectors; the match only reads them.
+	ACommandGameState* State = GetGameState<ACommandGameState>();
+	if (!State) return;
+	for (TActorIterator<AArenaBounds> It(GetWorld()); It; ++It)
+	{
+		if (State->Arena) { UE_LOG(LogTemp, Error, TEXT("Level places more than one ArenaBounds; using %s"), *State->Arena->GetName()); }
+		else State->Arena = *It;
+	}
+	for (TActorIterator<AHeadquarters> It(GetWorld()); It; ++It)
+	{
+		TObjectPtr<AHeadquarters>& Slot = It->TeamIndex == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
+		if (Slot) { UE_LOG(LogTemp, Error, TEXT("Level places more than one team %d Headquarters; using %s"), It->TeamIndex, *Slot->GetName()); }
+		else Slot = *It;
+	}
+	for (TActorIterator<ACapturePoint> It(GetWorld()); It; ++It) State->CaptureSites.Add(*It);
+	// Fixtures address sectors by index (CaptureSites[0]); placement order in the level is irrelevant.
+	State->CaptureSites.Sort([](const ACapturePoint& A, const ACapturePoint& B) { return A.SiteIndex < B.SiteIndex; });
+	bLevelValid = State->Arena && State->FriendlyHeadquarters && State->EnemyHeadquarters;
+	if (!bLevelValid)
+		UE_LOG(LogTemp, Error, TEXT("Map %s cannot start a match: arena=%d friendlyHQ=%d enemyHQ=%d sectors=%d"),
+			*GetWorld()->GetMapName(), State->Arena != nullptr, State->FriendlyHeadquarters != nullptr,
+			State->EnemyHeadquarters != nullptr, State->CaptureSites.Num());
 }
 
 void ACommandGameMode::BeginPlay()
@@ -68,37 +101,8 @@ void ACommandGameMode::BeginPlay()
 	Super::BeginPlay();
 	ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!State) return;
-	struct FSitePlacement { FVector Location; ECaptureSiteKind Kind; };
-	const FSitePlacement Sites[] = {
-		{FVector(-850.f, -1800.f, 5.f), ECaptureSiteKind::Resource},
-		{FVector(1450.f, 1100.f, 5.f), ECaptureSiteKind::Resource},
-		{FVector(600.f, -2200.f, 5.f), ECaptureSiteKind::Resource}
-	};
-	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Sites); ++Index)
-	{
-		const FTransform Transform(Sites[Index].Location);
-		ACapturePoint* Site = GetWorld()->SpawnActorDeferred<ACapturePoint>(ACapturePoint::StaticClass(),
-			Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (!Site) continue;
-		Site->SiteKind = Sites[Index].Kind;
-		Site->SiteIndex = Index;
-		Site->FinishSpawning(Transform);
-		State->CaptureSites.Add(Site);
-	}
-	auto SpawnHQ = [this](FVector Location, int32 Team)
-	{
-		const FTransform Transform(Location);
-		AHeadquarters* HQ = GetWorld()->SpawnActorDeferred<AHeadquarters>(AHeadquarters::StaticClass(),
-			Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (HQ)
-		{
-			HQ->TeamIndex = Team;
-			HQ->FinishSpawning(Transform);
-		}
-		return HQ;
-	};
-	State->FriendlyHeadquarters = SpawnHQ(FVector(-3500.f, -600.f, 110.f), 0);
-	State->EnemyHeadquarters = SpawnHQ(FVector(3200.f, 2300.f, 110.f), 5);
+	State->Content = DefaultContent;
+	if (!bLevelValid) return;
 	EnemyCommander = GetWorld()->SpawnActor<AEnemyCommander>();
 	State->ForceNetUpdate();
 }
@@ -107,6 +111,11 @@ void ACommandGameMode::PreLogin(const FString& Options, const FString& Address,
 	const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	const ACommandGameState* State = GetGameState<ACommandGameState>();
+	if (!bLevelValid)
+	{
+		ErrorMessage = TEXT("Map lacks an arena or headquarters");
+		return;
+	}
 	if (State && State->MatchResult != EMatchResult::Ongoing)
 	{
 		ErrorMessage = TEXT("Match finished; rejoin after restart");
@@ -132,7 +141,7 @@ void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController*
 {
 	ACommandGameState* State = GetGameState<ACommandGameState>();
 	ACommandPlayerState* Commander = NewPlayer ? NewPlayer->GetPlayerState<ACommandPlayerState>() : nullptr;
-	if (!State || !Commander || State->MatchResult != EMatchResult::Ongoing) return;
+	if (!State || !Commander || !bLevelValid || State->MatchResult != EMatchResult::Ongoing) return;
 	// A commander can legitimately own no squads or buildings. Initialization is
 	// a controller lifecycle fact, not inferred from production actors.
 	if (StartedCommanders.Contains(NewPlayer)) return;

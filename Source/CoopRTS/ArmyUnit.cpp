@@ -17,21 +17,6 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
-namespace
-{
-	// Constructor-only: FObjectFinder must run while a CDO is being constructed.
-	void FindThemedMeshes(const TCHAR* Faction, TArray<TObjectPtr<UStaticMesh>>& OutMeshes)
-	{
-		static const TCHAR* const Roles[] = { TEXT("Frontline"), TEXT("Ranged"), TEXT("Siege") };
-		for (const TCHAR* Role : Roles)
-		{
-			const FString Path = FString::Printf(TEXT("/Game/Art/Units/SM_%s_%s.SM_%s_%s"), Faction, Role, Faction, Role);
-			ConstructorHelpers::FObjectFinder<UStaticMesh> Finder(*Path);
-			OutMeshes.Add(Finder.Succeeded() ? Finder.Object : nullptr);
-		}
-	}
-}
-
 AArmyUnit::AArmyUnit()
 {
 	bReplicates = true;
@@ -72,8 +57,6 @@ AArmyUnit::AArmyUnit()
 	{
 		Body->SetMaterial(0, TeamMaterial.Object);
 	}
-	FindThemedMeshes(TEXT("Human"), HumanMeshes);
-	FindThemedMeshes(TEXT("Machine"), MachineMeshes);
 }
 
 void AArmyUnit::BeginPlay()
@@ -139,8 +122,8 @@ void AArmyUnit::OnRep_Appearance()
 {
 	const FLinearColor CommanderColor = TeamIndex == 5
 		? FLinearColor(1.f, .08f, .08f) : GetCommanderColor(CommanderIndex);
-	const TArray<TObjectPtr<UStaticMesh>>& Meshes = TeamIndex == 5 ? MachineMeshes : HumanMeshes;
-	UStaticMesh* Themed = Meshes.IsValidIndex(static_cast<int32>(UnitRole)) ? Meshes[static_cast<int32>(UnitRole)].Get() : nullptr;
+	UStaticMesh* Themed = Definition
+		? (TeamIndex == 5 ? Definition->MachineMesh : Definition->HumanMesh).LoadSynchronous() : nullptr;
 	if (Themed && Body->GetStaticMesh() != Themed)
 	{
 		Body->SetStaticMesh(Themed);
@@ -155,19 +138,11 @@ void AArmyUnit::OnRep_Appearance()
 	}
 	if (Material)
 	{
-		const FLinearColor TeamColor = CommanderColor;
 		const FLinearColor ArmyColor = ArmyIndex == 1
-			? FMath::Lerp(TeamColor, FLinearColor::White, 0.45f) : TeamColor;
-		// Role whitening only tells roles apart on identical cubes; themed silhouettes do that already.
-		const float RoleWhitening = Themed ? 0.f
-			: UnitRole == EUnitRole::Siege ? .38f : UnitRole == EUnitRole::Ranged ? .16f : 0.f;
-		Material->SetVectorParameterValue(TEXT("TeamColor"), Health > 0
-			? FMath::Lerp(ArmyColor, FLinearColor::White, RoleWhitening)
-			: FLinearColor(0.08f, 0.08f, 0.08f));
+			? FMath::Lerp(CommanderColor, FLinearColor::White, 0.45f) : CommanderColor;
+		Material->SetVectorParameterValue(TEXT("TeamColor"), Health > 0 ? ArmyColor : FLinearColor(0.08f, 0.08f, 0.08f));
 	}
-	Body->SetRelativeScale3D(Themed ? FVector::OneVector
-		: UnitRole == EUnitRole::Frontline ? FVector(.72f, .68f, 1.12f)
-		: UnitRole == EUnitRole::Ranged ? FVector(.48f, .48f, .85f) : FVector(.86f, .78f, .52f));
+	if (Themed) Body->SetRelativeScale3D(FVector::OneVector);
 }
 
 int32 AArmyUnit::MaxHealth() const
@@ -271,6 +246,7 @@ void AArmyUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(AArmyUnit, CommanderIndex);
 	DOREPLIFETIME(AArmyUnit, ArmyIndex);
 	DOREPLIFETIME(AArmyUnit, Definition);
+	DOREPLIFETIME(AArmyUnit, UnitIndex);
 	DOREPLIFETIME(AArmyUnit, UnitRole);
 	DOREPLIFETIME(AArmyUnit, CompositionSlot);
 	DOREPLIFETIME(AArmyUnit, bReinforcing);

@@ -10,7 +10,7 @@ For the last capsule-diameter-plus-35 units of a recruit's accepted route, predi
 
 Keep unrelated stationary forces outside the recruitment fixture's corridor. Paid replacement and scoped fronts are separate from escaping a solid friendly crowd grid; standing members can still physically obstruct a route. The blocked-exit fixture separately checks no-charge retry rather than teleporting through obstruction.
 
-Choose `movement` for changed fixture path/crossing behavior and `production` for changed force/recruitment paths. Neither standalone run proves replication or native input. `network.py --scenario construction` observes real peer movement, casualty replacement and arrival; offscreen HUD proof provides the visible joined/travelling surface.
+Choose `movement` for changed fixture path/crossing behavior and `production` for changed force/recruitment paths. Neither standalone run proves replication or native input. `network.py --scenario production` observes real peer movement (latched per peer when first seen), casualty replacement retargeting and arrival; its pending reports list every reinforcing unit's position. Offscreen HUD proof provides the visible joined/travelling surface.
 
 For native proof, complete a barracks, lock/start its type and assign a front beyond an obstacle on navigable floor. Compare bodies to landmarks and inspect actual arrival, not just accepted markers. Two fronts require two barracks, paid units and independent fronts. Observe a casualty replacement following a changed front without teleporting. Obstacle tops and HUD panels are not ground targets. A rejected front must preserve movement and accepted intent. Historical N-refill probes are not the current input path.
 

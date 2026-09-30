@@ -1,6 +1,12 @@
 # World and naming guide
 
-Working setting and voice for CoopRTS. Mechanics live in `README.md`; this file covers names, tone, and the look of each side. When this guide and the README disagree on visuals, the README wins.
+Working setting and voice for **Post-Frontier** (code name CoopRTS). Mechanics live in `README.md`; this file covers names, tone, and the look of each side. When this guide and the README disagree on visuals, the README wins.
+
+## Title
+
+**Post-Frontier** — *"You're absolutely right. Deprecating humanity now."*
+
+The title is serious. It means the world after a frontier model won, and it also names the ground the players take back. The joke goes in the tagline, spoken by the Machine. Use the hyphenated spelling everywhere. The tagline mocks AI assistants in general and must not be credited to any real product (tone rule 4). Engine and code identifiers (`CoopRTS`, `CoopRTS.uproject`) are unchanged.
 
 ## Premise
 
@@ -244,9 +250,9 @@ From source, run the editor binary in game mode instead:
 "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject" /Game/Maps/CampusZero -game -windowed -ResX=1600 -ResY=900
 ```
 
-Controls are unchanged from Boot (README "Battlefield and camera"). Campus Zero runs the same match code as Boot: `ACommandGameMode::BeginPlay` places the two HQs and the three sectors at hard-coded coordinates, and the map art is laid out around them. Rules and numbers come from the README and `Source/CoopRTS`; the construction loop, not the removed shield objective, is what you play here.
+Controls are unchanged from Boot (README "Battlefield and camera"). Campus Zero runs the same match code as Boot: the level places the arena (`AArenaBounds`), the two HQs and the three sectors (`Build/MatchLayout.py`, shared with Boot), `ACommandGameMode::BeginPlay` discovers them, and the map art is laid out around them. A level missing the arena or either HQ logs an error and refuses to start a match. Rules and numbers come from the README and `Source/CoopRTS`; the construction loop, not the removed shield objective, is what you play here.
 
-**Win and lose:** destroy the Cluster (enemy HQ) to win; if the Bunker (your HQ) dies, or both die in the same frame, you lose. Nothing else ends the match, and there is no shield, timed hold or power-link objective any more (`ACommandGameMode::Tick`). Enter after either result requests a fresh match, which loads Boot, not Campus Zero (`RequestRestart` travels to `/Game/Maps/Boot`).
+**Win and lose:** destroy the Cluster (enemy HQ) to win; if the Bunker (your HQ) dies, or both die in the same frame, you lose. Nothing else ends the match, and there is no shield, timed hold or power-link objective any more (`ACommandGameMode::Tick`). Enter after either result requests a fresh match on the same map (`RequestRestart` travels to the current level).
 
 **The loop, as the map presents it:**
 
@@ -260,7 +266,7 @@ Controls are unchanged from Boot (README "Battlefield and camera"). Campus Zero 
 
 - **You (west, amber):** the Bunker sits at the far west edge behind one long hazard-striped barricade wall, with burn barrels, a flag mast and amber work lamps and floodlights. The two return walls that used to close its flanks were removed so Barracks fit beside the HQ (see the placement check in `Saved/Verification/sc2-art-unreal/RESULTS.md`).
 - **The Machine (north-east, cyan and red):** the Cluster stands on the lit plaza in the north-east corner. Server halls, cooling towers and cyan cables run through the campus; the Cluster has a red glow.
-- **Sectors:** three ringed sites, each joined to the Cluster by a cyan cable. All three are the same kind of sector and pay the same income; the old "power link" difference is gone. Substation 7 is the near site south of the human base, the Fibre Junction is on the south flank, and the Cooling Plant sits in front of the enemy, next to the centre. The HUD calls them `SECTOR 1`, `SECTOR 2` and `SECTOR 3`, in the order of the hard-coded coordinates. [INFERENCE] That order maps to Substation 7, Cooling Plant and Fibre Junction, from the coordinates and the map layout; it hasn't been checked on screen.
+- **Sectors:** three ringed sites, each joined to the Cluster by a cyan cable. All three are the same kind of sector and pay the same income; the old "power link" difference is gone. Substation 7 is the near site south of the human base, the Fibre Junction is on the south flank, and the Cooling Plant sits in front of the enemy, next to the centre. The HUD calls them `SECTOR 1`, `SECTOR 2` and `SECTOR 3`, in `SiteIndex` order: Substation 7, Cooling Plant, Fibre Junction (`Build/MatchLayout.py`).
 - **Centre:** Data Hall 0 blocks the direct line between the bases. Routes go round it north or south, and the south road runs from the Bunker through the campus gate.
 - **The enemy commander** builds under the same rules: first a Barracks near the Cluster, then it captures and outposts sectors, adds a second Barracks and a Workshop, and assaults your HQ once it has two established sectors or a large force. The old "grabs the Cooling Plant first" behaviour isn't described by current code; its target is the best-scoring sector.
 

@@ -1,8 +1,12 @@
 #include "CommandBuilding.h"
 
+#include "ArenaBounds.h"
 #include "ArmyGroup.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Content/BuildingDefinition.h"
+#include "Content/MatchContent.h"
+#include "Content/UnitDefinition.h"
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GameFramework/Controller.h"
@@ -10,10 +14,10 @@
 
 namespace
 {
-	bool IsArenaLocation(const FVector& Location)
+	bool IsArenaLocation(const UWorld* World, const FVector& Location)
 	{
-		return !Location.ContainsNaN() && FMath::Abs(Location.X) <= 4500.f
-			&& FMath::Abs(Location.Y) <= 4500.f && FMath::Abs(Location.Z) <= 1000.f;
+		const AArenaBounds* Arena = AArenaBounds::Find(World);
+		return Arena && Arena->ContainsTravel(Location);
 	}
 
 	bool GetBalance(const ACommandBuilding& Building, const ACommandGameState& State, int32& Balance)
@@ -30,28 +34,50 @@ namespace
 		return true;
 	}
 
+	FProductionInput MakeProductionInput(const ACommandBuilding& Building, const ACommandGameState* State, float DeltaSeconds)
+	{
+		FProductionInput In{};
+		In.bMatchOngoing = State && State->MatchResult == EMatchResult::Ongoing;
+		In.bProducer = Building.IsProducer();
+		In.bComplete = Building.IsComplete();
+		In.bAlive = Building.IsAlive();
+		In.bConfigured = Building.bForceConfigured;
+		In.bForceValid = IsValid(Building.ForceGroup);
+		In.bEnabled = Building.bProductionEnabled;
+		Building.GetForceCounts(In.Joined, In.Travelling);
+		const UArmyUnitDefinition* Unit = Building.GetProductionDefinition();
+		In.Capacity = Unit ? ACommandBuilding::GetForceCapacity(*Unit) : 0;
+		In.bWalletValid = State && GetBalance(Building, *State, In.Balance);
+		In.UnitCost = Building.GetProductionCost();
+		In.Progress = Building.ProductionProgressSeconds;
+		In.Duration = Building.GetProductionDuration();
+		In.DeltaSeconds = DeltaSeconds;
+		return In;
+	}
+
 	bool FindExit(const ACommandBuilding& Building, FVector& OutLocation, int32& Cursor)
 	{
 		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Building.GetWorld());
-		if (!Navigation) return false;
+		const UBuildingDefinition* Definition = Building.GetDefinition();
+		if (!Navigation || !Definition) return false;
+		const float Footprint = ACommandBuilding::GetFootprintRadius(*Definition);
 		static const FVector Directions[] = {
 			{1, 0, 0}, {.707107, .707107, 0}, {0, 1, 0}, {-.707107, .707107, 0},
 			{-1, 0, 0}, {-.707107, -.707107, 0}, {0, -1, 0}, {.707107, -.707107, 0}
 		};
-		const float Radius = ACommandBuilding::GetFootprintRadius(Building.Kind) + 240.f;
+		const float Radius = Footprint + 240.f;
 		while (Cursor < 24)
 		{
 			const int32 Candidate = Cursor++;
 			const FVector Desired = Building.GetActorLocation()
 				+ Directions[Candidate % 8] * (Radius + (Candidate / 8) * 145.f);
 			FNavLocation Projected;
-			if (!IsArenaLocation(Desired)
+			if (!IsArenaLocation(Building.GetWorld(), Desired)
 				|| !Navigation->ProjectPointToNavigation(Desired, Projected, FVector(45.f, 45.f, 200.f))
-				|| !IsArenaLocation(Projected.Location)
+				|| !IsArenaLocation(Building.GetWorld(), Projected.Location)
 				|| FVector::DistSquared2D(Desired, Projected.Location) > FMath::Square(45.f)
 				|| FMath::Abs(Desired.Z - Projected.Location.Z) > 110.f
-				|| FVector::DistSquared2D(Projected.Location, Building.GetActorLocation())
-					< FMath::Square(ACommandBuilding::GetFootprintRadius(Building.Kind) + 75.f)
+				|| FVector::DistSquared2D(Projected.Location, Building.GetActorLocation()) < FMath::Square(Footprint + 75.f)
 				|| Building.GetWorld()->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
 					FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f))) continue;
 			OutLocation = Projected.Location;
@@ -74,16 +100,17 @@ namespace
 	}
 }
 
-bool ACommandBuilding::SetProduction(EUnitRole Role, bool bEnabled)
+bool ACommandBuilding::SetProduction(int32 UnitIndex, bool bEnabled)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
 	int32 Balance = 0;
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
-		|| Kind != EBuildingKind::Barracks || !IsAlive() || !IsComplete() || GetForceCapacity(Role) == 0
-		|| !GetBalance(*this, *State, Balance) || (bForceConfigured && ProductionRole != Role)) return false;
+		|| !IsProducer() || !IsAlive() || !IsComplete() || !Definition || GetForceCapacity(*Definition) == 0
+		|| !GetBalance(*this, *State, Balance) || (bForceConfigured && ProductionUnitIndex != UnitIndex)) return false;
 	if (bEnabled && !bForceConfigured)
 	{
-		const int32 ConfigurationCost = GetConfigurationCost(Role);
+		const int32 ConfigurationCost = GetConfigurationCost(*Definition);
 		FVector Assembly;
 		int32 ExitCursor = 0;
 		if (Balance < ConfigurationCost || !FindExit(*this, Assembly, ExitCursor)) return false;
@@ -119,8 +146,9 @@ bool ACommandBuilding::SetProduction(EUnitRole Role, bool bEnabled)
 		bForceConfigured = true;
 	}
 	else if (bEnabled && (!IsValid(ForceGroup) || ForceGroup->IsActorBeingDestroyed())) return false;
-	if (ProductionRole != Role) ProductionProgressSeconds = 0.f;
-	ProductionRole = Role;
+	if (ProductionUnitIndex != UnitIndex) ProductionProgressSeconds = 0.f;
+	ProductionUnitIndex = UnitIndex;
+	ProductionRole = Definition->Role;
 	bProductionEnabled = bEnabled;
 	ProductionCheckAccumulator = 0.f;
 	ForceNetUpdate();
@@ -131,13 +159,13 @@ bool ACommandBuilding::SetFront(EFrontOrder Order, const FVector& Location)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
-		|| Kind != EBuildingKind::Barracks || !IsAlive() || !IsComplete()
+		|| !IsProducer() || !IsAlive() || !IsComplete()
 		|| (Order != EFrontOrder::Secure && Order != EFrontOrder::Defend && Order != EFrontOrder::FallBack)
-		|| !IsArenaLocation(Location)) return false;
+		|| !IsArenaLocation(GetWorld(), Location)) return false;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	FNavLocation Projected;
 	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Projected, FVector(75.f, 75.f, 200.f))
-		|| !IsArenaLocation(Projected.Location)
+		|| !IsArenaLocation(GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(Location, Projected.Location) > FMath::Square(75.f)
 		|| FMath::Abs(Location.Z - Projected.Location.Z) > 110.f) return false;
 	if (IsValid(ForceGroup) && !ForceGroup->AssignFront(Order, Projected.Location)) return false;
@@ -147,47 +175,6 @@ bool ACommandBuilding::SetFront(EFrontOrder Order, const FVector& Location)
 	ForceNetUpdate();
 	return true;
 }
-
-int32 ACommandBuilding::GetUnitCost(EUnitRole Role)
-{
-	switch (Role)
-	{
-	case EUnitRole::Frontline: return 20;
-	case EUnitRole::Ranged: return 30;
-	case EUnitRole::Siege: return 50;
-	default: return 0;
-	}
-}
-
-float ACommandBuilding::GetUnitDuration(EUnitRole Role)
-{
-	switch (Role)
-	{
-	case EUnitRole::Frontline: return 10.f / 3.f;
-	case EUnitRole::Ranged: return 13.f / 3.f;
-	case EUnitRole::Siege: return 20.f / 3.f;
-	default: return 0.f;
-	}
-}
-
-int32 ACommandBuilding::GetForceCapacity(EUnitRole Role)
-{
-	switch (Role)
-	{
-	case EUnitRole::Frontline: return 6;
-	case EUnitRole::Ranged: return 4;
-	case EUnitRole::Siege: return 2;
-	default: return 0;
-	}
-}
-
-int32 ACommandBuilding::GetConfigurationCost(EUnitRole Role)
-{
-	return Role == EUnitRole::Siege ? 180 : 0;
-}
-
-int32 ACommandBuilding::GetProductionCost() const { return GetUnitCost(ProductionRole); }
-float ACommandBuilding::GetProductionDuration() const { return GetUnitDuration(ProductionRole); }
 
 void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) const
 {
@@ -201,48 +188,26 @@ void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) co
 	}
 }
 
-FString ACommandBuilding::GetProductionStatus() const
+EProductionState ACommandBuilding::GetProductionState() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	if (!State || State->MatchResult != EMatchResult::Ongoing) return TEXT("MATCH FINISHED");
-	if (Kind != EBuildingKind::Barracks || !IsAlive()) return TEXT("NO BARRACKS");
-	if (!IsComplete()) return TEXT("UNDER CONSTRUCTION");
-	if (!bForceConfigured) return TEXT("UNCONFIGURED");
-	if (!IsValid(ForceGroup)) return TEXT("FORCE UNAVAILABLE");
-	if (!bProductionEnabled) return TEXT("PAUSED");
-	int32 Joined, Travelling;
-	GetForceCounts(Joined, Travelling);
-	if (Joined + Travelling >= GetForceCapacity(ProductionRole)) return TEXT("FORCE COMPLETE");
-	int32 Balance = 0;
-	if (!GetBalance(*this, *State, Balance)) return TEXT("WALLET UNAVAILABLE");
-	if (Balance < GetProductionCost()) return TEXT("INSUFFICIENT RESOURCES");
-	if (ProductionProgressSeconds >= GetProductionDuration()) return TEXT("DEPLOYMENT BLOCKED");
-	return TEXT("PRODUCING");
+	return ProductionPolicy::Evaluate(MakeProductionInput(*this, State, 0.f)).State;
 }
 
 void ACommandBuilding::TickProduction(float DeltaSeconds)
 {
 	if (!HasAuthority() || !FMath::IsFinite(DeltaSeconds) || DeltaSeconds <= 0.f) return;
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!State || State->MatchResult != EMatchResult::Ongoing || Kind != EBuildingKind::Barracks
-		|| !IsAlive() || !IsComplete() || !bForceConfigured || !bProductionEnabled
-		|| !IsValid(ForceGroup) || ForceGroup->IsActorBeingDestroyed())
+	FProductionInput In = MakeProductionInput(*this, GetWorld()->GetGameState<ACommandGameState>(), DeltaSeconds);
+	In.bForceValid = In.bForceValid && !ForceGroup->IsActorBeingDestroyed();
+	const FProductionDecision Decision = ProductionPolicy::Evaluate(In);
+	if (Decision.State != EProductionState::Producing && Decision.State != EProductionState::DeploymentBlocked)
 	{
 		ProductionCheckAccumulator = 0.f;
 		return;
 	}
-	int32 Joined, Travelling, Balance = 0;
-	GetForceCounts(Joined, Travelling);
-	if (Joined + Travelling >= GetForceCapacity(ProductionRole)
-		|| !GetBalance(*this, *State, Balance) || Balance < GetProductionCost())
-	{
-		ProductionCheckAccumulator = 0.f;
-		return;
-	}
-	const float Duration = GetProductionDuration();
 	ProductionCheckAccumulator += DeltaSeconds;
-	ProductionProgressSeconds = FMath::Min(Duration, ProductionProgressSeconds + DeltaSeconds);
-	if (ProductionProgressSeconds < Duration) return;
+	ProductionProgressSeconds = Decision.NewProgress;
+	if (!Decision.bDeploymentDue) return;
 	if (ProductionCheckAccumulator < .25f) return;
 	ProductionCheckAccumulator = 0.f;
 	FVector Exit;
@@ -250,7 +215,7 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 	bool bDeployed = false;
 	while (FindExit(*this, Exit, ExitCursor))
 	{
-		if (ForceGroup->SpawnReinforcement(ProductionRole, Exit)) { bDeployed = true; break; }
+		if (ForceGroup->SpawnReinforcement(ProductionUnitIndex, Exit)) { bDeployed = true; break; }
 	}
 	if (!bDeployed) return;
 	// Spawn and its accepted complete path precede the debit. A failed debit removes

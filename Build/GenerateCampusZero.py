@@ -1,9 +1,8 @@
 """Create or replace /Game/Maps/CampusZero, the first themed greybox (see Docs/World.md).
 
 Human scrapyard in the west, data-centre campus in the east. The layout is built around
-the prototype's hard-coded gameplay coordinates in ACommandGameMode (sites, HQs, army
-homes) and the +/-4500 arena bounds, so the existing match plays unchanged on it.
-Boot and the automated tests are untouched.
+the match actors Build/MatchLayout.py places (arena, sites, HQs) plus the army homes, so
+the existing match plays unchanged on it. Boot and the automated tests are untouched.
 
 Run order (from the project root, editor closed, each step its own editor process, no other Unreal process
 from this repo running):
@@ -31,6 +30,7 @@ import unreal
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ArtMaterials as art  # noqa: E402
 import EnvKit  # noqa: E402
+import MatchLayout  # noqa: E402
 
 require = art.require
 assets = art.assets
@@ -38,12 +38,11 @@ actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 editor = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
 
-# Mirrors ACommandGameMode / ACapturePoint / AHeadquarters (Source/CoopRTS). If those move, update here.
-ARENA = 4500.0
+# Mirrors ACapturePoint (Source/CoopRTS). If it moves, update here. Arena extent is read from the placed actor below.
 CAPTURE_RADIUS = 430.0
-SITES = {"Substation7": (-850, -1800), "CoolingPlant": (1450, 1100), "FibreJunction": (600, -2200)}
-FRIENDLY_HQ = (-3500, -600)
-ENEMY_HQ = (3200, 2300)
+SITES = MatchLayout.SITES
+FRIENDLY_HQ = MatchLayout.FRIENDLY_HQ
+ENEMY_HQ = MatchLayout.ENEMY_HQ
 ENEMY_HOME = (1800, 2300)
 HOMES = [(x, y) for x in (-1800, -2800) for y in (0, -850, 850, -1700, 1700)]
 # Keep-out circles for blocking geometry: capture ring + margin, formation space, HQ bodies, and the
@@ -120,6 +119,10 @@ def spawn(actor_class, label, location, rotation=unreal.Rotator()):
     return actor
 
 
+# Blocking geometry is vetted against the arena the game reads, so the match actors go in first.
+ARENA_X, ARENA_Y = MatchLayout.place(spawn)
+
+
 def footprint_clear(center, size, yaw):
     """Reject blocking geometry whose rotated footprint enters a gameplay keep-out circle."""
     c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
@@ -134,7 +137,7 @@ def footprint_clear(center, size, yaw):
     c_abs, s_abs = abs(c), abs(s)
     ext_x = c_abs * size[0] / 2 + s_abs * size[1] / 2
     ext_y = s_abs * size[0] / 2 + c_abs * size[1] / 2
-    if abs(center[0]) + ext_x > ARENA or abs(center[1]) + ext_y > ARENA:
+    if abs(center[0]) + ext_x > ARENA_X or abs(center[1]) + ext_y > ARENA_Y:
         raise RuntimeError("Blocking geometry at %s leaves the arena" % (center,))
 
 
@@ -281,7 +284,7 @@ block("ClusterPlazaRing", ENEMY_HQ, (940, 940, 1.5), cyan, collision=False, mesh
 for index, angle in enumerate(range(0, 360, 45)):
     x = ENEMY_HQ[0] + 650 * math.cos(math.radians(angle))
     y = ENEMY_HQ[1] + 650 * math.sin(math.radians(angle))
-    if abs(x) < ARENA - 100 and abs(y) < ARENA - 100:
+    if abs(x) < ARENA_X - 100 and abs(y) < ARENA_Y - 100:
         kit("ClusterPylon", "ClusterPylon%d" % index, (x, y), (70, 70))
 
 # ---------------------------------------------------------------- capture sites
@@ -392,7 +395,7 @@ bounds = spawn(unreal.NavMeshBoundsVolume, "ArenaNavigationBounds", (0, 0, 150))
 _, extent = bounds.get_actor_bounds(False)
 require(min(extent.x, extent.y, extent.z) > 0.0,
         "Editor factory did not construct a navigation brush; cannot scale an empty volume")
-bounds.set_actor_scale3d(unreal.Vector(ARENA / extent.x, ARENA / extent.y, 450 / extent.z))
+bounds.set_actor_scale3d(unreal.Vector(ARENA_X / extent.x, ARENA_Y / extent.y, 450 / extent.z))
 nav_meshes = [actor for actor in actors.get_all_level_actors() if isinstance(actor, unreal.RecastNavMesh)]
 if not nav_meshes:
     nav_meshes = [spawn(unreal.RecastNavMesh, "RecastNavMesh-Default", (0, 0, 0))]

@@ -1,9 +1,11 @@
 #include "CommandPlayerController.h"
+#include "ArenaBounds.h"
 #include "CommandBuilding.h"
 #include "CapturePoint.h"
 #include "CommandCamera.h"
 #include "CommandGameMode.h"
 #include "CommandGameState.h"
+#include "Content/MatchContent.h"
 #include "CommandHUD.h"
 #include "Headquarters.h"
 #include "DrawDebugHelpers.h"
@@ -138,23 +140,25 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		FVector Location;
 		FString Reason;
 		bool bCanPlace = false;
-		if (GetPlacementPreview(Location, Reason, bCanPlace))
+		const UBuildingDefinition* Placement = GetPlacementDefinition();
+		if (Placement && GetPlacementPreview(Location, Reason, bCanPlace))
 		{
-			const float Radius = ACommandBuilding::GetFootprintRadius(PlacementKind);
+			const float Radius = ACommandBuilding::GetFootprintRadius(*Placement);
 			DrawDebugCircle(GetWorld(), Location + FVector(0, 0, 12), Radius, 48,
 				bCanPlace ? FColor::Green : FColor::Red, false, -1.f, 0, 4.f,
 				FVector::ForwardVector, FVector::RightVector, false);
 		}
-		if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (Placement && State)
 		{
-			const float Footprint = ACommandBuilding::GetFootprintRadius(PlacementKind);
-			if (PlacementKind != EBuildingKind::Outpost && IsValid(State->FriendlyHeadquarters))
+			const float Footprint = ACommandBuilding::GetFootprintRadius(*Placement);
+			if (!Placement->bEstablishesSector && IsValid(State->FriendlyHeadquarters))
 				DrawDebugCircle(GetWorld(), State->FriendlyHeadquarters->GetActorLocation() + FVector(0, 0, 10),
 					900.f - Footprint, 64, FColor::Cyan, false, -1.f, 0, 2.f,
 					FVector::ForwardVector, FVector::RightVector, false);
 			for (const ACapturePoint* Site : State->CaptureSites)
 				if (IsValid(Site) && Site->ControllingTeam == 0
-					&& (PlacementKind == EBuildingKind::Outpost || Site->IsEstablishedForTeam(0)))
+					&& (Placement->bEstablishesSector || Site->IsEstablishedForTeam(0)))
 					DrawDebugCircle(GetWorld(), Site->GetActorLocation() + FVector(0, 0, 10),
 						ACapturePoint::TerritoryRadius - Footprint, 64,
 						Site->IsEstablishedForTeam(0) ? FColor::Green : FColor::Yellow,
@@ -168,11 +172,11 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 			DrawDebugCircle(GetWorld(), Location + FVector(0, 0, 13), 160.f, 32, FColor::Cyan,
 				false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
 	}
-	if (IsValid(SelectedBuilding))
+	if (IsValid(SelectedBuilding) && SelectedBuilding->GetDefinition())
 		DrawDebugCircle(GetWorld(), SelectedBuilding->GetActorLocation() + FVector(0, 0, 10),
-			ACommandBuilding::GetFootprintRadius(SelectedBuilding->Kind) + 30.f, 40, FColor::Cyan,
+			ACommandBuilding::GetFootprintRadius(*SelectedBuilding->GetDefinition()) + 30.f, 40, FColor::Cyan,
 			false, -1.f, 0, 3.f, FVector::ForwardVector, FVector::RightVector, false);
-	if (IsValid(SelectedBuilding) && SelectedBuilding->Kind == EBuildingKind::Barracks
+	if (IsValid(SelectedBuilding) && SelectedBuilding->IsProducer()
 		&& SelectedBuilding->HasConfiguredFront())
 		DrawDebugCircle(GetWorld(), SelectedBuilding->FrontLocation + FVector(0, 0, 16), 125.f, 32,
 			SelectedBuilding->FrontOrder == EFrontOrder::Secure ? FColor::Red
@@ -205,16 +209,22 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	return !Location.ContainsNaN();
 }
 
+const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && IsValid(State->Content) ? State->Content->Building(PlacementIndex) : nullptr;
+}
+
 bool ACommandPlayerController::GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const
 {
 	bCanPlace = false;
 	if (!bPlacingBuilding) return false;
 	if (!CursorGround(Location)) { Reason = TEXT("Point at ground to place."); return false; }
-	bCanPlace = CanPlaceBuildingAt(PlacementKind, Location, Reason);
+	bCanPlace = CanPlaceBuildingAt(PlacementIndex, Location, Reason);
 	return true;
 }
 
-bool ACommandPlayerController::CanPlaceBuildingAt(EBuildingKind Kind, const FVector& Location, FString& Reason) const
+bool ACommandPlayerController::CanPlaceBuildingAt(int32 BuildingIndex, const FVector& Location, FString& Reason) const
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
@@ -223,8 +233,8 @@ bool ACommandPlayerController::CanPlaceBuildingAt(EBuildingKind Kind, const FVec
 		Reason = TEXT("Territory and wallet syncing.");
 		return false;
 	}
-	if (!State->ValidateBuildingPlacement(Kind, 0, Location, Reason)) return false;
-	const int32 Cost = ACommandBuilding::GetBuildCost(Kind);
+	if (!State->ValidateBuildingPlacement(BuildingIndex, 0, Location, Reason)) return false;
+	const int32 Cost = ACommandBuilding::GetBuildCost(*State->Content->Building(BuildingIndex));
 	if (Wallet->Resources < Cost)
 	{
 		Reason = FString::Printf(TEXT("Need %d more resources."), Cost - Wallet->Resources);
@@ -332,7 +342,7 @@ void ACommandPlayerController::SelectUnderCursor()
 			return;
 		}
 		bPlacementPending = true;
-		ServerPlaceBuilding(PlacementKind, Location);
+		ServerPlaceBuilding(PlacementIndex, Location);
 		Feedback = TEXT("Placement sent; server checks navigation and cost.");
 		return;
 	}
@@ -361,8 +371,11 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	if (!CanIssueGameplayCommand()) return;
 	if (Action == EHUDAction::BuildBarracks || Action == EHUDAction::BuildOutpost || Action == EHUDAction::BuildWorkshop)
 	{
-		PlacementKind = Action == EHUDAction::BuildBarracks ? EBuildingKind::Barracks
-			: Action == EHUDAction::BuildOutpost ? EBuildingKind::Outpost : EBuildingKind::Workshop;
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (!State || !IsValid(State->Content)) return;
+		PlacementIndex = State->Content->BuildingIndexForKind(Action == EHUDAction::BuildBarracks ? EBuildingKind::Barracks
+			: Action == EHUDAction::BuildOutpost ? EBuildingKind::Outpost : EBuildingKind::Workshop);
+		if (PlacementIndex < 0) return;
 		bPlacingBuilding = true;
 		bAssigningFront = false;
 		bHUDExpanded = false;
@@ -381,7 +394,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 			: Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs : EArmyDoctrine::EntrenchedFrontline);
 		return;
 	}
-	if (SelectedBuilding->Kind != EBuildingKind::Barracks) return;
+	if (!SelectedBuilding->IsProducer()) return;
 	if (Action == EHUDAction::FrontSecure || Action == EHUDAction::FrontDefend || Action == EHUDAction::FrontFallBack)
 	{
 		PendingFrontOrder = Action == EHUDAction::FrontSecure ? EFrontOrder::Secure
@@ -428,7 +441,7 @@ void ACommandPlayerController::FocusSelection()
 		}
 	}
 
-void ACommandPlayerController::ServerPlaceBuilding_Implementation(EBuildingKind Kind, FVector Location)
+void ACommandPlayerController::ServerPlaceBuilding_Implementation(int32 BuildingIndex, FVector Location)
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
@@ -437,7 +450,7 @@ void ACommandPlayerController::ServerPlaceBuilding_Implementation(EBuildingKind 
 	if (!State || State->MatchResult != EMatchResult::Ongoing || !IsValid(Wallet)
 		|| Wallet->GetWorld() != GetWorld() || Wallet->CommanderIndex < 0 || Wallet->CommanderIndex >= 5)
 		Reason = TEXT("Placement rejected: match or commander unavailable.");
-	else if (!(bAccepted = State->TryPlaceBuilding(Kind, Location, Wallet, 0, Reason)))
+	else if (!(bAccepted = State->TryPlaceBuilding(BuildingIndex, Location, Wallet, 0, Reason)))
 	{
 		if (Reason.IsEmpty()) Reason = TEXT("Placement rejected by server.");
 	}
@@ -455,9 +468,13 @@ void ACommandPlayerController::ServerCancelBuilding_Implementation(ACommandBuild
 void ACommandPlayerController::ServerConfigureProduction_Implementation(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
 {
 	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Production rejected: not your living building or match ended.")); return; }
-	ClientConstructionFeedback(Building->SetProduction(Recipe, bEnabled)
-		? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *Building->GetProductionStatus())
-		: FString::Printf(TEXT("Production rejected: %s"), *Building->GetProductionStatus()));
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const int32 UnitIndex = State && IsValid(State->Content) ? State->Content->UnitIndexForRole(Recipe) : -1;
+	const bool bAccepted = Building->SetProduction(UnitIndex, bEnabled);
+	const FString StateName = StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState()));
+	ClientConstructionFeedback(bAccepted
+		? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *StateName)
+		: FString::Printf(TEXT("Production rejected: %s"), *StateName));
 }
 
 void ACommandPlayerController::ServerAssignFront_Implementation(ACommandBuilding* Building, EFrontOrder Order, FVector Location)
@@ -511,8 +528,7 @@ void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army
 			if (!bValidTarget) { ClientAttackFeedback(false); return; }
 			Destination = Target->GetActorLocation();
 		}
-		if (!Destination.ContainsNaN() && FMath::Abs(Destination.X) <= 4500.f
-			&& FMath::Abs(Destination.Y) <= 4500.f && FMath::Abs(Destination.Z) <= 1000.f)
+		if (IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
 			bAccepted = Army->IssueAttack(Destination, Target);
 	}
 	ClientAttackFeedback(bAccepted);
@@ -529,8 +545,7 @@ void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army,
 	bool bAccepted = false;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army)
-		&& Army->GetOwner() == this && !Destination.ContainsNaN()
-		&& FMath::Abs(Destination.X) <= 4500.f && FMath::Abs(Destination.Y) <= 4500.f && FMath::Abs(Destination.Z) <= 1000.f)
+		&& Army->GetOwner() == this && IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
 	{
 		switch (Order)
 		{

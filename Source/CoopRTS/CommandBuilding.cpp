@@ -2,6 +2,7 @@
 
 #include "ArmyGroup.h"
 #include "CommandGameState.h"
+#include "Content/MatchContent.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "DrawDebugHelpers.h"
@@ -12,25 +13,6 @@
 #include "NavAreas/NavArea_Null.h"
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
-
-namespace
-{
-	// Constructor-only: FObjectFinder must run while a CDO is being constructed.
-	UStaticMesh* FindBuildingMesh(const FString& Name)
-	{
-		const FString Path = FString::Printf(TEXT("/Game/Art/Buildings/%s.%s"), *Name, *Name);
-		ConstructorHelpers::FObjectFinder<UStaticMesh> Finder(*Path);
-		return Finder.Succeeded() ? Finder.Object : nullptr;
-	}
-
-	void FindFactionMeshes(const TCHAR* Faction, TArray<TObjectPtr<UStaticMesh>>& OutMeshes)
-	{
-		static const TCHAR* const Suffixes[] = { TEXT("Barracks"), TEXT("Barracks_Frontline"), TEXT("Barracks_Ranged"),
-			TEXT("Barracks_Siege"), TEXT("Outpost"), TEXT("Workshop") };
-		for (const TCHAR* Suffix : Suffixes)
-			OutMeshes.Add(FindBuildingMesh(FString::Printf(TEXT("SM_%s_%s"), Faction, Suffix)));
-	}
-}
 
 ACommandBuilding::ACommandBuilding()
 {
@@ -64,54 +46,52 @@ ACommandBuilding::ACommandBuilding()
 		CubeMaterial = Material.Object;
 		Body->SetMaterial(0, Material.Object);
 	}
-	FindFactionMeshes(TEXT("Human"), HumanMeshes);
-	FindFactionMeshes(TEXT("Machine"), MachineMeshes);
-	static const TCHAR* const ConstructionKinds[] = { TEXT("Barracks"), TEXT("Outpost"), TEXT("Workshop") };
-	for (const TCHAR* ConstructionKind : ConstructionKinds)
-		ConstructionMeshes.Add(FindBuildingMesh(FString::Printf(TEXT("SM_Construction_%s"), ConstructionKind)));
 }
 
-int32 ACommandBuilding::GetBuildCost(EBuildingKind InKind)
+const UBuildingDefinition* ACommandBuilding::GetDefinition() const
 {
-	switch (InKind)
-	{
-	case EBuildingKind::Barracks: return 220;
-	case EBuildingKind::Outpost: return 160;
-	case EBuildingKind::Workshop: return 190;
-	default: return 0;
-	}
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && State->Content ? State->Content->Building(BuildingIndex) : nullptr;
 }
 
-float ACommandBuilding::GetBuildDuration(EBuildingKind InKind)
+const UArmyUnitDefinition* ACommandBuilding::GetProductionDefinition() const
 {
-	switch (InKind)
-	{
-	case EBuildingKind::Barracks: return 12.f;
-	case EBuildingKind::Outpost: return 9.f;
-	case EBuildingKind::Workshop: return 14.f;
-	default: return 0.f;
-	}
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && State->Content ? State->Content->Unit(ProductionUnitIndex) : nullptr;
 }
 
-float ACommandBuilding::GetFootprintRadius(EBuildingKind InKind)
+bool ACommandBuilding::IsProducer() const
 {
-	switch (InKind)
-	{
-	case EBuildingKind::Barracks: return 125.f;
-	case EBuildingKind::Outpost: return 95.f;
-	case EBuildingKind::Workshop: return 145.f;
-	default: return 0.f;
-	}
+	const UBuildingDefinition* Definition = GetDefinition();
+	return Definition && Definition->bProducesForces;
+}
+
+int32 ACommandBuilding::GetProductionCost() const
+{
+	const UArmyUnitDefinition* Definition = GetProductionDefinition();
+	return Definition ? GetUnitCost(*Definition) : 0;
+}
+
+float ACommandBuilding::GetProductionDuration() const
+{
+	const UArmyUnitDefinition* Definition = GetProductionDefinition();
+	return Definition ? GetUnitDuration(*Definition) : 0.f;
 }
 
 int32 ACommandBuilding::MaxHealth() const
 {
-	return Kind == EBuildingKind::Outpost ? 350 : Kind == EBuildingKind::Workshop ? 400 : 500;
+	const UBuildingDefinition* Definition = GetDefinition();
+	return Definition ? Definition->MaxHealth : 0;
 }
 
 void ACommandBuilding::BeginPlay()
 {
 	Super::BeginPlay();
+	if (HasAuthority())
+	{
+		// Kind is a derived, replicated view of the definition for callers that still branch on it.
+		if (const UBuildingDefinition* Definition = GetDefinition()) Kind = Definition->GetKind();
+	}
 	OnRep_Appearance();
 	if (HasAuthority())
 	{
@@ -133,7 +113,10 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 		if (!State || State->MatchResult != EMatchResult::Ongoing || !IsAlive()) return;
 		if (!IsComplete())
 		{
-			ConstructionProgress = FMath::Min(1.f, ConstructionProgress + DeltaSeconds / GetBuildDuration(Kind));
+			const UBuildingDefinition* Definition = GetDefinition();
+			const float Duration = Definition ? GetBuildDuration(*Definition) : 0.f;
+			if (Duration <= 0.f) return;
+			ConstructionProgress = FMath::Min(1.f, ConstructionProgress + DeltaSeconds / Duration);
 			if (IsComplete())
 			{
 				OnRep_Appearance();
@@ -145,16 +128,15 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		// Barracks role locks replicate independently of Body; host and standalone never receive an OnRep, so resync here.
-		UStaticMesh* Desired = GetThemedMesh();
-		if (!Desired) Desired = CubeMesh;
-		if (Body->GetStaticMesh() != Desired) OnRep_Appearance();
+		// Producer locks replicate independently of Body; host and standalone never receive an OnRep, so resync here.
+		if (DesiredMesh().ToSoftObjectPath() != AppliedMesh) OnRep_Appearance();
 		const FColor Color = TeamIndex == 5 ? FColor::Red : FColor::Cyan;
 		DrawDebugBox(GetWorld(), GetActorLocation(), Footprint->GetUnscaledBoxExtent(),
 			Color, false, -1.f, 0, 2.f);
+		const UBuildingDefinition* Definition = GetDefinition();
 		DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 220.f),
 			FString::Printf(TEXT("%s  %d/%d  %.0f%%"),
-				Kind == EBuildingKind::Barracks ? TEXT("BARRACKS") : Kind == EBuildingKind::Outpost ? TEXT("OUTPOST") : TEXT("WORKSHOP"),
+				Definition ? *Definition->DisplayName.ToString().ToUpper() : TEXT("BUILDING"),
 				Health, MaxHealth(), ConstructionProgress * 100.f), nullptr, Color, 0.f, true);
 	}
 }
@@ -188,10 +170,13 @@ void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ACommandBuilding::OnRep_Appearance()
 {
 	if (!Footprint || !Body) return;
-	const float Radius = GetFootprintRadius(Kind);
+	const UBuildingDefinition* Definition = GetDefinition();
+	const float Radius = Definition ? GetFootprintRadius(*Definition) : 0.f;
 	if (Radius > 0.f) Footprint->SetBoxExtent(FVector(Radius, Radius, 65.f));
 	if (GetNetMode() == NM_DedicatedServer) return;
-	UStaticMesh* Themed = GetThemedMesh();
+	const TSoftObjectPtr<UStaticMesh> Soft = DesiredMesh();
+	AppliedMesh = Soft.ToSoftObjectPath();
+	UStaticMesh* Themed = Soft.LoadSynchronous();
 	UStaticMesh* Desired = Themed ? Themed : CubeMesh.Get();
 	if (Desired && Body->GetStaticMesh() != Desired)
 	{
@@ -208,8 +193,8 @@ void ACommandBuilding::OnRep_Appearance()
 	}
 	else
 	{
-		const FVector Shape = Kind == EBuildingKind::Outpost ? FVector(1.35f, 1.35f, 2.6f)
-			: Kind == EBuildingKind::Workshop ? FVector(2.5f, 2.5f, 1.15f) : FVector(2.1f, 2.1f, 1.85f);
+		// Fallback cube sized from the footprint so a missing mesh still shows the building's extent.
+		const FVector Shape(FMath::Max(1.f, Radius / 60.f), FMath::Max(1.f, Radius / 60.f), 1.85f);
 		Body->SetRelativeLocation(FVector(0.f, 0.f, Shape.Z * 50.f - 65.f));
 		Body->SetRelativeScale3D(Shape);
 	}
@@ -221,16 +206,19 @@ void ACommandBuilding::OnRep_Appearance()
 		: FLinearColor(.04f, .5f, 1.f));
 }
 
-UStaticMesh* ACommandBuilding::GetThemedMesh() const
+TSoftObjectPtr<UStaticMesh> ACommandBuilding::DesiredMesh() const
 {
-	const int32 KindIndex = static_cast<int32>(Kind);
-	if (!IsComplete()) return ConstructionMeshes.IsValidIndex(KindIndex) ? ConstructionMeshes[KindIndex].Get() : nullptr;
-	// Barracks: role variant once the type is permanently locked, neutral mesh before. Others: Outpost 4, Workshop 5.
-	const int32 FactionIndex = Kind == EBuildingKind::Barracks
-		? (bForceConfigured ? 1 + static_cast<int32>(ProductionRole) : 0)
-		: 3 + KindIndex;
-	const TArray<TObjectPtr<UStaticMesh>>& Meshes = TeamIndex == 5 ? MachineMeshes : HumanMeshes;
-	return Meshes.IsValidIndex(FactionIndex) ? Meshes[FactionIndex].Get() : nullptr;
+	const UBuildingDefinition* Definition = GetDefinition();
+	if (!Definition) return nullptr;
+	if (!IsComplete()) return Definition->ConstructionMesh;
+	const bool bMachine = TeamIndex == 5;
+	// Producers show the locked-type variant once configured; an unlisted type keeps the neutral mesh.
+	if (Definition->bProducesForces && bForceConfigured)
+	{
+		const TArray<TSoftObjectPtr<UStaticMesh>>& Variants = bMachine ? Definition->MachineRoleMeshes : Definition->HumanRoleMeshes;
+		if (Variants.IsValidIndex(ProductionUnitIndex) && !Variants[ProductionUnitIndex].IsNull()) return Variants[ProductionUnitIndex];
+	}
+	return bMachine ? Definition->MachineMesh : Definition->HumanMesh;
 }
 
 void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
@@ -267,7 +255,8 @@ bool ACommandBuilding::CancelConstruction()
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing) return false;
-	const int32 Refund = FMath::FloorToInt(GetBuildCost(Kind) * (1.f - ConstructionProgress));
+	const UBuildingDefinition* Definition = GetDefinition();
+	const int32 Refund = Definition ? FMath::FloorToInt(GetBuildCost(*Definition) * (1.f - ConstructionProgress)) : 0;
 	if (TeamIndex == 5)
 	{
 		State->EnemyResources = static_cast<int32>(FMath::Min<int64>(MAX_int32,
@@ -282,7 +271,8 @@ bool ACommandBuilding::CancelConstruction()
 
 bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
 {
-	if (Kind != EBuildingKind::Workshop || !IsComplete()
+	const UBuildingDefinition* Definition = GetDefinition();
+	if (!Definition || !Definition->bOffersResearch || !IsComplete()
 		|| (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
 			&& Choice != EArmyDoctrine::EntrenchedFrontline)) return false;
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
@@ -302,12 +292,14 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ACommandBuilding, Kind);
+	DOREPLIFETIME(ACommandBuilding, BuildingIndex);
 	DOREPLIFETIME(ACommandBuilding, TeamIndex);
 	DOREPLIFETIME(ACommandBuilding, OutpostSite);
 	DOREPLIFETIME(ACommandBuilding, OwningPlayerState);
 	DOREPLIFETIME(ACommandBuilding, Health);
 	DOREPLIFETIME(ACommandBuilding, ConstructionProgress);
 	DOREPLIFETIME(ACommandBuilding, ProductionRole);
+	DOREPLIFETIME(ACommandBuilding, ProductionUnitIndex);
 	DOREPLIFETIME(ACommandBuilding, bForceConfigured);
 	DOREPLIFETIME(ACommandBuilding, ForceGroup);
 	DOREPLIFETIME(ACommandBuilding, bProductionEnabled);

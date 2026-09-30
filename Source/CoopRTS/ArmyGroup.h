@@ -8,8 +8,6 @@
 class AArmyUnit;
 class ACommandBuilding;
 enum class EArmyDoctrine : uint8;
-enum class EUnitRole : uint8;
-class UArmyUnitDefinition;
 class ACommandPlayerState;
 
 UENUM(BlueprintType)
@@ -31,7 +29,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	bool SpawnUnits();
-	bool SpawnReinforcement(EUnitRole Role, const FVector& SpawnLocation);
+	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
 	bool IssueMove(FVector InDestination);
 	bool IssueAttack(FVector InDestination, AActor* InTarget);
@@ -85,13 +83,6 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-	UPROPERTY()
-	TObjectPtr<UArmyUnitDefinition> FrontlineDefinition;
-	UPROPERTY()
-	TObjectPtr<UArmyUnitDefinition> RangedDefinition;
-	UPROPERTY()
-	TObjectPtr<UArmyUnitDefinition> SiegeDefinition;
-
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination);
 	void UpdateCombat();
 	void UpdateReinforcements();

@@ -36,9 +36,10 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	bool bEnemyPresent = false;
 	virtual void BeginPlay() override;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
+	// Set on the placed level actor; SiteIndex orders ACommandGameState::CaptureSites.
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	ECaptureSiteKind SiteKind = ECaptureSiteKind::Resource;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	int32 SiteIndex = 0;
 private:
 	UPROPERTY(VisibleAnywhere)

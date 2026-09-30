@@ -70,8 +70,8 @@ public:
 			const uint32 Serial = Friendly->OrderSerial;
 			const int32 Balance = Wallet->Resources;
 			const int32 Buildings = State->Buildings.Num();
-			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, FVector(-1800.f, 1700.f, 5.f));
-			PC->ServerPlaceBuilding(EBuildingKind::Barracks, FVector(-3100.f, -600.f, 5.f));
+			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 2300.f, 5.f));
+			PC->ServerPlaceBuilding(ArmyTestSetup::BarracksIndex, ArmyTestSetup::FromFriendlyHQ(State, 400.f, 0.f, 5.f));
 			ArmyTestSetup::Research(PC, EArmyDoctrine::FieldRepairs);
 			State->Tick(2.f);
 			if (Friendly->OrderSerial != Serial || Wallet->Resources != Balance || State->Buildings.Num() != Buildings

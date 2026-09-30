@@ -4,6 +4,8 @@
 #include "ArmyUnit.h"
 #include "CommandPlayerState.h"
 #include "ConstructionTypes.h"
+#include "Content/BuildingDefinition.h"
+#include "Rules/ProductionPolicy.h"
 #include "GameFramework/Actor.h"
 #include "CommandBuilding.generated.h"
 class ACapturePoint;
@@ -25,13 +27,17 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	static constexpr int32 ResearchCost = 150;
-	static int32 GetBuildCost(EBuildingKind InKind);
-	static float GetBuildDuration(EBuildingKind InKind);
-	static float GetFootprintRadius(EBuildingKind InKind);
-	static int32 GetUnitCost(EUnitRole Role);
-	static float GetUnitDuration(EUnitRole Role);
-	static int32 GetForceCapacity(EUnitRole Role);
-	static int32 GetConfigurationCost(EUnitRole Role);
+	static int32 GetBuildCost(const UBuildingDefinition& Definition) { return Definition.BuildCost; }
+	static float GetBuildDuration(const UBuildingDefinition& Definition) { return Definition.BuildDuration; }
+	static float GetFootprintRadius(const UBuildingDefinition& Definition) { return Definition.FootprintRadius; }
+	static int32 GetUnitCost(const UArmyUnitDefinition& Definition) { return Definition.UnitCost; }
+	static float GetUnitDuration(const UArmyUnitDefinition& Definition) { return Definition.UnitDuration; }
+	static int32 GetForceCapacity(const UArmyUnitDefinition& Definition) { return Definition.Capacity; }
+	static int32 GetConfigurationCost(const UArmyUnitDefinition& Definition) { return Definition.ConfigurationCost; }
+	// Resolved through ACommandGameState::Content; nullptr until the index is assigned or content is missing.
+	const UBuildingDefinition* GetDefinition() const;
+	const UArmyUnitDefinition* GetProductionDefinition() const;
+	bool IsProducer() const;
 	bool IsComplete() const { return ConstructionProgress >= 1.f; }
 	bool IsAlive() const { return Health > 0; }
 	int32 MaxHealth() const;
@@ -42,14 +48,17 @@ public:
 	bool HasConfiguredFront() const { return bHasConfiguredFront; }
 
 	// Production implementation lives in CommandBuildingProduction.cpp.
-	bool SetProduction(EUnitRole Role, bool bEnabled);
+	bool SetProduction(int32 UnitIndex, bool bEnabled);
 	bool SetFront(EFrontOrder Order, const FVector& Location);
 	int32 GetProductionCost() const;
 	float GetProductionDuration() const;
-	FString GetProductionStatus() const;
+	EProductionState GetProductionState() const;
 	void GetForceCounts(int32& OutJoined, int32& OutTravelling) const;
 	void TickProduction(float DeltaSeconds);
 
+	// Index into Content->Buildings; the identity spawners set. Kind is derived from it on the server.
+	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
+	int32 BuildingIndex = -1;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
 	EBuildingKind Kind = EBuildingKind::Barracks;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
@@ -63,9 +72,12 @@ public:
 	int32 Health = 0;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
 	float ConstructionProgress = 0.f;
+	// Index into Content->Units; ProductionRole is derived from it when production is configured.
+	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Production")
+	int32 ProductionUnitIndex = -1;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Production")
 	EUnitRole ProductionRole = EUnitRole::Frontline;
-	// Together with ProductionRole, selects the locked-role barracks mesh.
+	// Together with ProductionUnitIndex, selects the locked-type producer mesh.
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Production")
 	bool bForceConfigured = false;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
@@ -88,20 +100,13 @@ private:
 	TObjectPtr<UBoxComponent> Footprint;
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UStaticMeshComponent> Body;
-	// Themed meshes; empty entries (asset missing) fall back to the scaled cube.
-	// Faction meshes are indexed: 0 unconfigured barracks, 1..3 barracks by EUnitRole, 4 outpost, 5 workshop.
-	// Construction meshes are indexed by EBuildingKind.
-	UPROPERTY()
-	TArray<TObjectPtr<UStaticMesh>> HumanMeshes;
-	UPROPERTY()
-	TArray<TObjectPtr<UStaticMesh>> MachineMeshes;
-	UPROPERTY()
-	TArray<TObjectPtr<UStaticMesh>> ConstructionMeshes;
+	// Definition mesh applied by the last OnRep_Appearance; a missing asset falls back to the scaled cube.
+	FSoftObjectPath AppliedMesh;
+	TSoftObjectPtr<UStaticMesh> DesiredMesh() const;
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> CubeMesh;
 	UPROPERTY()
 	TObjectPtr<UMaterialInterface> CubeMaterial;
-	UStaticMesh* GetThemedMesh() const;
 	UFUNCTION()
 	void OnRep_Appearance();
 };

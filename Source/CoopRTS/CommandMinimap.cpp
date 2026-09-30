@@ -1,5 +1,6 @@
 #include "CommandMinimap.h"
 
+#include "ArenaBounds.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CanvasItem.h"
@@ -16,7 +17,6 @@
 
 namespace
 {
-	constexpr double ArenaExtent = 4500.0;
 	const FLinearColor Friendly(.25f, .72f, .64f);
 	const FLinearColor Enemy(.90f, .36f, .32f);
 	const FLinearColor Neutral(.46f, .50f, .55f);
@@ -50,17 +50,18 @@ namespace
 		UCanvas* Canvas;
 		FVector2D Origin;
 		float Size;
+		FVector2D Extent;
 
 		FVector2D Project(const FVector& World) const
 		{
-			return Origin + FVector2D((World.Y + ArenaExtent) / (2.0 * ArenaExtent),
-				(ArenaExtent - World.X) / (2.0 * ArenaExtent)) * Size;
+			return Origin + FVector2D((World.Y + Extent.Y) / (2.0 * Extent.Y),
+				(Extent.X - World.X) / (2.0 * Extent.X)) * Size;
 		}
 
 		bool Point(const FVector& World, FVector2D& Screen) const
 		{
 			if (!FMath::IsFinite(World.X) || !FMath::IsFinite(World.Y)
-				|| FMath::Abs(World.X) > ArenaExtent || FMath::Abs(World.Y) > ArenaExtent) return false;
+				|| FMath::Abs(World.X) > Extent.X || FMath::Abs(World.Y) > Extent.Y) return false;
 			Screen = Project(World);
 			return true;
 		}
@@ -174,12 +175,13 @@ namespace
 	}
 }
 
-bool CommandMinimap::ScreenToWorld(FVector2D Position, FVector2D Origin, float Size, FVector& OutWorld)
+bool CommandMinimap::ScreenToWorld(const AArenaBounds* Arena, FVector2D Position, FVector2D Origin, float Size, FVector& OutWorld)
 {
-	if (!ValidSquare(Origin, Size) || !Finite(Position)) return false;
+	if (!IsValid(Arena) || !ValidSquare(Origin, Size) || !Finite(Position)) return false;
 	const FVector2D UV = (Position - Origin) / Size;
 	if (!Finite(UV) || UV.X < 0.0 || UV.X > 1.0 || UV.Y < 0.0 || UV.Y > 1.0) return false;
-	OutWorld = FVector(ArenaExtent - UV.Y * (2.0 * ArenaExtent), UV.X * (2.0 * ArenaExtent) - ArenaExtent, 0.0);
+	const FVector2D Extent = Arena->HalfExtent;
+	OutWorld = FVector(Extent.X - UV.Y * (2.0 * Extent.X), UV.X * (2.0 * Extent.Y) - Extent.Y, 0.0);
 	return true;
 }
 
@@ -187,8 +189,9 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 {
 	if (!Canvas || !IsValid(Controller) || !ValidSquare(Origin, Size)) return;
 	UWorld* World = Controller->GetWorld();
-	if (!World) return;
-	const FMap Map{Canvas, Origin, Size};
+	const AArenaBounds* Arena = AArenaBounds::Find(World);
+	if (!Arena) return;
+	const FMap Map{Canvas, Origin, Size, Arena->HalfExtent};
 	Map.Fill(Origin, FVector2D(Size, Size), FLinearColor(.018f, .028f, .038f, .96f));
 	const FLinearColor Grid(.12f, .17f, .20f, .65f);
 	for (int32 Index = 1; Index < 4; ++Index)
@@ -204,7 +207,7 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 			FVector2D Point;
 			if (!IsValid(Site) || !Map.Point(Site->GetActorLocation(), Point)) continue;
 			const FLinearColor Color = TeamColor(Site->ControllingTeam);
-			const double Radius = ACapturePoint::TerritoryRadius * Size / (2.0 * ArenaExtent);
+			const double Radius = ACapturePoint::TerritoryRadius * Size / (2.0 * Map.Extent.X);
 			FVector2D Previous = Point + FVector2D(Radius, 0);
 			for (int32 Segment = 1; Segment <= 16; ++Segment)
 			{

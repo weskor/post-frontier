@@ -6,7 +6,6 @@
 
 class ACommandBuilding;
 class ACommandGameState;
-enum class EBuildingKind : uint8;
 
 UCLASS()
 class COOPRTS_API AEnemyCommander : public AActor
@@ -17,7 +16,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	void EvaluatePlan();
 private:
-	ACommandBuilding* BuildNear(ACommandGameState* State, EBuildingKind Kind, const FVector& Center);
+	ACommandBuilding* BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center);
 	float CommitUntil = 0.f;
 	FVector CommittedFront = FVector::ZeroVector;
 	float EvaluateElapsed = 0.f;

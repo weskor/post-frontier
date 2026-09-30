@@ -9,6 +9,7 @@
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
+class UBuildingDefinition;
 class UInputAction;
 class UInputMappingContext;
 class UEnhancedInputLocalPlayerSubsystem;
@@ -25,9 +26,10 @@ public:
 	const FString& GetOrderFeedback() const { return Feedback; }
 	bool IsHUDExpanded() const { return bHUDExpanded; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
-	EBuildingKind GetPlacementKind() const { return PlacementKind; }
+	int32 GetPlacementIndex() const { return PlacementIndex; }
+	const UBuildingDefinition* GetPlacementDefinition() const;
 	bool GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const;
-	bool CanPlaceBuildingAt(EBuildingKind Kind, const FVector& Location, FString& Reason) const;
+	bool CanPlaceBuildingAt(int32 BuildingIndex, const FVector& Location, FString& Reason) const;
 	bool IsAssigningFront() const { return bAssigningFront; }
 	EFrontOrder GetPendingFrontOrder() const { return PendingFrontOrder; }
 	// Left-click entry points shared by real input and the Development verification probe.
@@ -36,7 +38,7 @@ public:
 	void SelectActor(AActor* Actor);
 
 	UFUNCTION(Server, Reliable)
-	void ServerPlaceBuilding(EBuildingKind Kind, FVector Location);
+	void ServerPlaceBuilding(int32 BuildingIndex, FVector Location);
 	UFUNCTION(Server, Reliable)
 	void ServerCancelBuilding(ACommandBuilding* Building);
 	UFUNCTION(Server, Reliable)
@@ -74,7 +76,7 @@ private:
 	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> InputSubsystem;
 	FString Feedback;
 	bool bPlacingBuilding = false;
-	EBuildingKind PlacementKind = EBuildingKind::Barracks;
+	int32 PlacementIndex = -1;
 	bool bAssigningFront = false;
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;

@@ -24,7 +24,8 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Match")
 	int32 Health = 900;
-	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Match")
+	// Set on the placed level actor: 0 friendly, 5 enemy.
+	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Match")
 	int32 TeamIndex = 0;
 private:
 	// Root: invisible 300x300x200 cm box that owns the ECC_Visibility hit test used by cursor targeting.
