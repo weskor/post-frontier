@@ -9,15 +9,16 @@
 #include "NavigationSystem.h"
 #include "Components/BoxComponent.h"
 
-using namespace ArmyTestSetup;
-
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionLifecycleTest, "CoopRTS.Construction.Lifecycle",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionProductionTest, "CoopRTS.Construction.Production",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-namespace
+// Named, not anonymous: a using-directive inside an anonymous namespace leaks into
+// every later file of a unity translation unit.
+namespace ConstructionScenarioTests
 {
+using namespace ArmyTestSetup;
 bool FindPlacement(ACommandGameState* State, int32 BuildingIndex, const FVector& Center, FVector& Result)
 {
 	for (int32 Ring = 0; Ring < 5; ++Ring)
@@ -510,6 +511,6 @@ private:
 	bool bRecruitMoved = false, bJoinedMoved = false;
 };
 }
-bool FConstructionLifecycleTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FConstructionScenario(this, false)); return true; }
-bool FConstructionProductionTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FConstructionScenario(this, true)); return true; }
+bool FConstructionLifecycleTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(ConstructionScenarioTests::FConstructionScenario(this, false)); return true; }
+bool FConstructionProductionTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(ConstructionScenarioTests::FConstructionScenario(this, true)); return true; }
 #endif

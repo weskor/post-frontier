@@ -18,6 +18,12 @@ public:
 	bool ContainsPlacement(const FVector& Location) const;
 	// The level's arena via the replicated GameState reference; null before a match is set up.
 	static const AArenaBounds* Find(const UWorld* World);
+	// False when the world has no arena yet.
+	static bool IsTravelLocation(const UWorld* World, const FVector& Location)
+	{
+		const AArenaBounds* Arena = Find(World);
+		return Arena && Arena->ContainsTravel(Location);
+	}
 	static constexpr double HalfHeight = 1000.0;
 
 	UPROPERTY(EditAnywhere, Replicated, Category = "Arena")

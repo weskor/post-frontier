@@ -34,12 +34,6 @@ namespace
 		FNavPathSharedPtr Path;
 	};
 
-	bool IsArenaLocation(const UWorld* World, const FVector& Location)
-	{
-		const AArenaBounds* Arena = AArenaBounds::Find(World);
-		return Arena && Arena->ContainsTravel(Location);
-	}
-
 	AAIController* GetReadyController(AArmyUnit* Unit)
 	{
 		AAIController* AI = IsValid(Unit) ? Cast<AAIController>(Unit->GetController()) : nullptr;
@@ -51,7 +45,7 @@ namespace
 		UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
 		FPreparedMove& Prepared, float ProjectionRadius = 35.0f)
 	{
-		if (!IsArenaLocation(Navigation.GetWorld(), Target))
+		if (!AArenaBounds::IsTravelLocation(Navigation.GetWorld(), Target))
 		{
 			return false;
 		}
@@ -59,7 +53,7 @@ namespace
 		FNavLocation Projected;
 		if (!NavData || !Navigation.ProjectPointToNavigation(Target, Projected,
 			FVector(ProjectionRadius, ProjectionRadius, 200.0f), NavData)
-			|| !IsArenaLocation(Navigation.GetWorld(), Projected.Location)
+			|| !AArenaBounds::IsTravelLocation(Navigation.GetWorld(), Projected.Location)
 			|| FVector::DistSquared2D(Target, Projected.Location) > FMath::Square(ProjectionRadius))
 		{
 			return false;
@@ -182,7 +176,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 		|| ProductionBuilding->TeamIndex != TeamIndex || ProductionBuilding->OwningPlayerState != OwningPlayerState
 		|| (TeamIndex == 0 ? !IsValid(OwningPlayerState) || OwningPlayerState->CommanderIndex < 0
 			|| OwningPlayerState->CommanderIndex >= 5 : TeamIndex != 5 || IsValid(OwningPlayerState))
-		|| Capacity == 0 || !IsArenaLocation(GetWorld(), SpawnLocation)) return false;
+		|| Capacity == 0 || !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation)) return false;
 	uint32 Occupied = 0;
 	int32 Living = 0;
 	for (const AArmyUnit* Unit : Units)
@@ -203,7 +197,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	if (!Navigation || ExitDistance < FMath::Square(Radius + 75.f)
 		|| ExitDistance > FMath::Square(Radius + 700.f)
 		|| !Navigation->ProjectPointToNavigation(SpawnLocation, Projected, FVector(45.f, 45.f, 200.f))
-		|| !IsArenaLocation(GetWorld(), Projected.Location)
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(SpawnLocation, Projected.Location) > FMath::Square(45.f)
 		|| FMath::Abs(SpawnLocation.Z - Projected.Location.Z) > 110.f
 		|| GetWorld()->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
@@ -419,7 +413,7 @@ bool AArmyGroup::IssueMove(FVector InDestination)
 bool AArmyGroup::IssueAttack(FVector InDestination, AActor* InTarget)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!IsArenaLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing)) return false;
+	if (!AArenaBounds::IsTravelLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing)) return false;
 	FVector Anchor = InDestination;
 	if (InTarget)
 	{
@@ -448,7 +442,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || (Units.IsEmpty() && !IsValid(ProductionBuilding) && !bProducedGroup)
-		|| !IsArenaLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing))
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing))
 	{
 		return false;
 	}
@@ -506,7 +500,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 		const ANavigationData* NavData = Navigation->GetNavDataForProps(Agent, HomeLocation);
 		FNavLocation Projected;
 		if (!NavData || !Navigation->ProjectPointToNavigation(InDestination, Projected,
-			FVector(75.f, 75.f, 200.f), NavData) || !IsArenaLocation(GetWorld(), Projected.Location)
+			FVector(75.f, 75.f, 200.f), NavData) || !AArenaBounds::IsTravelLocation(GetWorld(), Projected.Location)
 			|| FVector::DistSquared2D(InDestination, Projected.Location) > FMath::Square(75.f)) return false;
 		FPathFindingQuery Query(this, *NavData, HomeLocation, Projected.Location);
 		Query.SetAllowPartialPaths(false);

@@ -78,6 +78,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Number(Result, TEXT("netMode"), static_cast<int32>(World->GetNetMode()));
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	if (!State) { Result->SetBoolField(TEXT("ready"), false); return Result; }
+	Number(Result, TEXT("gameStateId"), LifetimeId(State));
 	if (const UNetDriver* Driver = World->GetNetDriver())
 	{
 		Number(Result, TEXT("netDriverId"), LifetimeId(Driver));

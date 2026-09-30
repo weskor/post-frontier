@@ -19,6 +19,34 @@
 #include "Headquarters.h"
 #include "Misc/StringBuilder.h"
 
+int32 BuildSlot(EHUDAction Action)
+{
+	switch (Action)
+	{
+	case EHUDAction::BuildSlot0: return 0;
+	case EHUDAction::BuildSlot1: return 1;
+	case EHUDAction::BuildSlot2: return 2;
+	case EHUDAction::BuildSlot3: return 3;
+	case EHUDAction::BuildSlot4: return 4;
+	case EHUDAction::BuildSlot5: return 5;
+	default: return INDEX_NONE;
+	}
+}
+
+int32 RecipeSlot(EHUDAction Action)
+{
+	switch (Action)
+	{
+	case EHUDAction::RecipeSlot0: return 0;
+	case EHUDAction::RecipeSlot1: return 1;
+	case EHUDAction::RecipeSlot2: return 2;
+	case EHUDAction::RecipeSlot3: return 3;
+	case EHUDAction::RecipeSlot4: return 4;
+	case EHUDAction::RecipeSlot5: return 5;
+	default: return INDEX_NONE;
+	}
+}
+
 namespace
 {
 	// Compact virtual geometry; scale stops growing on large monitors.
@@ -110,17 +138,26 @@ namespace
 		return Context;
 	}
 
-	// Migration lookups: the fixed three cards/rows still key on legacy enums until the deck enumerates MatchContent.
-	const UBuildingDefinition* KindDefinition(const FContext& Context, EBuildingKind Kind)
+	constexpr EHUDAction BuildActions[] = {
+		EHUDAction::BuildSlot0, EHUDAction::BuildSlot1, EHUDAction::BuildSlot2,
+		EHUDAction::BuildSlot3, EHUDAction::BuildSlot4, EHUDAction::BuildSlot5};
+	constexpr EHUDAction RecipeActions[] = {
+		EHUDAction::RecipeSlot0, EHUDAction::RecipeSlot1, EHUDAction::RecipeSlot2,
+		EHUDAction::RecipeSlot3, EHUDAction::RecipeSlot4, EHUDAction::RecipeSlot5};
+
+	const UMatchContent* MatchContent(const FContext& Context)
 	{
-		const UMatchContent* Content = Context.State ? Context.State->Content.Get() : nullptr;
-		return Content ? Content->Building(Content->BuildingIndexForKind(Kind)) : nullptr;
+		return Context.State && IsValid(Context.State->Content) ? Context.State->Content.Get() : nullptr;
 	}
 
-	const UArmyUnitDefinition* RoleDefinition(const FContext& Context, EUnitRole Role)
+	const UArmyUnitDefinition* ProductionDefinition(const FContext& Context)
 	{
-		const UMatchContent* Content = Context.State ? Context.State->Content.Get() : nullptr;
-		return Content ? Content->Unit(Content->UnitIndexForRole(Role)) : nullptr;
+		if (!Context.Building) return nullptr;
+		if (const UArmyUnitDefinition* Definition = Context.Building->GetProductionDefinition()) return Definition;
+		// Before the first recipe RPC, Start still uses the controller's legacy role contract.
+		const UMatchContent* Content = MatchContent(Context);
+		return Content && Context.Building->ProductionUnitIndex == INDEX_NONE
+			? Content->Unit(Content->UnitIndexForRole(Context.Building->ProductionRole)) : nullptr;
 	}
 
 	// HUD-owned wording for the typed production state.
@@ -193,14 +230,18 @@ namespace
 		return {Inspector.X + Pad + Index * (Width + ColumnGap), Top, Width, Inspector.Bottom() - Pad - Top};
 	}
 
-	FRect Row(const FRect& ColumnRect, int32 Index)
+	FRect Row(const FRect& ColumnRect, int32 Index, int32 Count = 3)
 	{
-		return {ColumnRect.X, ColumnRect.Y + LabelHeight + Index * (RowHeight + RowGap), ColumnRect.W, RowHeight};
+		// Reserve the existing footer; three rows retain their original geometry.
+		const float Available = FMath::Min(3.f * RowHeight + 2.f * RowGap, ColumnRect.H - LabelHeight - 18.f);
+		const float Height = FMath::Min(RowHeight, (Available - (Count - 1) * RowGap) / FMath::Max(1, Count));
+		return {ColumnRect.X, ColumnRect.Y + LabelHeight + Index * (Height + RowGap), ColumnRect.W, Height};
 	}
 
-	FRect BuildCard(const FRect& Build, int32 Index)
+	FRect BuildCard(const FRect& Build, int32 Index, int32 Count)
 	{
-		return {Build.X + Pad, Build.Y + Pad + Index * 46.f, Build.W - 2.f * Pad, 40.f};
+		const float Height = FMath::Min(40.f, (Build.H - 2.f * Pad + 2.f - (Count - 1) * 6.f) / FMath::Max(1, Count));
+		return {Build.X + Pad, Build.Y + Pad + Index * (Height + 6.f), Build.W - 2.f * Pad, Height};
 	}
 
 	FRect ResearchCard(const FRect& Inspector, int32 Index)
@@ -249,12 +290,13 @@ namespace
 				: Shortfall > 0 ? EBlock::Funds : EBlock::None;
 			Visit(FButton{Action, Rect, Block, bActive, Shortfall});
 		};
-		const UBuildingDefinition* Barracks = KindDefinition(Context, EBuildingKind::Barracks);
-		const UBuildingDefinition* Outpost = KindDefinition(Context, EBuildingKind::Outpost);
-		const UBuildingDefinition* Workshop = KindDefinition(Context, EBuildingKind::Workshop);
-		Emit(EHUDAction::BuildBarracks, BuildCard(Layout.Build, 0), Barracks ? Barracks->BuildCost : 0, EBlock::None, false);
-		Emit(EHUDAction::BuildOutpost, BuildCard(Layout.Build, 1), Outpost ? Outpost->BuildCost : 0, EBlock::None, false);
-		Emit(EHUDAction::BuildWorkshop, BuildCard(Layout.Build, 2), Workshop ? Workshop->BuildCost : 0, EBlock::None, false);
+		const UMatchContent* Content = MatchContent(Context);
+		const int32 BuildCount = Content ? FMath::Min(Content->Buildings.Num(), static_cast<int32>(UE_ARRAY_COUNT(BuildActions))) : 0;
+		for (int32 Index = 0; Index < BuildCount; ++Index)
+		{
+			const UBuildingDefinition* Definition = Content->Building(Index);
+			if (Definition) Emit(BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, EBlock::None, false);
+		}
 
 		const ACommandBuilding* Building = Context.Building;
 		if (!Building) return;
@@ -263,18 +305,20 @@ namespace
 			Emit(EHUDAction::CancelConstruction, CancelButton(Layout.Inspector), 0, EBlock::None, false);
 			return;
 		}
-		if (Building->Kind == EBuildingKind::Barracks)
+		if (Building->IsProducer())
 		{
 			const FRect Recipes = Column(Layout.Inspector, 0, 3);
 			const FRect Production = Column(Layout.Inspector, 1, 3);
 			const FRect Fronts = Column(Layout.Inspector, 2, 3);
-			const EUnitRole Role = Building->ProductionRole;
 			const EBlock RoleLock = Building->bForceConfigured ? EBlock::ForceLocked : EBlock::None;
-			Emit(EHUDAction::RecipeFrontline, Row(Recipes, 0), 0, RoleLock, Role == EUnitRole::Frontline);
-			Emit(EHUDAction::RecipeRanged, Row(Recipes, 1), 0, RoleLock, Role == EUnitRole::Ranged);
-			Emit(EHUDAction::RecipeSiege, Row(Recipes, 2), 0, RoleLock, Role == EUnitRole::Siege);
-			const UArmyUnitDefinition* Recipe = Building->GetProductionDefinition();
-			if (!Recipe) Recipe = RoleDefinition(Context, Role);
+			const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
+			const int32 RecipeCount = Content ? FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))) : 0;
+			for (int32 Index = 0; Index < RecipeCount; ++Index)
+			{
+				if (Content->Unit(Index))
+					Emit(RecipeActions[Index], Row(Recipes, Index, RecipeCount), 0, RoleLock,
+						Building->ProductionUnitIndex == Index || (Building->ProductionUnitIndex == INDEX_NONE && Content->Unit(Index) == Recipe));
+			}
 			Emit(EHUDAction::ToggleProduction, Row(Production, 1),
 				Building->bForceConfigured || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
 				EBlock::None, Building->bProductionEnabled);
@@ -283,7 +327,7 @@ namespace
 			Emit(EHUDAction::FrontDefend, Row(Fronts, 1), 0, EBlock::None, bFront && Building->FrontOrder == EFrontOrder::Defend);
 			Emit(EHUDAction::FrontFallBack, Row(Fronts, 2), 0, EBlock::None, bFront && Building->FrontOrder == EFrontOrder::FallBack);
 		}
-		else if (Building->Kind == EBuildingKind::Workshop)
+		else if (Building->GetDefinition() && Building->GetDefinition()->bOffersResearch)
 		{
 			const EArmyDoctrine Owned = Context.Wallet ? Context.Wallet->Doctrine : EArmyDoctrine::None;
 			int32 Index = 0;
@@ -307,38 +351,6 @@ namespace
 		return Result;
 	}
 
-	const TCHAR* KindTitle(EBuildingKind Kind)
-	{
-		switch (Kind)
-		{
-		case EBuildingKind::Barracks: return TEXT("BARRACKS");
-		case EBuildingKind::Outpost: return TEXT("OUTPOST");
-		case EBuildingKind::Workshop: return TEXT("WORKSHOP");
-		default: return TEXT("BUILDING");
-		}
-	}
-
-	FLinearColor KindColor(EBuildingKind Kind)
-	{
-		switch (Kind)
-		{
-		case EBuildingKind::Barracks: return FLinearColor(1.f, .58f, .25f);
-		case EBuildingKind::Outpost: return FLinearColor(.40f, .90f, .55f);
-		case EBuildingKind::Workshop: return FLinearColor(.72f, .52f, 1.f);
-		default: return Palette::Muted;
-		}
-	}
-
-	const TCHAR* RoleTitle(EUnitRole Role)
-	{
-		switch (Role)
-		{
-		case EUnitRole::Frontline: return TEXT("FRONTLINE");
-		case EUnitRole::Ranged: return TEXT("RANGED");
-		case EUnitRole::Siege: return TEXT("SIEGE");
-		default: return TEXT("UNKNOWN");
-		}
-	}
 
 	const TCHAR* FrontTitle(EFrontOrder Order)
 	{
@@ -539,15 +551,16 @@ namespace
 			if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != 0
 				|| Building->OwningPlayerState != Context.Wallet) continue;
 			if (!Building->IsComplete()) ++Forces.Constructing;
-			if (Building->Kind == EBuildingKind::Barracks)
+			const UBuildingDefinition* Definition = Building->GetDefinition();
+			if (Building->IsProducer())
 			{
 				++Forces.Barracks;
 				if (Building->IsComplete()) ++Forces.CompletedBarracks;
 				if (Building->IsComplete() && Building->GetProductionState() == EProductionState::Producing) ++Forces.Producing;
 				if (Building->bForceConfigured) ++Forces.ConfiguredForces;
 			}
-			else if (Building->Kind == EBuildingKind::Workshop) ++Forces.Workshops;
-			else ++Forces.Outposts;
+			else if (Definition && Definition->bOffersResearch) ++Forces.Workshops;
+			else if (Definition && Definition->bEstablishesSector) ++Forces.Outposts;
 		}
 		// Sectors held by the team that do not yet have any friendly outpost, finished or not.
 		for (const ACapturePoint* Site : Context.State->CaptureSites)
@@ -557,7 +570,8 @@ namespace
 			bool bHasOutpost = false;
 			for (const ACommandBuilding* Building : Context.State->Buildings)
 				if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex == 0
-					&& Building->Kind == EBuildingKind::Outpost && Building->OutpostSite == Site) bHasOutpost = true;
+					&& Building->GetDefinition() && Building->GetDefinition()->bEstablishesSector
+					&& Building->OutpostSite == Site) bHasOutpost = true;
 			if (!bHasOutpost) ++Forces.OpenSectors;
 		}
 		return Forces;
@@ -613,17 +627,19 @@ namespace
 
 	void DrawBuildCard(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover)
 	{
-		const EBuildingKind Kind = Button.Action == EHUDAction::BuildBarracks ? EBuildingKind::Barracks
-			: Button.Action == EHUDAction::BuildOutpost ? EBuildingKind::Outpost : EBuildingKind::Workshop;
-		const UBuildingDefinition* Definition = KindDefinition(Context, Kind);
+		const UMatchContent* Content = MatchContent(Context);
+		const UBuildingDefinition* Definition = Content ? Content->Building(BuildSlot(Button.Action)) : nullptr;
+		if (!Definition) return;
 		const FRect& Rect = Button.Rect;
+		const float TextScale = FMath::Min(1.f, Rect.H / 40.f);
 		Paint.Fill(Rect, !Button.Available() ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
-		Paint.Fill({Rect.X, Rect.Y, 3.f, Rect.H}, KindColor(Kind));
-		Paint.Text(KindTitle(Kind), Rect.X + 8.f, Rect.Y + 4.f, 10.f, Palette::Text, true, EAlign::Left, Rect.W - 16.f);
+		Paint.Fill({Rect.X, Rect.Y, 3.f, Rect.H}, Definition->Accent);
+		const FString Title = Definition->DisplayName.ToString().ToUpper();
+		Paint.Text(Title, Rect.X + 8.f, Rect.Y + 4.f * TextScale, 10.f * TextScale, Palette::Text, true, EAlign::Left, Rect.W - 16.f);
 		TStringBuilder<48> Detail;
-		Detail.Appendf(TEXT("%d  /  %.0fs"), Definition ? Definition->BuildCost : 0, Definition ? Definition->BuildDuration : 0.f);
-		if (Button.Available()) Paint.Text(Detail.ToView(), Rect.X + 8.f, Rect.Y + 21.f, 9.f, Palette::Gold);
-		else DrawBlockReason(Paint, Button, Rect.X + 8.f, Rect.Y + 21.f, 9.f, Rect.W - 16.f);
+		Detail.Appendf(TEXT("%d  /  %.0fs"), Definition->BuildCost, Definition->BuildDuration);
+		if (Button.Available()) Paint.Text(Detail.ToView(), Rect.X + 8.f, Rect.Y + 21.f * TextScale, 9.f * TextScale, Palette::Gold);
+		else DrawBlockReason(Paint, Button, Rect.X + 8.f, Rect.Y + 21.f * TextScale, 9.f * TextScale, Rect.W - 16.f);
 	}
 
 	void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover)
@@ -632,7 +648,7 @@ namespace
 			: Button.Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs : EArmyDoctrine::EntrenchedFrontline;
 		const FRect& Rect = Button.Rect;
 		const bool bOn = Button.Available();
-		const FLinearColor Accent = Button.bActive ? Palette::Good : KindColor(EBuildingKind::Workshop);
+		const FLinearColor Accent = Button.bActive ? Palette::Good : FLinearColor(.72f, .52f, 1.f);
 		Paint.Fill(Rect, Button.bActive ? Tint(Palette::Good, .16f, .96f) : !bOn ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
 		Paint.Fill({Rect.X, Rect.Y, Rect.W, 3.f}, Accent.CopyWithNewOpacity(bOn || Button.bActive ? 1.f : .3f));
 		Paint.Outline(Rect, Button.bActive ? Palette::Good.CopyWithNewOpacity(.8f) : bOn && bHover ? Accent : Palette::Edge);
@@ -667,31 +683,29 @@ namespace
 		TStringBuilder<48> Right;
 		FLinearColor Accent = Palette::Friendly;
 		FLinearColor RightColor = Palette::Faint;
-		switch (Button.Action)
+		const int32 RecipeIndex = RecipeSlot(Button.Action);
+		if (RecipeIndex != INDEX_NONE)
 		{
-		case EHUDAction::RecipeFrontline:
-		case EHUDAction::RecipeRanged:
-		case EHUDAction::RecipeSiege:
-		{
-			const EUnitRole Role = Button.Action == EHUDAction::RecipeFrontline ? EUnitRole::Frontline
-				: Button.Action == EHUDAction::RecipeRanged ? EUnitRole::Ranged : EUnitRole::Siege;
-			const UArmyUnitDefinition* Definition = RoleDefinition(Context, Role);
-			Left << RoleTitle(Role);
-			if (Definition && (Button.Block == EBlock::None || Button.bActive))
+			const UMatchContent* Content = MatchContent(Context);
+			const UArmyUnitDefinition* Definition = Content ? Content->Unit(RecipeIndex) : nullptr;
+			if (!Definition) return;
+			Left << Definition->DisplayName.ToString().ToUpper();
+			Accent = Definition->Accent;
+			if (Button.Block == EBlock::None || Button.bActive)
 			{
-				Right.Appendf(TEXT("%d  \u00B7  %d/%.1fs"), ACommandBuilding::GetForceCapacity(*Definition),
-					ACommandBuilding::GetUnitCost(*Definition), ACommandBuilding::GetUnitDuration(*Definition));
+				Right.Appendf(TEXT("%d  \u00B7  %d/%.1fs"), Definition->Capacity, Definition->UnitCost, Definition->UnitDuration);
 				RightColor = Palette::Gold;
 			}
-			break;
 		}
+		else switch (Button.Action)
+		{
 		case EHUDAction::ToggleProduction:
 		{
 			const bool bEnabled = Building->bProductionEnabled;
 			Left << (!Building->bForceConfigured ? TEXT("START & LOCK") : bEnabled ? TEXT("PAUSE") : TEXT("RESUME"));
 			if (!Building->bForceConfigured)
 			{
-				const UArmyUnitDefinition* Recipe = RoleDefinition(Context, Building->ProductionRole);
+				const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
 				const int32 Fee = Recipe ? ACommandBuilding::GetConfigurationCost(*Recipe) : 0;
 				if (Fee > 0 && Button.Block != EBlock::Funds) Right.Appendf(TEXT("+%d fee"), Fee);
 			}
@@ -723,35 +737,36 @@ namespace
 			return;
 		}
 		const FRect& Rect = Button.Rect;
+		const float TextScale = FMath::Min(1.f, Rect.H / RowHeight);
 		const bool bOn = Button.Available();
 		const bool bActiveRecipeOrFront = Button.bActive && Button.Action != EHUDAction::ToggleProduction;
 		Paint.Fill(Rect, bActiveRecipeOrFront ? Tint(Accent, .2f, .96f) : !bOn ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
 		Paint.Fill({Rect.X, Rect.Y, 3.f, Rect.H}, Accent.CopyWithNewOpacity(bOn || Button.bActive ? 1.f : .3f));
 		Paint.Outline(Rect, bActiveRecipeOrFront ? Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Accent.CopyWithNewOpacity(.7f) : Palette::Edge);
 		float RightWidth = 0.f;
-		if (Right.Len() > 0) RightWidth = Paint.TextIn(Right.ToView(), Rect, 9.f, RightColor, false, EAlign::Right, 9.f);
+		if (Right.Len() > 0) RightWidth = Paint.TextIn(Right.ToView(), Rect, 9.f * TextScale, RightColor, false, EAlign::Right, 9.f);
 		else if (!bOn)
 		{
-			const float Y = Rect.Y + (Rect.H - Paint.LineHeight(9.f)) * .5f;
-			RightWidth = DrawBlockReason(Paint, Button, Rect.Right() - 9.f, Y, 9.f, Rect.W * .5f, EAlign::Right);
+			const float Y = Rect.Y + (Rect.H - Paint.LineHeight(9.f * TextScale)) * .5f;
+			RightWidth = DrawBlockReason(Paint, Button, Rect.Right() - 9.f, Y, 9.f * TextScale, Rect.W * .5f, EAlign::Right);
 		}
-		Paint.TextIn(Left.ToView(), Rect, 10.f, bOn || Button.bActive ? Palette::Text : Palette::Muted, true, EAlign::Left, 11.f,
+		Paint.TextIn(Left.ToView(), Rect, 10.f * TextScale, bOn || Button.bActive ? Palette::Text : Palette::Muted, true, EAlign::Left, 11.f,
 			Rect.W - 22.f - RightWidth - 8.f);
 	}
 
 	void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover)
 	{
+		if (BuildSlot(Button.Action) != INDEX_NONE)
+		{
+			DrawBuildCard(Paint, Context, Button, bHover);
+			return;
+		}
 		switch (Button.Action)
 		{
 		case EHUDAction::Construction:
 			Paint.Fill(Button.Rect, bHover ? Palette::CardHover : Palette::Panel);
 			Paint.Outline(Button.Rect, Palette::Friendly);
 			Paint.TextIn(TEXT("CONSTRUCTION"), Button.Rect, 10.f, Palette::Text, true, EAlign::Center);
-			break;
-		case EHUDAction::BuildBarracks:
-		case EHUDAction::BuildOutpost:
-		case EHUDAction::BuildWorkshop:
-			DrawBuildCard(Paint, Context, Button, bHover);
 			break;
 		case EHUDAction::ResearchSiege:
 		case EHUDAction::ResearchRepairs:
@@ -805,29 +820,30 @@ namespace
 	{
 		const ACommandBuilding* Building = Context.Building;
 		const int32 Owner = Context.Wallet ? Context.Wallet->CommanderIndex : -1;
-		TStringBuilder<48> Title;
-		Title << KindTitle(Building->Kind);
+		const UBuildingDefinition* Definition = Building->GetDefinition();
+		const FLinearColor Accent = Definition ? Definition->Accent : Palette::Muted;
+		const FString Title = Definition ? Definition->DisplayName.ToString().ToUpper() : TEXT("BUILDING");
 		TStringBuilder<48> Subtitle;
 		Subtitle.Appendf(TEXT("C%d  \u00B7  your building"), Owner + 1);
 
 		if (!Building->IsComplete())
 		{
 			const float Progress = FMath::Clamp(Building->ConstructionProgress, 0.f, 1.f);
-			DrawInspectorHeader(Paint, Inspector, KindColor(Building->Kind), Title.ToView(), Subtitle.ToView(), Owner,
+			DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 				Building->Health, Building->MaxHealth(), Context.bTerminal ? TEXT("HALTED") : TEXT("UNDER CONSTRUCTION"),
 				Context.bTerminal ? Palette::Faint : Palette::Warn);
 			const float Top = BodyTop(Inspector);
 			const FRect Bar{Inspector.X + Pad, Top + LabelHeight + 2.f, CancelButton(Inspector).X - Inspector.X - 2.f * Pad - 12.f, 14.f};
 			Paint.Text(TEXT("CONSTRUCTION"), Bar.X, Top, 8.5f, Palette::Muted, true);
-			Paint.Bar(Bar, Progress, KindColor(Building->Kind).CopyWithNewOpacity(.85f));
+			Paint.Bar(Bar, Progress, Accent.CopyWithNewOpacity(.85f));
 			TStringBuilder<64> Status;
 			if (Context.bTerminal) Status.Appendf(TEXT("%d%%  \u00B7  halted: match over"), FMath::FloorToInt(Progress * 100.f));
 			else Status.Appendf(TEXT("%d%%  \u00B7  %.0fs remaining"), FMath::FloorToInt(Progress * 100.f),
 				FMath::CeilToFloat((1.f - Progress) * (Building->GetDefinition() ? Building->GetDefinition()->BuildDuration : 0.f)));
 			Paint.Text(Status.ToView(), Bar.X, Bar.Bottom() + 7.f, 11.f, Palette::Text, true);
-			Paint.Text(Building->Kind == EBuildingKind::Barracks ? TEXT("When complete: choose a permanent force type, Start and set a front.")
-				: Building->Kind == EBuildingKind::Outpost ? TEXT("When complete: secures this sector's income and build rights.")
-				: TEXT("When complete: buy one specialization for your forces."),
+			Paint.Text(Building->IsProducer() ? TEXT("When complete: choose a permanent force type, Start and set a front.")
+				: Definition && Definition->bEstablishesSector ? TEXT("When complete: secures this sector's income and build rights.")
+				: Definition && Definition->bOffersResearch ? TEXT("When complete: buy one specialization for your forces.") : TEXT(""),
 				Bar.X, Bar.Bottom() + 32.f, 9.f, Palette::Muted, false, EAlign::Left, Bar.W);
 			Paint.Text(TEXT("Cancelling refunds the unbuilt share of the cost."), Bar.X, Bar.Bottom() + 48.f, 9.f, Palette::Faint,
 				false, EAlign::Left, Bar.W);
@@ -840,7 +856,7 @@ namespace
 			const FString Status = StatusText(ProductionState);
 			const FLinearColor StatusColor = ProductionState == EProductionState::Producing || ProductionState == EProductionState::ForceComplete ? Palette::Good
 				: ProductionState == EProductionState::Paused || ProductionState == EProductionState::MatchFinished ? Palette::Muted : Palette::Warn;
-			DrawInspectorHeader(Paint, Inspector, KindColor(Building->Kind), Title.ToView(), Subtitle.ToView(), Owner,
+			DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 				Building->Health, Building->MaxHealth(), Status, StatusColor);
 			const FRect Recipes = Column(Inspector, 0, 3);
 			const FRect Production = Column(Inspector, 1, 3);
@@ -848,8 +864,7 @@ namespace
 			ColumnLabel(Paint, Recipes, TEXT("FORCE TYPE"), Building->bForceConfigured ? TEXT("LOCKED") : TEXT("choose before Start"));
 			int32 Joined = 0, Travelling = 0;
 			Building->GetForceCounts(Joined, Travelling);
-			const UArmyUnitDefinition* Recipe = Building->GetProductionDefinition();
-			if (!Recipe) Recipe = RoleDefinition(Context, Building->ProductionRole);
+			const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
 			const int32 Capacity = Recipe ? ACommandBuilding::GetForceCapacity(*Recipe) : 0;
 			const int32 Vacancies = FMath::Max(0, Capacity - Joined - Travelling);
 			TStringBuilder<32> ForceCounts;
@@ -862,30 +877,31 @@ namespace
 			ColumnLabel(Paint, Fronts, TEXT("FRONT"), FrontState.ToView(), bFront ? FrontColor(Building->FrontOrder) : Palette::Warn);
 
 			const FRect Progress = Row(Production, 0);
-			const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Building->GetProductionDuration());
+			const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
 			Paint.Bar({Progress.X, Progress.Y, Progress.W, 5.f}, Building->ProductionProgressSeconds / Duration, StatusColor);
 			TStringBuilder<64> Timer;
 			const int32 BuildingCount = Building->bForceConfigured && (Building->ProductionProgressSeconds > 0.f
-				|| Status == TEXT("PRODUCING") || Status == TEXT("DEPLOYMENT BLOCKED")) ? 1 : 0;
+				|| ProductionState == EProductionState::Producing || ProductionState == EProductionState::DeploymentBlocked) ? 1 : 0;
 			Timer.Appendf(TEXT("Building %d: %.1f/%.1fs"), BuildingCount, Building->ProductionProgressSeconds, Duration);
 			Paint.Text(Timer.ToView(), Progress.X, Progress.Y + 7.f, 9.f, Palette::Text, true, EAlign::Left, Progress.W);
 			TStringBuilder<64> Recruits;
 			Recruits.Appendf(TEXT("Travelling %d  \u00B7  Vacant %d"), Travelling, Vacancies);
 			Paint.Text(Recruits.ToView(), Production.X, Row(Production, 2).Y, 9.f, Palette::Text, false, EAlign::Left, Production.W);
 			TStringBuilder<48> UnitPrice;
-			UnitPrice.Appendf(TEXT("%d resources per unit"), Building->GetProductionCost());
+			const int32 UnitCost = Recipe ? ACommandBuilding::GetUnitCost(*Recipe) : 0;
+			UnitPrice.Appendf(TEXT("%d resources per unit"), UnitCost);
 			Paint.Text(UnitPrice.ToView(), Production.X, Row(Production, 2).Y + 13.f, 8.f, Palette::Gold, false, EAlign::Left, Production.W);
 			TStringBuilder<128> Remedy;
 			if (ProductionState == EProductionState::Unconfigured)
 			{
 				Remedy << TEXT("First Start permanently locks this building's force type");
 				const int32 Fee = Recipe ? ACommandBuilding::GetConfigurationCost(*Recipe) : 0;
-				if (Fee > 0) Remedy.Appendf(TEXT("; Siege configuration costs %d resources once."), Fee);
+				if (Fee > 0) Remedy.Appendf(TEXT("; configuration costs %d resources once."), Fee);
 				else Remedy << TEXT("; no configuration fee.");
 			}
 			else if (ProductionState == EProductionState::ForceComplete) Remedy << TEXT("Force full: no spending; casualties automatically open replacement slots.");
 			else if (ProductionState == EProductionState::InsufficientResources) Remedy.Appendf(TEXT("Need %d more: resumes with income."),
-				FMath::Max(0, Building->GetProductionCost() - Context.Balance));
+				FMath::Max(0, UnitCost - Context.Balance));
 			else if (ProductionState == EProductionState::Paused) Remedy << TEXT("Paused: click Resume.");
 			else if (ProductionState == EProductionState::DeploymentBlocked) Remedy << TEXT("Deployment blocked: clear barracks exit; auto retry.");
 			else if (ProductionState == EProductionState::Producing) Remedy << TEXT("Building one unit; pays at barracks deployment, then walks to this force.");
@@ -895,10 +911,10 @@ namespace
 			return;
 		}
 
-		if (Building->Kind == EBuildingKind::Workshop)
+		if (Definition && Definition->bOffersResearch)
 		{
 			const EArmyDoctrine Owned = Context.Wallet ? Context.Wallet->Doctrine : EArmyDoctrine::None;
-			DrawInspectorHeader(Paint, Inspector, KindColor(Building->Kind), Title.ToView(), Subtitle.ToView(), Owner,
+			DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 				Building->Health, Building->MaxHealth(), Owned == EArmyDoctrine::None ? TEXT("RESEARCH AVAILABLE") : TEXT("SPECIALIZED"),
 				Owned == EArmyDoctrine::None ? Palette::Good : Palette::Muted);
 			TStringBuilder<64> Detail;
@@ -910,9 +926,16 @@ namespace
 			return;
 		}
 
+		if (!Definition || !Definition->bEstablishesSector)
+		{
+			DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
+				Building->Health, Building->MaxHealth(), FStringView(), Palette::Muted);
+			return;
+		}
+
 		const ACapturePoint* Site = IsValid(Building->OutpostSite) ? Building->OutpostSite.Get() : nullptr;
 		const bool bEstablished = Site && Site->IsEstablishedForTeam(0);
-		DrawInspectorHeader(Paint, Inspector, KindColor(Building->Kind), Title.ToView(), Subtitle.ToView(), Owner,
+		DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 			Building->Health, Building->MaxHealth(), bEstablished ? TEXT("SECTOR ESTABLISHED") : TEXT("SECTOR NOT ESTABLISHED"),
 			bEstablished ? Palette::Good : Palette::Warn);
 		const float X = Inspector.X + Pad;
@@ -1000,11 +1023,10 @@ namespace
 		if (Controller->IsPlacingBuilding())
 		{
 			const UBuildingDefinition* Placement = Controller->GetPlacementDefinition();
-			const EBuildingKind Kind = Placement ? Placement->GetKind() : EBuildingKind::Barracks;
-			Paint.Fill({Mode.X, Mode.Y, 4.f, Mode.H}, KindColor(Kind));
-			TStringBuilder<32> Title;
-			Title.Appendf(TEXT("PLACE %s"), KindTitle(Kind));
-			const float TitleWidth = Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true);
+			Paint.Fill({Mode.X, Mode.Y, 4.f, Mode.H}, Placement ? Placement->Accent : Palette::Muted);
+			TStringBuilder<128> Title;
+			Title << TEXT("PLACE ") << (Placement ? Placement->DisplayName.ToString().ToUpper() : TEXT("BUILDING"));
+			const float TitleWidth = Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true, EAlign::Left, TextWidth);
 			TStringBuilder<32> Cost;
 			const int32 Price = Placement ? Placement->BuildCost : 0;
 			Cost.Appendf(TEXT("%d  \u00B7  %.0fs build"), Price, Placement ? Placement->BuildDuration : 0.f);
@@ -1040,7 +1062,8 @@ namespace
 		TStringBuilder<64> Selection;
 		if (Context.Building)
 		{
-			Selection.Appendf(TEXT("Selected: your %s"), KindTitle(Context.Building->Kind));
+			Selection.Appendf(TEXT("Selected: your %s"), Context.Building->GetDefinition()
+				? *Context.Building->GetDefinition()->DisplayName.ToString().ToUpper() : TEXT("BUILDING"));
 			if (!Context.Building->IsComplete())
 				Selection.Appendf(TEXT("  \u00B7  %d%% built"), FMath::FloorToInt(FMath::Clamp(Context.Building->ConstructionProgress, 0.f, 1.f) * 100.f));
 			else if (Context.Building->IsProducer())

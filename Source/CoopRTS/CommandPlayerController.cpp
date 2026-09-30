@@ -369,13 +369,12 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	if (Action == EHUDAction::None) return;
 	if (Action == EHUDAction::Construction) { CancelMode(); return; }
 	if (!CanIssueGameplayCommand()) return;
-	if (Action == EHUDAction::BuildBarracks || Action == EHUDAction::BuildOutpost || Action == EHUDAction::BuildWorkshop)
+	const int32 BuildIndex = BuildSlot(Action);
+	if (BuildIndex != INDEX_NONE)
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-		if (!State || !IsValid(State->Content)) return;
-		PlacementIndex = State->Content->BuildingIndexForKind(Action == EHUDAction::BuildBarracks ? EBuildingKind::Barracks
-			: Action == EHUDAction::BuildOutpost ? EBuildingKind::Outpost : EBuildingKind::Workshop);
-		if (PlacementIndex < 0) return;
+		if (!State || !IsValid(State->Content) || !State->Content->Building(BuildIndex)) return;
+		PlacementIndex = BuildIndex;
 		bPlacingBuilding = true;
 		bAssigningFront = false;
 		bHUDExpanded = false;
@@ -410,11 +409,13 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		ServerConfigureProduction(SelectedBuilding, SelectedBuilding->ProductionRole, !SelectedBuilding->bProductionEnabled);
 		return;
 	}
-	if (Action != EHUDAction::RecipeFrontline && Action != EHUDAction::RecipeRanged && Action != EHUDAction::RecipeSiege) return;
+	const int32 RecipeIndex = RecipeSlot(Action);
+	if (RecipeIndex == INDEX_NONE) return;
 	if (SelectedBuilding->bForceConfigured) return; // Locked even while paused; no role-change RPC.
-	const EUnitRole Role = Action == EHUDAction::RecipeFrontline ? EUnitRole::Frontline
-		: Action == EHUDAction::RecipeRanged ? EUnitRole::Ranged : EUnitRole::Siege;
-	ServerConfigureProduction(SelectedBuilding, Role, false);
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const UArmyUnitDefinition* Definition = State && IsValid(State->Content) ? State->Content->Unit(RecipeIndex) : nullptr;
+	if (!Definition) return;
+	ServerConfigureProduction(SelectedBuilding, Definition->Role, false);
 }
 
 

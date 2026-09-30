@@ -18,11 +18,11 @@
 namespace
 {
 	const FLinearColor Friendly(.25f, .72f, .64f);
-	const FLinearColor Enemy(.90f, .36f, .32f);
+	const FLinearColor Hostile(.90f, .36f, .32f);
 	const FLinearColor Neutral(.46f, .50f, .55f);
 	const FLinearColor Contested(.94f, .72f, .34f);
 	const FLinearColor View(.75f, .83f, .88f, .80f);
-	const FVector2D Ring[] = {
+	const FVector2D RingPoints[] = {
 		{1, 0}, {.923880, .382683}, {.707107, .707107}, {.382683, .923880},
 		{0, 1}, {-.382683, .923880}, {-.707107, .707107}, {-.923880, .382683},
 		{-1, 0}, {-.923880, -.382683}, {-.707107, -.707107}, {-.382683, -.923880},
@@ -42,7 +42,7 @@ namespace
 
 	FLinearColor TeamColor(int32 Team)
 	{
-		return Team == 0 ? Friendly : Team == 5 ? Enemy : Neutral;
+		return Team == 0 ? Friendly : Team == 5 ? Hostile : Neutral;
 	}
 
 	struct FMap
@@ -211,7 +211,7 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 			FVector2D Previous = Point + FVector2D(Radius, 0);
 			for (int32 Segment = 1; Segment <= 16; ++Segment)
 			{
-				const FVector2D Next = Point + Ring[Segment % 16] * Radius;
+				const FVector2D Next = Point + RingPoints[Segment % 16] * Radius;
 				Map.Line(Previous, Next, FLinearColor(Color.R, Color.G, Color.B, .30f));
 				Previous = Next;
 			}

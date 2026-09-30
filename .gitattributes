@@ -11,3 +11,4 @@
 *.blend filter=lfs diff=lfs merge=lfs -text
 Art/Textures/**/*.png filter=lfs diff=lfs merge=lfs -text
 Art/Textures/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+Art/Audio/**/*.wav filter=lfs diff=lfs merge=lfs -text

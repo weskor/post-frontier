@@ -14,12 +14,6 @@
 
 namespace
 {
-	bool IsArenaLocation(const UWorld* World, const FVector& Location)
-	{
-		const AArenaBounds* Arena = AArenaBounds::Find(World);
-		return Arena && Arena->ContainsTravel(Location);
-	}
-
 	bool GetBalance(const ACommandBuilding& Building, const ACommandGameState& State, int32& Balance)
 	{
 		if (Building.TeamIndex == 5 && !Building.OwningPlayerState)
@@ -72,9 +66,9 @@ namespace
 			const FVector Desired = Building.GetActorLocation()
 				+ Directions[Candidate % 8] * (Radius + (Candidate / 8) * 145.f);
 			FNavLocation Projected;
-			if (!IsArenaLocation(Building.GetWorld(), Desired)
+			if (!AArenaBounds::IsTravelLocation(Building.GetWorld(), Desired)
 				|| !Navigation->ProjectPointToNavigation(Desired, Projected, FVector(45.f, 45.f, 200.f))
-				|| !IsArenaLocation(Building.GetWorld(), Projected.Location)
+				|| !AArenaBounds::IsTravelLocation(Building.GetWorld(), Projected.Location)
 				|| FVector::DistSquared2D(Desired, Projected.Location) > FMath::Square(45.f)
 				|| FMath::Abs(Desired.Z - Projected.Location.Z) > 110.f
 				|| FVector::DistSquared2D(Projected.Location, Building.GetActorLocation()) < FMath::Square(Footprint + 75.f)
@@ -161,11 +155,11 @@ bool ACommandBuilding::SetFront(EFrontOrder Order, const FVector& Location)
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsProducer() || !IsAlive() || !IsComplete()
 		|| (Order != EFrontOrder::Secure && Order != EFrontOrder::Defend && Order != EFrontOrder::FallBack)
-		|| !IsArenaLocation(GetWorld(), Location)) return false;
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), Location)) return false;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	FNavLocation Projected;
 	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Projected, FVector(75.f, 75.f, 200.f))
-		|| !IsArenaLocation(GetWorld(), Projected.Location)
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(Location, Projected.Location) > FMath::Square(75.f)
 		|| FMath::Abs(Location.Z - Projected.Location.Z) > 110.f) return false;
 	if (IsValid(ForceGroup) && !ForceGroup->AssignFront(Order, Projected.Location)) return false;

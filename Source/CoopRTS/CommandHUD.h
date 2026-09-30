@@ -4,14 +4,22 @@
 #include "GameFramework/HUD.h"
 #include "CommandHUD.generated.h"
 
+// Ordinals 0..15 are fixed for offscreen probes and hud_capture.py; append new actions only.
+// Build/recipe slot N addresses registry index N, with at most six displayed entries each.
 enum class EHUDAction : uint8
 {
-	None, BuildBarracks, BuildOutpost, BuildWorkshop, CancelConstruction,
-	RecipeFrontline, RecipeRanged, RecipeSiege, ToggleProduction,
-	FrontSecure, FrontDefend, FrontFallBack,
-	ResearchSiege, ResearchRepairs, ResearchEntrenched,
-	Construction
+	None = 0, BuildSlot0 = 1, BuildSlot1 = 2, BuildSlot2 = 3, CancelConstruction = 4,
+	RecipeSlot0 = 5, RecipeSlot1 = 6, RecipeSlot2 = 7, ToggleProduction = 8,
+	FrontSecure = 9, FrontDefend = 10, FrontFallBack = 11,
+	ResearchSiege = 12, ResearchRepairs = 13, ResearchEntrenched = 14,
+	Construction = 15,
+	BuildSlot3 = 16, BuildSlot4 = 17, BuildSlot5 = 18,
+	RecipeSlot3 = 19, RecipeSlot4 = 20, RecipeSlot5 = 21
 };
+
+// Registry indices, independent of the stable action ordinals used by HUD probes.
+int32 BuildSlot(EHUDAction Action);
+int32 RecipeSlot(EHUDAction Action);
 
 UCLASS()
 class COOPRTS_API ACommandHUD : public AHUD

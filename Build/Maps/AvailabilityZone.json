@@ -1,0 +1,773 @@
+{
+  "name": "AvailabilityZone",
+  "title": "Availability Zone",
+  "unreal_map": "/Game/Maps/AvailabilityZone",
+  "schema": 1,
+  "units": "Centimetres. X is minimap-up (camera pan-forward), Y is minimap-right, Z is up. Point = [x, y].",
+  "symmetry": "rot180: every gameplay feature has a partner at (-x, -y). Human side is authored; the JEV side is its mirror.",
+  "arena": {
+    "half_extent": [10000, 10000],
+    "placement_margin": 100,
+    "half_height": 1000
+  },
+  "constants": {
+    "source": "Values mirror Source/CoopRTS; update here if the code moves.",
+    "unit_speed_cm_s": 420,
+    "capsule_radius": 34,
+    "capsule_half_height": 60,
+    "formation_column_spacing": 110,
+    "formation_row_spacing": 110,
+    "force_width": 180,
+    "force_depth_frontline": 290,
+    "capture_radius": 430,
+    "capture_seconds": 8,
+    "sector_territory_radius": 1000,
+    "hq_territory_radius": 900,
+    "hq_exclusion_radius": 1000,
+    "hq_box": [300, 300, 200],
+    "jev_intruder_radius": 1500,
+    "jev_defend_offset": [-400, -250],
+    "footprint_radius": {
+      "barracks": 125,
+      "outpost": 95,
+      "workshop": 145
+    },
+    "weapon_range": {
+      "frontline": 175,
+      "ranged": 560,
+      "siege": 1150
+    },
+    "placement_z_tolerance": 110,
+    "nav_project_extent": [45, 45, 200],
+    "click_plane_z": 0,
+    "jev_build_z": 5,
+    "placement_overlap_box": {
+      "centre_z_offset": 65,
+      "half_z": 55
+    },
+    "character_max_step_height": 45,
+    "nav_agent_max_step_height": 35,
+    "jev_ring": [360, 810],
+    "starting_resources": 600,
+    "baseline_income": 10,
+    "sector_income": 6,
+    "jev_assault_established_sites": 2,
+    "jev_assault_force": 12
+  },
+  "elevation": [
+    {
+      "id": "L0",
+      "name": "Lowland",
+      "z_cm": -90,
+      "z_sc2_cm": 0,
+      "note": "passes and pockets"
+    },
+    {
+      "id": "L1",
+      "name": "Terrace",
+      "z_cm": -90,
+      "z_sc2_cm": 300,
+      "note": "naturals; walled off from L0 in phase A"
+    },
+    {
+      "id": "L2",
+      "name": "Plateau",
+      "z_cm": 5,
+      "z_sc2_cm": 600,
+      "note": "mains"
+    }
+  ],
+  "elevation_note": "z_cm (phase A) is the only profile the current code can place buildings on: the placement overlap box spans Location.Z+10 .. +120 with Location.Z = 0 (click) or 5 (JEV), so no buildable surface may rise above +10, and the nav projection allows 110 cm below. L1 and L0 share a height in phase A; the terrace edge is a rock wall, not a drop. z_sc2_cm is the target after the ground-height code proposal (implementation doc, P1).",
+  "regions": [
+    {
+      "id": "main_H",
+      "name": "Human Main",
+      "level": "L2",
+      "poly": [[-8200, -6700], [-6800, -6700], [-6450, -6350], [-6450, -2850], [-6800, -2500], [-8200, -2500], [-8550, -2850], [-8550, -6350]],
+      "side": "H",
+      "role": "main",
+      "theme": "human_fob"
+    },
+    {
+      "id": "terrace_H",
+      "name": "Human Terrace",
+      "level": "L1",
+      "poly": [[-5700, -7500], [-3450, -7500], [-3000, -7050], [-3000, -2150], [-3450, -1700], [-5700, -1700], [-6150, -2150], [-6150, -7050]],
+      "side": "H",
+      "role": "natural",
+      "theme": "human_fob"
+    },
+    {
+      "id": "pass_W",
+      "name": "West Pass",
+      "level": "L0",
+      "poly": [[-2700, -6500], [2700, -6500], [2700, -1800], [-2700, -1800]],
+      "side": "H",
+      "role": "field",
+      "theme": "open_field"
+    },
+    {
+      "id": "pocket_SE",
+      "name": "South-East Pocket",
+      "level": "L0",
+      "poly": [[-8200, -1400], [-2600, -1400], [-2600, 2800], [-8200, 2800]],
+      "side": "H",
+      "role": "third",
+      "theme": "human_fob"
+    },
+    {
+      "id": "main_J",
+      "name": "Machine Main",
+      "level": "L2",
+      "poly": [[8200, 6700], [6800, 6700], [6450, 6350], [6450, 2850], [6800, 2500], [8200, 2500], [8550, 2850], [8550, 6350]],
+      "side": "J",
+      "role": "main",
+      "theme": "machine_campus"
+    },
+    {
+      "id": "terrace_J",
+      "name": "Machine Terrace",
+      "level": "L1",
+      "poly": [[5700, 7500], [3450, 7500], [3000, 7050], [3000, 2150], [3450, 1700], [5700, 1700], [6150, 2150], [6150, 7050]],
+      "side": "J",
+      "role": "natural",
+      "theme": "machine_campus"
+    },
+    {
+      "id": "pass_E",
+      "name": "East Pass",
+      "level": "L0",
+      "poly": [[2700, 6500], [-2700, 6500], [-2700, 1800], [2700, 1800]],
+      "side": "J",
+      "role": "field",
+      "theme": "open_field"
+    },
+    {
+      "id": "pocket_NW",
+      "name": "North-West Pocket",
+      "level": "L0",
+      "poly": [[8200, 1400], [2600, 1400], [2600, -2800], [8200, -2800]],
+      "side": "J",
+      "role": "third",
+      "theme": "machine_campus"
+    }
+  ],
+  "ramps": [
+    {
+      "id": "ramp_main_H",
+      "name": "Human Main Ramp",
+      "from_level": "L2",
+      "to_level": "L1",
+      "top": [-6450, -4600],
+      "foot": [-5750, -4600],
+      "width": 700,
+      "length": 700,
+      "poly": [[-6550, -4250], [-5650, -4250], [-5650, -4950], [-6550, -4950]],
+      "side": "H",
+      "role": "main_ramp"
+    },
+    {
+      "id": "ramp_gate_H",
+      "name": "Human North Gate",
+      "from_level": "L1",
+      "to_level": "L0",
+      "top": [-3000, -4600],
+      "foot": [-2300, -4600],
+      "width": 1200,
+      "length": 700,
+      "poly": [[-3100, -4000], [-2200, -4000], [-2200, -5200], [-3100, -5200]],
+      "side": "H",
+      "role": "front_gate"
+    },
+    {
+      "id": "ramp_door_H",
+      "name": "Human East Door",
+      "from_level": "L1",
+      "to_level": "L0",
+      "top": [-4900, -1700],
+      "foot": [-4900, -1000],
+      "width": 900,
+      "length": 700,
+      "poly": [[-5350, -1800], [-5350, -900], [-4450, -900], [-4450, -1800]],
+      "side": "H",
+      "role": "side_door"
+    },
+    {
+      "id": "ramp_main_J",
+      "name": "Machine Main Ramp",
+      "from_level": "L2",
+      "to_level": "L1",
+      "top": [6450, 4600],
+      "foot": [5750, 4600],
+      "width": 700,
+      "length": 700,
+      "poly": [[6550, 4250], [5650, 4250], [5650, 4950], [6550, 4950]],
+      "side": "J",
+      "role": "main_ramp"
+    },
+    {
+      "id": "ramp_gate_J",
+      "name": "Machine South Gate",
+      "from_level": "L1",
+      "to_level": "L0",
+      "top": [3000, 4600],
+      "foot": [2300, 4600],
+      "width": 1200,
+      "length": 700,
+      "poly": [[3100, 4000], [2200, 4000], [2200, 5200], [3100, 5200]],
+      "side": "J",
+      "role": "front_gate"
+    },
+    {
+      "id": "ramp_door_J",
+      "name": "Machine West Door",
+      "from_level": "L1",
+      "to_level": "L0",
+      "top": [4900, 1700],
+      "foot": [4900, 1000],
+      "width": 900,
+      "length": 700,
+      "poly": [[5350, 1800], [5350, 900], [4450, 900], [4450, 1800]],
+      "side": "J",
+      "role": "side_door"
+    }
+  ],
+  "headquarters": [
+    {
+      "id": "HQ_H",
+      "team": 0,
+      "name": "The Bunker",
+      "pos": [-7500, -4600],
+      "level": "L2",
+      "side": "H"
+    },
+    {
+      "id": "HQ_J",
+      "team": 5,
+      "name": "The Cluster",
+      "pos": [7500, 4600],
+      "level": "L2",
+      "side": "J"
+    }
+  ],
+  "sectors": [
+    {
+      "id": "S1",
+      "site_index": 0,
+      "name": "Relay Shack",
+      "pos": [-4900, -6300],
+      "level": "L1",
+      "side": "H",
+      "role": "natural_safe",
+      "site_kind": "Resource",
+      "why": "Human safe natural: deep behind the north gate.",
+      "pair": 7
+    },
+    {
+      "id": "S2",
+      "site_index": 1,
+      "name": "Diesel Yard",
+      "pos": [-4900, -2900],
+      "level": "L1",
+      "side": "H",
+      "role": "natural_exposed",
+      "site_kind": "Resource",
+      "why": "Human exposed natural: beside the east door.",
+      "pair": 6
+    },
+    {
+      "id": "S3",
+      "site_index": 2,
+      "name": "Battery Hall",
+      "pos": [-6300, 1400],
+      "level": "L0",
+      "side": "H",
+      "role": "third",
+      "site_kind": "Resource",
+      "why": "Human third: pocket behind a 1000 choke.",
+      "pair": 5
+    },
+    {
+      "id": "S4",
+      "site_index": 3,
+      "name": "Fibre Junction",
+      "pos": [400, -3600],
+      "level": "L0",
+      "side": "H",
+      "role": "fourth",
+      "site_kind": "Resource",
+      "why": "Human fourth: open field in the west pass.",
+      "pair": 4
+    },
+    {
+      "id": "S5",
+      "site_index": 4,
+      "name": "Cooling Plant",
+      "pos": [-400, 3600],
+      "level": "L0",
+      "side": "J",
+      "role": "fourth",
+      "site_kind": "Resource",
+      "why": "Machine fourth: open field in the east pass.",
+      "pair": 3
+    },
+    {
+      "id": "S6",
+      "site_index": 5,
+      "name": "Substation 7",
+      "pos": [6300, -1400],
+      "level": "L0",
+      "side": "J",
+      "role": "third",
+      "site_kind": "Resource",
+      "why": "Machine third: pocket behind a 1000 choke.",
+      "pair": 2
+    },
+    {
+      "id": "S7",
+      "site_index": 6,
+      "name": "Transformer Row",
+      "pos": [4900, 2900],
+      "level": "L1",
+      "side": "J",
+      "role": "natural_exposed",
+      "site_kind": "Resource",
+      "why": "Machine exposed natural: beside the west door.",
+      "pair": 1
+    },
+    {
+      "id": "S8",
+      "site_index": 7,
+      "name": "Switchyard",
+      "pos": [4900, 6300],
+      "level": "L1",
+      "side": "J",
+      "role": "natural_safe",
+      "site_kind": "Resource",
+      "why": "Machine safe natural: deep behind the south gate.",
+      "pair": 0
+    }
+  ],
+  "blockers": [
+    {
+      "id": "slab",
+      "kind": "megastructure",
+      "name": "Data Hall 0 (the Slab)",
+      "poly": [[-2700, -1800], [2700, -1800], [2700, 1800], [-2700, 1800]],
+      "status": "phase_a",
+      "note": "Full-depth dam between the passes. Solid in phase A."
+    }
+  ],
+  "proposals": {
+    "breach": {
+      "note": "Optional third route: a 1000 wide corridor through the Slab joining the two pockets. Blocked by destructible rock plugs; needs the destructible code proposal. Phase A leaves the Slab solid.",
+      "poly": [[-2700, -500], [2700, -500], [2700, 500], [-2700, 500]],
+      "plugs": [
+        {
+          "id": "plug_S",
+          "kind": "destructible_rock",
+          "poly": [[-2700, -500], [-1700, -500], [-1700, 500], [-2700, 500]],
+          "status": "proposal"
+        },
+        {
+          "id": "plug_N",
+          "kind": "destructible_rock",
+          "poly": [[1700, -500], [2700, -500], [2700, 500], [1700, 500]],
+          "status": "proposal"
+        }
+      ]
+    },
+    "vision_points": [
+      {
+        "id": "tower_W",
+        "name": "Survey Tower W",
+        "pos": [0, -2300],
+        "radius": 2500,
+        "status": "proposal"
+      },
+      {
+        "id": "tower_E",
+        "name": "Survey Tower E",
+        "pos": [0, 2300],
+        "radius": 2500,
+        "status": "proposal"
+      },
+      {
+        "id": "tower_SE",
+        "name": "Pocket Tower SE",
+        "pos": [-3300, 2300],
+        "radius": 2500,
+        "status": "proposal"
+      },
+      {
+        "id": "tower_NW",
+        "name": "Pocket Tower NW",
+        "pos": [3300, -2300],
+        "radius": 2500,
+        "status": "proposal"
+      }
+    ],
+    "per_player_start": [
+      {
+        "id": "HQ_H_slot0",
+        "slot": 0,
+        "pos": [-7500, -5500],
+        "note": "West pocket HQ (needs P2)."
+      },
+      {
+        "id": "HQ_H_slot1",
+        "slot": 1,
+        "pos": [-7500, -3700],
+        "note": "East pocket HQ (needs P2)."
+      }
+    ]
+  },
+  "chokes": [
+    {
+      "id": "choke_ramp_H",
+      "name": "Main ramp",
+      "center": [-6300, -4600],
+      "across": [0, 1],
+      "width": 700,
+      "side": "H"
+    },
+    {
+      "id": "choke_gate_H",
+      "name": "North gate",
+      "center": [-2850, -4600],
+      "across": [0, 1],
+      "width": 1200,
+      "side": "H"
+    },
+    {
+      "id": "choke_door_H",
+      "name": "East door",
+      "center": [-4900, -1550],
+      "across": [1, 0],
+      "width": 900,
+      "side": "H"
+    },
+    {
+      "id": "choke_mouth_SE",
+      "name": "Pocket mouth",
+      "center": [-2700, 2300],
+      "across": [0, 1],
+      "width": 1000,
+      "side": "H"
+    },
+    {
+      "id": "choke_ramp_J",
+      "name": "Main ramp",
+      "center": [6300, 4600],
+      "across": [0, 1],
+      "width": 700,
+      "side": "J"
+    },
+    {
+      "id": "choke_gate_J",
+      "name": "South gate",
+      "center": [2850, 4600],
+      "across": [0, 1],
+      "width": 1200,
+      "side": "J"
+    },
+    {
+      "id": "choke_door_J",
+      "name": "West door",
+      "center": [4900, 1550],
+      "across": [1, 0],
+      "width": 900,
+      "side": "J"
+    },
+    {
+      "id": "choke_mouth_NW",
+      "name": "Pocket mouth",
+      "center": [2700, -2300],
+      "across": [0, 1],
+      "width": 1000,
+      "side": "J"
+    }
+  ],
+  "open_fields": [
+    {
+      "id": "field_W",
+      "name": "West Pass",
+      "center": [0, -4150],
+      "size": [5400, 4700]
+    },
+    {
+      "id": "field_E",
+      "name": "East Pass",
+      "center": [0, 4150],
+      "size": [5400, 4700]
+    }
+  ],
+  "build_pockets": [
+    {
+      "id": "pocket_H_A",
+      "name": "West build pocket",
+      "owner_hint": "commander slot 0",
+      "hq": "HQ_H",
+      "half_plane": {
+        "point": [-7500, -4600],
+        "keep": [0, -1]
+      },
+      "bays": [
+        {
+          "id": "A1",
+          "pos": [-6960, -5121],
+          "kind": "barracks"
+        },
+        {
+          "id": "A2",
+          "pos": [-7383, -5341],
+          "kind": "barracks"
+        },
+        {
+          "id": "A3",
+          "pos": [-7852, -5262],
+          "kind": "barracks"
+        },
+        {
+          "id": "A4",
+          "pos": [-8180, -4917],
+          "kind": "barracks"
+        }
+      ]
+    },
+    {
+      "id": "pocket_H_B",
+      "name": "East build pocket",
+      "owner_hint": "commander slot 1",
+      "hq": "HQ_H",
+      "half_plane": {
+        "point": [-7500, -4600],
+        "keep": [0, 1]
+      },
+      "bays": [
+        {
+          "id": "B1",
+          "pos": [-6960, -4079],
+          "kind": "barracks"
+        },
+        {
+          "id": "B2",
+          "pos": [-7383, -3859],
+          "kind": "barracks"
+        },
+        {
+          "id": "B3",
+          "pos": [-7852, -3938],
+          "kind": "barracks"
+        },
+        {
+          "id": "B4",
+          "pos": [-8180, -4283],
+          "kind": "barracks"
+        }
+      ]
+    }
+  ],
+  "routes": {
+    "note": "Authored waypoints for the JEV waypoint proposal (P3); DrawMapLayout.py measures the real nav routes itself.",
+    "jev_to_human": [
+      {
+        "id": "route_B",
+        "name": "South gate, East Pass, SE pocket, East door",
+        "via": ["ramp_gate_J", "pass_E", "pocket_SE", "ramp_door_H"],
+        "waypoints": [[2300, 4600], [-2700, 2300], [-4900, -1000]]
+      },
+      {
+        "id": "route_A",
+        "name": "West door, NW pocket, West Pass, North gate",
+        "via": ["ramp_door_J", "pocket_NW", "pass_W", "ramp_gate_H"],
+        "waypoints": [[4900, 1000], [2700, -2300], [-2300, -4600]]
+      }
+    ]
+  },
+  "decoration": [
+    {
+      "id": "deco_main_H",
+      "region": "main_H",
+      "theme": "human_fob",
+      "name": "The Bunker plateau",
+      "ground": ["Art/Textures/Panel/MetalPlates002", "Art/Textures/Concrete/Concrete016"],
+      "trim": "Art/Textures/Tread/DiamondPlate001",
+      "kit": ["GeneratorShack", "Container", "SandbagWall", "BurnBarrel", "FenceSegment", "CableSpool"],
+      "new": ["Bunker", "FloodlightMast", "HelipadPad"]
+    },
+    {
+      "id": "deco_terrace_H",
+      "region": "terrace_H",
+      "theme": "human_fob",
+      "name": "Forward terrace",
+      "ground": ["Art/Textures/Concrete/Concrete024", "Art/Textures/Asphalt/Asphalt026A"],
+      "trim": "Art/Textures/Hazard/PaintedMetal016",
+      "kit": ["Container", "Wreck", "SandbagWall", "FenceSegment", "BurnBarrel", "Transformer"],
+      "new": ["HaulTruck", "SpoilHeap"]
+    },
+    {
+      "id": "deco_pocket_H",
+      "region": "pocket_SE",
+      "theme": "human_fob",
+      "name": "Battery Hall pocket",
+      "ground": ["Art/Textures/Ground/Gravel006", "Art/Textures/Asphalt/Asphalt026A"],
+      "trim": "Art/Textures/Concrete/Concrete016",
+      "kit": ["Chiller", "Transformer", "CableSpool", "Wreck", "Container"],
+      "new": ["SpoilHeap"]
+    },
+    {
+      "id": "deco_main_J",
+      "region": "main_J",
+      "theme": "machine_campus",
+      "name": "The Cluster plateau",
+      "ground": ["Art/Textures/SciFiFloor/Tiles108", "Art/Textures/Panel/MetalPlates006"],
+      "trim": "Art/Textures/PaintedMetal/Metal032",
+      "kit": ["ClusterPylon", "Pylon", "CommsMast", "Transformer", "Chiller"],
+      "new": ["Sentinel Mast"]
+    },
+    {
+      "id": "deco_terrace_J",
+      "region": "terrace_J",
+      "theme": "machine_campus",
+      "name": "Machine terrace",
+      "ground": ["Art/Textures/Concrete/Concrete024", "Art/Textures/SciFiFloor/Tiles108"],
+      "trim": "Art/Textures/PaintedMetal/Metal032",
+      "kit": ["DataHallBay", "DataHallDoor", "DataHallCorner", "DataHallRoof", "CoolingTower", "Chiller", "Transformer", "Pylon"],
+      "new": ["Sentinel Mast"]
+    },
+    {
+      "id": "deco_pocket_J",
+      "region": "pocket_NW",
+      "theme": "machine_campus",
+      "name": "Substation 7 pocket",
+      "ground": ["Art/Textures/Concrete/Concrete024", "Art/Textures/Asphalt/Asphalt026A"],
+      "trim": "Art/Textures/Concrete/Concrete016",
+      "kit": ["Transformer", "Pylon", "Chiller", "CableSpool", "CoolingTower"],
+      "new": []
+    },
+    {
+      "id": "deco_pass",
+      "region": "pass_W",
+      "theme": "open_field",
+      "name": "Passes",
+      "ground": ["Art/Textures/Asphalt/Asphalt026A", "Art/Textures/Ground/Gravel006", "Art/Textures/Ground/Gravel004"],
+      "trim": "Art/Textures/Concrete/Concrete016",
+      "kit": ["Wreck", "Container", "CableSpool", "Pylon"],
+      "new": ["SpoilHeap", "RockChunk"]
+    },
+    {
+      "id": "deco_slab",
+      "region": "slab",
+      "theme": "machine_campus",
+      "name": "Data Hall 0",
+      "ground": [],
+      "trim": "Art/Textures/PaintedMetal/Metal032",
+      "kit": ["DataHallBay", "DataHallDoor", "DataHallCorner", "DataHallRoof", "CoolingTower"],
+      "new": ["SlabWall"]
+    },
+    {
+      "id": "deco_rim",
+      "region": "rim",
+      "theme": "rim_rock",
+      "name": "Out-of-play rock and backdrop",
+      "ground": ["Art/Textures/Ground/Gravel004", "Art/Textures/Concrete/Concrete016"],
+      "trim": "",
+      "kit": [],
+      "new": ["CliffStraight", "CliffCorner", "RockChunk", "BackdropRing"]
+    }
+  ],
+  "match_actors": {
+    "note": "What the level must place so ACommandGameMode::InitGameState finds it (see Build/MatchLayout.py). Z values are phase A; add z_sc2 - z_cm for the SC2-height profile.",
+    "arena": {
+      "class": "AArenaBounds",
+      "pos": [0, 0, 0],
+      "half_extent": [10000, 10000],
+      "placement_margin": 100
+    },
+    "headquarters": [
+      {
+        "class": "AHeadquarters",
+        "label": "FriendlyHeadquarters",
+        "team_index": 0,
+        "pos": [-7500, -4600, 115]
+      },
+      {
+        "class": "AHeadquarters",
+        "label": "EnemyHeadquarters",
+        "team_index": 5,
+        "pos": [7500, 4600, 115]
+      }
+    ],
+    "sectors": [
+      {
+        "class": "ACapturePoint",
+        "label": "RelayShack",
+        "site_index": 0,
+        "site_kind": "Resource",
+        "pos": [-4900, -6300, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "DieselYard",
+        "site_index": 1,
+        "site_kind": "Resource",
+        "pos": [-4900, -2900, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "BatteryHall",
+        "site_index": 2,
+        "site_kind": "Resource",
+        "pos": [-6300, 1400, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "FibreJunction",
+        "site_index": 3,
+        "site_kind": "Resource",
+        "pos": [400, -3600, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "CoolingPlant",
+        "site_index": 4,
+        "site_kind": "Resource",
+        "pos": [-400, 3600, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "Substation7",
+        "site_index": 5,
+        "site_kind": "Resource",
+        "pos": [6300, -1400, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "TransformerRow",
+        "site_index": 6,
+        "site_kind": "Resource",
+        "pos": [4900, 2900, -85]
+      },
+      {
+        "class": "ACapturePoint",
+        "label": "Switchyard",
+        "site_index": 7,
+        "site_kind": "Resource",
+        "pos": [4900, 6300, -85]
+      }
+    ]
+  },
+  "navigation": {
+    "bounds_volume": {
+      "centre": [0, 0, 0],
+      "half_extent": [10200, 10200, 600]
+    },
+    "runtime_generation": "Dynamic (as Build/GenerateCommandMap.py sets it; buildings are dynamic nav obstacles)",
+    "agent_radius": 35,
+    "agent_height": 144,
+    "max_slope_deg": 44.8,
+    "recommended_ramp_slope_deg_max": 12,
+    "note": "Ramps at phase A slope 6.5 deg; at SC2 heights 23 deg (lengthen to 1000 for 16.7 deg)."
+  }
+}
