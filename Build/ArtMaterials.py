@@ -1,7 +1,9 @@
 """Shared Unreal editor helpers for the themed art pass (materials under /Game/Art/Materials).
 
-Imported by Build/GenerateCampusZero.py and Build/ImportUnitMeshes.py; not run directly.
-Parent materials are created once and preserved on reruns; instances are updated in place.
+Imported by Build/BuildSharedMaterial.py, Build/GenerateCampusZero.py and the mesh import scripts; not run directly.
+`_instance` writes MaterialInstanceConstants (vectors, scalars, static switches, textures) and is reset and read back on
+every call; `shared()` loads an MI_SC2_* instance built by BuildSharedMaterial.py and `shared_child()` makes a paint-job
+child of one. Parent materials for surface() / glow() are created once and preserved on reruns.
 """
 import unreal
 
@@ -62,15 +64,17 @@ def _build_glow(material):
             "Could not connect glow base colour")
 
 
-def _instance(name, parent, vectors, scalars):
+def _instance(name, parent, vectors, scalars, switches=None, textures=None):
+    """Create or update MaterialInstanceConstant `name` under FOLDER: parent and every override are reset, then set
+    and read back (UE 5.8.3's setters return False unconditionally, so the stored value is what is checked)."""
     path = FOLDER + "/" + name
     instance = assets.load_asset(path) if assets.does_asset_exist(path) else tools.create_asset(
         name, FOLDER, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
     require(instance, "Could not create " + path)
     library.set_material_instance_parent(instance, parent)
+    library.clear_all_material_instance_parameters(instance)
     for key, rgb in vectors.items():
         value = unreal.LinearColor(*rgb, 1.0)
-        # UE 5.8.3's setters return false unconditionally; verify the stored value instead.
         library.set_material_instance_vector_parameter_value(instance, key, value)
         actual = library.get_material_instance_vector_parameter_value(instance, key)
         require(all(abs(getattr(actual, c) - getattr(value, c)) < 1e-4 for c in "rgb"),
@@ -79,8 +83,30 @@ def _instance(name, parent, vectors, scalars):
         library.set_material_instance_scalar_parameter_value(instance, key, value)
         require(abs(library.get_material_instance_scalar_parameter_value(instance, key) - value) < 1e-4,
                 "Could not set " + key + " on " + name)
+    for key, value in (switches or {}).items():
+        library.set_material_instance_static_switch_parameter_value(instance, key, bool(value))
+        require(library.get_material_instance_static_switch_parameter_value(instance, key) == bool(value),
+                "Could not set static switch " + key + " on " + name)
+    for key, texture in (textures or {}).items():
+        library.set_material_instance_texture_parameter_value(instance, key, texture)
+        require(library.get_material_instance_texture_parameter_value(instance, key) == texture,
+                "Could not set texture " + key + " on " + name)
+    library.update_material_instance(instance)
     require(assets.save_loaded_asset(instance), "Could not save " + path)
     return instance
+
+
+def shared(name):
+    """MI_SC2_* instance built by Build/BuildSharedMaterial.py."""
+    path = FOLDER + "/" + name
+    return require(assets.load_asset(path) if assets.does_asset_exist(path) else None,
+                   "Missing " + path + ": run Build/BuildSharedMaterial.py first")
+
+
+def shared_child(name, parent_name, **vectors):
+    """Child of an MI_SC2_* instance that overrides colour vectors only (e.g. BaseColor): a paint job that stays in
+    the master. Static switches and every other parameter are inherited."""
+    return _instance(name, shared(parent_name), vectors, {})
 
 
 def surface(name, rgb, roughness=0.8, metallic=0.0):

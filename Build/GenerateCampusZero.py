@@ -7,6 +7,7 @@ Boot and the automated tests are untouched.
 
 Run order (from the project root, editor closed, each step its own editor process, no other Unreal process
 from this repo running):
+  0. Build/BuildSharedMaterial.py    builds M_Shared and the MI_SC2_* instances (-RenderOffscreen; see its docstring)
   1. Build/ImportEnvironmentKit.py   imports the /Game/Art/Environment kit this map places; require
                                      ENV_KIT_IMPORTED 17 in its log
   2. Build/GenerateCampusZero.py     after compiling CoopRTSEditor:
@@ -75,12 +76,13 @@ concrete = art.surface("MI_Concrete", (0.22, 0.22, 0.23), 0.85)
 steel = art.surface("MI_Steel", (0.18, 0.19, 0.2), 0.4, 0.9)
 cyan = art.glow("MI_GlowMachine", art.MACHINE_GLOW, 4.0)
 cyan_dim = art.glow("MI_GlowCable", art.MACHINE_GLOW, 1.6)
-# Paint jobs for the Human kit pieces (Shell slot override): without them every container and wreck shares the
-# kit's one khaki Human look and the scrapyard reads as one colour.
-rust = art.surface("MI_Rust", (0.2, 0.11, 0.07), 0.9, 0.2)
-olive = art.surface("MI_Olive", (0.1, 0.12, 0.09), 0.85)
-container_blue = art.surface("MI_ContainerBlue", (0.05, 0.12, 0.2), 0.8, 0.2)
-sandbag = art.surface("MI_Sandbag", (0.13, 0.12, 0.10), 0.95)  # v8's (0.2, 0.19, 0.16) clips under the work lamps
+# Paint jobs for the Human kit pieces (Shell slot override): children of MI_SC2_Human_Shell_Env that override BaseColor
+# only, so containers, wrecks and sandbags keep the master's wear, grime, panels and static switches but are not one
+# colour. Needs Build/BuildSharedMaterial.py.
+rust = art.shared_child("MI_Rust", "MI_SC2_Human_Shell_Env", BaseColor=(0.2, 0.11, 0.07))
+olive = art.shared_child("MI_Olive", "MI_SC2_Human_Shell_Env", BaseColor=(0.1, 0.12, 0.09))
+container_blue = art.shared_child("MI_ContainerBlue", "MI_SC2_Human_Shell_Env", BaseColor=(0.05, 0.12, 0.2))
+sandbag = art.shared_child("MI_Sandbag", "MI_SC2_Human_Shell_Env", BaseColor=(0.13, 0.12, 0.10))
 amber = art.glow("MI_GlowHuman", art.HUMAN_GLOW, 5.0)
 team_materials = [require(assets.load_asset("/Game/Materials/MI_CommandTeam" + str(i)),
                           "Run Build/GenerateCommandMap.py first: missing team material")
@@ -322,15 +324,15 @@ for index, (center, yaw, paint) in enumerate((((-1100, 2600), 30, rust), ((-400,
                                               ((-4000, 3700), 70, rust), ((-3200, -3900), 5, olive),
                                               ((-600, 2300), -60, rust))):
     kit("Wreck", "Wreck%d" % index, center, (420, 190), yaw, materials={"Shell": paint})
-# The Bunker's yard: sandbag walls behind and beside the HQ, a flag mast, work lamps.
+# The Bunker's yard: a sandbag wall behind the HQ, a flag mast, work lamps. v9 also had 600 cm return walls at
+# hy +- 560 reaching 150 cm past the HQ centre; with the 335 cm HQ exclusion they closed both flanks of the HQ to
+# building (Saved/Verification/sc2-art-unreal/RESULTS.md, placement check), so only the rear wall is left.
 hx, hy = FRIENDLY_HQ
-for index, (center, size) in enumerate((((hx - 520, hy), (120, 900)), ((hx - 150, hy + 560), (600, 120)),
-                                        ((hx - 150, hy - 560), (600, 120)))):
-    kit_run("SandbagWall", "BunkerSandbags%d" % index, center, size, along_local_x=False,
-            materials={"Shell": sandbag})
+block_center, block_size = (hx - 520, hy), (120, 900)
+kit_run("SandbagWall", "BunkerSandbags0", block_center, block_size, along_local_x=False, materials={"Shell": sandbag})
 block("BunkerMast", (hx - 520, hy + 520), (40, 40, 900), steel)
 block("BunkerBanner", (hx - 520, hy + 600), (10, 140, 200), team_materials[0], base=650, collision=False)
-for index, (dx, dy) in enumerate(((-520, -400), (-520, 400), (180, 560), (180, -560))):
+for index, (dx, dy) in enumerate(((-520, -400), (-520, 400))):
     block("BunkerLamp%d" % index, (hx + dx, hy + dy), (50, 50, 50), amber, base=110, collision=False)
     # v8's intensity 260 clips the kit's bevelled sandbags
     light("BunkerLampLight%d" % index, (hx + dx, hy + dy, 220), art.HUMAN_GLOW, 150, 500)

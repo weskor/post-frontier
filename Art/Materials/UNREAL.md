@@ -3,9 +3,11 @@
 Prototype: `Build/MasterMaterials.py` (Blender 5.2.1). Watch it live in `Art/Materials/MaterialPreview.blend`
 (collection "Flat (before)" is the old look, hidden; unhide to compare). Previews in this folder:
 `Before-After-{Units,Buildings,Kit}.png`, `Close-Human.png`, `Close-Machine.png`, `FieldView.png` (+ `FieldView-Flat.png`).
-Nothing under `Content/`, `Source/`, `Config/` or the three generator scripts was touched. Nothing here is built in
-Unreal yet; every Unreal node below is a plan, not a tested asset. Items marked **[unverified]** depend on engine
-behaviour I could not test without starting the editor.
+Status (2026-09-30): built in Unreal by `Build/BuildSharedMaterial.py` (M_Shared, MF_Triplanar_Local, MF_SC2_Wear, 32 MI_SC2_*
+instances); the meshes were imported by `ImportUnitMeshes.py`, `ImportBuildingMeshes.py` and `ImportEnvironmentKit.py`.
+Results, the resolved **[unverified]** items and every deviation from the tables below are in
+`Saved/Verification/sc2-art-unreal/RESULTS.md`. The text below is the original plan and is kept as written. The vertex colour
+property is `vertex_color_import_option` (`VertexColorImportOption.REPLACE`) and the values arrive linear.
 
 ## 1. What the material does
 

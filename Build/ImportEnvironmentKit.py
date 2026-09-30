@@ -16,16 +16,18 @@ Accent (only the slots a piece uses, in that order). The default import axis opt
 rotation or scale is applied; the checks below fail (2 cm tolerance on footprint, height, centring and base) if
 that ever stops being true. Note Unreal's importer flips Y (Blender +Y -> Unreal -Y); see Build/EnvKit.py.
 
-Materials: every slot gets an `MI_Env*` instance under /Game/Art/Materials made with ArtMaterials.surface() and
-glow() (StarCraft 2-style art direction, Saved/AgentBriefs/sc2-style.md). Machine pieces (data halls, cooling
+Materials: every slot gets its MI_SC2_<Faction>_<Slot>_Env instance of /Game/Art/Materials/M_Shared (built by
+Build/BuildSharedMaterial.py, which must have run first; StarCraft 2-style art direction,
+Saved/AgentBriefs/sc2-style.md, Art/Materials/UNREAL.md). Machine pieces (data halls, cooling
 tower, chiller, transformer, pylon, comms mast and the campus perimeter FenceSegment) are polished pearl Shell /
 near-black navy Dark / cyan Glow / red Accent. Human pieces (the forward-base crates, wreck, barricade, brazier,
 generator and cable reel) are painted steel-blue Shell / gunmetal Dark / amber Glow / hazard-yellow Accent
 (SandbagWall has no Glow slot, so its floodlight lenses are Accent). The cluster obelisk keeps the Machine Dark,
 Glow and Accent with a glossy white Shell (Docs/World.md "Colour language"). The split is explicit in HUMAN /
-MACHINE / CLUSTER below and must cover every piece. Values are tuned against Build/GenerateCampusZero.py's dusk
-lighting (SUN_LUX 5.0, SKY_INTENSITY 3.5, EXPOSURE_BIAS 10.0) and its existing MI_HallShell / MI_HallDark /
-MI_GlowMachine / MI_GlowHuman / MI_GlowMachineEye instances; adjust them in the LOOKS table below.
+MACHINE / CLUSTER below and must cover every piece. Values live in BuildSharedMaterial.py (tuned against
+Build/GenerateCampusZero.py's dusk lighting: SUN_LUX 5.0, SKY_INTENSITY 3.5, EXPOSURE_BIAS 10.0). Vertex colours (the
+baked SC2Mask: R Edge, G Cavity, B Ground) are imported with Vertex Color Import Option Replace; the master reads them
+only when its UseBakedMasks switch is on (Build/VerifyMasks.py checks they arrived).
 
 Collision: the FBX import generates simple collision (auto_generate_collision), which is an 18-DOP convex
 hull of the whole mesh. It is then replaced per piece so the map's blocking geometry matches the documented
@@ -65,22 +67,6 @@ MACHINE = ("DataHallBay", "DataHallDoor", "DataHallCorner", "DataHallRoof", "Coo
 assert sorted(HUMAN + CLUSTER + MACHINE) == sorted(SPEC), "every kit piece needs exactly one look"
 LOOK_OF = {name: ("Human" if name in HUMAN else "Cluster" if name in CLUSTER else "Machine") for name in SPEC}
 
-MACHINE_RED = (1.0, 0.05, 0.03)  # MI_GlowMachineEye in GenerateCampusZero.py
-LOOKS = {
-    "Machine": {
-        "Shell": art.surface("MI_EnvMachineShell", (0.50, 0.55, 0.64), 0.5, 0.3),
-        "Dark": art.surface("MI_EnvMachineDark", (0.012, 0.016, 0.028), 0.5, 0.5),
-        "Glow": art.glow("MI_EnvMachineGlow", art.MACHINE_GLOW, 4.0),
-        "Accent": art.glow("MI_EnvMachineAccent", MACHINE_RED, 1.0),  # the map's eye (8.0) clips to peach on a lens
-    },
-    "Human": {
-        "Shell": art.surface("MI_EnvHumanShell", (0.14, 0.21, 0.33), 0.9, 0.05),
-        "Dark": art.surface("MI_EnvHumanDark", (0.06, 0.065, 0.075), 0.7, 0.1),  # metallic .5 mirrored the blue sky
-        "Glow": art.glow("MI_EnvHumanGlow", art.HUMAN_GLOW, 5.0),
-        "Accent": art.surface("MI_EnvHumanAccent", (0.75, 0.5, 0.03), 0.8, 0.1),
-    },
-}
-LOOKS["Cluster"] = dict(LOOKS["Machine"], Shell=art.surface("MI_EnvClusterShell", (0.88, 0.90, 0.94), 0.18, 0.0))
 
 # ---------------------------------------------------------------- collision
 BOX = unreal.ScriptCollisionShapeType.BOX
@@ -145,6 +131,7 @@ for name in SPEC:
     data.set_editor_property("import_rotation", unreal.Rotator(0, 0, 0))
     data.set_editor_property("generate_lightmap_u_vs", False)
     data.set_editor_property("auto_generate_collision", True)
+    data.set_editor_property("vertex_color_import_option", unreal.VertexColorImportOption.REPLACE)
     task = unreal.AssetImportTask()
     task.set_editor_property("filename", fbx)
     task.set_editor_property("destination_path", MESH_FOLDER)
@@ -167,7 +154,7 @@ for name, _task in tasks:
     require(slots == SPEC[name][3], "%s slots are %s, expected %s" % (name, slots, SPEC[name][3]))
     apply_collision(name, mesh)
     for index, slot in enumerate(slots):
-        mesh.set_material(index, LOOKS[LOOK_OF[name]][slot])
+        mesh.set_material(index, art.shared("MI_SC2_%s_%s_Env" % (LOOK_OF[name], slot)))
     require(assets.save_loaded_asset(mesh), "Could not save " + path)
     box = mesh.get_bounds()
     lo, hi = box.origin - box.box_extent, box.origin + box.box_extent
