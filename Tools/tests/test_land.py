@@ -1,11 +1,13 @@
 """Prove real landing and refusal paths in separate disposable worktrees."""
 
+import json
 from pathlib import Path
 
 from conftest import git
 from landing_support import commit_file, git_result, install_runner, invoke
 import pytest
 from x import jsonio
+from x.landing import GRANT, LEDGER
 
 
 @pytest.fixture
@@ -13,19 +15,31 @@ def task(repo: Path) -> Path:
     return install_runner(repo)
 
 
-def test_fast_forward_separate_main_with_local_edits(repo: Path, task: Path) -> None:
+def test_fast_forward_separate_main_appends_ledger(repo: Path, task: Path) -> None:
     commit_file(task, "Docs/task.md", "landed\n")
     before = git(repo, "rev-parse", "HEAD")
-    (repo / "Source/rules.cpp").write_text("unrelated local edit\n")
     result = invoke(task, "land")
     assert result.returncode == 0, result.stdout + result.stderr
     assert git(repo, "rev-parse", "HEAD") == git(task, "rev-parse", "HEAD")
     assert f"landed {before}.." in result.stdout and "run " in result.stdout
     assert (repo / "Docs/task.md").read_text() == "landed\n"
-    assert (repo / "Source/rules.cpp").read_text() == "unrelated local edit\n"
     (record_path,) = (repo.parent / "runs").glob("*/record.json")
     record = jsonio.load(record_path)
     assert record["status"] == "passed"
+    common = repo / ".git"
+    entries = [json.loads(line) for line in (common / LEDGER).read_text().splitlines()]
+    assert entries == [
+        {"seed": before},
+        {
+            "old": before,
+            "new": git(repo, "rev-parse", "HEAD"),
+            "run_id": record["id"],
+            "time": entries[1]["time"],
+        },
+    ]
+    assert entries[1]["time"]
+    assert not (common / GRANT).exists()
+    assert invoke(task, "check").returncode == 0
 
 
 @pytest.mark.parametrize("mode", ["main", "dirty", "empty", "detached"])
@@ -84,16 +98,16 @@ def test_check_blocks_landing(repo: Path, task: Path, failure: str) -> None:
         assert "PASS tools" in result.stdout
 
 
-def test_main_conflicting_local_edit_is_preserved(repo: Path, task: Path) -> None:
+@pytest.mark.parametrize("path", ["Docs/task.md", "Source/rules.cpp", "untracked"])
+def test_any_main_local_edit_is_preserved(repo: Path, task: Path, path: str) -> None:
     commit_file(task, "Docs/task.md", "landed\n")
-    (repo / "Docs/task.md").write_text("local main edit\n")
+    (repo / path).write_text("local main edit\n")
     before = git(repo, "rev-parse", "HEAD")
     result = invoke(task, "land")
     assert result.returncode == 1
-    assert "main fast-forward refused" in result.stdout
-    assert "local changes" in result.stdout and "Docs/task.md" in result.stdout
+    assert "main worktree is dirty" in result.stdout
     assert git(repo, "rev-parse", "HEAD") == before
-    assert (repo / "Docs/task.md").read_text() == "local main edit\n"
+    assert (repo / path).read_text() == "local main edit\n"
 
 
 def test_rebase_then_land(repo: Path, task: Path) -> None:
@@ -120,13 +134,14 @@ def test_hook_blocks_main_commit_and_merge(repo: Path, task: Path) -> None:
     assert result.returncode != 0
     assert "main only moves through ./x land" in result.stderr
     result = git_result(repo, "merge", "--ff-only", "task/acceptance", marker=True)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode != 0
+    assert "main only moves through ./x land" in result.stderr
     other = repo.parent / "other"
     git(task, "worktree", "add", "-b", "task/other", str(other))
     commit_file(other, "Docs/other.md", "other\n")
     git(task, "tag", "allowed-tag")
     git(task, "update-ref", "refs/custom/allowed", "HEAD")
-    assert git(repo, "rev-parse", "main") == git(task, "rev-parse", "HEAD")
+    assert git(repo, "rev-parse", "main") != git(task, "rev-parse", "HEAD")
 
 
 def test_hook_allows_ref_maintenance_and_stashing_main(repo: Path, task: Path) -> None:

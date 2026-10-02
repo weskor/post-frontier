@@ -20,6 +20,7 @@ from x.settings import load
 def lint_repo(repo: Path) -> Path:
     root = Path(__file__).parents[2]
     shutil.copytree(root / "Tools/x", repo / "Tools/x", dirs_exist_ok=True)
+    shutil.copytree(root / "Tools/hooks", repo / "Tools/hooks")
     shutil.copyfile(root / "x", repo / "x")
     shutil.copyfile(root / "pyproject.toml", repo / "pyproject.toml")
     shutil.copyfile(root / "uv.lock", repo / "uv.lock")

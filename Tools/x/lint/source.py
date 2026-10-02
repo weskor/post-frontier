@@ -11,6 +11,12 @@ PATTERNS = {
     "disabled-test": r"EAutomationTestFlags::Disabled|pytest\.mark\.(?:skip\w*|xfail)\b|pytest\.(?:skip|xfail)\s*\(|\bskipif\b|unittest\.skip\w*\b",
     "marker": r"\b(?:TODO|FIXME|HACK|XXX)\b|raise\s+NotImplementedError\b|\bunimplemented\s*\(",
     "direct-engine": r"\b(?:UnrealEditor(?:-Cmd)?|Build\.sh|RunUAT\w*|UnrealBuildTool|GenerateProjectFiles\w*)\b",
+    "land-bypass": (
+        r"core\.hooksPath|--no-verify\b"
+        r"|update-ref\b[^\n]*(?:refs/heads/main\b|[\"'\s]main[\"'\s])"
+        r"|update-ref[\"']?\s*,\s*(?:[\"']-d[\"']\s*,\s*)?[\"'](?:refs/heads/)?main[\"']"
+        r"|\.git[/\\]+refs\b|x-land-(?:grant\.json|ledger\.jsonl)"
+    ),
 }
 LEXEMES = re.compile(
     r'R"(?P<delimiter>[^\s()\\]{0,16})\(.*?\)(?P=delimiter)"'
@@ -83,7 +89,35 @@ def functions(path: str, text: str) -> list[tuple[int, int]]:
     return cpp_functions(text)
 
 
+def land_bypass(path: str, text: str) -> list[Finding]:
+    if (
+        path == "Tools/x/landing.py"
+        or path.startswith("Tools/hooks/")
+        or path
+        in {
+            "Tools/tests/test_land.py",
+            "Tools/tests/test_land_hooks.py",
+            "Tools/tests/test_land_lock.py",
+            "Tools/tests/test_land_strict.py",
+            "Tools/tests/test_land_bypass.py",
+            "Tools/tests/landing_support.py",
+        }
+    ):
+        return []
+    return [
+        Finding(
+            path,
+            text.count("\n", 0, match.start()) + 1,
+            "land-bypass",
+            "main protection bypass",
+        )
+        for match in re.finditer(PATTERNS["land-bypass"], text)
+    ]
+
+
 def scan(rule: str, path: str, text: str) -> list[Finding]:
+    if rule == "land-bypass":
+        return land_bypass(path, text)
     suffix = Path(path).suffix
     if suffix not in CODE and path != "x":
         return []

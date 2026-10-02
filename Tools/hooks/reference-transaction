@@ -1,19 +1,115 @@
-#!/bin/sh
-# Reject real moves of main, not packing/creation/deletion or no-op transactions.
-[ "$1" = prepared ] || exit 0
-[ "$X_LAND" = 1 ] && exit 0
-while read -r old new ref; do
-    [ "$ref" = refs/heads/main ] && [ "$old" != "$new" ] || continue
-    case "$new" in *[!0]*) ;; *) continue ;; esac
-    case "$old" in
-        *[!0]*) ;;
-        *)
-            # Git also reports zero when the caller omitted the expected old tip.
-            current=$(git rev-parse --verify "$ref" 2>/dev/null) || continue
-            [ "$current" = "$new" ] && continue
-            ;;
-    esac
-    echo "main only moves through ./x land" >&2
-    exit 1
-done
-exit 0
+#!/usr/bin/env python3
+"""Authorize one exact landing transaction; preserve ref-only maintenance."""
+
+import fcntl
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tomllib
+
+
+def git(*args):
+    return subprocess.check_output(["git", *args], stderr=subprocess.DEVNULL).decode().strip()
+
+
+def command(pid):
+    return [part.decode() for part in Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if part]
+
+
+def parent(pid):
+    # The comm field may contain spaces and parentheses.
+    return int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+
+
+def maintenance(old, new, current, common):
+    if new == current and new.strip("0"):
+        return True
+    args = command(os.getppid())
+    if new.strip("0") or not old.strip("0") or old != current:
+        return False
+    if not args or Path(args[0]).name != "git":
+        return False
+    index = 1
+    while index < len(args) and args[index] in ("-C", "-c"):
+        index += 2
+    if index >= len(args) or args[index] != "pack-refs":
+        return False
+    return f"{old} refs/heads/main" in (common / "packed-refs").read_text().splitlines()
+
+
+def authorize(common, old, new):
+    grant_path = common / "x-land-grant.json"
+    grant = json.loads(grant_path.read_text())
+    if (old, new) != (grant["old"], grant["new"]) or not new.strip("0"):
+        return False
+    pid = grant["pid"]
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    os.kill(pid, 0)
+    args = command(pid)
+    if len(args) != 3 or Path(args[1]).name != "x" or args[2] != "land":
+        return False
+    runner = Path(args[1])
+    if not runner.is_absolute():
+        runner = Path(f"/proc/{pid}/cwd").resolve() / runner
+    repo = runner.resolve().parent
+    runner_common = subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "--git-common-dir"]
+    ).decode().strip()
+    if (repo / runner_common).resolve() != common:
+        return False
+    ancestor = os.getppid()
+    while ancestor != pid and ancestor > 1:
+        ancestor = parent(ancestor)
+    if ancestor != pid:
+        return False
+    settings = tomllib.loads((repo / "Tools/x/settings.toml").read_text())
+    lock = Path(settings["lock_dir"]).expanduser() / "land.lock"
+    with lock.open("rb") as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            pass
+        else:
+            return False
+    holders = [json.loads(path.read_text()) for path in lock.parent.glob(f"land.lock.{pid}.*.holder.json")]
+    if not any(
+        holder["pid"] == pid and holder["command"] == "land"
+        and holder["run_id"] == grant["run_id"] and holder["worktree"] == str(repo)
+        for holder in holders
+    ):
+        return False
+    # Consume before accepting: another transaction cannot reuse this grant.
+    grant_path.unlink()
+    return True
+
+
+def main():
+    if sys.argv[1] != "prepared":
+        return 0
+    common = Path(git("rev-parse", "--git-common-dir")).resolve()
+    for line in sys.stdin:
+        old, new, ref = line.split()
+        if ref != "refs/heads/main":
+            continue
+        try:
+            current = git("rev-parse", "--verify", ref)
+        except subprocess.CalledProcessError:
+            current = ""
+        try:
+            if maintenance(old, new, current, common):
+                continue
+            if not current and new.strip("0") and not (common / "x-land-ledger.jsonl").exists():
+                continue
+            if authorize(common, old, new):
+                continue
+        except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError):
+            pass
+        print("main only moves through ./x land; stop and ask the owner", file=sys.stderr)
+        return 1
+    return 0
+
+
+sys.exit(main())

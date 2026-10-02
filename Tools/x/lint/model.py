@@ -15,6 +15,7 @@ RULES = (
     "disabled-test",
     "marker",
     "direct-engine",
+    "land-bypass",
     "saved-path",
     "procedure-text",
     "rules-includes",

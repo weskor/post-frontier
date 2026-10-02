@@ -44,3 +44,8 @@ reason = "The detector's regular-expression definitions name marker tokens to re
 rule = "direct-engine"
 path = "Tools/tests/test_building.py"
 reason = "A disposable fake engine Build.sh exercises build freshness and failure handling; the fixture runs Python, not Unreal, and the test preserves the adapter's real path contract."
+
+[[exceptions]]
+rule = "land-bypass"
+path = "Tools/x/lint/source.py"
+reason = "The new land-bypass rule's tests require the scanner to name forbidden bypass tokens; the detector never executes those tokens."

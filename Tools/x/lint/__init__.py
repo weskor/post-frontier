@@ -88,10 +88,14 @@ def check_rule(
         return tools.lint_python(ctx, rule, paths, policy)
     findings: list[Finding] = []
     for path in paths:
-        suffixes = {".md"} if rule in {"saved-path", "procedure-text"} else CODE
-        if Path(path).suffix not in suffixes and path != "x":
+        if rule != "land-bypass":
+            suffixes = {".md"} if rule in {"saved-path", "procedure-text"} else CODE
+            if Path(path).suffix not in suffixes and path != "x":
+                continue
+        try:
+            text = (ctx.repo / path).read_text()
+        except UnicodeDecodeError:
             continue
-        text = (ctx.repo / path).read_text()
         if rule == "rules-includes":
             headers = frozenset(
                 p.name for p in (ctx.repo / "Source/CoopRTS/Rules").glob("*.h")

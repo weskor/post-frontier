@@ -77,7 +77,7 @@ From the [architecture audit](Audit/architecture.md):
 
 ## Enforcement — decided 2026-10-02
 
-**Git hooks:** a shared absolute path to `Tools/hooks` under the Git common directory's parent rejects real moves of main except from `./x land`, while allowing ref packing, no-op updates and ref creation/deletion; the rule rejecting commits containing generated binaries outside `land` switches on in phase 4 together with binary regeneration at landing.
+**Git hooks:** every `./x` invocation installs the shared absolute `Tools/hooks` path and refuses hooks whose bytes differ from main or are not executable. Main moves only with a one-time exact-tip grant from a live landing runner holding the landing lock; deletion and recreation are blocked, while ref packing, no-op updates, other refs and Git LFS continue to work. `./x check` and `./x land` audit main's first-parent history against a seeded landing ledger and block unrecorded moves: stop and ask the owner. Landing also requires a clean main worktree. A deliberate same-user forgery of both grant and ledger remains possible; only a separate OS user owning main closes that limit. The binary-commit rule switches on in phase 4 together with binary regeneration at landing.
 
 ### Lint policy
 
