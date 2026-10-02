@@ -38,6 +38,7 @@ void DrawForceLabels(const FPainter& Paint, const FContext& Context);
 void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout);
 FRect ObjectiveContributors(const FRect& Strip);
 int32 ObjectiveForceColumns(const FRect& Strip);
+FStringView ObjectiveRegionName(FStringView Name);
 void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, const FObjectiveForce& Force,
 	const FRect& Rect, float Alpha = 1.f);
 void ForEachAlert(const FContext& Context, const FLayout& Layout,

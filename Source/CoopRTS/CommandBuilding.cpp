@@ -308,9 +308,9 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	ForceNetUpdate();
 	if (!IsAlive())
 	{
-		if (Kind == EBuildingKind::Extractor)
+		if (Kind == EBuildingKind::Extractor && TeamIndex == 0)
 			if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
-				Announcer->RaiseFromUnit(TEXT("drill_rig_lost"), TeamIndex, GetActorLocation(), Attacker);
+				Announcer->RaiseFromUnit(TEXT("drill_rig_lost"), this, TeamIndex, GetActorLocation(), Attacker);
 		bProductionEnabled = false;
 		ReleaseDeposit();
 		FCommandBuildingTerminalSnapshot Snapshot;

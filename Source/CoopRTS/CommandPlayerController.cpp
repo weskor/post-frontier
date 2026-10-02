@@ -848,7 +848,7 @@ bool ACommandPlayerController::FocusAlertSequence(int32 Sequence)
 	ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn());
 	if (!Announcer || !Camera)
 		return false;
-	const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+	const auto Events = Announcer->GetEvents();
 	for (const FObjectiveEvent& Event : Events)
 	{
 		if (Event.Sequence != Sequence)
@@ -867,7 +867,7 @@ void ACommandPlayerController::FocusAlert()
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this);
 	if (!Announcer || Announcer->GetEvents().IsEmpty())
 		return;
-	const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+	const auto Events = Announcer->GetEvents();
 	int32 Index = Events.Num() - 1;
 	if (LatestAlertSequence == Events.Last().Sequence)
 	{

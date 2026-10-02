@@ -120,7 +120,7 @@ public:
 		if (Stage == 4)
 		{
 			Press(EKeys::SpaceBar, false);
-			const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+			const auto Events = Announcer->GetEvents();
 			const FObjectiveEvent& Older = Events[Events.Num() - 2];
 			if (!Check(Controller->GetFocusedAlertSequence() == Older.Sequence, TEXT("Second real Space input steps back one objective"))
 				|| !At(Older.Location, TEXT("Older objective has its own camera location")))
@@ -151,12 +151,21 @@ public:
 			if (!Check(Controller->GetFocusedAlertSequence() == Announcer->GetEvents().Last().Sequence, TEXT("New objective resets navigation to newest"))
 				|| !At(Announcer->GetEvents().Last().Location, TEXT("Reset reaches new objective")))
 				return true;
-			const int32 Next = Announcer->GetEvents().Last().Sequence + 1;
-			for (int32 Index = 0; Index < UObjectiveAnnouncer::HistoryLimit + 3; ++Index)
+			const int32 FirstRetained = Announcer->GetEvents()[0].Sequence;
+			const int32 FillCount = UObjectiveAnnouncer::HistoryLimit - Announcer->GetEvents().Num();
+			for (int32 Index = 0; Index < FillCount; ++Index)
 				Announcer->Raise(TEXT("region_captured"), 0, State->FriendlyHeadquarters->GetActorLocation(), {});
-			const TArray<FObjectiveEvent>& Bounded = Announcer->GetEvents();
-			if (!Check(Bounded.Num() == UObjectiveAnnouncer::HistoryLimit && Bounded[0].Sequence == Next + 3,
-					TEXT("Overflow discards only oldest events while retaining a bounded history")))
+			if (!Check(Announcer->GetEvents().Num() == UObjectiveAnnouncer::HistoryLimit
+					&& Announcer->GetEvents()[0].Sequence == FirstRetained, TEXT("Filling the ring does not evict its oldest event")))
+				return true;
+			const int32 Next = Announcer->GetEvents().Last().Sequence + 1;
+			const int32 Added = 2 * UObjectiveAnnouncer::HistoryLimit + 3;
+			for (int32 Index = 0; Index < Added; ++Index)
+				Announcer->Raise(TEXT("region_captured"), 0, State->FriendlyHeadquarters->GetActorLocation(), {});
+			const auto Bounded = Announcer->GetEvents();
+			if (!Check(Bounded.Num() == UObjectiveAnnouncer::HistoryLimit
+					&& Bounded[0].Sequence == Next + Added - UObjectiveAnnouncer::HistoryLimit,
+					TEXT("Repeated ring wrap discards only oldest events while retaining bounded history")))
 				return true;
 			for (int32 Index = 1; Index < Bounded.Num(); ++Index)
 				if (!Check(Bounded[Index].Sequence == Bounded[Index - 1].Sequence + 1, TEXT("Retained history sequences remain monotonic and contiguous")))
@@ -308,16 +317,18 @@ private:
 		if (!Check(Count(TEXT("own_hq_under_attack")) == 1 && Announcer->GetEvents().Last().DamageTier == 0, TEXT("Repeated same-force attack emits one initial tier alert")))
 			return false;
 		OwnHQ->ReceiveAttack(OwnHQ->Health - OwnHQ->MaxHealth() / 2 - 1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_half")) == 0, TEXT("HQ just above half has not crossed threshold")))
+		if (!Check(Count(TEXT("own_hq_half")) == 0 && Count(TEXT("own_hq_under_attack")) == 1, TEXT("HQ just above half neither crosses threshold nor repeats its current tier")))
 			return false;
 		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_half")) == 1 && Announcer->GetEvents().Last().DamageTier == 1, TEXT("Exact half-health crossing speaks despite attack cooldown")))
+		if (!Check(Count(TEXT("own_hq_half")) == 1 && Count(TEXT("own_hq_under_attack")) == 2
+				&& Announcer->GetEvents().Last().DamageTier == 1, TEXT("Exact half-health crossing emits its transition and a new attack tier")))
 			return false;
 		OwnHQ->ReceiveAttack(OwnHQ->Health - OwnHQ->MaxHealth() / 4 - 1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_critical")) == 0, TEXT("HQ just above quarter has not crossed critical threshold")))
+		if (!Check(Count(TEXT("own_hq_critical")) == 0 && Count(TEXT("own_hq_under_attack")) == 2, TEXT("HQ just above quarter neither crosses threshold nor repeats its current tier")))
 			return false;
 		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_critical")) == 1 && Announcer->GetEvents().Last().DamageTier == 2, TEXT("Exact quarter-health crossing speaks immediately")))
+		if (!Check(Count(TEXT("own_hq_critical")) == 1 && Count(TEXT("own_hq_under_attack")) == 3
+				&& Announcer->GetEvents().Last().DamageTier == 2, TEXT("Exact quarter-health crossing emits its transition and a new attack tier")))
 			return false;
 		OwnHQ->ReceiveAttack(OwnHQ->Health, EnemyHit);
 		const int32 AfterLethal = Announcer->GetEvents().Num();
@@ -328,7 +339,8 @@ private:
 		const TCHAR* HQIds[] = { TEXT("own_hq_under_attack"), TEXT("own_hq_half"), TEXT("own_hq_critical"), TEXT("own_hq_offline"),
 			TEXT("enemy_hq_under_attack"), TEXT("enemy_hq_half"), TEXT("enemy_hq_critical"), TEXT("enemy_hq_offline") };
 		for (const TCHAR* Id : HQIds)
-			if (!Check(Count(Id) == 1, TEXT("Every HQ event fires exactly once, including multi-threshold lethal hit")))
+			if (!Check(Count(Id) == (FName(Id) == TEXT("own_hq_under_attack") ? 3 : 1),
+					TEXT("Each sequential HQ attack tier fires once; transitions and the enemy multi-threshold lethal attack fire once")))
 				return false;
 		for (const FObjectiveEvent& Event : Announcer->GetEvents())
 		{
@@ -337,6 +349,22 @@ private:
 				|| !Attribution(Event, bOwn ? EnemyHit : HumanHit, bOwn ? OwnHQ->GetActorLocation() : EnemyHQ->GetActorLocation()))
 				return false;
 		}
+		AHeadquarters* OtherHQ = World->SpawnActor<AHeadquarters>(OwnHQ->GetActorLocation(), FRotator::ZeroRotator);
+		if (!Check(OtherHQ != nullptr, TEXT("Distinct same-team HQ fixture shares the original event location")))
+			return false;
+		const int32 BeforeOtherHQ = Announcer->GetEvents().Num();
+		OtherHQ->ReceiveAttack(1, EnemyHit);
+		if (!Check(Announcer->GetEvents().Num() == BeforeOtherHQ + 1 && Count(TEXT("own_hq_under_attack")) == 4
+				&& Announcer->GetEvents().Last().Id == TEXT("own_hq_under_attack")
+				&& Announcer->GetEvents().Last().AffectedTeam == 0 && Announcer->GetEvents().Last().DamageTier == 0,
+				TEXT("A distinct same-team structure independently announces the same force and tier, even at the same location"))
+			|| !Attribution(Announcer->GetEvents().Last(), EnemyHit, OtherHQ->GetActorLocation()))
+			return false;
+		OtherHQ->ReceiveAttack(1, EnemyHit);
+		if (!Check(Announcer->GetEvents().Num() == BeforeOtherHQ + 1 && OtherHQ->Health == OtherHQ->MaxHealth() - 2,
+				TEXT("The second structure applies repeated damage while suppressing its own announced force and tier")))
+			return false;
+		OtherHQ->Destroy();
 		ACapturePoint* Site = State->CaptureSites[0];
 		const FVector FriendlyHQ = State->FriendlyHeadquarters->GetActorLocation();
 		const FVector HostileHQ = State->EnemyHeadquarters->GetActorLocation();
@@ -413,9 +441,20 @@ private:
 			if (!Check(Announcer->GetEvents().Num() == Before, TEXT("Nonlethal Drill Rig attack is not a loss")))
 				return false;
 			Rig->ReceiveAttack(1, Attacker);
-			if (!Check(Announcer->GetEvents().Num() == Before + 1 && Announcer->GetEvents().Last().Id == TEXT("drill_rig_lost")
-					&& Announcer->GetEvents().Last().AffectedTeam == Team, TEXT("Lethal attack emits exactly one Drill Rig loss for either team"))
-				|| !Attribution(Announcer->GetEvents().Last(), Attacker, Location))
+			if (!Check(!Rig->IsAlive() && Rig->IsActorBeingDestroyed(), TEXT("Either team's lethal Drill Rig attack destroys the structure")))
+				return false;
+			if (Team == 0)
+			{
+				if (!Check(Announcer->GetEvents().Num() == Before + 1 && Announcer->GetEvents().Last().Id == TEXT("drill_rig_lost")
+						&& Announcer->GetEvents().Last().AffectedTeam == 0, TEXT("Friendly lethal Drill Rig loss emits exactly once"))
+					|| !Attribution(Announcer->GetEvents().Last(), Attacker, Location))
+					return false;
+			}
+			else if (!Check(Announcer->GetEvents().Num() == Before, TEXT("JEV Drill Rig destruction raises no loss event")))
+				return false;
+			const int32 AfterRigDeath = Announcer->GetEvents().Num();
+			Rig->ReceiveAttack(1, Attacker);
+			if (!Check(Announcer->GetEvents().Num() == AfterRigDeath, TEXT("A destroyed Drill Rig cannot repeat its terminal transition")))
 				return false;
 			ACommandBuilding* Cancelled = Building(World, Team, ArmyTestSetup::ExtractorIndex, Location, .5f);
 			ACommandBuilding* Cleaned = Building(World, Team, ArmyTestSetup::ExtractorIndex, Location);
@@ -426,7 +465,7 @@ private:
 			if (!Check(Announcer->GetEvents().Num() == BeforeRemoval, TEXT("Cancellation and EndPlay cleanup are not Drill Rig combat losses")))
 				return false;
 		}
-		return Check(Count(TEXT("drill_rig_lost")) == 2, TEXT("Both opposing Drill Rig lethal transitions remain in history"));
+		return Check(Count(TEXT("drill_rig_lost")) == 1, TEXT("Only the friendly lethal Drill Rig transition remains in history"));
 	}
 
 	FAutomationTestBase* Test;

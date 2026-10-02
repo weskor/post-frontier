@@ -6,6 +6,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/WorldSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundAttenuation.h"
@@ -15,7 +16,6 @@
 #include "Sound/ReverbEffect.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Rules/AnnouncerPolicy.h"
-#include "ObjectiveAnnouncer.h"
 
 namespace
 {
@@ -29,6 +29,12 @@ struct FCueSpec
 	const TCHAR* Name;
 	int32 Count;
 };
+
+double AnnouncerServerTime(const UWorld* World)
+{
+	const AGameStateBase* GameState = World->GetGameState();
+	return GameState ? GameState->GetServerWorldTimeSeconds() : World->GetTimeSeconds();
+}
 }
 
 int32 UCoopAudioSubsystem::CueKey(ECoopAudioEvent Event, int32 Team, int32 Role)
@@ -123,7 +129,6 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	const UCoopAudioSubsystem* Defaults = GetDefault<UCoopAudioSubsystem>();
 	Sounds = Defaults->Sounds;
 	AnnouncerSounds = Defaults->AnnouncerSounds;
-	AnnouncerQueue.Reserve(UObjectiveAnnouncer::HistoryLimit);
 	MasterClass = Defaults->MasterClass;
 	MasterMix = Defaults->MasterMix;
 	WorldAttenuation = Defaults->WorldAttenuation;
@@ -346,16 +351,17 @@ void UCoopAudioSubsystem::PlayUI(FName Event)
 	Play(Cue, 0, Cue == ECoopAudioEvent::Research ? StructureRole : UIRole, FVector::ZeroVector, true);
 }
 
-void UCoopAudioSubsystem::PlayAnnouncer(FName Id)
+void UCoopAudioSubsystem::PlayAnnouncer(FName Id, float ServerTime)
 {
 	UWorld* World = GetWorld();
 	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer
 		|| World->bIsTearingDown || !AnnouncerSounds.Contains(Id))
 		return;
-	if (AnnouncerWorld.IsValid() && AnnouncerWorld != World)
+	if (AnnouncerWorld != World)
 		StopAnnouncer();
 	AnnouncerWorld = World;
-	AnnouncerQueue.Add(Id);
+	if (!AnnouncerQueue.Enqueue(Id, ServerTime, AnnouncerServerTime(World)))
+		return;
 	if (!IsValid(AnnouncerComponent.Get()) || !AnnouncerComponent->IsPlaying())
 		StartNextAnnouncer();
 }
@@ -364,10 +370,14 @@ void UCoopAudioSubsystem::StartNextAnnouncer()
 {
 	UWorld* World = AnnouncerWorld.Get();
 	if (!World || World->bIsTearingDown)
-		return;
-	while (AnnouncerQueueCursor < AnnouncerQueue.Num())
 	{
-		const TObjectPtr<USoundWave>* Found = AnnouncerSounds.Find(AnnouncerQueue[AnnouncerQueueCursor++]);
+		StopAnnouncer();
+		return;
+	}
+	AnnouncerSpeechQueue::FLine Line;
+	while (AnnouncerQueue.Dequeue(AnnouncerServerTime(World), Line))
+	{
+		const TObjectPtr<USoundWave>* Found = AnnouncerSounds.Find(Line.Id);
 		USoundWave* Wave = Found ? Found->Get() : nullptr;
 		if (!IsValid(Wave))
 			continue;
@@ -387,8 +397,6 @@ void UCoopAudioSubsystem::StartNextAnnouncer()
 		AnnouncerComponent->Play();
 		return;
 	}
-	AnnouncerQueue.Reset();
-	AnnouncerQueueCursor = 0;
 }
 
 void UCoopAudioSubsystem::AnnouncerFinished(UAudioComponent* Component)
@@ -400,7 +408,6 @@ void UCoopAudioSubsystem::AnnouncerFinished(UAudioComponent* Component)
 void UCoopAudioSubsystem::StopAnnouncer()
 {
 	AnnouncerQueue.Reset();
-	AnnouncerQueueCursor = 0;
 	if (IsValid(AnnouncerComponent.Get()))
 	{
 		AnnouncerComponent->OnAudioFinishedNative.RemoveAll(this);
@@ -415,6 +422,8 @@ void UCoopAudioSubsystem::UpdateListener(UWorld* World, ELevelTick TickType, flo
 {
 	if (!World || World->GetGameInstance() != GetGameInstance() || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer)
 		return;
+	if (AnnouncerWorld != World && (AnnouncerComponent != nullptr || !AnnouncerQueue.IsEmpty()))
+		StopAnnouncer();
 	if (MixWorld != World)
 		ApplyMasterMix(World);
 	UpdateAmbience(World);

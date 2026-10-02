@@ -47,25 +47,22 @@ FObjectiveForce UObjectiveAnnouncer::DescribeForce(const AArmyUnit* Unit)
 void UObjectiveAnnouncer::Raise(FName Id, int32 AffectedTeam, const FVector& Location, const TArray<FObjectiveForce>& Forces, int32 DamageTier)
 {
 	const ACommandGameState* State = Cast<ACommandGameState>(GetOwner());
-	if (!State || !State->HasAuthority())
+	const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Id);
+	if (!State || !State->HasAuthority() || !Definition || !Definition->bStateChange)
 		return;
-	const double Now = State->GetServerWorldTimeSeconds();
-	const FObjectiveForce* Attacker = Forces.IsEmpty() ? nullptr : &Forces[0];
-	if (!Throttle.Accept(Id, AffectedTeam, Attacker ? Attacker->CommanderIndex : -1,
-			Attacker ? Attacker->ForceNumber : 0, DamageTier, Now))
-		return;
-	AppendEvent(*State, Id, AffectedTeam, Location, Forces, DamageTier, Now);
+	AppendEvent(*State, Id, AffectedTeam, Location, Forces, DamageTier, State->GetServerWorldTimeSeconds());
 }
 
-void UObjectiveAnnouncer::RaiseFromUnit(FName Id, int32 AffectedTeam, const FVector& Location, const AArmyUnit* Unit, int32 DamageTier)
+void UObjectiveAnnouncer::RaiseFromUnit(FName Id, const AActor* AffectedStructure, int32 AffectedTeam, const FVector& Location,
+	const AArmyUnit* Unit, int32 DamageTier)
 {
 	const ACommandGameState* State = Cast<ACommandGameState>(GetOwner());
-	if (!State || !State->HasAuthority() || !IsValid(Unit))
+	if (!State || !State->HasAuthority() || !IsValid(AffectedStructure) || !IsValid(Unit))
 		return;
 	const AArmyGroup* Group = Unit->GetGroup();
 	const int32 ForceNumber = Group ? Group->ForceNumber : 0;
 	const double Now = State->GetServerWorldTimeSeconds();
-	if (!Throttle.Accept(Id, AffectedTeam, Unit->GetCommanderIndex(), ForceNumber, DamageTier, Now))
+	if (!Throttle.Accept(Id, AffectedStructure->GetUniqueID(), Unit->GetCommanderIndex(), ForceNumber, DamageTier, Now))
 		return;
 	const FObjectiveForce Force = DescribeForce(Unit);
 	AppendEvent(*State, Id, AffectedTeam, Location, MakeArrayView(&Force, 1), DamageTier, Now);
@@ -74,13 +71,17 @@ void UObjectiveAnnouncer::RaiseFromUnit(FName Id, int32 AffectedTeam, const FVec
 void UObjectiveAnnouncer::AppendEvent(const ACommandGameState& State, FName Id, int32 AffectedTeam, const FVector& Location,
 	TConstArrayView<FObjectiveForce> Forces, int32 DamageTier, float ServerTime)
 {
-	FObjectiveEvent Event;
+	const bool bFull = Events.Num() == HistoryLimit;
+	FObjectiveEvent& Event = bFull ? Events[OldestEvent] : Events.AddDefaulted_GetRef();
 	Event.Sequence = NextSequence++;
 	Event.Id = Id;
 	Event.ServerTime = ServerTime;
 	Event.Location = Location;
 	Event.AffectedTeam = AffectedTeam;
 	Event.DamageTier = DamageTier;
+	Event.RegionIndex = -1;
+	Event.RegionName.Reset();
+	Event.Forces.Reset();
 	if (const AMapRegion* Region = State.FindRegionAt(Location))
 	{
 		Event.RegionIndex = Region->RegionIndex;
@@ -101,17 +102,24 @@ void UObjectiveAnnouncer::AppendEvent(const ACommandGameState& State, FName Id, 
 			return A.CommanderIndex < B.CommanderIndex;
 		return A.ForceNumber < B.ForceNumber;
 	});
-	if (Events.Num() == HistoryLimit)
-		Events.RemoveAt(0, 1, EAllowShrinking::No);
-	Events.Add(MoveTemp(Event));
+	if (bFull)
+		OldestEvent = (OldestEvent + 1) % HistoryLimit;
 	GetOwner()->ForceNetUpdate();
-	MulticastAnnounce(Id);
+	MulticastAnnounce(Id, ServerTime);
 }
 
-void UObjectiveAnnouncer::MulticastAnnounce_Implementation(FName Id)
+void UObjectiveAnnouncer::MulticastAnnounce_Implementation(FName Id, float ServerTime)
 {
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
-		Audio->PlayAnnouncer(Id);
+		Audio->PlayAnnouncer(Id, ServerTime);
+}
+
+void UObjectiveAnnouncer::OnRep_Events()
+{
+	OldestEvent = 0;
+	for (int32 Index = 1; Index < Events.Num(); ++Index)
+		if (Events[Index].Sequence < Events[OldestEvent].Sequence)
+			OldestEvent = Index;
 }
 
 void UObjectiveAnnouncer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

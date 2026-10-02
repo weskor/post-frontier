@@ -7,6 +7,22 @@
 
 namespace CommandHUDPanels
 {
+FStringView ObjectiveRegionName(FStringView Name)
+{
+	// Legacy map display names remain in data; objective presentation uses World.md.
+	static const struct { const TCHAR* Legacy; const TCHAR* Current; } Names[] = {
+		{ TEXT("The Bunker"), TEXT("Hardline") }, { TEXT("The Cluster"), TEXT("The Lattice") },
+		{ TEXT("Uplink"), TEXT("Skyhook") }, { TEXT("Relay Plant"), TEXT("Fusion Works") },
+		{ TEXT("Power Yard"), TEXT("Reactor Yard") }, { TEXT("Cooling"), TEXT("Heat Sink") },
+		{ TEXT("Substation 7"), TEXT("Fusion Tap 7") }, { TEXT("Fibre Junction"), TEXT("Lightline Junction") },
+		{ TEXT("Cooling Plant"), TEXT("Cryo Plant") }
+	};
+	for (const auto& Entry : Names)
+		if (Name == Entry.Legacy)
+			return Entry.Current;
+	return Name;
+}
+
 void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, const FObjectiveForce& Force,
 	const FRect& Rect, float Alpha)
 {
@@ -52,7 +68,7 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 		return;
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
-	const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+	const auto Events = Announcer->GetEvents();
 	for (int32 Index = Events.Num() - 1; Index >= 0; --Index)
 	{
 		const FObjectiveEvent& Event = Events[Index];
@@ -95,7 +111,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Text(Definition ? Definition->Text : TEXT("Objective update"), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
-		Region << (Event.RegionName.IsEmpty() ? TEXT("Outside regions") : *Event.RegionName) << TEXT("  |  Click to focus");
+		Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
 		for (int32 Index = 0; Index < Event.Forces.Num(); ++Index)

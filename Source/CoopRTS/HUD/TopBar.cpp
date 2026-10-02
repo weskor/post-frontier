@@ -45,7 +45,7 @@ static void DrawLatestObjective(const FPainter& Paint, const FContext& Context, 
 	TStringBuilder<256> Title;
 	Title << (Definition ? Definition->Text : TEXT("Objective update"));
 	if (!Latest.RegionName.IsEmpty())
-		Title << TEXT("  |  ") << Latest.RegionName;
+		Title << TEXT("  |  ") << ObjectiveRegionName(Latest.RegionName);
 	Paint.Text(Title.ToView(), Contributors.X, Strip.Y + 5.f, 9.f, Palette::Text, true, EAlign::Left, Contributors.W);
 	const int32 Columns = ObjectiveForceColumns(Strip);
 	const int32 Capacity = Columns * MaxObjectiveForceRows;
@@ -85,9 +85,9 @@ static void DrawObjectiveStrip(const FPainter& Paint, const FContext& Context, c
 	}
 	const float HQWidth = FMath::Min(225.f, Strip.W * .24f);
 	const float HQY = Strip.Y + Pad;
-	DrawHQBar(Paint, { Strip.X + Pad, HQY, HQWidth, 20.f }, TEXT("YOUR HQ"),
+	DrawHQBar(Paint, { Strip.X + Pad, HQY, HQWidth, 20.f }, TEXT("Hardline"),
 		Context.State->FriendlyHeadquarters, Palette::Friendly);
-	DrawHQBar(Paint, { Strip.X + Pad + HQWidth + Gap, HQY, HQWidth, 20.f }, TEXT("ENEMY HQ"),
+	DrawHQBar(Paint, { Strip.X + Pad + HQWidth + Gap, HQY, HQWidth, 20.f }, TEXT("The Lattice"),
 		Context.State->EnemyHeadquarters, Palette::Enemy);
 	TStringBuilder<32> Regions;
 	Regions.Appendf(TEXT("Regions %d / %d"), FriendlyRegions, Context.State->Regions.Num());

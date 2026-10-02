@@ -4,6 +4,7 @@
 #include "Content/UnitDefinition.h"
 #include "Engine/World.h"
 #include "GameFramework/SaveGame.h"
+#include "Rules/AnnouncerSpeechQueue.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "CoopAudioSubsystem.generated.h"
 
@@ -79,7 +80,7 @@ public:
 	void StopConstruction(AActor* Owner);
 	void PlayCapture(ECoopAudioEvent Event, const FVector& Location, int32 Milestone = 0);
 	void PlayOutcome(bool bVictory);
-	void PlayAnnouncer(FName Id);
+	void PlayAnnouncer(FName Id, float ServerTime);
 
 private:
 	UPROPERTY()
@@ -100,8 +101,7 @@ private:
 	TMap<FName, TObjectPtr<USoundWave>> AnnouncerSounds;
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> AnnouncerComponent;
-	TArray<FName> AnnouncerQueue;
-	int32 AnnouncerQueueCursor = 0;
+	AnnouncerSpeechQueue::FQueue AnnouncerQueue;
 	TWeakObjectPtr<UWorld> AnnouncerWorld;
 	UPROPERTY()
 	TObjectPtr<UCoopAudioSettings> Settings;

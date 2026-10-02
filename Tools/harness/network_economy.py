@@ -34,13 +34,14 @@ def event_sequence(state: JsonObject) -> int:
 
 def objective_event(
     run: NetworkRun, s: Session, event_id: str, target: int,
-    owner: int, force_number: int, after: int = 0,
+    owner: int, force_number: int, after: int = 0, damage_tier: int | None = None,
 ) -> dict[str, JsonObject]:
     def matching(state: JsonObject) -> list[JsonObject]:
         return [
             event for event in state["objectiveEvents"]
             if event["id"] == event_id and event["region"] == target
             and event["sequence"] > after
+            and (damage_tier is None or event["damageTier"] == damage_tier)
         ]
 
     states = converged(
@@ -49,6 +50,14 @@ def objective_event(
     )
     expected = matching(states["host"])
     require(len(expected) == 1, f"{event_id}: duplicate transition")
+    if event_id == "drill_rig_lost":
+        require(
+            expected[0]["affectedTeam"] == 0
+            and len(expected[0]["forces"]) == 1
+            and expected[0]["forces"][0]["team"] == 5
+            and expected[0]["forces"][0]["playerName"] == "JEV",
+            "Drill Rig loss must affect the friendly team and attribute the lethal JEV force",
+        )
     require(
         any(
             contributor["owner"] == owner
@@ -358,18 +367,25 @@ def deplete_enemy_deposit(
         "destroyExtractor",
         building=deposit(states["host"], enemy_index)["extractor"],
     )
-    converged(
+    states = converged(
         run,
         s.names,
         lambda st: (
             not deposit(st, enemy_index)["occupied"]
+            and deposit(st, enemy_index)["extractor"] == -1
             and region(st, deposit(st, enemy_index)["region"])["controller"] == 5
         ),
         "JEV extractor destruction frees deposit without altering enemy main ownership",
     )
-    objective_event(
-        run, s, "drill_rig_lost", deposit(states["host"], enemy_index)["region"],
-        s.identities["host"], 0, after,
+    require(
+        all(
+            not any(
+                event["id"] == "drill_rig_lost" and event["sequence"] > after
+                for event in state["objectiveEvents"]
+            )
+            for state in states.values()
+        ),
+        "JEV Drill Rig death incorrectly raised a loss event on host or remote",
     )
     run.phase(
         "JEV wallet-only finite extractor payment, depletion and deposit freeing across peers"
@@ -383,6 +399,9 @@ def assault_and_finish(
     enemy_main = next(
         r["index"] for r in run.observe("host")["regions"] if r["homeTeam"] == 5
     )
+    state = run.observe("host")
+    after = event_sequence(state)
+    force_number = building(state, index)["forceNumber"]
     run.request(s.peer, "goal", building=index, goal=ASSAULT, region=-1)
     converged(
         run,
@@ -390,21 +409,35 @@ def assault_and_finish(
         lambda st: goal_matches(st, index, ASSAULT, enemy_main),
         "Assault resolves the enemy main server-side on every peer",
     )
-    state = run.observe("host")
-    after = event_sequence(state)
-    force_number = building(state, index)["forceNumber"]
     objective_event(
         run, s, "enemy_hq_under_attack", enemy_main, s.owner, force_number,
+        after, damage_tier=0,
     )
     converged(
-        run, s.names, lambda st: 0 < st["enemyHQ"] <= 225,
+        run, s.names, lambda st: st["enemyHQ"] <= 225,
         "Assault crosses both HQ damage tiers through actual weapon damage",
     )
     for event_id in ("enemy_hq_half", "enemy_hq_critical"):
         objective_event(run, s, event_id, enemy_main, s.owner, force_number)
+    for damage_tier in (1, 2):
+        objective_event(
+            run, s, "enemy_hq_under_attack", enemy_main, s.owner, force_number,
+            after, damage_tier=damage_tier,
+        )
     states = finish(run, s, squad, "weapon-caused victory replicates")
     states = objective_event(
         run, s, "enemy_hq_offline", enemy_main, s.owner, force_number, after,
+    )
+    require(
+        all(
+            sorted(
+                event["damageTier"] for event in state["objectiveEvents"]
+                if event["id"] == "enemy_hq_under_attack"
+                and event["region"] == enemy_main and event["sequence"] > after
+            ) == [0, 1, 2]
+            for state in states.values()
+        ),
+        "Assault must announce each enemy HQ damage tier exactly once on every peer",
     )
     require(
         all(

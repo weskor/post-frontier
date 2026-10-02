@@ -67,13 +67,13 @@ Research: [input.md](../Research/input.md).
 
 Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the only signs of a winning push were a small enemy-HQ bar and JEV's alarm, which plays at its HQ out of earshot.
 
-- [Built] **Team announcer:** a global voiced line plus a feed entry for every player, including the team's own successes. Today's objective events are either HQ under attack, at half health, at quarter health or offline; a region captured or lost; and a Drill Rig lost. Entries identify the causing player's force and region; captures include every participating force.
-  - One "under attack" line per event type and affected team per 20 s; it repeats only for a different attacking force or a new damage tier, never merely because the cooldown expired.
-  - State transitions always speak, including multiple health thresholds crossed by one hit. Cancellation and cleanup are not combat losses.
-  - Voice and feed definitions share an event-id table; [the voice pipeline](../Audio.md) supplies each line's asset.
+- [Built] **Team announcer:** a global voiced line plus a feed entry for every player, including the team's own successes. Today's objective events are either HQ under attack, at half health, at quarter health or offline; a region captured or lost; and one of the team's Drill Rigs lost. Entries identify the causing player's force and region; captures include every participating force.
+  - Each affected structure has its own attack episode, ending after 20 s without damage to it. Within an episode, "under attack" speaks once for each new attacking force and once for each new damage tier; a hit introducing both produces one alert. Every valid hit, including a suppressed repeat, extends the episode. Ending the episode clears both announced sets.
+  - State transitions bypass attack-episode suppression, including multiple health thresholds crossed by one hit. Cancellation, cleanup and destroying JEV's Drill Rigs are not team combat losses.
+  - Voice and feed definitions use the same wording and event IDs; [the voice pipeline](../Audio.md) supplies each line's asset. Speech is serialized with at most 16 pending lines: overflow discards the oldest pending line, and pending lines reaching the episode's quiet-window age are discarded rather than spoken late. A line already playing is not interrupted.
 - [Built] **Objective strip:** always on above the battlefield, showing both HQs' health, regions held by each side, and commander-coloured role/force badges for the latest objective event. Economy remains visible above it.
 - [Built] **Alert feed:** newest first; entries last 8 s and fade over their final 2 s. Clicking a visible entry focuses its event location without changing selection.
-- [Built] **Space jumps to the latest alert;** pressing it again steps back through retained history, clamped at the oldest entry. A new event resets the next jump to the newest. The latest 64 events remain navigable after their feed entries fade. Selecting never moves the camera; F focuses the selection. Jumping is optional: the strip and announcer carry the state.
+- [Built] **Space jumps to the latest alert;** pressing it again steps back through retained history, clamped at the oldest entry. A new event resets the next jump to the newest. The latest 64 events remain navigable after their feed entries fade. Jumping is optional: the strip and announcer carry the state.
 - [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist.
 
 ## JEV intent display
