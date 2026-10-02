@@ -132,10 +132,10 @@ Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md
 
 ## Open
 
-- **N for the headless pool (resolved 2026-10-02):** N = 2 on this 30.40 GiB host. Five world scopes peaked at 2.186 GiB per editor; a fresh build's UBT/compiler tree peaked at 5.825 GiB.
+- **N for the headless pool (resolved 2026-10-02):** N = 2 on this 30.40 GiB host. World scopes peaked at 2.267 GiB per editor; a fresh build's UBT/compiler tree peaked at 5.825 GiB.
   Cross-worktree N = 2/3/4 trials passed, with minimum `MemAvailable` 12.00/9.99/8.57 GiB. Observed total concurrent editors were 2/3/4 (owned trial editors 2/2/3; other workers occupied remaining slots). Two subsequent N = 2 batches passed all five scopes with two owned worlds overlapping in each.
   Fifteen agents plus helpers peaked at 11.236 GiB (12-agent projection 8.989 GiB); desktop/other processes peaked at 2.541 GiB. Budget 9.5 GiB for twelve agents/helpers, 2.75 GiB for the desktop, 3.5 GiB for the owner's editor (not running during measurement; HUD's editor measured 2.576 GiB), and 6 GiB free.
-  With a 6 GiB build slot and 2.6 GiB headless slots (max of the 2.186 GiB world and 2.576 GiB HUD editor peaks), `N = 1 + floor((30.40 - 9.5 - 2.75 - 3.5 - 6 - 6) / 2.6) = 2`; N = 3 would exceed that mixed-build budget. Concurrent unguarded UBT failed in shared `Trace.uba` log rotation, so builds serialize. Simulation memory is unmeasured and not covered by this sizing evidence.
+  With a 6 GiB build slot and 2.6 GiB headless slots (max of the 2.267 GiB world and 2.576 GiB HUD editor peaks), `N = 1 + floor((30.40 - 9.5 - 2.75 - 3.5 - 6 - 6) / 2.6) = 2`; N = 3 would exceed that mixed-build budget. Concurrent unguarded UBT failed in shared `Trace.uba` log rotation, so builds serialize. Simulation memory is unmeasured and not covered by this sizing evidence.
   Exec records sample the union of the process group and its descendants every 250 ms as `peak_rss_mb` (MiB), counting each PID once and including children that start other sessions. Historical UBT/HUD records measured only launcher groups; their sizing above used separately sampled process-tree/editor RSS.
 - **Low-Level Tests on UE 5.8/Linux:** prototype before committing to them.
 - **Asset regeneration at landing:** generators take minutes, so batch them, and decide whether `land` blocks on regeneration or a follow-up commit does it.
