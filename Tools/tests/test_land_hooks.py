@@ -54,3 +54,13 @@ def test_hooks_survive_worktree_checkout_without_local_hooks(repo: Path) -> None
     assert result.returncode != 0
     assert "main only moves through ./x land" in result.stderr
     assert git(repo, "rev-parse", "HEAD") != git(task, "rev-parse", "HEAD")
+
+
+def test_cli_works_when_no_worktree_has_main_checked_out(repo: Path) -> None:
+    task = install_runner(repo)
+    git(repo, "switch", "--detach")
+    for tree in (repo, task):
+        git(repo, "config", "core.hooksPath", "wrong/hooks")
+        result = invoke(tree, "help")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert git(tree, "config", "core.hooksPath") == str(repo / "Tools/hooks")

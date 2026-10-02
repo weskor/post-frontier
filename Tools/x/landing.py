@@ -12,7 +12,10 @@ MARKER = "X_LAND"
 
 
 def ensure_hooks(repo: Path) -> None:
-    hooks = str((gitinfo.main_worktree(repo) / "Tools/hooks").resolve())
+    common = (
+        repo / gitinfo.query(repo, "rev-parse", "--git-common-dir").strip()
+    ).resolve()
+    hooks = str(common.parent / "Tools/hooks")
     current = subprocess.run(
         ["git", "-C", str(repo), "config", "--local", "--get", "core.hooksPath"],
         capture_output=True,

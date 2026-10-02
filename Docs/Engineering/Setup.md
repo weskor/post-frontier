@@ -76,7 +76,7 @@ From the [architecture audit](Audit/architecture.md):
 
 ## Enforcement — decided 2026-10-02
 
-**Git hooks:** a shared absolute path to the main worktree's `Tools/hooks` rejects real moves of main except from `./x land`, while allowing ref packing, no-op updates and ref creation/deletion; the rule rejecting commits containing generated binaries outside `land` switches on in phase 4 together with binary regeneration at landing.
+**Git hooks:** a shared absolute path to `Tools/hooks` under the Git common directory's parent rejects real moves of main except from `./x land`, while allowing ref packing, no-op updates and ref creation/deletion; the rule rejecting commits containing generated binaries outside `land` switches on in phase 4 together with binary regeneration at landing.
 
 ### Lint policy
 
