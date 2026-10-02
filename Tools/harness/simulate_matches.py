@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime as dt
-import fcntl
 import json
 import math
 import os
@@ -21,8 +20,15 @@ import subprocess
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ENGINE = Path.home() / ".local/opt/unreal-engine/5.8.3/Engine/Binaries/Linux/UnrealEditor"
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "Tools"))
+
+from x.content.generating import MCP_DISABLED
+from x.content.packages import latest_package
+from x.content.simulation import configure
+from x.freshness import is_fresh
+from x.locks import Locks
+from x.settings import load
 MAP_V2 = "/Game/Maps/AvailabilityZoneV2"
 MAP_V1 = "/Game/Maps/AvailabilityZone"
 DEFAULT_ECONOMY = dict(baseline=2, normal_rate=4, rich_rate=6, normal_amount=2400, rich_amount=3000)
@@ -156,29 +162,27 @@ def validate_report(report: dict, job: dict) -> None:
 
 
 def artifact_identity(args: argparse.Namespace) -> list[dict]:
-    executable = args.executable if args.executable else args.engine
+    executable = latest_package(ROOT, "development", load(ROOT).game_target) if args.package else Path(os.environ["UE_ROOT"]) / "Engine/Binaries/Linux/UnrealEditor"
     executable = executable.expanduser().resolve()
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise ValueError(f"Missing executable: {executable}")
     artifacts = [executable]
-    if not args.executable:
+    if not args.package:
         artifacts.append(ROOT / "Binaries/Linux/libUnrealEditor-CoopRTS.so")
     binary = artifacts[-1]
     if not binary.is_file():
         raise ValueError(f"Build the current editor module first: {binary}")
-    source = [path for path in (ROOT / "Source").rglob("*") if path.suffix in (".h", ".cpp", ".cs")]
-    source.append(ROOT / "CoopRTS.uproject")
-    newer = [str(path.relative_to(ROOT)) for path in source if path.stat().st_mtime_ns > binary.stat().st_mtime_ns]
-    if newer:
-        raise ValueError(f"Gameplay binary is older than source; build before simulation: {', '.join(newer[:8])}")
+    if not args.package and not is_fresh(ROOT, "editor"):
+        raise ValueError("Editor module is stale; use ./x sim")
     return [stamp(path) for path in artifacts]
 
 
 def command(args: argparse.Namespace, job: dict, output: Path) -> list[str]:
-    if args.executable:
-        result = [str(args.executable.expanduser().resolve()), job["map"]]
+    if args.package:
+        result = [str(latest_package(ROOT, "development", load(ROOT).game_target)), job["map"]]
     else:
-        result = [str(args.engine.expanduser().resolve()), str(ROOT / "CoopRTS.uproject"), job["map"], "-game"]
+        engine = Path(os.environ["UE_ROOT"]) / "Engine/Binaries/Linux/UnrealEditor"
+        result = [str(engine), str(ROOT / "CoopRTS.uproject"), job["map"], "-game", MCP_DISABLED]
     result += ["-nullrhi", "-nosound", "-nosplash", "-unattended", "-nosteam", "-autopilot",
                f"-SimSeed={job['seed']}", f"-SimTimeCap={job['time_cap']}", f"-SimDilation={job['dilation']}",
                f"-SimOutput={output}", f"-abslog={output.parent / 'game.log'}", "-ExecCmds=t.MaxFPS 0"]
@@ -206,9 +210,11 @@ def run_match(args: argparse.Namespace, job: dict, directory: Path, artifacts: l
     save_json(directory / "launch.json", record)
     process = None
     try:
-        args.lock.parent.mkdir(parents=True, exist_ok=True)
-        with args.lock.open("a+") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        with Locks(ROOT, load(ROOT), command="sim").headless():
+            if args.package:
+                latest_package(ROOT, "development", load(ROOT).game_target)
+            elif not is_fresh(ROOT, "editor"):
+                raise ValueError("Editor inputs changed before match; use ./x sim")
             if [stamp(Path(item["path"])) for item in artifacts] != artifacts:
                 raise ValueError("Gameplay artifact changed before launch")
             with (directory / "stdout.log").open("wb") as stdout:
@@ -483,24 +489,13 @@ def make_charts(run: Path, groups: dict) -> None:
 
 
 def main() -> int:
+    if not os.environ.get("X_RUN_ID"):
+        raise ValueError("use ./x sim")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--map", action="append", dest="maps", help="Repeat /Game/... packages; default V2 and v1")
-    parser.add_argument("--variant", action="append", type=parse_variant, help="baseline2/3/4 or NAME:baseline=3,normal_rate=4,...")
-    parser.add_argument("--matches", type=int, default=10, help="Matches per map/variant, or paired seeds in comparison mode")
-    parser.add_argument("--matrix", action="store_true", help="Requested 40-match matrix: V2 baseline2/3/4, v1 baseline2 (10 each by default)")
-    parser.add_argument("--seed", type=int, default=1, help="First seed; same seed range across variants/maps")
-    parser.add_argument("--time-cap", type=float, default=2400, help="Game seconds; natural draw only if HQs live at this cap")
-    parser.add_argument("--dilation", type=float, default=1)
-    parser.add_argument("--compare-dilation", type=float, help="Run each seed at 1x and this dilation, compare gameplay telemetry")
-    parser.add_argument("--sample-seconds", type=float, default=600, help="Game-time cap for paired samples; no combat means inconclusive")
-    parser.add_argument("--comparison-tolerance", type=float, default=.05)
-    parser.add_argument("--engine", type=Path, default=DEFAULT_ENGINE)
-    parser.add_argument("--executable", type=Path, help="Packaged Development executable instead of editor -game")
-    parser.add_argument("--lock", type=Path, default=Path("/tmp/cooprts-work/ue.lock"))
-    parser.add_argument("--stall-seconds", type=float, default=180, help="Fail without persisted game-time progress; never generates draw")
-    parser.add_argument("--run", type=Path, help="Fresh output directory; default Saved/Simulation/<UTC timestamp>")
-    parser.add_argument("--report-only", type=Path, help="Regenerate Markdown/charts without launching Unreal")
+    configure(parser)
     args = parser.parse_args()
+    if args.variant:
+        args.variant = [parse_variant(text) for text in args.variant]
     if args.report_only:
         run = args.report_only.resolve()
         return 0 if summarize(run, json.loads((run / "run.json").read_text())) else 1
@@ -528,11 +523,10 @@ def main() -> int:
     jobs = [dict(map=map_name, variant=name, economy=economy, seed=seed, dilation=dilation, time_cap=cap)
             for map_name, (name, economy) in combinations for seed in range(args.seed, args.seed + args.matches) for dilation in dilation_values]
     artifacts = artifact_identity(args)
-    run = (args.run or ROOT / "Saved/Simulation" / dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")).resolve()
-    run.mkdir(parents=True, exist_ok=False)
+    run = Path(os.environ["X_RUN_DIR"]).resolve()
     manifest = dict(schema_version=1, created=dt.datetime.now(dt.timezone.utc).isoformat(), artifacts=artifacts,
                     planned_jobs=jobs, matches=[], comparison_dilation=args.compare_dilation,
-                    comparison_tolerance=args.comparison_tolerance, lock=str(args.lock.resolve()))
+                    comparison_tolerance=args.comparison_tolerance, lock=str(load(ROOT).lock_dir))
     save_json(run / "run.json", manifest)
     interrupted = False
     try:
