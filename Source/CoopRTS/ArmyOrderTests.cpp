@@ -36,7 +36,11 @@ public:
 		const double Now = FPlatformTime::Seconds();
 		if (Now - Started > 35.)
 		{
-			Test->AddError(TEXT("Timed out waiting for live army navigation"));
+			if (RejectedInitialTarget.IsSet())
+				Test->AddError(FString::Printf(TEXT("Timed out waiting for live army navigation: initial Move rejected at %s"),
+					*RejectedInitialTarget.GetValue().ToString()));
+			else
+				Test->AddError(TEXT("Timed out waiting for live army navigation"));
 			return true;
 		}
 		if (Stage == 0)
@@ -65,9 +69,14 @@ public:
 				return false;
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, Army->GetHomeLocation() + FVector(0.f, 1800.f, 0.f));
+			const FVector InitialTarget = Army->GetHomeLocation() + FVector(0.f, 1800.f, 0.f);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, InitialTarget);
 			if (Army->OrderSerial == Serial)
+			{
+				RejectedInitialTarget = InitialTarget;
 				return false; // Navmesh can still be generating.
+			}
+			RejectedInitialTarget.Reset();
 			NextStage(Now);
 			return false;
 		}
@@ -132,6 +141,7 @@ private:
 	TArray<FVector> HeldPositions;
 	FVector StartCenter = FVector::ZeroVector;
 	FVector Replacement = FVector::ZeroVector;
+	TOptional<FVector> RejectedInitialTarget;
 	uint32 Serial = 0;
 	int32 Stage = 0;
 	bool bIsolated = false;
