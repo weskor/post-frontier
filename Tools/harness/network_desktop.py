@@ -16,11 +16,11 @@ import sys
 import time
 from typing import cast
 
+from harness.verification_readiness import WindowNotReady, desktop_log_ready
 from harness.verify import (
     BINARY,
     DEFAULT_MAP,
     POINTER,
-    READY,
     JsonObject,
     compile_pointer,
     execute,
@@ -29,10 +29,6 @@ from harness.verify import (
     package_stamp,
 )
 from x.scopes import map_package
-
-
-class WindowNotReady(RuntimeError):
-    pass
 
 
 def event(run: Path, action: str, **fields: object) -> None:
@@ -72,24 +68,9 @@ def doctor(run: Path, peer: str, *, focused: bool = False) -> JsonObject:
         )
     log_path = run / peer / "game.log"
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
-    if "TravelFailure:" in log or "BroadcastTravelFailure" in log:
-        raise RuntimeError(f"{peer} map travel failed; inspect {log_path}")
-    selected_map = map_started(log, record["map"])
-    if (
-        peer == "host"
-        and not selected_map
-        and any(
-            "Bringing World " in line and " up for play" in line
-            for line in log.splitlines()
-        )
-    ):
-        raise RuntimeError(
-            f"{peer} started a different map instead of {record['map']}; inspect {log_path}"
-        )
-    if not selected_map or READY not in log or "5.8.3" not in log:
-        raise WindowNotReady(
-            f"{peer} Unreal 5.8.3 readiness for {record['map']} missing"
-        )
+    desktop_log_ready(
+        log, peer, record["map"], log_path, map_started(log, record["map"])
+    )
     owned = [
         window
         for window in windows()

@@ -18,6 +18,7 @@ import sys
 import time
 from typing import Any, cast
 
+from harness.verification_readiness import native_log_ready
 from x import scopes
 
 # JSON session and compositor payloads are dynamic third-party records.
@@ -116,14 +117,7 @@ def doctor(run: Path, focused: bool = False) -> JsonObject:
         if (run / "game.log").exists()
         else ""
     )
-    if READY not in log or "5.8.3" not in log:
-        raise RuntimeError(
-            "Expected UE 5.8.3 game readiness not found in this run's log"
-        )
-    if not map_started(log, session["map"]):
-        raise RuntimeError(
-            f"Launch failure: requested map {session['map']} has not started; inspect game.log"
-        )
+    native_log_ready(log, session["map"], map_started(log, session["map"]))
     windows = json.loads(execute(["hyprctl", "clients", "-j"]))
     owned = [w for w in windows if w["pid"] == session["pid"] and w.get("mapped")]
     if len(owned) != 1:
