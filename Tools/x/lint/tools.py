@@ -182,7 +182,16 @@ def lint_python_group(
         flags = [] if target is None else ["--python-version", target]
         result = execute(
             ctx,
-            ["uv", "run", "--locked", "mypy", "--strict", "--no-error-summary", *flags, *paths],
+            [
+                "uv",
+                "run",
+                "--locked",
+                "mypy",
+                "--strict",
+                "--no-error-summary",
+                *flags,
+                *paths,
+            ],
             label,
         )
         return diagnostics(result, rule, paths[0])
@@ -191,7 +200,16 @@ def lint_python_group(
     )
     result = execute(
         ctx,
-        ["uv", "run", "--locked", "ruff", "check", "--output-format=json", *flags, *paths],
+        [
+            "uv",
+            "run",
+            "--locked",
+            "ruff",
+            "check",
+            "--output-format=json",
+            *flags,
+            *paths,
+        ],
         label,
     )
     if result.returncode not in {0, 1}:

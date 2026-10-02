@@ -217,11 +217,11 @@ def test_embedded_python_rejects_newer_syntax(
     (lint_repo / "normal.py").write_text("type Value = int\n")
     assert not lint.run(
         context(lint_repo), [Path("embedded.py"), Path("normal.py")], fix=False
-    )
+    ).ok
     output = capsys.readouterr().out
     assert f"embedded.py:1: {rule}:" in output
     assert f"normal.py:1: {rule}:" not in output
     (lint_repo / "embedded.py").write_text("value: int = 1\n")
     assert lint.run(
         context(lint_repo), [Path("embedded.py"), Path("normal.py")], fix=False
-    )
+    ).ok
