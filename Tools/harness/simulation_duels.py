@@ -1,0 +1,214 @@
+"""Report complete duel matrices and design-rule evidence, never synthetic wins."""
+
+from __future__ import annotations
+
+from collections import Counter, defaultdict
+import json
+from pathlib import Path
+
+from harness.simulation_duel_rules import COUNTERS, DESIGN_SOURCE, evaluate_group
+from harness.simulation_duel_validation import DUEL_BUDGET, definitions
+from harness.simulation_evidence import save_json
+from harness.simulation_report import load_results
+from harness.verify import JsonObject
+
+
+def job_identity(job: JsonObject) -> str:
+    return json.dumps(job, sort_keys=True, allow_nan=False)
+
+
+def group_identity(job: JsonObject) -> tuple[str, float, float]:
+    return job["map"], job["dilation"], job["time_cap"]
+
+
+def report_group(lines: list[str], group: JsonObject) -> None:
+    lines += [
+        "",
+        f"## {group['map']} — {group['dilation']:g}x",
+        "",
+        f"Seeds: {group['complete_seeds']} complete / {group['requested_seeds']} requested. "
+        f"Balance: **{group['balance_status'].upper()}**.",
+        "",
+        "### Runtime definitions",
+        "",
+        "| Id / design name | Unit cost | Capacity | HP | Damage | Interval | Range |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in group["unit_definitions"]:
+        name = COUNTERS.get(row["id"], {}).get("name", "unmapped")
+        lines.append(
+            f"| {row['id']} / {name} | {row['cost']:g} | {row['capacity']:g} | "
+            f"{row['health']:g} | {row['damage']:g} | {row['attack_interval']:g} | {row['range']:g} |"
+        )
+    report_matrix(lines, group)
+    report_rules(lines, group)
+    report_combat(lines, group)
+
+
+def report_matrix(lines: list[str], group: JsonObject) -> None:
+    lines += [
+        "",
+        "### Ordered win-rate matrix",
+        "",
+        "Each cell reports left/team 0 and right/team 5 separately; wins only, draws in denominator.",
+        "",
+        "| Left | Right | Duels | Team 0 wins | Team 5 wins | Draws | Team 0 - team 5 |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in group["matrix"]:
+        rates = [
+            f"{value:.1%}" if value is not None else "unmeasured"
+            for value in row["win_rates"]
+        ]
+        bias = (
+            f"{row['side_bias']:+.1%}" if row["side_bias"] is not None else "unmeasured"
+        )
+        lines.append(
+            f"| {row['left']} | {row['right']} | {row['duels']} | "
+            f"{row['wins'][0]} ({rates[0]}) | {row['wins'][1]} ({rates[1]}) | {row['draws']} | {bias} |"
+        )
+
+
+def report_rules(lines: list[str], group: JsonObject) -> None:
+    lines += [
+        "",
+        "### Acceptance rules",
+        "",
+        "Prey/predator rates combine the unit's two ordered sides against that opponent. "
+        "Mirror rules require both side win rates in 45..55%; the matrix shows mirror side bias. "
+        "Missing requested seeds invalidate all rule passes.",
+        "",
+    ]
+    for row in group["rules"]:
+        evidence = {
+            key: value for key, value in row.items() if key not in ("rule", "status")
+        }
+        lines.append(
+            f"- **{row['status'].upper()}** `{row['rule']}`: `{json.dumps(evidence, sort_keys=True)}`"
+        )
+
+
+def report_combat(lines: list[str], group: JsonObject) -> None:
+    lines += [
+        "",
+        "### Per-seed combat evidence",
+        "",
+        "Pairs list [team 0, team 5]. Spent excludes configuration fees; damage is effective HP removed.",
+        "",
+        "| Seed | Left / right | Spent | Initial units | Survivors | Survivor Power | Damage | Attacks | Seconds | Outcome / winner |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
+    ]
+    for row in group["telemetry"]:
+        lines.append(
+            f"| {row['seed']} | {row['left']} / {row['right']} | {row['spent']} | "
+            f"{row['initial_units']} | {row['survivors']} | {row['survivor_power']} | "
+            f"{row['damage_dealt']} | {row['attacks']} | {row['duration']:g} | {row['outcome']} / {row['winner']} |"
+        )
+
+
+def collect_results(
+    run: Path,
+    manifest: JsonObject,
+) -> tuple[dict[tuple[str, float, float], list[JsonObject]], list[JsonObject], int]:
+    valid, failed = load_results(run, manifest)
+    planned = manifest["planned_jobs"]
+    expected = Counter(job_identity(job) for job in planned)
+    accepted: Counter[str] = Counter()
+    groups: dict[tuple[str, float, float], list[JsonObject]] = defaultdict(list)
+    if not planned or any(n != 1 for n in expected.values()):
+        failed.append(dict(status="failed", error="No unique planned duel seed jobs"))
+    for record, report in valid:
+        identity = job_identity(record["job"])
+        key = group_identity(record["job"])
+        if expected[identity] != 1 or accepted[identity]:
+            failed.append(
+                dict(
+                    record,
+                    status="failed",
+                    error="Unexpected or duplicate duel seed job",
+                )
+            )
+            continue
+        if groups[key] and definitions(groups[key][0]) != definitions(report):
+            failed.append(
+                dict(
+                    record,
+                    status="failed",
+                    error="Runtime definitions changed between seed processes",
+                )
+            )
+            continue
+        accepted[identity] += 1
+        groups[key].append(report)
+    missing = sum((expected - accepted).values())
+    return groups, failed, missing
+
+
+def report_header(complete: int, failed: int, missing: int) -> list[str]:
+    return [
+        "# Combat duel matrix report",
+        "",
+        f"Design source: `{DESIGN_SOURCE}` — Who beats whom and Acceptance check.",
+        f"Budget: **{DUEL_BUDGET} Power per side**, whole units; configuration fees excluded.",
+        "Support composition scenarios are explicitly out of scope, not a passing support rule.",
+        "Worth = (1 + own surviving Power / own spent - enemy surviving Power / enemy spent) / 2; "
+        "unit worth is the mean across nonmirror opponents, ordered sides and seeds. Maximum/minimum must be ≤1.25.",
+        "Maps are summarized separately, never pooled. Seed variation is not proof of independent statistical samples.",
+        "Balance failures are measurements and do not invalidate successful engine runs. "
+        "Failed/nonzero-exit/incomplete telemetry never counts as a draw.",
+        "",
+        f"Complete seed processes: **{complete}**; failed/interrupted: **{failed}**; "
+        f"missing requested seed processes: **{missing}**.",
+    ]
+
+
+def summarize_duels(run: Path, manifest: JsonObject) -> bool:
+    groups, failed, missing = collect_results(run, manifest)
+    planned = manifest["planned_jobs"]
+    requests: dict[tuple[str, float, float], list[int]] = defaultdict(list)
+    for job in planned:
+        requests[group_identity(job)].append(job["seed"])
+    lines = report_header(
+        sum(len(rows) for rows in groups.values()), len(failed), missing
+    )
+    summaries = []
+    for key, seeds in sorted(requests.items()):
+        reports = groups[key]
+        measured_seeds = sorted(report["seed"] for report in reports)
+        complete = measured_seeds == sorted(seeds) and len(set(seeds)) == len(seeds)
+        group = dict(
+            map=key[0],
+            dilation=key[1],
+            time_cap=key[2],
+            requested_seeds=sorted(seeds),
+            complete_seeds=measured_seeds,
+            total_duration=sum(report["duration"] for report in reports),
+            **evaluate_group(reports, complete),
+        )
+        summaries.append(group)
+        report_group(lines, group)
+    if failed or missing:
+        lines += ["", "## Runtime failures", ""]
+        for row in failed:
+            lines.append(
+                f"- {row.get('directory', 'run')}: {row.get('error', row['status'])}"
+            )
+        if missing:
+            lines.append(
+                f"- {missing} planned seed processes have no valid complete matrix."
+            )
+    success = not failed and not missing and bool(planned)
+    save_json(
+        run / "summary.json",
+        dict(
+            mode="duel",
+            source=DESIGN_SOURCE,
+            runtime_status="pass" if success else "fail",
+            support_compositions="out_of_scope",
+            groups=summaries,
+            failures=failed,
+            missing_seed_processes=missing,
+        ),
+    )
+    (run / "Report.md").write_text("\n".join(lines) + "\n")
+    return success

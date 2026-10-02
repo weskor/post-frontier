@@ -174,9 +174,13 @@ Groundbreaker's 3rd branch comes in the first unlock batch.
 
 ## Acceptance check
 
-Run equal-cost fights in the simulation harness. A new duel and composition scenario is needed, and it is built **before** any stat is committed.
+[Built] The combat duel harness runs every ordered pair of runtime combat definitions, including mirrors, in verified open ground on the requested map. Fresh squads use real Attack combat, without JEV, production, income, capture, HQ targets or Workshop specializations; each fight ends on a wipe or its game-time cap. Seeds vary spawn jitter and orientation. [New] Support composition scenarios remain required before support stats are committed.
 
-- **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix.
-- **Support units:** tested in compositions, e.g. Scrambler + Rifle against Lancer at equal cost. Adding the support unit must raise the win rate against its target by ≥20 points.
-- Mirror matches are 50% ±5%.
-- No full squad of one type is worth more than 1.25× another at equal cost, and **no squad leads on both HP and DPS per Power**.
+- [Change] **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix. [Built] The report combines both ordered sides against the opponent; draws remain in the denominator and are not half-wins.
+- [New] **Support units:** tested in compositions, e.g. Scrambler + Rifle against Lancer at equal cost. Adding the support unit must raise the win rate against its target by ≥20 points.
+- [Change] Mirror matches are 50% ±5%. [Built] The report checks each side's win rate separately and exposes side bias; draws remain in the denominator.
+- [Change] No full squad of one type is worth more than 1.25× another at equal cost, and **no squad leads on both HP and DPS per Power**.
+- [Built] **Operational budget:** 120 Power per side, whole units only (`floor(120 / unit cost)`); one-time configuration fees are excluded. Unspent remainder is not converted into units or damage. The report records actual spent Power and survivors' full unit-cost value, not HP-weighted value.
+- [Built] **Operational worth:** each side's duel score is `(1 + own surviving Power / own spent Power − enemy surviving Power / enemy spent Power) / 2`. A unit's worth is its mean score over all non-mirror opponents, both ordered sides and seeds. The roster rule passes when maximum worth / minimum worth ≤1.25; zero minimum worth fails. This is an overall roster comparison, not a restriction on counter-matchup margins.
+- [Built] **Definition check:** HP per Power is maximum HP / unit cost; DPS per Power is damage / attack interval / unit cost. Strictly leading on both metrics fails; a tie on either does not.
+- [Built] Every combat rule is reported as pass/fail; missing or invalid seed matrices cannot pass. Failed balance rules are measurements, not invalid engine runs. Support compositions are explicitly unmeasured. Procedures: [`./x help sim`](../../x); dated measurements and report interpretation: [Balance.md](../Balance.md).

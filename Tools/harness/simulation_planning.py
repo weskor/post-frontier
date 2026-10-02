@@ -53,6 +53,10 @@ def parse_variant(text: str) -> tuple[str, dict[str, int]]:
 
 
 def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.duel and (args.variant or args.matrix or args.compare_dilation is not None):
+        parser.error(
+            "--duel cannot use economy --variant, --matrix or --compare-dilation"
+        )
     if args.matches <= 0 or not 0 <= args.seed <= 2147483647 - args.matches + 1:
         parser.error("matches must be positive and seeds within signed int32")
     if any(
@@ -85,13 +89,26 @@ def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) 
 def plan_jobs(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> list[JsonObject]:
-    maps = args.maps or [MAP_V2, MAP_V1]
+    maps = args.maps or ([MAP_V2] if args.duel else [MAP_V2, MAP_V1])
     if len(set(maps)) != len(maps) or any(
         not re.fullmatch(r"/Game/[A-Za-z0-9_/]+", name) for name in maps
     ):
         parser.error(
             "Maps must be unique /Game/... package paths without URL options or extensions"
         )
+    if args.duel:
+        return [
+            dict(
+                mode="duel",
+                map=map_name,
+                variant="duel",
+                seed=seed,
+                dilation=args.dilation,
+                time_cap=args.time_cap,
+            )
+            for map_name in maps
+            for seed in range(args.seed, args.seed + args.matches)
+        ]
     variants = args.variant or [parse_variant("baseline2")]
     if len({name for name, _ in variants}) != len(variants):
         parser.error("Variant names must be unique")

@@ -37,6 +37,11 @@ def number(value: object, label: str) -> float:
 
 
 def validate_report(report: JsonObject, job: JsonObject) -> None:
+    if job.get("mode") == "duel":
+        from harness.simulation_duel_validation import validate_duel_report
+
+        validate_duel_report(report, job)
+        return
     if report.get("schema_version") != 1 or report.get("status") != "complete":
         raise ValueError(
             f"No complete schema-1 result: status={report.get('status')}, error={report.get('error')}"

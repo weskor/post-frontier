@@ -41,6 +41,7 @@ def main() -> int:
     run = Path(os.environ["X_RUN_DIR"]).resolve()
     manifest: JsonObject = dict(
         schema_version=1,
+        mode="duel" if args.duel else "match",
         created=dt.datetime.now(dt.UTC).isoformat(),
         artifacts=artifacts,
         planned_jobs=jobs,

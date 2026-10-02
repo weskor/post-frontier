@@ -10,8 +10,70 @@ class ACommandPlayerState;
 class ADepositSite;
 class AEnemyCommander;
 class FJsonObject;
+class AArmyGroup;
+class AHeadquarters;
+class AActor;
 
-// Standalone AI-vs-AI only. No simulation subsystem exists in ordinary play.
+// Shared authoritative encounter runner for standalone measurement and worlds.
+class COOPRTS_API FSimulationDuelRunner
+{
+public:
+	FSimulationDuelRunner();
+	~FSimulationDuelRunner();
+	FSimulationDuelRunner(const FSimulationDuelRunner&) = delete;
+	FSimulationDuelRunner& operator=(const FSimulationDuelRunner&) = delete;
+	bool Start(ACommandGameState& State, int32 Seed);
+	void Tick(float DeltaTime, float TimeCap);
+	bool IsComplete() const { return bComplete; }
+	const FString& GetError() const { return Error; }
+	TSharedRef<FJsonObject> GetReport() const;
+
+private:
+	struct FMember
+	{
+		TWeakObjectPtr<AArmyUnit> Unit;
+		int32 Side = 0;
+		int32 Health = 0;
+		uint32 Attacks = 0;
+	};
+	struct FPausedActor
+	{
+		TWeakObjectPtr<AActor> Actor;
+		bool bTickEnabled = false;
+	};
+	bool FindGround();
+	bool StartPair();
+	void Observe();
+	void UpdateRow() const;
+	void ClearPair();
+	void PauseActor(AActor& Actor);
+	void RestoreHeadquarters();
+	TWeakObjectPtr<ACommandGameState> State;
+	TWeakObjectPtr<ACommandPlayerState> Wallets[2];
+	TWeakObjectPtr<AHeadquarters> Headquarters[2];
+	bool HQCollision[2] = {};
+	TArray<int32> Definitions;
+	TArray<TWeakObjectPtr<AArmyGroup>> Groups;
+	TArray<FMember> Members;
+	TArray<FPausedActor> PausedActors;
+	TSharedRef<FJsonObject> Report;
+	TSharedPtr<FJsonObject> Current;
+	FRandomStream Random;
+	FVector Center = FVector::ZeroVector;
+	int32 PairIndex = 0;
+	int32 Initial[2] = {};
+	int32 Spent[2] = {};
+	int32 Survivors[2] = {};
+	int64 Damage[2] = {};
+	int64 Attacks[2] = {};
+	double Elapsed = 0.;
+	double TotalElapsed = 0.;
+	bool bStarted = false;
+	bool bComplete = false;
+	FString Error;
+};
+
+// Explicit standalone match/duel opt-in only; absent from ordinary play.
 UCLASS()
 class COOPRTS_API UMatchSimulationSubsystem : public UTickableWorldSubsystem
 {
@@ -37,6 +99,7 @@ private:
 	bool Flush();
 	void Finish(const TCHAR* Status, const TCHAR* Outcome, int32 Winner, const FString& Error = FString());
 	TSharedPtr<FJsonObject> Report;
+	TUniquePtr<FSimulationDuelRunner> DuelRunner;
 	TWeakObjectPtr<ACommandPlayerState> HumanCommander;
 	TWeakObjectPtr<AEnemyCommander> Autopilot;
 	TMap<TWeakObjectPtr<AArmyUnit>, FObservedUnit> ObservedUnits;

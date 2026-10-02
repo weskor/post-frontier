@@ -69,7 +69,7 @@ def command(args: argparse.Namespace, job: JsonObject, output: Path) -> list[str
         "-nosplash",
         "-unattended",
         "-nosteam",
-        "-autopilot",
+        "-SimDuel" if job.get("mode") == "duel" else "-autopilot",
         f"-SimSeed={job['seed']}",
         f"-SimTimeCap={job['time_cap']}",
         f"-SimDilation={job['dilation']}",
@@ -77,9 +77,10 @@ def command(args: argparse.Namespace, job: JsonObject, output: Path) -> list[str
         f"-abslog={output.parent / 'game.log'}",
         "-ExecCmds=t.MaxFPS 0",
     ]
-    result += [
-        f"-{ECONOMY_FLAGS[key]}={value}" for key, value in job["economy"].items()
-    ]
+    if job.get("mode") != "duel":
+        result += [
+            f"-{ECONOMY_FLAGS[key]}={value}" for key, value in job["economy"].items()
+        ]
     return result
 
 

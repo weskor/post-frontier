@@ -8,6 +8,7 @@ class UWorld;
 struct FSimulationSettings
 {
 	bool bEnabled = false;
+	bool bDuel = false;
 	int32 Seed = 1;
 	int32 BaselineIncome = 2;
 	int32 NormalRate = 4;

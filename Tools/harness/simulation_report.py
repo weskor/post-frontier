@@ -185,6 +185,16 @@ def report_tail(
 
 
 def summarize(run: Path, manifest: JsonObject) -> bool:
+    if manifest.get("mode") == "duel" or any(
+        job.get("mode") == "duel" for job in manifest["planned_jobs"]
+    ):
+        from harness.simulation_duels import summarize_duels
+
+        return summarize_duels(run, manifest)
+    return _summarize_matches(run, manifest)
+
+
+def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
     valid, failed = load_results(run, manifest)
     groups: collections.defaultdict[GroupKey, list[JsonObject]] = (
         collections.defaultdict(list)

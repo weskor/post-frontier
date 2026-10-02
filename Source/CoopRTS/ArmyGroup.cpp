@@ -187,6 +187,45 @@ bool AArmyGroup::SpawnUnits()
 	ForceNetUpdate();
 	return true;
 }
+
+AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot)
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
+	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
+		|| !Definition || IsValid(ProductionBuilding) || CompositionSlot < 0
+		|| !IsValid(OwningPlayerState) || OwningPlayerState->GetWorld() != GetWorld()
+		|| OwningPlayerState->TeamIndex != TeamIndex
+		|| (TeamIndex == 0 ? OwningPlayerState->CommanderIndex < 0 || OwningPlayerState->CommanderIndex >= 5
+						   : TeamIndex != 5 || OwningPlayerState != State->EnemyCommander)
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation))
+		return nullptr;
+	for (const AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == CompositionSlot)
+			return nullptr;
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	FNavLocation Ground;
+	if (!Navigation || !Navigation->ProjectPointToNavigation(SpawnLocation, Ground, FVector(10.f, 10.f, 200.f))
+		|| FVector::DistSquared2D(SpawnLocation, Ground.Location) > FMath::Square(10.f)
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), Ground.Location))
+		return nullptr;
+	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, 65.f));
+	AArmyUnit* Unit = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
+		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+	if (!Unit)
+		return nullptr;
+	Unit->Initialize(this, TeamIndex, OwningPlayerState->CommanderIndex, ArmyIndex,
+		CompositionSlot, UnitIndex, const_cast<UArmyUnitDefinition*>(Definition), false);
+	Unit->FinishSpawning(Transform);
+	if (!IsValid(Unit) || !GetReadyController(Unit))
+	{
+		DestroyUnit(Unit);
+		return nullptr;
+	}
+	Units.Add(Unit);
+	ForceNetUpdate();
+	return Unit;
+}
 bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;

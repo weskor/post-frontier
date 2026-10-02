@@ -30,7 +30,8 @@ const FSimulationSettings& FSimulationSettings::Get()
 {
 	static const FSimulationSettings Settings = [] {
 		FSimulationSettings Result;
-		Result.bEnabled = FParse::Param(FCommandLine::Get(), TEXT("autopilot"));
+		Result.bDuel = FParse::Param(FCommandLine::Get(), TEXT("SimDuel"));
+		Result.bEnabled = Result.bDuel || FParse::Param(FCommandLine::Get(), TEXT("autopilot"));
 		if (!Result.bEnabled)
 			return Result;
 		ReadNumber(TEXT("SimSeed="), Result.Seed, 0, MAX_int32, Result.Error);
@@ -43,7 +44,7 @@ const FSimulationSettings& FSimulationSettings::Get()
 		ReadNumber(TEXT("SimDilation="), Result.Dilation, 1.f, 32.f, Result.Error);
 		FParse::Value(FCommandLine::Get(), TEXT("SimOutput="), Result.Output);
 		if (Result.Output.IsEmpty())
-			Result.Error = TEXT("-autopilot requires -SimOutput=<absolute JSON path>");
+			Result.Error = TEXT("Simulation requires -SimOutput=<absolute JSON path>");
 		return Result;
 	}();
 	return Settings;

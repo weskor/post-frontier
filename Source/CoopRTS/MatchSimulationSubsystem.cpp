@@ -1,6 +1,7 @@
 #include "MatchSimulationSubsystem.h"
 
 #include "ArenaBounds.h"
+#include "CapturePoint.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
@@ -17,6 +18,8 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
+#include "GameFramework/GameModeBase.h"
+#include "NavigationSystem.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "HAL/PlatformTime.h"
@@ -47,6 +50,431 @@ void Append(FJsonObject& Object, const TCHAR* Field, const TSharedRef<FJsonObjec
 }
 }
 
+namespace
+{
+constexpr int32 DuelBudget = 120;
+constexpr float DuelClearance = 1200.f;
+constexpr float DuelSpacing = 80.f;
+constexpr float DuelJitter = 5.f;
+
+// Json's number storage is protected; expose mutation for encounter-owned values
+// so live telemetry observations do not allocate replacement fields each frame.
+class FDuelNumber : public FJsonValueNumber
+{
+public:
+	explicit FDuelNumber(double Number) : FJsonValueNumber(Number) {}
+	void Set(double Number) { Value = Number; }
+};
+
+TArray<TSharedPtr<FJsonValue>> Numbers(double Left, double Right)
+{
+	return { MakeShared<FDuelNumber>(Left), MakeShared<FDuelNumber>(Right) };
+}
+
+void UpdateNumbers(FJsonObject& Row, const FString& Field, double Left, double Right)
+{
+	const TArray<TSharedPtr<FJsonValue>>& Values = Row.GetArrayField(Field);
+	StaticCastSharedPtr<FDuelNumber>(Values[0])->Set(Left);
+	StaticCastSharedPtr<FDuelNumber>(Values[1])->Set(Right);
+}
+}
+
+FSimulationDuelRunner::FSimulationDuelRunner()
+	: Report(MakeShared<FJsonObject>())
+{
+	Report->SetStringField(TEXT("mode"), TEXT("duel"));
+	Report->SetStringField(TEXT("status"), TEXT("initializing"));
+	Report->SetStringField(TEXT("outcome"), TEXT("none"));
+	Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
+	Report->SetField(TEXT("duration"), MakeShared<FDuelNumber>(0.));
+	Report->SetNumberField(TEXT("budget_per_side"), DuelBudget);
+	Report->SetBoolField(TEXT("configuration_fees_included"), false);
+	Report->SetArrayField(TEXT("unit_definitions"), {});
+	Report->SetArrayField(TEXT("duels"), {});
+}
+
+FSimulationDuelRunner::~FSimulationDuelRunner()
+{
+	ClearPair();
+	RestoreHeadquarters();
+}
+
+bool FSimulationDuelRunner::Start(ACommandGameState& InState, int32 Seed)
+{
+	if (bStarted)
+	{
+		Error = TEXT("Duel runner cannot be started twice");
+		return false;
+	}
+	UWorld* World = InState.GetWorld();
+	if (!World || World->GetNetMode() != NM_Standalone || !InState.HasAuthority()
+		|| !IsValid(InState.Content) || !IsValid(InState.Arena)
+		|| !IsValid(InState.FriendlyHeadquarters) || !IsValid(InState.EnemyHeadquarters)
+		|| !IsValid(InState.EnemyCommander) || InState.MatchResult != EMatchResult::Ongoing)
+	{
+		Error = TEXT("Duel requires an initialized authoritative standalone map");
+		return false;
+	}
+	State = &InState;
+	Wallets[1] = InState.EnemyCommander;
+	for (APlayerState* Player : InState.PlayerArray)
+		if (ACommandPlayerState* Wallet = Cast<ACommandPlayerState>(Player))
+			if (Wallet->TeamIndex == 0 && Wallet->CommanderIndex >= 0 && Wallet->CommanderIndex < 5)
+			{
+				Wallets[0] = Wallet;
+				break;
+			}
+	if (!Wallets[0].IsValid())
+	{
+		Error = TEXT("Duel requires an initialized team-0 wallet");
+		return false;
+	}
+	TArray<TSharedPtr<FJsonValue>> Rows;
+	TSet<FName> Ids;
+	for (int32 Index = 0; Index < InState.Content->Units.Num(); ++Index)
+	{
+		const UArmyUnitDefinition* Definition = InState.Content->Unit(Index);
+		if (!IsValid(Definition))
+			continue;
+		if (Definition->Id.IsNone() || Ids.Contains(Definition->Id) || Definition->UnitCost <= 0
+			|| Definition->UnitCost > DuelBudget || Definition->MaxHealth <= 0 || Definition->AttackDamage <= 0
+			|| !FMath::IsFinite(Definition->Interval) || Definition->Interval <= 0.f
+			|| !FMath::IsFinite(Definition->Range) || Definition->Range <= 0.f)
+		{
+			Error = TEXT("Combat catalogue contains duplicate identities or invalid duel definitions");
+			return false;
+		}
+		Ids.Add(Definition->Id);
+		Definitions.Add(Index);
+		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
+		Row->SetStringField(TEXT("id"), Definition->Id.ToString());
+		Row->SetNumberField(TEXT("cost"), Definition->UnitCost);
+		Row->SetNumberField(TEXT("capacity"), Definition->Capacity);
+		Row->SetNumberField(TEXT("health"), Definition->MaxHealth);
+		Row->SetNumberField(TEXT("damage"), Definition->AttackDamage);
+		Row->SetNumberField(TEXT("attack_interval"), Definition->Interval);
+		Row->SetNumberField(TEXT("range"), Definition->Range);
+		Rows.Add(MakeShared<FJsonValueObject>(Row));
+	}
+	if (Definitions.IsEmpty())
+	{
+		Error = TEXT("Combat catalogue is empty");
+		return false;
+	}
+	bStarted = true;
+	Random.Initialize(Seed);
+	Report->SetNumberField(TEXT("seed"), Seed);
+	Report->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(World->GetOutermost()->GetName()));
+	Report->SetArrayField(TEXT("unit_definitions"), MoveTemp(Rows));
+	// Remove every independent source of orders, paid production and capture.
+	for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+		It->Destroy();
+	for (TActorIterator<AArmyGroup> It(World); It; ++It)
+		It->Destroy();
+	for (TActorIterator<AArmyUnit> It(World); It; ++It)
+	{
+		if (AController* Controller = It->GetController())
+			Controller->Destroy();
+		It->Destroy();
+	}
+	for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+		It->Destroy();
+	InState.Buildings.Reset();
+	for (TActorIterator<ACapturePoint> It(World); It; ++It)
+		PauseActor(**It);
+	PauseActor(InState);
+	if (AGameModeBase* Mode = World->GetAuthGameMode())
+		PauseActor(*Mode);
+	for (int32 Side = 0; Side < 2; ++Side)
+		Wallets[Side]->Doctrine = EArmyDoctrine::None;
+	Headquarters[0] = InState.FriendlyHeadquarters;
+	Headquarters[1] = InState.EnemyHeadquarters;
+	for (int32 Side = 0; Side < 2; ++Side)
+	{
+		HQCollision[Side] = Headquarters[Side]->GetActorEnableCollision();
+		Headquarters[Side]->SetActorEnableCollision(false);
+	}
+	// Unregistered HQs cannot be selected by CombatTarget; health is untouched.
+	InState.FriendlyHeadquarters = nullptr;
+	InState.EnemyHeadquarters = nullptr;
+	if (!FindGround() || !StartPair())
+	{
+		ClearPair();
+		RestoreHeadquarters();
+		return false;
+	}
+	Report->SetStringField(TEXT("status"), TEXT("running"));
+	return true;
+}
+
+bool FSimulationDuelRunner::FindGround()
+{
+	UWorld* World = State->GetWorld();
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	const ANavigationData* NavData = Navigation
+		? Navigation->GetNavDataForProps(GetDefault<AArmyUnit>()->GetNavAgentPropertiesRef())
+		: nullptr;
+	if (!Navigation || !NavData)
+	{
+		Error = TEXT("Duel map navigation is unavailable");
+		return false;
+	}
+	const FVector2D Extent = State->Arena->HalfExtent;
+	TArray<FVector> Candidates;
+	for (float X = -Extent.X + DuelClearance; X <= Extent.X - DuelClearance; X += 400.f)
+		for (float Y = -Extent.Y + DuelClearance; Y <= Extent.Y - DuelClearance; Y += 400.f)
+			Candidates.Add(FVector(X, Y, 0.f));
+	Candidates.Sort([](const FVector& A, const FVector& B) { return A.SizeSquared2D() < B.SizeSquared2D(); });
+	for (const FVector& Candidate : Candidates)
+	{
+		FNavLocation Ground;
+		if (!Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(5.f, 5.f, 200.f), NavData)
+			|| FVector::DistSquared2D(Candidate, Ground.Location) > 25.f
+			|| World->OverlapBlockingTestByChannel(Ground.Location + FVector(0.f, 0.f, 100.f),
+				FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(DuelClearance, DuelClearance, 60.f))))
+			continue;
+		bool bOpen = true;
+		// Dense projection plus unobstructed nav rays and whole-area collision
+		// reject holes, walls, ledges and narrow corridors, not merely spawn points.
+		for (float X = -DuelClearance; bOpen && X <= DuelClearance; X += 100.f)
+			for (float Y = -DuelClearance; bOpen && Y <= DuelClearance; Y += 100.f)
+			{
+				const FVector Sample = Ground.Location + FVector(X, Y, 0.f);
+				FNavLocation Projected;
+				FVector Hit;
+				bOpen = State->Arena->ContainsTravel(Sample)
+					&& Navigation->ProjectPointToNavigation(Sample, Projected, FVector(5.f, 5.f, 30.f), NavData)
+					&& FVector::DistSquared2D(Sample, Projected.Location) <= 25.f
+					&& FMath::Abs(Projected.Location.Z - Ground.Location.Z) <= 10.f
+					&& !Navigation->NavigationRaycast(World, Ground.Location, Projected.Location, Hit);
+			}
+		if (!bOpen)
+			continue;
+		Center = Ground.Location;
+		const TSharedRef<FJsonObject> Geometry = MakeShared<FJsonObject>();
+		Geometry->SetArrayField(TEXT("center"), Position(Center));
+		Geometry->SetNumberField(TEXT("open_half_extent"), DuelClearance);
+		Geometry->SetNumberField(TEXT("navigation_sample_spacing"), 100.f);
+		Geometry->SetNumberField(TEXT("spawn_spacing"), DuelSpacing);
+		Geometry->SetNumberField(TEXT("spawn_jitter"), DuelJitter);
+		Geometry->SetNumberField(TEXT("squad_center_separation"), 1000.f);
+		Geometry->SetNumberField(TEXT("pursuit_radius"), AArmyGroup::PursuitRadius);
+		Geometry->SetStringField(TEXT("verification"), TEXT("whole-area pawn collision; dense nav projection and center rays"));
+		Report->SetObjectField(TEXT("geometry"), Geometry);
+		return true;
+	}
+	Error = TEXT("Map has no verified obstacle-free duel area");
+	return false;
+}
+
+bool FSimulationDuelRunner::StartPair()
+{
+	Elapsed = 0.;
+	Current = MakeShared<FJsonObject>();
+	const int32 Count = Definitions.Num();
+	const int32 Indices[2] = { Definitions[PairIndex / Count], Definitions[PairIndex % Count] };
+	TArray<TSharedPtr<FJsonValue>> Spawns[2];
+	const float Angle = Random.FRandRange(0.f, 2.f * PI);
+	const FVector Forward(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
+	const FVector Across(-Forward.Y, Forward.X, 0.f);
+	Current->SetNumberField(TEXT("spawn_angle_radians"), Angle);
+	for (int32 Side = 0; Side < 2; ++Side)
+	{
+		const UArmyUnitDefinition* Definition = State->Content->Unit(Indices[Side]);
+		Initial[Side] = DuelBudget / Definition->UnitCost;
+		Spent[Side] = Initial[Side] * Definition->UnitCost;
+		Survivors[Side] = Initial[Side];
+		Damage[Side] = Attacks[Side] = 0;
+		Current->SetStringField(Side == 0 ? TEXT("left") : TEXT("right"), Definition->Id.ToString());
+		const int32 Columns = FMath::CeilToInt(FMath::Sqrt(static_cast<float>(Initial[Side])));
+		const int32 Rows = FMath::DivideAndRoundUp(Initial[Side], Columns);
+		AArmyGroup* Group = nullptr;
+		for (int32 Index = 0; Index < Initial[Side]; ++Index)
+		{
+			const float Sign = Side == 0 ? -1.f : 1.f;
+			const float X = Sign * (500.f + ((Index % Columns) - (Columns - 1) * .5f) * DuelSpacing);
+			const float Y = ((Index / Columns) - (Rows - 1) * .5f) * DuelSpacing;
+			const FVector Spawn = Center + Forward * (X + Random.FRandRange(-DuelJitter, DuelJitter))
+				+ Across * (Y + Random.FRandRange(-DuelJitter, DuelJitter));
+			// Six-slot legacy formations are separate groups, never a squad cap.
+			if (Index % 6 == 0)
+			{
+				const FTransform Transform(Spawn);
+				Group = State->GetWorld()->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
+					nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+				if (!Group)
+				{
+					Error = TEXT("Could not spawn duel group");
+					return false;
+				}
+				Group->Initialize({ Side == 0 ? 0 : 5, Wallets[Side].Get(), Index / 6, nullptr, Spawn });
+				Group->FinishSpawning(Transform);
+				Groups.Add(Group);
+			}
+			AArmyUnit* Unit = Group->SpawnMember(Indices[Side], Spawn, Index % 6);
+			if (!Unit)
+			{
+				Error = TEXT("Could not spawn a joined duel member on verified ground");
+				return false;
+			}
+			Members.Add({ Unit, Side, Unit->GetHealth(), Unit->AttackCount });
+			Spawns[Side].Add(MakeShared<FJsonValueArray>(Position(Unit->GetActorLocation())));
+		}
+	}
+	for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
+		if (!Group->IssueAttack(Center, nullptr))
+		{
+			Error = TEXT("Duel group rejected its real Attack order");
+			return false;
+		}
+	Current->SetArrayField(TEXT("spent"), Numbers(Spent[0], Spent[1]));
+	Current->SetArrayField(TEXT("initial_units"), Numbers(Initial[0], Initial[1]));
+	Current->SetArrayField(TEXT("survivors"), Numbers(Survivors[0], Survivors[1]));
+	Current->SetArrayField(TEXT("survivor_power"), Numbers(Spent[0], Spent[1]));
+	Current->SetArrayField(TEXT("damage_dealt"), Numbers(0, 0));
+	Current->SetArrayField(TEXT("attacks"), Numbers(0, 0));
+	Current->SetArrayField(TEXT("spawn_positions_left"), MoveTemp(Spawns[0]));
+	Current->SetArrayField(TEXT("spawn_positions_right"), MoveTemp(Spawns[1]));
+	Current->SetField(TEXT("duration"), MakeShared<FDuelNumber>(0.));
+	Current->SetStringField(TEXT("outcome"), TEXT("running"));
+	Current->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
+	Report->SetObjectField(TEXT("current_duel"), Current.ToSharedRef());
+	return true;
+}
+
+void FSimulationDuelRunner::Observe()
+{
+	Survivors[0] = Survivors[1] = 0;
+	for (FMember& Member : Members)
+	{
+		if (AArmyUnit* Unit = Member.Unit.Get())
+		{
+			const int32 Health = Unit->GetHealth();
+			Damage[1 - Member.Side] += FMath::Max(0, Member.Health - Health);
+			Attacks[Member.Side] += Unit->AttackCount - Member.Attacks;
+			Member.Health = Health;
+			Member.Attacks = Unit->AttackCount;
+			Survivors[Member.Side] += Unit->IsAlive() ? 1 : 0;
+		}
+		else if (Member.Health > 0)
+			Error = TEXT("Live duel member disappeared without an observed combat death");
+	}
+}
+
+void FSimulationDuelRunner::UpdateRow() const
+{
+	if (!Current.IsValid() || !Error.IsEmpty())
+		return;
+	static const FString SurvivorsField(TEXT("survivors"));
+	static const FString PowerField(TEXT("survivor_power"));
+	static const FString DamageField(TEXT("damage_dealt"));
+	static const FString AttacksField(TEXT("attacks"));
+	static const FString DurationField(TEXT("duration"));
+	UpdateNumbers(*Current, SurvivorsField, Survivors[0], Survivors[1]);
+	UpdateNumbers(*Current, PowerField,
+		Survivors[0] * (Spent[0] / Initial[0]), Survivors[1] * (Spent[1] / Initial[1]));
+	UpdateNumbers(*Current, DamageField, Damage[0], Damage[1]);
+	UpdateNumbers(*Current, AttacksField, Attacks[0], Attacks[1]);
+	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(DurationField))->Set(Elapsed);
+	StaticCastSharedPtr<FDuelNumber>(Report->GetField<EJson::Number>(DurationField))->Set(TotalElapsed);
+}
+
+TSharedRef<FJsonObject> FSimulationDuelRunner::GetReport() const
+{
+	UpdateRow();
+	return Report;
+}
+
+void FSimulationDuelRunner::Tick(float DeltaTime, float TimeCap)
+{
+	if (!bStarted || bComplete || !Error.IsEmpty())
+		return;
+	if (!State.IsValid() || !Wallets[0].IsValid() || !Wallets[1].IsValid()
+		|| !FMath::IsFinite(DeltaTime) || DeltaTime <= 0.f || !FMath::IsFinite(TimeCap) || TimeCap <= 0.f)
+	{
+		Error = TEXT("Duel lost its world/wallet or received invalid elapsed time/cap");
+		return;
+	}
+	if (Elapsed == 0.)
+	{
+		Current->SetNumberField(TEXT("time_cap_seconds"), TimeCap);
+		Report->SetNumberField(TEXT("time_cap_seconds"), TimeCap);
+	}
+	Elapsed += DeltaTime;
+	TotalElapsed += DeltaTime;
+	Observe();
+	if (!Error.IsEmpty())
+		return;
+	const bool bWiped = Survivors[0] == 0 || Survivors[1] == 0;
+	if (!bWiped && Elapsed < TimeCap)
+		return;
+	UpdateRow();
+	Current->SetStringField(TEXT("outcome"), bWiped ? TEXT("wiped") : TEXT("time_cap"));
+	const int32 Winner = bWiped && (Survivors[0] > 0 || Survivors[1] > 0)
+		? (Survivors[0] > 0 ? 0 : 5)
+		: INDEX_NONE;
+	if (Winner != INDEX_NONE)
+		Current->SetNumberField(TEXT("winner"), Winner);
+	Append(*Report, TEXT("duels"), Current.ToSharedRef());
+	ClearPair();
+	++PairIndex;
+	if (PairIndex == Definitions.Num() * Definitions.Num())
+	{
+		bComplete = true;
+		Report->RemoveField(TEXT("current_duel"));
+		Report->SetStringField(TEXT("status"), TEXT("complete"));
+		Report->SetStringField(TEXT("outcome"), TEXT("matrix_complete"));
+		RestoreHeadquarters();
+	}
+	else if (!StartPair())
+	{
+		ClearPair();
+		RestoreHeadquarters();
+	}
+}
+
+void FSimulationDuelRunner::ClearPair()
+{
+	for (const FMember& Member : Members)
+		if (AArmyUnit* Unit = Member.Unit.Get())
+		{
+			if (AController* Controller = Unit->GetController())
+				Controller->Destroy();
+			Unit->Destroy();
+		}
+	Members.Reset();
+	for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
+		if (Group.IsValid())
+			Group->Destroy();
+	Groups.Reset();
+}
+
+void FSimulationDuelRunner::PauseActor(AActor& Actor)
+{
+	PausedActors.Add({ &Actor, Actor.IsActorTickEnabled() });
+	Actor.SetActorTickEnabled(false);
+}
+
+void FSimulationDuelRunner::RestoreHeadquarters()
+{
+	if (!State.IsValid())
+		return;
+	if (Headquarters[0].IsValid())
+		State->FriendlyHeadquarters = Headquarters[0].Get();
+	if (Headquarters[1].IsValid())
+		State->EnemyHeadquarters = Headquarters[1].Get();
+	for (int32 Side = 0; Side < 2; ++Side)
+	{
+		if (Headquarters[Side].IsValid())
+			Headquarters[Side]->SetActorEnableCollision(HQCollision[Side]);
+		Headquarters[Side].Reset();
+	}
+	for (const FPausedActor& Paused : PausedActors)
+		if (Paused.Actor.IsValid())
+			Paused.Actor->SetActorTickEnabled(Paused.bTickEnabled);
+	PausedActors.Reset();
+}
+
 bool UMatchSimulationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* World = Cast<UWorld>(Outer);
@@ -63,6 +491,8 @@ void UMatchSimulationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	StartWallTime = FPlatformTime::Seconds();
 	Report = MakeShared<FJsonObject>();
 	Report->SetNumberField(TEXT("schema_version"), 1);
+	if (Settings.bDuel)
+		Report->SetStringField(TEXT("mode"), TEXT("duel"));
 	Report->SetStringField(TEXT("status"), TEXT("initializing"));
 	Report->SetStringField(TEXT("outcome"), TEXT("none"));
 	Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
@@ -100,6 +530,37 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	{
 		Finish(TEXT("failed"), TEXT("none"), -1, FSimulationSettings::Get().Error);
 		return false;
+	}
+	if (FSimulationSettings::Get().bDuel)
+	{
+		DuelRunner = MakeUnique<FSimulationDuelRunner>();
+		const TSharedPtr<FJsonObject> Metadata = Report;
+		if (!DuelRunner->Start(State, FSimulationSettings::Get().Seed))
+		{
+			Finish(TEXT("failed"), TEXT("none"), -1, DuelRunner->GetError());
+			return false;
+		}
+		Report = DuelRunner->GetReport();
+		Report->Values.Append(Metadata->Values);
+		StartWorldTime = GetWorld()->GetTimeSeconds();
+		bStarted = true;
+		AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings();
+		WorldSettings->SetAllowTimeDilation(true);
+		WorldSettings->SetTimeDilation(FSimulationSettings::Get().Dilation);
+		const float EffectiveDilation = WorldSettings->GetEffectiveTimeDilation();
+		const double FixedDelta = 1. / (60. * EffectiveDilation);
+		WorldSettings->MinUndilatedFrameTime = 0.f;
+		WorldSettings->MaxUndilatedFrameTime = 1.f;
+		FApp::SetFixedDeltaTime(FixedDelta);
+		FApp::SetUseFixedTimeStep(true);
+		Report->SetNumberField(TEXT("effective_dilation"), EffectiveDilation);
+		Report->SetNumberField(TEXT("fixed_undilated_delta_seconds"), FixedDelta);
+		Report->SetNumberField(TEXT("target_game_delta_seconds"), 1. / 60.);
+		Report->SetStringField(TEXT("status"), TEXT("running"));
+		Event(TEXT("matrix_started"));
+		if (!Flush())
+			Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot write initial duel telemetry"));
+		return !bFinished;
 	}
 	if (!IsValid(State.Content) || !IsValid(State.FriendlyHeadquarters) || !IsValid(State.EnemyHeadquarters)
 		|| !IsValid(State.Arena) || State.Regions.IsEmpty() || State.Deposits.IsEmpty() || !IsValid(State.EnemyCommander))
@@ -487,7 +948,10 @@ bool UMatchSimulationSubsystem::Flush()
 		return false;
 	if (!IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), true))
 		return false;
-	Report->SetNumberField(TEXT("duration"), bStarted ? GetWorld()->GetTimeSeconds() - StartWorldTime : 0.);
+	if (DuelRunner && bStarted)
+		DuelRunner->GetReport();
+	else
+		Report->SetNumberField(TEXT("duration"), bStarted ? GetWorld()->GetTimeSeconds() - StartWorldTime : 0.);
 	Report->SetNumberField(TEXT("wall_duration"), FPlatformTime::Seconds() - StartWallTime);
 	Report->SetNumberField(TEXT("max_game_delta_seconds"), MaxGameDelta);
 	FString Json;
@@ -511,7 +975,7 @@ void UMatchSimulationSubsystem::Finish(const TCHAR* Status, const TCHAR* Outcome
 		Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
 	if (!Error.IsEmpty())
 		Report->SetStringField(TEXT("error"), Error);
-	Event(TEXT("match_finished"))->SetStringField(TEXT("outcome"), Outcome);
+	Event(DuelRunner ? TEXT("matrix_finished") : TEXT("match_finished"))->SetStringField(TEXT("outcome"), Outcome);
 	const bool bWritten = Flush();
 	const bool bSuccess = FCString::Strcmp(Status, TEXT("complete")) == 0 && bWritten;
 	UE_LOG(LogTemp, Display, TEXT("Simulation finished status=%s outcome=%s written=%d error=%s"), Status, Outcome, bWritten, *Error);
@@ -530,7 +994,35 @@ void UMatchSimulationSubsystem::Tick(float DeltaTime)
 	}
 	if (!bStarted)
 	{
+		// Let the chosen map's navigation finish its initial asynchronous build.
+		if (FSimulationSettings::Get().bDuel && GetWorld()->GetTimeSeconds() < 3.f)
+			return;
 		Start(*State);
+		return;
+	}
+	if (DuelRunner)
+	{
+		MaxGameDelta = FMath::Max(MaxGameDelta, DeltaTime);
+		static const FString DuelsField(TEXT("duels"));
+		const int32 CompletedBefore = Report->GetArrayField(DuelsField).Num();
+		DuelRunner->Tick(DeltaTime, FSimulationSettings::Get().TimeCap);
+		if (!DuelRunner->GetError().IsEmpty())
+		{
+			Finish(TEXT("failed"), TEXT("none"), -1, DuelRunner->GetError());
+			return;
+		}
+		if (DuelRunner->IsComplete())
+		{
+			Finish(TEXT("complete"), TEXT("matrix_complete"), -1);
+			return;
+		}
+		const double Time = GetWorld()->GetTimeSeconds() - StartWorldTime;
+		if (Report->GetArrayField(DuelsField).Num() != CompletedBefore || Time >= NextSnapshot)
+		{
+			NextSnapshot = (FMath::FloorToDouble(Time / 30.) + 1.) * 30.;
+			if (!Flush())
+				Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot persist duel checkpoint"));
+		}
 		return;
 	}
 	if (!HumanCommander.IsValid() || !Autopilot.IsValid() || !IsValid(State->EnemyCommander)
@@ -581,5 +1073,6 @@ void UMatchSimulationSubsystem::Deinitialize()
 		Report->SetStringField(TEXT("error"), TEXT("World ended before a natural match result"));
 		Flush();
 	}
+	DuelRunner.Reset();
 	Super::Deinitialize();
 }
