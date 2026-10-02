@@ -1,7 +1,5 @@
 #include "AnnouncerPolicy.h"
 
-#include "Containers/StaticArray.h"
-
 namespace AnnouncerPolicy
 {
 namespace
@@ -28,15 +26,17 @@ TConstArrayView<FDefinition> Definitions()
 
 const FDefinition* Find(FName Id)
 {
-	static const TStaticArray<FName, UE_ARRAY_COUNT(Entries)> Names = []
+	static const struct FNames
 	{
-		TStaticArray<FName, UE_ARRAY_COUNT(Entries)> Result;
-		for (int32 Index = 0; Index < UE_ARRAY_COUNT(Entries); ++Index)
-			Result[Index] = FName(Entries[Index].Id);
-		return Result;
-	}();
+		FName Values[UE_ARRAY_COUNT(Entries)];
+		FNames()
+		{
+			for (int32 Index = 0; Index < UE_ARRAY_COUNT(Entries); ++Index)
+				Values[Index] = FName(Entries[Index].Id);
+		}
+	} Names;
 	for (int32 Index = 0; Index < UE_ARRAY_COUNT(Entries); ++Index)
-		if (Id == Names[Index])
+		if (Id == Names.Values[Index])
 			return &Entries[Index];
 	return nullptr;
 }
@@ -48,8 +48,7 @@ bool FThrottle::Accept(FName Id, uint32 StructureId, int32 CommanderIndex, int32
 		return false;
 	if (Definition->bStateChange)
 		return true;
-	FAttackEpisode* Episode = AttackEpisodes.FindByPredicate([StructureId](const FAttackEpisode& Candidate)
-	{
+	FAttackEpisode* Episode = AttackEpisodes.FindByPredicate([StructureId](const FAttackEpisode& Candidate) {
 		return Candidate.StructureId == StructureId;
 	});
 	if (!Episode)
@@ -64,8 +63,7 @@ bool FThrottle::Accept(FName Id, uint32 StructureId, int32 CommanderIndex, int32
 	}
 	// Suppressed damage still keeps the siege episode alive.
 	Episode->LastDamage = Now;
-	const bool bNewForce = !Episode->AnnouncedForces.ContainsByPredicate([CommanderIndex, ForceNumber](const FAttackingForce& Force)
-	{
+	const bool bNewForce = !Episode->AnnouncedForces.ContainsByPredicate([CommanderIndex, ForceNumber](const FAttackingForce& Force) {
 		return Force.CommanderIndex == CommanderIndex && Force.ForceNumber == ForceNumber;
 	});
 	const bool bNewTier = !Episode->AnnouncedTiers.Contains(DamageTier);

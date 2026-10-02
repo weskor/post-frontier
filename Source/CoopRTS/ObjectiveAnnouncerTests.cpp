@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
+#include "Commands/CommandService.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
 #include "CommandCamera.h"
@@ -156,7 +157,8 @@ public:
 			for (int32 Index = 0; Index < FillCount; ++Index)
 				Announcer->Raise(TEXT("region_captured"), 0, State->FriendlyHeadquarters->GetActorLocation(), {});
 			if (!Check(Announcer->GetEvents().Num() == UObjectiveAnnouncer::HistoryLimit
-					&& Announcer->GetEvents()[0].Sequence == FirstRetained, TEXT("Filling the ring does not evict its oldest event")))
+						&& Announcer->GetEvents()[0].Sequence == FirstRetained,
+					TEXT("Filling the ring does not evict its oldest event")))
 				return true;
 			const int32 Next = Announcer->GetEvents().Last().Sequence + 1;
 			const int32 Added = 2 * UObjectiveAnnouncer::HistoryLimit + 3;
@@ -164,7 +166,7 @@ public:
 				Announcer->Raise(TEXT("region_captured"), 0, State->FriendlyHeadquarters->GetActorLocation(), {});
 			const auto Bounded = Announcer->GetEvents();
 			if (!Check(Bounded.Num() == UObjectiveAnnouncer::HistoryLimit
-					&& Bounded[0].Sequence == Next + Added - UObjectiveAnnouncer::HistoryLimit,
+						&& Bounded[0].Sequence == Next + Added - UObjectiveAnnouncer::HistoryLimit,
 					TEXT("Repeated ring wrap discards only oldest events while retaining bounded history")))
 				return true;
 			for (int32 Index = 1; Index < Bounded.Num(); ++Index)
@@ -180,7 +182,11 @@ public:
 
 private:
 	bool Check(bool Value, const TCHAR* Message) { return Test->TestTrue(Message, Value); }
-	void SetStage(int32 Value, double Now) { Stage = Value; StageStarted = Now; }
+	void SetStage(int32 Value, double Now)
+	{
+		Stage = Value;
+		StageStarted = Now;
+	}
 	void Press(FKey Key, bool bPressed)
 	{
 		FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
@@ -239,12 +245,13 @@ private:
 		const ACommandPlayerState* Owner = Group ? Group->GetOwningPlayerState() : nullptr;
 		const AMapRegion* Region = State->FindRegionAt(Location);
 		return Check(Owner && Event.Forces.Num() == 1 && Event.Forces[0].TeamIndex == Attacker->GetTeamIndex()
-				&& Event.Forces[0].CommanderIndex == Owner->CommanderIndex && Event.Forces[0].ForceNumber == Group->ForceNumber
-				&& Event.Forces[0].PlayerName == (Attacker->GetTeamIndex() == 5 ? TEXT("JEV") : Owner->GetPlayerName())
-				&& Event.Forces[0].UnitIndex == Attacker->GetUnitIndex(),
-				TEXT("Attack event attributes the actual impacting player's stable force and unit"))
+					   && Event.Forces[0].CommanderIndex == Owner->CommanderIndex && Event.Forces[0].ForceNumber == Group->ForceNumber
+					   && Event.Forces[0].PlayerName == (Attacker->GetTeamIndex() == 5 ? TEXT("JEV") : Owner->GetPlayerName())
+					   && Event.Forces[0].UnitIndex == Attacker->GetUnitIndex(),
+				   TEXT("Attack event attributes the actual impacting player's stable force and unit"))
 			&& Check(Region && Event.RegionIndex == Region->RegionIndex && Event.RegionName == Region->DisplayName.ToString()
-				&& Event.Location.Equals(Location), TEXT("Attack event carries the real map-derived region and position"));
+					&& Event.Location.Equals(Location),
+				TEXT("Attack event carries the real map-derived region and position"));
 	}
 
 	bool Produce(UWorld* World)
@@ -321,14 +328,16 @@ private:
 			return false;
 		OwnHQ->ReceiveAttack(1, EnemyHit);
 		if (!Check(Count(TEXT("own_hq_half")) == 1 && Count(TEXT("own_hq_under_attack")) == 2
-				&& Announcer->GetEvents().Last().DamageTier == 1, TEXT("Exact half-health crossing emits its transition and a new attack tier")))
+					&& Announcer->GetEvents().Last().DamageTier == 1,
+				TEXT("Exact half-health crossing emits its transition and a new attack tier")))
 			return false;
 		OwnHQ->ReceiveAttack(OwnHQ->Health - OwnHQ->MaxHealth() / 4 - 1, EnemyHit);
 		if (!Check(Count(TEXT("own_hq_critical")) == 0 && Count(TEXT("own_hq_under_attack")) == 2, TEXT("HQ just above quarter neither crosses threshold nor repeats its current tier")))
 			return false;
 		OwnHQ->ReceiveAttack(1, EnemyHit);
 		if (!Check(Count(TEXT("own_hq_critical")) == 1 && Count(TEXT("own_hq_under_attack")) == 3
-				&& Announcer->GetEvents().Last().DamageTier == 2, TEXT("Exact quarter-health crossing emits its transition and a new attack tier")))
+					&& Announcer->GetEvents().Last().DamageTier == 2,
+				TEXT("Exact quarter-health crossing emits its transition and a new attack tier")))
 			return false;
 		OwnHQ->ReceiveAttack(OwnHQ->Health, EnemyHit);
 		const int32 AfterLethal = Announcer->GetEvents().Num();
@@ -355,8 +364,8 @@ private:
 		const int32 BeforeOtherHQ = Announcer->GetEvents().Num();
 		OtherHQ->ReceiveAttack(1, EnemyHit);
 		if (!Check(Announcer->GetEvents().Num() == BeforeOtherHQ + 1 && Count(TEXT("own_hq_under_attack")) == 4
-				&& Announcer->GetEvents().Last().Id == TEXT("own_hq_under_attack")
-				&& Announcer->GetEvents().Last().AffectedTeam == 0 && Announcer->GetEvents().Last().DamageTier == 0,
+					&& Announcer->GetEvents().Last().Id == TEXT("own_hq_under_attack")
+					&& Announcer->GetEvents().Last().AffectedTeam == 0 && Announcer->GetEvents().Last().DamageTier == 0,
 				TEXT("A distinct same-team structure independently announces the same force and tier, even at the same location"))
 			|| !Attribution(Announcer->GetEvents().Last(), EnemyHit, OtherHQ->GetActorLocation()))
 			return false;
@@ -369,7 +378,8 @@ private:
 		const FVector FriendlyHQ = State->FriendlyHeadquarters->GetActorLocation();
 		const FVector HostileHQ = State->EnemyHeadquarters->GetActorLocation();
 		const FVector Away = FVector::DistSquared2D(FriendlyHQ, Site->GetActorLocation()) > FVector::DistSquared2D(HostileHQ, Site->GetActorLocation())
-			? FriendlyHQ : HostileHQ;
+			? FriendlyHQ
+			: HostileHQ;
 		if (!Check(FVector::Dist2D(Away, Site->GetActorLocation()) > ACapturePoint::CaptureRadius + 200.f,
 				TEXT("Map-derived staging lies safely outside capture radius")))
 			return false;
@@ -393,7 +403,7 @@ private:
 		const int32 LowCommander = FMath::Min(Owner->CommanderIndex, OtherOwner->CommanderIndex);
 		const int32 HighCommander = FMath::Max(Owner->CommanderIndex, OtherOwner->CommanderIndex);
 		if (!Check(Captured.Forces[0].CommanderIndex == LowCommander && Captured.Forces[1].CommanderIndex == HighCommander
-				&& Captured.Forces[0].ForceNumber == OrphanNumber && Captured.Forces[1].ForceNumber == OrphanNumber,
+					&& Captured.Forces[0].ForceNumber == OrphanNumber && Captured.Forces[1].ForceNumber == OrphanNumber,
 				TEXT("Capture contributors retain independent owners and deterministic force ordering")))
 			return false;
 		for (const FObjectiveForce& Force : Captured.Forces)
@@ -446,7 +456,8 @@ private:
 			if (Team == 0)
 			{
 				if (!Check(Announcer->GetEvents().Num() == Before + 1 && Announcer->GetEvents().Last().Id == TEXT("drill_rig_lost")
-						&& Announcer->GetEvents().Last().AffectedTeam == 0, TEXT("Friendly lethal Drill Rig loss emits exactly once"))
+							&& Announcer->GetEvents().Last().AffectedTeam == 0,
+						TEXT("Friendly lethal Drill Rig loss emits exactly once"))
 					|| !Attribution(Announcer->GetEvents().Last(), Attacker, Location))
 					return false;
 			}
@@ -459,7 +470,9 @@ private:
 			ACommandBuilding* Cancelled = Building(World, Team, ArmyTestSetup::ExtractorIndex, Location, .5f);
 			ACommandBuilding* Cleaned = Building(World, Team, ArmyTestSetup::ExtractorIndex, Location);
 			const int32 BeforeRemoval = Announcer->GetEvents().Num();
-			if (!Check(Cancelled && Cleaned && Cancelled->CancelConstruction(), TEXT("Incomplete Drill Rig can be cancelled")))
+			if (!Check(Cancelled && Cleaned
+						&& FCommandService::CancelBuilding(Cancelled->OwningPlayerState, Cancelled).IsAccepted(),
+					TEXT("Incomplete Drill Rig can be cancelled")))
 				return false;
 			Cleaned->Destroy();
 			if (!Check(Announcer->GetEvents().Num() == BeforeRemoval, TEXT("Cancellation and EndPlay cleanup are not Drill Rig combat losses")))

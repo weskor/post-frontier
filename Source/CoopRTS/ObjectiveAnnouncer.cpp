@@ -90,12 +90,10 @@ void UObjectiveAnnouncer::AppendEvent(const ACommandGameState& State, FName Id, 
 	Event.Forces.Reserve(Forces.Num());
 	for (const FObjectiveForce& Force : Forces)
 	{
-		if (!Event.Forces.ContainsByPredicate([&Force](const FObjectiveForce& Existing)
-			{ return Existing.TeamIndex == Force.TeamIndex && Existing.CommanderIndex == Force.CommanderIndex && Existing.ForceNumber == Force.ForceNumber; }))
+		if (!Event.Forces.ContainsByPredicate([&Force](const FObjectiveForce& Existing) { return Existing.TeamIndex == Force.TeamIndex && Existing.CommanderIndex == Force.CommanderIndex && Existing.ForceNumber == Force.ForceNumber; }))
 			Event.Forces.Add(Force);
 	}
-	Event.Forces.Sort([](const FObjectiveForce& A, const FObjectiveForce& B)
-	{
+	Event.Forces.Sort([](const FObjectiveForce& A, const FObjectiveForce& B) {
 		if (A.TeamIndex != B.TeamIndex)
 			return A.TeamIndex < B.TeamIndex;
 		if (A.CommanderIndex != B.CommanderIndex)

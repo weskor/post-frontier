@@ -10,7 +10,11 @@ namespace CommandHUDPanels
 FStringView ObjectiveRegionName(FStringView Name)
 {
 	// Legacy map display names remain in data; objective presentation uses World.md.
-	static const struct { const TCHAR* Legacy; const TCHAR* Current; } Names[] = {
+	static const struct
+	{
+		const TCHAR* Legacy;
+		const TCHAR* Current;
+	} Names[] = {
 		{ TEXT("The Bunker"), TEXT("Hardline") }, { TEXT("The Cluster"), TEXT("The Lattice") },
 		{ TEXT("Uplink"), TEXT("Skyhook") }, { TEXT("Relay Plant"), TEXT("Fusion Works") },
 		{ TEXT("Power Yard"), TEXT("Reactor Yard") }, { TEXT("Cooling"), TEXT("Heat Sink") },
@@ -27,7 +31,8 @@ void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, con
 	const FRect& Rect, float Alpha)
 {
 	const FLinearColor Color = (Force.TeamIndex == 5 ? Palette::Enemy
-		: AArmyUnit::GetCommanderColor(Force.CommanderIndex)).CopyWithNewOpacity(Alpha);
+													 : AArmyUnit::GetCommanderColor(Force.CommanderIndex))
+								   .CopyWithNewOpacity(Alpha);
 	Paint.Fill(Rect, Palette::Card.CopyWithNewOpacity(.96f * Alpha));
 	Paint.Outline(Rect, Color);
 	const UMatchContent* Content = MatchContent(Context);
@@ -81,7 +86,8 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 		if (Rect.Bottom() > Layout.Alerts.Bottom())
 			break;
 		const float Alpha = FMath::Clamp((UObjectiveAnnouncer::FeedLifetime - Age)
-			/ UObjectiveAnnouncer::FadeSeconds, 0.f, 1.f);
+				/ UObjectiveAnnouncer::FadeSeconds,
+			0.f, 1.f);
 		Visit(Event, Rect, Alpha);
 		Y = Rect.Bottom() + RowGap;
 	}

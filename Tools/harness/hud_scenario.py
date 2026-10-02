@@ -216,19 +216,29 @@ def at_alert(state: JsonObject, alert: JsonObject) -> bool:
     )
 
 
-def awareness(run: NetworkRun, capture: Capture, owner: int, squad: int, barracks: int) -> None:
+def awareness(
+    run: NetworkRun, capture: Capture, owner: int, squad: int, barracks: int
+) -> None:
     state = capture.state()
     initial_camera = state["cameraPosition"]
     run.request(
-        "host", "hqDamage", owner=owner, army=squad, damage=state["enemyHQ"] - 450,
+        "host",
+        "hqDamage",
+        owner=owner,
+        army=squad,
+        damage=state["enemyHQ"] - 450,
     )
     state = capture.wait(
         lambda s: any(e["id"] == "enemy_hq_half" for e in s["objectiveEvents"]),
         "real HQ damage raises attributed threshold alert",
     )
-    require(state["cameraPosition"] == initial_camera, "receiving an alert moved the camera")
+    require(
+        state["cameraPosition"] == initial_camera, "receiving an alert moved the camera"
+    )
     latest = state["objectiveEvents"][-1]
-    require(latest["id"] == "enemy_hq_half", "HQ half-health transition is not latest alert")
+    require(
+        latest["id"] == "enemy_hq_half", "HQ half-health transition is not latest alert"
+    )
     require(
         any(f["owner"] == owner for f in latest["forces"]),
         "HQ alert omitted the attacking player's force",
@@ -249,7 +259,11 @@ def awareness(run: NetworkRun, capture: Capture, owner: int, squad: int, barrack
         lambda s: at_alert(s, previous),
         "second Space steps to the preceding alert",
     )
-    row = next(row for row in capture.state()["uiAlerts"] if row["sequence"] == latest["sequence"])
+    row = next(
+        row
+        for row in capture.state()["uiAlerts"]
+        if row["sequence"] == latest["sequence"]
+    )
     capture.minimap(0.5, 0.5)
     run.request("host", "hudClick", x=row["x"], y=row["y"])
     capture.wait(
@@ -257,13 +271,23 @@ def awareness(run: NetworkRun, capture: Capture, owner: int, squad: int, barrack
         "clicking the rendered feed row actually focuses its location",
     )
     capture.shot("objective-feed-click-camera")
+    alert_expiry(capture, latest)
+    run.phase(
+        "objective strip, attributed feed, selection stability, Space history and feed click"
+    )
+
+
+def alert_expiry(capture: Capture, latest: JsonObject) -> None:
     state = capture.wait(
-        lambda s: not any(row["sequence"] == latest["sequence"] for row in s["uiAlerts"]),
+        lambda s: (
+            not any(row["sequence"] == latest["sequence"] for row in s["uiAlerts"])
+        ),
         "alert feed expires without removing objective history",
     )
-    require(state["objectiveEvents"][-1] == latest, "fading feed removed objective history")
+    require(
+        state["objectiveEvents"][-1] == latest, "fading feed removed objective history"
+    )
     capture.shot("objective-strip-after-feed-expiry")
-    run.phase("objective strip, attributed feed, selection stability, Space history and feed click")
 
 
 def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
