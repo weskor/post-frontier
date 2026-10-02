@@ -42,5 +42,7 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
         print(f"{key}: {value}")
     print("Logs:")
     for execution in record["execs"]:
-        print(f"  {execution['log']}")
+        peak = execution.get("peak_rss_mb")
+        memory = "unmeasured" if peak is None else f"{peak:.2f} MiB"
+        print(f"  {execution['log']} (peak RSS: {memory})")
     return 0

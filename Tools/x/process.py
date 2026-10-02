@@ -20,6 +20,7 @@ class ProcessGroupSurvived(RuntimeError):
 class Outcome:
     exit_code: int
     duration_s: float
+    peak_rss_mb: float
     stalled: bool = False
     interrupted: bool = False
 
@@ -62,15 +63,39 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
         time.sleep(0.02)
 
 
+def group_rss_bytes(pgid: int) -> int:
+    """Sum resident pages for every process in the group, including grandchildren."""
+    pages = 0
+    with os.scandir("/proc") as entries:
+        for entry in entries:
+            if not entry.name.isdecimal():
+                continue
+            try:
+                # comm may contain spaces or ')'; fields after its final ')' are fixed.
+                fields = (Path(entry.path) / "stat").read_text().rsplit(")", 1)[1].split()
+                if int(fields[2]) == pgid:
+                    pages += int(fields[21])
+            except (FileNotFoundError, ProcessLookupError, PermissionError):
+                # Processes can disappear between enumeration and reading stat.
+                continue
+    return pages * os.sysconf("SC_PAGE_SIZE")
+
+
 def supervise(
     child: subprocess.Popen[bytes], watch: Path, stall_seconds: float, log: IO[bytes]
-) -> tuple[int, bool, bool]:
+) -> tuple[int, bool, bool, float]:
     stalled = interrupted = False
+    peak_rss = 0
+    sample_at = 0.0
     try:
         try:
             previous = size(watch)
             progress = time.monotonic()
             while child.poll() is None:
+                now = time.monotonic()
+                if now >= sample_at:
+                    peak_rss = max(peak_rss, group_rss_bytes(child.pid))
+                    sample_at = now + 0.25
                 current = size(watch)
                 if current > previous:
                     progress = time.monotonic()
@@ -78,7 +103,7 @@ def supervise(
                 if time.monotonic() - progress >= stall_seconds:
                     stalled = True
                     kill_group(child)
-                    return 1, stalled, interrupted
+                    return 1, stalled, interrupted, peak_rss / (1024 * 1024)
                 time.sleep(min(0.05, stall_seconds / 4))
             code = child.wait()
         except KeyboardInterrupt:
@@ -93,7 +118,7 @@ def supervise(
     except ProcessGroupSurvived as error:
         log.write(f"process-group cleanup failed: {error}\n".encode())
         code = 1
-    return code, stalled, interrupted
+    return code, stalled, interrupted, peak_rss / (1024 * 1024)
 
 
 def execute(
@@ -111,6 +136,7 @@ def execute(
     print(f"start {' '.join(argv)}; log {log}", flush=True)
     interrupted = False
     stalled = False
+    peak_rss_mb = 0.0
     with log.open("wb") as stream:
         try:
             child = subprocess.Popen(
@@ -125,7 +151,7 @@ def execute(
             stream.write(f"{error}\n".encode())
             code = 1
         else:
-            code, stalled, interrupted = supervise(
+            code, stalled, interrupted, peak_rss_mb = supervise(
                 child, watch or log, stall_seconds, stream
             )
     duration = time.monotonic() - started
@@ -137,4 +163,4 @@ def execute(
     if code:
         with log.open(errors="replace") as source:
             print("".join(deque(source, maxlen=40)), end="")
-    return Outcome(code, duration, stalled, interrupted)
+    return Outcome(code, duration, peak_rss_mb, stalled, interrupted)

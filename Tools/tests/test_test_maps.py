@@ -50,7 +50,7 @@ def automation_context(
         )
         assert self.run is not None
         self.run.add_exec(
-            [str(arg) for arg in argv], self.run.dir / f"{log}.log", 0, 0.0, False
+            [str(arg) for arg in argv], self.run.dir / f"{log}.log", 0, 0.0, False, 0.0
         )
         return 0
 

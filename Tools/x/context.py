@@ -67,7 +67,12 @@ class Context:
             self.settings.stall_seconds if stall_seconds is None else stall_seconds,
         )
         self.run.add_exec(
-            arguments, log_path, outcome.exit_code, outcome.duration_s, outcome.stalled
+            arguments,
+            log_path,
+            outcome.exit_code,
+            outcome.duration_s,
+            outcome.stalled,
+            outcome.peak_rss_mb,
         )
         if outcome.interrupted:
             raise KeyboardInterrupt

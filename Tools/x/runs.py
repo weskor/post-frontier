@@ -63,6 +63,7 @@ class Run:
         exit_code: int,
         duration_s: float,
         stalled: bool,
+        peak_rss_mb: float,
     ) -> None:
         self.record["execs"].append(
             {
@@ -71,6 +72,7 @@ class Run:
                 "exit_code": exit_code,
                 "duration_s": duration_s,
                 "stalled": stalled,
+                "peak_rss_mb": peak_rss_mb,
             }
         )
         self.save()

@@ -103,7 +103,7 @@ def test_runs_history_and_detail(
     assert runs.run(argparse.Namespace(id=None), ctx) == 0
     assert "No runs recorded." in capsys.readouterr().out
     record = Run(repo, settings.runs_root, "sample", ["sample"])
-    record.add_exec(["child"], record.dir / "child.log", 0, 0.25, False)
+    record.add_exec(["child"], record.dir / "child.log", 0, 0.25, False, 12.5)
     record.finish(0)
     assert runs.run(argparse.Namespace(id=record.id), ctx) == 0
     output = capsys.readouterr().out
