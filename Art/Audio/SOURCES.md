@@ -1,13 +1,13 @@
 # Audio sources
 
-Game sounds in `Art/Audio/<Faction>/<Role>/` are mixed from recorded layers by `uv run Build/GenerateUnitAudio.py` (REAPER session per sound set in `Art/Audio/Sessions/`). The raw recordings come from the Sonniss #GameAudioGDC bundles and are fetched by `uv run Build/FetchAudioSources.py` into `Saved/AudioSources/Sonniss/`; each recipe's `SOURCES` list (`Build/unit_audio/<faction>_<role>.py`) is the authoritative record of which bundle and file each layer comes from.
+`./x gen generate-unit-audio` mixes game sounds in `Art/Audio/<Faction>/<Role>/` from recorded layers, with one editable REAPER session per sound set in `Art/Audio/Sessions/`. `./x gen fetch-audio-sources` fetches the Sonniss #GameAudioGDC recordings selected by each recipe's authoritative `SOURCES` list (`Build/unit_audio/<faction>_<role>.py`). Fetching, indexing, sound-set selection and rendering procedures: [`./x help gen`](../../x).
 
 ## Licence: Sonniss #GameAudioGDC bundle licence
 
 https://sonniss.com/gdc-bundle-license/ (version 2.0 when fetched, 2026-09-30). Royalty-free, no attribution, unlimited projects. Restrictions that matter here:
 
 - Finished game builds may be shared and sold normally.
-- The sounds must **not** be supplied to anyone as sound effects, raw or re-designed. Sharing within the team is allowed. Therefore raw sources and prepared layers stay in Git-ignored `Saved/`. **Do not publish this repository with `Art/Audio` WAVs in it** (for example as a public GitHub repo) without checking the licence again; the rendered sounds are "re-designed" licensed material.
+- The sounds must **not** be supplied to anyone as sound effects, raw or re-designed. Sharing within the team is allowed. Therefore raw sources and prepared layers stay in Git-ignored local storage. **Do not publish this repository with `Art/Audio` WAVs in it** (for example as a public GitHub repo) without checking the licence again; the rendered sounds are "re-designed" licensed material.
 - No use for training AI models.
 
 No StarCraft or other game audio is used.
@@ -167,7 +167,7 @@ No StarCraft or other game audio is used.
 
 ## Offline night ambience
 
-`Build/unit_audio/human_ambience.py` authors the single `NightLoop` event in the editable `Art/Audio/Sessions/Human_Ambience.rpp`. These three recordings were selected from the index produced by `uv run Build/FetchAudioSources.py --index`; `uv run Build/FetchAudioSources.py --unit Human_Ambience` fetched only those used recordings.
+`Build/unit_audio/human_ambience.py` authors the single `NightLoop` event in the editable `Art/Audio/Sessions/Human_Ambience.rpp`. `./x gen fetch-audio-sources` supplies the source index and the recipe-selected recordings; indexing/subset procedures are in [`./x help gen`](../../x).
 
 | Source filename | Library / GDC bundle | Layer and source window |
 | --- | --- | --- |
@@ -177,10 +177,10 @@ No StarCraft or other game audio is used.
 
 All three were fetched on 2026-09-30 and use the [Sonniss #GameAudioGDC bundle licence, version 2.0](https://sonniss.com/gdc-bundle-license/), effective 27 August 2026: commercial game synchronization and team sharing are permitted; supplying raw or re-designed sounds as sound effects and AI training are prohibited. The repository publication restriction above applies to this WAV too.
 
-Render with `uv run Build/GenerateUnitAudio.py --unit Human_Ambience`. Recipe discovery is automatic; no generator/fetcher registration change is needed. Prepared layers live in ignored `Saved/AudioLayers/Human_Ambience/`; regenerating them restores the session's relative media paths. Existing sessions are preserved unless `--new-session` is explicitly supplied.
+`./x gen generate-unit-audio` renders the ambience recipe ([`./x help gen`](../../x)). Recipe discovery is automatic. Prepared local layers restore the session's relative media paths; existing sessions are preserved unless explicitly replaced through the documented generator option.
 
 The 34-second region uses a 2-second equal-power wrap overlap, yielding exactly one 32-second mono 48 kHz 24-bit WAV: `Art/Audio/Human/Ambience/SW_Human_Ambience_NightLoop_01.wav`. Its initial track faders are machinery −15 dB, wind −8 dB and power lines −23 dB; filters run through two seconds of pre-roll before the window is taken. The loop is finished with constant gain to −27 LUFS, without limiting.
 
 Measured after the actual headless REAPER render: −27.0000 LUFS, −11.8906 dBFS 4× true peak, −11.8961 dBFS sample peak. Independent FFmpeg EBU R128 measurement reports −27.0 LUFS, −11.9 dBFS true peak and 3.5 LU loudness range. The wrap's adjacent-sample step is 0.00303149 (−50.37 dBFS), at the 50.25th percentile of internal sample steps and below the internal 99th-percentile step of 0.01328779; it is not an anomalous discontinuity. The 200 ms seam-window RMS is −27.40 dBFS (neighbouring windows −28.57 / −27.65 dBFS).
 
-`Saved/AudioPreview/Human_Ambience.wav` is a 64.5-second listening reel: two sample-identical repetitions followed by 0.5 seconds of silence. Detailed analytical evidence is in `Saved/AudioPreview/Human_Ambience_Verification.json`. These measurements do not establish subjective listening approval or the in-game mix.
+The generated ambience listening reel is 64.5 seconds: two sample-identical repetitions followed by 0.5 seconds of silence. Listen before import; the run record identifies the output. These measurements do not establish subjective listening approval or the in-game mix.

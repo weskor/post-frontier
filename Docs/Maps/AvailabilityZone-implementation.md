@@ -1,12 +1,12 @@
 # Availability Zone: implementation plan
 
-Companion to [AvailabilityZone.md](AvailabilityZone.md) (design) and `Build/Maps/AvailabilityZone.json` (data). Phase A is built; map-team nav/placement/match evidence is in `Saved/Verification/availability-zone-v1/RESULTS.md`, integration/package evidence in `Saved/Verification/map-integration/RESULTS.md`. The steps remain ordered so each can fail early and cheaply. Numbered proposals **P1–P8** belong to the gameplay team; P8 and P3-income are implemented as noted below.
+Companion to [AvailabilityZone.md](AvailabilityZone.md) (design) and `Build/Maps/AvailabilityZone.json` (data). [Built] Phase A is the flat greybox. The dependency procedures live only in [`./x help gen`](../../x); the sections below describe outputs and acceptance criteria. [Candidate] Numbered proposals **P1–P8** belong to the gameplay team; P8 and the historical P3-income integration are noted below.
 
 Two heights profiles come from the same JSON (`elevation[].z_cm` and `z_sc2_cm`):
 
 | | Plateau | Terrace | Lowland | Needs |
 | --- | ---: | ---: | ---: | --- |
-| **Phase A, flat greybox** | 0 | 0 | 0 | Nothing except P8 (harness `--map`). Level changes are walls; ramps are open floor |
+| **[Built] Phase A, flat greybox** | 0 | 0 | 0 | Selected-map launch support (P8). Level changes are walls; ramps are open floor |
 | **Phase B, kit heights** | +600 | +300 | 0 | **P1** (ground-height code) |
 
 **Recommendation: do P1 first and build Phase B directly.** P1 is about five call sites (below), and Phase A is a throwaway greybox: the terrain kit's cliffs cannot stand at buildable heights in today's code. Build Phase A only if P1 will slip and a playtest is wanted sooner.
@@ -38,7 +38,7 @@ A Landscape may still be used for the **out-of-play backdrop** beyond the arena 
 
 ### Phase A (flat greybox)
 
-Same JSON, `--profile flat`: every playable cell at z = 0; every level boundary becomes a **collision wall 100 cm thick and 300 cm tall** centred on the boundary line (one box per boundary run, cliff material), ramp pieces are open floor between two short parapet boxes, rim is boxes 600 cm tall. The walls are thin enough that no distance in the design changes (the script's 100 cm clearance ring already covers them). Phase A uses the kit only for the Slab, towers and dressing.
+[Built] The flat profile uses the same JSON: every playable cell is at z = 0; each level boundary is a **collision wall 100 cm thick and 300 cm tall** centred on the boundary line (one box per boundary run, cliff material), ramp pieces are open floor between two short parapet boxes, and rim boxes are 600 cm tall. The script's 100 cm clearance ring already covers the walls. Phase A uses the kit only for the Slab, towers and dressing. Profile-selection procedure: [`./x help gen`](../../x).
 
 **Phase A+ (optional, not recommended):** today's buildable band is about −95…+5 cm (see below), so a plateau could stand 95 cm above the rest with a custom low cliff piece. The kit's 300 cm pieces do not fit, and 95 cm reads as a curb next to a 120 cm unit.
 
@@ -72,44 +72,44 @@ Same JSON, `--profile flat`: every playable cell at z = 0; every level boundary 
 
 ## 3. Generator
 
-New scripts, following the Campus Zero pattern (each Unreal step in its own editor process, editor otherwise closed, `-nullrhi`, and a log token):
+Generator commands and their ordered dependencies: [`./x help gen`](../../x).
 
-```text
-python3 Build/DrawMapLayout.py --quiet                                        # fail fast: JSON checks
-UnrealEditor-Cmd ... -ExecutePythonScript=Build/ImportTerrainKit.py           # new: Art/Terrain FBX to /Game/Art/Terrain; token TERRAIN_KIT_IMPORTED
-UnrealEditor-Cmd ... -ExecutePythonScript=Build/GenerateAvailabilityZone.py   # new: token AVAILABILITY_ZONE_GENERATED
-```
+| Command | Output / purpose |
+| --- | --- |
+| `./x gen draw-map-layout` | JSON validation and measured layout tables; fail early on invalid data. |
+| `./x gen import-terrain-kit` | Terrain FBXs in `/Game/Art/Terrain`, with authored collision; `TERRAIN_KIT_IMPORTED`. |
+| `./x gen generate-availability-zone` | `/Game/Maps/AvailabilityZone`; `AVAILABILITY_ZONE_GENERATED`. |
 
 `ImportTerrainKit.py` follows `ImportEnvironmentKit.py`: import scale 1, Convert Scene on, Force Front X Axis off, vertex colour Replace; author the simple collision the kit documents (cliffs and fill: one hull or box from z = 0 to the top; ramps: walkable deck, a hull per parapet and one for the wedge; rocks: one box; watchtower: column hull, walkable pad); assert bounds against the kit's `SPEC` table.
 
 `GenerateAvailabilityZone.py`:
 
 1. Load the JSON. Refuse to run if `DrawMapLayout.py` reports an error (import its `Analysis`).
-2. Choose `--profile flat|kit` (`flat` = Phase A, `kit` = Phase B), read heights from `elevation`.
+2. Select the flat (Phase A) or kit-height (Phase B) profile, with heights from `elevation`; invocation options belong in [`./x help gen`](../../x).
 3. Place the **match actors** from `match_actors`: one `AArenaBounds` (half extent 10000 × 10000), `FriendlyHeadquarters` team 0, `EnemyHeadquarters` team 5, eight `ACapturePoint` with `site_index` 0–7, `site_kind` Resource. Add the level height (`z_sc2_cm − z_cm`) in Phase B. `Build/MatchLayout.py` hard-codes Boot's coordinates; write a JSON-driven variant rather than editing it, so Boot and the tests stay untouched.
 4. Place terrain from section 1, the Slab, rim, then dressing by `decoration[]` zone. **Keep-out:** every `bays` position and every sector capture ring (radius 430), a 365 cm exit ring around each bay, a 600 cm corridor along each route (`routes.jev_to_human`), and every ramp footprint. Any collision in a territory disc can block placement (the overlap box tests `WorldStatic`, `WorldDynamic`, `Pawn`).
 5. Navigation: a `NavMeshBoundsVolume` at the origin, half extent (10200, 10200, 1400), as in `navigation.bounds_volume`; `RecastNavMesh` with dynamic runtime generation (as `GenerateCommandMap.py` does), agent radius 35, height 144, max slope 44.8 (defaults). The arena is about 5 × Boot's area (40 000 m² against 8100): **measure** navmesh build time and memory in the cooked game. `AArenaBounds::HalfHeight` is 1000: units on the Plateau stand at about +690, inside it.
 6. Lighting as Campus Zero (dusk; `SUN_LUX`, `SKY_INTENSITY`, `EXPOSURE_BIAS`): amber floodlights on the human half, cyan on the Machine half.
 7. Save `/Game/Maps/AvailabilityZone`; log `AVAILABILITY_ZONE_GENERATED` with counts.
 
-Packaging: add `/Game/Maps/AvailabilityZone` to `+MapsToCook` in `Config/DefaultGame.ini` and to the README `-map=` list. `Content/Maps/*.umap` is Git LFS. After it lands: add a row to the World.md maps table, a README section, and a feature-map entry for the verify skill (none was edited here).
+Packaging uses `./x package` ([`./x help package`](../../x)); `Config/DefaultGame.ini` owns the cook map list. The generated map is `Content/Maps/AvailabilityZone.umap` (Git LFS).
 
-## 4. Code proposals for the gameplay team
+## 4. [Candidate] Code proposals for the gameplay team
 
 Nothing below is required to *start* a Phase A greybox except P8. Each names the code that has to change and what "done" looks like.
 
-Implemented: **P8** map selection in the verification launchers (Boot remains the harness default), and **P3-income only**: JEV baseline is 10/s per human commander with a minimum of one; its +6/s established-sector bonus is unscaled. Strategy passed on Boot and AvailabilityZone; a two-human socket smoke observed +20 each / +40 JEV per tick. Editor and packaged connected restart reset all eight sectors (`Saved/Verification/map-integration/RESULTS.md`). The later solo-readiness build also cooks Menu: no-map startup now opens the frontend, and Play vs JEV selects AvailabilityZone offline (`Saved/Verification/solo-readiness/RESULTS.md`). Route choice/continued expansion from P3, heights from P1 and per-player HQs from P2 remain unimplemented.
+[Built] P8 added map selection to verification launchers (Boot remains their default). The historical integration checkpoint exercised strategy on Boot and AvailabilityZone plus eight-sector connected restart in editor and packaged worlds. Its income observations predate the later region/Extractor economy and are not current balance guidance; see [Balance.md](../Balance.md). Menu is the separate frontend world. [Candidate] Route choice, height-aware placement and per-player HQs remain the proposals below, not proof supplied by generation.
 
 | # | Proposal | Change | Done when |
 | --- | --- | --- | --- |
-| **P1** | **Ground-height-aware placement, orders and JEV** (unlocks Phase B: Terrace +300, Plateau +600) | `CursorGround` (`CommandPlayerController.cpp`): trace the ground and project to the navmesh instead of intersecting the plane z = 0; `ValidateBuildingPlacement`: take the nav-projected Z first and build the overlap box (`Z + 65`, half 55) and the ±110 sample test around **that** Z; `EnemyCommander::BuildNear` (`Location.Z = 5`), `Front.Z = 5`, the fall-back `HQ + (−500, 0, −Home.Z + 5)`: project onto the navmesh; `ArmyGroup` attack anchors (`Anchor.Z = 0`, about lines 431–434); `CommandCamera::FocusOn` and the minimap click use z = 0, which at +600 shifts the view by about 350 cm | A barracks places on +600 ground for a human and for JEV; `--profile kit` passes the placement checks; the camera and minimap land on the clicked plateau point |
+| **P1** | **[Candidate] Ground-height-aware placement, orders and JEV** (unlocks Phase B: Terrace +300, Plateau +600) | `CursorGround` (`CommandPlayerController.cpp`): trace the ground and project to the navmesh instead of intersecting the plane z = 0; `ValidateBuildingPlacement`: take the nav-projected Z first and build the overlap box (`Z + 65`, half 55) and the ±110 sample test around **that** Z; `EnemyCommander::BuildNear` (`Location.Z = 5`), `Front.Z = 5`, the fall-back `HQ + (−500, 0, −Home.Z + 5)`: project onto the navmesh; `ArmyGroup` attack anchors (`Anchor.Z = 0`, about lines 431–434); `CommandCamera::FocusOn` and the minimap click use z = 0, which at +600 shifts the view by about 350 cm | A barracks places on +600 ground for a human and for JEV; the kit-height profile passes placement checks; the camera and minimap land on the clicked plateau point |
 | **P2** | **Per-player start locations** | `AHeadquarters::StartSlot`; `ACommandGameState` holds an array of friendly HQs; `ValidateBuildingPlacement` uses the placing commander's HQ as `Home`; `HandleStartingNewPlayer` assigns the slot's HQ and `CommandPlayerController.cpp:116–120` focuses it; HUD one bar per HQ (`CommandHUD.cpp`); `CommandGameMode::Tick` loss rule (any / all / primary: needs a decision); `EnemyCommander` assault target = nearest living HQ | Two commanders start on their own discs at `(−7400, −5500)` and `(−7400, −3700)`; territories are independent; the match ends per the chosen rule |
 | **P3** | **JEV route choice, expansion and scaling** | Route waypoints from the level (`AJevWaypoint` from `routes.jev_to_human`), chosen per assault and rotated after a failed one; keep expanding after two sectors (a rule, not a fixed trigger); Defend and fall-back points relative to the plateau (toward the ramp) instead of hard-coded `−400, −250` and `−500, 0`; `GetEnemyIncomePerSecond` scaled by commander count or a handicap | Over five 2P runs JEV uses both routes; it takes a third sector if it can; the 2P income ratio matches the chosen handicap |
 | **P4** | **Destructible blockers** (matches `SM_Rocks_Destructible_*`: "the destroyed actor replaces the mesh; rubble has no collision") | `ADestructibleBlocker`: health, `ReceiveAttack` (so units target it), replicated, a `UNavModifierComponent` that goes from `NavArea_Null` to the default area on death; mesh swap to rubble | The breach plugs stay closed until shot; the navmesh updates; the route through the breach matches the report (18 970 cm) |
 | **P5** | **Vision towers and high ground** | Minimum: towers reveal minimap markers within `radius` for the owning team. Full: fog of war; a high-ground range or line-of-sight rule in `AArmyUnit::WeaponRange` and target acquisition (today range is `Dist2D`, so siege on the lip reaches bays A1–B2). Only meaningful after P1 | Units on the Terrace do not hit the plateau's north half; a tower shows its radius |
 | **P6** | **Non-square arenas** | `AArenaBounds` is a centred axis-aligned rectangle and the minimap stretches it into a square. Only needed if a future map is not square | Minimap shows the true aspect |
 | **P7** | **Level-aware territory** | `Near()` is 2D; a disc over a cliff also covers ground on the other level. Optional: require the same level as the anchor | A sector's disc does not authorise building across a cliff |
-| **P8** | **Harness map argument — implemented** | `--map` selects the requested world in `verify.py`, `network.py`, `network_desktop.py` and `hud_capture.py`; missing-map readiness fails instead of accepting fallback. Startup/HUD/restart use the map's sector count. Boot coordinate fixtures remain deliberately Boot-specific | Strategy passes on AvailabilityZone; eight-sector editor/package socket restart and native solo/two-peer launch are recorded in `Saved/Verification/map-integration/RESULTS.md` |
+| **P8** | **[Built] Harness map selection** | Selected-map readiness fails rather than accepting fallback; startup/HUD/restart use the selected map's sector count. Boot coordinate fixtures remain deliberately Boot-specific. Network and native/desktop checks use `./x verify` ([`./x help verify`](../../x)) | The historical checkpoint exercised eight-sector editor/package connected restart; this is not proof of subsequent gameplay changes |
 
 **Where the height limit comes from** (the reason for P1): a footprint overlap box `Location.Z + 10 … + 120` (centre +65, half 55) tests world collision, and `Location.Z` is **0** for a click (`CursorGround` forces z = 0) and **5** for JEV. Ground higher than about +10 cm blocks every building on it. The navmesh sample must project within 110 cm of the same Z, so ground lower than about −95 cm is unplaceable. Buildable relief is therefore about 100 cm, less than one 300 cm kit step.
 
@@ -119,11 +119,11 @@ Order matters: each tier is cheaper than the next, and none of them replaces the
 
 ### Tier 0: the data (done here)
 
-`python3 Build/DrawMapLayout.py --report` must print `Errors: none`, and it does. In Phase B it also lists the two levels above today's buildable ceiling (L1 +300, L2 +600); that line is expected until P1 lands and is not an error.
+`./x gen draw-map-layout` ([`./x help gen`](../../x)) validates the data and reports `Errors: none` for the Phase A layout. Phase B's L1 +300 and L2 +600 exceed the original buildable ceiling; that is a proposed placement change, not a JSON validation error.
 
 ### Tier 1: navigation reachability, in the editor or a standalone world
 
-For each pair below, call `FindPathToLocationSynchronously` with the unit's agent properties from `GetDefaultNavDataInstance`. **Pass:** a complete (not partial) path whose length is within ±6 % of the script's number. If a ramp or choke is narrower than designed, the path fails or is much longer.
+[New] Proposed navigation assertion: each pair below has a complete (not partial) path with the unit's navigation-agent properties and length within ±6 % of the script's number. If a ramp or choke is narrower than designed, the path fails or is much longer. This map-specific assertion matrix is not an existing test scope; interactive map inspection uses `./x editor` ([`./x help editor`](../../x)).
 
 | From → to | Expected length (cm) |
 | --- | ---: |
@@ -136,17 +136,17 @@ For each pair below, call `FindPathToLocationSynchronously` with the unit's agen
 | Cluster → Transformer Row / Switchyard | 3456 / 3852 |
 | Each ramp strip, top → foot | 800 ± 6 % |
 
-Also for every ramp lane, gate lane and the pocket mouth: send a fixture of **three Frontline forces of six abreast** through it (the `movement` scenario's per-member arrival criteria) and assert every unit arrives with no unit under 5 cm/s for 5 s while its order is Secure. Both directions, both sides. The 100 cm parapet between the gate's two lanes is not crossable; test each lane on its own.
+[New] Proposed crowd assertion: three Frontline forces of six abreast traverse every ramp lane, gate lane and pocket mouth in both directions, with every unit arriving and no unit below 5 cm/s for 5 s while its order is Secure. The 100 cm parapet between the gate's two lanes is not crossable; lanes are independent cases. Existing fixture movement checks use `./x test movement` ([`./x help test`](../../x)); they do not implement this map-specific matrix.
 
 ### Tier 2: placement coverage
 
-An automation test on the built level, in the style of the `construction` scenario: sample a 100 cm grid inside every territory disc and call `ValidateBuildingPlacement` for Barracks and Workshop from the correct team and z (0 for humans, 5 for JEV; the level height after P1).
+[New] Proposed placement assertion on the built level: a 100 cm sample grid in every territory disc compares Barracks/Workshop acceptance for the correct team and ground height. Existing lifecycle checks use `./x test construction` ([`./x help test`](../../x)); they do not implement this coverage scan.
 
 **Pass:** at least 90 % of the script's valid cells are valid in the level (script: Bunker 156 / 136 m² barracks / workshop, each natural 248 / 232); **no** valid cell on any ramp footprint or mouth; bays `A1–A4`, `B1–B4` all valid; a `BuildNear` replay in a test world places three barracks and a workshop around the Cluster and an outpost at every sector.
 
 ### Tier 3: JEV smoke on the real map (needs P8)
 
-`verify.py regression --scenario strategy --map /Game/Maps/AvailabilityZone` for one commander, observed through live state:
+Registered-world strategy assertions use `./x test strategy` ([`./x help test`](../../x)); editor-hosted strategy assertions on a selected map use `./x editor` ([`./x help editor`](../../x)). [Candidate] The following one-commander AvailabilityZone timeline is a map-specific acceptance target, not additional assertions guaranteed by those commands:
 
 1. JEV places a barracks within 20 s and completes it 12 s later.
 2. Transformer Row is captured, then outposted, then Switchyard (order per the score table: 7 then 8), all within 30 s of the design timeline (about 0:46 and 1:25).
@@ -156,7 +156,7 @@ An automation test on the built level, in the style of the `construction` scenar
 
 ### Tier 4: 1P and 2P matches (real network)
 
-`network.py` slices with `--clients 0` (1P) and `--clients 1` (2P), then the acceptance chain once:
+Network slices and the continuous acceptance chain use `./x verify network` ([`./x help verify`](../../x)); topology and map selection are described only in help. [Candidate] The table below describes the original 1P/2P map-playtest target, not additional assertions supplied by the runner:
 
 | Check | 1P | 2P |
 | --- | --- | --- |
@@ -168,7 +168,7 @@ An automation test on the built level, in the style of the `construction` scenar
 
 ### Tier 5: what only a person can check
 
-Native window: building preview and clicks on the Plateau (Phase B parallax at +600 is about 350 cm until P1 fixes the click plane), minimap orientation and clicks, camera pan to the arena edge (rim and backdrop present), readability of the three levels at the default zoom, and whether the two-route defence is fun. Playtesting decides route balance, JEV's strength, 2P difficulty, and whether the naturals-first opening is too safe.
+Native input/capture verification uses `./x verify native` ([`./x help verify`](../../x)); human play uses `./x play` ([`./x help play`](../../x)). [Candidate] Human review covers building preview and Plateau clicks, minimap orientation, camera-edge dressing, level readability and whether the two-route defence is fun. It decides route balance, JEV strength, 2P difficulty and whether the naturals-first opening is too safe.
 
 ## 6. Risks and unknowns
 

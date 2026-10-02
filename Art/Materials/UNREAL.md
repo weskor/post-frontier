@@ -1,13 +1,10 @@
 # M_Shared: Unreal port plan for the SC2-style master material
 
-Prototype: `Build/MasterMaterials.py` (Blender 5.2.1). Watch it live in `Art/Materials/MaterialPreview.blend`
-(collection "Flat (before)" is the old look, hidden; unhide to compare). Previews in this folder:
-`Before-After-{Units,Buildings,Kit}.png`, `Close-Human.png`, `Close-Machine.png`, `FieldView.png` (+ `FieldView-Flat.png`).
-Status (2026-09-30): built in Unreal by `Build/BuildSharedMaterial.py` (M_Shared, MF_Triplanar_Local, MF_SC2_Wear, 32 MI_SC2_*
-instances); the meshes were imported by `ImportUnitMeshes.py`, `ImportBuildingMeshes.py` and `ImportEnvironmentKit.py`.
-Results, the resolved **[unverified]** items and every deviation from the tables below are in
-`Saved/Verification/sc2-art-unreal/RESULTS.md`. The text below is the original plan and is kept as written. The vertex colour
-property is `vertex_color_import_option` (`VertexColorImportOption.REPLACE`) and the values arrive linear.
+Prototype generation: `./x gen master-materials` ([`./x help gen`](../../x)), using Blender 5.2.1. The editable output is `Art/Materials/MaterialPreview.blend`; previews are `Before-After-{Units,Buildings,Kit}.png`, `Close-Human.png`, `Close-Machine.png`, `FieldView.png` and `FieldView-Flat.png`.
+
+[Built] Unreal port (2026-09-30): `./x gen build-shared-material` creates `M_Shared`, `MF_Triplanar_Local`, `MF_SC2_Wear` and 32 `MI_SC2_*` instances. Mesh imports use `./x gen import-unit-meshes`, `./x gen import-building-meshes` and `./x gen import-environment-kit`; mask read-back uses `./x gen verify-masks`. Procedures: [`./x help gen`](../../x); dependency/output context: [World.md](../../Docs/World.md). The vertex colour property is `vertex_color_import_option` (`VertexColorImportOption.REPLACE`); values arrive linear.
+
+[Candidate] The contracts below preserve the original material proposal. Actual parameter deviations live in `Build/BuildSharedMaterial.py`; no untracked verification report is required to find them.
 
 ## 1. What the material does
 
@@ -110,7 +107,7 @@ Blender group / helper → Unreal:
 | G `Cavity` | Occlusion and creases | 20 cosine-weighted rays per vertex (0.35 / 0.6 / 1.0 m) plus concave crease angle |
 | B `Ground` | Splash near the ground | `(1 - (z - zmin) / height)^2` with height 0.45 / 0.8 / 1.2 m |
 
-The bake takes well under a second per mesh: `--save-only` rebuilds all 40 meshes and the preview blend in about 5 s.
+The historical Blender bake measured well under a second per mesh and about 5 s for all 40 meshes plus the preview blend. Prototype generation options are described only in [`./x help gen`](../../x).
 
 ### 3.2 Getting the masks into Unreal
 
@@ -206,10 +203,7 @@ and `SelfLit` add a little, so watch pastel team colours in the gallery for wash
 | Building meshes (none yet: the actor is a cube with a dynamic `M_CommandUnit`) | `MI_SC2_<Faction>_{Team,Shell,Dark,Glow}_Bld`; scaffolds use the `Construction` variant (Shell `BaseColor (0.50, 0.52, 0.56)`, `Metallic 0.3`) | Team slot is 0 and amber tint comes from gameplay, so no separate Team instance |
 | `M_Surface`, `M_Glow` | Kept | Still used by the campus floor and props (`MI_Asphalt`, `MI_Concrete`, `MI_RoadLine`, ...) |
 
-Implementation plan: add `ArtMaterials.shared(name, **parameters)` (same MIC helper pattern as `surface()` / `glow()`, plus
-static-switch calls through `set_material_instance_static_switch_parameter_value`); build `M_Shared` once through the
-existing `_parent()` cache pattern, or by hand and save it. The parameter values come from the tables in section 8.
-Existing `.uasset` instances are reused by name, not deleted, until all callers are migrated.
+Shared-material generation uses `./x gen build-shared-material` ([`./x help gen`](../../x)); gallery inspection uses `./x editor` ([`./x help editor`](../../x)). `ArtMaterials.shared(name, **parameters)` is the material-instance helper contract; parameter tables below are prototype values, while the generator owns current asset construction.
 
 ## 8. Instance parameters (as rendered in the previews)
 
@@ -272,8 +266,7 @@ Before shipping, repeat it in the game camera with the five team colours; only b
 * **Bevel masks need a generator change** (3.2). Without it the material still works with `UseBakedMasks` off: paint, panel
   seams, pearl, glow and hazard, but no edge highlight, wear or crevice grime.
 * **Vertex-mask resolution:** highlights are one bevel strip wide. If the art owner wants broader wear, the meshes need UVs.
-* **Cost:** nine texture samples plus ten lerps per pixel. Section 4 lists the packing that halves it. Measure with
-  `stat gpu` on the gallery map before deciding.
+* **Cost:** nine texture samples plus ten lerps per pixel. Texture packing could reduce this. Gallery profiling uses `./x editor` ([`./x help editor`](../../x)); GPU measurements are needed before choosing a cheaper graph.
 * **Bloom:** the previews use a compositor Glare (threshold 0.7, strength 0.5) so `Glow` reads as light. Unreal needs the
   project post-process bloom at a similar strength, otherwise emissive strips look flatter than the previews.
 * **Machine `Team` red share** is still undecided (`Docs/World.md`): the previews use red inlays plus the lens dome, matching

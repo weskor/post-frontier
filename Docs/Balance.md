@@ -2,9 +2,9 @@
 
 ## Method
 
-`Build/SimulateMatches.py` runs one fresh authoritative standalone Unreal process per match. Team 5 uses the ordinary `AEnemyCommander`; an explicitly opted-in `UMatchSimulationSubsystem` spawns the same class with `TeamIndex=0` and the local `ACommandPlayerState` as `Commander`. Human-side autopilot never exists without `-autopilot`; economy overrides apply only to opted-in standalone worlds. No fixtures grant money, armies, capture or damage.
+`./x sim` ([`./x help sim`](../x)) runs one fresh authoritative standalone Unreal process per match. Team 5 uses the ordinary `AEnemyCommander`; an explicitly opted-in `UMatchSimulationSubsystem` spawns the same class with `TeamIndex=0` and the local `ACommandPlayerState` as `Commander`. Human-side autopilot exists only in opted-in standalone worlds; economy overrides are similarly isolated. No fixtures grant money, armies, capture or damage.
 
-The runner uses `-game -nullrhi -nosteam -nosound -unattended`, launches directly into the requested `/Game/...` package, and holds `/tmp/cooprts-work/ue.lock` from launch through natural exit or owned-process cleanup. Matches and variants are sequential. It rejects stale gameplay binaries, records executable/module timestamps, and rejects artifact mutation during a match. Editor standalone is the default; `--executable <Development executable>` selects a packaged game instead. A package must have been cooked with every requested map, including V2; a wrong/unstarted map is a failure, not a result.
+The runner owns process launch, headless scheduling, freshness and cleanup. Editor standalone and packaged Development matches both require the requested map to start; a wrong/unstarted map is a failure, not a result. Runtime artifact mutation is rejected.
 
 ### Planner under measurement
 
@@ -19,46 +19,15 @@ Construction preserves free-deposit space and existing full-force rally footprin
 Average joined-unit health below **35%** requests only that producer's Fall Back goal; recovery persists until average joined health reaches **80%**. Fall Back targets the force's validated assembly point through the goal driver, not a fixed HQ offset.
 
 
-### Commands
+### Simulation and tuning
 
-The owner reduced verification to V2 only: **ten baseline-2/s matches and ten baseline-3/s matches**, at safe fixed-step **1×**. Classic-map matches, baseline 4/s, paired higher-dilation comparisons, further scenario matrices, packaging, network and presentation checks were explicitly skipped. The completed command was:
+Simulation batches, single matches, custom economy variants, wider matrices, paired dilation comparisons and report regeneration all use `./x sim`. Arguments and launch procedures live only in [`./x help sim`](../x).
 
-```bash
-uv run Build/SimulateMatches.py --map /Game/Maps/AvailabilityZoneV2 \
-  --variant baseline2 --variant baseline3 --matches 10 --dilation 1 \
-  --run Saved/Simulation/ai-v2-lean-20261001
-```
+The measured batch on **2026-10-01** was V2 only: **ten baseline-2/s matches and ten baseline-3/s matches**, seeds **1–10**, fixed-step **1×**, starting wallets **600/600**, normal deposits **4/s, 2400 total**, rich deposits **6/s, 3000 total**, and a **2400-game-second** cap. Classic-map matches, baseline 4/s, higher-dilation comparisons, extra matrices, packaging, network and presentation checks were explicitly skipped.
 
-The runner itself acquires `flock` on the shared lock for each match. Do not also acquire that same lock around this command: opening it again would deadlock. Its `--matrix` option still supports the original wider experiment, but that experiment was not run.
+Higher-dilation equivalence has **not** been established. A paired sample without paid production/combat on both sides, HQ damage and capture is inconclusive, not a passing equivalence check. Until equivalence is established, the measured 1× conditions remain the tuning reference.
 
-For future tuning at a higher dilation, `--compare-dilation 8 --sample-seconds 600 --matches 1` runs a paired sample. A sample without paid production/combat on both sides, HQ damage and capture is inconclusive, not a passing equivalence check. Higher-dilation equivalence has **not** been established by this run.
-
-Use `--dilation 1` if accelerated equivalence has not been established. The default game-time cap is **2400 seconds (40 minutes)**. Baseline2 uses normal deposits **4/s, 2400 total**, rich deposits **6/s, 3000 total**. Baseline3/4 change only baseline income. The same seeds (default 1–10) are reused across maps/variants. Custom tuning requires no rebuild:
-
-```bash
-uv run Build/SimulateMatches.py --map /Game/Maps/AvailabilityZoneV2 \
-  --variant tuned:baseline=3,normal_rate=5,rich_rate=7,normal_amount=2800,rich_amount=3400 \
-  --matches 10 --time-cap 2400 --run Saved/Simulation/tuned
-uv run Build/SimulateMatches.py --report-only Saved/Simulation/balance-matrix
-```
-
-`--map` and `--variant` may be repeated; their cross-product runs sequentially. `--matrix` already defines its own map/variant combinations. Every new run directory must be fresh. `uv` provides matplotlib; no Python dependency is needed inside Unreal.
-
-Equivalent single-match runtime invocation (the runner is preferred for lock, ownership and validation):
-
-```bash
-flock /tmp/cooprts-work/ue.lock \
-  "$HOME/.local/opt/unreal-engine/5.8.3/Engine/Binaries/Linux/UnrealEditor" \
-  "$PWD/CoopRTS.uproject" /Game/Maps/AvailabilityZoneV2 -game \
-  -nullrhi -nosteam -nosound -nosplash -unattended -autopilot \
-  -SimSeed=1 -SimTimeCap=2400 -SimDilation=1 \
-  -SimBaseline=2 -SimNormalRate=4 -SimRichRate=6 \
-  -SimNormalAmount=2400 -SimRichAmount=3000 \
-  -SimOutput="$PWD/Saved/Simulation/single/match.json" \
-  '-ExecCmds=t.MaxFPS 0'
-```
-
-Runtime numeric bounds are baseline/rates **0–10000**, amounts **0–100000000**, seed **0–2147483647**, cap **1–86400 s**, requested dilation **1–32** (effective engine clamping is rejected as a request mismatch). `-SimOutput` must be an absolute path. Defaults are unchanged without opt-in.
+Runtime numeric bounds are baseline/rates **0–10000**, amounts **0–100000000**, seed **0–2147483647**, cap **1–86400 s**, requested dilation **1–32** (effective engine clamping is rejected as a request mismatch). The runtime requires an absolute output path; the runner owns it. Defaults are unchanged without opt-in.
 
 ### Time, determinism and dilation
 
@@ -97,9 +66,9 @@ Use `deposit_depleted` times and individual reserve histories to identify exhaus
 
 Largest-region unit share is summarized only for snapshots with **at least 12 living units**. Force centers, goals, roles, production and regional counts support inspection of concentrated advances versus split pressure. A high share is a **proxy**, not proof that deathballs dominate strategically; region sizes differ, travellers count as living, and automated one-commander matches do not prove human five-player readability. Unit health-loss observations are a lower bound (same-tick repairs/fatal removal can hide damage); attack counts measure shots, not damage landed. Recommendations require actual match outcomes and those evidence limits, not a synthetic harness smoke or successful compilation.
 
-## Results: V2 lean run
+## Results: V2 lean run — 2026-10-01
 
-Evidence: [aggregate report](../Saved/Simulation/ai-v2-lean-20261001/Report.md), [runner summary](../Saved/Simulation/ai-v2-lean-20261001/summary.json), [derived analysis](../Saved/Simulation/ai-v2-lean-20261001/Analysis.json), and individual `match.json`, `launch.json`, `game.log` and `stdout.log` files in that directory.
+Balance record for the dated conditions above; these are measured results, not a claim about subsequent builds.
 
 **20/20 matches validated, zero failed matches, all process exit codes 0.** All used identical AI code, starting wallets **600/600**, V2, baseline-specific real payments and fixed 60 Hz game steps. Maximum observed game delta was **0.016666667536 s**. Batch wall time was **1007.56 s**; median match wall times were **42.3 s** and **39.8 s**. This is uncapped headless throughput at 1×, not evidence for a higher-dilation shortcut.
 
@@ -140,19 +109,12 @@ These concentrated survivors preserved the HQ but did **not** win: neither side 
 
 The design target remains unmet. Further tuning should distinguish goal/front commitment, independent-force attrition and uncommandable orphan defensive accumulation from economic scarcity. This is a recommendation from this bounded run, not a claim that co-op or human strategy is balanced.
 
-![Income curves](../Saved/Simulation/ai-v2-lean-20261001/income.png)
-
-![Living units](../Saved/Simulation/ai-v2-lean-20261001/units.png)
-
-![Concentration](../Saved/Simulation/ai-v2-lean-20261001/concentration.png)
-
-![Median durations](../Saved/Simulation/ai-v2-lean-20261001/duration.png)
 
 ## Verification and failure history
 
 - Final `CoopRTSEditor Linux Development` build succeeded under the shared lock. The initial incomplete-`AArenaBounds` compile failure was fixed with the missing include.
-- Final Boot `CoopRTS.Enemy.ConstructionEconomy` **PASS**, engine/SoftQuit exit **0**, **69.62 s**: [proof](../Saved/Verification/ai-boot-strategy-rally-clear/RESULTS.md). It checks exact paid private economy, accepted region goals, natural forward construction/production/joining, nearest-region defense, real joined damage, producer-only retreat/backlinks and natural repairs/resumption.
-- An earlier V2 strategy run passed before the final construction-clearance changes: `Saved/Verification/ai-v2-strategy-go`. It is not presented as final-code V2 strategy proof; current-code V2 evidence is the twenty natural autonomous matches.
+- On 2026-10-01, final Boot `CoopRTS.Enemy.ConstructionEconomy` **PASS**, engine/SoftQuit exit **0**, **69.62 s**. It checks exact paid private economy, accepted region goals, natural forward construction/production/joining, nearest-region defense, real joined damage, producer-only retreat/backlinks and natural repairs/resumption.
+- An earlier V2 strategy run passed before the final construction-clearance changes. It is not final-code V2 strategy proof; the twenty natural autonomous matches are the V2 evidence for this balance record.
 - The first Boot attempt ended in Defeat and its latent fixture stalled; it was interrupted through its owned PID and retained as **failed/interrupted**, not a pass. The fixture now fails immediately on terminal match state and reports progress every **10 game seconds**. Passive human guards and an explicit **1000000-HP** human-HQ survival budget isolate economy/recovery from unrelated HQ outcomes.
 - The next Boot attempt failed specifically because the fallback goal did not obtain an accepted navigable front. AI construction now preserves full-force rally space and free deposits, and rejected extractor candidates do not deadlock selection. The final Boot run passed the same damage/fallback/repair assertions after this correction. The historic V2 compound failure cannot be retrospectively assigned an exact failed predicate; raw HQ-offset rejection remains an inference.
 - Harness-only validity/comparison boundary checks passed before runtime. Runtime logs/checkpoints were inspected within the owner's three-minute supervision window; the batch's per-match watchdog rejects missing progress rather than inventing draws. All owned Unreal processes exited; shared lock released.

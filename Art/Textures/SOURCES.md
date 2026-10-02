@@ -1,7 +1,7 @@
 # Texture sources
 
 All assets are CC0 1.0 from ambientCG (https://ambientcg.com); no attribution required.
-Regenerate with `python3 Build/FetchTextures.py` then `python3 Build/FetchTextures.py --sources`.
+`./x gen fetch-textures` fetches texture inputs and can regenerate this source table; procedure: [`./x help gen`](../../x). `./x gen render-texture-contact-sheet` produces the labelled material-sphere overview using the same help reference.
 
 - Files live at `Art/Textures/<Category>/<AssetId>/<AssetId>_<Map>.jpg`.
 - **Normals are DirectX (green down), Unreal's native convention.** Import with the default NormalMap compression and no green flip.

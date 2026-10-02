@@ -7,7 +7,7 @@ First real map: **you (and later a friend) against JEV**, laid out the way a Sta
 | File | Role |
 | --- | --- |
 | `Build/Maps/AvailabilityZone.json` | Source of truth: arena, HQs, sectors, elevation regions, ramps (kit pieces and their footprints), blockers, chokes, pockets and bays, decoration zones, proposals. The Unreal generator reads the same file. |
-| `Build/DrawMapLayout.py` | Validates the JSON, measures walking distances, replays the placement rules, draws the plan. `python3 Build/DrawMapLayout.py --report` prints every table quoted below. |
+| `Build/DrawMapLayout.py` | Validates the JSON, measures walking distances, replays the placement rules and draws the plan. `./x gen draw-map-layout` produces the tables below; procedure: [`./x help gen`](../../x). |
 | `Art/Maps/AvailabilityZone-layout.png` | Top-down plan: grid, scale and time bars, level shading, ramps, sectors, HQs, routes, chokes, pockets. |
 | `Docs/Maps/AvailabilityZone-implementation.md` | How to build it in Unreal, the code proposals, the verification plan. |
 
@@ -290,13 +290,9 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 
 ## Data file and regeneration
 
-```bash
-python3 Build/DrawMapLayout.py --report          # all checks and tables; exit status 1 on any failure
-python3 Build/DrawMapLayout.py                   # rewrites Art/Maps/AvailabilityZone-layout.png
-python3 Build/DrawMapLayout.py --svg /tmp/az.svg # also keep the SVG
-```
+`./x gen draw-map-layout` validates the layout and produces `Art/Maps/AvailabilityZone-layout.png`, measured tables and optional SVG. Procedure and output options: [`./x help gen`](../../x).
 
-Needs `rsvg-convert` or ImageMagick, no Python packages. Checks: level overlap, kit-grid alignment of regions, blockers, ramp pieces and towers, ramp ends and slopes and lane widths, sectors and capture rings on one level, HQ discs on their plateau, no ramp or choke inside a territory disc, choke widths, rot180 symmetry, reachability, route equality within 3 %, the human terrace unreachable without gate and door, placement coverage, bays, JEV's `BuildNear` replay and outposts, Phase A heights against the two build heights, and the terrace lip within JEV's intruder radius.
+Checks: level overlap, kit-grid alignment of regions, blockers, ramp pieces and towers, ramp ends and slopes and lane widths, sectors and capture rings on one level, HQ discs on their plateau, no ramp or choke inside a territory disc, choke widths, rot180 symmetry, reachability, route equality within 3 %, the human terrace unreachable without gate and door, placement coverage, bays, JEV's `BuildNear` replay and outposts, Phase A heights against the two build heights, and the terrace lip within JEV's intruder radius.
 
 ## Questions for the owner
 

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-Runtime = Literal["unreal", "blender", "python", "uv", "uv/reaper"]
+Runtime = Literal["unreal", "blender", "python", "uv", "uv/reaper", "shell"]
 
 
 @dataclass(frozen=True)
@@ -219,6 +219,14 @@ GENERATORS = (
         "Art/UI/{frames,icons/commands}",
         "Export SVG/PNG HUD frames and command glyphs.",
         HELP="Requires rsvg-convert; render-ui-icons supplies portraits separately.",
+    ),
+    Generator(
+        "render-ui-mockups",
+        "shell",
+        "../Art/UI/mockups/render.sh",
+        "Art/UI/mockups/*.png",
+        "Render HTML HUD design mockups at 1920x1080.",
+        HELP="Requires chromium. Pass -- PAGE (without .html) to render one page; no arguments renders all pages. No Unreal lock.",
     ),
     Generator(
         "fetch-textures",

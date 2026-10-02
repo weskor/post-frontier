@@ -42,4 +42,6 @@ def invocation(entry: Generator, ctx: Context, extra: list[str]) -> list[str | P
         return ["blender", "-b", "--factory-startup", "-P", script, "--", *arguments]
     if entry.runtime in ("uv", "uv/reaper"):
         return ["uv", "run", "--script", script, *arguments]
+    if entry.runtime == "shell":
+        return ["bash", script, *arguments]
     return ["python3", script, *arguments]

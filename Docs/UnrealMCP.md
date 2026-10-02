@@ -11,10 +11,7 @@ Epic's Unreal MCP lets one omp agent drive the running Unreal editor (UE 5.8.3, 
 
 ## Start the editor and the MCP agent
 
-```bash
-export UE_ROOT="$HOME/.local/opt/unreal-engine/5.8.3"
-"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject"
-```
+Open the editor with `./x editor` ([`./x help editor`](../x)).
 
 Wait for `LogModelContextProtocol: Starting MCP server on port 8000` in the editor log, then in a separate terminal at the repo root:
 
@@ -27,6 +24,6 @@ The agent sees the server as `unreal_mcp` (tools `mcp__unreal_mcp_list_toolsets`
 ## Rules
 
 - **One agent only.** Tool calls must not overlap. Never launch a second omp with `UNREAL_MCP=1`; every other agent runs without it.
-- **Headless generator scripts must not save a map the open editor is editing.** With the editor open, do not run `Build/*.py` via `UnrealEditor-Cmd` against a map or asset the live editor has loaded. Close the editor first, or target different assets.
-- **Rebuild and re-cook after the `.uproject` change.** Adding the plugins changed `CoopRTS.uproject`. Rebuild `CoopRTSEditor` (README "Build and open the editor") and re-cook the package before the verify-cooprts `doctor` freshness checks pass again.
+- **Headless generators must not save a map the open editor is editing.** `./x gen` ([`./x help gen`](../x)) and `./x editor` share the exclusive lock, so close the editor before generator work. MCP asset-editing ownership remains an owner decision.
+- **Rebuild and re-cook after the `.uproject` change.** Adding plugins changes build/package inputs. Editor compilation uses `./x build` ([`./x help build`](../x)); cooked artifacts use `./x package` ([`./x help package`](../x)).
 - Port 8000 is used by one editor at a time. Config-driven auto-start is skipped for commandlets (cook, generator scripts), so they do not collide with the open editor.

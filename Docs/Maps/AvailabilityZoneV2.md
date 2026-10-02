@@ -1,6 +1,6 @@
 # Availability Zone v2 — playable greybox, strategy regression pending
 
-Source of truth: [`Build/Maps/AvailabilityZoneV2.json`](../../Build/Maps/AvailabilityZoneV2.json), derived from [`AvailabilityZone-v2-extractor-sites.excalidraw`](../../Art/Maps/AvailabilityZone-v2-extractor-sites.excalidraw) by `python3 Build/DrawAvailabilityZoneV2.py --derive`. The ordinary `python3 Build/DrawAvailabilityZoneV2.py` validates the JSON, measures travel on a 100 cm raster with rock clearance, and renders this plan:
+Source of truth: [`Build/Maps/AvailabilityZoneV2.json`](../../Build/Maps/AvailabilityZoneV2.json), derived from [`AvailabilityZone-v2-extractor-sites.excalidraw`](../../Art/Maps/AvailabilityZone-v2-extractor-sites.excalidraw). `./x gen draw-availability-zone-v2` validates the JSON, measures travel on a 100 cm raster with rock clearance and renders this plan; derivation and validation procedures are in [`./x help gen`](../../x):
 
 ![Availability Zone v2 plan](../../Art/Maps/AvailabilityZoneV2-layout.png)
 
@@ -26,24 +26,14 @@ The source drawing is **not 180° symmetric**: its HQs miss a rotational mirror 
 | 13 | Machine Near | natural | 1632 | 43.5 | 10.8 |
 | 14 | Machine Main | main | 2139 | — | — |
 
-Bunker → Cluster: **50.8 s** at 420 cm/s by the same 100 cm, eight-neighbour path estimator. These are *design estimates*, not measured Unreal Detour paths, and omit crowding and capture time. Run `Build/DrawAvailabilityZoneV2.py` to reproduce the complete areas and travel table. The validator checks exact shared-edge topology/outer perimeter, CCW winding, 100 cm sampled tiling, symmetric neighbour lists, anchors, all 16 extractor footprints within their regions, HQ placement and rock clearance.
+Bunker → Cluster: **50.8 s** at 420 cm/s by the same 100 cm, eight-neighbour path estimator. These are *design estimates*, not measured Unreal Detour paths, and omit crowding and capture time. `./x gen draw-availability-zone-v2` produces the complete areas/travel table ([`./x help gen`](../../x)). The validator checks exact shared-edge topology/outer perimeter, CCW winding, 100 cm sampled tiling, symmetric neighbour lists, anchors, all 16 extractor footprints within their regions, HQ placement and rock clearance.
 
 ## Generated greybox and playtest gate
 
-`Build/GenerateAvailabilityZoneV2.py` creates only `/Game/Maps/AvailabilityZoneV2`; it does not replace the v1 level. Generate it with a current `CoopRTSEditor` module and no other Unreal process from this project:
+[Built] `./x gen generate-availability-zone-v2` ([`./x help gen`](../../x)) creates only `/Game/Maps/AvailabilityZoneV2`; it does not replace v1. The runner owns module freshness and generation locking.
 
-```bash
-flock /tmp/cooprts-work/ue.lock "$HOME/.local/opt/unreal-engine/5.8.3/Engine/Binaries/Linux/UnrealEditor-Cmd" "$PWD/CoopRTS.uproject" \
-  -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/GenerateAvailabilityZoneV2.py" \
-  -unattended -nullrhi -nosplash
-```
+[Built] The menu defaults to **Availability Zone v2**, with classic **Availability Zone** selectable beside it. Both **Play vs JEV** and **Host co-op** use the selection; Play Again stays on the current map. Offline menu play uses `./x play` ([`./x help play`](../../x)); cooked Development/Shipping artifacts use `./x package` ([`./x help package`](../../x)).
 
-The menu now defaults to **Availability Zone v2**, with classic **Availability Zone** selectable beside it. Both **Play vs JEV** and **Host co-op** use the selection; Play Again stays on the current map. Fresh Development and Shipping packages plus the native v2 construction/capture minimum are recorded in `Saved/Verification/playtest-tonight/RESULTS.md`; the earlier strategy failure below remains unresolved. For offline play, launch the menu and choose Play vs JEV:
+`Config/DefaultGame.ini` includes v2 in `MapsToCook`. Configuration alone does not prove an old package contains it; a fresh requested-map launch is required.
 
-```bash
-./Builds/Linux/CoopRTS.sh -nosteam -windowed -ResX=1280 -ResY=720
-```
-
-`Config/DefaultGame.ini` includes v2 in `MapsToCook`, and both explicit `README.md` BuildCookRun map lists include it. Configuration alone does not prove an old package contains it; tonight's fresh Development and Shipping archives both opened v2 natively.
-
-The generator places an arena, two HQs, 13 resource-kind `ACapturePoint`s with **SiteIndex equal to region index**, 15 native `AMapRegion`s, 16 native `ADepositSite`s, ground, rock collision and dynamic navigation. Native actors and painted borders/deposit diamonds use the same JSON; the paint is non-colliding. The map starts a match under the current native module. A live editor probe checked all native metadata and deposit reserves against JSON plus 59 complete navigation paths (`Saved/Verification/availability-zone-v2/nav-actors.log`). The JEV construction/economy scenario on v2 progressed through paid production, capture, a completed extractor, finite resource payments and defensive interruption, then **failed** its producer-scoped retreat assertion (`Saved/Verification/v2-strategy-actors-20261001/strategy.log`); full strategic regression remains unverified. Tonight's packages include v2 and use it as the menu default, without claiming that failed AI regression is repaired. Height levels, destructible rocks, watchtower vision, per-player HQs and economy balance remain outside this greybox pass.
+[Built] The generator places an arena, two HQs, 13 resource-kind `ACapturePoint`s with **SiteIndex equal to region index**, 15 native `AMapRegion`s, 16 native `ADepositSite`s, ground, rock collision and dynamic navigation. Native actors and non-colliding painted borders/deposit diamonds use the same JSON. Generation is not strategy regression proof; see [Balance.md](../Balance.md) for the later autonomous-match record and its limits. [Candidate] Height levels, destructible rocks, watchtower vision, per-player HQs and economy balance remain outside this greybox pass.

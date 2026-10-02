@@ -311,17 +311,8 @@ These are declared and implemented, but no input or HUD path calls them. Only te
   - Enter (restart, or solo start on the main menu);
   - Esc doing nothing on Result.
 - Step 2 says "then Start". The button reads "START & LOCK".
-- Step 6 says Fall Back "regroups at your barracks". HOW-TO-PLAY rule 9 says "home/rally point". This is a behaviour description mismatch, not a binding one.
 
 **In-deck CONTROLS key caps** (HUD:1251-1255) list only LMB, Space, F4, WASD and Wheel. They omit MMB drag, RMB and Esc.
-
-**`Saved/Verification/playtest-tonight/HOW-TO-PLAY.md`:**
-- The controls paragraph (line 37) matches the source: WASD or MMB pan, wheel zoom, Space focus, LMB select/place, minimap pans when not picking a goal, F4 deck, Construction reopens, Esc pauses solo.
-- Rule 8 (line 29): "right-click/Esc cancels" matches.
-- Rule 5: the 300 cm deposit snap matches `DepositSnapRadius = 300` (PlacementPolicy.h:59).
-- Rule 10: "click your unit to select its barracks" matches PC:576-590.
-- Omissions: Enter, F4 hiding the mode bar while a mode is active, the RMB vs Esc feedback difference, and the main-menu Enter shortcut.
-- Opening advice says to build an extractor first. The in-game NEXT STEP hint says to build a Barracks first and only suggests an extractor after a force is configured (HUD:1236-1239).
 
 **Minimap header** "CLICK TO PAN" is wrong during Goal mode.
 

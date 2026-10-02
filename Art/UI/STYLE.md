@@ -1,6 +1,6 @@
 # CoopRTS HUD style guide
 
-StarCraft 2-inspired HUD for the native Canvas UI (`Source/CoopRTS/CommandHUD.cpp`). This is a **design proposal**: nothing here is wired into `Source/`. How to build it is in [`IMPLEMENTATION.md`](IMPLEMENTATION.md); the pictures are in [`mockups/`](mockups/).
+[Candidate] StarCraft 2-inspired HUD for the native Canvas UI (`Source/CoopRTS/CommandHUD.cpp`). This is a design proposal, not the implemented HUD. Its integration contract is in [IMPLEMENTATION.md](IMPLEMENTATION.md); pictures are in [mockups/](mockups/).
 
 Reference mockups (1920×1080, rendered from HTML that uses the exported frame and glyph PNGs, so the art is the real art):
 
@@ -29,7 +29,7 @@ Reference mockups (1920×1080, rendered from HTML that uses the exported frame a
 
 All numbers are **reference pixels at 1400×788**. The HUD scales uniformly to the viewport (`Scale = min(W/1400, H/788)`, clamp 0.75 to 2.5, as in the current `MakeLayout`). At 1920×1080 the scale is 1.371; text sizes below become ×1.371 real pixels. Frame textures are authored at **2 texels per reference pixel**, so they stay sharp up to scale 2.
 
-> The working copy of `CommandHUD.cpp` currently authors at 1280×720 with `MaxScale = 1`. Convert with ×0.914 (1280/1400) or move the reference back to 1400×788 as `hud-deck-20260929/RESULTS.md` describes. See IMPLEMENTATION.md, section 8.
+> The 2026-09-30 working copy of `CommandHUD.cpp` authored at 1280×720 with `MaxScale = 1`. Conversion to the proposal uses ×0.914 (1280/1400), or the reference can move to 1400×788. Scaling and verification contracts are in [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 Layout grid: **4 px base**. Gaps 4 / 8 / 12 / 16. Screen margin 8. Gap between deck panels 6.
 
@@ -215,11 +215,13 @@ Everything is generated; do not edit the PNGs by hand.
 
 | Asset | Where | Made by |
 | --- | --- | --- |
-| Command glyphs: `move attack hold fall_back secure defend build cancel reinforce`, plus `power lock pause start role_frontline role_ranged role_siege` (SVG + 128 px white PNG) | `icons/commands/` | `python3 Build/ExportUIAssets.py` |
+| Command glyphs: `move attack hold fall_back secure defend build cancel reinforce`, plus `power lock pause start role_frontline role_ranged role_siege` (SVG + 128 px white PNG) | `icons/commands/` | `./x gen export-ui-assets` ([`./x help gen`](../../x)) |
 | 9-slice frames, trims, hazard tile | `frames/` | same script |
-| Portraits, 256 px transparent PNG, three-quarter view, 40 files (8 units, 15 buildings including the four Barracks states per faction, 17 environment pieces) | `icons/portraits/{units,buildings,environment}/SM_*.png` | `blender -b --factory-startup -P Build/RenderUIIcons.py` |
+| Portraits, 256 px transparent PNG, three-quarter view, 40 files (8 units, 15 buildings including the four Barracks states per faction, 17 environment pieces) | `icons/portraits/{units,buildings,environment}/SM_*.png` | `./x gen render-ui-icons` ([`./x help gen`](../../x)) |
 | Team masks: white where the `Team` slot is painted, alpha = coverage (`SM_*_team.png`) | next to each portrait | same script |
 
 Portraits are rendered with blue Team paint (commander 1). To show another commander, draw the portrait, then draw its `_team` mask over it tinted with the commander colour. The renderer opens **temporary copies** of the three `.blend` files and never saves, so it is safe while other scripts regenerate the sources. Barracks portraits by state: `SM_<Faction>_Barracks` (unconfigured), `SM_<Faction>_Barracks_Frontline|Ranged|Siege` (configured), `SM_Construction_Barracks` (under construction).
 
 Glyph rules: 64-unit grid, one flat colour, bold solid shapes with 6–9 unit strokes, no thin lines, readable at 20 px. They are tinted with the state colour at draw time.
+
+HTML design mockups use `./x gen render-ui-mockups` ([`./x help gen`](../../x)); output remains a proposal reference, not proof of the implemented Canvas HUD.

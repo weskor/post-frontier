@@ -271,17 +271,7 @@ Every map is one continuous battlefield with broad routes and few obstacles ([De
 
 ### How to play Server Moon
 
-The packaged build cooks Server Moon with the other maps (`+MapsToCook` in `Config/DefaultGame.ini`; Menu is `GameDefaultMap` and Boot the editor startup map). The menu does not list Server Moon, so launch it by map URL. From the repository root, after packaging with the README command:
-
-```bash
-./Builds/Linux/CoopRTS.sh /Game/Maps/CampusZero -windowed -ResX=1280 -ResY=720
-```
-
-From source, run the editor binary in game mode instead:
-
-```bash
-"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject" /Game/Maps/CampusZero -game -windowed -ResX=1600 -ResY=900
-```
+[Built] The packaged build cooks Server Moon with the other maps (`+MapsToCook` in `Config/DefaultGame.ini`; Menu is `GameDefaultMap` and Boot the editor startup map). The menu does not list Server Moon. Packaging is `./x package` ([`./x help package`](../x)); a packaged launch on `/Game/Maps/CampusZero` is `./x play` ([`./x help play`](../x)). Source game-mode launches use `./x editor` ([`./x help editor`](../x)).
 
 Controls are unchanged from Boot (README "Controls in current source"). Server Moon runs the same match code as Boot: the level places the arena (`AArenaBounds`), the two HQs, the three capture anchors, five regions (two mains plus one per anchor) and seven deposits (`Build/MatchLayout.py`, shared with Boot), `ACommandGameMode::InitGameState` discovers them, and the map art is laid out around them. A level missing the arena, either HQ, its regions or its deposits logs an error and refuses to start a match. Rules and numbers come from the README and `Source/CoopRTS`; the construction loop, not the removed shield objective, is what you play here.
 
@@ -297,7 +287,7 @@ Controls are unchanged from Boot (README "Controls in current source"). Server M
 
 **Sites and layout:**
 
-- **You (west, amber):** Hardline sits at the far west edge behind one long hazard-striped barricade wall, with burn barrels, a flag mast and amber work lamps and floodlights. The two return walls that used to close its flanks were removed so Barracks fit beside the HQ (see the placement check in `Saved/Verification/sc2-art-unreal/RESULTS.md`).
+- **You (west, amber):** Hardline sits at the far west edge behind one long hazard-striped barricade wall, with burn barrels, a flag mast and amber work lamps and floodlights. The two return walls that used to close its flanks were removed so Barracks fit beside the HQ.
 - **The Machine (north-east, cyan and red):** the Lattice stands on the lit plaza in the north-east corner. Server halls, cooling towers and cyan cables run through the campus; the Lattice has a red glow.
 - **Regions:** three ringed capture anchors, each joined to the Lattice by a cyan cable and each anchoring its own region with one deposit. All three are the same kind; the old "power link" difference is gone. Fusion Tap 7 is the near site south of the human base, Lightline Junction is on the south flank, and the Cryo Plant sits in front of the enemy, next to the centre. The HUD labels the anchors `REGION 3`, `REGION 4` and `REGION 5` (anchor `SiteIndex` + 1; the two mains are regions 1 and 2): Fusion Tap 7, Cryo Plant, Lightline Junction. The inspector shows their region names, the `SITES` keys `Substation7`, `CoolingPlant` and `FibreJunction` in `Build/MatchLayout.py`.
 - **Centre:** Data Hall 0 blocks the direct line between the bases. Routes go round it north or south, and the south road runs from Hardline through the campus gate.
@@ -305,7 +295,7 @@ Controls are unchanged from Boot (README "Controls in current source"). Server M
 
 **Not verified on Server Moon with the new loop** (README status; every construction scenario ran on Boot):
 
-- **Free placement around props.** Checked offline on 2026-09-30, under that day's radius-territory and Outpost rules (historical; regions have replaced sector territory since) (`Saved/Verification/sc2-art-unreal/RESULTS.md`, step 5): a replay of `ValidateBuildingPlacement`'s geometry rules on a 100 cm grid over each side's territory, with every sector assumed established. Sector territory is 69 to 82 % clear for every building kind, sector centres and capture rings are 100 % clear for an Outpost, and the kit sits at the rim. Hardline's two return walls closed both HQ flanks (52 clear cells, about 10 Barracks); they were removed and the base now has 103 clear cells (about 13 Barracks). Not exercised: the placement UI and real clicks, enemy troops near a spot, buildings already standing, and the Lattice ring (its eight pylons block about half of its build annulus but leave channels; the enemy did place buildings there at start).
+- **Free placement around props.** Historical offline geometry check, 2026-09-30, under that day's radius-territory and Outpost rules (regions have since replaced sector territory): a 100 cm grid replay with every sector assumed established found sector territory 69 to 82 % clear for every building kind and sector centres/capture rings 100 % clear for an Outpost. Removing Hardline's two return walls increased clear HQ cells from 52 to 103 (about 10 to 13 Barracks). This does not prove current region placement, native clicks, occupied build sites or enemy interference.
 - **Goal routes.** Hold/Expand/Assault/Fall Back movement on the campus navmesh, including around Data Hall 0 and the campus gate.
 - **Enemy behaviour.** How the enemy commander builds and paths here, and whether its placement near the Lattice plaza works.
 - **HUD and native input.** The command deck (README status), placement preview and clicks on this map, in a native window.
@@ -326,45 +316,30 @@ Controls are unchanged from Boot (README "Controls in current source"). Server M
 
 ## Art pipeline
 
-Blender script -> FBX -> Unreal build/import scripts -> gallery map -> Server Moon. Every mesh (units, HQs, buildings, scaffolds, environment kit) wears one shared SC2-style master material, `M_Shared`: the design is `Art/Materials/UNREAL.md`, the Blender prototype `Build/MasterMaterials.py` (previews in `Art/Materials/`). Run each step from the project root, each Unreal step in its own process with the editor closed and no other Unreal process from this repo running.
+Blender meshes -> FBX -> Unreal materials/imports -> gallery map -> Server Moon. Every mesh (units, HQs, buildings, scaffolds, environment kit) wears one shared SC2-style master material, `M_Shared`: its design is [UNREAL.md](../Art/Materials/UNREAL.md), with Blender previews in `Art/Materials/`.
 
-```bash
-export UE_ROOT="$HOME/.local/opt/unreal-engine/5.8.3"
-UE="$UE_ROOT/Engine/Binaries/Linux/UnrealEditor-Cmd"
-PY="-EnablePlugins=PythonScriptPlugin -unattended -nosplash"
+The procedure and ordered dependencies live only in [`./x help gen`](../x). Each command below names an output, not an alternate launch recipe; the runner owns engine flags, freshness and locking.
 
-# 0. Blender, only when a design changes: writes the FBXs (with the baked SC2Mask vertex colours), .blend files and previews.
-blender -b --factory-startup -P Build/GenerateUnitMeshes.py          # Art/Units/SM_*.fbx (6 units, 2 HQs)
-blender -b --factory-startup -P Build/GenerateBuildingMeshes.py      # Art/Buildings/SM_*.fbx (12 buildings, 3 scaffolds)
-blender -b --factory-startup -P Build/GenerateEnvironmentKit.py      # Art/Environment/SM_Env_*.fbx (17 pieces)
+| Command | Produces / purpose |
+| --- | --- |
+| `./x gen fetch-textures` | Licensed CC0 texture inputs. |
+| `./x gen generate-unit-meshes` | Six units and two HQs, FBXs with baked masks, editable blend and previews. |
+| `./x gen generate-building-meshes` | Twelve buildings and three scaffolds with baked masks. |
+| `./x gen generate-environment-kit` | Seventeen campus kit pieces. |
+| `./x gen master-materials` | Blender material prototype and comparison previews. |
+| `./x gen build-shared-material` | Seven mask textures, `MF_Triplanar_Local`, `MF_SC2_Wear`, `M_Shared` and 32 faction/scope instances; shader compilation exposes graph errors. |
+| `./x gen import-unit-meshes` | Eight imported meshes and UnitGallery. |
+| `./x gen import-building-meshes` | Fifteen imported building/scaffold meshes. |
+| `./x gen import-environment-kit` | Seventeen imported kit meshes and collision. |
+| `./x gen verify-masks` | Read-back validation of all 40 imported meshes against baked Blender masks. |
+| `./x gen build-art-gallery` | All mesh classes under Server Moon dusk lighting for visual comparison. |
+| `./x gen generate-campus-zero` | Server Moon match world. |
 
-# 1. Material. Needs a real RHI (offscreen, not -nullrhi) so the shaders compile and a graph or HLSL error shows as
-#    "Failed to compile Material" in the log. Imports the seven CC0 mask textures to /Game/Art/Textures, rebuilds
-#    MF_Triplanar_Local, MF_SC2_Wear and M_Shared, and writes the 32 MI_SC2_* instances. Require SC2_TEXTURES_IMPORTED 7,
-#    M_SHARED_COMPILED and SC2_INSTANCES_BUILT 32, and no "Failed to compile" line.
-"$UE" "$PWD/CoopRTS.uproject" $PY -RenderOffscreen -ExecutePythonScript="$PWD/Build/BuildSharedMaterial.py"
-
-# 2. Imports (vertex colours are imported with Vertex Color Import Option Replace; slots get MI_SC2_* instances).
-#    Require UNIT_MESHES_IMPORTED 8 + UNIT_GALLERY_GENERATED, BUILDING_MESHES_IMPORTED 15, ENV_KIT_IMPORTED 17.
-for script in ImportUnitMeshes ImportBuildingMeshes ImportEnvironmentKit; do
-  "$UE" "$PWD/CoopRTS.uproject" $PY -nullrhi -ExecutePythonScript="$PWD/Build/$script.py"
-done
-
-# 3. After any re-import: read the masks back from all 40 meshes. Require MASKS_VERIFIED 40. The master reads the
-#    masks only through its UseBakedMasks switch (USE_BAKED_MASKS in BuildSharedMaterial.py, on).
-"$UE" "$PWD/CoopRTS.uproject" $PY -nullrhi -EnablePlugins=GeometryScripting -ExecutePythonScript="$PWD/Build/VerifyMasks.py"
-
-# 4. Gallery: every unit, HQ, building, scaffold and kit piece under the Server Moon dusk. Require ART_GALLERY_GENERATED.
-"$UE" "$PWD/CoopRTS.uproject" $PY -nullrhi -ExecutePythonScript="$PWD/Build/BuildArtGallery.py"
-"$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$PWD/CoopRTS.uproject" /Game/Maps/ArtGallery -game -windowed -ResX=1600 -ResY=900
-
-# 5. Server Moon, the CampusZero map (after compiling CoopRTSEditor). Require CAMPUS_ZERO_GENERATED ... blocking=47.
-"$UE" "$PWD/CoopRTS.uproject" $PY -nullrhi -ExecutePythonScript="$PWD/Build/GenerateCampusZero.py"
-```
+ArtGallery and UnitGallery are uncooked inspection worlds. Desktop inspection uses `./x editor` ([`./x help editor`](../x)), whose passthrough supports the selected map and game mode; `./x play` is for cooked maps.
 
 Notes:
 
-- Reruns replace the meshes, the three material assets (`BuildSharedMaterial.py` deletes and recreates `M_Shared` and both functions: clearing a reloaded function graph asserts in the engine) and every gallery and map actor. Instance values update in place and the maps store only references, so a value tweak needs step 1 only; a change to slots or geometry needs steps 2 to 5.
+- Reruns replace the meshes, the three material assets (`BuildSharedMaterial.py` deletes and recreates `M_Shared` and both functions: clearing a reloaded function graph asserts in the engine) and every gallery and map actor. Instance values update in place and maps store references. Material-only changes affect the shared-material output; slot/geometry changes also affect imports, mask validation and dependent worlds. Dependency procedures are in [`./x help gen`](../x).
 - Import options are the Unreal defaults (scale 1, Convert Scene on, Force Front X Axis off), which match the FBX axis contract in the docstrings of the Blender generators. Do not change the FBX axes to compensate for an import problem.
 - Material slots are `Team`, `Shell`, `Dark`, `Glow` on units, HQs, buildings and scaffolds, plus `Accent` on the kit (only the slots a piece uses). Instances are `MI_SC2_<Faction>_<Slot>_<Scope>`: faction Human, Machine, Cluster (the kit obelisk) or Construction (scaffolds); scope Unit (six units), Bld (HQs and buildings) or Env (kit). The `Team` slot is slot 0; gameplay tints its `TeamColor` parameter through a dynamic instance (defaults: Human blue, Machine red). Static switches (`UseTeam`, `HazardStripes`, `UseBakedMasks`) exist only on these constant instances, never on the dynamic ones, so every slot has its own. `/Game/Materials/M_CommandUnit` stays for the cube fallbacks and the capture markers; `M_Surface` and `M_Glow` stay for the campus floor, roads, cables and lamps.
 - Values are the table of UNREAL.md section 8 with the deviations listed in `Build/BuildSharedMaterial.py` (`PARAMS` for Human Shell and Dark lifted and desaturated, `GLOW_GAIN`, `SCOPE_OVERRIDES` for the greyer campus hall shell), tuned in the gallery against `Art/Materials/Close-*.png`. Paint jobs (`MI_Rust`, `MI_Olive`, `MI_ContainerBlue`, `MI_Sandbag`) are children of `MI_SC2_Human_Shell_Env` overriding `BaseColor` only.
@@ -374,10 +349,10 @@ Notes:
 
 ### Environment kit and Server Moon
 
-Server Moon (`/Game/Maps/CampusZero`) is built from 17 kit pieces (`Art/Environment/SM_Env_*.fbx`, from `Build/GenerateEnvironmentKit.py`). Steps 1, 2 (kit) and 5 above are its order; step 5 stops at "run Build/ImportEnvironmentKit.py first" if the kit is missing.
+Server Moon (`/Game/Maps/CampusZero`) is built from 17 kit pieces (`Art/Environment/SM_Env_*.fbx`). Material, import and map dependencies are described only in [`./x help gen`](../x); missing kit assets block map generation.
 
-- Rerun steps 2 (kit) and 5 together after any change to a kit look or collision: the map stores only mesh references. Reruns of step 5 replace every actor.
+- Kit look/collision changes affect `./x gen import-environment-kit` and `./x gen generate-campus-zero` ([`./x help gen`](../x)): the map stores mesh references, while regeneration replaces every actor.
 - Collision comes from the mesh: one box of the mesh bounds for rectangular pieces, one 10-DOP prism for round ones, and for the pylon a 150 x 150 box (`EnvKit.GROUND_FOOTPRINT`) because its 7 m cross-arm is 11 m up. Each `CAMPUS_ZERO_BLOCK` line in the generator log is the real blocking footprint.
-- `blocking=47`: 49 in v9 (52 with primitives). Hardline's two return walls were removed (see the placement check in `Saved/Verification/sc2-art-unreal/RESULTS.md`); no other footprint changed.
+- `blocking=47`: 49 in v9 (52 with primitives). Hardline's two return walls were removed; no other footprint changed.
 - Halls are assembled from wall, door, corner and roof modules (`EnvKit.assemble_hall`); doors are named by Unreal world side (N = +Y). Every hall's parapet is 6.0 m with lamps and corner beacons to 6.5 / 7.0 m (DataHall0 was 5.2 m as a box). The campus spot lights flank the door faces (HallA west, HallB north, HallC south); move them with the door if either changes.
 - Containers, wrecks and sandbags override the Shell slot per actor (`MI_ContainerBlue`, `MI_Rust`, `MI_Olive`, `MI_Sandbag`, children of the master), so the human side is not one colour. Keep the Machine `Accent` glow at the unscaled 1.0 (`ACCENT_MACHINE_GLOW`), since 8.0 clips red to peach at this exposure; the Human amber glow is held to 0.5 x the scope value for the same reason (cream instead of amber otherwise).
