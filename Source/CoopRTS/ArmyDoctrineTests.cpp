@@ -12,7 +12,6 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "HAL/PlatformTime.h"
 #include "Headquarters.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDoctrineSiegeTest, "CoopRTS.Doctrine.SiegeOptics",
@@ -59,11 +58,13 @@ struct FDoctrineActors
 			return false;
 		if (!ArmyTestSetup::CombatActors(InWorld))
 			return false;
+		// Paid enemy production is homogeneous, not the mixed-role effect fixture.
+		if (!Enemy.IsValid())
+			Enemy = ArmyTestSetup::SpawnGroup(InWorld, nullptr, -1,
+				ArmyTestSetup::HostileStaging(InWorld->GetGameState<ACommandGameState>()));
 		for (TActorIterator<AArmyGroup> It(InWorld); It; ++It)
 		{
-			if (It->IsOpposingArmy())
-				Enemy = *It;
-			else if (It->GetOwner() == Controller.Get() && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
+			if (It->GetOwner() == Controller.Get() && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
 				Armies[It->GetArmyIndex()] = *It;
 		}
 		State = InWorld->GetGameState<ACommandGameState>();
@@ -77,31 +78,37 @@ struct FDoctrineActors
 	{
 		for (TActorIterator<AEnemyCommander> It(World.Get()); It; ++It)
 			It->Destroy();
-		Enemy->IssueHold();
+		for (TActorIterator<AArmyGroup> It(World.Get()); It; ++It)
+			if (It->IsOpposingArmy())
+				It->IssueHold();
+		for (TActorIterator<ACommandBuilding> It(World.Get()); It; ++It)
+			if (It->TeamIndex == 5 && It->IsProducer())
+				It->SetProduction(It->ProductionUnitIndex, false);
 	}
 };
 
 class FDoctrineScenario : public IAutomationLatentCommand
 {
 public:
-	explicit FDoctrineScenario(FAutomationTestBase* InTest) : Test(InTest), Started(FPlatformTime::Seconds()) {}
+	explicit FDoctrineScenario(FAutomationTestBase* InTest) : Test(InTest) {}
 
 	virtual bool Update() override
 	{
-		const double Now = FPlatformTime::Seconds();
 		UWorld* World = StandaloneWorld();
 		if (!World)
 			return false;
+		// Repair timers and navigation advance in game time, not wall time. Headless
+		// automation can simulate many game seconds during one real second.
+		const double Now = World->GetTimeSeconds();
 		if (!bReady)
 		{
-			if (Now - Started < 3. || !Actors.Find(World))
+			if (Now < 3. || !Actors.Find(World))
 				return false;
 			if (!Check(Actors.State->MatchResult == EMatchResult::Ongoing
 						&& Actors.Wallet->Doctrine == EArmyDoctrine::None,
 					TEXT("Fresh authoritative Boot begins ongoing with no selected doctrine")))
 				return true;
-			if (!RestartCase())
-				Actors.IsolatePlanner();
+			Actors.IsolatePlanner();
 			bReady = true;
 			StageStarted = Now;
 		}
@@ -110,7 +117,6 @@ public:
 
 protected:
 	virtual bool Step(double Now) = 0;
-	virtual bool RestartCase() const { return false; }
 	bool Check(bool Condition, const TCHAR* Message) const
 	{
 		if (!Condition)
@@ -158,7 +164,6 @@ protected:
 
 	FAutomationTestBase* Test;
 	FDoctrineActors Actors;
-	const double Started;
 	double StageStarted = 0.;
 	int32 Stage = 0;
 	bool bReady = false;
@@ -225,7 +230,8 @@ private:
 		Teammate->SetPlayerState(TeammateWallet);
 		Actors.State->AddPlayerState(TeammateWallet);
 		TeammateWallet->CommanderIndex = 1;
-		const FTransform AllyTransform(FRotator::ZeroRotator, FVector(-1800.f, 850.f, 100.f));
+		const FTransform AllyTransform(FRotator::ZeroRotator,
+			ArmyTestSetup::FromFriendlyHQ(Actors.State.Get(), 1700.f, -600.f, 100.f));
 		AArmyGroup* Ally = Actors.World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(),
 			AllyTransform, Teammate, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (!Check(Ally, TEXT("Second player's owned group spawns")))
@@ -266,7 +272,7 @@ private:
 			return true;
 		Victim->SetActorLocation(Original, false, nullptr, ETeleportType::TeleportPhysics);
 		const int32 OpticsDamage = WeaponHitFresh(Siege, Victim);
-		if (!Check(OpticsDamage > 0 && OpticsDamage < BaseDamage,
+		if (!Check(OpticsDamage == BaseDamage * 3 / 4 && OpticsDamage > 0,
 				TEXT("Optics trades actual outgoing siege weapon damage for range")))
 			return true;
 		if (!Check(WeaponHitFresh(OtherSiege, Victim) == OpticsDamage,
@@ -286,7 +292,8 @@ private:
 		if (!Check(HQ->Health == HQBefore - OpticsDamage && HQ->IsAlive(),
 				TEXT("Optics siege range and reduced damage also hit a real hostile HQ")))
 			return true;
-		AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
+		AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2,
+			ArmyTestSetup::FromFriendlyHQ(Actors.State.Get(), 1700.f, 1700.f, 100.f));
 		AArmyUnit* Replacement = Later ? Later->GetUnits()[4].Get() : nullptr;
 		if (!Check(Replacement && Replacement->IsAlive()
 					&& FMath::IsNearlyEqual(Replacement->WeaponRange(), BaseRange * 1.25f),
@@ -569,7 +576,8 @@ private:
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 					TEXT("Fall Back cannot obtain stationary Defend protection")))
 				return true;
-			AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2, FVector(-3000.f, 1700.f, 100.f));
+			AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2,
+				ArmyTestSetup::FromFriendlyHQ(Actors.State.Get(), 1700.f, 1700.f, 100.f));
 			LaterFrontline = Later ? Later->GetUnits()[0].Get() : nullptr;
 			if (!Check(LaterFrontline.IsValid(), TEXT("New frontline exists after research")))
 				return true;
@@ -606,7 +614,6 @@ class FRestartScenario final : public FDoctrineScenario
 public:
 	using FDoctrineScenario::FDoctrineScenario;
 private:
-	bool RestartCase() const override { return true; }
 	bool Step(double Now) override
 	{
 		if (Stage == 0)
@@ -658,7 +665,8 @@ private:
 			ACommandGameState* FreshState = FreshWorld->GetGameState<ACommandGameState>();
 			ACommandPlayerState* FreshWallet = FreshController ? FreshController->GetPlayerState<ACommandPlayerState>() : nullptr;
 			// Seamless travel passes through a transition world that still carries the old GameState.
-			if (!FreshState || FreshState == OldState.Get() || !FreshWallet || FreshWallet->CommanderIndex < 0)
+			if (!FreshState || FreshState == OldState.Get() || !FreshWallet
+				|| FreshWallet->CommanderIndex < 0 || !ArmyTestSetup::MapReady(FreshState))
 				return false;
 			if (!Check(FreshState->MatchResult == EMatchResult::Ongoing && FreshWallet->Doctrine == EArmyDoctrine::None,
 					*FString::Printf(TEXT("Fresh world clears the purchased research (result=%d doctrine=%d)"),
