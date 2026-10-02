@@ -1,6 +1,7 @@
 """Every authored v1 rejection gets real-data acceptance and one-rule damage."""
 
 from copy import copy, deepcopy
+import math
 from typing import cast
 
 from DrawMapLayout import Analysis, ProposalsData
@@ -12,23 +13,77 @@ from .conftest import change
 @pytest.mark.parametrize(
     ("method", "path", "value", "message"),
     [
-        ("check_grid", ("regions", 0, "poly", 0, 0), -8599, "off the kit grid"),
-        ("check_grid", ("ramps", 0, "pieces", 0, "centre", 0), -5799, "not centred"),
+        (
+            "check_grid",
+            ("regions", 0, "poly", 0, 0),
+            lambda a: a.data["regions"][0]["poly"][0][0] + 1,
+            "off the kit grid",
+        ),
+        (
+            "check_grid",
+            ("ramps", 0, "pieces", 0, "centre", 0),
+            lambda a: a.data["ramps"][0]["pieces"][0]["centre"][0] + 1,
+            "not centred",
+        ),
         ("check_grid", ("ramps", 0, "pieces", 0, "yaw"), 1, "not a multiple of 90"),
-        ("check_grid", ("ramps", 0, "length"), 801, "does not match the kit ramp"),
-        ("check_grid", ("ramps", 0, "lane_width"), 701, "does not match the kit ramp"),
-        ("check_grid", ("blockers", 0, "poly", 0, 0), 1, "off the kit grid"),
+        (
+            "check_grid",
+            ("ramps", 0, "length"),
+            lambda a: a.data["ramps"][0]["length"] + 1,
+            "does not match the kit ramp",
+        ),
+        (
+            "check_grid",
+            ("ramps", 0, "lane_width"),
+            lambda a: a.data["ramps"][0]["lane_width"] + 1,
+            "does not match the kit ramp",
+        ),
+        (
+            "check_grid",
+            ("blockers", 0, "poly", 0, 0),
+            lambda a: a.data["blockers"][0]["poly"][0][0] + 1,
+            "off the kit grid",
+        ),
         (
             "check_grid",
             ("proposals", "vision_points", 0, "pos", 0),
-            1,
+            lambda a: a.data["proposals"]["vision_points"][0]["pos"][0] + 1,
             "not on a cell centre",
         ),
-        ("check_ramps", ("grid", "step"), 301, "not one 300 cm step"),
-        ("check_ramps", ("ramps", 0, "lane_width"), 539, "under three force widths"),
-        ("check_sectors", ("sectors", 0, "level"), "L0", "is on L1, not L0"),
-        ("check_chokes", ("chokes", 0, "width"), 1000, "file says 1000"),
-        ("check_symmetry", ("sectors", 0, "pos", 0), -4401, "not rot180 partners"),
+        (
+            "check_ramps",
+            ("grid", "step"),
+            lambda a: a.data["grid"]["step"] + 1,
+            "not one 300 cm step",
+        ),
+        (
+            "check_ramps",
+            ("ramps", 0, "lane_width"),
+            lambda a: 3 * a.const["force_width"] - 1,
+            "under three force widths",
+        ),
+        (
+            "check_sectors",
+            ("sectors", 0, "level"),
+            lambda a: next(
+                z["id"]
+                for z in a.data["elevation"]
+                if z["id"] != a.data["sectors"][0]["level"]
+            ),
+            "is on",
+        ),
+        (
+            "check_chokes",
+            ("chokes", 0, "width"),
+            lambda a: a.data["chokes"][0]["width"] + 500,
+            "file says",
+        ),
+        (
+            "check_symmetry",
+            ("sectors", 0, "pos", 0),
+            lambda a: a.data["sectors"][0]["pos"][0] + 1,
+            "not rot180 partners",
+        ),
         (
             "check_elevation",
             ("elevation", 0, "z_cm"),
@@ -40,13 +95,17 @@ from .conftest import change
         (
             "check_bays",
             ("build_pockets", 0, "bays", 0, "pos"),
-            [-7400, -4601],
+            lambda a: [
+                a.hq["HQ_H"]["pos"][k]
+                + a.data["build_pockets"][0]["half_plane"]["keep"][k]
+                for k in (0, 1)
+            ],
             "fails the placement rules",
         ),
         (
             "check_bays",
             ("build_pockets", 0, "half_plane", "keep"),
-            [0, 1],
+            lambda a: [-v for v in a.data["build_pockets"][0]["half_plane"]["keep"]],
             "wrong pocket half",
         ),
         (
@@ -79,6 +138,8 @@ def test_authored_rules(
     check = getattr(analysis, method)
     check()
     assert analysis.errors == []
+    if callable(value):
+        value = value(analysis)
     change(analysis.data, path, value)
     check()
     assert analysis.errors and all(message in error for error in analysis.errors)
@@ -113,10 +174,12 @@ def test_raster_rules(analysis: Analysis, rule: str) -> None:
         clone_grid(analysis, "cover", 0, 0, 3)
     elif rule.startswith("ramp-"):
         ramp = analysis.data["ramps"][0]
-        end = ramp["top"] if rule == "ramp-top" else ramp["foot"]
-        i, j = analysis.grid.cell(
-            end[0] + (-100 if rule == "ramp-top" else 100), end[1]
-        )
+        sign = -1 if rule == "ramp-top" else 1
+        dx, dy = (b - a for a, b in zip(ramp["top"], ramp["foot"], strict=True))
+        norm = math.hypot(dx, dy)
+        x, y = ramp["pieces"][0]["centre"]
+        probe = sign * (ramp["length"] / 2 + 100)
+        i, j = analysis.grid.cell(x + dx / norm * probe, y + dy / norm * probe)
         clone_grid(analysis, "walk", i, j, False)
     elif rule == "capture-ring":
         i, j = analysis.grid.cell(*analysis.data["sectors"][0]["pos"])
@@ -171,8 +234,14 @@ def test_ramp_slope(analysis: Analysis) -> None:
     analysis.check_ramps()
     assert analysis.errors == []
     ramp = analysis.data["ramps"][0]
-    ramp["length"] = 400
-    ramp["pieces"][0]["centre"][0] -= 200
+    dx, dy = (b - a for a, b in zip(ramp["top"], ramp["foot"], strict=True))
+    norm = math.hypot(dx, dy)
+    shift = ramp["length"] / 4
+    ramp["length"] /= 2
+    ramp["pieces"][0]["centre"] = [
+        ramp["pieces"][0]["centre"][0] - dx / norm * shift,
+        ramp["pieces"][0]["centre"][1] - dy / norm * shift,
+    ]
     analysis.check_ramps()
     assert analysis.errors == ["ramp_main_H: kit ramp slope limit is 30 degrees"]
 

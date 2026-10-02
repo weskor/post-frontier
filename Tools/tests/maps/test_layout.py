@@ -213,8 +213,16 @@ def test_deposit_clearance(layout: Layout, obstacle: str) -> None:
         if kind == "P" and layout.deposit_clear(layout.centre_of(cell), 95)
     )
     assert layout.deposit_clear(point, 95)
+    clearance = 95
     if obstacle == "ground":
-        point = (layout.hx, layout.hy)
+        cell = next(
+            cell for cell, kind in layout.kind.items() if kind not in ("P", "R")
+        )
+        point = layout.centre_of(cell)
+        # Even a zero-radius deposit needs walkable ground; no distance gate
+        # rejects here because every obstacle distance is nonnegative.
+        clearance = 0
+        assert layout.obstacle_distance(*point) >= clearance
     elif obstacle == "wall":
         layout.walls.append(
             {"label": "plug", "center": point, "size": (100, 100), "look": "human"}
@@ -237,7 +245,7 @@ def test_deposit_clearance(layout: Layout, obstacle: str) -> None:
         layout.halls.append(
             {"label": "plug", "center": point, "size": (100, 100), "doors": {}}
         )
-    assert not layout.deposit_clear(point, 95)
+    assert not layout.deposit_clear(point, clearance)
 
 
 def test_rim_footprint(layout: Layout) -> None:
