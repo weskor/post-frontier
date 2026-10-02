@@ -242,9 +242,9 @@ GENERATORS = (
         "draw-availability-zone-v2",
         "python",
         "DrawAvailabilityZoneV2.py",
-        "Build/Maps/AvailabilityZoneV2.json; Art/Maps/AvailabilityZoneV2-layout.png",
-        "Derive v2 JSON from Excalidraw and draw it.",
-        arguments=("--derive",),
+        "Art/Maps/AvailabilityZoneV2-layout.png",
+        "Validate v2 JSON and draw its layout.",
+        HELP="Pass -- --derive to rebuild Build/Maps/AvailabilityZoneV2.json from Excalidraw before validating and drawing.",
     ),
     Generator(
         "availability-zone-layout",

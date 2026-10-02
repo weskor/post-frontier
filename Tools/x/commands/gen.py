@@ -1,4 +1,4 @@
-"""Run one registered content tool under the shared exclusive lock."""
+"""Run content tools; only Unreal generators take the shared exclusive lock."""
 
 import argparse
 
@@ -13,8 +13,9 @@ HELP = (
     "./x gen --list lists all executable Build tools (library modules are not entries). "
     "./x gen <name> runs its canonical arguments; optional script arguments follow --. "
     "./x gen <name> --describe shows its runtime, outputs and ordered pipeline. "
-    "All tools hold the exclusive lock. Unreal tools ensure a fresh editor module, "
-    "disable MCP auto-start, and use one headless/offscreen flag builder.\n\n"
+    "Unreal tools hold the exclusive lock, ensure a fresh editor module, disable "
+    "MCP auto-start, and use one headless/offscreen flag builder. Other runtimes "
+    "run without the Unreal lock.\n\n"
     + "\n".join(f"{entry.name}: {entry.HELP or entry.purpose}" for entry in GENERATORS)
 )
 RECORD = True
@@ -61,9 +62,11 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     if entry.runtime == "unreal" and not ensure_editor(ctx):
         return 1
     extra = extra[1:] if extra[:1] == ["--"] else extra
+    if entry.runtime != "unreal":
+        return ctx.exec(invocation(entry, ctx, extra), log="generate")
     with ctx.locks.exclusive():
         code = ctx.exec(invocation(entry, ctx, extra), log="generate")
-        if entry.runtime == "unreal" and ctx.run is not None:
+        if ctx.run is not None:
             text = (ctx.run.dir / "unreal.log").read_text()
             ok = (
                 code == 0

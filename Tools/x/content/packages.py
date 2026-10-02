@@ -1,7 +1,7 @@
 """Run-specific package publication, retention and content-hash launch checks."""
 
-import shutil
 from pathlib import Path
+import shutil
 
 from x import freshness, gitinfo, jsonio
 
