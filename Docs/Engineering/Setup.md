@@ -47,7 +47,7 @@ The runner owns:
 
 | Tier | What | Speed | Lock |
 |---|---|---|---|
-| 0 | Pure logic in Low-Level Tests; Python tool tests (map validators without rendering) | Milliseconds to seconds | None; runs in parallel |
+| 0 | Pure logic in editor-hosted `-game` automation; Python tool tests (map validators without rendering) | Rules: see phase 2 exit check; Python: milliseconds to seconds | Rules: headless pool; Python: none |
 | 1 | Headless world scenarios, one feature tag per scope | 10–70 s each today | Headless pool |
 | 2 | Network slices, HUD capture, simulation, packaging | Minutes | Exclusive or pool, per command |
 
@@ -115,13 +115,13 @@ Strict in enforcement, careful in which rules it carries: checks that people see
 
 ## Migration plan
 
-Each phase ends with its exit check passing through `./x check`.
+Each phase ends with `./x check` green and its exit criteria met. Phase 2's timing criterion is separate run-record evidence, not a statistic produced by `./x check`.
 
 | Phase | Work | Exit check |
 |---|---|---|
 | 0 | Baseline commit | Done: `3104bdc` |
 | 1 | Unity builds off for the game module (done); `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; the lint policy with workaround detectors, architecture rules, formatting and Python lint and types; size limits for `Rules/` and `Content/`; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Done: `a9c8669`. Every documented procedure is a `./x` command; a direct commit to main is rejected; lint is green |
-| 2 | Green suite: port or delete the 9 red tests; trim editor-hosted automation start-up; Python tests for map validators | `./x check` is green; a warm rules process takes under 5 s (five-run median, excluding build and lock wait) |
+| 2 | Green suite: port or delete the 9 red tests; trim editor-hosted automation start-up; Python tests for map validators | `./x check` is green; in five consecutive `./x test rules` records with editor inputs unchanged and the editor already built (no build execution), the median `execs[].duration_s` for the entry whose `log` ends in `/rules-stdout.log` is under 5 s. This measures process wall time, excluding build and lock wait. |
 | 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
 | 4 | Content as text; deterministic generators, split to the size limits; `land` regenerates binaries; size limits switch on for `Build/` | Changing a unit stat is a text-only diff |
 | 5 | Split the god objects; extract pure decision logic; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
@@ -137,5 +137,5 @@ Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md
   Fifteen agents plus helpers peaked at 11.236 GiB (12-agent projection 8.989 GiB); desktop/other processes peaked at 2.541 GiB. Budget 9.5 GiB for twelve agents/helpers, 2.75 GiB for the desktop, 3.5 GiB for the owner's editor (not running during measurement; HUD's editor measured 2.576 GiB), and 6 GiB free.
   With a 6 GiB build slot and 2.6 GiB headless slots (max of the 2.267 GiB world and 2.576 GiB HUD editor peaks), `N = 1 + floor((30.40 - 9.5 - 2.75 - 3.5 - 6 - 6) / 2.6) = 2`; N = 3 would exceed that mixed-build budget. Concurrent unguarded UBT failed in shared `Trace.uba` log rotation, so builds serialize. Simulation memory is unmeasured and not covered by this sizing evidence.
   Exec records sample the union of the process group and its descendants every 250 ms as `peak_rss_mb` (MiB), counting each PID once and including children that start other sessions. Historical UBT/HUD records measured only launcher groups; their sizing above used separately sampled process-tree/editor RSS.
-- **Low-Level Tests on UE 5.8/Linux (resolved 2026-10-02):** the installed 5.8.3 engine cannot build LLT programs. An explicit `TestTargetRules` / `TestModuleRules` Refund prototype failed before C++ compilation: the default environment was rejected with “Targets with a unique build environment cannot be built with an installed engine.” Selecting the shared environment then failed with “Program targets are not currently supported from this engine distribution.” Run records `20261002-135836-test-8a36` and `20261002-140237-test-9be9` retain both UBT logs. A source engine build, or a separately produced distribution supporting Linux Program targets and the LLT dependencies, is required before the no-editor cutover; neither has been verified. No executable was produced, so clean/incremental build and test-run timings remain unmeasured.
+- **Low-Level Tests on UE 5.8/Linux (resolved 2026-10-02):** the installed 5.8.3 engine cannot build LLT programs. An explicit `TestTargetRules` / `TestModuleRules` Refund prototype failed before C++ compilation: the default environment was rejected with “Targets with a unique build environment cannot be built with an installed engine.” Selecting the shared environment then failed with “Program targets are not currently supported from this engine distribution.” Run records `20261002-135836-test-8a36` and `20261002-140237-test-9be9` retain both UBT logs. A source engine build, or a separately produced distribution supporting Linux Program targets and the LLT dependencies, would be required to revisit LLT; neither has been verified. The owner chose editor-hosted automation instead; no no-editor cutover is planned. No executable was produced, so clean/incremental build and test-run timings remain unmeasured.
 - **Asset regeneration at landing:** generators take minutes, so batch them, and decide whether `land` blocks on regeneration or a follow-up commit does it.
