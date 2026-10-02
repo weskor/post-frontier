@@ -137,8 +137,8 @@ Workers have no fallback: stop and tell the user.
 2. **Start with `git status`.** If an earlier attempt left changes on the branch, continue from them.
 3. **Change only the files the brief lists.** If you need another file, stop, explain why in the report and reply `BLOCKED`.
 4. **Don't ask questions.** When a decision is missing, write it in the report and reply `BLOCKED`.
-5. **Unreal only through `./x` commands, which take the locks and stop stalled runs,** and only if the brief allows it. Never kill a process you didn't start. Never write into `Builds/`.
-6. **The [lint policy](../../../Docs/Engineering/Setup.md) applies even before lint enforces it:** no suppressions, no `TODO`/`FIXME`/`HACK` or stubs, no disabled tests.
+5. **Unreal only through `./x` commands, which take their own locks and stop stalled runs,** and only if the brief allows it. Never wrap `./x` (or anything else) in `flock`: an outer lock deadlocks against the runner's lock. Never kill a process you didn't start. Never write into `Builds/`.
+6. **`./x check` enforces the [lint policy](../../../Docs/Engineering/Setup.md):** inline suppressions, `TODO`/`FIXME`/`HACK`, stubs and disabled tests fail `./x check`. Exceptions only through `Tools/x/lint-exceptions.toml` with a reason.
 7. **Verify with `./x check`; the command chooses the scopes.** Run `./x verify` only when the brief names it. Never weaken a test to make it pass.
 8. **Write `/tmp/cooprts-work/tasks/<slug>/report.md`,** at most 45 lines:
    1. Files and functions changed.

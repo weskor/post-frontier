@@ -21,10 +21,10 @@ direct-engine = [
 # Pipeline/reference docs link to ./x help; MCP agent startup is outside build procedures.
 saved-path = [
     "Docs/Design/**", "Docs/Design.md", "AGENTS.md", "Art/Textures/**", ".agents/skills/orchestrate/**",
-    "README.md", "Docs/Engineering/Setup.md",
+    "README.md", "Docs/Engineering/*.md",
     "Docs/World.md", "Docs/Balance.md", "Docs/Audio.md", "Docs/UnrealMCP.md",
     "Docs/Maps/AvailabilityZone.md", "Docs/Maps/AvailabilityZone-implementation.md", "Docs/Maps/AvailabilityZoneV2.md",
-    "Docs/Research/input-audit.md", "Art/Audio/SOURCES.md", "Art/Materials/UNREAL.md",
+    "Docs/Research/**", "Art/Audio/SOURCES.md", "Art/Materials/UNREAL.md",
     "Art/UI/IMPLEMENTATION.md", "Art/UI/STYLE.md",
 ]
 # Root Engineering files are clean; Audit is deliberately not included.
