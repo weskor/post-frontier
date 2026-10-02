@@ -27,6 +27,7 @@ def size(path: Path) -> int:
 
 
 def kill_group(child: subprocess.Popen[bytes]) -> None:
+    """Reap the child and wait at most 2 s for post-SIGKILL group disappearance."""
     try:
         os.killpg(child.pid, signal.SIGTERM)
     except ProcessLookupError:
@@ -41,6 +42,19 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
     with suppress(ProcessLookupError):
         os.killpg(child.pid, signal.SIGKILL)
     child.wait()
+    # SIGKILL delivery is asynchronous; orphaned zombies must also leave the group.
+    timeout = 2.0
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            os.killpg(child.pid, 0)
+        except ProcessLookupError:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"process group {child.pid} survived SIGKILL for {timeout:g} seconds"
+            )
+        time.sleep(0.02)
 
 
 def supervise(
