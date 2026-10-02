@@ -132,9 +132,7 @@ class NetworkProbe(NetworkPeers):
         )
         require(
             not response["error"]
-            or (
-                allow_unavailable and response["error"] == "game world unavailable"
-            ),
+            or (allow_unavailable and response["error"] == "game world unavailable"),
             f"{name} {action}: {response['error']}",
         )
         return cast(JsonObject, response["state"])

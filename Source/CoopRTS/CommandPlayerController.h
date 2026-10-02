@@ -99,7 +99,7 @@ protected:
 	virtual void PostSeamlessTravel() override;
 
 private:
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	friend class FBuildBarScenario;
 #endif
 	UPROPERTY(Transient)

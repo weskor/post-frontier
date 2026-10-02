@@ -43,7 +43,8 @@ void DrawBuildPanel(const FPainter& Paint, const FContext& Context, const FLayou
 	const bool bHotkeyPending = Context.Controller && Context.Controller->IsBuildHotkeyPending();
 	const float Right = Layout.Build.Right() - Pad;
 	const float PendingWidth = bHotkeyPending ? Paint.Text(TEXT("B ACTIVE"), Right, Layout.Build.Y + 9.f, 9.f,
-		Palette::Gold, true, EAlign::Right) : 0.f;
+													Palette::Gold, true, EAlign::Right)
+											  : 0.f;
 	if (bHotkeyPending)
 		Paint.Outline(Layout.Build, Palette::Gold);
 	const UMatchContent* Content = MatchContent(Context);
@@ -55,8 +56,8 @@ void DrawBuildPanel(const FPainter& Paint, const FContext& Context, const FLayou
 			continue;
 		const EBuildingKind Kind = Definition->GetKind();
 		const TCHAR* Category = Kind == EBuildingKind::Barracks ? TEXT("PRODUCTION")
-			: Kind == EBuildingKind::Extractor ? TEXT("ECONOMY")
-											 : TEXT("TECH");
+			: Kind == EBuildingKind::Extractor                  ? TEXT("ECONOMY")
+																: TEXT("TECH");
 		const FRect Button = BuildCard(Layout.Build, Index, BuildCount);
 		const float CategoryRight = bHotkeyPending ? FMath::Min(Button.Right(), Right - PendingWidth - Gap) : Button.Right();
 		if (CategoryRight > Button.X)
