@@ -138,6 +138,33 @@ def test_exact_stretch_boundary() -> None:
     assert len(errors) == 1 and "3550.0 cm" in errors[0]
 
 
+def test_v2_uncovered_edge_touching_footprint(v2_map: MapData) -> None:
+    region = v2_map["regions"][0]
+    region["poly"] = [[-7195, -145], [7145, -145], [7145, 145], [-7195, 145]]
+    region["defend_posts"] = [[-3550, 0], [3500, 0]]
+    v2_map["regions"] = [region]
+    v2_map["blockers"] = []
+    v2_map["headquarters"] = []
+    assert defend_post_errors(v2_map) == []
+
+    # Extending the right edge admits exactly one uncovered Workshop centre.
+    # Its corners touch the top/bottom edges and the new right edge; a strict
+    # ray-cast omitted it even though game footprint containment accepts it.
+    region["poly"][1][0] = region["poly"][2][0] = 7195
+    samples = list(
+        MatchLayout.buildable_samples(
+            region,
+            v2_map["arena"]["half_extent"],
+            lambda point, radius: MatchLayout.clear_of_blockers(point, [], radius),
+            contains_point=lambda poly, point: v2.contains_point(point, poly),
+            uncovered_by=region["defend_posts"],
+        )
+    )
+    assert samples == [(7050, 0)]
+    errors = defend_post_errors(v2_map)
+    assert len(errors) == 1 and "maximum 3500 cm" in errors[0]
+
+
 def test_uncovered_free_building_arena_edge() -> None:
     region: MatchLayout.GameplayRegion = {
         "index": 0,

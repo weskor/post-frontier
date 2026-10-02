@@ -196,6 +196,28 @@ def inside(point: Sequence[float], poly: Sequence[Sequence[float]]) -> bool:
     return odd
 
 
+def contains_point(point: Sequence[float], poly: Sequence[Sequence[float]]) -> bool:
+    """Game containment includes polygon edges; tiling's inside() stays strict."""
+    if len(poly) < 3:
+        return False
+    x, y = point
+    odd = False
+    for a, b in zip(poly, chain(poly[1:], poly[:1]), strict=False):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        ox, oy = x - a[0], y - a[1]
+        length_squared = dx * dx + dy * dy
+        dot = dx * ox + dy * oy
+        if (
+            length_squared > 0
+            and abs(dx * oy - dy * ox) <= 1e-6 * math.sqrt(length_squared)
+            and 0 <= dot <= length_squared
+        ):
+            return True
+        if (a[1] > y) != (b[1] > y) and x < a[0] + (y - a[1]) * dx / dy:
+            odd = not odd
+    return odd
+
+
 def distance_segment(
     point: Sequence[float], a: Sequence[float], b: Sequence[float]
 ) -> float:
@@ -604,7 +626,7 @@ def defend_post_errors(data: MapData) -> list[str]:
         data["arena"]["half_extent"],
         clear_ground,
         data["arena"]["placement_margin"],
-        lambda poly, point: inside(point, poly),
+        lambda poly, point: contains_point(point, poly),
         headquarters=[hq["pos"] for hq in data["headquarters"]],
     )
 

@@ -79,7 +79,7 @@ The two attack verbs have different rules on purpose, so players can tell them a
 - **Region alarm.** An alarm fires when a hostile unit enters the region, or when anything you own in it (a building or a force) takes damage. Every force holding that region hears it. Units still fight at their normal weapon range; the alarm only decides *where they go*.
 - **Who responds:** the nearest holding forces respond until their combined strength reaches 1.25× the threat's. Strength is the Power value of living units. The others keep their posts, so a feint can't pull the whole region to one side. Forces of different commanders count together.
 - **Idle spot:** each holding force waits at one of the region's **defend posts** ([map.md](map.md)), chosen automatically: the post that best sits between your buildings in that region and its borders with hostile or unscouted regions. Several forces in one region take different posts. A force never changes post while an alarm is active.
-- **Ground markers [Built]:** posts show as ground markers (see [map.md](map.md)).
+- **Ground markers [Built]:** see [map.md](map.md).
 - **Border rule:** pursuit stops at the region border. While an attacker outside the border is damaging something inside, the force may strike back up to its weapon range past the border; then it returns.
 - **No flip-flopping:** a responding force keeps its target until the target dies or leaves the leash, commits to an alarm for at least 8 s, and returns to its post 6 s after the region goes quiet. Starting values.
 - **Readable:** the force card shows *Responding · Drill Rig under attack*, a line runs from the force to the threat, and the alert feed logs it ([ui.md](ui.md)).

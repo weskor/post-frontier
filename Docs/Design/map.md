@@ -36,10 +36,10 @@
 ## Region size and defend posts [Built unless noted]
 
 - Every shipped region carries **2–3 authored defend posts** on walkable ground. They are map data on the server and clients, and show as small ground markers in the local team's regions.
-- **[Change]:** holding forces wait at these posts ([forces.md](forces.md)).
-- **Stretch limit:** every buildable spot must be within **35 m** of a defend post (starting value: about 8 s at today's 4.2 m/s). A region that needs more than 3 posts is too stretched and gets split or reshaped. The map checker enforces both rules.
+- **Stretch limit [Built]:** every buildable spot must be within **35 m** of a defend post (starting value: about 8 s at today's 4.2 m/s). A region that needs more than 3 posts is too stretched and gets split or reshaped. The map checker enforces both rules.
   - Coverage checks both free-building footprints on their placement-grid phases, with the arena's centre margin and HQ clearances. Inscribed-circle obstacle checks conservatively admit clear footprint boxes; navigation probes, changing ownership and transient blockers are omitted rather than hiding uncovered placements.
 - **Habitable Zone v2 check (2026-10-02):** measured from the single capture point, a region's farthest point is 48 m away on average, and 75 m in East Spur. An automatic placement estimate brings every region inside 35 m with 2–3 posts each, 35 in total, so no region needs reshaping.
+- **[Change]:** holding forces wait at these posts ([forces.md](forces.md)).
 
 ## Region traits [New] — decided
 
