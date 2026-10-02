@@ -1,0 +1,98 @@
+#include "HUDPanels.h"
+#include "CommandPlayerController.h"
+
+namespace CommandHUDPanels
+{
+struct FModeGeometry
+{
+	float X;
+	float Row1;
+	float Row2;
+	float KeysRight;
+	float KeysWidth;
+	float TextWidth;
+};
+
+static void DrawPlacementMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
+{
+	const ACommandPlayerController* Controller = Context.Controller;
+	const auto& [X, Row1, Row2, KeysRight, KeysWidth, TextWidth] = Geometry;
+	const UBuildingDefinition* Placement = Controller->GetPlacementDefinition();
+	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, Placement ? Placement->Accent : Palette::Muted);
+	TStringBuilder<128> Title;
+	Title << TEXT("PLACE ") << (Placement ? Placement->DisplayName.ToString().ToUpper() : TEXT("BUILDING"));
+	const float TitleWidth = Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true, EAlign::Left, TextWidth);
+	TStringBuilder<32> Cost;
+	const int32 Price = Placement ? Placement->BuildCost : 0;
+	Cost.Appendf(TEXT("%d  \u00B7  %.0fs build"), Price, Placement ? Placement->BuildDuration : 0.f);
+	Paint.TextOnBaseline(Cost.ToView(), X + TitleWidth + 12.f, Row1 + Paint.Ascent(12.5f, true), 10.f,
+		Context.Balance >= Price ? Palette::Gold : Palette::Warn, true);
+	FVector Location;
+	FString Reason;
+	bool bCanPlace = false;
+	const bool bGround = Controller->GetPlacementPreview(Location, Reason, bCanPlace);
+	const FLinearColor Color = bCanPlace ? Palette::Good : Palette::Warn;
+	Paint.Fill({ X, Row2 + 4.f, 9.f, 9.f }, Color);
+	Paint.Text(bGround ? FStringView(Reason) : FStringView(TEXT("Point at ground to place.")), X + 16.f, Row2, 10.5f, Color,
+		false, EAlign::Left, TextWidth - 16.f);
+	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Place"));
+	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
+}
+
+static void DrawGoalMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
+{
+	const ACommandPlayerController* Controller = Context.Controller;
+	const auto& [X, Row1, Row2, KeysRight, KeysWidth, TextWidth] = Geometry;
+	const EForceGoal Goal = Controller->GetPendingGoal();
+	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, GoalColor(Goal));
+	TStringBuilder<32> Title;
+	Title.Appendf(TEXT("SET %s GOAL"), GoalTitle(Goal));
+	Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true);
+	Paint.Text(TEXT("Pick a region on ground or minimap; this barracks' force follows its goal."), X, Row2, 10.f,
+		Palette::Muted, false, EAlign::Left, TextWidth);
+	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Assign"));
+	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
+}
+
+static void DrawHiddenMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
+{
+	const auto& [X, Row1, Row2, KeysRight, KeysWidth, TextWidth] = Geometry;
+	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, Palette::Edge);
+	Paint.Text(TEXT("COMMAND DECK HIDDEN"), X, Row1, 11.5f, Palette::Muted, true);
+	TStringBuilder<64> Selection;
+	if (Context.Building)
+	{
+		Selection.Appendf(TEXT("Selected: your %s"), Context.Building->GetDefinition() ? *Context.Building->GetDefinition()->DisplayName.ToString().ToUpper() : TEXT("BUILDING"));
+		if (!Context.Building->IsComplete())
+			Selection.Appendf(TEXT("  \u00B7  %d%% built"), FMath::FloorToInt(FMath::Clamp(Context.Building->ConstructionProgress, 0.f, 1.f) * 100.f));
+		else if (Context.Building->IsProducer())
+			Selection << TEXT("  \u00B7  ") << StatusText(Context.Building->GetProductionState());
+	}
+	else
+		Selection << TEXT("Nothing selected  \u00B7  click an owned building");
+	Paint.Text(Selection.ToView(), X, Row2, 10.f, Palette::Text, false, EAlign::Left, TextWidth);
+	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("F4"), TEXT("Show deck"));
+	Paint.TextIn(TEXT("Use Construction to reopen"), { KeysRight - KeysWidth, Row2, KeysWidth, KeyHeight }, 8.f, Palette::Muted);
+}
+
+void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
+{
+	const FRect& Mode = Layout.Bottom;
+	const ACommandPlayerController* Controller = Context.Controller;
+	Paint.Panel(Mode);
+	const float X = Mode.X + Pad + 6.f;
+	const float Row1 = Mode.Y + 10.f;
+	const float Row2 = Mode.Y + 36.f;
+	const float KeysRight = Mode.Right() - Pad;
+	const float KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Place")), Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")));
+	const float TextWidth = KeysRight - KeysWidth - 16.f - X;
+	const FModeGeometry Geometry{ X, Row1, Row2, KeysRight, KeysWidth, TextWidth };
+	if (Controller->IsPlacingBuilding())
+		DrawPlacementMode(Paint, Context, Mode, Geometry);
+	else if (Controller->IsAssigningGoal())
+		DrawGoalMode(Paint, Context, Mode, Geometry);
+	else
+		DrawHiddenMode(Paint, Context, Mode, Geometry);
+}
+
+}

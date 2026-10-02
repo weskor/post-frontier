@@ -45,6 +45,7 @@ procedure-text = [
 rules-includes = ["Source/CoopRTS/Rules/**"]
 scope-map = ["**"]
 file-length = [
+    "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
     "Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x",
     "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py",
     "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py",
@@ -55,6 +56,7 @@ file-length = [
     "Tools/harness/verification_readiness.py",
 ]
 function-length = [
+    "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
     "Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x",
     "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py",
     "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py",

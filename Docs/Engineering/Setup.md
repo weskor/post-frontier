@@ -125,7 +125,7 @@ Each phase ends with `./x check` green and its exit criteria met. Phase 2's timi
 | 2 | Green suite: port or delete the 9 red tests; trim editor-hosted automation start-up; Python tests for map validators | Done: `d8e25fb`. `./x check` is green; in five consecutive `./x test rules` records with editor inputs unchanged and the editor already built (no build execution), the median `execs[].duration_s` for the entry whose `log` ends in `/rules-stdout.log` is under 5 s. This measures process wall time, excluding build and lock wait. |
 | 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
 | 4 | Content as text; deterministic generators, split to the size limits; `land` regenerates binaries; size limits switch on for `Build/` | Changing a unit stat is a text-only diff |
-| 5 | Split the god objects; extract pure decision logic; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
+| 5 | Split the god objects; extract pure decision logic; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split. HUD panel split complete: `CommandHUD.*` and `HUD/` enforce the 500-line file and 60-line function limits; other splits remain | Hotspots from the audit no longer need edits for unrelated features |
 
 Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md)) can start after phase 1. Each later phase can run alongside gameplay work, as long as the two don't touch the same files.
 
