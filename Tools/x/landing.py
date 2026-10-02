@@ -1,6 +1,5 @@
 """Serialize checked task-branch fast-forwards into the main worktree."""
 
-from datetime import UTC, datetime
 import fcntl
 import json
 import os
@@ -110,19 +109,6 @@ def audit_main(repo: Path) -> None:
     raise ValueError(f"main audit failed: {detail}; stop and ask the owner")
 
 
-def append_landing(repo: Path, old: str, new: str, run_id: str) -> None:
-    entry = {
-        "old": old,
-        "new": new,
-        "run_id": run_id,
-        "time": datetime.now(UTC).isoformat(),
-    }
-    with (common_dir(repo) / LEDGER).open("a") as stream:
-        stream.write(json.dumps(entry) + "\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-
-
 def refuse(ctx: Context, message: str) -> int:
     print(f"land: {message}")
     if ctx.run is not None:
@@ -172,11 +158,12 @@ def merge_checked(ctx: Context, main: Path, branch: str) -> int:
         )
     finally:
         grant.unlink(missing_ok=True)
+        grant.with_suffix(".json.prepared").unlink(missing_ok=True)
     if not merged:
         return refuse(ctx, "main fast-forward refused; inspect land-merge.log")
     if gitinfo.commit(main) != after:
         return refuse(ctx, "main changed unexpectedly; stop and ask the owner")
-    append_landing(ctx.repo, before, after, ctx.run.id)
+    audit_main(ctx.repo)
     landed = f"{before}..{after}"
     ctx.run.add_result("land", True, landed)
     print(f"landed {landed}; run {ctx.run.id}")

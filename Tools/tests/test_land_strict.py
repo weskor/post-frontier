@@ -5,6 +5,7 @@ from itertools import pairwise
 import json
 import os
 from pathlib import Path
+import signal
 
 from conftest import git
 from landing_support import commit_file, git_result, install_runner, invoke
@@ -176,3 +177,36 @@ def test_landing_can_replace_legacy_marker_hook(repo: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     assert git(repo, "rev-parse", "main") == git(task, "rev-parse", "HEAD")
     assert (repo / hook).read_text() == replacement
+
+
+def test_land_killed_after_merge_keeps_committed_ledger(repo: Path) -> None:
+    task = install_runner(repo)
+    # Git runs post-merge after reference-transaction committed, before land returns.
+    # Make this an intentional tracked hook in main so integrity still applies.
+    hook = "Tools/hooks/post-merge"
+    commit_file(
+        repo,
+        hook,
+        "#!/usr/bin/env python3\n"
+        "import os, signal, subprocess, sys\n"
+        "from pathlib import Path\n"
+        "subprocess.run(['git', 'lfs', 'post-merge', *sys.argv[1:]], check=True)\n"
+        "git_pid = os.getppid()\n"
+        "runner = int(Path(f'/proc/{git_pid}/stat').read_text().rsplit(')', 1)[1].split()[1])\n"
+        "os.kill(runner, signal.SIGKILL)\n",
+    )
+    git(task, "rebase", "main")
+    commit_file(task, "Docs/task.md", "survives runner death\n")
+    before = git(repo, "rev-parse", "main")
+    after = git(task, "rev-parse", "HEAD")
+    result = invoke(task, "land")
+    assert result.returncode == -signal.SIGKILL, result.stdout + result.stderr
+    assert git(repo, "rev-parse", "main") == after
+    entries = [
+        json.loads(line) for line in (repo / ".git" / LEDGER).read_text().splitlines()
+    ]
+    assert [(entry["old"], entry["new"]) for entry in entries[1:]] == [(before, after)]
+    assert not (repo / ".git" / GRANT).exists()
+    assert not (repo / ".git" / (GRANT + ".prepared")).exists()
+    checked = invoke(task, "check")
+    assert checked.returncode == 0, checked.stdout + checked.stderr

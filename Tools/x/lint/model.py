@@ -80,7 +80,16 @@ class Policy:
     python: PythonTarget | None
 
     def enabled(self, rule: str, path: str) -> bool:
-        return any(matches(path, pattern) for pattern in self.rules.get(rule, []))
+        patterns = self.rules.get(rule, [])
+        return any(
+            matches(path, pattern)
+            for pattern in patterns
+            if not pattern.startswith("!")
+        ) and not any(
+            matches(path, pattern[1:])
+            for pattern in patterns
+            if pattern.startswith("!")
+        )
 
 
 class PolicyError(ValueError):

@@ -2,6 +2,7 @@
 """Authorize one exact landing transaction; preserve ref-only maintenance."""
 
 import fcntl
+from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
@@ -81,17 +82,56 @@ def authorize(common, old, new):
         for holder in holders
     ):
         return False
-    # Consume before accepting: another transaction cannot reuse this grant.
+    # Keep transaction-bound evidence for committed/aborted, not a reusable grant.
+    pending = common / "x-land-grant.json.prepared"
+    with pending.open("x") as stream:
+        json.dump({**grant, "transaction_pid": os.getppid()}, stream)
+        stream.flush()
+        os.fsync(stream.fileno())
     grant_path.unlink()
     return True
 
 
+def finish(common, updates, committed):
+    pending = common / "x-land-grant.json.prepared"
+    if not pending.exists():
+        return
+    grant = json.loads(pending.read_text())
+    if grant["transaction_pid"] != os.getppid():
+        return
+    if (grant["old"], grant["new"], "refs/heads/main") not in updates:
+        return
+    if committed:
+        ledger = common / "x-land-ledger.jsonl"
+        entries = [json.loads(line) for line in ledger.read_text().splitlines()]
+        endpoint = entries[-1].get("new", entries[-1].get("seed"))
+        if endpoint != grant["old"] or git("rev-parse", "refs/heads/main") != grant["new"]:
+            raise ValueError("main transaction differs from the landing ledger")
+        entry = {
+            "old": grant["old"], "new": grant["new"], "run_id": grant["run_id"],
+            "time": datetime.now(UTC).isoformat(),
+        }
+        with ledger.open("a") as stream:
+            stream.write(json.dumps(entry) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+    pending.unlink()
+
+
 def main():
-    if sys.argv[1] != "prepared":
+    phase = sys.argv[1]
+    if phase not in {"prepared", "committed", "aborted"}:
         return 0
     common = Path(git("rev-parse", "--git-common-dir")).resolve()
-    for line in sys.stdin:
-        old, new, ref = line.split()
+    updates = [tuple(line.split()) for line in sys.stdin]
+    if phase != "prepared":
+        try:
+            finish(common, updates, phase == "committed")
+        except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+            print(f"main audit failed: {error}; stop and ask the owner", file=sys.stderr)
+            return 1
+        return 0
+    for old, new, ref in updates:
         if ref != "refs/heads/main":
             continue
         try:

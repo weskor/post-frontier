@@ -1,7 +1,10 @@
 """The bypass policy covers executable snippets, docs and non-main boundaries."""
 
+from pathlib import Path
+
 import pytest
 from x.lint import source
+from x.lint.model import load
 
 
 @pytest.mark.parametrize(
@@ -62,3 +65,12 @@ def test_enforcement_and_its_tests_are_exempt(path: str) -> None:
 )
 def test_unrelated_land_named_files_are_not_exempt(path: str) -> None:
     assert source.scan("land-bypass", path, "git commit --no-verify")
+
+
+def test_frozen_audit_excluded_but_current_docs_blocked() -> None:
+    policy = load(Path(__file__).parents[2])
+    assert not policy.enabled("land-bypass", "Docs/Engineering/Audit/workflow.md")
+    assert policy.enabled("land-bypass", "Docs/Engineering/Setup.md")
+    assert source.scan(
+        "land-bypass", "Docs/Engineering/Setup.md", "git commit --no-verify"
+    )

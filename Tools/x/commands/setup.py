@@ -15,7 +15,7 @@ HELP = (
     "lock, configures local LFS filters with git lfs install --local --skip-repo "
     "(no hook installation; Tools/hooks already chains to Git LFS), then runs "
     "git lfs pull to fetch this checkout's binary content. Repeated setup is safe. "
-    "It preserves core.hooksPath and the existing hooks. Next, "
+    "It preserves the shared hook configuration and the existing hooks. Next, "
     "checks whether Build/UnrealEngine-5.8.3-ShaderPrint.patch is already applied "
     "with a reverse dry run; otherwise applies it with patch --forward. "
     "This intentionally changes the shared engine shader, never Builds/."
