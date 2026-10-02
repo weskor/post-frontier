@@ -17,6 +17,7 @@ Apply formatting fixes, print reformatted paths, then run every enabled lint rul
 By default inspect changes against main, the index, worktree and untracked files.
 --all lints every tracked file; tests still follow changed paths, including deletions.
 Print each selected scope and the changed paths that selected it.
+Python format, lint and tests use uv run --locked, syncing the locked dev environment.
 Exit zero means lint and every selected scope passed.
 """
 RECORD = True

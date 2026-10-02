@@ -22,6 +22,7 @@ def lint_repo(repo: Path) -> Path:
     shutil.copytree(root / "Tools/x", repo / "Tools/x", dirs_exist_ok=True)
     shutil.copyfile(root / "x", repo / "x")
     shutil.copyfile(root / "pyproject.toml", repo / "pyproject.toml")
+    shutil.copyfile(root / "uv.lock", repo / "uv.lock")
     (repo / ".venv").symlink_to(root / ".venv", target_is_directory=True)
     settings = repo / "Tools/x/settings.toml"
     settings.write_text(

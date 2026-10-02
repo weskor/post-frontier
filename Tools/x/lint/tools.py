@@ -45,7 +45,7 @@ def format_files(
         before = {p: (ctx.repo / p).read_bytes() for p in python} if fix else {}
         if fix:
             applied = execute(
-                ctx, [binary(ctx, "ruff"), "format", *python], "format-fix"
+                ctx, ["uv", "run", "--locked", "ruff", "format", *python], "format-fix"
             )
             if applied.returncode:
                 findings.append(
@@ -56,7 +56,9 @@ def format_files(
                     print(f"reformatted {path}")
                     reformatted.append(Path(path))
         checked = execute(
-            ctx, [binary(ctx, "ruff"), "format", "--check", *python], "format-check"
+            ctx,
+            ["uv", "run", "--locked", "ruff", "format", "--check", *python],
+            "format-check",
         )
         if checked.returncode:
             output = checked.stdout + checked.stderr
@@ -134,11 +136,15 @@ def lint_python(ctx: Context, rule: str, paths: list[str]) -> list[Finding]:
         return []
     if rule == "mypy":
         result = execute(
-            ctx, [binary(ctx, "mypy"), "--strict", "--no-error-summary", *paths], "mypy"
+            ctx,
+            ["uv", "run", "--locked", "mypy", "--strict", "--no-error-summary", *paths],
+            "mypy",
         )
         return diagnostics(result, rule, paths[0])
     result = execute(
-        ctx, [binary(ctx, "ruff"), "check", "--output-format=json", *paths], "ruff"
+        ctx,
+        ["uv", "run", "--locked", "ruff", "check", "--output-format=json", *paths],
+        "ruff",
     )
     if result.returncode not in {0, 1}:
         return [Finding(paths[0], 1, rule, result.stderr.strip())]
