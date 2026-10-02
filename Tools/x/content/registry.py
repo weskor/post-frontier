@@ -194,7 +194,8 @@ GENERATORS = (
         "MasterMaterials.py",
         "Art/Materials/{MaterialPreview.blend,*.png}",
         "Render the shared-material prototype.",
-        HELP=MESH_PIPELINE,
+        HELP=MESH_PIPELINE
+        + " Pass -- --save-only to write MaterialPreview.blend without rendering previews.",
     ),
     Generator(
         "render-ui-icons",
@@ -226,7 +227,7 @@ GENERATORS = (
         "../Art/UI/mockups/render.sh",
         "Art/UI/mockups/*.png",
         "Render HTML HUD design mockups at 1920x1080.",
-        HELP="Requires chromium. Pass -- PAGE (without .html) to render one page; no arguments renders all pages. No Unreal lock.",
+        HELP="Requires chromium. Pass -- PAGE... (without .html) to render one or more pages; no arguments renders all pages. No Unreal lock.",
     ),
     Generator(
         "fetch-textures",
@@ -244,7 +245,7 @@ GENERATORS = (
         "Validate and draw the v1 map layout.",
         arguments=("--report",),
         HELP=TERRAIN_PIPELINE
-        + " Extra --svg PATH preserves SVG; --quiet prints errors only.",
+        + " Requires rsvg-convert or ImageMagick. Extra --svg PATH preserves SVG; --quiet prints errors only.",
     ),
     Generator(
         "draw-availability-zone-v2",

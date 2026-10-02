@@ -23,6 +23,8 @@ Average joined-unit health below **35%** requests only that producer's Fall Back
 
 Simulation batches, single matches, custom economy variants, wider matrices, paired dilation comparisons and report regeneration all use `./x sim`. Arguments and launch procedures live only in [`./x help sim`](../x).
 
+The baseline3 and baseline4 variants change only baseline income; custom economy variants need no rebuild because their values apply at runtime.
+
 The measured batch on **2026-10-01** was V2 only: **ten baseline-2/s matches and ten baseline-3/s matches**, seeds **1–10**, fixed-step **1×**, starting wallets **600/600**, normal deposits **4/s, 2400 total**, rich deposits **6/s, 3000 total**, and a **2400-game-second** cap. Classic-map matches, baseline 4/s, higher-dilation comparisons, extra matrices, packaging, network and presentation checks were explicitly skipped.
 
 Higher-dilation equivalence has **not** been established. A paired sample without paid production/combat on both sides, HQ damage and capture is inconclusive, not a passing equivalence check. Until equivalence is established, the measured 1× conditions remain the tuning reference.

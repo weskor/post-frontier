@@ -24,6 +24,6 @@ The agent sees the server as `unreal_mcp` (tools `mcp__unreal_mcp_list_toolsets`
 ## Rules
 
 - **One agent only.** Tool calls must not overlap. Never launch a second omp with `UNREAL_MCP=1`; every other agent runs without it.
-- **Headless generators must not save a map the open editor is editing.** `./x gen` ([`./x help gen`](../x)) and `./x editor` share the exclusive lock, so close the editor before generator work. MCP asset-editing ownership remains an owner decision.
-- **Rebuild and re-cook after the `.uproject` change.** Adding plugins changes build/package inputs. Editor compilation uses `./x build` ([`./x help build`](../x)); cooked artifacts use `./x package` ([`./x help package`](../x)).
+- **Headless generators must not save a map the open editor is editing.** `./x gen` ([`./x help gen`](../x)) and `./x editor` share the exclusive lock, so close the editor before generator work.
+- **Rebuild and re-cook after the `.uproject` change.** Adding plugins changes build/package inputs. Editor compilation uses `./x build` ([`./x help build`](../x)); cooked artifacts use `./x package` ([`./x help package`](../x)). Owned native-session freshness inspection uses `./x verify native doctor` ([`./x help verify`](../x)); inspection does not rebuild a stale artifact.
 - Port 8000 is used by one editor at a time. Config-driven auto-start is skipped for commandlets (cook, generator scripts), so they do not collide with the open editor.

@@ -320,20 +320,22 @@ Blender meshes -> FBX -> Unreal materials/imports -> gallery map -> Server Moon.
 
 The procedure and ordered dependencies live only in [`./x help gen`](../x). Each command below names an output, not an alternate launch recipe; the runner owns engine flags, freshness and locking.
 
-| Command | Produces / purpose |
-| --- | --- |
-| `./x gen fetch-textures` | Licensed CC0 texture inputs. |
-| `./x gen generate-unit-meshes` | Six units and two HQs, FBXs with baked masks, editable blend and previews. |
-| `./x gen generate-building-meshes` | Twelve buildings and three scaffolds with baked masks. |
-| `./x gen generate-environment-kit` | Seventeen campus kit pieces. |
-| `./x gen master-materials` | Blender material prototype and comparison previews. |
-| `./x gen build-shared-material` | Seven mask textures, `MF_Triplanar_Local`, `MF_SC2_Wear`, `M_Shared` and 32 faction/scope instances; shader compilation exposes graph errors. |
-| `./x gen import-unit-meshes` | Eight imported meshes and UnitGallery. |
-| `./x gen import-building-meshes` | Fifteen imported building/scaffold meshes. |
-| `./x gen import-environment-kit` | Seventeen imported kit meshes and collision. |
-| `./x gen verify-masks` | Read-back validation of all 40 imported meshes against baked Blender masks. |
-| `./x gen build-art-gallery` | All mesh classes under Server Moon dusk lighting for visual comparison. |
-| `./x gen generate-campus-zero` | Server Moon match world. |
+| Command | Produces / purpose | Expected output evidence |
+| --- | --- | --- |
+| `./x gen fetch-textures` | Licensed CC0 texture inputs. | Required source files available for material compilation. |
+| `./x gen generate-unit-meshes` | Six units and two HQs, FBXs with baked masks, editable blend and previews. | Source meshes for the unit importer. |
+| `./x gen generate-building-meshes` | Twelve buildings and three scaffolds with baked masks. | Source meshes for the building importer. |
+| `./x gen generate-environment-kit` | Seventeen campus kit pieces. | Source meshes for the environment importer. |
+| `./x gen master-materials` | Blender material prototype and comparison previews. | Editable prototype and comparison images. |
+| `./x gen build-shared-material` | Seven mask textures, `MF_Triplanar_Local`, `MF_SC2_Wear`, `M_Shared` and 32 faction/scope instances. | `SC2_TEXTURES_IMPORTED 7`, `M_SHARED_COMPILED`, `SC2_INSTANCES_BUILT 32`, and **no `Failed to compile Material` line**. |
+| `./x gen import-unit-meshes` | Eight imported meshes and UnitGallery. | `UNIT_MESHES_IMPORTED 8` and `UNIT_GALLERY_GENERATED`. |
+| `./x gen import-building-meshes` | Fifteen imported building/scaffold meshes. | `BUILDING_MESHES_IMPORTED 15`. |
+| `./x gen import-environment-kit` | Seventeen imported kit meshes and collision. | `ENV_KIT_IMPORTED 17`. |
+| `./x gen verify-masks` | Read-back validation of all 40 imported meshes against baked Blender masks. | `MASKS_VERIFIED 40`. |
+| `./x gen build-art-gallery` | All mesh classes under Server Moon dusk lighting for visual comparison. | `ART_GALLERY_GENERATED`. |
+| `./x gen generate-campus-zero` | Server Moon match world. | `CAMPUS_ZERO_GENERATED` with `blocking=47`. |
+
+These are asset-output acceptance criteria, not guarantees supplied by a zero runner exit code: the current runner checks process/Python failures but does not assert each token or material-compiler result.
 
 ArtGallery and UnitGallery are uncooked inspection worlds. Desktop inspection uses `./x editor` ([`./x help editor`](../x)), whose passthrough supports the selected map and game mode; `./x play` is for cooked maps.
 

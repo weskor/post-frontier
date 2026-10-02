@@ -51,10 +51,14 @@ def parse_automation(
     return AutomationResult(not problems, completed, failed, details)
 
 
-def _automation(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
+def _automation(
+    ctx: Context, name: str, scope: Scope, map_override: str | None = None
+) -> tuple[bool, str]:
     if ctx.run is None:
         raise RuntimeError("automation requires a recorded command")
-    map_path = ctx.settings.default_map if scope.map == "default" else scope.map
+    map_path = map_override or (
+        ctx.settings.default_map if scope.map == "default" else scope.map
+    )
     log = ctx.run.dir / f"{name}-unreal.log"
     with ctx.locks.headless():
         before = editor_module(ctx).stat()
@@ -116,7 +120,9 @@ def _scripts(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
     return not failures, "; ".join(failures) or "all map validators passed"
 
 
-def run_scopes(ctx: Context, scopes: Sequence[str]) -> bool:
+def run_scopes(
+    ctx: Context, scopes: Sequence[str], *, map_path: str | None = None
+) -> bool:
     if ctx.run is None:
         raise RuntimeError("tests require a recorded command")
     mapping = load(ctx.repo)
@@ -133,7 +139,7 @@ def run_scopes(ctx: Context, scopes: Sequence[str]) -> bool:
         scope = mapping.definitions[name]
         if scope.kind == "automation":
             ok, details = (
-                _automation(ctx, name, scope)
+                _automation(ctx, name, scope, map_path)
                 if editor_ok
                 else (False, "editor build failed")
             )

@@ -146,7 +146,7 @@ Order matters: each tier is cheaper than the next, and none of them replaces the
 
 ### Tier 3: JEV smoke on the real map (needs P8)
 
-Registered-world strategy assertions use `./x test strategy` ([`./x help test`](../../x)); editor-hosted strategy assertions on a selected map use `./x editor` ([`./x help editor`](../../x)). [Candidate] The following one-commander AvailabilityZone timeline is a map-specific acceptance target, not additional assertions guaranteed by those commands:
+Strategy automation on this map uses `./x test strategy --map /Game/Maps/AvailabilityZone` ([`./x help test`](../../x)); the selected map overrides the scope's configured world and must start for a pass. [Candidate] The following one-commander timeline is the original map-specific acceptance target, not additional assertions guaranteed by the strategy scope:
 
 1. JEV places a barracks within 20 s and completes it 12 s later.
 2. Transformer Row is captured, then outposted, then Switchyard (order per the score table: 7 then 8), all within 30 s of the design timeline (about 0:46 and 1:25).
