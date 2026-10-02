@@ -11,7 +11,7 @@ NAME = "setup"
 SUMMARY = "Bootstrap Git LFS, check tools and apply the required ShaderPrint patch."
 HELP = (
     "Checks the configured engine's UnrealEditor, UnrealEditor-Cmd, Linux Build.sh "
-    "and RunUAT.sh, plus git, uv, clang-format and patch on PATH. Under the exclusive "
+    "and RunUAT.sh, plus git, git-lfs, uv, clang-format and patch on PATH. Under the exclusive "
     "lock, configures local LFS filters with git lfs install --local --skip-repo "
     "(no hook installation; Tools/hooks already chains to Git LFS), then runs "
     "git lfs pull to fetch this checkout's binary content. Repeated setup is safe. "
@@ -37,10 +37,10 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     ):
         if not (engine / relative).is_file():
             raise ValueError(f"missing engine component: {engine / relative}")
-    for tool in ("git", "uv", "clang-format", "patch"):
+    for tool in ("git", "git-lfs", "uv", "clang-format", "patch"):
         if shutil.which(tool) is None:
             raise ValueError(f"missing tool on PATH: {tool}")
-    print(f"Engine: {engine}; uv and clang-format available")
+    print(f"Engine: {engine}; git, git-lfs, uv, clang-format and patch available")
     patch = ctx.repo / "Build/UnrealEngine-5.8.3-ShaderPrint.patch"
     arguments = ["patch", "--batch", "-d", str(engine), "-p1", "-i", str(patch)]
     with ctx.locks.exclusive():
