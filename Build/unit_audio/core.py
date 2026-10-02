@@ -27,7 +27,8 @@ SESSIONS = ROOT / "Art" / "Audio" / "Sessions"
 OUT = ROOT / "Art" / "Audio"
 SR = 48_000
 TRUE_PEAK_CEILING_DBFS = -1.0
-REGION_SPACING = 3.0  # seconds between region starts in a session
+REGION_SPACING = 3.0  # minimum seconds between region starts in a session
+REGION_GAP = 1.0      # silence after a region longer than REGION_SPACING - REGION_GAP
 
 
 # ---------------------------------------------------------------- recipe model
@@ -41,11 +42,16 @@ class Layer:
 
 @dataclass
 class Event:
-    name: str          # output event, e.g. "Fire"
+    name: str          # output event, e.g. "Fire"; loops end in "Loop" by convention, e.g. "ConstructLoop"
     variants: int
     length: float      # region length, seconds
     loudness: float    # integrated loudness target, LUFS
     build: Callable[[int], list[Layer]]
+    # Loop events are rendered as seamless loops: the last `crossfade` seconds of the region are
+    # crossfaded into its start, so the file is `length - crossfade` long and repeats without a seam.
+    # Their layers should keep sounding through the whole region (no fade-out at its end).
+    loop: bool = False
+    crossfade: float = 0.5
 
 
 @dataclass
@@ -154,17 +160,22 @@ def prepare(unit: Unit) -> list[tuple[str, float, float, Layer, Path]]:
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
     tracks = {name for name, _ in unit.tracks}
-    placed, slot = [], 0
+    placed, start = [], 0.0
     for ev in unit.events:
         for v in range(ev.variants):
             region = region_name(unit, ev.name, v)
+            occurrences: dict[str, int] = {}
             for layer in ev.build(v):
                 if layer.track not in tracks:
                     raise SystemExit(f"{unit.key}: layer track {layer.track!r} is not in UNIT.tracks")
-                path = folder / f"{region}__{layer.track.replace(' ', '')}.wav"
+                stem = layer.track.replace(" ", "")
+                occurrences[stem] = occurrences.get(stem, 0) + 1
+                suffix = f"_{occurrences[stem]:02d}" if occurrences[stem] > 1 else ""
+                path = folder / f"{region}__{stem}{suffix}.wav"
                 sf.write(path, layer.audio, SR, subtype="PCM_24")
-                placed.append((region, slot * REGION_SPACING, ev.length, layer, path))
-            slot += 1
+                placed.append((region, start, ev.length, layer, path))
+            # Long regions (loops, HQ destruction) push the next one back so neighbours never overlap.
+            start += max(REGION_SPACING, ev.length + REGION_GAP)
     return placed
 
 
@@ -228,20 +239,43 @@ def loudness(y: np.ndarray) -> float:
     return LOUDNESS.integrated_loudness(np.pad(y, (0, max(0, seconds(0.5) - len(y)))))
 
 
-def finish(y: np.ndarray, target_lufs: float) -> tuple[np.ndarray, float, float]:
-    """Trim the silent end, match loudness, limit peaks; returns audio, LUFS and true peak dBFS.
+def make_loop(y: np.ndarray, crossfade: float) -> np.ndarray:
+    """Seamless loop: the region's end is equal-power crossfaded into its start and then dropped."""
+    n = seconds(crossfade)
+    if len(y) <= 2 * n:
+        raise SystemExit(f"loop region of {len(y) / SR:.2f}s is too short for a {crossfade:.2f}s crossfade")
+    out = y[: len(y) - n].copy()
+    ramp = np.linspace(0.0, 1.0, n)
+    out[:n] = y[:n] * np.sqrt(ramp) + y[len(y) - n:] * np.sqrt(1.0 - ramp)
+    return out
+
+
+def finish(y: np.ndarray, target_lufs: float, loop_crossfade: float | None = None) -> tuple[np.ndarray, float, float]:
+    """Shape the render (trim the silent end, or make a seamless loop), match loudness, limit peaks;
+    returns audio, LUFS and true peak dBFS.
 
     Gunshots have a large crest factor, so reaching the loudness target can push the true peak past the
     ceiling. Then the limiter shaves the transient and the result is scaled back under the ceiling;
     a few passes converge on the target wherever limiting allows."""
-    loud = np.nonzero(np.abs(y) > 10 ** (-60 / 20) * (np.max(np.abs(y)) or 1.0))[0]
-    y = fades(y[: loud[-1] + seconds(0.01)] if len(loud) else y, fade_in=0.0, fade_out=0.01)
+    if loop_crossfade is not None:
+        y = make_loop(y, loop_crossfade)
+    else:
+        loud = np.nonzero(np.abs(y) > 10 ** (-60 / 20) * (np.max(np.abs(y)) or 1.0))[0]
+        y = fades(y[: loud[-1] + seconds(0.01)] if len(loud) else y, fade_in=0.0, fade_out=0.01)
     for _ in range(4):
         y = y * 10 ** ((target_lufs - loudness(y)) / 20)
         if true_peak(y) <= CEILING:
             break
+        if loop_crossfade is not None:
+            # A limiter's gain state differs at the file's end and start, which would put a seam in a loop.
+            y = y * CEILING / true_peak(y)
+            break
         y = LIMITER(y.astype(np.float32), SR).astype(np.float64)
         y = y * CEILING / true_peak(y)
+    # The final limiter pass can overshoot loudness through its make-up gain.
+    # A constant gain correction uses remaining headroom without another stateful pass.
+    gain = min(10 ** ((target_lufs - loudness(y)) / 20), CEILING / true_peak(y))
+    y = y * gain
     return y, loudness(y), 20 * np.log10(true_peak(y))
 
 
@@ -264,9 +298,10 @@ def render(unit: Unit, session: Path) -> int:
             if not rendered.exists():
                 raise SystemExit(f"REAPER did not render region {name}; is it still in {session}?")
             data, _rate = sf.read(rendered, dtype="float64", always_2d=True)
-            audio, lufs, peak = finish(data.mean(axis=1), ev.loudness)
+            audio, lufs, peak = finish(data.mean(axis=1), ev.loudness, ev.crossfade if ev.loop else None)
             sf.write(final / f"{name}.wav", audio, SR, subtype="PCM_24")
-            reel += [audio, np.zeros(seconds(0.5))]
+            # Loops play twice in the reel so the seam can be heard.
+            reel += [audio, audio, np.zeros(seconds(0.5))] if ev.loop else [audio, np.zeros(seconds(0.5))]
             written += 1
             print(f"{(final / name).relative_to(ROOT)}.wav  {len(audio) / SR:.2f}s  {lufs:.1f} LUFS  "
                   f"true peak {peak:.1f} dBFS")

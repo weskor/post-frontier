@@ -157,6 +157,8 @@ bool ACommandBuilding::SetFront(EFrontOrder Order, const FVector& Location)
 	FrontOrder = Order;
 	FrontLocation = Projected.Location;
 	bHasConfiguredFront = true;
+	// Internal AI/fixture fronts remain authoritative until a player submits a new region goal.
+	GoalDriver.bEnabled = false;
 	ForceNetUpdate();
 	return true;
 }
@@ -210,6 +212,8 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 		ForceGroup->RollbackLastReinforcement();
 		return;
 	}
+	++DeploymentCount;
+	OnRep_DeploymentCount();
 	ProductionProgressSeconds = 0.f;
 	ForceNetUpdate();
 }

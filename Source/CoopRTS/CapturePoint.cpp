@@ -2,10 +2,10 @@
 
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
-#include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "CoopAudioSubsystem.h"
+#include "WorldOverlay.h"
 #include "Components/StaticMeshComponent.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
 #include "Materials/MaterialInterface.h"
@@ -32,6 +32,9 @@ ACapturePoint::ACapturePoint()
 void ACapturePoint::BeginPlay()
 {
 	Super::BeginPlay();
+	LastAudioCaptureProgress = CaptureProgress;
+	LastAudioControllingTeam = ControllingTeam;
+	bCaptureAudioInitialized = true;
 	OnRep_Capture();
 }
 
@@ -51,27 +54,9 @@ void ACapturePoint::Tick(float DeltaSeconds)
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		const FColor Color = ControllingTeam == 0 ? FColor::Green : ControllingTeam == 5 ? FColor::Red : FColor::Yellow;
-		DrawDebugCircle(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 12.f), TerritoryRadius, 72,
-			Color, false, -1.f, 0, 1.f, FVector(1.f, 0.f, 0.f), FVector(0.f, 1.f, 0.f), false);
-		DrawDebugCircle(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 9.f), CaptureRadius, 48,
-			Color, false, -1.f, 0, 2.f, FVector(1.f, 0.f, 0.f), FVector(0.f, 1.f, 0.f), false);
-		DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 110.f),
-			FString::Printf(TEXT("RESOURCE %d  %s%s  %.0f%%"), SiteIndex + 1,
-				ControllingTeam == 0 ? TEXT("FRIENDLY") : ControllingTeam == 5 ? TEXT("ENEMY") : TEXT("NEUTRAL"),
-				IsEstablishedForTeam(ControllingTeam) ? TEXT(" OUTPOST ACTIVE") : TEXT(" UNESTABLISHED"),
-				FMath::Abs(CaptureProgress) * 100.f), nullptr, Color, 0.f, true);
+		if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
+			Overlay->Ring(GetActorLocation() + FVector(0.f, 0.f, 9.f), CaptureRadius, Color);
 	}
-}
-
-bool ACapturePoint::IsEstablishedForTeam(int32 Team) const
-{
-	if (Team != 0 && Team != 5) return false;
-	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	if (!State || ControllingTeam != Team) return false;
-	for (const ACommandBuilding* Building : State->Buildings)
-		if (IsValid(Building) && Building->Kind == EBuildingKind::Outpost && Building->OutpostSite == this
-			&& Building->TeamIndex == Team && Building->IsAlive() && Building->IsComplete()) return true;
-	return false;
 }
 
 void ACapturePoint::AdvanceCapture(float Seconds)
@@ -99,8 +84,7 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 		ForceNetUpdate();
 	}
 	if (bFriendly == bEnemy || (ControllingTeam == 0 && bFriendly && !bEnemy)
-		|| (ControllingTeam == 5 && bEnemy && !bFriendly)
-		|| IsEstablishedForTeam(ControllingTeam))
+		|| (ControllingTeam == 5 && bEnemy && !bFriendly))
 		return;
 	const float Previous = CaptureProgress;
 	const int32 PreviousOwner = ControllingTeam;
@@ -108,12 +92,13 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 	if ((Previous > 0.f && CaptureProgress <= 0.f) || (Previous < 0.f && CaptureProgress >= 0.f)) ControllingTeam = -1;
 	if (CaptureProgress >= 1.f) ControllingTeam = 0;
 	else if (CaptureProgress <= -1.f) ControllingTeam = 5;
-	if (Previous != CaptureProgress) ForceNetUpdate();
-	if (bOccupancyChanged || PreviousOwner != ControllingTeam)
-		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>()) State->RefreshTerritory();
-	if (PreviousOwner != ControllingTeam)
+	if (Previous != CaptureProgress || PreviousOwner != ControllingTeam)
 	{
 		OnRep_Capture();
+		ForceNetUpdate();
+	}
+	if (PreviousOwner != ControllingTeam)
+	{
 		UE_LOG(LogTemp, Display, TEXT("Capture site=%d kind=%d owner=%d progress=%.2f"), SiteIndex,
 			static_cast<int32>(SiteKind), ControllingTeam, CaptureProgress);
 	}
@@ -127,6 +112,27 @@ void ACapturePoint::OnRep_Capture()
 	{
 		Material->SetVectorParameterValue(TEXT("TeamColor"), ControllingTeam == 0 ? FLinearColor::Green
 			: ControllingTeam == 5 ? FLinearColor::Red : FLinearColor(1.f, .7f, .05f));
+	}
+	if (!bCaptureAudioInitialized) return;
+	const float PreviousProgress = LastAudioCaptureProgress;
+	const int32 PreviousOwner = LastAudioControllingTeam;
+	LastAudioCaptureProgress = CaptureProgress;
+	LastAudioControllingTeam = ControllingTeam;
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+	{
+		if (PreviousOwner != 0 && ControllingTeam == 0)
+			Audio->PlayCapture(ECoopAudioEvent::SectorCaptured, GetActorLocation());
+		else if (PreviousOwner == 0 && ControllingTeam != 0)
+			Audio->PlayCapture(ECoopAudioEvent::SectorLost, GetActorLocation());
+		for (int32 Milestone = 2; Milestone >= 0; --Milestone)
+		{
+			const float Threshold = .25f * (Milestone + 1);
+			if (PreviousProgress < Threshold && CaptureProgress >= Threshold)
+			{
+				Audio->PlayCapture(ECoopAudioEvent::CaptureTick, GetActorLocation(), Milestone);
+				break;
+			}
+		}
 	}
 }
 

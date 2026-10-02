@@ -23,13 +23,11 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	// A zero-time step refreshes occupancy without advancing capture.
 	void AdvanceCapture(float Seconds);
-	bool IsEstablishedForTeam(int32 Team) const;
 	static constexpr float CaptureRadius = 430.f;
-	static constexpr float TerritoryRadius = 1000.f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Capture, BlueprintReadOnly, Category = "Territory")
 	int32 ControllingTeam = -1;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
+	UPROPERTY(ReplicatedUsing = OnRep_Capture, BlueprintReadOnly, Category = "Territory")
 	float CaptureProgress = 0.f;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	bool bFriendlyPresent = false;
@@ -45,6 +43,9 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UStaticMeshComponent> Marker;
 	float CaptureElapsed = 0.f;
+	float LastAudioCaptureProgress = 0.f;
+	int32 LastAudioControllingTeam = -1;
+	bool bCaptureAudioInitialized = false;
 	UFUNCTION()
 	void OnRep_Capture();
 };

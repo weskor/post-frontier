@@ -9,4 +9,605 @@
   <RENDER_CFG
     ZXZhdxgAAQ==
   >
+  MARKER 1 0.000000 "SW_Machine_Frontline_Attack_01" 1
+  MARKER 1 0.700000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Frontline_Attack_02" 1
+  MARKER 2 3.700000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Frontline_Attack_03" 1
+  MARKER 3 6.700000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Frontline_Attack_04" 1
+  MARKER 4 9.700000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Frontline_Impact_01" 1
+  MARKER 5 12.800000 "" 1
+  MARKER 6 15.000000 "SW_Machine_Frontline_Impact_02" 1
+  MARKER 6 15.800000 "" 1
+  MARKER 7 18.000000 "SW_Machine_Frontline_Impact_03" 1
+  MARKER 7 18.800000 "" 1
+  MARKER 8 21.000000 "SW_Machine_Frontline_Death_01" 1
+  MARKER 8 22.800000 "" 1
+  MARKER 9 24.000000 "SW_Machine_Frontline_Death_02" 1
+  MARKER 9 25.800000 "" 1
+  MARKER 10 27.000000 "SW_Machine_Frontline_Death_03" 1
+  MARKER 10 28.800000 "" 1
+  <TRACK
+    NAME "Charge"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.148417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.154188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.158021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Charge.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.154708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Charge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blade"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.127876
+      LENGTH 0.355167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Blade"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Blade.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.121888
+      LENGTH 0.348979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Blade"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Blade.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.120986
+      LENGTH 0.350896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Blade"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Blade.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.115923
+      LENGTH 0.343354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Blade"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Blade.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Snap"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 0.127876
+      LENGTH 0.332979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Snap.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.121888
+      LENGTH 0.327167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Snap.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.120986
+      LENGTH 0.328958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Snap.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.115923
+      LENGTH 0.321896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Snap.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crystal"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 0.130876
+      LENGTH 0.362771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Crystal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Crystal.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.124888
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Crystal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Crystal.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.123986
+      LENGTH 0.358438
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Crystal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Crystal.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.118923
+      LENGTH 0.350896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Crystal"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Crystal.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 0.127876
+      LENGTH 0.319646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Pulse.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.121888
+      LENGTH 0.314271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Pulse.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.120986
+      LENGTH 0.316042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Pulse.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.115923
+      LENGTH 0.309396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Pulse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ring"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.137876
+      LENGTH 0.544146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_01 Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_01__Ring.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.131888
+      LENGTH 0.535083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_02 Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_02__Ring.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.130986
+      LENGTH 0.537646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_03 Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_03__Ring.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.125923
+      LENGTH 0.526333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Attack_04 Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Attack_04__Ring.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Hit"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.503375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_01 Glass Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_01__GlassHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.517250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_02 Glass Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_02__GlassHit.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.496146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_03 Glass Hit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_03__GlassHit.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crystal Ring"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 12.003000
+      LENGTH 0.503792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_01 Crystal Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_01__CrystalRing.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.003000
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_02 Crystal Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_02__CrystalRing.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.003000
+      LENGTH 0.534062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_03 Crystal Ring"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_03__CrystalRing.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crackle"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 12.005000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_01 Crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_01__Crackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.005000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_02 Crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_02__Crackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.005000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_03 Crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_03__Crackle.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Thump"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.330583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_01 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_01__Thump.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.315688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_02 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_02__Thump.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.328646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Impact_03 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Impact_03__Thump.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Crack"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.466208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Shell Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__ShellCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.450458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Shell Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__ShellCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.472833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Shell Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__ShellCrack.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glitch"
+    VOLPAN 0.281838 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.400000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.170500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__Glitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.350000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__Glitch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 21.030000
+      LENGTH 1.346812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.030000
+      LENGTH 1.377125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.030000
+      LENGTH 0.954000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 21.050000
+      LENGTH 0.614167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.050000
+      LENGTH 0.689667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.050000
+      LENGTH 0.579354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__Chime.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Break"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 21.644167
+      LENGTH 1.148125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__ShellBreak.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.719667
+      LENGTH 0.987938
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__ShellBreak.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.609354
+      LENGTH 1.190646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__ShellBreak.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Scatter"
+    VOLPAN 0.281838 0 -1 -1 1
+    <ITEM
+      POSITION 21.717062
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Scatter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__Scatter.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.815092
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Scatter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__Scatter.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.678721
+      LENGTH 0.951250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Scatter"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__Scatter.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Thud"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 21.644167
+      LENGTH 0.534062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_01 Shell Thud"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_01__ShellThud.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.719667
+      LENGTH 0.565792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_02 Shell Thud"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_02__ShellThud.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.609354
+      LENGTH 0.503792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Frontline_Death_03 Shell Thud"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Frontline/SW_Machine_Frontline_Death_03__ShellThud.wav"
+      >
+    >
+  >
 >

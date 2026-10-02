@@ -215,7 +215,9 @@ def ranged_death(v: int) -> list[Layer]:
         Layer("Crack", clip(filt(dark(pitch(crack, -2.0), 4500), "highpass", 200), fade_out=0.12)),
         Layer("Death Glitch", clip(filt(dark(pitch(glitch, -2.0), 5000), "highpass", 250), fade_out=0.12)),
         Layer("Chime", clip(filt(dark(chime, 7000), "highpass", 250)), at=chime_at),
-        Layer("Power Down", clip(filt(dark(pitch(power, power_pitch), 5000), "highpass", 150), fade_out=0.4),
+        # High-passed above the rotor fundamental: the falling harmonics carry the power-down, the landing
+        # alone carries the low end.
+        Layer("Power Down", clip(filt(dark(pitch(power, power_pitch), 5000), "highpass", 250), fade_out=0.4),
               at=0.05),
         Layer("Servo Fall", clip(dark(pitch(fall, rng.uniform(-3.0, -2.0)), 6000), fade_out=0.15), at=0.1),
         Layer("Shell Crash", clip(filt(dark(pitch(crt, (-3.0, -2.0, -4.0)[v]), 6000), "highpass", 120),

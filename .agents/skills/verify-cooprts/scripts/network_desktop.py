@@ -113,6 +113,7 @@ def launch(run, clients, probe, map_path=DEFAULT_MAP):
             travel = f"{map_path}?listen" if index == 0 else f"127.0.0.1:{port}"
             command = [str(BINARY), travel, "-windowed", "-ResX=1100", "-ResY=720", "-log", "-stdout",
                        "-FullStdOutLogOutput", f"-abslog={folder / 'game.log'}"]
+            command.append("-nosteam")
             if index == 0:
                 command.append(f"-port={port}")
             if probe:

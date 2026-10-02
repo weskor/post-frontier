@@ -107,9 +107,12 @@ else:
 
 cube = require(unreal.load_asset("/Engine/BasicShapes/Cube.Cube"), "Engine cube is missing")
 cylinder = require(unreal.load_asset("/Engine/BasicShapes/Cylinder.Cylinder"), "Engine cylinder is missing")
+blocking_footprints = []
 
 
 def primitive(label, location, scale, surface, mesh=cube, collision=True):
+    if collision and label != "ArenaFloor":
+        blocking_footprints.append((location[0], location[1], scale[0] * 100, scale[1] * 100, 0))
     actor = spawn(unreal.StaticMeshActor, label, location)
     component = actor.static_mesh_component
     component.set_static_mesh(mesh)
@@ -120,7 +123,8 @@ def primitive(label, location, scale, surface, mesh=cube, collision=True):
     return actor
 
 
-arena_x, arena_y = MatchLayout.place(spawn)
+capture_anchors = {}
+arena_x, arena_y = MatchLayout.place(spawn, capture_anchors)
 primitive("ArenaFloor", (0, 0, -50), (arena_x / 50, arena_y / 50, 1), floor_material)
 primitive("CentralObstacle", (0, 0, 300), (12, 20, 6), obstacle_material)
 # Keep characters on the playable floor as well as bounding orders: 50 cm walls whose inner face is 50 cm inside the arena.
@@ -130,6 +134,10 @@ primitive("BoundaryEast", (arena_x - 25, 0, 60), (0.5, arena_y / 50, 1.2), wall_
 primitive("BoundaryWest", (-(arena_x - 25), 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
 for index, y in enumerate((0, -850, 850, -1700, 1700)):
     primitive("ArmyHome" + str(index), (-1800, y, 2), (5, 5, 0.04), team_materials[index], cylinder, False)
+regions = MatchLayout.region_plan((arena_x, arena_y))
+deposits = MatchLayout.deposit_plan(regions, (arena_x, arena_y),
+                                   lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))
+MatchLayout.place_regions(spawn, regions, deposits, capture_anchors)
 spawn(unreal.PlayerStart, "CommanderStart", (-1800, 0, 150))
 
 sun = spawn(unreal.DirectionalLight, "ArenaSun", (0, 0, 3000), unreal.Rotator(-55, -30, 0))

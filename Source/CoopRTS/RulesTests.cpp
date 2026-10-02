@@ -4,6 +4,7 @@
 #include "Rules/PlacementPolicy.h"
 #include "Rules/EconomyPolicy.h"
 #include "Rules/OutcomePolicy.h"
+#include "Rules/GoalPath.h"
 #include "CommandGameState.h" // EMatchResult is declared in this pinned header; no actors are instantiated.
 
 // Pure rule tests: no world, no actors. Values are arbitrary; assertions are invariants.
@@ -193,9 +194,15 @@ bool FProductionTerminalFreezeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementGridTest, "CoopRTS.Rules.Placement.BuildGrid",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementTerritoryTest, "CoopRTS.Rules.Placement.Territory",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementOutpostTest, "CoopRTS.Rules.Placement.Outpost",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementBuildTerritoryTest, "CoopRTS.Rules.Placement.BuildTerritory",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementDepositTest, "CoopRTS.Rules.Placement.Deposit",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementPolygonTest, "CoopRTS.Rules.Placement.Polygon",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementPrecedenceTest, "CoopRTS.Rules.Placement.Precedence",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
@@ -205,7 +212,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementProximityTest, "CoopRTS.Rules.Placeme
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyIncomeTest, "CoopRTS.Rules.Economy.IncomeAndSaturation",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyEnemyScalingTest, "CoopRTS.Rules.Economy.EnemyScaling",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyExtractorTest, "CoopRTS.Rules.Economy.ExtractorDepletionAndOwner",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyRefundTest, "CoopRTS.Rules.Economy.Refund",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
@@ -216,16 +223,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOutcomeHealthTest, "CoopRTS.Rules.Outcome.Heal
 
 namespace
 {
+	const FVector2D HomePolygon[] = { {-1000., -1000.}, {1000., -1000.}, {1000., 1000.}, {-1000., 1000.} };
+	const FPlacementRegion HomeRegions[] = { { 0, HomePolygon, 0, false } };
+
 	FPlacementInput PlacementReady()
 	{
 		FPlacementInput In{};
 		In.Team = 0;
 		In.FootprintRadius = 80.f;
-		In.TerritoryRadius = 1200.f;
 		In.HomePosition = FVector::ZeroVector;
 		In.HostilePosition = FVector(8000.f, 0.f, 0.f);
-		In.Position = FVector(PlacementPolicy::HomeTerritoryRadius * .7f, 0.f, 0.f);
+		In.Position = FVector(600.f, 0.f, 0.f);
 		In.bInsidePlacementBounds = In.bHeadquartersAvailable = true;
+		In.Regions = HomeRegions;
 		return In;
 	}
 
@@ -235,69 +245,170 @@ namespace
 	}
 }
 
-bool FPlacementTerritoryTest::RunTest(const FString& Parameters)
+bool FPlacementGridTest::RunTest(const FString& Parameters)
 {
-	FPlacementInput In = PlacementReady();
-	ExpectPlacement(*this, TEXT("Home territory needs no outpost"), In, EPlacementVerdict::Valid);
-	In.Position = FVector(3000.f, 0.f, 0.f);
-	ExpectPlacement(*this, TEXT("Outside home needs established territory"), In, EPlacementVerdict::TerritoryRequired);
-	TArray<FPlacementSector> Sectors = { { In.Position, In.Team, false, false, false, false } };
-	In.Sectors = Sectors;
-	ExpectPlacement(*this, TEXT("Captured alone does not establish territory"), In, EPlacementVerdict::TerritoryRequired);
-	Sectors[0].bEstablishedForTeam = true;
-	ExpectPlacement(*this, TEXT("Established friendly sector extends home"), In, EPlacementVerdict::Valid);
-	In.Position.X += In.TerritoryRadius - In.FootprintRadius;
-	ExpectPlacement(*this, TEXT("Sector boundary includes entire footprint"), In, EPlacementVerdict::Valid);
-	In.Position.X += 1.f;
-	ExpectPlacement(*this, TEXT("Footprint beyond sector boundary rejected"), In, EPlacementVerdict::TerritoryRequired);
-	In.Position = Sectors[0].Position;
-	Sectors[0].ControllingTeam = 5;
-	ExpectPlacement(*this, TEXT("Enemy establishment is not home"), In, EPlacementVerdict::TerritoryRequired);
-	In.Team = 5;
-	ExpectPlacement(*this, TEXT("Same territory rules apply to enemy team"), In, EPlacementVerdict::Valid);
-	Sectors[0].bFriendlyPresent = true;
-	ExpectPlacement(*this, TEXT("Human presence contests enemy territory"), In, EPlacementVerdict::Contested);
+	TestEqual(TEXT("Barracks occupies five cells"), PlacementPolicy::FootprintCells(125.f), 5);
+	TestEqual(TEXT("Extractor rounds up to four cells"), PlacementPolicy::FootprintCells(95.f), 4);
+	TestEqual(TEXT("Workshop rounds up to six cells"), PlacementPolicy::FootprintCells(145.f), 6);
+	TestEqual(TEXT("Exact cell boundary does not add a cell"), PlacementPolicy::FootprintCells(100.f), 4);
+	TestEqual(TEXT("Extent just beyond a cell boundary adds a cell"), PlacementPolicy::FootprintCells(100.1f), 5);
+	const struct
+	{
+		const TCHAR* Name;
+		float HalfExtent;
+		FVector Position, Expected;
+	} Cases[] = {
+		{ TEXT("Odd positive"), 125.f, FVector(31., 83., 17.125), FVector(25., 75., 17.125) },
+		{ TEXT("Odd positive ties"), 125.f, FVector(0., 50., -4.5), FVector(25., 75., -4.5) },
+		{ TEXT("Odd negative"), 125.f, FVector(-31., -83., 91.25), FVector(-25., -75., 91.25) },
+		{ TEXT("Odd negative ties"), 125.f, FVector(-50., -100., -17.125), FVector(-25., -75., -17.125) },
+		{ TEXT("Even positive"), 95.f, FVector(24., 76., 23.75), FVector(0., 100., 23.75) },
+		{ TEXT("Even positive ties"), 95.f, FVector(25., 75., -1.25), FVector(50., 100., -1.25) },
+		{ TEXT("Even negative"), 95.f, FVector(-24., -76., 8.5), FVector(0., -100., 8.5) },
+		{ TEXT("Even negative ties"), 95.f, FVector(-25., -75., -33.75), FVector(0., -50., -33.75) },
+		{ TEXT("Workshop even"), 145.f, FVector(24., -76., 103.125), FVector(0., -100., 103.125) }
+	};
+	for (const auto& Case : Cases)
+	{
+		const FVector Snapped = PlacementPolicy::SnapToBuildGrid(Case.Position, Case.HalfExtent);
+		TestTrue(FString::Printf(TEXT("%s snaps to exact footprint-aligned XY"), Case.Name),
+			Snapped.X == Case.Expected.X && Snapped.Y == Case.Expected.Y);
+		TestEqual(FString::Printf(TEXT("%s preserves Z exactly"), Case.Name), Snapped.Z, Case.Position.Z);
+		const FVector Again = PlacementPolicy::SnapToBuildGrid(Snapped, Case.HalfExtent);
+		TestTrue(FString::Printf(TEXT("%s snapping is idempotent"), Case.Name),
+			Again.X == Snapped.X && Again.Y == Snapped.Y && Again.Z == Snapped.Z);
+	}
 	return true;
 }
 
-bool FPlacementOutpostTest::RunTest(const FString& Parameters)
+bool FPlacementTerritoryTest::RunTest(const FString& Parameters)
 {
 	FPlacementInput In = PlacementReady();
-	In.bSectorBuilding = true;
-	ExpectPlacement(*this, TEXT("Home alone cannot host a sector building"), In, EPlacementVerdict::CaptureRequired);
+	ExpectPlacement(*this, TEXT("Controlled main provides build rights"), In, EPlacementVerdict::Valid);
 	In.Position = FVector(3000.f, 0.f, 0.f);
-	TArray<FPlacementSector> Sectors = {
-		{ In.Position + FVector(100.f, 0.f, 0.f), -1, false, false, false, false },
-		{ In.Position + FVector(200.f, 0.f, 0.f), In.Team, false, false, false, false } };
-	In.Sectors = Sectors;
-	const FPlacementDecision Captured = PlacementPolicy::Evaluate(In);
-	TestEqual(TEXT("Captured sector permits an outpost before establishment"),
-		static_cast<int32>(Captured.Verdict), static_cast<int32>(EPlacementVerdict::Valid));
-	TestEqual(TEXT("Uncaptured nearer sector is ignored"), Captured.TargetSectorIndex, 1);
-	Sectors[1].bHasOutpost = true;
-	ExpectPlacement(*this, TEXT("Existing outpost rejects another"), In, EPlacementVerdict::OutpostExists);
-	Sectors[0].ControllingTeam = In.Team;
-	TestEqual(TEXT("Nearest eligible sector selected"), PlacementPolicy::Evaluate(In).TargetSectorIndex, 0);
-	Sectors[0].Position = Sectors[1].Position;
-	TestEqual(TEXT("Equal distances retain first sector"), PlacementPolicy::Evaluate(In).TargetSectorIndex, 0);
-	Sectors[0].Position = In.Position + FVector(In.TerritoryRadius - In.FootprintRadius, 0.f, 0.f);
-	Sectors[1].ControllingTeam = -1;
-	ExpectPlacement(*this, TEXT("Sector boundary admits an outpost"), In, EPlacementVerdict::Valid);
-	Sectors[0].Position.X += 1.f;
-	const FPlacementDecision Outside = PlacementPolicy::Evaluate(In);
-	TestEqual(TEXT("No sector beyond boundary"), Outside.TargetSectorIndex, INDEX_NONE);
-	TestEqual(TEXT("Outpost requires captured sector in range"),
-		static_cast<int32>(Outside.Verdict), static_cast<int32>(EPlacementVerdict::CaptureRequired));
+	ExpectPlacement(*this, TEXT("Outside polygons has no build rights"), In, EPlacementVerdict::TerritoryRequired);
+	const FVector2D Polygon[] = { {2000., -1000.}, {4000., -1000.}, {4000., 1000.}, {2000., 1000.} };
+	FPlacementRegion Regions[] = { { 7, Polygon, 0, false } };
+	In.Regions = Regions;
+	ExpectPlacement(*this, TEXT("Capture grants rights without an extractor"), In, EPlacementVerdict::Valid);
+	TestEqual(TEXT("Decision identifies region, not collection offset"), PlacementPolicy::Evaluate(In).RegionIndex, 7);
+	Regions[0].ControllingTeam = -1;
+	ExpectPlacement(*this, TEXT("Neutral region has no build rights"), In, EPlacementVerdict::TerritoryRequired);
+	Regions[0].ControllingTeam = 5;
+	ExpectPlacement(*this, TEXT("Enemy region has no human build rights"), In, EPlacementVerdict::TerritoryRequired);
+	In.Team = 5;
+	ExpectPlacement(*this, TEXT("Enemy builds in its controlled region"), In, EPlacementVerdict::Valid);
+	Regions[0].bContested = true;
+	ExpectPlacement(*this, TEXT("Hostile presence contests entire region"), In, EPlacementVerdict::Contested);
+	Regions[0].bContested = false;
+	In.Position.X = 4000.f - In.FootprintRadius;
+	ExpectPlacement(*this, TEXT("All square corners on boundary are allowed"), In, EPlacementVerdict::Valid);
+	In.Position.X += .01f;
+	ExpectPlacement(*this, TEXT("Any corner beyond region rejects footprint"), In, EPlacementVerdict::TerritoryRequired);
+	TestEqual(TEXT("Living human main ignores enemy capture anchor"), PlacementPolicy::RegionController(true, 0, true, 5), 0);
+	TestEqual(TEXT("Living enemy main ignores friendly capture anchor"), PlacementPolicy::RegionController(true, 5, true, 0), 5);
+	TestEqual(TEXT("Destroyed main HQ removes control"), PlacementPolicy::RegionController(true, 0, false, 0), -1);
+	TestEqual(TEXT("Non-main ownership comes from capture anchor"), PlacementPolicy::RegionController(false, 0, true, 5), 5);
+	TestEqual(TEXT("Neutral anchor remains neutral"), PlacementPolicy::RegionController(false, -1, true, -1), -1);
+	return true;
+}
+
+bool FPlacementBuildTerritoryTest::RunTest(const FString& Parameters)
+{
+	FPlacementInput In = PlacementReady();
+	auto InTerritory = [&In]() { return PlacementPolicy::EvaluateTerritory(In).Verdict == EPlacementVerdict::Valid; };
+	In.Position = In.HomePosition;
+	TestTrue(TEXT("Territory query excludes HQ clearance"), InTerritory());
+	In.Position.X = 1000.f - In.FootprintRadius;
+	TestTrue(TEXT("Exact polygon edge includes footprint"), InTerritory());
+	In.Position.X += 1.f;
+	TestFalse(TEXT("Straddling polygon edge rejected"), InTerritory());
+	const FVector2D Adjacent[] = { {1000., -1000.}, {2000., -1000.}, {2000., 1000.}, {1000., 1000.} };
+	FPlacementRegion Regions[] = { HomeRegions[0], { 1, Adjacent, 0, false } };
+	In.Regions = Regions;
+	In.Position.X = 1000.f;
+	TestFalse(TEXT("Two controlled polygons cannot jointly cover one footprint"), InTerritory());
+	In.Position.X = 600.f;
+	In.bInsidePlacementBounds = false;
+	TestFalse(TEXT("Arena bounds still restrict controlled regions"), InTerritory());
+	In.bInsidePlacementBounds = true;
+	Regions[0].bContested = true;
+	TestFalse(TEXT("Contested main has no build rights"), InTerritory());
+	Regions[0].bContested = false;
+	const FPlacementBuilding Buildings[] = { { In.Position, 80.f, true } };
+	const FVector Troops[] = { In.Position };
+	In.Buildings = Buildings;
+	In.EnemyTroops = Troops;
+	In.HostilePosition = In.Position;
+	TestTrue(TEXT("Territory excludes overlap, troop proximity and hostile HQ clearance"), InTerritory());
+	In.bHeadquartersAvailable = false;
+	TestFalse(TEXT("Unavailable home HQ disallows building"), InTerritory());
+	return true;
+}
+
+bool FPlacementPolygonTest::RunTest(const FString& Parameters)
+{
+	TestTrue(TEXT("Polygon centre is inside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D::ZeroVector));
+	TestTrue(TEXT("Polygon edge is inside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(1000., 0.)));
+	TestTrue(TEXT("Polygon corner is inside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(-1000., 1000.)));
+	TestFalse(TEXT("Point beyond edge is outside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(1000.01, 0.)));
+	const FVector2D Clockwise[] = { {-1000., -1000.}, {-1000., 1000.}, {1000., 1000.}, {1000., -1000.}, {-1000., -1000.} };
+	TestTrue(TEXT("Clockwise polygon with repeated closing vertex works"), PlacementPolicy::ContainsPoint(Clockwise, FVector2D(200., -300.)));
+	TestFalse(TEXT("Empty polygon excludes every point"), PlacementPolicy::ContainsPoint({}, FVector2D::ZeroVector));
+	const FVector2D Segment[] = { {0., 0.}, {1., 0.} };
+	TestFalse(TEXT("Two vertices are not a region"), PlacementPolicy::ContainsPoint(Segment, FVector2D(.5, 0.)));
+	const FVector2D Concave[] = { {0., 0.}, {600., 0.}, {600., 200.}, {200., 200.}, {200., 600.}, {0., 600.} };
+	TestTrue(TEXT("Concave polygon includes a side arm"), PlacementPolicy::ContainsPoint(Concave, FVector2D(500., 100.)));
+	TestFalse(TEXT("Concave indentation is outside"), PlacementPolicy::ContainsPoint(Concave, FVector2D(300., 300.)));
+	TestFalse(TEXT("Centre and cardinal samples cannot mask a diagonal corner outside"),
+		PlacementPolicy::ContainsFootprint(Concave, FVector(150., 150., 9000.), 100.f));
+	TestTrue(TEXT("XY footprint fitting exactly along concave edge is accepted"),
+		PlacementPolicy::ContainsFootprint(Concave, FVector(100., 100., -9000.), 100.f));
+	const FVector2D Diamond[] = { {0., -1000.}, {1000., 0.}, {0., 1000.}, {-1000., 0.} };
+	TestTrue(TEXT("Square corners exactly on oblique edges fit"), PlacementPolicy::ContainsFootprint(Diamond, FVector(840., 0., 0.), 80.f));
+	TestFalse(TEXT("Square corners beyond oblique edges fail"), PlacementPolicy::ContainsFootprint(Diamond, FVector(841., 0., 0.), 80.f));
+	const FVector2D SnapBoundary[] = { {-1000., -1000.}, {999., -1000.}, {999., 1000.}, {-1000., 1000.} };
+	const FVector Requested(873., 0., 23.);
+	TestTrue(TEXT("Unsnapped request can fit near a boundary"), PlacementPolicy::ContainsFootprint(SnapBoundary, Requested, 125.f));
+	const FVector Snapped = PlacementPolicy::SnapToBuildGrid(Requested, 125.f);
+	TestFalse(TEXT("Territory checks snapped centre and corners, not cursor"), PlacementPolicy::ContainsFootprint(SnapBoundary, Snapped, 125.f));
+	return true;
+}
+
+bool FPlacementDepositTest::RunTest(const FString& Parameters)
+{
+	const FVector Requested(10., 20., 9000.);
+	FPlacementDeposit Deposits[] = {
+		{ Requested + FVector(50., 0., -9000.), 3, 0, true, false },
+		{ Requested + FVector(100., 0., -9000.), 3, -1, false, false },
+		{ Requested + FVector(150., 0., -9000.), 3, 0, false, true },
+		{ Requested + FVector(200., 0., -9000.), 4, 0, false, false },
+		{ Requested + FVector(250., 0., -9000.), 4, 0, false, false } };
+	TestEqual(TEXT("Occupied, neutral and contested closer deposits are excluded"),
+		PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), 3);
+	Deposits[3].bOccupied = true;
+	TestEqual(TEXT("Reservation includes unfinished construction"), PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), 4);
+	Deposits[4].Position = Requested + FVector(300., 0., -9000.);
+	TestEqual(TEXT("300 cm snap radius is inclusive and ignores height"), PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), 4);
+	Deposits[4].Position.X += .01;
+	TestEqual(TEXT("Beyond 300 cm cannot snap"), PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), INDEX_NONE);
+	Deposits[3].bOccupied = false;
+	Deposits[4].Position = Deposits[3].Position;
+	TestEqual(TEXT("Equal distance preserves stable deposit ordering"), PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), 3);
+	Deposits[3].ControllingTeam = 5;
+	TestEqual(TEXT("Enemy selection uses enemy control"), PlacementPolicy::SelectFreeDeposit(5, Requested, Deposits), 3);
+	TestEqual(TEXT("Invalid team cannot claim a deposit"), PlacementPolicy::SelectFreeDeposit(-1, Requested, Deposits), INDEX_NONE);
+	TestEqual(TEXT("No deposits rejects placement"), PlacementPolicy::SelectFreeDeposit(0, Requested, {}), INDEX_NONE);
 	return true;
 }
 
 bool FPlacementPrecedenceTest::RunTest(const FString& Parameters)
 {
 	FPlacementInput In = PlacementReady();
-	TArray<FPlacementSector> Sectors = { { In.Position, In.Team, true, false, true, true } };
-	TArray<FPlacementBuilding> Buildings = { { In.Position, 70.f, true } };
-	TArray<FVector> Troops = { In.Position };
-	In.Sectors = Sectors;
+	FPlacementRegion Regions[] = { { 0, HomePolygon, 0, true } };
+	FPlacementBuilding Buildings[] = { { In.Position, 70.f, true } };
+	FVector Troops[] = { In.Position };
+	In.Regions = Regions;
 	In.Buildings = Buildings;
 	In.EnemyTroops = Troops;
 	In.Team = -1;
@@ -306,50 +417,42 @@ bool FPlacementPrecedenceTest::RunTest(const FString& Parameters)
 	In.Team = 0;
 	ExpectPlacement(*this, TEXT("Bounds mask unavailable headquarters"), In, EPlacementVerdict::OutsideBounds);
 	In.bInsidePlacementBounds = true;
-	ExpectPlacement(*this, TEXT("Unavailable headquarters mask contention"), In, EPlacementVerdict::HeadquartersUnavailable);
+	ExpectPlacement(*this, TEXT("Unavailable HQ masks contention"), In, EPlacementVerdict::HeadquartersUnavailable);
 	In.bHeadquartersAvailable = true;
 	In.HostilePosition = In.Position;
-	ExpectPlacement(*this, TEXT("Hostile HQ exclusion masks contention"), In, EPlacementVerdict::EnemyHeadquartersTooClose);
+	ExpectPlacement(*this, TEXT("Hostile HQ clearance masks contention"), In, EPlacementVerdict::EnemyHeadquartersTooClose);
 	In.HostilePosition = FVector(8000.f, 0.f, 0.f);
-	ExpectPlacement(*this, TEXT("Contested beats home and established territory"), In, EPlacementVerdict::Contested);
-	In.bSectorBuilding = true;
-	ExpectPlacement(*this, TEXT("Contested beats existing outpost"), In, EPlacementVerdict::Contested);
-	Sectors[0].bEnemyPresent = false;
-	ExpectPlacement(*this, TEXT("Existing outpost beats troop proximity"), In, EPlacementVerdict::OutpostExists);
-	In.bSectorBuilding = false;
-	ExpectPlacement(*this, TEXT("Troops beat building overlap"), In, EPlacementVerdict::EnemyTroopsTooClose);
+	ExpectPlacement(*this, TEXT("Contested region masks troop proximity"), In, EPlacementVerdict::Contested);
+	Regions[0].bContested = false;
+	ExpectPlacement(*this, TEXT("Troops mask overlap"), In, EPlacementVerdict::EnemyTroopsTooClose);
 	In.EnemyTroops = {};
 	ExpectPlacement(*this, TEXT("Overlap follows troops"), In, EPlacementVerdict::BuildingOverlap);
 	In.Position = In.HomePosition;
 	Buildings[0].Position = In.Position;
-	ExpectPlacement(*this, TEXT("Overlap beats home HQ clearance"), In, EPlacementVerdict::BuildingOverlap);
+	ExpectPlacement(*this, TEXT("Overlap masks home HQ clearance"), In, EPlacementVerdict::BuildingOverlap);
 	In.Buildings = {};
 	ExpectPlacement(*this, TEXT("Home HQ clearance follows overlap"), In, EPlacementVerdict::HeadquartersTooClose);
 	In.Position = FVector(3000.f, 0.f, 0.f);
 	Troops[0] = In.Position;
 	In.EnemyTroops = Troops;
-	In.Sectors = {};
-	ExpectPlacement(*this, TEXT("Missing territory beats troop proximity"), In, EPlacementVerdict::TerritoryRequired);
+	ExpectPlacement(*this, TEXT("Missing territory masks troop proximity"), In, EPlacementVerdict::TerritoryRequired);
 	return true;
 }
 
 bool FPlacementHeadquartersTest::RunTest(const FString& Parameters)
 {
 	FPlacementInput In = PlacementReady();
-	In.Position = FVector(PlacementPolicy::HomeTerritoryRadius - In.FootprintRadius, 0.f, 0.f);
-	ExpectPlacement(*this, TEXT("Home boundary inclusive"), In, EPlacementVerdict::Valid);
-	In.Position.X += 1.f;
-	ExpectPlacement(*this, TEXT("Outside home boundary rejected"), In, EPlacementVerdict::TerritoryRequired);
 	In.Position.X = PlacementPolicy::HeadquartersClearance + In.FootprintRadius;
 	ExpectPlacement(*this, TEXT("Home HQ exclusion boundary inclusive"), In, EPlacementVerdict::HeadquartersTooClose);
 	In.Position.X += 1.f;
 	ExpectPlacement(*this, TEXT("Outside home HQ exclusion allowed"), In, EPlacementVerdict::Valid);
+	const FVector2D Forward[] = { {6000., -2000.}, {8000., -2000.}, {8000., 2000.}, {6000., 2000.} };
+	const FPlacementRegion Regions[] = { { 2, Forward, 0, false } };
+	In.Regions = Regions;
 	In.Position = In.HostilePosition - FVector(PlacementPolicy::HostileHeadquartersClearance + In.FootprintRadius, 0.f, 0.f);
-	TArray<FPlacementSector> Sectors = { { In.Position, In.Team, false, false, true, false } };
-	In.Sectors = Sectors;
-	ExpectPlacement(*this, TEXT("Hostile exclusion boundary inclusive"), In, EPlacementVerdict::EnemyHeadquartersTooClose);
+	ExpectPlacement(*this, TEXT("Hostile HQ exclusion boundary inclusive"), In, EPlacementVerdict::EnemyHeadquartersTooClose);
 	In.Position.X -= 1.f;
-	ExpectPlacement(*this, TEXT("Outside hostile exclusion may use established territory"), In, EPlacementVerdict::Valid);
+	ExpectPlacement(*this, TEXT("Outside hostile exclusion can use controlled region"), In, EPlacementVerdict::Valid);
 	return true;
 }
 
@@ -375,11 +478,7 @@ bool FPlacementProximityTest::RunTest(const FString& Parameters)
 
 bool FEconomyIncomeTest::RunTest(const FString& Parameters)
 {
-	constexpr int32 Baseline = 7, PerSite = 3, Sites = 4, TickSeconds = 2;
-	const int32 Income = EconomyPolicy::IncomePerTick(Baseline, PerSite, Sites, TickSeconds);
-	TestEqual(TEXT("Baseline paid without sites"), EconomyPolicy::IncomePerTick(Baseline, PerSite, 0, TickSeconds), Baseline * TickSeconds);
-	TestEqual(TEXT("Each site adds its share"), Income - EconomyPolicy::IncomePerTick(Baseline, PerSite, Sites - 1, TickSeconds), PerSite * TickSeconds);
-	TestEqual(TEXT("Tick duration scales income"), Income, EconomyPolicy::IncomePerTick(Baseline, PerSite, Sites, 1) * TickSeconds);
+	constexpr int32 Income = 19;
 	TestEqual(TEXT("Normal addition exact"), EconomyPolicy::AddResources(19, Income), 19 + Income);
 	TestEqual(TEXT("Exact cap reachable"), EconomyPolicy::AddResources(MAX_int32 - Income, Income), MAX_int32);
 	TestEqual(TEXT("Addition saturates past cap"), EconomyPolicy::AddResources(MAX_int32 - Income + 1, Income), MAX_int32);
@@ -389,28 +488,55 @@ bool FEconomyIncomeTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-bool FEconomyEnemyScalingTest::RunTest(const FString& Parameters)
+bool FEconomyExtractorTest::RunTest(const FString& Parameters)
 {
-	constexpr int32 Baseline = 7, PerSite = 3, Sites = 4, HumanCommanders = 3;
-	TestEqual(TEXT("Empty human roster retains one baseline"),
-		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, 0), Baseline);
-	TestEqual(TEXT("One commander retains existing baseline"),
-		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, 1), Baseline);
-	TestEqual(TEXT("Multiple commanders scale baseline"),
-		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, HumanCommanders), Baseline * HumanCommanders);
-	const int32 SingleCommander = EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, 1);
-	TestEqual(TEXT("One commander with sites retains existing income"),
-		SingleCommander, EconomyPolicy::IncomePerTick(Baseline, PerSite, Sites, 1));
-	TestEqual(TEXT("Zero commanders with sites equals one commander"),
-		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, 0), SingleCommander);
-	const int32 ScaledIncome = EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites, HumanCommanders);
-	TestEqual(TEXT("Sites add their unscaled bonus with multiple commanders"),
-		ScaledIncome - EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, 0, HumanCommanders), PerSite * Sites);
-	TestEqual(TEXT("Each additional sector adds only one site bonus"),
-		EconomyPolicy::EnemyIncomePerSecond(Baseline, PerSite, Sites + 1, HumanCommanders) - ScaledIncome, PerSite);
-	const int32 Payment = ScaledIncome * 2;
-	TestEqual(TEXT("Scaled two-second payment saturates through the existing wallet policy"),
-		EconomyPolicy::AddResources(MAX_int32 - Payment + 1, Payment), MAX_int32);
+	FExtractorPaymentInput In{ 4, 2400, 2, 0, 2, 0, 2, true, true };
+	FExtractorPayment Payment = EconomyPolicy::ExtractorPayment(In);
+	TestEqual(TEXT("Normal extractor pays eight per two seconds"), Payment.Amount, 8);
+	TestEqual(TEXT("Normal extraction subtracts exactly payment"), Payment.Remaining, 2392);
+	In.RatePerSecond = 6;
+	In.Remaining = 3000;
+	Payment = EconomyPolicy::ExtractorPayment(In);
+	TestEqual(TEXT("Rich extractor pays twelve per two seconds"), Payment.Amount, 12);
+	TestEqual(TEXT("Rich extraction subtracts exactly payment"), Payment.Remaining, 2988);
+	In.Remaining = 5;
+	Payment = EconomyPolicy::ExtractorPayment(In);
+	TestEqual(TEXT("Final payment is capped by remaining deposit"), Payment.Amount, 5);
+	TestEqual(TEXT("Final payment depletes deposit to zero"), Payment.Remaining, 0);
+	In.Remaining = Payment.Remaining;
+	TestEqual(TEXT("Empty deposit stops income"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
+	In.Remaining = 23;
+	for (const bool bAlive : { false, true })
+		for (const bool bComplete : { false, true })
+		{
+			In.bAlive = bAlive;
+			In.bComplete = bComplete;
+			Payment = EconomyPolicy::ExtractorPayment(In);
+			TestEqual(TEXT("Only completed living extractors pay"), Payment.Amount, bAlive && bComplete ? 12 : 0);
+			TestEqual(TEXT("Unpaid extractors never consume deposit"), Payment.Remaining, bAlive && bComplete ? 11 : 23);
+		}
+	In.RecipientCommander = 1;
+	Payment = EconomyPolicy::ExtractorPayment(In);
+	TestEqual(TEXT("Another friendly commander receives no extraction"), Payment.Amount, 0);
+	TestEqual(TEXT("Wrong recipient leaves deposit untouched"), Payment.Remaining, In.Remaining);
+	In.RecipientCommander = In.OwnerCommander;
+	In.RecipientTeam = 5;
+	TestEqual(TEXT("Enemy wallet cannot receive human extraction"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
+	In.OwnerTeam = In.RecipientTeam = 5;
+	In.OwnerCommander = In.RecipientCommander = -1;
+	Payment = EconomyPolicy::ExtractorPayment(In);
+	TestEqual(TEXT("Enemy extractor pays its own enemy wallet"), Payment.Amount, 12);
+	In.RecipientTeam = 0;
+	In.RecipientCommander = 0;
+	TestEqual(TEXT("Enemy extraction cannot fund a human wallet"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
+	In.OwnerTeam = In.RecipientTeam = 0;
+	In.OwnerCommander = In.RecipientCommander = 0;
+	In.RatePerSecond = MAX_int32;
+	In.TickSeconds = MAX_int32;
+	In.Remaining = MAX_int32;
+	TestEqual(TEXT("Large extraction multiply cannot overflow"), EconomyPolicy::ExtractorPayment(In).Amount, MAX_int32);
+	In.TickSeconds = 0;
+	TestEqual(TEXT("Zero-duration extraction consumes nothing"), EconomyPolicy::ExtractorPayment(In).Remaining, MAX_int32);
 	return true;
 }
 
@@ -451,6 +577,63 @@ bool FOutcomeHealthTest::RunTest(const FString& Parameters)
 	ExpectOutcome(TEXT("Simultaneous destruction is defeat"), 0, 0, EMatchResult::Defeat);
 	ExpectOutcome(TEXT("Enemy health below zero remains destroyed"), 1, -1, EMatchResult::Victory);
 	ExpectOutcome(TEXT("Friendly health below zero still takes precedence"), -1, 0, EMatchResult::Defeat);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGoalPathTest, "CoopRTS.Rules.Goals.NextWaypoint",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FGoalPathTest::RunTest(const FString& Parameters)
+{
+	// Two equally short branches (0-1-3 and 0-2-3), a cycle, and isolated 4.
+	const uint64 Graph[] = {
+		(uint64(1) << 1) | (uint64(1) << 2),
+		(uint64(1) << 0) | (uint64(1) << 3),
+		(uint64(1) << 0) | (uint64(1) << 3),
+		(uint64(1) << 1) | (uint64(1) << 2),
+		0
+	};
+	TestEqual(TEXT("Equal shortest paths choose ascending region indices"),
+		ForceGoals::NextWaypoint(Graph, 5, 0, 3), 1);
+	TestEqual(TEXT("Reverse traversal also resolves ties deterministically"),
+		ForceGoals::NextWaypoint(Graph, 5, 3, 0), 1);
+	TestEqual(TEXT("An adjacent target is the next waypoint"),
+		ForceGoals::NextWaypoint(Graph, 5, 0, 2), 2);
+	TestEqual(TEXT("An already reached target returns the start"),
+		ForceGoals::NextWaypoint(Graph, 5, 3, 3), 3);
+	TestEqual(TEXT("An isolated start already at its target remains valid"),
+		ForceGoals::NextWaypoint(Graph, 5, 4, 4), 4);
+	TestEqual(TEXT("Cycles do not make an unreachable target reachable"),
+		ForceGoals::NextWaypoint(Graph, 5, 0, 4), INDEX_NONE);
+	TestEqual(TEXT("Isolated start cannot reach the connected component"),
+		ForceGoals::NextWaypoint(Graph, 5, 4, 0), INDEX_NONE);
+
+	// The lower-index branch is longer: 0-1-2-3 versus 0-4-3.
+	const uint64 Unequal[] = {
+		(uint64(1) << 1) | (uint64(1) << 4), uint64(1) << 2,
+		uint64(1) << 3, 0, uint64(1) << 3
+	};
+	TestEqual(TEXT("Shortest path beats the first ascending-index branch"),
+		ForceGoals::NextWaypoint(Unequal, 5, 0, 3), 4);
+	TestEqual(TEXT("Missing graph rejects even an already reached target"),
+		ForceGoals::NextWaypoint(nullptr, 5, 0, 0), INDEX_NONE);
+	TestEqual(TEXT("Empty graph rejects"), ForceGoals::NextWaypoint(Graph, 0, 0, 0), INDEX_NONE);
+	TestEqual(TEXT("Negative start rejects"), ForceGoals::NextWaypoint(Graph, 5, -1, 3), INDEX_NONE);
+	TestEqual(TEXT("Out-of-range start rejects"), ForceGoals::NextWaypoint(Graph, 5, 5, 3), INDEX_NONE);
+	TestEqual(TEXT("Negative target rejects"), ForceGoals::NextWaypoint(Graph, 5, 0, -1), INDEX_NONE);
+	TestEqual(TEXT("Out-of-range target rejects"), ForceGoals::NextWaypoint(Graph, 5, 0, 5), INDEX_NONE);
+
+	uint64 Wide[ForceGoals::MaxRegions] = {};
+	Wide[0] = uint64(1) << 63;
+	Wide[63] = uint64(1) << 0;
+	TestEqual(TEXT("Highest supported region bit is traversable"),
+		ForceGoals::NextWaypoint(Wide, ForceGoals::MaxRegions, 0, 63), 63);
+	TestEqual(TEXT("Highest supported region can be the start"),
+		ForceGoals::NextWaypoint(Wide, ForceGoals::MaxRegions, 63, 0), 0);
+	TestEqual(TEXT("Adjacency bits outside the supplied graph are ignored"),
+		ForceGoals::NextWaypoint(Wide, 2, 0, 1), INDEX_NONE);
+	TestEqual(TEXT("Oversized graph rejects before reading it"),
+		ForceGoals::NextWaypoint(Wide, ForceGoals::MaxRegions + 1, 0, 1), INDEX_NONE);
 	return true;
 }
 

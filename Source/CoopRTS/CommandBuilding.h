@@ -6,14 +6,30 @@
 #include "ConstructionTypes.h"
 #include "Content/BuildingDefinition.h"
 #include "Rules/ProductionPolicy.h"
+#include "ForceGoals.h"
 #include "GameFramework/Actor.h"
 #include "CommandBuilding.generated.h"
-class ACapturePoint;
+class ADepositSite;
 class AArmyGroup;
 class UBoxComponent;
 class UStaticMeshComponent;
 class UStaticMesh;
 class UMaterialInterface;
+
+USTRUCT()
+struct FCommandBuildingTerminalSnapshot
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bCancelled = false;
+	UPROPERTY()
+	int32 Health = 0;
+	UPROPERTY()
+	float ConstructionProgress = 0.f;
+	UPROPERTY()
+	int32 TeamIndex = 0;
+};
 
 UCLASS()
 class COOPRTS_API ACommandBuilding : public AActor
@@ -43,6 +59,7 @@ public:
 	int32 MaxHealth() const;
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	bool CancelConstruction();
+	void NotifyPlacementCommitted();
 	bool TryResearch(EArmyDoctrine Choice);
 	bool TrySpend(int32 Cost);
 	bool HasConfiguredFront() const { return bHasConfiguredFront; }
@@ -55,6 +72,11 @@ public:
 	EProductionState GetProductionState() const;
 	void GetForceCounts(int32& OutJoined, int32& OutTravelling) const;
 	void TickProduction(float DeltaSeconds);
+	// Goal implementation lives in ForceGoals.cpp; internal SetFront opts out until the next goal.
+	bool SetGoal(EForceGoal Goal, int32 RegionIndex);
+	void TickGoal();
+	int32 GetGoalWaypointRegionIndex() const { return GoalDriver.Waypoint; }
+	bool IsGoalRefilling() const { return GoalDriver.bRefilling; }
 
 	// Index into Content->Buildings; the identity spawners set. Kind is derived from it on the server.
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
@@ -63,11 +85,14 @@ public:
 	EBuildingKind Kind = EBuildingKind::Barracks;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
 	int32 TeamIndex = 0;
-	// Only the designated sector receives rights and income from this outpost.
+	// Reserved deposit; completed extractors pay only their builder and never lock region capture.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
-	TObjectPtr<ACapturePoint> OutpostSite;
+	TObjectPtr<ADepositSite> Deposit;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Building")
 	TObjectPtr<ACommandPlayerState> OwningPlayerState;
+	// Lowest free positive producer number for this owner; zero for non-producers.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Building")
+	int32 ForceNumber = 0;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
 	int32 Health = 0;
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
@@ -90,9 +115,41 @@ public:
 	EFrontOrder FrontOrder = EFrontOrder::Defend;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
 	FVector FrontLocation = FVector::ZeroVector;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Goal")
+	EForceGoal ForceGoal = EForceGoal::Hold;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Goal")
+	int32 GoalRegionIndex = INDEX_NONE;
 
 private:
+	FForceGoalDriver GoalDriver;
 	float ProductionCheckAccumulator = 0.f;
+	UPROPERTY(ReplicatedUsing = OnRep_PlacementCommitted)
+	double PlacementCommittedServerTime = -1.;
+	UPROPERTY(ReplicatedUsing = OnRep_DeploymentCount)
+	uint32 DeploymentCount = 0;
+	UPROPERTY(ReplicatedUsing = OnRep_ResearchCount)
+	uint32 ResearchCount = 0;
+	bool bAudioStateInitialized = false;
+	bool bPlacementAudioObserved = false;
+	bool bConstructionAudioRunning = false;
+	bool bTerminalAudioHandled = false;
+	bool bTerminalCancelled = false;
+	bool bAudioWasComplete = false;
+	int32 AudioPreviousHealth = 0;
+	uint32 AudioDeploymentCount = 0;
+	uint32 AudioResearchCount = 0;
+	void NotifyAudioState();
+	void NotifyTerminalAudio();
+	void StopConstructionAudio();
+	void ReleaseDeposit();
+	UFUNCTION()
+	void OnRep_PlacementCommitted();
+	UFUNCTION()
+	void OnRep_DeploymentCount();
+	UFUNCTION()
+	void OnRep_ResearchCount();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastTerminalState(const FCommandBuildingTerminalSnapshot& Snapshot);
 	// Replicated so owners' HUDs distinguish an assigned front from the placement-time default location.
 	UPROPERTY(Replicated)
 	bool bHasConfiguredFront = false;

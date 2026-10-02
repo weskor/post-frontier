@@ -2,7 +2,7 @@
 
 Existing /Game/Units/DA_* assets keep their tuned combat values; only the data-driven
 fields (identity, production, meshes) are written. Catalogue order is a replicated
-contract: units frontline=0, ranged=1, siege=2; buildings barracks=0, outpost=1, workshop=2.
+contract: units frontline=0, ranged=1, siege=2; buildings barracks=0, extractor=1, workshop=2.
 
 After building CoopRTSEditor, run UnrealEditor-Cmd with -EnablePlugins=PythonScriptPlugin
 -ExecutePythonScript="$PWD/Build/GenerateMatchContent.py" -unattended -nullrhi -nosplash.
@@ -73,25 +73,26 @@ for name, role, health, damage, attack_range, interval, cost, duration, capacity
 
 building_art = "/Game/Art/Buildings/"
 buildings = []
-for name, cost, duration, health, footprint, produces, sector, research, accent in (
-    ("Barracks", 220, 12.0, 500, 125.0, True, False, False, (0.04, 0.50, 1.0)),
-    ("Outpost", 160, 9.0, 350, 95.0, False, True, False, (0.16, 0.85, 0.25)),
-    ("Workshop", 190, 14.0, 400, 145.0, False, False, True, (0.65, 0.25, 1.0)),
+# Extractor repurposes the existing Outpost definition and art assets; filenames remain stable.
+for name, asset_name, cost, duration, health, footprint, produces, deposit, research, accent in (
+    ("Barracks", "Barracks", 220, 12.0, 500, 125.0, True, False, False, (0.04, 0.50, 1.0)),
+    ("Extractor", "Outpost", 160, 9.0, 350, 95.0, False, True, False, (0.16, 0.85, 0.25)),
+    ("Workshop", "Workshop", 190, 14.0, 400, 145.0, False, False, True, (0.65, 0.25, 1.0)),
 ):
-    building = data_asset("/Game/Content/DA_" + name, unreal.BuildingDefinition, ())
+    building = data_asset("/Game/Content/DA_" + asset_name, unreal.BuildingDefinition, ())
     # Producer locked-type variants follow catalogue unit order; other buildings have none.
     role_meshes = {"human": [], "machine": []}
     if produces:
         for faction in role_meshes:
-            role_meshes[faction] = [mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), name, unit.get_name()[3:]))
+            role_meshes[faction] = [mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), asset_name, unit.get_name()[3:]))
                                     for unit in units]
     apply(building, (
         ("id", name.lower()), ("display_name", name), ("accent", unreal.LinearColor(*accent, 1.0)),
         ("build_cost", cost), ("max_health", health), ("build_duration", duration), ("footprint_radius", footprint),
-        ("produces_forces", produces), ("establishes_sector", sector), ("offers_research", research),
-        ("human_mesh", mesh(building_art + "SM_Human_" + name)),
-        ("machine_mesh", mesh(building_art + "SM_Machine_" + name)),
-        ("construction_mesh", mesh(building_art + "SM_Construction_" + name)),
+        ("produces_forces", produces), ("requires_deposit", deposit), ("offers_research", research),
+        ("human_mesh", mesh(building_art + "SM_Human_" + asset_name)),
+        ("machine_mesh", mesh(building_art + "SM_Machine_" + asset_name)),
+        ("construction_mesh", mesh(building_art + "SM_Construction_" + asset_name)),
         ("human_role_meshes", role_meshes["human"]),
         ("machine_role_meshes", role_meshes["machine"]),
     ))

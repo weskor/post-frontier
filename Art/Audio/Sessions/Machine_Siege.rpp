@@ -663,8 +663,8 @@
     NAME "Power Down"
     VOLPAN 0.501187 0 -1 -1 1
     <ITEM
-      POSITION 21.467490
-      LENGTH 1.483062
+      POSITION 21.637490
+      LENGTH 0.833562
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_01 Power Down"
       <SOURCE WAVE
@@ -672,8 +672,8 @@
       >
     >
     <ITEM
-      POSITION 24.484524
-      LENGTH 1.483062
+      POSITION 24.654524
+      LENGTH 0.833562
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_02 Power Down"
       <SOURCE WAVE
@@ -681,8 +681,8 @@
       >
     >
     <ITEM
-      POSITION 27.455801
-      LENGTH 1.483062
+      POSITION 27.625801
+      LENGTH 0.833562
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_03 Power Down"
       <SOURCE WAVE
@@ -694,8 +694,8 @@
     NAME "Spark"
     VOLPAN 0.398107 0 -1 -1 1
     <ITEM
-      POSITION 21.567490
-      LENGTH 0.692708
+      POSITION 21.547490
+      LENGTH 0.505062
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_01 Spark"
       <SOURCE WAVE
@@ -703,8 +703,8 @@
       >
     >
     <ITEM
-      POSITION 24.584524
-      LENGTH 0.692708
+      POSITION 24.564524
+      LENGTH 0.505062
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_02 Spark"
       <SOURCE WAVE
@@ -712,8 +712,8 @@
       >
     >
     <ITEM
-      POSITION 27.555801
-      LENGTH 0.692708
+      POSITION 27.535801
+      LENGTH 0.505062
       FADEOUT 1 0.005 0 1 0 0 0
       NAME "SW_Machine_Siege_Death_03 Spark"
       <SOURCE WAVE

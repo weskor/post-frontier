@@ -14,7 +14,13 @@ enum class EHUDAction : uint8
 	ResearchSiege = 12, ResearchRepairs = 13, ResearchEntrenched = 14,
 	Construction = 15,
 	BuildSlot3 = 16, BuildSlot4 = 17, BuildSlot5 = 18,
-	RecipeSlot3 = 19, RecipeSlot4 = 20, RecipeSlot5 = 21
+	RecipeSlot3 = 19, RecipeSlot4 = 20, RecipeSlot5 = 21,
+	PlaySolo = 22, Resume = 23, Controls = 24, Audio = 25, Back = 26,
+	MainMenu = 27, Quit = 28, ConfirmLeave = 29, ConfirmQuit = 30,
+	VolumeDown = 31, VolumeUp = 32, Menu = 33, Restart = 34,
+	HostCoop = 35, InviteFriends = 36,
+	GoalHold = 37, GoalExpand = 38, GoalAssault = 39, GoalFallBack = 40,
+	MapV2 = 41, MapClassic = 42
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.
@@ -26,6 +32,7 @@ class COOPRTS_API ACommandHUD : public AHUD
 {
 	GENERATED_BODY()
 public:
+	virtual void PostRender() override;
 	virtual void DrawHUD() override;
 	// Drawing and hit testing share one layout computed from the viewport size and local presentation state.
 	bool IsPanelPoint(const FVector2D& Position) const;

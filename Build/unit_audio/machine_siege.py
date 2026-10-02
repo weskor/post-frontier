@@ -37,8 +37,8 @@ SOURCES = [
      'Async Audio - Sci-Fi Blaster/Big Blast 4.wav'),
     ('Sonniss.com%20-%20GDC%202020%20-%20Game%20Audio%20Bundle%20Part2of14.zip',
      'Bluezone - Tank - Explosion Sound Effects/Bluezone_BC0271_tank_artillery_cannon_shot_012.wav'),
-    ('Sonniss.com%20-%20GDC%202020%20-%20Game%20Audio%20Bundle%20Part3of14.zip',
-     'David Dumais Audio - Sci-Fi Systems/PowerDown_DDM19.wav'),
+    ('Sonniss.com%20-%20GDC%202020%20-%20Game%20Audio%20Bundle%20Part12of14.zip',
+     'Sound Spark LLC - Broken Robot/Broken_Robot_Servo_Short_Falling_Pitch_02.wav'),
     ('Sonniss.com%20-%20GDC%202020%20-%20Game%20Audio%20Bundle%20Part9of14.zip',
      'SmartSoundFX - Futuristic/CANNON Plasma Shot Tonal High 10.wav'),
     ('Sonniss.com-GDC2023-GameAudioBundle2of14.zip',
@@ -47,8 +47,8 @@ SOURCES = [
      'BluezoneCorp - Building Collapse/Bluezone_BC0275_building_collapse_debris_impact_glass_short_009.wav'),
     ('Sonniss.com-GDC2023-GameAudioBundle2of14.zip',
      'BluezoneCorp - Detonation - Explosion/Bluezone_BC0277_explosion_mortar_002_01.wav'),
-    ('Sonniss.com-GDC2023-GameAudioBundle2of14.zip',
-     'David Dumais Audio - Sci-Fi Weapons Pack 1/DSGNBass_Weapon Power Down 04_DDUMAIS_NONE.wav'),
+    ('Sonniss.com-GDC2024-GameAudioBundle1of9.zip',
+     'BluezoneCorp - High Voltage/Bluezone_BC0299_electricity_surge_discharge_electrical_arc_crackling_002_01.wav'),
     ('Sonniss.com-GDC2023-GameAudioBundle2of14.zip',
      'David Dumais Audio - Sci-Fi Weapons Pack 1/SCIWeap_Heavyweapon12 Shot 04_DDUMAIS_NONE.wav'),
     ('Sonniss.com%20-%20GDC%202020%20-%20Game%20Audio%20Bundle%20Part5of14.zip',
@@ -188,9 +188,12 @@ def siege_death(v: int) -> list[Layer]:
     shards = event("Chris Skyes - Shards Broken Glass", "Glass,Shards,Smash,Medium Impact,Lots of Large Shards.wav",
                    length=0.8)
     thump = event("Rogue Waves - Glitch Grains", "UIGlitch_Impact_RogueWaves_GlitchGrains_14.wav", length=0.7)
-    power = event("David Dumais Audio - Sci-Fi Weapons Pack 1", "DSGNBass_Weapon Power Down 04_DDUMAIS_NONE.wav",
-                  length=1.4)
-    spark = event("David Dumais Audio - Sci-Fi Systems", "PowerDown_DDM19.wav", length=0.55)
+    # A recorded servo winding down with a falling pitch: the emitter losing power.
+    power = event("Sound Spark LLC - Broken Robot", "Broken_Robot_Servo_Short_Falling_Pitch_02.wav", length=0.75)
+    # One crackling burst of a recorded arc discharge; its mains hum sits below the high-pass.
+    spark = event("BluezoneCorp - High Voltage",
+                  "Bluezone_BC0299_electricity_surge_discharge_electrical_arc_crackling_002_01.wav",
+                  skip=(1.1, 1.98, 2.25)[v], length=0.45)
     # A bit-crushed burst as the systems drop out: the deliberate digital artefact of the death.
     dropout = event("Sound Spark LLC – GLITCH FACTORY 1- BOOM, CRACKLE AND SCREAM", "Glitch_Factory_01_Decimated_01.wav",
                     skip=(0.3, 1.3, 2.3)[v], length=0.5)
@@ -204,9 +207,10 @@ def siege_death(v: int) -> list[Layer]:
         Layer("Low Thump", clip(filt(pitch(thump, -1.0), "lowpass", 400), fade_out=0.35), at=land),
         Layer("Shell Shards", clip(filt(dark(pitch(shards, rng.uniform(-3.0, -2.0)), 7000), "highpass", 400),
                                    fade_out=0.3), at=land + 0.01),
-        Layer("Power Down", clip(filt(dark(pitch(power, -1.0), 5000), "highpass", 150), fade_in=0.02, fade_out=0.6),
-              at=land - 0.05),
-        Layer("Spark", clip(dark(pitch(spark, -4.0), 6000), fade_out=0.15), at=land + 0.05),
+        Layer("Power Down", clip(filt(dark(pitch(power, -2.0), 5000), "highpass", 150), fade_in=0.02, fade_out=0.3),
+              at=land + 0.12),
+        Layer("Spark", clip(filt(dark(pitch(spark, -2.0), 6000), "highpass", 400), fade_in=0.005, fade_out=0.15),
+              at=land + 0.03),
         Layer("Dropout", clip(filt(dark(pitch(dropout, -2.0), 5000), "highpass", 250), fade_in=0.01, fade_out=0.2),
               at=land + rng.uniform(0.35, 0.5)),
     ]

@@ -128,6 +128,7 @@ class NetworkRun:
         else:
             command = [str(BINARY), f"{self.map_path}?listen" if host else f"127.0.0.1:{self.port}",
                        "-nosound", "-unattended"]
+        command.append("-nosteam")
         if self.offscreen:
             command += ["-RenderOffScreen", "-windowed", f"-ResX={self.offscreen[0]}", f"-ResY={self.offscreen[1]}"]
         elif self.mode == "editor" or not self.rendered:
@@ -419,17 +420,68 @@ def near(anchor, dx, dy):
     return {"x": anchor[0] + dx, "y": anchor[1] + dy}
 
 
+def region(state, index):
+    matches = [r for r in state["regions"] if r["index"] == index]
+    require(len(matches) == 1, f"expected region {index}, got {len(matches)}")
+    return matches[0]
+
+
+def reachable_regions(state, source):
+    """Deterministic neighbour traversal; targets come from replicated region data."""
+    graph = {r["index"]: r for r in state["regions"]}
+    require(source in graph, f"region graph is missing source {source}")
+    pending = collections.deque([source])
+    seen = {source}
+    result = []
+    while pending:
+        current = pending.popleft()
+        result.append(graph[current])
+        for neighbour in sorted(graph[current]["neighbours"]):
+            if neighbour in graph and neighbour not in seen:
+                seen.add(neighbour)
+                pending.append(neighbour)
+    return result
+
+
+def select_goal_region(state, index, exclude=(), min_distance=1500):
+    producer = building(state, index)
+    source = next(r["index"] for r in state["regions"] if r["homeTeam"] == producer["team"])
+    candidates = [r for r in reachable_regions(state, source)
+                  if r["homeTeam"] == -1 and r["index"] not in exclude
+                  and distance2(r["anchor"], producer["position"]) > min_distance ** 2]
+    require(bool(candidates), "map has no reachable, non-main region sufficiently far from the producer")
+    return candidates[0]
+
+
+def goal_matches(state, index, goal, target):
+    producer = building(state, index)
+    return producer["forceGoal"] == goal and producer["goalRegionIndex"] == target
+
+
+def hold_at(run, s, index, target, description):
+    run.request(s.peer, "goal", building=index, goal=HOLD, region=target)
+    return converged(run, s.names, lambda st: goal_matches(st, index, HOLD, target)
+                     and building(st, index)["frontOrder"] == 1
+                     and force_counts_match(st, s.owner, index)
+                     and force(st, s.owner, index)["frontOrder"] == 1
+                     and distance2(force(st, s.owner, index)["front"], region(st, target)["anchor"]) < 1
+                     and distance2(building(st, index)["front"], region(st, target)["anchor"]) < 1,
+                     description)
+
+
 # Building definition indices (DA_MatchContent order) and EUnitRole recipes used by the probe.
-BARRACKS, OUTPOST, WORKSHOP = 0, 1, 2
+BARRACKS, EXTRACTOR, WORKSHOP = 0, 1, 2
 FRONTLINE, RANGED, SIEGE = 0, 1, 2
-Session = collections.namedtuple("Session", "names identities peer owner hq arena")
+HOLD, EXPAND, ASSAULT, FALL_BACK = 0, 1, 2, 3
+Session = collections.namedtuple("Session", "names identities peer owner arena")
 
 
 def connect(run):
     """Fresh host plus clients with isolated enemy, paused income and distinct commanders."""
     names = ["host", *(f"c{i}" for i in range(1, run.clients + 1))]
     run.start("host", host=True)
-    run.await_states(["host"], lambda s: s["host"]["localIndex"] >= 0 and bool(s["host"]["sites"]),
+    run.await_states(["host"], lambda s: s["host"]["localIndex"] >= 0 and bool(s["host"]["sites"])
+                     and bool(s["host"]["regions"]) and bool(s["host"]["deposits"]),
                      "initialized construction host", allow_loading=True)
     run.request("host", "isolate")
     run.request("host", "income", paused=True)
@@ -438,6 +490,8 @@ def connect(run):
     states = run.await_states(names, lambda values: all(
         s["localIndex"] >= 0 and len(s["players"]) == len(names)
         and len(s["sites"]) == len(values["host"]["sites"])
+        and len(s["regions"]) == len(values["host"]["regions"])
+        and len(s["deposits"]) == len(values["host"]["deposits"])
         and all(p["index"] >= 0 for p in s["players"]) for s in values.values()),
         "all independent commander identities", allow_loading=True)
     identities = {name: state["localIndex"] for name, state in states.items()}
@@ -450,7 +504,7 @@ def connect(run):
     run.phase("fresh real sockets and empty player armies with independent identities")
     peer = names[-1]
     host = states["host"]
-    return Session(names, identities, peer, identities[peer], host["friendlyHQPosition"], host["arenaHalfExtent"])
+    return Session(names, identities, peer, identities[peer], host["arenaHalfExtent"])
 
 
 def fund(run, s, amount, description):
@@ -486,7 +540,6 @@ def build_barracks(run, s):
 
 def configure_siege(run, s, index):
     """First Start locks siege for exactly the 180 fee and leaves the force paused and empty."""
-    run.request(s.peer, "front", building=index, frontOrder=0, **near(s.hq, 1700, 2300))
     # Exactly the configuration price leaves no funds for a recruit; observe the
     # accepted Start independently of automatic production and replication timing.
     fund(run, s, 180, "siege configuration budget")
@@ -498,7 +551,9 @@ def configure_siege(run, s, index):
     require(producer["capacity"] == 2 and producer["unitCost"] == 50 and abs(producer["unitTime"] - 20 / 3) < .001,
             "siege per-unit economy/capacity mismatch")
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
-    converged(run, s.names, lambda st: not building(st, index)["enabled"], "configuration pause")
+    states = converged(run, s.names, lambda st: not building(st, index)["enabled"], "configuration pause")
+    target = select_goal_region(states["host"], index)["index"]
+    hold_at(run, s, index, target, "owned Hold goal and region anchor replicate after configuration")
     return producer["forceID"]
 
 
@@ -506,10 +561,18 @@ def reject_locked_commands(run, s, index, squad):
     before = run.observe("host")
     run.request(s.peer, "production", building=index, recipe=RANGED, enabled=True)
     run.request(s.peer, "production", building=index, recipe=255, enabled=True)
+    enemy_main = next(r["index"] for r in before["regions"] if r["homeTeam"] == 5)
+    invalid_region = max(r["index"] for r in before["regions"]) + 1
+    run.request(s.peer, "goal", building=index, goal=255, region=building(before, index)["goalRegionIndex"])
+    for goal in (HOLD, EXPAND):
+        run.request(s.peer, "goal", building=index, goal=goal, region=invalid_region)
+        run.request(s.peer, "goal", building=index, goal=goal, region=enemy_main)
+    for goal in (ASSAULT, FALL_BACK):
+        run.request(s.peer, "goal", building=index, goal=goal, region=enemy_main)
     if s.peer != "host":
         foreign_before = wallet(before, s.identities["host"])["wallet"]
         run.request("host", "production", building=index, recipe=FRONTLINE, enabled=True)
-        run.request("host", "front", building=index, frontOrder=2, **near(s.hq, 1700, 600))
+        run.request("host", "goal", building=index, goal=FALL_BACK, region=-1)
         require(wallet(run.observe("host"), s.identities["host"])["wallet"] == foreign_before,
                 "foreign RPC debited issuing commander's wallet")
     # Reliable RPC order on the same owning controller supplies a behavioral
@@ -517,15 +580,18 @@ def reject_locked_commands(run, s, index, squad):
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
     converged(run, s.names, lambda st: building(st, index)["enabled"], "owner resume after rejected role RPCs")
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
-    converged(run, s.names, lambda st: not building(st, index)["enabled"], "owner pauses after rejection barrier")
-    rejected = run.observe("host")
-    require(not building(rejected, index)["enabled"] and building(rejected, index)["recipe"] == SIEGE
-            and building(rejected, index)["front"] == building(before, index)["front"]
-            and building(rejected, index)["forceID"] == squad
-            and building(rejected, index)["productionSeconds"] == building(before, index)["productionSeconds"]
-            and wallet(rejected, s.owner)["wallet"] == 0,
-            "locked/invalid/foreign commands changed force configuration, progress, front or wallet")
-    run.phase("owner RPCs, permanent siege configuration and atomic rejection of locked, invalid and foreign commands")
+    states = converged(run, s.names, lambda st: not building(st, index)["enabled"],
+                       "owner pauses after rejection barrier")
+    require(all(not building(st, index)["enabled"] and building(st, index)["recipe"] == SIEGE
+                and building(st, index)["front"] == building(before, index)["front"]
+                and building(st, index)["frontOrder"] == building(before, index)["frontOrder"]
+                and goal_matches(st, index, building(before, index)["forceGoal"],
+                                 building(before, index)["goalRegionIndex"])
+                and building(st, index)["forceID"] == squad
+                and building(st, index)["productionSeconds"] == building(before, index)["productionSeconds"]
+                and wallet(st, s.owner)["wallet"] == 0 for st in states.values()),
+            "locked/invalid/foreign commands changed force configuration, progress, goal, waypoint or wallet")
+    run.phase("owner RPCs, permanent siege configuration and atomic rejection of invalid/foreign goals and locked types")
 
 
 def recruit(run, s, index, expected, description):
@@ -569,27 +635,35 @@ def produce_and_replace(run, s, index, squad):
     converged(run, s.names, lambda st: not building(st, index)["enabled"]
               and building(st, index)["productionState"] == "Paused", "full siege force explicitly paused")
 
-    # Same commander, second producer: no shared slots and no global front scope.
+    # Same commander, second producer: no shared slots and no global goal scope.
     fund(run, s, 1000, "second producer budget")
     place_barracks(run, s, 2, "second owned producer replicates")
     states = converged(run, s.names, lambda st: len(owned_buildings(st, s.owner, BARRACKS)) == 2
                        and all(b["constructionProgress"] == 1 for b in owned_buildings(st, s.owner, BARRACKS)),
                        "second owned producer completes normally")
     second = next(b["index"] for b in owned_buildings(states["host"], s.owner, BARRACKS) if b["index"] != index)
-    run.request(s.peer, "front", building=second, frontOrder=1, **near(s.hq, 1700, -1100))
     run.request("host", "fund", owner=s.owner, amount=120)
     run.request(s.peer, "production", building=second, recipe=RANGED, enabled=True)
     states = converged(run, s.names, lambda st: building(st, second)["joined"] == 4
+                       and building(st, second)["forceGoal"] == HOLD
                        and building(st, second)["travelling"] == 0 and force_counts_match(st, s.owner, second)
                        and wallet(st, s.owner)["wallet"] == 0, "independent ranged force fills four paid slots")
     require(building(states["host"], second)["forceID"] != squad, "two producers reused the same force identity")
+    states = converged(run, s.names, lambda st: building(st, index)["forceNumber"] == 1
+                       and building(st, second)["forceNumber"] == 2
+                       and force(st, s.owner, index)["forceNumber"] == 1
+                       and force(st, s.owner, second)["forceNumber"] == 2,
+                       "producer numbers 1/2 and matching group numbers observed on host and remote")
     run.request(s.peer, "production", building=second, recipe=RANGED, enabled=False)
     converged(run, s.names, lambda st: not building(st, second)["enabled"], "second producer paused")
     second_front = building(states["host"], second)["front"]
-    run.request(s.peer, "front", building=index, frontOrder=1, **near(s.hq, 1700, 3100))
-    converged(run, s.names, lambda st: building(st, index)["frontOrder"] == 1
+    second_target = building(states["host"], second)["goalRegionIndex"]
+    original_target = building(states["host"], index)["goalRegionIndex"]
+    moved_target = select_goal_region(states["host"], index, exclude=(original_target,))["index"]
+    hold_at(run, s, index, moved_target, "replacement Hold target region replicates")
+    converged(run, s.names, lambda st: goal_matches(st, second, HOLD, second_target)
               and building(st, second)["front"] == second_front and building(st, second)["frontOrder"] == 1,
-              "building-only front scope replicates without moving other force")
+              "building-only goal scope replicates without moving other force")
     victim = alive_units(force(run.observe("host"), s.owner, index))[0]
     run.request("host", "kill", owner=s.owner, army=squad, slot=victim["slot"])
     converged(run, s.names, lambda st: building(st, index)["joined"] + building(st, index)["travelling"] == 1
@@ -602,17 +676,23 @@ def produce_and_replace(run, s, index, squad):
     replacement = next(u for u in alive_units(force(states["host"], s.owner, index)) if u["reinforcing"])
     origin = replacement["position"]
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
-    run.request(s.peer, "front", building=index, frontOrder=1, **near(s.hq, 1700, 1500))
-    latched(run, s.names, lambda st: any(u["reinforcing"] and distance2(u["position"], origin) > 200 ** 2
-                                         for u in alive_units(force(st, s.owner, index))),
-            "replacement retargets while force front moves")
+    run.request(s.peer, "goal", building=index, goal=HOLD, region=original_target)
+    # Arrival may precede a delayed peer's next sample; retain the same replacement
+    # slot's movement evidence rather than requiring another transient reinforcing flag.
+    latched(run, s.names, lambda st: goal_matches(st, index, HOLD, original_target)
+            and distance2(force(st, s.owner, index)["front"], region(st, original_target)["anchor"]) < 1
+            and any(u["slot"] == replacement["slot"] and distance2(u["position"], origin) > 200 ** 2
+                    for u in alive_units(force(st, s.owner, index))),
+            "same paid replacement moves after the force retargets to another region")
     states = converged(run, s.names, lambda st: building(st, index)["joined"] == 2
                        and building(st, index)["travelling"] == 0 and force_counts_match(st, s.owner, index),
                        "replacement physically arrives and joins moving force")
     require(all(building(st, second)["joined"] == 4 and building(st, second)["front"] == second_front
+                and goal_matches(st, index, HOLD, original_target)
+                and goal_matches(st, second, HOLD, second_target)
                 and wallet(st, s.owner)["wallet"] == 0 for st in states.values()),
-            "replacement stole another force's capacity/front or charged more than one unit")
-    run.phase("per-unit debit, independent fronts and causal replacement travel/arrival")
+            "replacement stole another force's capacity/goal or charged more than one unit")
+    run.phase("per-unit debit, independent region goals and causal replacement travel/arrival")
 
 
 def research(run, s):
@@ -638,30 +718,115 @@ def finish(run, s, squad, description):
 
 
 def expand_and_research(run, s, index, squad):
-    """Natural capture, paid persistent outpost, research and automatic-front HQ damage to victory."""
-    site_position = next(site["position"] for site in run.observe("host")["sites"] if site["index"] == 0)
-    run.request(s.peer, "front", building=index, frontOrder=1, x=site_position[0], y=site_position[1])
-    states = converged(run, s.names, lambda st: next(site for site in st["sites"] if site["index"] == 0)["owner"] == 0,
-                       "produced force naturally reaches and secures a sector")
-    require(all(st["resourceSites"] == 0 for st in states.values()), "bare capture incorrectly provides income")
+    """Natural polygon capture, private finite extractors, research and Assault-goal HQ damage."""
+    state = run.observe("host")
+    deposit_regions = {d["region"] for d in state["deposits"] if not d["occupied"]}
+    excluded = tuple(r["index"] for r in state["regions"] if r["controller"] == 0 or r["index"] not in deposit_regions)
+    target = select_goal_region(state, index, exclude=excluded)["index"]
+    run.request(s.peer, "goal", building=index, goal=EXPAND, region=target)
+    states = converged(run, s.names, lambda st: region(st, target)["controller"] == 0
+                       and goal_matches(st, index, HOLD, target)
+                       and building(st, index)["frontOrder"] == 1
+                       and distance2(building(st, index)["front"], region(st, target)["anchor"]) < 1,
+                       "produced force completes Expand by securing and holding the target region")
+    require(all(all(p["income"] == 2 for p in st["players"]) for st in states.values()),
+            "bare region capture incorrectly provides income")
+    free = next(d for d in states["host"]["deposits"] if d["region"] == target and not d["occupied"])
+    deposit_index = free["index"]
+    rate = 6 if free["rich"] else 4
+    total = 3000 if free["rich"] else 2400
+    require(free["rate"] == rate and free["remaining"] == total, "deposit kind has incorrect rate or finite reserve")
+
+    def deposit(st):
+        return next(d for d in st["deposits"] if d["index"] == deposit_index)
+
+    run.request(s.peer, "goal", building=index, goal=FALL_BACK, region=-1)
+    states = converged(run, s.names, lambda st: region(st, target)["controller"] == 0
+                       and not next(site for site in st["sites"] if site["index"] == target)["friendlyPresent"]
+                       and building(st, index)["forceGoal"] == FALL_BACK
+                       and all(distance2(u["position"], free["position"]) > 500 ** 2
+                               for u in alive_units(force(st, s.owner, index))),
+                       "capturing force physically clears deposit footprint while retaining controlled region")
+
     run.request("host", "fund", owner=s.owner, amount=160)
-    run.request(s.peer, "build", kind=OUTPOST, **near(site_position, 400, 0))
-    converged(run, s.names, lambda st: any(b["kind"] == OUTPOST and b["constructionProgress"] == 1
-                                           for b in owned_buildings(st, s.owner)), "paid outpost establishes secured sector")
-    run.request(s.peer, "front", building=index, frontOrder=1, **near(s.hq, 1700, 2300))
-    converged(run, s.names, lambda st: st["resourceSites"] == 1
-              and next(site for site in st["sites"] if site["index"] == 0)["established"]
-              and not next(site for site in st["sites"] if site["index"] == 0)["friendlyPresent"],
-              "outpost holds territory after real force departure")
-    run.phase("natural capture and paid persistent outpost across peers")
+    run.request(s.peer, "build", kind=EXTRACTOR, **near(free["position"], 71, -63))
+    states = converged(run, s.names, lambda st: deposit(st)["occupied"] and deposit(st)["complete"]
+                       and deposit(st)["owner"] == s.owner and deposit(st)["team"] == 0
+                       and any(b["index"] == deposit(st)["extractor"] and b["deposit"] == deposit_index
+                               and b["position"][:2] == free["position"][:2] for b in st["buildings"])
+                       and wallet(st, s.owner)["wallet"] == 0 and wallet(st, s.owner)["income"] == 2 + rate
+                       and all(p["income"] == (2 + rate if p["index"] == s.owner else 2) for p in st["players"]),
+                       "paid extractor snaps exact deposit XY, reserves it, and belongs only to builder")
+    extractor = deposit(states["host"])["extractor"]
+    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    enemy_before = states["host"]["enemyResources"]
+    run.request("host", "incomeTick")
+    states = converged(run, s.names, lambda st: deposit(st)["remaining"] == total - 2 * rate
+                       and st["enemyResources"] == enemy_before + 4
+                       and all(p["wallet"] == before[p["index"]] + 4 + (2 * rate if p["index"] == s.owner else 0)
+                               for p in st["players"])
+                       and st["income"] == wallet(st, st["localIndex"])["income"],
+                       "normal payment tick drains once, pays only builder bonus and baseline to every other wallet")
+    run.request("host", "depositRemaining", deposit=deposit_index, remaining=3)
+    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    enemy_before = states["host"]["enemyResources"]
+    run.request("host", "incomeTick")
+    run.request("host", "incomeTick")
+    states = converged(run, s.names, lambda st: deposit(st)["remaining"] == 0 and wallet(st, s.owner)["income"] == 2
+                       and st["enemyResources"] == enemy_before + 8
+                       and all(p["wallet"] == before[p["index"]] + 8 + (3 if p["index"] == s.owner else 0)
+                               and p["income"] == 2 for p in st["players"]),
+                       "finite final partial payment is capped and depleted extractor stops bonus on following tick")
+    run.request("host", "destroyExtractor", building=extractor)
+    converged(run, s.names, lambda st: not deposit(st)["occupied"] and deposit(st)["extractor"] == -1
+              and region(st, target)["controller"] == 0 and wallet(st, s.owner)["income"] == 2,
+              "real lethal attack frees depleted deposit, while anchor control retains polygon rights")
+    run.phase("natural polygon capture, builder-only finite income, depletion and destruction freeing across peers")
+
+    # JEV fixture uses the same paid placement and economy paths; only budget and completion are accelerated.
+    run.request("host", "enemyExtractor")
+    states = converged(run, s.names, lambda st: any(d["occupied"] and d["complete"] and d["team"] == 5
+                                                    for d in st["deposits"]) and st["enemyResources"] == 0,
+                       "JEV spends exactly 160 from its controllerless wallet for its own deposit extractor")
+    enemy_deposit = next(d for d in states["host"]["deposits"] if d["complete"] and d["team"] == 5)
+    enemy_index, enemy_rate, enemy_total = enemy_deposit["index"], enemy_deposit["rate"], enemy_deposit["remaining"]
+    require(enemy_rate == (6 if enemy_deposit["rich"] else 4)
+            and enemy_total == (3000 if enemy_deposit["rich"] else 2400), "JEV deposit finite defaults incorrect")
+
+    def jev_deposit(st):
+        return next(d for d in st["deposits"] if d["index"] == enemy_index)
+
+    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    run.request("host", "incomeTick")
+    states = converged(run, s.names, lambda st: st["enemyIncome"] == 2 + enemy_rate
+                       and st["enemyResources"] == 4 + 2 * enemy_rate
+                       and jev_deposit(st)["remaining"] == enemy_total - 2 * enemy_rate
+                       and all(p["wallet"] == before[p["index"]] + 4 and p["income"] == 2 for p in st["players"]),
+                       "JEV-owned extractor pays only enemy wallet and drains its finite deposit once")
+    run.request("host", "depositRemaining", deposit=enemy_index, remaining=3)
+    enemy_before = states["host"]["enemyResources"]
+    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    run.request("host", "incomeTick")
+    run.request("host", "incomeTick")
+    states = converged(run, s.names, lambda st: st["enemyResources"] == enemy_before + 11 and st["enemyIncome"] == 2
+                       and jev_deposit(st)["remaining"] == 0
+                       and all(p["wallet"] == before[p["index"]] + 8 and p["income"] == 2 for p in st["players"]),
+                       "JEV depletion caps partial bonus then stops it, without affecting friendly private income")
+    run.request("host", "destroyExtractor", building=jev_deposit(states["host"])["extractor"])
+    converged(run, s.names, lambda st: not jev_deposit(st)["occupied"]
+              and region(st, jev_deposit(st)["region"])["controller"] == 5,
+              "JEV extractor destruction frees deposit without altering enemy main ownership")
+    run.phase("JEV wallet-only finite extractor payment, depletion and deposit freeing across peers")
     research(run, s)
-    hq_position = run.observe("host")["enemyHQPosition"]
-    run.request(s.peer, "front", building=index, frontOrder=0, x=hq_position[0], y=hq_position[1])
-    converged(run, s.names, lambda st: st["enemyHQ"] < 900, "automatic force front causes actual HQ weapon damage")
+    enemy_main = next(r["index"] for r in run.observe("host")["regions"] if r["homeTeam"] == 5)
+    run.request(s.peer, "goal", building=index, goal=ASSAULT, region=-1)
+    converged(run, s.names, lambda st: goal_matches(st, index, ASSAULT, enemy_main),
+              "Assault resolves the enemy main server-side on every peer")
+    converged(run, s.names, lambda st: st["enemyHQ"] < 900, "Assault goal causes actual HQ weapon damage")
     states = finish(run, s, squad, "weapon-caused victory replicates")
     require(all(wallet(st, s.owner)["doctrine"] == 1 and wallet(st, s.owner)["wallet"] == 50 for st in states.values()),
             "repeat research changed choice or charged twice")
-    run.phase("research, automatic-front weapon damage and victory")
+    run.phase("research, Assault-goal weapon damage and victory")
     return states
 
 
@@ -678,6 +843,8 @@ def restart_and_converge(run, s, old):
                 and not any(b["team"] == 0 for b in state["buildings"])
                 and all(p["doctrine"] == 0 and p["wallet"] >= 600 for p in state["players"])
                 and len(state["sites"]) == len(old["host"]["sites"])
+                and len(state["deposits"]) == len(old["host"]["deposits"])
+                and all(not d["occupied"] and d["remaining"] == (3000 if d["rich"] else 2400) for d in state["deposits"])
                 and all(site["owner"] == -1 and site["progress"] == 0 for site in state["sites"]))
     states = run.await_states(s.names, lambda values: all(reset(name, state) for name, state in values.items()),
                               "same connected commanders converge on the reset construction world", allow_travel=True)
@@ -730,7 +897,7 @@ def construction_scenario(run):
 SCENARIOS = {
     "ownership": (ownership_scenario, "paid placement, rejected duplicate/foreign commands, siege fee, locked-type rejections"),
     "production": (production_scenario, "per-unit debit, physical travel/arrival, second force, casualty replacement"),
-    "economy": (economy_scenario, "natural capture, paid outpost income rights, research, HQ damage and victory"),
+    "economy": (economy_scenario, "polygon capture, builder/JEV-only finite extractors, depletion/freeing, research, HQ damage and victory"),
     "restart": (restart_scenario, "connected restart converging on a fully reset world with preserved sockets"),
     "construction": (construction_scenario, "acceptance chain: ownership, production, economy and restart in one world"),
 }

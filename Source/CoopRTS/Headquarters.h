@@ -16,7 +16,6 @@ class COOPRTS_API AHeadquarters : public AActor
 public:
 	AHeadquarters();
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	int32 MaxHealth() const { return 900; }
@@ -39,7 +38,11 @@ private:
 	TObjectPtr<UStaticMesh> HumanMesh;
 	UPROPERTY()
 	TObjectPtr<UStaticMesh> MachineMesh;
-	FString HealthLabel;
+	// Local health snapshot: initial replication is not a damage event.
+	bool bAudioStateInitialized = false;
+	bool bDestroyedAudioPlayed = false;
+	int32 LastAudioHealth = 0;
+	float NextAlarmAudioTime = 0.f;
 	UFUNCTION()
 	void OnRep_Appearance();
 };

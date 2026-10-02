@@ -17,7 +17,7 @@
 namespace ArmyTestSetup
 {
 // Building definition indices in DA_MatchContent (contract-pinned order).
-constexpr int32 BarracksIndex = 0, OutpostIndex = 1, WorkshopIndex = 2;
+constexpr int32 BarracksIndex = 0, ExtractorIndex = 1, WorkshopIndex = 2;
 // Unit definition index for a legacy role in DA_MatchContent; -1 when absent.
 inline int32 UnitIndex(const ACommandGameState* State, EUnitRole Role)
 {
@@ -25,7 +25,8 @@ inline int32 UnitIndex(const ACommandGameState* State, EUnitRole Role)
 }
 inline bool MapReady(const ACommandGameState* State)
 {
-	return State && IsValid(State->FriendlyHeadquarters) && IsValid(State->EnemyHeadquarters) && IsValid(State->Arena);
+	return State && IsValid(State->FriendlyHeadquarters) && IsValid(State->EnemyHeadquarters) && IsValid(State->Arena)
+		&& !State->Regions.IsEmpty() && !State->Deposits.IsEmpty();
 }
 // Fixture positions are offsets from the placed HQ actors; the level, not the
 // test, decides where the map is. Z is the caller's spawn height.

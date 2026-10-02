@@ -9,7 +9,7 @@ Host-only fixtures (isolate, fund, capture, finish) shorten setup and are record
 Full run: the whole presentation state sequence (placement, production, starvation, force, casualty,
 research, victory) at the first resolution, selected-barracks captures at the others.
 --quick <label>: boot, one placed barracks, deck + inspector captures at one resolution, stop. It proves
-the deck and a selected building's inspector render; it never proves production, starvation, fronts,
+the deck and a selected building's inspector render; it never proves production, starvation, goals,
 research or victory presentation.
 """
 import argparse
@@ -22,12 +22,25 @@ import subprocess
 import sys
 
 from network import (NetworkRun, require, owned_buildings, wallet, building, force, alive_units, distance2,
-                     force_counts_match, near, BARRACKS, WORKSHOP, RANGED, SIEGE)
+                     force_counts_match, region, select_goal_region, goal_matches,
+                     BARRACKS, WORKSHOP, RANGED, SIEGE, HOLD, EXPAND, ASSAULT, FALL_BACK)
 from verify import DEFAULT_MAP, map_package
 
 # EHUDAction ordinals from Source/CoopRTS/CommandHUD.h.
-BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, FRONT_SECURE, RESEARCH_REPAIRS = 1, 6, 7, 8, 9, 13
+BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, RESEARCH_REPAIRS = 1, 6, 7, 8, 13
 CONSTRUCTION = 15
+GOAL_HOLD, GOAL_EXPAND, GOAL_ASSAULT, GOAL_FALL_BACK = 37, 38, 39, 40
+
+
+def minimap_region_point(state, target):
+    """Inverse of the HUD's arena-to-minimap transform, using a replicated region anchor."""
+    anchor = region(state, target)["anchor"]
+    half = state["arenaHalfExtent"]
+    origin, size = state["minimapOrigin"], state["minimapSize"]
+    horizontal = (anchor[1] + half[1]) / (2 * half[1])
+    vertical = (half[0] - anchor[0]) / (2 * half[0])
+    require(0 < horizontal < 1 and 0 < vertical < 1, "region anchor is outside the clickable minimap")
+    return origin[0] + size * horizontal, origin[1] + size * vertical
 
 
 def png_size(path):
@@ -70,6 +83,7 @@ class Capture:
 
     def minimap(self, horizontal, vertical):
         before = self.state()
+        require(not before["assigningGoal"], "camera-only minimap check cannot run while picking a goal")
         origin = before["minimapOrigin"]
         size = before["minimapSize"]
         self.run.request("host", "hudClick", x=origin[0] + size * horizontal, y=origin[1] + size * vertical)
@@ -79,12 +93,21 @@ class Capture:
         after = self.wait(lambda s: all(abs(actual - target) < 1
                                        for actual, target in zip(s["cameraPosition"], expected)),
                           f"minimap camera focus at {expected}")
-        require((after["placing"], after["assigningFront"]) == (before["placing"], before["assigningFront"]),
-                "minimap click changed active placement/front mode")
-        require([(b["actorId"], b["front"]) for b in after["buildings"]]
-                == [(b["actorId"], b["front"]) for b in before["buildings"]],
-                "minimap camera click placed a building or reassigned a front")
+        require((after["placing"], after["assigningGoal"]) == (before["placing"], before["assigningGoal"]),
+                "minimap camera click changed active placement/goal mode")
+        require([(b["actorId"], b["forceGoal"], b["goalRegionIndex"]) for b in after["buildings"]]
+                == [(b["actorId"], b["forceGoal"], b["goalRegionIndex"]) for b in before["buildings"]],
+                "minimap camera click placed a building or reassigned a goal")
         self.run.phase(f"minimap camera-only click at {horizontal:.2f},{vertical:.2f}")
+
+    def pick_region(self, index, goal, target):
+        before = self.state()
+        require(before["assigningGoal"] and before["pendingGoal"] == goal, "requested goal pick mode is inactive")
+        x, y = minimap_region_point(before, target)
+        self.run.request("host", "hudClick", x=x, y=y)
+        self.wait(lambda s: not s["assigningGoal"] and s["hudExpanded"]
+                  and goal_matches(s, index, goal, target), "minimap submits selected region goal")
+        self.run.phase(f"minimap selected region {target} for goal {goal}")
 
     def shot(self, label):
         state = self.state()
@@ -106,7 +129,7 @@ class Capture:
         require((width, height) == (state["viewportWidth"], state["viewportHeight"]),
                 f"{path.name}: {width}x{height} does not match viewport {state['viewportWidth']}x{state['viewportHeight']}")
         self.run.event("capture", path=str(path), width=width, height=height, hudExpanded=state["hudExpanded"],
-                       placing=state["placing"], assigningFront=state["assigningFront"],
+                       placing=state["placing"], assigningGoal=state["assigningGoal"],
                        feedback=state.get("orderFeedback", ""))
         print(f"Captured {path} ({width}x{height})", flush=True)
         return path
@@ -122,8 +145,8 @@ def boot(run, capture, resolution):
     """Rendered, isolated listen host with a fresh expanded deck at the requested viewport."""
     run.start("host", host=True)
     pid = run.peers["host"]["process"].pid
-    state = capture.wait(lambda s: s["localIndex"] >= 0 and bool(s["sites"]) and s["viewportWidth"] > 0,
-                         "rendered listen host with commander and sectors")
+    state = capture.wait(lambda s: s["localIndex"] >= 0 and bool(s["sites"]) and bool(s["regions"])
+                         and s["viewportWidth"] > 0, "rendered listen host with commander and regions")
     no_compositor_windows(run, pid)
     run.request("host", "isolate")
     run.phase("isolated enemy planner for stable presentation states (fixture)")
@@ -166,7 +189,6 @@ def scenario(run, resolutions):
     capture = Capture(run)
     pid, state = boot(run, capture, resolutions[0])
     owner = state["localIndex"]
-    hq = state["friendlyHQPosition"]
     capture.shot("start-overview")
     capture.minimap(.25, .25)
     capture.shot("minimap-camera-northwest")
@@ -239,22 +261,42 @@ def scenario(run, resolutions):
                  "enabled production reports insufficient resources")
     capture.shot("barracks-waiting-resources")
 
-    capture.hud(FRONT_SECURE, "Secure front enters ground targeting")
-    capture.wait(lambda s: s["assigningFront"] and not s["hudExpanded"], "front targeting mode")
-    capture.shot("front-mode")
-    capture.minimap(.25, .75)
-    capture.key("SpaceBar")
-    capture.key("Escape")
-    capture.wait(lambda s: not s["assigningFront"] and s["hudExpanded"], "Escape cancels front targeting")
-    # Ground clicks need a cursor; the same owning-controller RPC assigns the front.
-    run.request("host", "front", building=barracks, frontOrder=0, **near(hq, 1700, 2300))
+    for action, goal, label in ((GOAL_HOLD, HOLD, "hold"), (GOAL_EXPAND, EXPAND, "expand")):
+        before_goal = building(capture.state(), barracks)
+        capture.hud(action, f"{label.title()} enters region targeting")
+        capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == goal and not s["hudExpanded"],
+                     f"{label} region targeting mode")
+        capture.shot(f"{label}-region-mode")
+        capture.key("SpaceBar")
+        capture.key("Escape")
+        cancelled = capture.wait(lambda s: not s["assigningGoal"] and s["hudExpanded"],
+                                 f"Escape cancels {label} region targeting")
+        require(goal_matches(cancelled, barracks, before_goal["forceGoal"], before_goal["goalRegionIndex"]),
+                "cancelling a region pick mutated the existing goal")
+    enemy_main = next(r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5)
+    capture.hud(GOAL_ASSAULT, "Assault applies immediately without a region pick")
+    capture.wait(lambda s: not s["assigningGoal"] and goal_matches(s, barracks, ASSAULT, enemy_main),
+                 "Assault resolves the enemy main")
+    capture.shot("assault-goal")
+    capture.hud(GOAL_FALL_BACK, "Fall Back applies immediately")
+    capture.wait(lambda s: not s["assigningGoal"] and building(s, barracks)["forceGoal"] == FALL_BACK,
+                 "Fall Back goal without targeting")
+    capture.shot("fall-back-goal")
+    target = select_goal_region(capture.state(), barracks)["index"]
+    capture.hud(GOAL_EXPAND, "Expand picks a region through the minimap")
+    capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == EXPAND, "Expand minimap pick mode")
+    capture.pick_region(barracks, EXPAND, target)
+    capture.shot("expand-region-assigned")
+    capture.hud(GOAL_HOLD, "Hold replaces Expand on the selected region")
+    capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == HOLD, "Hold minimap pick mode")
+    capture.pick_region(barracks, HOLD, target)
     before_resume = building(capture.state(), barracks)
     run.request("host", "fund", owner=owner, amount=(4 - before_resume["joined"] - before_resume["travelling"]) * 30)
     capture.wait(lambda s: building(s, barracks)["productionState"] == "Producing",
                  "funding automatically resumes enabled production")
     run.phase("resource starvation and automatic resume without toggling production")
     state = capture.wait(lambda s: building(s, barracks)["travelling"] > 0 and force_counts_match(s, owner, barracks)
-                         and building(s, barracks)["frontOrder"] == 0, "paid unit travelling from producer to Secure front")
+                         and goal_matches(s, barracks, HOLD, target), "paid unit travelling from producer to held region")
     squad = building(state, barracks)["forceID"]
     capture.shot("barracks-recruit-travelling")
     state = capture.wait(lambda s: building(s, barracks)["joined"] == 4
@@ -288,10 +330,14 @@ def scenario(run, resolutions):
     recruit = next(u for u in alive_units(force(state, owner, barracks)) if u["reinforcing"])
     origin = recruit["position"]
     capture.shot("barracks-replacement-travelling")
-    run.request("host", "front", building=barracks, frontOrder=1, **near(hq, 1700, 3100))
-    capture.wait(lambda s: any(u["reinforcing"] and distance2(u["position"], origin) > 200 ** 2
+    moved_target = select_goal_region(capture.state(), barracks, exclude=(target,))["index"]
+    run.request("host", "goal", building=barracks, goal=HOLD, region=moved_target)
+    capture.wait(lambda s: goal_matches(s, barracks, HOLD, moved_target)
+                 and distance2(building(s, barracks)["front"], region(s, moved_target)["anchor"]) < 1,
+                 "replacement force retargets to the new held region")
+    capture.wait(lambda s: any(u["slot"] == recruit["slot"] and distance2(u["position"], origin) > 200 ** 2
                               for u in alive_units(force(s, owner, barracks))),
-                 "replacement physically tracks moving force")
+                 "same paid replacement physically tracks the retargeted force")
     capture.wait(lambda s: building(s, barracks)["joined"] == 4 and building(s, barracks)["travelling"] == 0
                  and force_counts_match(s, owner, barracks), "replacement physically arrives")
     capture.shot("barracks-replacement-complete")
@@ -305,7 +351,7 @@ def scenario(run, resolutions):
     require(roster == [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner],
             "removed manual squad keys changed automatic squad orders")
     require(state["buildingSelected"], "removed Tab binding changed building selection")
-    run.phase("former squad-control keys preserve automatic fronts and building selection")
+    run.phase("former squad-control keys preserve automatic goals and building selection")
 
     run.request("host", "fund", owner=owner, amount=400)
     state = place_barracks(run, capture, owner, 2, "independent Siege producer placed")

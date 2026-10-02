@@ -1,12 +1,15 @@
 #include "CommandBuilding.h"
 
 #include "ArmyGroup.h"
+#include "ArmyUnit.h"
 #include "CommandGameState.h"
+#include "CoopAudioSubsystem.h"
+#include "DepositSite.h"
 #include "Content/MatchContent.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "NavigationSystem.h"
 #include "NavModifierComponent.h"
@@ -93,13 +96,48 @@ void ACommandBuilding::BeginPlay()
 		// Kind is a derived, replicated view of the definition for callers that still branch on it.
 		if (const UBuildingDefinition* Definition = GetDefinition()) Kind = Definition->GetKind();
 	}
+	if (HasAuthority() && Health <= 0) Health = MaxHealth();
+	AudioPreviousHealth = Health;
+	bAudioWasComplete = IsComplete();
+	AudioDeploymentCount = DeploymentCount;
+	AudioResearchCount = ResearchCount;
+	bTerminalAudioHandled = !IsAlive();
+	bAudioStateInitialized = true;
 	OnRep_Appearance();
+	OnRep_PlacementCommitted();
 	if (HasAuthority())
 	{
-		if (Health <= 0) Health = MaxHealth();
 		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
 		{
+			if (IsProducer() && IsAlive())
+			{
+				ForceNumber = 1;
+				for (;; ++ForceNumber)
+				{
+					bool bReserved = false;
+					for (const ACommandBuilding* Other : State->Buildings)
+					{
+						if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
+							|| !Other->IsAlive() || !Other->IsProducer() || Other->TeamIndex != TeamIndex
+							|| (TeamIndex != 5 && Other->OwningPlayerState != OwningPlayerState)) continue;
+						if (Other->ForceNumber == ForceNumber) { bReserved = true; break; }
+					}
+					if (bReserved) continue;
+					for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+					{
+						const AArmyGroup* Group = *It;
+						if (Group->IsActorBeingDestroyed() || Group->GetTeamIndex() != TeamIndex
+							|| Group->ForceNumber != ForceNumber
+							|| (TeamIndex != 5 && Group->GetOwningPlayerState() != OwningPlayerState)) continue;
+						for (const AArmyUnit* Unit : Group->GetUnits())
+							if (IsValid(Unit) && Unit->IsAlive()) { bReserved = true; break; }
+						if (bReserved) break;
+					}
+					if (!bReserved) break;
+				}
+			}
 			State->Buildings.AddUnique(this);
+			TickGoal();
 			State->ForceNetUpdate();
 		}
 	}
@@ -121,31 +159,25 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 			if (IsComplete())
 			{
 				OnRep_Appearance();
-				State->RefreshTerritory();
 				ForceNetUpdate();
 			}
 		}
 		else TickProduction(DeltaSeconds);
+		TickGoal();
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		// Producer locks replicate independently of Body; host and standalone never receive an OnRep, so resync here.
 		if (DesiredMesh().ToSoftObjectPath() != AppliedMesh) OnRep_Appearance();
-		const FColor Color = TeamIndex == 5 ? FColor::Red : FColor::Cyan;
-		DrawDebugBox(GetWorld(), GetActorLocation(), Footprint->GetUnscaledBoxExtent(),
-			Color, false, -1.f, 0, 2.f);
-		const UBuildingDefinition* Definition = GetDefinition();
-		DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 220.f),
-			FString::Printf(TEXT("%s  %d/%d  %.0f%%"),
-				Definition ? *Definition->DisplayName.ToString().ToUpper() : TEXT("BUILDING"),
-				Health, MaxHealth(), ConstructionProgress * 100.f), nullptr, Color, 0.f, true);
 	}
 }
 
 void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	StopConstructionAudio();
 	if (HasAuthority())
 	{
+		ReleaseDeposit();
 		bProductionEnabled = false;
 		if (IsValid(ForceGroup) && !ForceGroup->IsActorBeingDestroyed())
 		{
@@ -161,15 +193,22 @@ void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
 		{
 			State->Buildings.Remove(this);
-			State->RefreshTerritory();
 			State->ForceNetUpdate();
 		}
 	}
 	Super::EndPlay(EndPlayReason);
 }
 
+void ACommandBuilding::ReleaseDeposit()
+{
+	if (!HasAuthority() || !IsValid(Deposit) || Deposit->Extractor != this) return;
+	Deposit->Extractor = nullptr;
+	Deposit->ForceNetUpdate();
+}
+
 void ACommandBuilding::OnRep_Appearance()
 {
+	NotifyAudioState();
 	if (!Footprint || !Body) return;
 	const UBuildingDefinition* Definition = GetDefinition();
 	const float Radius = Definition ? GetFootprintRadius(*Definition) : 0.f;
@@ -233,7 +272,11 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	if (!IsAlive())
 	{
 		bProductionEnabled = false;
-		if (ACommandGameState* MutableState = GetWorld()->GetGameState<ACommandGameState>()) MutableState->RefreshTerritory();
+		ReleaseDeposit();
+		FCommandBuildingTerminalSnapshot Snapshot;
+		Snapshot.ConstructionProgress = ConstructionProgress;
+		Snapshot.TeamIndex = TeamIndex;
+		MulticastTerminalState(Snapshot);
 		Destroy();
 	}
 }
@@ -254,6 +297,12 @@ bool ACommandBuilding::CancelConstruction()
 	const UBuildingDefinition* Definition = GetDefinition();
 	const int32 Refund = Definition ? EconomyPolicy::CancellationRefund(GetBuildCost(*Definition), ConstructionProgress) : 0;
 	if (IsValid(OwningPlayerState)) OwningPlayerState->AddResources(Refund);
+	ReleaseDeposit();
+	FCommandBuildingTerminalSnapshot Snapshot;
+	Snapshot.bCancelled = true;
+	Snapshot.ConstructionProgress = ConstructionProgress;
+	Snapshot.TeamIndex = TeamIndex;
+	MulticastTerminalState(Snapshot);
 	Destroy();
 	return true;
 }
@@ -272,7 +321,134 @@ bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
 		OwningPlayerState->AddResources(ResearchCost);
 		return false;
 	}
+	++ResearchCount;
+	OnRep_ResearchCount();
+	ForceNetUpdate();
 	return true;
+}
+
+void ACommandBuilding::NotifyPlacementCommitted()
+{
+	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || PlacementCommittedServerTime >= 0.) return;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (!State) return;
+	PlacementCommittedServerTime = State->GetServerWorldTimeSeconds();
+	OnRep_PlacementCommitted();
+	ForceNetUpdate();
+}
+
+void ACommandBuilding::OnRep_PlacementCommitted()
+{
+	if (!bAudioStateInitialized || bPlacementAudioObserved || PlacementCommittedServerTime < 0.) return;
+	bPlacementAudioObserved = true;
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+	{
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (IsAlive() && !bTerminalAudioHandled && (HasAuthority()
+			|| (State && PlacementCommittedServerTime >= State->GetAudioLiveStartServerTime())))
+		{
+			Audio->PlayStructure(ECoopAudioEvent::Place, TeamIndex, GetActorLocation(), this);
+		}
+	}
+	NotifyAudioState();
+}
+
+void ACommandBuilding::StopConstructionAudio()
+{
+	if (!bConstructionAudioRunning) return;
+	bConstructionAudioRunning = false;
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this)) Audio->StopConstruction(this);
+}
+
+void ACommandBuilding::NotifyTerminalAudio()
+{
+	if (bTerminalAudioHandled) return;
+	bTerminalAudioHandled = true;
+	StopConstructionAudio();
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+	{
+		Audio->PlayStructure(bTerminalCancelled ? ECoopAudioEvent::Cancel : ECoopAudioEvent::Destroyed,
+			TeamIndex, GetActorLocation(), this);
+	}
+}
+
+void ACommandBuilding::NotifyAudioState()
+{
+	if (!bAudioStateInitialized) return;
+	if (bTerminalAudioHandled)
+	{
+		Health = 0;
+		bProductionEnabled = false;
+		StopConstructionAudio();
+		return;
+	}
+	const bool bComplete = IsComplete();
+	const bool bDamaged = Health < AudioPreviousHealth;
+	const bool bCompleted = !bAudioWasComplete && bComplete;
+	const bool bDied = AudioPreviousHealth > 0 && !IsAlive();
+	AudioPreviousHealth = Health;
+	bAudioWasComplete = bComplete;
+	UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this);
+	if (bDamaged && !bTerminalCancelled && Audio)
+	{
+		Audio->PlayUnit(ECoopAudioEvent::Impact, TeamIndex, EUnitRole::Frontline, GetActorLocation(), this);
+	}
+	if (bDied)
+	{
+		NotifyTerminalAudio();
+		return;
+	}
+	if (bComplete || !IsAlive()) StopConstructionAudio();
+	else if (PlacementCommittedServerTime >= 0. && !bConstructionAudioRunning && Audio)
+	{
+		bConstructionAudioRunning = true;
+		Audio->StartConstruction(this, TeamIndex);
+	}
+	if (bCompleted && IsAlive() && Audio)
+	{
+		Audio->PlayStructure(ECoopAudioEvent::Complete, TeamIndex, GetActorLocation(), this);
+	}
+}
+
+void ACommandBuilding::MulticastTerminalState_Implementation(const FCommandBuildingTerminalSnapshot& Snapshot)
+{
+	bTerminalCancelled = Snapshot.bCancelled;
+	Health = Snapshot.Health;
+	ConstructionProgress = Snapshot.ConstructionProgress;
+	TeamIndex = Snapshot.TeamIndex;
+	bProductionEnabled = false;
+	OnRep_Appearance();
+	NotifyTerminalAudio();
+}
+
+void ACommandBuilding::OnRep_DeploymentCount()
+{
+	if (!bAudioStateInitialized) return;
+	const uint32 PreviousCount = AudioDeploymentCount;
+	AudioDeploymentCount = DeploymentCount;
+	if (bTerminalAudioHandled) return;
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+	{
+		for (uint32 Count = PreviousCount; Count < DeploymentCount; ++Count)
+		{
+			Audio->PlayStructure(ECoopAudioEvent::Deploy, TeamIndex, GetActorLocation(), this);
+		}
+	}
+}
+
+void ACommandBuilding::OnRep_ResearchCount()
+{
+	if (!bAudioStateInitialized) return;
+	const uint32 PreviousCount = AudioResearchCount;
+	AudioResearchCount = ResearchCount;
+	if (bTerminalAudioHandled) return;
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+	{
+		for (uint32 Count = PreviousCount; Count < ResearchCount; ++Count)
+		{
+			Audio->PlayStructure(ECoopAudioEvent::Research, TeamIndex, GetActorLocation(), this);
+		}
+	}
 }
 
 void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -281,8 +457,9 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ACommandBuilding, Kind);
 	DOREPLIFETIME(ACommandBuilding, BuildingIndex);
 	DOREPLIFETIME(ACommandBuilding, TeamIndex);
-	DOREPLIFETIME(ACommandBuilding, OutpostSite);
+	DOREPLIFETIME(ACommandBuilding, Deposit);
 	DOREPLIFETIME(ACommandBuilding, OwningPlayerState);
+	DOREPLIFETIME(ACommandBuilding, ForceNumber);
 	DOREPLIFETIME(ACommandBuilding, Health);
 	DOREPLIFETIME(ACommandBuilding, ConstructionProgress);
 	DOREPLIFETIME(ACommandBuilding, ProductionRole);
@@ -294,4 +471,9 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ACommandBuilding, FrontOrder);
 	DOREPLIFETIME(ACommandBuilding, FrontLocation);
 	DOREPLIFETIME(ACommandBuilding, bHasConfiguredFront);
+	DOREPLIFETIME(ACommandBuilding, ForceGoal);
+	DOREPLIFETIME(ACommandBuilding, GoalRegionIndex);
+	DOREPLIFETIME(ACommandBuilding, PlacementCommittedServerTime);
+	DOREPLIFETIME(ACommandBuilding, DeploymentCount);
+	DOREPLIFETIME(ACommandBuilding, ResearchCount);
 }

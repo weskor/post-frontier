@@ -393,6 +393,23 @@ class Layout:
                                                         box["size"][1], 0.0)))
         return best
 
+    def deposit_clear(self, point, clearance):
+        """Clear navigable ground for a deposit/extractor, including all planned blocking dressing."""
+        x, y = point
+        if not self.walkable(self.cell_of(x, y)) or self.obstacle_distance(x, y) < clearance:
+            return False
+        for prop in self.props + self.rim_props:
+            rect = (prop["center"][0], prop["center"][1], prop["size"][0], prop["size"][1], prop["yaw"])
+            if dist_point_rect(x, y, rect) < clearance:
+                return False
+        for tower in self.towers:
+            if dist_point_rect(x, y, (*tower["center"], 400, 400, 0)) < clearance:
+                return False
+        for hall in self.halls:
+            if dist_point_rect(x, y, (*hall["center"], *hall["size"], 0)) < clearance:
+                return False
+        return True
+
     # ------------------------------------------------------------------ landmarks and light masts
     def _towers(self):
         """The design's four watchtowers (proposals.vision_points) stand where the JSON puts them, as landmarks. They

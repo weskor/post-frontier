@@ -46,6 +46,9 @@ public:
 	ACommandPlayerState* GetOwningPlayerState() const { return OwningPlayerState.Get(); }
 	int32 GetArmyIndex() const { return ArmyIndex; }
 	ACommandBuilding* GetProductionBuilding() const { return ProductionBuilding.Get(); }
+	// Retained after producer death; living survivors reserve the number against reuse.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	int32 ForceNumber = 0;
 	const FVector& GetHomeLocation() const { return HomeLocation; }
 	bool IsOpposingArmy() const { return bOpposingArmy; }
 	const TArray<TObjectPtr<AArmyUnit>>& GetUnits() const { return Units; }

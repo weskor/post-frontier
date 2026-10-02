@@ -2,9 +2,9 @@
 
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
+#include "CoopAudioSubsystem.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "DrawDebugHelpers.h"
 #include "Engine/World.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -15,7 +15,6 @@ AHeadquarters::AHeadquarters()
 {
 	bReplicates = true;
 	bAlwaysRelevant = true;
-	PrimaryActorTick.bCanEverTick = true;
 	// Same 300x300x200 cm volume and collision settings the scaled cube root used to provide.
 	HitBox = CreateDefaultSubobject<UBoxComponent>(TEXT("HQ Hit Box"));
 	SetRootComponent(HitBox);
@@ -42,20 +41,10 @@ AHeadquarters::AHeadquarters()
 void AHeadquarters::BeginPlay()
 {
 	Super::BeginPlay();
+	LastAudioHealth = Health;
+	bDestroyedAudioPlayed = Health <= 0;
+	bAudioStateInitialized = true;
 	OnRep_Appearance();
-}
-
-void AHeadquarters::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-	if (GetNetMode() == NM_DedicatedServer) return;
-	const FVector Start = GetActorLocation() + FVector(-160.f, 0.f, 250.f);
-	const FVector End = Start + FVector(320.f, 0.f, 0.f);
-	DrawDebugLine(GetWorld(), Start, End, FColor::Black, false, -1.f, 0, 16.f);
-	DrawDebugLine(GetWorld(), Start, FMath::Lerp(Start, End, static_cast<float>(Health) / MaxHealth()),
-		TeamIndex == 5 ? FColor::Red : FColor::Green, false, -1.f, 0, 11.f);
-	DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 300.f),
-		HealthLabel, nullptr, TeamIndex == 5 ? FColor::Red : FColor::Green, 0.f, true);
 }
 
 void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
@@ -74,9 +63,26 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 
 void AHeadquarters::OnRep_Appearance()
 {
+	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
+	const bool bDestroyed = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDestroyedAudioPlayed;
+	LastAudioHealth = Health;
+	if (bDestroyed) bDestroyedAudioPlayed = true;
+	if (bTookDamage)
+	{
+		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		{
+			Audio->PlayUnit(ECoopAudioEvent::Impact, TeamIndex, EUnitRole::Siege, GetActorLocation(), this);
+			const float Now = GetWorld()->GetTimeSeconds();
+			if (Now >= NextAlarmAudioTime)
+			{
+				NextAlarmAudioTime = Now + 10.f;
+				Audio->PlayStructure(ECoopAudioEvent::HQAlarm, TeamIndex, GetActorLocation(), this);
+			}
+			if (bDestroyed) Audio->PlayStructure(ECoopAudioEvent::HQDestroyed, TeamIndex, GetActorLocation(), this);
+		}
+	}
+
 	if (GetNetMode() == NM_DedicatedServer) return;
-	HealthLabel = FString::Printf(TEXT("%s HQ %d/%d"),
-		TeamIndex == 5 ? TEXT("ENEMY") : TEXT("FRIENDLY"), Health, MaxHealth());
 	UStaticMesh* Themed = (TeamIndex == 5 ? MachineMesh : HumanMesh).Get();
 	if (Themed && Body->GetStaticMesh() != Themed)
 	{

@@ -1,0 +1,3330 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "az-countries-001",
+      "type": "line",
+      "x": 82,
+      "y": 902,
+      "width": 326,
+      "height": 312,
+      "angle": 0,
+      "strokeColor": "#5b8cba",
+      "backgroundColor": "#d9eaf8",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 11962,
+      "version": 1,
+      "versionNonce": 31194,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          266,
+          308
+        ],
+        [
+          226,
+          312
+        ],
+        [
+          189,
+          300
+        ],
+        [
+          125,
+          292
+        ],
+        [
+          68,
+          298
+        ],
+        [
+          18,
+          308
+        ],
+        [
+          6,
+          252
+        ],
+        [
+          0,
+          187
+        ],
+        [
+          9,
+          114
+        ],
+        [
+          22,
+          72
+        ],
+        [
+          18,
+          27
+        ],
+        [
+          66,
+          11
+        ],
+        [
+          122,
+          0
+        ],
+        [
+          186,
+          1
+        ],
+        [
+          224,
+          9
+        ],
+        [
+          263,
+          1
+        ],
+        [
+          270,
+          31
+        ],
+        [
+          281,
+          65
+        ],
+        [
+          302,
+          99
+        ],
+        [
+          318,
+          117
+        ],
+        [
+          326,
+          140
+        ],
+        [
+          319,
+          168
+        ],
+        [
+          302,
+          190
+        ],
+        [
+          281,
+          232
+        ],
+        [
+          271,
+          272
+        ],
+        [
+          266,
+          308
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-002",
+      "type": "line",
+      "x": 345,
+      "y": 731,
+      "width": 333,
+      "height": 311,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e5f1fb",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 12621,
+      "version": 1,
+      "versionNonce": 31511,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          63,
+          311
+        ],
+        [
+          55,
+          288
+        ],
+        [
+          39,
+          270
+        ],
+        [
+          18,
+          236
+        ],
+        [
+          7,
+          202
+        ],
+        [
+          0,
+          172
+        ],
+        [
+          15,
+          133
+        ],
+        [
+          36,
+          91
+        ],
+        [
+          70,
+          50
+        ],
+        [
+          94,
+          29
+        ],
+        [
+          109,
+          0
+        ],
+        [
+          119,
+          7
+        ],
+        [
+          130,
+          13
+        ],
+        [
+          145,
+          15
+        ],
+        [
+          154,
+          15
+        ],
+        [
+          162,
+          19
+        ],
+        [
+          207,
+          61
+        ],
+        [
+          251,
+          113
+        ],
+        [
+          288,
+          182
+        ],
+        [
+          302,
+          227
+        ],
+        [
+          333,
+          263
+        ],
+        [
+          330,
+          269
+        ],
+        [
+          332,
+          276
+        ],
+        [
+          331,
+          288
+        ],
+        [
+          327,
+          297
+        ],
+        [
+          321,
+          304
+        ],
+        [
+          280,
+          309
+        ],
+        [
+          241,
+          298
+        ],
+        [
+          173,
+          291
+        ],
+        [
+          114,
+          299
+        ],
+        [
+          63,
+          311
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-003",
+      "type": "line",
+      "x": 94,
+      "y": 552,
+      "width": 360,
+      "height": 377,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e1ece4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 13280,
+      "version": 1,
+      "versionNonce": 31828,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          360,
+          179
+        ],
+        [
+          345,
+          208
+        ],
+        [
+          321,
+          229
+        ],
+        [
+          287,
+          270
+        ],
+        [
+          266,
+          312
+        ],
+        [
+          251,
+          351
+        ],
+        [
+          212,
+          359
+        ],
+        [
+          174,
+          351
+        ],
+        [
+          110,
+          350
+        ],
+        [
+          54,
+          361
+        ],
+        [
+          6,
+          377
+        ],
+        [
+          0,
+          317
+        ],
+        [
+          18,
+          260
+        ],
+        [
+          30,
+          162
+        ],
+        [
+          22,
+          75
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          68,
+          45
+        ],
+        [
+          144,
+          89
+        ],
+        [
+          239,
+          118
+        ],
+        [
+          297,
+          126
+        ],
+        [
+          350,
+          156
+        ],
+        [
+          355,
+          159
+        ],
+        [
+          359,
+          164
+        ],
+        [
+          359,
+          171
+        ],
+        [
+          357,
+          176
+        ],
+        [
+          360,
+          179
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-004",
+      "type": "line",
+      "x": 95,
+      "y": 358,
+      "width": 428,
+      "height": 350,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#fbe6be",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 13939,
+      "version": 1,
+      "versionNonce": 32145,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          349,
+          350
+        ],
+        [
+          296,
+          320
+        ],
+        [
+          238,
+          312
+        ],
+        [
+          143,
+          283
+        ],
+        [
+          67,
+          239
+        ],
+        [
+          5,
+          194
+        ],
+        [
+          6,
+          182
+        ],
+        [
+          3,
+          172
+        ],
+        [
+          0,
+          153
+        ],
+        [
+          2,
+          136
+        ],
+        [
+          5,
+          122
+        ],
+        [
+          63,
+          84
+        ],
+        [
+          133,
+          49
+        ],
+        [
+          219,
+          28
+        ],
+        [
+          271,
+          24
+        ],
+        [
+          320,
+          0
+        ],
+        [
+          346,
+          18
+        ],
+        [
+          374,
+          42
+        ],
+        [
+          398,
+          75
+        ],
+        [
+          409,
+          97
+        ],
+        [
+          428,
+          113
+        ],
+        [
+          412,
+          150
+        ],
+        [
+          411,
+          189
+        ],
+        [
+          398,
+          253
+        ],
+        [
+          375,
+          306
+        ],
+        [
+          349,
+          350
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-005",
+      "type": "line",
+      "x": 95,
+      "y": 118,
+      "width": 340,
+      "height": 362,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e1ece4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 14598,
+      "version": 1,
+      "versionNonce": 32462,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          5,
+          22
+        ],
+        [
+          72,
+          8
+        ],
+        [
+          149,
+          0
+        ],
+        [
+          236,
+          12
+        ],
+        [
+          286,
+          27
+        ],
+        [
+          340,
+          22
+        ],
+        [
+          340,
+          57
+        ],
+        [
+          327,
+          89
+        ],
+        [
+          314,
+          145
+        ],
+        [
+          315,
+          196
+        ],
+        [
+          320,
+          240
+        ],
+        [
+          271,
+          264
+        ],
+        [
+          219,
+          268
+        ],
+        [
+          133,
+          289
+        ],
+        [
+          63,
+          324
+        ],
+        [
+          5,
+          362
+        ],
+        [
+          0,
+          308
+        ],
+        [
+          16,
+          257
+        ],
+        [
+          27,
+          168
+        ],
+        [
+          19,
+          90
+        ],
+        [
+          5,
+          22
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-006",
+      "type": "line",
+      "x": 409,
+      "y": 135,
+      "width": 357,
+      "height": 336,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#fbe6be",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 15257,
+      "version": 1,
+      "versionNonce": 32779,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          26,
+          5
+        ],
+        [
+          89,
+          18
+        ],
+        [
+          161,
+          25
+        ],
+        [
+          242,
+          15
+        ],
+        [
+          289,
+          0
+        ],
+        [
+          339,
+          5
+        ],
+        [
+          350,
+          48
+        ],
+        [
+          357,
+          98
+        ],
+        [
+          352,
+          154
+        ],
+        [
+          343,
+          187
+        ],
+        [
+          348,
+          222
+        ],
+        [
+          342,
+          233
+        ],
+        [
+          341,
+          245
+        ],
+        [
+          335,
+          265
+        ],
+        [
+          326,
+          281
+        ],
+        [
+          317,
+          294
+        ],
+        [
+          285,
+          304
+        ],
+        [
+          253,
+          301
+        ],
+        [
+          199,
+          305
+        ],
+        [
+          153,
+          319
+        ],
+        [
+          114,
+          336
+        ],
+        [
+          95,
+          320
+        ],
+        [
+          84,
+          298
+        ],
+        [
+          60,
+          265
+        ],
+        [
+          32,
+          241
+        ],
+        [
+          6,
+          223
+        ],
+        [
+          1,
+          179
+        ],
+        [
+          0,
+          128
+        ],
+        [
+          13,
+          72
+        ],
+        [
+          26,
+          40
+        ],
+        [
+          26,
+          5
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-007",
+      "type": "line",
+      "x": 444,
+      "y": 429,
+      "width": 363,
+      "height": 321,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e1ece4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 15916,
+      "version": 1,
+      "versionNonce": 33096,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          352,
+          241
+        ],
+        [
+          305,
+          249
+        ],
+        [
+          265,
+          275
+        ],
+        [
+          192,
+          305
+        ],
+        [
+          124,
+          317
+        ],
+        [
+          63,
+          321
+        ],
+        [
+          55,
+          317
+        ],
+        [
+          46,
+          317
+        ],
+        [
+          31,
+          315
+        ],
+        [
+          20,
+          309
+        ],
+        [
+          10,
+          302
+        ],
+        [
+          7,
+          299
+        ],
+        [
+          9,
+          294
+        ],
+        [
+          9,
+          287
+        ],
+        [
+          5,
+          282
+        ],
+        [
+          0,
+          279
+        ],
+        [
+          26,
+          235
+        ],
+        [
+          49,
+          182
+        ],
+        [
+          62,
+          118
+        ],
+        [
+          63,
+          79
+        ],
+        [
+          79,
+          42
+        ],
+        [
+          118,
+          25
+        ],
+        [
+          164,
+          11
+        ],
+        [
+          218,
+          7
+        ],
+        [
+          250,
+          10
+        ],
+        [
+          282,
+          0
+        ],
+        [
+          305,
+          30
+        ],
+        [
+          328,
+          67
+        ],
+        [
+          343,
+          113
+        ],
+        [
+          348,
+          142
+        ],
+        [
+          363,
+          168
+        ],
+        [
+          362,
+          180
+        ],
+        [
+          357,
+          190
+        ],
+        [
+          352,
+          209
+        ],
+        [
+          351,
+          226
+        ],
+        [
+          352,
+          241
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-008",
+      "type": "line",
+      "x": 507,
+      "y": 670,
+      "width": 367,
+      "height": 324,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#dbe8e5",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 16575,
+      "version": 1,
+      "versionNonce": 33413,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          360,
+          193
+        ],
+        [
+          328,
+          211
+        ],
+        [
+          305,
+          240
+        ],
+        [
+          261,
+          280
+        ],
+        [
+          214,
+          306
+        ],
+        [
+          171,
+          324
+        ],
+        [
+          140,
+          288
+        ],
+        [
+          126,
+          243
+        ],
+        [
+          89,
+          174
+        ],
+        [
+          45,
+          122
+        ],
+        [
+          0,
+          80
+        ],
+        [
+          61,
+          76
+        ],
+        [
+          129,
+          64
+        ],
+        [
+          202,
+          34
+        ],
+        [
+          242,
+          8
+        ],
+        [
+          289,
+          0
+        ],
+        [
+          310,
+          25
+        ],
+        [
+          332,
+          55
+        ],
+        [
+          347,
+          93
+        ],
+        [
+          352,
+          118
+        ],
+        [
+          367,
+          139
+        ],
+        [
+          367,
+          148
+        ],
+        [
+          362,
+          155
+        ],
+        [
+          358,
+          169
+        ],
+        [
+          358,
+          182
+        ],
+        [
+          360,
+          193
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-009",
+      "type": "line",
+      "x": 666,
+      "y": 863,
+      "width": 505,
+      "height": 371,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#fbe6be",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 17234,
+      "version": 1,
+      "versionNonce": 33730,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          504,
+          336
+        ],
+        [
+          501,
+          338
+        ],
+        [
+          499,
+          341
+        ],
+        [
+          502,
+          344
+        ],
+        [
+          505,
+          345
+        ],
+        [
+          504,
+          347
+        ],
+        [
+          412,
+          363
+        ],
+        [
+          307,
+          371
+        ],
+        [
+          188,
+          359
+        ],
+        [
+          119,
+          341
+        ],
+        [
+          46,
+          347
+        ],
+        [
+          36,
+          320
+        ],
+        [
+          37,
+          291
+        ],
+        [
+          31,
+          244
+        ],
+        [
+          17,
+          205
+        ],
+        [
+          0,
+          172
+        ],
+        [
+          6,
+          165
+        ],
+        [
+          10,
+          156
+        ],
+        [
+          11,
+          144
+        ],
+        [
+          9,
+          137
+        ],
+        [
+          12,
+          131
+        ],
+        [
+          55,
+          113
+        ],
+        [
+          102,
+          87
+        ],
+        [
+          146,
+          47
+        ],
+        [
+          169,
+          18
+        ],
+        [
+          201,
+          0
+        ],
+        [
+          245,
+          57
+        ],
+        [
+          303,
+          96
+        ],
+        [
+          392,
+          175
+        ],
+        [
+          455,
+          258
+        ],
+        [
+          504,
+          336
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-010",
+      "type": "line",
+      "x": 348,
+      "y": 1022,
+      "width": 364,
+      "height": 193,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#dbe8e5",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 17893,
+      "version": 1,
+      "versionNonce": 34047,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          364,
+          188
+        ],
+        [
+          306,
+          193
+        ],
+        [
+          251,
+          177
+        ],
+        [
+          157,
+          164
+        ],
+        [
+          73,
+          173
+        ],
+        [
+          0,
+          188
+        ],
+        [
+          5,
+          152
+        ],
+        [
+          15,
+          112
+        ],
+        [
+          36,
+          70
+        ],
+        [
+          53,
+          48
+        ],
+        [
+          60,
+          20
+        ],
+        [
+          111,
+          8
+        ],
+        [
+          170,
+          0
+        ],
+        [
+          238,
+          7
+        ],
+        [
+          277,
+          18
+        ],
+        [
+          318,
+          13
+        ],
+        [
+          335,
+          46
+        ],
+        [
+          349,
+          85
+        ],
+        [
+          355,
+          132
+        ],
+        [
+          354,
+          161
+        ],
+        [
+          364,
+          188
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-011",
+      "type": "line",
+      "x": 865,
+      "y": 704,
+      "width": 311,
+      "height": 495,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e1ece4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 18552,
+      "version": 1,
+      "versionNonce": 34364,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          305,
+          0
+        ],
+        [
+          311,
+          79
+        ],
+        [
+          293,
+          153
+        ],
+        [
+          281,
+          282
+        ],
+        [
+          289,
+          396
+        ],
+        [
+          305,
+          495
+        ],
+        [
+          256,
+          417
+        ],
+        [
+          193,
+          334
+        ],
+        [
+          104,
+          255
+        ],
+        [
+          46,
+          216
+        ],
+        [
+          2,
+          159
+        ],
+        [
+          0,
+          148
+        ],
+        [
+          0,
+          135
+        ],
+        [
+          4,
+          121
+        ],
+        [
+          9,
+          114
+        ],
+        [
+          9,
+          105
+        ],
+        [
+          55,
+          84
+        ],
+        [
+          104,
+          82
+        ],
+        [
+          185,
+          64
+        ],
+        [
+          250,
+          34
+        ],
+        [
+          305,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-012",
+      "type": "line",
+      "x": 795,
+      "y": 495,
+      "width": 378,
+      "height": 314,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#fbe6be",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 19211,
+      "version": 1,
+      "versionNonce": 34681,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          375,
+          0
+        ],
+        [
+          366,
+          42
+        ],
+        [
+          361,
+          90
+        ],
+        [
+          368,
+          144
+        ],
+        [
+          378,
+          176
+        ],
+        [
+          375,
+          209
+        ],
+        [
+          320,
+          243
+        ],
+        [
+          255,
+          273
+        ],
+        [
+          174,
+          291
+        ],
+        [
+          125,
+          293
+        ],
+        [
+          79,
+          314
+        ],
+        [
+          64,
+          293
+        ],
+        [
+          59,
+          268
+        ],
+        [
+          44,
+          230
+        ],
+        [
+          22,
+          200
+        ],
+        [
+          1,
+          175
+        ],
+        [
+          0,
+          160
+        ],
+        [
+          1,
+          143
+        ],
+        [
+          6,
+          124
+        ],
+        [
+          11,
+          114
+        ],
+        [
+          12,
+          102
+        ],
+        [
+          69,
+          80
+        ],
+        [
+          128,
+          81
+        ],
+        [
+          225,
+          67
+        ],
+        [
+          307,
+          35
+        ],
+        [
+          375,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-013",
+      "type": "line",
+      "x": 726,
+      "y": 357,
+      "width": 445,
+      "height": 240,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#e1ece4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 19870,
+      "version": 1,
+      "versionNonce": 34998,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          444,
+          92
+        ],
+        [
+          441,
+          101
+        ],
+        [
+          439,
+          112
+        ],
+        [
+          442,
+          124
+        ],
+        [
+          445,
+          131
+        ],
+        [
+          444,
+          138
+        ],
+        [
+          376,
+          173
+        ],
+        [
+          294,
+          205
+        ],
+        [
+          197,
+          219
+        ],
+        [
+          138,
+          218
+        ],
+        [
+          81,
+          240
+        ],
+        [
+          66,
+          214
+        ],
+        [
+          61,
+          185
+        ],
+        [
+          46,
+          139
+        ],
+        [
+          23,
+          102
+        ],
+        [
+          0,
+          72
+        ],
+        [
+          9,
+          59
+        ],
+        [
+          18,
+          43
+        ],
+        [
+          24,
+          23
+        ],
+        [
+          25,
+          11
+        ],
+        [
+          31,
+          0
+        ],
+        [
+          85,
+          1
+        ],
+        [
+          133,
+          23
+        ],
+        [
+          219,
+          45
+        ],
+        [
+          297,
+          46
+        ],
+        [
+          365,
+          40
+        ],
+        [
+          383,
+          47
+        ],
+        [
+          402,
+          57
+        ],
+        [
+          421,
+          73
+        ],
+        [
+          431,
+          85
+        ],
+        [
+          444,
+          92
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-014",
+      "type": "line",
+      "x": 748,
+      "y": 127,
+      "width": 343,
+      "height": 276,
+      "angle": 0,
+      "strokeColor": "#69847f",
+      "backgroundColor": "#faeaed",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 20529,
+      "version": 1,
+      "versionNonce": 35315,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          13
+        ],
+        [
+          39,
+          5
+        ],
+        [
+          84,
+          0
+        ],
+        [
+          135,
+          7
+        ],
+        [
+          165,
+          16
+        ],
+        [
+          196,
+          13
+        ],
+        [
+          223,
+          52
+        ],
+        [
+          234,
+          97
+        ],
+        [
+          263,
+          169
+        ],
+        [
+          303,
+          225
+        ],
+        [
+          343,
+          270
+        ],
+        [
+          275,
+          276
+        ],
+        [
+          197,
+          275
+        ],
+        [
+          111,
+          253
+        ],
+        [
+          63,
+          231
+        ],
+        [
+          9,
+          230
+        ],
+        [
+          4,
+          195
+        ],
+        [
+          13,
+          162
+        ],
+        [
+          18,
+          106
+        ],
+        [
+          11,
+          56
+        ],
+        [
+          0,
+          13
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-015",
+      "type": "line",
+      "x": 944,
+      "y": 137,
+      "width": 246,
+      "height": 312,
+      "angle": 0,
+      "strokeColor": "#b66574",
+      "backgroundColor": "#f9dfe4",
+      "fillStyle": "solid",
+      "strokeWidth": 1.6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 21188,
+      "version": 1,
+      "versionNonce": 35632,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          3
+        ],
+        [
+          36,
+          0
+        ],
+        [
+          70,
+          10
+        ],
+        [
+          129,
+          18
+        ],
+        [
+          181,
+          13
+        ],
+        [
+          226,
+          3
+        ],
+        [
+          239,
+          65
+        ],
+        [
+          246,
+          136
+        ],
+        [
+          236,
+          216
+        ],
+        [
+          221,
+          263
+        ],
+        [
+          226,
+          312
+        ],
+        [
+          213,
+          305
+        ],
+        [
+          203,
+          293
+        ],
+        [
+          184,
+          277
+        ],
+        [
+          165,
+          267
+        ],
+        [
+          147,
+          260
+        ],
+        [
+          107,
+          215
+        ],
+        [
+          67,
+          159
+        ],
+        [
+          38,
+          87
+        ],
+        [
+          27,
+          42
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-038",
+      "type": "rectangle",
+      "x": 1213,
+      "y": 140,
+      "width": 457,
+      "height": 1070,
+      "angle": 0,
+      "strokeColor": "#cbd7d3",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 36345,
+      "version": 1,
+      "versionNonce": 42923,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null
+    },
+    {
+      "id": "az-countries-016",
+      "type": "line",
+      "x": 409,
+      "y": 207,
+      "width": 13,
+      "height": 107,
+      "angle": 0,
+      "strokeColor": "#405252",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 21847,
+      "version": 1,
+      "versionNonce": 35949,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          1,
+          107
+        ],
+        [
+          0,
+          56
+        ],
+        [
+          13,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-017",
+      "type": "line",
+      "x": 470,
+      "y": 547,
+      "width": 36,
+      "height": 117,
+      "angle": 0,
+      "strokeColor": "#405252",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 22506,
+      "version": 1,
+      "versionNonce": 36266,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          117
+        ],
+        [
+          23,
+          64
+        ],
+        [
+          36,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-018",
+      "type": "line",
+      "x": 568,
+      "y": 704,
+      "width": 141,
+      "height": 42,
+      "angle": 0,
+      "strokeColor": "#405252",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 23165,
+      "version": 1,
+      "versionNonce": 36583,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          42
+        ],
+        [
+          68,
+          30
+        ],
+        [
+          141,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-019",
+      "type": "line",
+      "x": 969,
+      "y": 738,
+      "width": 146,
+      "height": 48,
+      "angle": 0,
+      "strokeColor": "#405252",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 23824,
+      "version": 1,
+      "versionNonce": 36900,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          146,
+          0
+        ],
+        [
+          81,
+          30
+        ],
+        [
+          0,
+          48
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-020",
+      "type": "line",
+      "x": 162,
+      "y": 597,
+      "width": 171,
+      "height": 73,
+      "angle": 0,
+      "strokeColor": "#405252",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 6,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 24483,
+      "version": 1,
+      "versionNonce": 37217,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          76,
+          44
+        ],
+        [
+          171,
+          73
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-countries-021",
+      "type": "text",
+      "x": 178,
+      "y": 1033,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#2f70a6",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 25142,
+      "version": 1,
+      "versionNonce": 37534,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "HUMAN MAIN\nBunker",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "HUMAN MAIN\nBunker",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-022",
+      "type": "text",
+      "x": 428,
+      "y": 927,
+      "width": 155,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#2f70a6",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 25801,
+      "version": 1,
+      "versionNonce": 37851,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "HUMAN NEAR\nexpansion",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "HUMAN NEAR\nexpansion",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-023",
+      "type": "text",
+      "x": 148,
+      "y": 758,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 26460,
+      "version": 1,
+      "versionNonce": 38168,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "WEST CUT\nflank · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "WEST CUT\nflank · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-024",
+      "type": "text",
+      "x": 268,
+      "y": 493,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 27119,
+      "version": 1,
+      "versionNonce": 38485,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "UPLINK  x?\npossible reward",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "UPLINK  x?\npossible reward",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-025",
+      "type": "text",
+      "x": 180,
+      "y": 266,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 27778,
+      "version": 1,
+      "versionNonce": 38802,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "NORTH RIDGE\nheight · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "NORTH RIDGE\nheight · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-026",
+      "type": "text",
+      "x": 478,
+      "y": 293,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 28437,
+      "version": 1,
+      "versionNonce": 39119,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "RELAY PLANT  x?\npossible reward",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "RELAY PLANT  x?\npossible reward",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-027",
+      "type": "text",
+      "x": 538,
+      "y": 583,
+      "width": 185,
+      "height": 42,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 29096,
+      "version": 1,
+      "versionNonce": 39436,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "INTERCHANGE\nopen fight · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "INTERCHANGE\nopen fight · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-028",
+      "type": "text",
+      "x": 598,
+      "y": 798,
+      "width": 185,
+      "height": 42,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 29755,
+      "version": 1,
+      "versionNonce": 39753,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "SWITCHBACK\nrotate · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "SWITCHBACK\nrotate · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-029",
+      "type": "text",
+      "x": 758,
+      "y": 1028,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 30414,
+      "version": 1,
+      "versionNonce": 40070,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "POWER YARD  x?\npossible reward",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "POWER YARD  x?\npossible reward",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-030",
+      "type": "text",
+      "x": 418,
+      "y": 1118,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 31073,
+      "version": 1,
+      "versionNonce": 40387,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "SOUTH OUTCROP\ncover · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "SOUTH OUTCROP\ncover · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-031",
+      "type": "text",
+      "x": 958,
+      "y": 848,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 31732,
+      "version": 1,
+      "versionNonce": 40704,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "EAST SPUR\nflank · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "EAST SPUR\nflank · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-032",
+      "type": "text",
+      "x": 883,
+      "y": 638,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 32391,
+      "version": 1,
+      "versionNonce": 41021,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "COOLING  x?\npossible reward",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "COOLING  x?\npossible reward",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-033",
+      "type": "text",
+      "x": 828,
+      "y": 443,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 33050,
+      "version": 1,
+      "versionNonce": 41338,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "CANAL WALK\ncover · tactics",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "CANAL WALK\ncover · tactics",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-034",
+      "type": "text",
+      "x": 863,
+      "y": 278,
+      "width": 155,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#a5485b",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 33709,
+      "version": 1,
+      "versionNonce": 41655,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "MACHINE NEAR\nexpansion",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "MACHINE NEAR\nexpansion",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-035",
+      "type": "text",
+      "x": 988,
+      "y": 198,
+      "width": 185,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#a5485b",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 34368,
+      "version": 1,
+      "versionNonce": 41972,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "MACHINE MAIN\nCluster",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "MACHINE MAIN\nCluster",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-036",
+      "type": "text",
+      "x": 95,
+      "y": 31,
+      "width": 1100,
+      "height": 37,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 35027,
+      "version": 1,
+      "versionNonce": 42289,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 28,
+      "fontFamily": 1,
+      "text": "AVAILABILITY ZONE · COUNTRY-SHAPED AREAS",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 25,
+      "containerId": null,
+      "originalText": "AVAILABILITY ZONE · COUNTRY-SHAPED AREAS",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-037",
+      "type": "text",
+      "x": 96,
+      "y": 82,
+      "width": 1125,
+      "height": 21,
+      "angle": 0,
+      "strokeColor": "#596e7a",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 35686,
+      "version": 1,
+      "versionNonce": 42606,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "Same connected battlefield, 15 unequal organic regions filling a near-square. Borders here are planning lines, not walls.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "Same connected battlefield, 15 unequal organic regions filling a near-square. Borders here are planning lines, not walls.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-039",
+      "type": "text",
+      "x": 1237,
+      "y": 172,
+      "width": 420,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 37004,
+      "version": 1,
+      "versionNonce": 43240,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 23,
+      "fontFamily": 1,
+      "text": "THIS IS THE SHAPE",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 21,
+      "containerId": null,
+      "originalText": "THIS IS THE SHAPE",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-040",
+      "type": "text",
+      "x": 1237,
+      "y": 222,
+      "width": 408,
+      "height": 94,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 37663,
+      "version": 1,
+      "versionNonce": 43557,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "Think neighbouring countries, not a\ncheckerboard: each shared boundary bends,\nregions differ in size, and together they fill\nthe roughly square play space.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "Think neighbouring countries, not a\ncheckerboard: each shared boundary bends,\nregions differ in size, and together they fill\nthe roughly square play space.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-041",
+      "type": "text",
+      "x": 1237,
+      "y": 397,
+      "width": 415,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 38322,
+      "version": 1,
+      "versionNonce": 43874,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 22,
+      "fontFamily": 1,
+      "text": "15 PLACES, DIFFERENT JOBS",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 20,
+      "containerId": null,
+      "originalText": "15 PLACES, DIFFERENT JOBS",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-042",
+      "type": "text",
+      "x": 1237,
+      "y": 443,
+      "width": 410,
+      "height": 141,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 38981,
+      "version": 1,
+      "versionNonce": 44191,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "2 mains + 2 nearby expansions\n4 amber x? candidates\n7 green tactical areas\n\nTactical ground can matter for sight, cover\nor movement without extra income.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "2 mains + 2 nearby expansions\n4 amber x? candidates\n7 green tactical areas\n\nTactical ground can matter for sight, cover\nor movement without extra income.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-043",
+      "type": "text",
+      "x": 1237,
+      "y": 710,
+      "width": 413,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 39640,
+      "version": 1,
+      "versionNonce": 44508,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 22,
+      "fontFamily": 1,
+      "text": "MOVE THROUGH THEM",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 20,
+      "containerId": null,
+      "originalText": "MOVE THROUGH THEM",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-044",
+      "type": "text",
+      "x": 1237,
+      "y": 752,
+      "width": 414,
+      "height": 94,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 40299,
+      "version": 1,
+      "versionNonce": 44825,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "Shared lines are NOT closed borders.\nA few dark short marks suggest rock/trees\nwith room to pass. No empty corridors.\nMiddle region opens multiple approaches.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "Shared lines are NOT closed borders.\nA few dark short marks suggest rock/trees\nwith room to pass. No empty corridors.\nMiddle region opens multiple approaches.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-045",
+      "type": "text",
+      "x": 1237,
+      "y": 961,
+      "width": 418,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 40958,
+      "version": 1,
+      "versionNonce": 45142,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 21,
+      "fontFamily": 1,
+      "text": "STILL ONLY A SKETCH",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 19,
+      "containerId": null,
+      "originalText": "STILL ONLY A SKETCH",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-countries-046",
+      "type": "text",
+      "x": 1237,
+      "y": 1002,
+      "width": 410,
+      "height": 67,
+      "angle": 0,
+      "strokeColor": "#243b49",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 41617,
+      "version": 1,
+      "versionNonce": 45459,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "x? meaning, size, ownership rules and\nactual elevations remain undecided. Current\ngameplay territory is still circular.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "x? meaning, size, ownership rules and\nactual elevations remain undecided. Current\ngameplay territory is still circular.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#e9eef3",
+    "gridSize": null
+  },
+  "files": {}
+}

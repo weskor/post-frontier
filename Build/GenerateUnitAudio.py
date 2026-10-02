@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["numpy", "scipy", "soundfile", "pedalboard", "pyloudnorm"]
 # ///
-"""Build unit one-shots from recorded layers, mixed and rendered in REAPER (Docs/Audio.md).
+"""Build sound sets from recorded layers, mixed and rendered in REAPER (Docs/Audio.md).
 
     uv run Build/FetchAudioSources.py                   # once: recorded sources into Saved/AudioSources/
     uv run Build/GenerateUnitAudio.py                   # every unit: prepare layers, render, write Art/Audio
@@ -16,9 +16,9 @@ Three stages per unit:
 2. Session: Art/Audio/Sessions/<Unit>.rpp holds one track per layer (the mix balance lives in the track
    faders) and one region per output sound. The script writes a session only when it is missing or with
    --new-session, so balance, timing and FX changed by hand in REAPER survive reruns.
-3. Render: `reaper -renderproject` renders every region; each render is trimmed, limited and matched to
-   its event's loudness target, then written to Art/Audio/<Faction>/<Role>/<Region>.wav (48 kHz, 24-bit,
-   mono, true peak <= -1 dBFS). A listening reel per unit goes to Saved/AudioPreview/<Unit>.wav.
+3. Render: `reaper -renderproject` renders every region; one-shots are trimmed, limited and matched to
+   their event's loudness target. Loops are crossfaded without limiting to preserve the wrap boundary.
+   Outputs are 48 kHz, 24-bit mono WAVs with true peak <= -1 dBFS, plus a listening reel per sound set.
 
 Deterministic: fixed seeds and fixed source events, so reruns of an unchanged session give identical files.
 Separate units may render concurrently (one process per --unit).

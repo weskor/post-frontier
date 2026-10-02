@@ -209,11 +209,11 @@ METAL_HITS = [
     ("Alexander Kopeikin - Sci-Fi Metal Elements HD", "sci-fi metal impact, steel bulkhead hit, low 01.wav"),
 ]
 BREAKER = ("UberDuo - The Cabin Audio Playset", "Switch,ElectricalPanelBreaker,On.wav")
-# (library, file, length)
+# (library, file, onset index, length)
 POWER_CUTS = [
-    ("Sound Spark LLC - Broken Robot", "Broken_Robot_Servo_Short_Falling_Pitch_02.wav", 0.8),
-    ("David Dumais Audio - Sci-Fi Weapons Pack 1", "DSGNBass_Weapon Power Down 04_DDUMAIS_NONE.wav", 0.9),
-    ("SoundMorph - Robotic Lifeforms 2", "Robotic Lifeforms 2 - Power - Autobot Disengage 08.wav", 0.8),
+    ("Sound Spark LLC - Broken Robot", "Broken_Robot_Servo_Short_Falling_Pitch_02.wav", 0, 0.8),
+    ("David Dumais Audio - Sci-Fi Weapons Pack 1", "DSGNBass_Weapon Power Down 04_DDUMAIS_NONE.wav", 0, 0.9),
+    ("SoundMorph - Robotic Lifeforms 2", "Robotic Lifeforms 2 - Power - Autobot Disengage 08.wav", 1, 0.8),
 ]
 DEBRIS = [
     ("Bluezone Corporation - Metal Debris", "Bluezone_BC0236_metal_debris_055.wav", 0),
@@ -231,8 +231,8 @@ def siege_impact(v: int) -> list[Layer]:
     sparks = event(*SPARKS, index=(3, 5, 9)[v], length=0.45)
     breaker = event(*BREAKER, length=0.3)
     # The target's power drops out: a falling designed power-down under the breaker thunk.
-    power_lib, power_name, power_length = POWER_CUTS[v]
-    power = event(power_lib, power_name, length=power_length)
+    power_lib, power_name, power_index, power_length = POWER_CUTS[v]
+    power = event(power_lib, power_name, index=power_index, length=power_length)
     debris_lib, debris_name, debris_index = DEBRIS[v]
     debris = event(debris_lib, debris_name, index=debris_index, length=0.9)
     cut = rng.uniform(0.1, 0.14)

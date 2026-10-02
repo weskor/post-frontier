@@ -4,12 +4,13 @@
 #include "CombatTarget.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "CoopAudioSubsystem.h"
+#include "WorldOverlay.h"
 #include "AIController.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
-#include "DrawDebugHelpers.h"
 #include "DetourCrowdAIController.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -78,6 +79,10 @@ void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InComma
 void AArmyUnit::BeginPlay()
 {
 	Super::BeginPlay();
+	LastAudioAttackCount = AttackCount;
+	LastAudioHealth = Health;
+	bDeathAudioPlayed = Health <= 0;
+	bAudioStateInitialized = true;
 	OnRep_Appearance();
 }
 void AArmyUnit::Tick(float DeltaSeconds)
@@ -105,19 +110,13 @@ void AArmyUnit::Tick(float DeltaSeconds)
 				{
 					Health += Recovered;
 					HealAccumulator -= Recovered;
+					OnRep_Appearance();
 					ForceNetUpdate();
 				}
 			}
 			if (Health >= MaxHealth()) HealAccumulator = 0.f;
 		}
 	}
-	if (!IsAlive() || MaxHealth() <= 0 || GetNetMode() == NM_DedicatedServer) return;
-	const FVector Start = GetActorLocation() + FVector(-55.f, 0.f, 135.f);
-	const FVector End = Start + FVector(110.f, 0.f, 0.f);
-	DrawDebugLine(GetWorld(), Start, End, FColor(25, 25, 25), false, -1.f, 0, 9.f);
-	DrawDebugLine(GetWorld(), Start, FMath::Lerp(Start, End,
-		FMath::Clamp(static_cast<float>(Health) / MaxHealth(), 0.f, 1.f)),
-		TeamIndex == 5 ? FColor::Red : FColor::Green, false, -1.f, 0, 5.f);
 }
 
 
@@ -136,6 +135,19 @@ FLinearColor AArmyUnit::GetCommanderColor(int32 InCommanderIndex)
 
 void AArmyUnit::OnRep_Appearance()
 {
+	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
+	const bool bDied = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDeathAudioPlayed;
+	LastAudioHealth = Health;
+	if (bDied) bDeathAudioPlayed = true;
+	if (bTookDamage)
+	{
+		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		{
+			Audio->PlayUnit(ECoopAudioEvent::Impact, TeamIndex, UnitRole, GetActorLocation(), this);
+			if (bDied) Audio->PlayUnit(ECoopAudioEvent::Death, TeamIndex, UnitRole, GetActorLocation(), this);
+		}
+	}
+
 	const FLinearColor CommanderColor = TeamIndex == 5
 		? FLinearColor(1.f, .08f, .08f) : GetCommanderColor(CommanderIndex);
 	UStaticMesh* Themed = Definition
@@ -190,14 +202,21 @@ float AArmyUnit::AttackInterval() const
 
 void AArmyUnit::OnRep_Attack()
 {
+	const bool bNewAttack = bAudioStateInitialized && AttackCount != LastAudioAttackCount;
+	LastAudioAttackCount = AttackCount;
+	if (bNewAttack)
+	{
+		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		{
+			Audio->PlayUnit(ECoopAudioEvent::Attack, TeamIndex, UnitRole, GetActorLocation(), this);
+		}
+	}
 	if (!CombatTarget::IsAliveHostile(Target.Get(), TeamIndex) || GetNetMode() == NM_DedicatedServer) return;
 	const FColor Color = UnitRole == EUnitRole::Siege ? FColor::Purple
 		: UnitRole == EUnitRole::Ranged ? FColor::Cyan : FColor::Yellow;
-	DrawDebugLine(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 90.f),
-		Target->GetActorLocation() + FVector(0.f, 0.f, 75.f), Color, false, .32f, 0,
-		UnitRole == EUnitRole::Siege ? 6.f : 3.f);
-	DrawDebugSphere(GetWorld(), Target->GetActorLocation() + FVector(0.f, 0.f, 75.f),
-		UnitRole == EUnitRole::Siege ? 32.f : 17.f, 8, Color, false, .32f, 0, 2.f);
+	if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
+		Overlay->Attack(GetActorLocation() + FVector(0.f, 0.f, 90.f),
+			Target->GetActorLocation() + FVector(0.f, 0.f, 75.f), Color, UnitRole == EUnitRole::Siege);
 }
 
 void AArmyUnit::FireAt(AActor* Victim)
@@ -235,6 +254,7 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
 		? Damage * 3 / 4 : Damage;
 	Health = FMath::Max(0, Health - AppliedDamage);
+	OnRep_Appearance();
 	ForceNetUpdate();
 	if (Health == 0)
 	{
@@ -244,7 +264,6 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		GetCharacterMovement()->StopMovementImmediately();
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Target = nullptr;
-		OnRep_Appearance();
 		if (IsValid(Group))
 		{
 			Group->OnMemberDied(this);

@@ -23,7 +23,8 @@ Without steps 1 and 2 the script stops at its first check; there is no primitive
 What is placed
 * Match actors from the JSON's match_actors, mirroring Build/MatchLayout.py (which hard-codes Boot): one AArenaBounds
   (HalfExtent 10000 x 10000, PlacementMargin 100), AHeadquarters team 0 (the Bunker) and team 5 (the Cluster), eight
-  ACapturePoint with SiteIndex 0-7, SiteKind Resource, labelled and tagged with the sector names.
+  ACapturePoint with SiteIndex 2-9, matching their generated region indices. Two HQ main regions and eight
+  sector regions tile the arena, with two normal deposits per main and one per sector.
 * Level edges: 100 x 300 cm collision walls between levels (a coping strip and lamps on top), 50 x 65 cm parapets
   and a painted deck on every ramp gap, kit Cliff_Straight / Cliff_CornerOuter / Plateau_Fill (Human or Machine look
   by the x + y diagonal) as the rim wall around every playable edge, 600 cm boxes behind them. See the layout
@@ -176,6 +177,9 @@ def spawn(actor_class, label, location, rotation=unreal.Rotator()):
 
 
 # ---------------------------------------------------------------- match actors (JSON-driven twin of MatchLayout.place)
+capture_anchors = {}
+
+
 def place_match_actors():
     m = data["match_actors"]
     arena_def = m["arena"]
@@ -199,13 +203,24 @@ def place_match_actors():
                 "sector %s differs between sectors[] and match_actors[]" % sector["id"])
         actor = spawn(MatchLayout.native_class("CapturePoint"), site_def["label"], tuple(site_def["pos"]))
         actor.set_editor_property("site_kind", getattr(unreal.CaptureSiteKind, site_def["site_kind"].upper()))
-        actor.set_editor_property("site_index", site_def["site_index"])
+        region_index = site_def["site_index"] + 2  # Keep the v1 JSON's historical sector order unchanged.
+        actor.set_editor_property("site_index", region_index)
+        capture_anchors[region_index] = actor
         actor.set_editor_property("tags", [unreal.Name(sector["name"])])
     return float(extent.x), float(extent.y)
 
 
 # Blocking geometry is vetted against the arena the game reads, so the match actors go in first.
 ARENA_X, ARENA_Y = place_match_actors()
+regions = MatchLayout.region_plan(
+    (ARENA_X, ARENA_Y),
+    [(hq["label"], hq["pos"], hq["team_index"]) for hq in data["match_actors"]["headquarters"]],
+    [(sector["name"], sector["pos"]) for sector in sorted(data["sectors"], key=lambda s: s["site_index"])])
+deposits = MatchLayout.deposit_plan(
+    regions, (ARENA_X, ARENA_Y),
+    lambda point: layout.deposit_clear(point, MatchLayout.DEPOSIT_CLEARANCE),
+    data["match_actors"]["arena"]["placement_margin"])
+MatchLayout.place_regions(spawn, regions, deposits, capture_anchors)
 
 
 # ---------------------------------------------------------------- placement helpers

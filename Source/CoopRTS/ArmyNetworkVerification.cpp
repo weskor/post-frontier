@@ -9,6 +9,9 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "CommandHUD.h"
+#include "ForceGoals.h"
+#include "MapRegion.h"
+#include "DepositSite.h"
 #include "Content/MatchContent.h"
 #include "GameFramework/Pawn.h"
 #include "CommandPlayerState.h"
@@ -69,6 +72,8 @@ const UArmyUnitDefinition* ProductionDefinition(const ACommandGameState& State, 
 		if (Definition->Role == Building.ProductionRole) return Definition;
 	return nullptr;
 }
+ACommandPlayerController* LocalController(UWorld* World);
+
 TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 {
 	auto Result = Object();
@@ -76,6 +81,30 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Result->SetBoolField(TEXT("ready"), World != nullptr);
 	if (!World) return Result;
 	Number(Result, TEXT("netMode"), static_cast<int32>(World->GetNetMode()));
+	Result->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(World->GetOutermost()->GetName()));
+	Result->SetBoolField(TEXT("worldPaused"), World->IsPaused());
+	Number(Result, TEXT("worldTime"), World->GetTimeSeconds());
+	if (const ACommandPlayerController* PC = LocalController(World))
+	{
+		Number(Result, TEXT("uiScreen"), static_cast<int32>(PC->GetUIScreen()));
+		Number(Result, TEXT("masterVolume"), PC->GetMasterVolume());
+		Result->SetBoolField(TEXT("menuWorld"), PC->IsMenuWorld());
+		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
+		{
+			TArray<TSharedPtr<FJsonValue>> Buttons;
+			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::GoalFallBack); ++Index)
+			{
+				FVector2D Position;
+				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position)) continue;
+				auto Button = Object();
+				Number(Button, TEXT("action"), Index);
+				Number(Button, TEXT("x"), Position.X);
+				Number(Button, TEXT("y"), Position.Y);
+				Buttons.Add(MakeShared<FJsonValueObject>(Button));
+			}
+			Result->SetArrayField(TEXT("uiButtons"), Buttons);
+		}
+	}
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	if (!State) { Result->SetBoolField(TEXT("ready"), false); return Result; }
 	Number(Result, TEXT("gameStateId"), LifetimeId(State));
@@ -94,7 +123,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	if (IsValid(State->Arena))
 		Result->SetArrayField(TEXT("arenaHalfExtent"), {MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X),
 			MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y)});
-	Number(Result, TEXT("resourceSites"), State->ControlledResourceSites);
+	Number(Result, TEXT("enemyIncome"), State->GetEnemyIncomePerSecond());
 	Result->SetBoolField(TEXT("incomePaused"), State->bVerificationIncomePaused);
 	auto Wallets = TArray<TSharedPtr<FJsonValue>>();
 	for (const APlayerState* PS : State->PlayerArray)
@@ -104,6 +133,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Wallet->CommanderIndex);
 		Number(Entry, TEXT("wallet"), Wallet->Resources);
+		Number(Entry, TEXT("income"), State->GetIncomePerSecond(Wallet));
 		Number(Entry, TEXT("doctrine"), static_cast<int32>(Wallet->Doctrine));
 		Wallets.Add(MakeShared<FJsonValueObject>(Entry));
 	}
@@ -115,7 +145,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Result->SetStringField(TEXT("orderFeedback"), It->GetOrderFeedback());
 			Result->SetBoolField(TEXT("hudExpanded"), It->IsHUDExpanded());
 			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
-			Result->SetBoolField(TEXT("assigningFront"), It->IsAssigningFront());
+			Result->SetBoolField(TEXT("assigningGoal"), It->IsAssigningGoal());
+			Number(Result, TEXT("pendingGoal"), static_cast<int32>(It->GetPendingGoal()));
 			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
 			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
 			if (const APawn* Camera = It->GetPawn()) Vector(Result, TEXT("cameraPosition"), Camera->GetActorLocation());
@@ -134,7 +165,10 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Number(Result, TEXT("viewportWidth"), ViewportWidth);
 			Number(Result, TEXT("viewportHeight"), ViewportHeight);
 			if (const auto* PS = It->GetPlayerState<ACommandPlayerState>())
+			{
 				LocalIndex = PS->CommanderIndex;
+				Number(Result, TEXT("income"), State->GetIncomePerSecond(PS));
+			}
 			break;
 		}
 	Number(Result, TEXT("localIndex"), LocalIndex);
@@ -147,6 +181,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("owner"), IsValid(Group->GetOwningPlayerState()) ? Group->GetOwningPlayerState()->CommanderIndex : -1);
 		Number(Entry, TEXT("team"), Group->GetTeamIndex());
 		Number(Entry, TEXT("army"), Group->GetArmyIndex());
+		Number(Entry, TEXT("forceNumber"), Group->ForceNumber);
 		Number(Entry, TEXT("order"), static_cast<int32>(Group->Order));
 		Number(Entry, TEXT("serial"), Group->OrderSerial);
 		Number(Entry, TEXT("doctrine"), static_cast<int32>(Group->GetDoctrine()));
@@ -190,10 +225,12 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("team"), Building->TeamIndex);
 		Number(Entry, TEXT("kind"), static_cast<int32>(Building->Kind));
 		Number(Entry, TEXT("health"), Building->Health);
+		Number(Entry, TEXT("deposit"), State->Deposits.IndexOfByKey(Building->Deposit));
 		int32 Joined, Travelling;
 		Building->GetForceCounts(Joined, Travelling);
 		Entry->SetBoolField(TEXT("configured"), Building->bForceConfigured);
 		Number(Entry, TEXT("forceID"), IsValid(Building->ForceGroup) ? Building->ForceGroup->GetArmyIndex() : -1);
+		Number(Entry, TEXT("forceNumber"), Building->ForceNumber);
 		const UArmyUnitDefinition* Unit = ProductionDefinition(*State, *Building);
 		Number(Entry, TEXT("capacity"), Unit ? Unit->Capacity : 0);
 		Number(Entry, TEXT("joined"), Joined);
@@ -204,6 +241,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("recipe"), static_cast<int32>(Building->ProductionRole));
 		Number(Entry, TEXT("productionSeconds"), Building->ProductionProgressSeconds);
 		Number(Entry, TEXT("frontOrder"), static_cast<int32>(Building->FrontOrder));
+		Number(Entry, TEXT("forceGoal"), static_cast<int32>(Building->ForceGoal));
+		Number(Entry, TEXT("goalRegionIndex"), Building->GoalRegionIndex);
 		Entry->SetBoolField(TEXT("enabled"), Building->bProductionEnabled);
 		Entry->SetStringField(TEXT("productionState"),
 			StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState())));
@@ -225,10 +264,59 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Vector(Entry, TEXT("position"), Site->GetActorLocation());
 		Entry->SetBoolField(TEXT("friendlyPresent"), Site->bFriendlyPresent);
 		Entry->SetBoolField(TEXT("enemyPresent"), Site->bEnemyPresent);
-		Entry->SetBoolField(TEXT("established"), Site->IsEstablishedForTeam(Site->ControllingTeam));
 		Sites.Add(MakeShared<FJsonValueObject>(Entry));
 	}
 	Result->SetArrayField(TEXT("sites"), Sites);
+	auto Regions = TArray<TSharedPtr<FJsonValue>>();
+	for (const AMapRegion* Region : State->Regions)
+	{
+		if (!IsValid(Region)) continue;
+		auto Entry = Object();
+		Number(Entry, TEXT("index"), Region->RegionIndex);
+		Entry->SetStringField(TEXT("name"), Region->DisplayName.ToString());
+		Number(Entry, TEXT("role"), static_cast<int32>(Region->RegionRole));
+		Number(Entry, TEXT("homeTeam"), Region->HomeTeam);
+		Number(Entry, TEXT("controller"), State->GetRegionController(Region->RegionIndex));
+		Entry->SetBoolField(TEXT("contested"), State->IsRegionContested(Region->RegionIndex, 0));
+		Entry->SetBoolField(TEXT("enemyContested"), State->IsRegionContested(Region->RegionIndex, 5));
+		Vector(Entry, TEXT("anchor"), State->GetRegionAnchor(Region->RegionIndex));
+		TArray<TSharedPtr<FJsonValue>> Neighbours;
+		for (int32 Neighbour : Region->Neighbours) Neighbours.Add(MakeShared<FJsonValueNumber>(Neighbour));
+		Entry->SetArrayField(TEXT("neighbours"), Neighbours);
+		TArray<TSharedPtr<FJsonValue>> Polygon;
+		for (const FVector2D& Point : Region->Polygon)
+		{
+			TArray<TSharedPtr<FJsonValue>> Coordinates;
+			Coordinates.Add(MakeShared<FJsonValueNumber>(Point.X));
+			Coordinates.Add(MakeShared<FJsonValueNumber>(Point.Y));
+			Polygon.Add(MakeShared<FJsonValueArray>(Coordinates));
+		}
+		Entry->SetArrayField(TEXT("polygon"), Polygon);
+		Regions.Add(MakeShared<FJsonValueObject>(Entry));
+	}
+	Result->SetArrayField(TEXT("regions"), Regions);
+	auto Deposits = TArray<TSharedPtr<FJsonValue>>();
+	for (int32 Index = 0; Index < State->Deposits.Num(); ++Index)
+	{
+		const ADepositSite* Deposit = State->Deposits[Index];
+		if (!IsValid(Deposit)) continue;
+		auto Entry = Object();
+		Number(Entry, TEXT("index"), Index);
+		Number(Entry, TEXT("actorId"), LifetimeId(Deposit));
+		Number(Entry, TEXT("region"), Deposit->RegionIndex);
+		Number(Entry, TEXT("remaining"), Deposit->Remaining);
+		Number(Entry, TEXT("rate"), Deposit->RatePerSecond());
+		Entry->SetBoolField(TEXT("rich"), Deposit->bRich);
+		const ACommandBuilding* Extractor = Deposit->Extractor;
+		Entry->SetBoolField(TEXT("occupied"), IsValid(Extractor));
+		Entry->SetBoolField(TEXT("complete"), IsValid(Extractor) && Extractor->IsComplete() && Extractor->IsAlive());
+		Number(Entry, TEXT("extractor"), IsValid(Extractor) ? State->Buildings.IndexOfByKey(Deposit->Extractor) : -1);
+		Number(Entry, TEXT("owner"), IsValid(Extractor) && IsValid(Extractor->OwningPlayerState) ? Extractor->OwningPlayerState->CommanderIndex : -1);
+		Number(Entry, TEXT("team"), IsValid(Extractor) ? Extractor->TeamIndex : -1);
+		Vector(Entry, TEXT("position"), Deposit->GetActorLocation());
+		Deposits.Add(MakeShared<FJsonValueObject>(Entry));
+	}
+	Result->SetArrayField(TEXT("deposits"), Deposits);
 	Number(Result, TEXT("friendlyHQ"), IsValid(State->FriendlyHeadquarters) ? State->FriendlyHeadquarters->Health : -1);
 	Number(Result, TEXT("enemyHQ"), IsValid(State->EnemyHeadquarters) ? State->EnemyHeadquarters->Health : -1);
 	if (IsValid(State->FriendlyHeadquarters)) Vector(Result, TEXT("friendlyHQPosition"), State->FriendlyHeadquarters->GetActorLocation());
@@ -259,7 +347,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
 	const int32 Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
 	ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("front")
+	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("goal")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
 		if (!Own || Own->CommanderIndex < 0 || !State) return TEXT("local owning controller unavailable");
@@ -274,9 +362,9 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			ACommandBuilding* Building = State->Buildings[BuildingIndex];
 			if (Action == TEXT("production")) PC->ServerConfigureProduction(Building,
 				static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
-			else if (Action == TEXT("front")) PC->ServerAssignFront(Building,
-				static_cast<EFrontOrder>(Request->GetIntegerField(TEXT("frontOrder"))),
-				FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f));
+			else if (Action == TEXT("goal")) PC->ServerAssignGoal(Building,
+				static_cast<EForceGoal>(Request->GetIntegerField(TEXT("goal"))),
+				static_cast<int32>(Request->GetIntegerField(TEXT("region"))));
 			else if (Action == TEXT("cancel")) PC->ServerCancelBuilding(Building);
 			else PC->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
 		}
@@ -300,7 +388,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				if (PC->GetSelectedBuilding() != State->Buildings[BuildingIndex]) return TEXT("building selection rejected");
 			}
 			else if (Target == TEXT("squad"))
-				return TEXT("Squad selection removed; select its production building and configure a front instead.");
+				return TEXT("Squad selection removed; select its production building and configure a goal instead.");
 			else return TEXT("unknown selection target");
 			return FString();
 		}
@@ -387,12 +475,13 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		const int32 BuildingIndex = static_cast<int32>(Request->GetIntegerField(TEXT("kind")));
 		if (!IsValid(State->FriendlyHeadquarters)) return TEXT("friendly HQ unavailable");
 		const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
-		for (int32 Ring = 0; Ring < 5; ++Ring)
-			for (int32 Direction = 0; Direction < 16; ++Direction)
+		for (int32 Ring = 0; Ring < 9; ++Ring)
+			for (int32 Direction = 0; Direction < 32; ++Direction)
 			{
-				const float Angle = Direction * PI / 8.f;
-				FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 120.f);
+				const float Angle = Direction * PI / 16.f;
+				FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
 				Candidate.Z = 5.f;
+				Candidate = State->ResolveBuildingLocation(BuildingIndex, Candidate);
 				FString Reason;
 				if (State->ValidateBuildingPlacement(BuildingIndex, 0, Candidate, Reason))
 				{
@@ -407,6 +496,62 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		State->bVerificationIncomePaused = Request->GetBoolField(TEXT("paused"));
 		return FString();
+	}
+	if (Action == TEXT("incomeTick"))
+	{
+		if (!State->bVerificationIncomePaused) return TEXT("pause natural income before isolated payment tick");
+		State->bVerificationIncomePaused = false;
+		State->Tick(2.f);
+		State->bVerificationIncomePaused = true;
+		return FString();
+	}
+	if (Action == TEXT("depositRemaining"))
+	{
+		const int32 DepositIndex = Request->GetIntegerField(TEXT("deposit"));
+		const int32 Remaining = Request->GetIntegerField(TEXT("remaining"));
+		if (!State->Deposits.IsValidIndex(DepositIndex) || !IsValid(State->Deposits[DepositIndex])
+			|| Remaining < 0 || Remaining > 3000) return TEXT("invalid finite deposit fixture");
+		State->Deposits[DepositIndex]->Remaining = Remaining;
+		State->Deposits[DepositIndex]->ForceNetUpdate();
+		return FString();
+	}
+	if (Action == TEXT("enemyExtractor"))
+	{
+		if (!IsValid(State->EnemyCommander) || !State->Content) return TEXT("JEV construction fixture unavailable");
+		for (ADepositSite* Deposit : State->Deposits)
+		{
+			if (!IsValid(Deposit) || IsValid(Deposit->Extractor) || State->GetRegionController(Deposit->RegionIndex) != 5) continue;
+			const int32 BuildingIndex = State->Content->BuildingIndexOf(TEXT("extractor"));
+			FString Reason;
+			if (!State->ValidateBuildingPlacement(BuildingIndex, 5, Deposit->GetActorLocation(), Reason)) continue;
+			State->EnemyCommander->Resources = 160;
+			ACommandBuilding* Extractor = State->TryPlaceBuilding(BuildingIndex, Deposit->GetActorLocation(), State->EnemyCommander, 5, Reason);
+			if (!Extractor) return TEXT("paid JEV extractor fixture rejected");
+			Extractor->Tick(60.f); // Accelerated construction fixture, not natural completion proof.
+			return FString();
+		}
+		return TEXT("no free legal JEV deposit");
+	}
+	if (Action == TEXT("destroyExtractor"))
+	{
+		const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
+		if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex])
+			|| State->Buildings[BuildingIndex]->Kind != EBuildingKind::Extractor) return TEXT("extractor fixture unavailable");
+		ACommandBuilding* Extractor = State->Buildings[BuildingIndex];
+		const int32 HostileTeam = Extractor->TeamIndex == 5 ? 0 : 5;
+		ACommandPlayerState* HostileWallet = HostileTeam == 5 ? State->EnemyCommander.Get() : PC->GetPlayerState<ACommandPlayerState>();
+		const FVector Staging = (HostileTeam == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters)->GetActorLocation();
+		const FTransform Transform(FRotator::ZeroRotator, Staging + FVector(0.f, 0.f, 100.f));
+		AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
+			nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Hostile) return TEXT("hostile extractor damage fixture allocation failed");
+		Hostile->Initialize(FArmyGroupSpawn{HostileTeam, HostileWallet, -1, nullptr, Transform.GetLocation()});
+		Hostile->FinishSpawning(Transform);
+		if (!Hostile->SpawnUnits()) { Hostile->Destroy(); return TEXT("hostile extractor damage fixture spawn failed"); }
+		Extractor->ReceiveAttack(Extractor->Health, Hostile->GetUnits()[0]);
+		const bool bDestroyed = !IsValid(Extractor) || !Extractor->IsAlive();
+		Hostile->Destroy();
+		return bDestroyed ? FString() : TEXT("hostile damage did not destroy extractor");
 	}
 	if (Action == TEXT("fund"))
 	{

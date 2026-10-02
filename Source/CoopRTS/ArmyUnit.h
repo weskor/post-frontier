@@ -103,6 +103,12 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Army")
 	TObjectPtr<UStaticMeshComponent> Body;
 
+	// Local baselines suppress initial replication and repeated appearance notifications.
+	bool bAudioStateInitialized = false;
+	bool bDeathAudioPlayed = false;
+	int32 LastAudioHealth = 0;
+	uint32 LastAudioAttackCount = 0;
+
 	UFUNCTION()
 	void OnRep_Appearance();
 	UFUNCTION()

@@ -28,7 +28,7 @@ Orientation follows the game's minimap and camera: **+X is up on screen ("north"
 | Routes | Route A **19 031 cm** and route B **19 032 cm** (45.3 s each, a 0.01 % gap), ending at different human entrances; an optional third through the Slab, 18 970 cm. |
 | Bunker → Cluster | 190 m walking, **45 s** at 420 cm/s. |
 | Narrowest passage | 700 cm walkable, one `Ramp_Wide` lane = 3.9 force widths. |
-| Income at stake | +6/s per commander per established sector (README): 8 sectors are worth up to +48/s each. |
+| Income at stake | +12/s per commander per established sector: 8 sectors are worth up to 8 × 12 = +96/s each, on top of the 2/s baseline. |
 
 ## Setting
 
@@ -67,7 +67,7 @@ The number is `SiteIndex + 1`, the HUD's `SECTOR n`. Index `i` and `7 − i` are
 
 ## Size and travel times
 
-Unit speed is `MaxWalkSpeed = 420` cm/s (`ArmyUnit.cpp`), so **10 s = 4200 cm** (the second bar on the plan). The README fixes only the match arc, roughly 12–18 minutes, and the economy (10/s plus 6/s per established sector) sets the pace inside it, not distance. Distance decides two things: how expensive a losing push is (recruits walk the whole way to their moving formation; there are no teleports) and when JEV's first wave lands. The targets below give a 45 s base-to-base crossing, 2.7 × Boot's straight-line 17 s, and single-digit-second hops between a base and its naturals.
+Unit speed is `MaxWalkSpeed = 420` cm/s (`ArmyUnit.cpp`), so **10 s = 4200 cm** (the second bar on the plan). The README fixes only the match arc, roughly 12–18 minutes, and the current economy sets the pace inside it, not distance: each human commander earns 2/s plus 12/s per established friendly sector; JEV earns `2 × max(1, human commanders) + 12 × established enemy sectors` per second. Both are paid every 2 s (`CommandGameState.h`, `Rules/EconomyPolicy.cpp`, `CommandGameState::Tick`). Distance decides two things: how expensive a losing push is (recruits walk the whole way to their moving formation; there are no teleports) and when JEV's first wave lands. The targets below give a 45 s base-to-base crossing, 2.7 × Boot's straight-line 17 s, and single-digit-second hops between a base and its naturals.
 
 Measured on a 100 cm raster with line-of-sight smoothing, a 100 cm clearance ring, 16-neighbour Dijkstra. Real Detour paths will differ by a few percent; crowds and formation offsets add more *[INFERENCE: not measured]*.
 
@@ -112,12 +112,12 @@ Three levels, one kit step (300 cm) between neighbours. Regions **touch** along 
 - Every lane on an army route is at least **3 force widths (540 cm)** wide (the script checks this against the JSON); the narrowest lane, one kit ramp strip, is 700 (630 after the navmesh's 35 cm agent erosion). A lane takes three forces abreast; the gate takes six across its two lanes.
 - The kit's ramp is 20.6°, steeper than the 12° this document first assumed. It is well inside the character's 44.7° limit and the kit's own check, and it is the only ramp the kit offers, so it is the design value.
 - The last 103 cm of a recruit's path disables predictive avoidance (`PrecisionRadius = 2 × radius + 35`), so corridors should not have a corner tighter than about 300 cm. The kit rounds convex corners at 400 cm (`Cliff_CornerOuter`) and fills concave ones with a 400 cm fillet (`Cliff_CornerInner`).
-- **Nothing on a ramp or at a choke can be walled off**: no ramp footprint or named choke lies inside any territory disc. Tightest margins: East door 200 cm beyond Diesel Yard's disc, main ramp 300 cm beyond the HQ disc. Buildings are navigation obstacles here (`NavArea_Null`), so this matters: territory circles are what would let a player plug a choke.
+- **Nothing on a ramp or at a choke can be walled off**: no ramp footprint or named choke lies inside any territory disc. Tightest margins: East door 200 cm beyond Diesel Yard's disc, main ramp 300 cm beyond the HQ disc. Buildings are navigation obstacles here (`NavArea_Null`), so this matters: the HQ and controlled, uncontested-sector territory limits constrain where a player can plug a choke, even without an outpost.
 - A two-lane gate has a central parapet that a mid-fight crowd cannot cross; each lane is judged separately.
 
 ## Sector list
 
-Territory: HQ 900, sector 1000 (`ACapturePoint::TerritoryRadius`); capture ring 430. Every capture ring and the Bunker's and Cluster's discs lie fully on one level (the script checks them).
+Build territory for barracks/workshops: HQ 900, controlled uncontested sector 1000 (`ACapturePoint::TerritoryRadius`), accounting for footprint; capture grants sector build rights without an outpost. A completed, living outpost adds income and locks capture; bare capture gives no sector income. Capture ring: 430. These are rule distances, not placement-preview circles; placement uses a 50 cm grid. Every capture ring and the Bunker's and Cluster's territory discs lie fully on one level (the script checks them).
 
 | # | Sector | Position (x, y) | Level | Role | Why here |
 | ---: | --- | --- | --- | --- | --- |
@@ -165,7 +165,7 @@ JEV's needs are met too: `AEnemyCommander::BuildNear` (4 rings at 360, 510, 660,
 
 ### Two players, same map, no rebuild
 
-The level places exactly what one player needs, and two players fit without changes: `HandleStartingNewPlayer` gives each commander a slot (0–4), a private wallet and a camera; every commander builds anywhere in team territory; income is per commander. The layout adds what a second person needs:
+The level places exactly what one player needs, and two players fit without changes: `HandleStartingNewPlayer` gives each commander a slot (0–4), a private wallet and a camera; every commander builds in shared HQ or controlled uncontested-sector territory, with no outpost prerequisite for barracks/workshops; income is per commander. The layout adds what a second person needs:
 
 - **Two pockets** (A west, B east) in the shared Bunker disc, four bays each.
 - **Two naturals with different jobs**: Relay Shack is the safe production site, Diesel Yard is the front. A friend takes one each, or swaps.
@@ -176,7 +176,7 @@ Honest limits of the shared-HQ arrangement (all from the code):
 
 - **No claim system.** The server only checks territory, overlap, navigation and money, not which commander stands where. Two players can build over each other's bays; the pockets are a courtesy, and the bay paint makes it visible.
 - **Same camera start.** `bInitialFocusPending` focuses the friendly HQ for every commander. Both start on the Bunker.
-- **JEV does not scale.** Its income is one wallet: 10/s plus 6/s per established sector. Two humans earn twice that baseline. With three sectors each the team makes 2 × 28 = 56/s against JEV's 22/s. Expect 2P to be easy without proposal P3.
+- **Only JEV's baseline scales.** Its one wallet earns `2 × max(1, human commanders) + 12 × established enemy sectors` per second; the sector bonus is unscaled. With two humans and three shared established friendly sectors, the team makes 2 × (2 + 12 × 3) = **76/s** against JEV's 2 × 2 + 12 × 2 = **28/s** with its two established naturals. Paid every 2 s, that is 152 for the human team (76 each) and 56 for JEV. Human sector income scales with commander count; JEV's does not, so 2P still has an economic advantage without proposal P3.
 - **Space.** 2P needs about eight barracks plus workshops. The Bunker disc holds seven practically, so the second player's production lives on the naturals (10 practical each).
 
 ### PROPOSAL: per-player start locations (code the gameplay team would own)
@@ -264,9 +264,9 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 ## Balance notes
 
 - **Rush distance**: 190 m, 45 s. JEV's first wave lands about 2:10–2:20; a human rush at 0:40 can be at JEV's exposed natural at about 1:18 and, if it stands on the lip, forces a Defend.
-- **What each side can hold**: human realistically 4 sectors by mid-game, 5–6 if it pushes; JEV **2** (its naturals) because it assaults at two. That is 34/s per commander with four sectors (46/s with six) against JEV's 22/s. Whether this is a fair fight depends on JEV's force sizes, not on the map: the numbers show why JEV needs help (P3).
+- **What each side can hold**: human realistically 4 sectors by mid-game, 5–6 if it pushes; JEV **2** (its naturals) because it assaults at two. That is 2 + 12 × 4 = **50/s** per commander with four established sectors (2 + 12 × 6 = **74/s** with six) against JEV's 2 × 1 + 12 × 2 = **26/s** in solo, or 2 × 2 + 12 × 2 = **28/s** in 2P. Whether this is a fair fight depends on JEV's force sizes, not on the map: the numbers show why JEV needs help (P3).
 - **What JEV contests first**: Transformer Row, then Switchyard. It does not contest the middle at all until it assaults, and it never picks Cooling Plant or Substation 7 while two sectors are established.
-- **2P vs 1P**: 2P doubles the human income against a fixed JEV wallet. If the friend test feels trivial, that is the cause, not the map.
+- **2P vs 1P**: at the same established-sector counts, 2P doubles the human team income; JEV's baseline rises from 2/s to 4/s, but its sector bonus stays fixed. With four friendly sectors and two enemy sectors, solo is 50/s against 26/s; 2P is 2 × 50 = **100/s** against **28/s**. This income asymmetry can make the friend test easier; it is not a map change.
 - **Ranged and siege ignore height.** `WeaponRange` is a 2D distance and there is no line-of-sight or high-ground rule (`ArmyUnit.cpp`). Siege (range 1150) standing on the Terrace lip (x = −6200) reaches any building whose centre is north of x = −7350: bays A1/B1 (x = −6860) and A2/B2 (−7283) are in reach; A3/B3, A4/B4 and the HQ (−7400, 1200 cm from the lip) are not. Ranged (560) reaches nothing on the plateau from the lip. *[INFERENCE from the range check]* Proposal P5 (high ground) fixes this properly; until then the plateau's north half is shellable from below.
 - **Intruder margin**: 1200 vs 1500 cm. The 300 cm margin is what makes a raid on the lip trigger the Defend behaviour, so do not deepen the plateau.
 
@@ -275,7 +275,7 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 | Assumption in the code | Where | What it does to a map | How this map copes |
 | --- | --- | --- | --- |
 | **One shared friendly HQ**, one enemy HQ | `CommandGameMode::InitGameState`, `ACommandGameState::FriendlyHeadquarters`, `ValidateBuildingPlacement` (`Home`) | A second team-0 HQ only logs an error. All commanders share one 900 cm disc. Only one HQ bar in the HUD | One HQ, two pockets, two naturals; per-player start is proposal P2 |
-| **Territory is 2D**: HQ 900 cm, sector 1000 cm (only after capture *and* outpost) | `Near()` in `ValidateBuildingPlacement`; `ACapturePoint::TerritoryRadius` | Discs ignore height and cliffs and can plug a choke; capture rings ignore cliffs | Discs sit on one level; no ramp or choke lies in any disc (checked) |
+| **Territory is 2D**: HQ 900 cm, controlled uncontested sector 1000 cm (capture alone grants barracks/workshop build rights; no outpost required) | `PlacementPolicy::EvaluateTerritory`; `ACapturePoint::TerritoryRadius` | Discs ignore height and cliffs and can plug a choke; capture rings ignore cliffs. Completed, living outposts add income and lock capture, not build rights | Discs sit on one level; no ramp or choke lies in any disc (checked) |
 | **Rectangular, origin-centred arena**, `\|z\| ≤ 1000` | `AArenaBounds::ContainsTravel`, `HalfHeight` | Non-rectangular play areas are made with rock and navmesh, not bounds. The minimap is square and stretches a non-square arena | Square arena; rock rim; the rim needs dressing because the camera can pan to the edge |
 | **Clicks are on the plane z = 0** and forced to z = 0 | `ACommandPlayerController::CursorGround`, `CommandCamera::FocusOn`, `CommandMinimap` | A placement or front on any level is evaluated at z = 0 | Phase A: every playable level at z = 0. Phase B: P1 |
 | **Placement overlap box** `Location.Z + 10…120` against world collision; nav samples within 110 cm of `Location.Z`, extents (45, 45, 200), samples at footprint + 65 | `ValidateBuildingPlacement` | **Ground higher than +10 cm blocks every building on it**; ground lower than −110 cm is unplaceable; buildings need about 200 cm of navigable margin from cliffs. Buildable relief is therefore about 100 cm (−95…+5), less than one 300 cm kit step | Phase A flat; the script replays the rules (`placement_ok`, `check_elevation`). An optional "Phase A+" with a 95 cm plateau is possible but needs a short custom piece, not the kit |
@@ -284,7 +284,7 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 | **JEV always takes the shortest nav path** | Detour | One lane per wave; two equal routes give no guaranteed split | Equal routes plus proposal P3 |
 | **No vision, no fog, no high-ground rule**; range is 2D | `ArmyUnit::WeaponRange` | Watchtowers and cliff advantages do nothing in code | Proposal P5; cliffs only block movement |
 | **Buildings are nav obstacles; none can be destroyed except by fire; finished ones cannot be cancelled** | `ACommandBuilding` (`NavArea_Null`) | Walls and plugs are possible in territory; nothing in code opens a path later | No choke in a disc; breach is proposal P4 |
-| **JEV wallet does not scale with player count** | `ACommandGameState::GetEnemyIncomePerSecond` | 2P is easier by construction | Noted; proposal P3 |
+| **JEV scales only its baseline with human commander count**: `2 × max(1, humans) + 12 × established enemy sectors` per second | `ACommandGameState::GetEnemyIncomePerSecond`, `EconomyPolicy::EnemyIncomePerSecond` | Human team sector income scales with commander count; JEV's sector bonus does not. 2P still has an economic advantage at equal territory | Noted; proposal P3 |
 | **Five commanders, slots 0–4** | `PreLogin`, `HandleStartingNewPlayer` | No per-slot start, spawn or camera position | Same start for all |
 | **Maps are hard-coded in the harness** | `verify.py` (`/Game/Maps/Boot`), `network.py`, `Build/MatchLayout.py` | The new map cannot be smoke-tested until the harness takes a map argument | Listed in the implementation doc |
 
@@ -303,7 +303,7 @@ Needs `rsvg-convert` or ImageMagick, no Python packages. Checks: level overlap, 
 1. **Elevation.** Today's code cannot host the kit's 300 cm steps on buildable ground (proposal P1). Do P1 first and build Phase B directly, or ship the flat walled Phase A greybox first?
 2. **JEV routes.** Are two equal routes enough, or is a lane choice in `EnemyCommander` (P3) a precondition for calling the map done?
 3. **Second start.** Do you want the per-player start proposal (P2) built before the friend test, or is the shared Bunker with paint bays enough for the first co-op session?
-4. **JEV at two players.** Should JEV's income scale with the commander count for 2P, or should the first friend test show the raw difference?
+4. **JEV at two players (original design question).** Should JEV's income scale with the commander count for 2P, or should the first friend test show the raw difference? **Current code:** the baseline already scales (`2 × max(1, humans)`/s); the +12/s per established enemy sector does not.
 5. **Names.** The map name and sector names are placeholders in the World.md tone; confirm or replace them before art and HUD copy depend on them.
 
 ## v2 direction (user feedback)

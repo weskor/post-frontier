@@ -1,0 +1,1036 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Machine_Structure"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Machine_Structure_Notify_01" 1
+  MARKER 1 1.200000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Structure_Notify_02" 1
+  MARKER 2 4.200000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Structure_Place_01" 1
+  MARKER 3 7.200000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Structure_Place_02" 1
+  MARKER 4 10.200000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Structure_ConstructLoop_01" 1
+  MARKER 5 16.500000 "" 1
+  MARKER 6 17.500000 "SW_Machine_Structure_ConstructLoop_02" 1
+  MARKER 6 22.000000 "" 1
+  MARKER 7 23.000000 "SW_Machine_Structure_Complete_01" 1
+  MARKER 7 25.000000 "" 1
+  MARKER 8 26.000000 "SW_Machine_Structure_Complete_02" 1
+  MARKER 8 28.000000 "" 1
+  MARKER 9 29.000000 "SW_Machine_Structure_Cancel_01" 1
+  MARKER 9 30.500000 "" 1
+  MARKER 10 32.000000 "SW_Machine_Structure_Cancel_02" 1
+  MARKER 10 33.500000 "" 1
+  MARKER 11 35.000000 "SW_Machine_Structure_Destroyed_01" 1
+  MARKER 11 38.000000 "" 1
+  MARKER 12 39.000000 "SW_Machine_Structure_Destroyed_02" 1
+  MARKER 12 42.000000 "" 1
+  MARKER 13 43.000000 "SW_Machine_Structure_Destroyed_03" 1
+  MARKER 13 46.000000 "" 1
+  MARKER 14 47.000000 "SW_Machine_Structure_Deploy_01" 1
+  MARKER 14 48.200000 "" 1
+  MARKER 15 50.000000 "SW_Machine_Structure_Deploy_02" 1
+  MARKER 15 51.200000 "" 1
+  MARKER 16 53.000000 "SW_Machine_Structure_HQAlarm_01" 1
+  MARKER 16 55.500000 "" 1
+  MARKER 17 56.500000 "SW_Machine_Structure_HQAlarm_02" 1
+  MARKER 17 59.000000 "" 1
+  MARKER 18 60.000000 "SW_Machine_Structure_HQDestroyed_01" 1
+  MARKER 18 65.000000 "" 1
+  <TRACK
+    NAME "Chime"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.527500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.542729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.020000
+      LENGTH 0.230083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.020000
+      LENGTH 0.243771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 23.561187
+      LENGTH 0.497896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_01__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.561187
+      LENGTH 0.527500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_02 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_02__Chime.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.000000
+      LENGTH 0.207646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Chime"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Chime.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime Low"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 1.056188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_01 Chime Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_01__ChimeLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 1.085458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_02 Chime Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_02__ChimeLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 23.561187
+      LENGTH 0.995771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_01 Chime Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_01__ChimeLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.561187
+      LENGTH 1.056188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_02 Chime Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_02__ChimeLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Echo"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.140000
+      LENGTH 0.677500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_01 Echo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_01__Echo.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.140000
+      LENGTH 0.692729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_02 Echo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_02__Echo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Tail"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 0.399699
+      LENGTH 0.800292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_01 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_01__GlassTail.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.411704
+      LENGTH 0.788292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_02 Glass Tail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_02__GlassTail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shimmer"
+    VOLPAN 0.125893 0 -1 -1 1
+    <ITEM
+      POSITION 0.250000
+      LENGTH 0.924875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_01 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_01__Shimmer.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.250000
+      LENGTH 0.940083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Notify_02 Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Notify_02__Shimmer.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Materialise"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_01 Materialise"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_01__Materialise.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_02 Materialise"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_02__Materialise.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Seat"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 6.136028
+      LENGTH 0.678750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_01 Seat"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_01__Seat.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.155905
+      LENGTH 0.686500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_02 Seat"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_02__Seat.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 6.236028
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_01 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_01__Servo.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.255905
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Place_02 Servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Place_02__Servo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Printer"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_01 Printer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_01__Printer.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_02 Printer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_02__Printer.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Texture"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_01 Texture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_01__Texture.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_02 Texture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_02__Texture.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Grains"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_01 Glass Grains"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_01__GlassGrains.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_02 Glass Grains"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_02__GlassGrains.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Servo Moves"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_01 Servo Moves"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_01__ServoMoves.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_02 Servo Moves"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_02__ServoMoves.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Data"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_01 Data"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_01__Data.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_ConstructLoop_02 Data"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_ConstructLoop_02__Data.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Rise"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 23.000000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_01 Power Rise"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_01__PowerRise.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.000000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_02 Power Rise"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_02__PowerRise.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Bloom"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 23.561187
+      LENGTH 1.248583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_01 Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_01__Bloom.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.561187
+      LENGTH 1.282063
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_02 Bloom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_02__Bloom.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Resonance"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 23.361187
+      LENGTH 1.638813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_01 Glass Resonance"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_01__GlassResonance.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.361187
+      LENGTH 1.638813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Complete_02 Glass Resonance"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Complete_02__GlassResonance.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime Reverse"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 29.000000
+      LENGTH 0.558875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_01 Chime Reverse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_01__ChimeReverse.wav"
+      >
+    >
+    <ITEM
+      POSITION 32.000000
+      LENGTH 0.591958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_02 Chime Reverse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_02__ChimeReverse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Unravel"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 29.438875
+      LENGTH 1.061125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_01 Unravel"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_01__Unravel.wav"
+      >
+    >
+    <ITEM
+      POSITION 32.471958
+      LENGTH 1.028042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_02 Unravel"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_02__Unravel.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Fragments"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 29.508875
+      LENGTH 0.832354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_01 Glass Fragments"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_01__GlassFragments.wav"
+      >
+    >
+    <ITEM
+      POSITION 32.541958
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Cancel_02 Glass Fragments"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Cancel_02__GlassFragments.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell Break"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 35.000000
+      LENGTH 1.333333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__ShellBreak.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.000000
+      LENGTH 0.998500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__ShellBreak.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.000000
+      LENGTH 1.374583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__ShellBreak.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.450000
+      LENGTH 1.426875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Shell Break"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__ShellBreak.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Crack"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 35.000000
+      LENGTH 0.556813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__GlassCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.000000
+      LENGTH 0.542896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__GlassCrack.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.000000
+      LENGTH 0.552500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Glass Crack"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__GlassCrack.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Thump"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 35.000000
+      LENGTH 0.594542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__Thump.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.000000
+      LENGTH 0.594542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__Thump.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.000000
+      LENGTH 0.594542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__Thump.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.450000
+      LENGTH 0.818646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Thump"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Thump.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 35.080000
+      LENGTH 1.459042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.080000
+      LENGTH 1.459042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.080000
+      LENGTH 0.833562
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.500000
+      LENGTH 2.615937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Debris"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 35.250000
+      LENGTH 2.531646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.250000
+      LENGTH 2.567104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.250000
+      LENGTH 2.582167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__Debris.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.750000
+      LENGTH 4.161729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Debris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Dropout"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 35.413033
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__Dropout.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.304869
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__Dropout.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.437832
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__Dropout.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.951324
+      LENGTH 1.010104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Dropout"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Dropout.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Spark"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 35.020000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_01 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_01__Spark.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.020000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_02 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_02__Spark.wav"
+      >
+    >
+    <ITEM
+      POSITION 43.020000
+      LENGTH 0.448937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Destroyed_03 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Destroyed_03__Spark.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Whoosh"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 47.000000
+      LENGTH 0.725458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_01 Whoosh"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_01__Whoosh.wav"
+      >
+    >
+    <ITEM
+      POSITION 50.000000
+      LENGTH 0.733646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_02 Whoosh"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_02__Whoosh.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass Shimmer"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 47.050000
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_01 Glass Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_01__GlassShimmer.wav"
+      >
+    >
+    <ITEM
+      POSITION 50.050000
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_02 Glass Shimmer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_02__GlassShimmer.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Print"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 47.020000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_01 Print"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_01__Print.wav"
+      >
+    >
+    <ITEM
+      POSITION 50.020000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_Deploy_02 Print"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_Deploy_02__Print.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Siren"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 53.000000
+      LENGTH 2.146354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_01 Siren"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_01__Siren.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.500000
+      LENGTH 2.091333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_02 Siren"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_02__Siren.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Siren Low"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 53.000000
+      LENGTH 2.492708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_01 Siren Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_01__SirenLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.500000
+      LENGTH 2.382646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_02 Siren Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_02__SirenLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 53.000000
+      LENGTH 2.240813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_01 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_01__Pulse.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.500000
+      LENGTH 2.240813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_02 Pulse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_02__Pulse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Alarm Glitch"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 53.000000
+      LENGTH 2.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_01 Alarm Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_01__AlarmGlitch.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.500000
+      LENGTH 2.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQAlarm_02 Alarm Glitch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQAlarm_02__AlarmGlitch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chime Fail"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 60.200000
+      LENGTH 1.236687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Chime Fail"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__ChimeFail.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Crash"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 60.450000
+      LENGTH 2.805854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Crash"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Crash.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shards"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 60.470000
+      LENGTH 1.026521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Shards.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Energy Boom"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 60.450000
+      LENGTH 1.426875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Energy Boom"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__EnergyBoom.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Groan"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 60.550000
+      LENGTH 2.020208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Groan"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Groan.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Trickle"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 62.300000
+      LENGTH 2.244687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Trickle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__Trickle.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Last Ping"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 63.600000
+      LENGTH 0.470854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Structure_HQDestroyed_01 Last Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Structure/SW_Machine_Structure_HQDestroyed_01__LastPing.wav"
+      >
+    >
+  >
+>

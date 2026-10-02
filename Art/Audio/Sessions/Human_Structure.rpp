@@ -1,0 +1,1109 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_Structure"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_Structure_Place_01" 1
+  MARKER 1 1.200000 "" 1
+  MARKER 2 3.000000 "SW_Human_Structure_Place_02" 1
+  MARKER 2 4.200000 "" 1
+  MARKER 3 6.000000 "SW_Human_Structure_ConstructLoop_01" 1
+  MARKER 3 10.500000 "" 1
+  MARKER 4 11.500000 "SW_Human_Structure_ConstructLoop_02" 1
+  MARKER 4 16.000000 "" 1
+  MARKER 5 17.000000 "SW_Human_Structure_Complete_01" 1
+  MARKER 5 19.000000 "" 1
+  MARKER 6 20.000000 "SW_Human_Structure_Complete_02" 1
+  MARKER 6 22.000000 "" 1
+  MARKER 7 23.000000 "SW_Human_Structure_Cancel_01" 1
+  MARKER 7 24.500000 "" 1
+  MARKER 8 26.000000 "SW_Human_Structure_Cancel_02" 1
+  MARKER 8 27.500000 "" 1
+  MARKER 9 29.000000 "SW_Human_Structure_Destroyed_01" 1
+  MARKER 9 32.000000 "" 1
+  MARKER 10 33.000000 "SW_Human_Structure_Destroyed_02" 1
+  MARKER 10 36.000000 "" 1
+  MARKER 11 37.000000 "SW_Human_Structure_Destroyed_03" 1
+  MARKER 11 40.000000 "" 1
+  MARKER 12 41.000000 "SW_Human_Structure_Deploy_01" 1
+  MARKER 12 42.200000 "" 1
+  MARKER 13 44.000000 "SW_Human_Structure_Deploy_02" 1
+  MARKER 13 45.200000 "" 1
+  MARKER 14 47.000000 "SW_Human_Structure_Research_01" 1
+  MARKER 14 48.500000 "" 1
+  MARKER 15 50.000000 "SW_Human_Structure_Research_02" 1
+  MARKER 15 51.500000 "" 1
+  MARKER 16 53.000000 "SW_Human_Structure_HQAlarm_01" 1
+  MARKER 16 55.500000 "" 1
+  MARKER 17 56.500000 "SW_Human_Structure_HQAlarm_02" 1
+  MARKER 17 59.000000 "" 1
+  MARKER 18 60.000000 "SW_Human_Structure_HQDestroyed_01" 1
+  MARKER 18 65.000000 "" 1
+  <TRACK
+    NAME "Prefab"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 1.070542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Prefab"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__Prefab.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 1.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Prefab"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__Prefab.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Landing Low"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.240333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Landing Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__LandingLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.240333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Landing Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__LandingLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Locks"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 0.220000
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Locks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__Locks.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.220000
+      LENGTH 0.475625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Locks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__Locks.wav"
+      >
+    >
+    <ITEM
+      POSITION 17.080000
+      LENGTH 0.808333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_01 Locks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_01__Locks.wav"
+      >
+    >
+    <ITEM
+      POSITION 20.080000
+      LENGTH 0.808333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_02 Locks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_02__Locks.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Anchors"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 0.400000
+      LENGTH 0.409375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Anchors"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__Anchors.wav"
+      >
+    >
+    <ITEM
+      POSITION 0.730000
+      LENGTH 0.417667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Anchors"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__Anchors_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.400000
+      LENGTH 0.409854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Anchors"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__Anchors.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.730000
+      LENGTH 0.410813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Anchors"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__Anchors_02.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Air"
+    VOLPAN 0.141254 0 -1 -1 1
+    <ITEM
+      POSITION 0.840000
+      LENGTH 0.258146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_01 Air"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_01__Air.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.840000
+      LENGTH 0.258146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Place_02 Air"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Place_02__Air.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.480000
+      LENGTH 0.285375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_01 Air"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_01__Air.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.480000
+      LENGTH 0.285375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_02 Air"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_02__Air.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Welding"
+    VOLPAN 0.281838 0 -1 -1 1
+    <ITEM
+      POSITION 6.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Welding"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Welding.wav"
+      >
+    >
+    <ITEM
+      POSITION 11.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Welding"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Welding.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Hydraulics"
+    VOLPAN 0.141254 0 -1 -1 1
+    <ITEM
+      POSITION 6.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Hydraulics"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Hydraulics.wav"
+      >
+    >
+    <ITEM
+      POSITION 11.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Hydraulics"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Hydraulics.wav"
+      >
+    >
+    <ITEM
+      POSITION 41.070000
+      LENGTH 0.612000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_01 Hydraulics"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_01__Hydraulics.wav"
+      >
+    >
+    <ITEM
+      POSITION 44.070000
+      LENGTH 0.612000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_02 Hydraulics"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_02__Hydraulics.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Drilling"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 6.000000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Drilling"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Drilling.wav"
+      >
+    >
+    <ITEM
+      POSITION 11.500000
+      LENGTH 4.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Drilling"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Drilling.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Rivets"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 6.264332
+      LENGTH 0.335667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Rivets.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.020343
+      LENGTH 0.330688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Rivets_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.942695
+      LENGTH 0.331062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Rivets_03.wav"
+      >
+    >
+    <ITEM
+      POSITION 8.833722
+      LENGTH 0.341583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Rivets_04.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.830260
+      LENGTH 0.354542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Rivets_05.wav"
+      >
+    >
+    <ITEM
+      POSITION 11.730631
+      LENGTH 0.342396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Rivets.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.542492
+      LENGTH 0.351521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Rivets_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 13.447961
+      LENGTH 0.353667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Rivets_03.wav"
+      >
+    >
+    <ITEM
+      POSITION 14.313227
+      LENGTH 0.330688
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Rivets_04.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.342648
+      LENGTH 0.342000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Rivets"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Rivets_05.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Tools"
+    VOLPAN 0.177828 0 -1 -1 1
+    <ITEM
+      POSITION 6.550000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Tools.wav"
+      >
+    >
+    <ITEM
+      POSITION 7.350000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Tools_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 8.250000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Tools_03.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.110000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Tools_04.wav"
+      >
+    >
+    <ITEM
+      POSITION 10.130000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_01__Tools_05.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.050000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Tools.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.850000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Tools_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 13.750000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Tools_03.wav"
+      >
+    >
+    <ITEM
+      POSITION 14.610000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Tools_04.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.630000
+      LENGTH 0.246917
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_ConstructLoop_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_ConstructLoop_02__Tools_05.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.060000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_01__Tools.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.060000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_02__Tools.wav"
+      >
+    >
+    <ITEM
+      POSITION 48.250000
+      LENGTH 0.190250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_01 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_01__Tools.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.250000
+      LENGTH 0.190250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_02 Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_02__Tools.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Relay"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 17.000000
+      LENGTH 0.480563
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_01__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.780000
+      LENGTH 0.180000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_01__Relay_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 20.000000
+      LENGTH 0.458521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_02__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.780000
+      LENGTH 0.180000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_02__Relay_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 53.000000
+      LENGTH 0.237813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_01__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.500000
+      LENGTH 0.237813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_02__Relay.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Motor"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 17.180000
+      LENGTH 1.468792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_01 Motor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_01__Motor.wav"
+      >
+    >
+    <ITEM
+      POSITION 20.180000
+      LENGTH 1.556437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Complete_02 Motor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Complete_02__Motor.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Scaffold"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 23.000000
+      LENGTH 1.070167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_01 Scaffold"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_01__Scaffold.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.000000
+      LENGTH 1.070167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_02 Scaffold"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_02__Scaffold.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Falling Tools"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 23.210000
+      LENGTH 0.872833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_01 Falling Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_01__FallingTools.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.210000
+      LENGTH 0.825479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_02 Falling Tools"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_02__FallingTools.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Chains"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 23.720000
+      LENGTH 0.577375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_01 Chains"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_01__Chains.wav"
+      >
+    >
+    <ITEM
+      POSITION 26.720000
+      LENGTH 0.612000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Cancel_02 Chains"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Cancel_02__Chains.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blast"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 29.000000
+      LENGTH 2.497042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__Blast.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 2.570396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__Blast.wav"
+      >
+    >
+    <ITEM
+      POSITION 37.000000
+      LENGTH 2.600000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__Blast.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.000000
+      LENGTH 3.500000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Blast"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__Blast.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blast Low"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 29.000000
+      LENGTH 0.302271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Blast Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__BlastLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.302271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Blast Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__BlastLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 37.000000
+      LENGTH 0.302271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Blast Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__BlastLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.000000
+      LENGTH 0.424333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Blast Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__BlastLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Collapse"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 29.300000
+      LENGTH 1.851854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__Collapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.300000
+      LENGTH 1.851854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__Collapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 37.300000
+      LENGTH 1.851854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__Collapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 60.240000
+      LENGTH 4.280625
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__Collapse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Metal Debris"
+    VOLPAN 0.281838 0 -1 -1 1
+    <ITEM
+      POSITION 29.690000
+      LENGTH 1.701104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Metal Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__MetalDebris.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.690000
+      LENGTH 1.736979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Metal Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__MetalDebris.wav"
+      >
+    >
+    <ITEM
+      POSITION 37.690000
+      LENGTH 1.736979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Metal Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__MetalDebris.wav"
+      >
+    >
+    <ITEM
+      POSITION 61.620000
+      LENGTH 2.734854
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Metal Debris"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__MetalDebris.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sparks"
+    VOLPAN 0.089125 0 -1 -1 1
+    <ITEM
+      POSITION 30.550000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__Sparks.wav"
+      >
+    >
+    <ITEM
+      POSITION 31.400000
+      LENGTH 0.400000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_01 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_01__Sparks_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 34.550000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__Sparks.wav"
+      >
+    >
+    <ITEM
+      POSITION 35.400000
+      LENGTH 0.400000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_02 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_02__Sparks_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 38.550000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__Sparks.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.400000
+      LENGTH 0.400000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Destroyed_03 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Destroyed_03__Sparks_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 62.620000
+      LENGTH 0.650000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Sparks"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__Sparks.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Blast Door"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 41.000000
+      LENGTH 0.508083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_01 Blast Door"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_01__BlastDoor.wav"
+      >
+    >
+    <ITEM
+      POSITION 44.000000
+      LENGTH 0.508083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_02 Blast Door"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_02__BlastDoor.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Boots"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 41.450000
+      LENGTH 0.329271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_01 Boots"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_01__Boots.wav"
+      >
+    >
+    <ITEM
+      POSITION 41.820000
+      LENGTH 0.321062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_01 Boots"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_01__Boots_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 44.450000
+      LENGTH 0.326896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_02 Boots"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_02__Boots.wav"
+      >
+    >
+    <ITEM
+      POSITION 44.820000
+      LENGTH 0.321062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Deploy_02 Boots"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Deploy_02__Boots_02.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Toolbox"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 47.000000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_01 Toolbox"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_01__Toolbox.wav"
+      >
+    >
+    <ITEM
+      POSITION 50.000000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_02 Toolbox"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_02__Toolbox.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Wrench"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 47.480000
+      LENGTH 0.601104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_01 Wrench"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_01__Wrench.wav"
+      >
+    >
+    <ITEM
+      POSITION 50.480000
+      LENGTH 0.627146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_02 Wrench"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_02__Wrench.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ratchet"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 48.060000
+      LENGTH 0.359167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_01 Ratchet"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_01__Ratchet.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.060000
+      LENGTH 0.359167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_Research_02 Ratchet"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_Research_02__Ratchet.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Horn"
+    VOLPAN 0.891251 0 -1 -1 1
+    <ITEM
+      POSITION 53.080000
+      LENGTH 1.864000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_01 Horn"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_01__Horn.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.580000
+      LENGTH 2.019604
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_02 Horn"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_02__Horn.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Radio"
+    VOLPAN 0.112202 0 -1 -1 1
+    <ITEM
+      POSITION 53.220000
+      LENGTH 0.620000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_01 Radio"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_01__Radio.wav"
+      >
+    >
+    <ITEM
+      POSITION 55.100000
+      LENGTH 0.360000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_01 Radio"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_01__Radio_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 56.720000
+      LENGTH 0.620000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_02 Radio"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_02__Radio.wav"
+      >
+    >
+    <ITEM
+      POSITION 58.600000
+      LENGTH 0.360000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQAlarm_02 Radio"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQAlarm_02__Radio_02.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Steel Strain"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 60.680000
+      LENGTH 3.004021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Steel Strain"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__SteelStrain.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.177828 0 -1 -1 1
+    <ITEM
+      POSITION 63.380000
+      LENGTH 1.448375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Structure_HQDestroyed_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Structure/SW_Human_Structure_HQDestroyed_01__PowerDown.wav"
+      >
+    >
+  >
+>

@@ -110,6 +110,7 @@ void AArmyGroup::Initialize(const FArmyGroupSpawn& Spawn)
 	OwningPlayerState = Spawn.OwningPlayerState;
 	ArmyIndex = Spawn.ArmyIndex;
 	ProductionBuilding = Spawn.ProductionBuilding;
+	ForceNumber = IsValid(ProductionBuilding) ? ProductionBuilding->ForceNumber : 0;
 	HomeLocation = Spawn.HomeLocation;
 }
 
@@ -764,6 +765,7 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, TeamIndex);
 	DOREPLIFETIME(AArmyGroup, OwningPlayerState);
 	DOREPLIFETIME(AArmyGroup, ArmyIndex);
+	DOREPLIFETIME(AArmyGroup, ForceNumber);
 	DOREPLIFETIME(AArmyGroup, AttackTarget);
 	DOREPLIFETIME(AArmyGroup, FrontOrder);
 	DOREPLIFETIME(AArmyGroup, FrontLocation);

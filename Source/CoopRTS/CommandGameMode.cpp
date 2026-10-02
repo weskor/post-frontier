@@ -8,6 +8,8 @@
 #include "CommandGameState.h"
 #include "EnemyCommander.h"
 #include "Headquarters.h"
+#include "MapRegion.h"
+#include "DepositSite.h"
 #include "CommandPlayerState.h"
 #include "CommandCamera.h"
 #include "CommandHUD.h"
@@ -42,7 +44,7 @@ void ACommandGameMode::Tick(float DeltaSeconds)
 		State->EnemyHeadquarters->Health, EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
 	if (Result == EMatchResult::Ongoing) return;
 	const bool bFriendlyLost = Result == EMatchResult::Defeat;
-	State->MatchResult = Result;
+	State->SetMatchResult(Result);
 	State->EnemyPlan = TEXT("MATCH COMPLETE");
 	State->EnemyPlanRationale = bFriendlyLost ? TEXT("Friendly HQ destroyed (ties are defeat)")
 		: TEXT("Enemy HQ destroyed");
@@ -66,14 +68,15 @@ void ACommandGameMode::RequestRestart(ACommandPlayerController* Requester)
 	// Explicit SeamlessTravel avoids the engine's 48-hour automatic hard-travel fallback.
 	bRestartRequested = true;
 	const FString Map = UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName());
-	if (!GetWorld()->ServerTravel(Map + TEXT("?listen?SeamlessTravel"), false))
+	const FString Options = GetNetMode() == NM_Standalone ? TEXT("?SeamlessTravel") : TEXT("?listen?SeamlessTravel");
+	if (!GetWorld()->ServerTravel(Map + Options, false))
 		bRestartRequested = false;
 }
 
 void ACommandGameMode::InitGameState()
 {
 	Super::InitGameState();
-	// Runs before the host's own login: the level places the arena, both HQs and the sectors; the match only reads them.
+	// Discover placed match actors before the host's own login; ordering in the level is irrelevant.
 	ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!State) return;
 	for (TActorIterator<AArenaBounds> It(GetWorld()); It; ++It)
@@ -90,11 +93,28 @@ void ACommandGameMode::InitGameState()
 	for (TActorIterator<ACapturePoint> It(GetWorld()); It; ++It) State->CaptureSites.Add(*It);
 	// Fixtures address sectors by index (CaptureSites[0]); placement order in the level is irrelevant.
 	State->CaptureSites.Sort([](const ACapturePoint& A, const ACapturePoint& B) { return A.SiteIndex < B.SiteIndex; });
-	bLevelValid = State->Arena && State->FriendlyHeadquarters && State->EnemyHeadquarters;
+	for (TActorIterator<AMapRegion> It(GetWorld()); It; ++It) State->Regions.Add(*It);
+	State->Regions.Sort([](const AMapRegion& A, const AMapRegion& B) { return A.RegionIndex < B.RegionIndex; });
+	for (AMapRegion* Region : State->Regions)
+	{
+		if (Region->RegionRole == ERegionRole::Main) Region->Anchor = nullptr;
+		else if (!IsValid(Region->Anchor))
+			for (ACapturePoint* Site : State->CaptureSites)
+				if (Site->SiteIndex == Region->RegionIndex) { Region->Anchor = Site; break; }
+	}
+	for (TActorIterator<ADepositSite> It(GetWorld()); It; ++It) State->Deposits.Add(*It);
+	State->Deposits.Sort([](const ADepositSite& A, const ADepositSite& B)
+	{
+		if (A.RegionIndex != B.RegionIndex) return A.RegionIndex < B.RegionIndex;
+		const FVector ALocation = A.GetActorLocation(), BLocation = B.GetActorLocation();
+		return ALocation.X != BLocation.X ? ALocation.X < BLocation.X : ALocation.Y < BLocation.Y;
+	});
+	bLevelValid = State->Arena && State->FriendlyHeadquarters && State->EnemyHeadquarters
+		&& !State->Regions.IsEmpty() && !State->Deposits.IsEmpty();
 	if (!bLevelValid)
-		UE_LOG(LogTemp, Error, TEXT("Map %s cannot start a match: arena=%d friendlyHQ=%d enemyHQ=%d sectors=%d"),
+		UE_LOG(LogTemp, Error, TEXT("Map %s cannot start a match: arena=%d friendlyHQ=%d enemyHQ=%d sectors=%d regions=%d deposits=%d"),
 			*GetWorld()->GetMapName(), State->Arena != nullptr, State->FriendlyHeadquarters != nullptr,
-			State->EnemyHeadquarters != nullptr, State->CaptureSites.Num());
+			State->EnemyHeadquarters != nullptr, State->CaptureSites.Num(), State->Regions.Num(), State->Deposits.Num());
 	// Set the team before PlayerState registration; only human states survive seamless travel.
 	const FTransform Transform = FTransform::Identity;
 	State->EnemyCommander = GetWorld()->SpawnActorDeferred<ACommandPlayerState>(ACommandPlayerState::StaticClass(),
@@ -125,7 +145,7 @@ void ACommandGameMode::PreLogin(const FString& Options, const FString& Address,
 	const ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!bLevelValid)
 	{
-		ErrorMessage = TEXT("Map lacks an arena or headquarters");
+		ErrorMessage = TEXT("Map lacks an arena, headquarters, regions or deposits");
 		return;
 	}
 	if (State && State->MatchResult != EMatchResult::Ongoing)

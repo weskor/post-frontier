@@ -3,10 +3,13 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
+#include "DepositSite.h"
+#include "MapRegion.h"
 #include "CommandGameMode.h"
 #include "Content/BuildingDefinition.h"
 #include "Headquarters.h"
 #include "NavigationSystem.h"
+#include "Rules/PlacementPolicy.h"
 #include "Components/BoxComponent.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionLifecycleTest, "CoopRTS.Construction.Lifecycle",
@@ -21,14 +24,63 @@ namespace ConstructionScenarioTests
 using namespace ArmyTestSetup;
 bool FindPlacement(ACommandGameState* State, int32 BuildingIndex, const FVector& Center, FVector& Result)
 {
-	for (int32 Ring = 0; Ring < 5; ++Ring)
-		for (int32 Direction = 0; Direction < 16; ++Direction)
+	const UBuildingDefinition* Definition = State->Content->Building(BuildingIndex);
+	if (!Definition) return false;
+	if (Definition->bRequiresDeposit)
+	{
+		for (ADepositSite* Deposit : State->Deposits)
 		{
-			const float Angle = Direction * PI / 8.f;
-			FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 110.f);
-			Point.Z = 5.f;
+			if (!IsValid(Deposit) || IsValid(Deposit->Extractor)) continue;
+			const AMapRegion* Region = State->FindRegionAt(Deposit->GetActorLocation());
+			const AMapRegion* RequestedRegion = State->FindRegionAt(Center);
+			if (!Region || Region != RequestedRegion) continue;
+			const FVector Point = State->ResolveBuildingLocation(BuildingIndex, Deposit->GetActorLocation());
 			FString Reason;
 			if (State->ValidateBuildingPlacement(BuildingIndex, 0, Point, Reason)) { Result = Point; return true; }
+		}
+		return false;
+	}
+	for (int32 Ring = 0; Ring < 9; ++Ring)
+		for (int32 Direction = 0; Direction < 32; ++Direction)
+		{
+			const float Angle = Direction * PI / 16.f;
+			FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
+			Point.Z = 5.f;
+			Point = State->ResolveBuildingLocation(BuildingIndex, Point);
+			if (State->FindRegionAt(Point) != State->FindRegionAt(Center)) continue;
+			FString Reason;
+			if (State->ValidateBuildingPlacement(BuildingIndex, 0, Point, Reason)) { Result = Point; return true; }
+		}
+	return false;
+}
+bool AssignNavigableFront(ACommandPlayerController* PC, ACommandBuilding* Producer,
+	EFrontOrder Order, const FVector& Requested)
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Producer->GetWorld());
+	if (!Navigation) return false;
+	// Projection alone may pick a disconnected island. The owning RPC also validates the complete route.
+	for (int32 Ring = 0; Ring <= 6; ++Ring)
+		for (int32 Direction = 0; Direction < (Ring == 0 ? 1 : 12); ++Direction)
+		{
+			const float Angle = Direction * PI / 6.f;
+			const FVector Candidate = Requested + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (Ring * 200.f);
+			FNavLocation Ground;
+			if (!Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(75.f, 75.f, 200.f))
+				|| !AArenaBounds::IsTravelLocation(Producer->GetWorld(), Ground.Location)) continue;
+			bool bClearFormation = true;
+			for (int32 X = -4; X <= 4 && bClearFormation; ++X)
+				for (int32 Y = -4; Y <= 4; ++Y)
+				{
+					const FVector Sample = Ground.Location + FVector(X * 50.f, Y * 50.f, 0.f);
+					FNavLocation Clear;
+					if (!Navigation->ProjectPointToNavigation(Sample, Clear, FVector(15.f, 15.f, 100.f))
+						|| FVector::DistSquared2D(Sample, Clear.Location) > FMath::Square(15.f))
+					{ bClearFormation = false; break; }
+				}
+			if (!bClearFormation) continue;
+			PC->ServerAssignFront(Producer, Order, Ground.Location);
+			if (Producer->FrontOrder == Order && Producer->HasConfiguredFront()
+				&& Producer->FrontLocation.Equals(Ground.Location, 1.f)) return true;
 		}
 	return false;
 }
@@ -58,6 +110,22 @@ public:
 			FVector Location;
 			if (!FindPlacement(State, BarracksIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 				return Fail(TEXT("No valid barracks footprint in HQ construction territory"));
+			const FVector Snapped = Location;
+			Location += FVector(7.f, -11.f, 0.f);
+			if (!Check(Location.X != Snapped.X && Location.Y != Snapped.Y,
+				TEXT("Server placement fixture requests explicitly off-grid XY"))) return true;
+			FString RequestedReason, SnappedReason;
+			const bool bRequestedValid = State->ValidateBuildingPlacement(BarracksIndex, 0, Location, RequestedReason);
+			const bool bSnappedValid = State->ValidateBuildingPlacement(BarracksIndex, 0, Snapped, SnappedReason);
+			if (!Check(bRequestedValid && bSnappedValid && RequestedReason == SnappedReason,
+				TEXT("Off-grid and snapped valid placements have the same verdict and reason"))) return true;
+			if (!Check(State->IsInBuildTerritory(BarracksIndex, 0, Location)
+				&& State->IsInBuildTerritory(BarracksIndex, 0, Snapped),
+				TEXT("Off-grid and snapped valid footprints share build territory"))) return true;
+			UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+			FNavLocation Ground;
+			if (!Check(Navigation && Navigation->ProjectPointToNavigation(Snapped, Ground, FVector(45.f, 45.f, 200.f)),
+				TEXT("Server placement fixture has navigable snapped ground"))) return true;
 			const int32 Before = Wallet->Resources;
 			FString PreviewReason;
 			if (!Check(PC->CanPlaceBuildingAt(BarracksIndex, Location, PreviewReason),
@@ -71,6 +139,21 @@ public:
 				if (IsValid(Candidate) && Candidate->OwningPlayerState == Wallet && Candidate->Kind == EBuildingKind::Barracks) Building = Candidate;
 			if (!Check(Building.IsValid() && Wallet->Resources == Before - Barracks->BuildCost,
 				TEXT("Owned placement creates one paid barracks"))) return true;
+			const FVector BuiltLocation = Building->GetActorLocation();
+			if (!Check(BuiltLocation.X == Snapped.X && BuiltLocation.Y == Snapped.Y,
+				TEXT("Off-grid server request builds at exact snapped XY, not navigation-projected XY"))) return true;
+			if (!Check(FMath::IsNearlyEqual(BuiltLocation.Z, Ground.Location.Z + 65.f, .01),
+				TEXT("Server placement uses navigation ground height plus 65"))) return true;
+			const bool bRequestedOverlap = State->ValidateBuildingPlacement(BarracksIndex, 0, Location, RequestedReason);
+			const bool bSnappedOverlap = State->ValidateBuildingPlacement(BarracksIndex, 0, Snapped, SnappedReason);
+			if (!Check(!bRequestedOverlap && !bSnappedOverlap && !RequestedReason.IsEmpty() && RequestedReason == SnappedReason,
+				TEXT("Off-grid and snapped overlapping placements have the same rejection and reason"))) return true;
+			const FVector OutsideSnapped = PlacementPolicy::SnapToBuildGrid(OutsideArena(State),
+				ACommandBuilding::GetFootprintRadius(*Barracks));
+			const FVector OutsideRequest = OutsideSnapped + FVector(7.f, -11.f, 0.f);
+			if (!Check(!State->IsInBuildTerritory(BarracksIndex, 0, OutsideRequest)
+				&& !State->IsInBuildTerritory(BarracksIndex, 0, OutsideSnapped),
+				TEXT("Off-grid and snapped outside footprints both lack build territory"))) return true;
 			if (!Check(!Building->IsComplete(), TEXT("Placement begins construction instead of instantly completing"))) return true;
 			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, true);
 			if (!Check(!Building->bProductionEnabled, TEXT("Unfinished production rejects activation"))) return true;
@@ -198,10 +281,10 @@ public:
 				// Fronts are HQ-relative: the first force east-south of the HQ, the others
 				// further north, out of the recruit's later travel corridor; this scenario
 				// proves ownership/refill, not crowd-grid escape.
-				const FVector Front = Index == 0 ? FromFriendlyHQ(State, 1700.f, -1100.f, 5.f)
+				const FVector RequestedFront = Index == 0 ? FromFriendlyHQ(State, 1700.f, -1100.f, 5.f)
 					: FromFriendlyHQ(State, 1000.f, 1900.f + Index * 400.f, 5.f);
-				if (!Producer->SetFront(EFrontOrder::Defend, Front))
-					return Fail(TEXT("Independent force front rejected"));
+				if (!AssignNavigableFront(PC, Producer, EFrontOrder::Defend, RequestedFront))
+					return Fail(*FString::Printf(TEXT("Independent force %d has no reachable front near %s"), Index, *RequestedFront.ToString()));
 				Producer->SetProduction(Producer->ProductionUnitIndex, true);
 			}
 			Stage = 3;
@@ -213,6 +296,8 @@ public:
 			const int32 Costs[] = {30, 20, 50};
 			int32 ExpectedDebit = 0;
 			bool bFull = true;
+			const bool bReportProgress = World->GetTimeSeconds() - LastProgressReport >= 5.f;
+			if (bReportProgress) LastProgressReport = World->GetTimeSeconds();
 			for (int32 Index = 0; Index < Producers.Num(); ++Index)
 			{
 				int32 Joined, Travelling;
@@ -221,6 +306,10 @@ public:
 				if (!Check(ValidMembers(Producers[Index].Get(), Capacities[Index]), TEXT("Force roles, ownership and unique slots remain valid"))) return true;
 				ExpectedDebit += (Joined + Travelling - (Index == 0 ? 1 : 0)) * Costs[Index];
 				bFull &= Joined == Capacities[Index] && Travelling == 0;
+				if (bReportProgress)
+					UE_LOG(LogTemp, Display, TEXT("Production fixture filling force=%d joined=%d travelling=%d state=%d front=%s"),
+						Index, Joined, Travelling, static_cast<int32>(Producers[Index]->GetProductionState()),
+						*Producers[Index]->FrontLocation.ToString());
 			}
 			if (!Check(Wallet->Resources == FillBalance - ExpectedDebit, TEXT("Each produced unit charges only its own role price"))) return true;
 			if (!bFull) return false;
@@ -263,7 +352,8 @@ public:
 			if (!Check(FVector::Dist2D(RecruitStart, Building->GetActorLocation()) < 1200.f
 				&& FVector::Dist2D(RecruitStart, JoinedStart) > 500.f && JoinedCenterMatches(Squad.Get()),
 				TEXT("Replacement leaves producer rather than spawning at force; center excludes travellers"))) return true;
-			PC->ServerAssignFront(Building.Get(), EFrontOrder::Defend, FromFriendlyHQ(State, 1700.f, 3100.f, 5.f));
+			if (!AssignNavigableFront(PC, Building.Get(), EFrontOrder::Defend, FromFriendlyHQ(State, 1700.f, 3100.f, 5.f)))
+				return Fail(TEXT("Replacement front needs a complete navigable route"));
 			Stage = 5;
 			return false;
 		}
@@ -373,7 +463,7 @@ public:
 				TEXT("A new producer creates its own empty force instead of adopting orphan survivors"))) return true;
 			NewProducer->SetProduction(UnitIndex(State, EUnitRole::Frontline), false);
 			ReplacementBalance = Wallet->Resources;
-			State->MatchResult = EMatchResult::Victory; // Terminal guard fixture, not outcome proof.
+			State->SetMatchResult(EMatchResult::Victory); // Terminal guard fixture, not outcome proof.
 			const float Progress = Producers[2]->ProductionProgressSeconds;
 			PC->ServerConfigureProduction(Producers[2].Get(), EUnitRole::Siege, true);
 			PC->ServerAssignFront(Producers[1].Get(), EFrontOrder::FallBack, FromFriendlyHQ(State, 1700.f, 600.f, 5.f));
@@ -444,9 +534,22 @@ private:
 		FVector Location;
 		if (!FindPlacement(State, WorkshopIndex, State->FriendlyHeadquarters->GetActorLocation(), Location))
 			return Fail(TEXT("No workshop footprint in HQ territory"));
+		const FVector Snapped = Location;
+		Location += FVector(-9.f, 13.f, 0.f);
+		if (!Check(Location.X != Snapped.X && Location.Y != Snapped.Y,
+			TEXT("Direct placement fixture requests explicitly off-grid XY"))) return true;
+		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+		FNavLocation Ground;
+		if (!Check(Navigation && Navigation->ProjectPointToNavigation(Snapped, Ground, FVector(45.f, 45.f, 200.f)),
+			TEXT("Direct placement fixture has navigable snapped ground"))) return true;
 		FString Reason;
 		ACommandBuilding* Workshop = State->TryPlaceBuilding(WorkshopIndex, Location, Wallet, 0, Reason);
 		if (!Check(Workshop != nullptr, TEXT("Workshop construction accepted"))) return true;
+		const FVector BuiltLocation = Workshop->GetActorLocation();
+		if (!Check(BuiltLocation.X == Snapped.X && BuiltLocation.Y == Snapped.Y,
+			TEXT("Off-grid TryPlaceBuilding request builds the even-cell workshop at exact snapped XY"))) return true;
+		if (!Check(FMath::IsNearlyEqual(BuiltLocation.Z, Ground.Location.Z + 65.f, .01),
+			TEXT("Direct placement uses navigation ground height plus 65"))) return true;
 		Workshop->Tick(60.f);
 		const int32 ResearchBalance = Wallet->Resources;
 		PC->ServerResearch(Workshop, EArmyDoctrine::SiegeOptics);
@@ -462,40 +565,123 @@ private:
 		const int32 AfterCancel = Wallet->Resources;
 		PC->ServerCancelBuilding(Cancelled);
 		if (!Check(Wallet->Resources == AfterCancel, TEXT("Repeated cancellation cannot mint resources"))) return true;
-		if (State->CaptureSites.IsEmpty()) return Fail(TEXT("No resource sector in map"));
-		ACapturePoint* Site = State->CaptureSites[0];
+		ADepositSite* Deposit = nullptr;
+		ACapturePoint* Site = nullptr;
+		for (ADepositSite* Candidate : State->Deposits)
+		{
+			if (!IsValid(Candidate) || IsValid(Candidate->Extractor)) continue;
+			for (AMapRegion* Region : State->Regions)
+				if (IsValid(Region) && Region->RegionIndex == Candidate->RegionIndex && IsValid(Region->Anchor))
+				{
+					Deposit = Candidate;
+					Site = Region->Anchor;
+					break;
+				}
+			if (Site) break;
+		}
+		if (!Site || !Deposit) return Fail(TEXT("No anchored region with a free deposit in map"));
 		AArmyGroup* Occupiers = ArmyTestSetup::SpawnGroup(World, PC, 10, Site->GetActorLocation() + FVector(0.f, 0.f, 100.f));
 		if (!Check(Occupiers != nullptr, TEXT("Real capture occupants spawn"))) return true;
+		Occupiers->SetActorTickEnabled(false);
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorTickEnabled(false);
 		Site->AdvanceCapture(20.f);
-		if (!Check(Site->ControllingTeam == 0 && !Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 0,
-			TEXT("Occupation secures land but bare capture provides no outpost income"))) return true;
-		if (!FindPlacement(State, OutpostIndex, Site->GetActorLocation(), Location)) return Fail(TEXT("No valid secured-sector outpost placement"));
-		ACommandBuilding* Outpost = State->TryPlaceBuilding(OutpostIndex, Location, Wallet, 0, Reason);
-		if (!Check(Outpost != nullptr, TEXT("Secured territory accepts outpost"))) return true;
-		Outpost->Tick(60.f);
-		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
+		if (!Check(Site->ControllingTeam == 0 && State->GetRegionController(Deposit->RegionIndex) == 0
+			&& State->GetIncomePerSecond(Wallet) == 2 && State->GetIncomePerSecond(OtherWallet) == 2,
+			TEXT("Anchor capture grants polygon rights but no shared income"))) return true;
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(FromFriendlyHQ(State, 0.f, 0.f, 100.f));
+		Site->AdvanceCapture(20.f); // Capture rights persist; clear the deposit footprint before construction.
+		if (!FindPlacement(State, BarracksIndex, Site->GetActorLocation(), Location))
+			return Fail(TEXT("Captured region without an extractor must permit a barracks footprint"));
+		const int32 RegionBuildBalance = Wallet->Resources;
+		ACommandBuilding* RegionBarracks = State->TryPlaceBuilding(BarracksIndex, Location, Wallet, 0, Reason);
+		if (!Check(RegionBarracks && State->IsInBuildTerritory(BarracksIndex, 0, Location)
+			&& Wallet->Resources == RegionBuildBalance - State->Content->Building(BarracksIndex)->BuildCost
+			&& State->GetIncomePerSecond(Wallet) == 2,
+			TEXT("Bare capture grants paid barracks placement but only baseline income"))) return true;
+		if (!Check(RegionBarracks->CancelConstruction() && Wallet->Resources == RegionBuildBalance,
+			TEXT("Captured-region barracks cancellation refunds its unbuilt cost"))) return true;
+		if (!FindPlacement(State, ExtractorIndex, Deposit->GetActorLocation(), Location))
+			return Fail(TEXT("No free controlled-region deposit placement"));
+		const FVector Requested = Location + FVector(71.f, -63.f, 0.f);
+		ACommandBuilding* Extractor = State->TryPlaceBuilding(ExtractorIndex, Requested, Wallet, 0, Reason);
+		if (!Check(Extractor && Extractor->Kind == EBuildingKind::Extractor && IsValid(Extractor->Deposit)
+			&& Extractor->Deposit->Extractor == Extractor
+			&& Extractor->GetActorLocation().X == Extractor->Deposit->GetActorLocation().X
+			&& Extractor->GetActorLocation().Y == Extractor->Deposit->GetActorLocation().Y,
+			TEXT("Off-deposit request snaps exact XY and reserves a free deposit"))) return true;
+		Deposit = Extractor->Deposit;
+		if (!Check(State->GetIncomePerSecond(Wallet) == 2,
+			TEXT("Unfinished extractor reserves deposit without paying income"))) return true;
+		const int32 OccupiedBalance = Wallet->Resources;
+		if (!Check(!State->TryPlaceBuilding(ExtractorIndex, Deposit->GetActorLocation(), Wallet, 0, Reason)
+			&& Wallet->Resources == OccupiedBalance, TEXT("Occupied deposit rejects duplicate placement without debit"))) return true;
+		Extractor->Tick(60.f);
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(FromFriendlyHQ(State, 0.f, 0.f, 100.f));
 		Site->AdvanceCapture(20.f);
-		State->RefreshTerritory();
-		if (!Check(Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 1 && !Site->bFriendlyPresent,
-			TEXT("Completed outpost retains construction/income without occupying troops"))) return true;
-		const int32 IncomeBefore = Wallet->Resources;
+		if (!Check(Site->ControllingTeam == 0 && !Site->bFriendlyPresent
+			&& State->GetRegionController(Deposit->RegionIndex) == 0,
+			TEXT("Controlled polygon retains rights after real force departure"))) return true;
+		const int32 Rate = Deposit->RatePerSecond();
+		if (!Check(Rate == (Deposit->bRich ? 6 : 4) && Deposit->Remaining == (Deposit->bRich ? 3000 : 2400),
+			TEXT("Deposit kind selects exact finite total and rate"))) return true;
+		const int32 IncomeBefore = Wallet->Resources, OtherBefore = OtherWallet->Resources;
+		const int32 RemainingBefore = Deposit->Remaining;
 		State->bVerificationIncomePaused = false;
 		State->Tick(2.f);
 		State->bVerificationIncomePaused = true;
-		if (!Check(Wallet->Resources == IncomeBefore + State->GetIncomePerSecond() * 2,
-			TEXT("Established outpost pays territory income through normal GameState economy"))) return true;
+		if (!Check(State->GetIncomePerSecond(Wallet) == 2 + Rate && State->GetIncomePerSecond(OtherWallet) == 2
+			&& Wallet->Resources == IncomeBefore + (2 + Rate) * 2 && OtherWallet->Resources == OtherBefore + 4
+			&& Deposit->Remaining == RemainingBefore - Rate * 2,
+			TEXT("Completed extractor pays only builder, baseline pays teammate, deposit drains exactly"))) return true;
 		AArmyGroup* Enemy = SpawnGroup(World, nullptr, -1, HostileStaging(State));
 		if (!Enemy) return Fail(TEXT("Hostile destruction fixture failed"));
-		Outpost->ReceiveAttack(Outpost->Health, Enemy->GetUnits()[0]);
-		State->RefreshTerritory();
-		if (!Check(!Site->IsEstablishedForTeam(0) && State->ControlledResourceSites == 0 && Building.IsValid()
-			&& Building->OwningPlayerState == Wallet, TEXT("Destroyed outpost removes rights/income without converting surviving buildings"))) return true;
-		Test->AddInfo(TEXT("Construction proof: placement/payment/rejections, construction, ownership, research, cancellation, real capture, persistent outpost income and destruction."));
+		Enemy->SetActorTickEnabled(false);
+		for (AArmyUnit* Unit : Enemy->GetUnits()) Unit->SetActorTickEnabled(false);
+		for (AArmyUnit* Unit : Enemy->GetUnits()) Unit->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+		Site->AdvanceCapture(40.f);
+		if (!Check(Extractor->IsAlive() && State->GetRegionController(Deposit->RegionIndex) == 5
+			&& !State->IsInBuildTerritory(BarracksIndex, 0, Site->GetActorLocation()),
+			TEXT("Living extractor cannot lock anchor capture or preserve former owner's polygon rights"))) return true;
+		for (AArmyUnit* Unit : Enemy->GetUnits()) Unit->SetActorLocation(HostileStaging(State));
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+		Site->AdvanceCapture(40.f);
+		for (AArmyUnit* Unit : Occupiers->GetUnits()) Unit->SetActorLocation(FromFriendlyHQ(State, 0.f, 0.f, 100.f));
+		Site->AdvanceCapture(20.f);
+		Deposit->Remaining = 3; // Isolate final partial payment, not claimed natural depletion duration.
+		const int32 FinalBefore = Wallet->Resources, FinalOther = OtherWallet->Resources;
+		State->bVerificationIncomePaused = false;
+		State->Tick(2.f);
+		State->Tick(2.f);
+		State->bVerificationIncomePaused = true;
+		if (!Check(Deposit->Remaining == 0 && State->GetIncomePerSecond(Wallet) == 2
+			&& Wallet->Resources == FinalBefore + 8 + 3 && OtherWallet->Resources == FinalOther + 8,
+			TEXT("Final partial payment cannot overdraw deposit; next tick pays baseline only"))) return true;
+		Extractor->ReceiveAttack(Extractor->Health, Enemy->GetUnits()[0]);
+		if (!Check(!IsValid(Deposit->Extractor) && Building.IsValid() && Building->OwningPlayerState == Wallet
+			&& Site->ControllingTeam == 0 && State->GetIncomePerSecond(Wallet) == 2
+			&& State->IsInBuildTerritory(BarracksIndex, 0, Site->GetActorLocation()),
+			TEXT("Destroyed extractor frees deposit without changing capture rights or ownership"))) return true;
+		const AMapRegion* Region = State->FindRegionAt(Deposit->GetActorLocation());
+		FVector ContestLocation = Deposit->GetActorLocation();
+		for (const FVector2D& Vertex : Region->Polygon)
+		{
+			const FVector Candidate = Deposit->GetActorLocation() * .2f + FVector(Vertex.X, Vertex.Y, 100.f) * .8f;
+			if (Region->Contains(Candidate) && FVector::Dist2D(Candidate, Site->GetActorLocation()) > ACapturePoint::CaptureRadius + 100.f)
+			{ ContestLocation = Candidate; break; }
+		}
+		if (!Check(FVector::Dist2D(ContestLocation, Site->GetActorLocation()) > ACapturePoint::CaptureRadius,
+			TEXT("Contest fixture stands inside polygon but outside capture circle"))) return true;
+		Enemy->GetUnits()[0]->SetActorLocation(ContestLocation);
+		if (!Check(State->IsRegionContested(Deposit->RegionIndex, 0)
+			&& !State->IsInBuildTerritory(ExtractorIndex, 0, Deposit->GetActorLocation()),
+			TEXT("Enemy anywhere in region denies construction even outside anchor radius"))) return true;
+		Test->AddInfo(TEXT("Construction proof: paid snapped placement, owner isolation, research, cancellation, polygon capture/contest, builder-only finite extractor payment, depletion and freeing."));
 		return true;
 	}
 	FAutomationTestBase* Test;
 	bool bProduction;
 	int32 Stage = 0;
+	float LastProgressReport = 0.f;
 	TWeakObjectPtr<ACommandBuilding> Building;
 	TWeakObjectPtr<AArmyGroup> Squad;
 	TArray<TWeakObjectPtr<ACommandBuilding>> Producers;

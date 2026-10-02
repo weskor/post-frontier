@@ -7,7 +7,7 @@ UENUM(BlueprintType)
 enum class EBuildingKind : uint8
 {
 	Barracks,
-	Outpost,
+	Extractor,
 	Workshop
 };
 

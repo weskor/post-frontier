@@ -7,6 +7,8 @@
 #include "CapturePoint.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "MapRegion.h"
+#include "DepositSite.h"
 #include "CommandPlayerController.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -22,12 +24,6 @@ namespace
 	const FLinearColor Neutral(.46f, .50f, .55f);
 	const FLinearColor Contested(.94f, .72f, .34f);
 	const FLinearColor View(.75f, .83f, .88f, .80f);
-	const FVector2D RingPoints[] = {
-		{1, 0}, {.923880, .382683}, {.707107, .707107}, {.382683, .923880},
-		{0, 1}, {-.382683, .923880}, {-.707107, .707107}, {-.923880, .382683},
-		{-1, 0}, {-.923880, -.382683}, {-.707107, -.707107}, {-.382683, -.923880},
-		{0, -1}, {.382683, -.923880}, {.707107, -.707107}, {.923880, -.382683}
-	};
 
 	bool Finite(FVector2D Point)
 	{
@@ -202,19 +198,31 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 	}
 	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>())
 	{
+		for (const AMapRegion* Region : State->Regions)
+		{
+			if (!IsValid(Region)) continue;
+			const int32 Team = State->GetRegionController(Region->RegionIndex);
+			const FLinearColor Color = TeamColor(Team);
+			for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
+			{
+				const FVector2D& A = Region->Polygon[Index];
+				const FVector2D& B = Region->Polygon[(Index + 1) % Region->Polygon.Num()];
+				FVector2D Start, End;
+				if (Map.Point(FVector(A.X, A.Y, 0.f), Start) && Map.Point(FVector(B.X, B.Y, 0.f), End))
+					Map.Line(Start, End, Color.CopyWithNewOpacity(.45f));
+			}
+		}
+		for (const ADepositSite* Deposit : State->Deposits)
+		{
+			FVector2D Point;
+			if (IsValid(Deposit) && Map.Point(Deposit->GetActorLocation(), Point))
+				Map.Diamond(Point, 2.0, Deposit->Remaining > 0 ? Contested : Neutral);
+		}
 		for (const ACapturePoint* Site : State->CaptureSites)
 		{
 			FVector2D Point;
 			if (!IsValid(Site) || !Map.Point(Site->GetActorLocation(), Point)) continue;
 			const FLinearColor Color = TeamColor(Site->ControllingTeam);
-			const double Radius = ACapturePoint::TerritoryRadius * Size / (2.0 * Map.Extent.X);
-			FVector2D Previous = Point + FVector2D(Radius, 0);
-			for (int32 Segment = 1; Segment <= 16; ++Segment)
-			{
-				const FVector2D Next = Point + RingPoints[Segment % 16] * Radius;
-				Map.Line(Previous, Next, FLinearColor(Color.R, Color.G, Color.B, .30f));
-				Previous = Next;
-			}
 			Map.Diamond(Point, 4.0, Color);
 			if (Site->bFriendlyPresent && Site->bEnemyPresent) Map.Diamond(Point, 6.5, Contested);
 		}

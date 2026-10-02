@@ -3,6 +3,7 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
+#include "DepositSite.h"
 #include "Headquarters.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyMatchVictoryTest, "CoopRTS.Match.VictoryRestart",
@@ -87,10 +88,10 @@ public:
 		if (State->MatchResult != EMatchResult::Ongoing || Wallet->CommanderIndex != Slot
 			|| Wallet->Doctrine != EArmyDoctrine::None
 			|| Wallet->Resources < ACommandPlayerState::InitialResources
-			|| Wallet->Resources > ACommandPlayerState::InitialResources + 2 * State->GetIncomePerSecond()
+			|| Wallet->Resources > ACommandPlayerState::InitialResources + 2 * State->GetIncomePerSecond(Wallet)
 			|| State->FriendlyHeadquarters->Health != State->FriendlyHeadquarters->MaxHealth()
 			|| State->EnemyHeadquarters->Health != State->EnemyHeadquarters->MaxHealth()
-			|| State->ControlledResourceSites != 0)
+			|| State->GetIncomePerSecond(Wallet) != ACommandGameState::BaselineIncomePerSecond)
 			return Fail(TEXT("Restart must preserve commander identity but reset economy/research/HQs/territory"));
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 0) return Fail(TEXT("Fresh world must not recreate fixed player armies"));
@@ -99,6 +100,10 @@ public:
 		for (ACapturePoint* Site : State->CaptureSites)
 			if (!IsValid(Site) || Site->ControllingTeam != -1 || Site->CaptureProgress != 0.f)
 				return Fail(TEXT("New sectors must start neutral"));
+		for (const ADepositSite* Deposit : State->Deposits)
+			if (!IsValid(Deposit) || IsValid(Deposit->Extractor)
+				|| Deposit->Remaining != (Deposit->bRich ? 3000 : 2400))
+				return Fail(TEXT("Fresh deposits must reset occupancy and finite reserves"));
 		Test->AddInfo(TEXT("Real weapon outcome, terminal command/economy guards and fresh construction match restart passed."));
 		return true;
 	}

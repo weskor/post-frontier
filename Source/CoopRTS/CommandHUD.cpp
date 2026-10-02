@@ -1,19 +1,25 @@
 #include "CommandHUD.h"
 
 #include "ArenaBounds.h"
+#include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CanvasItem.h"
 #include "CapturePoint.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "DepositSite.h"
+#include "MapRegion.h"
 #include "Content/MatchContent.h"
 #include "CommandPlayerController.h"
 #include "CommandMinimap.h"
 #include "CommandPlayerState.h"
+#include "CoopSessionSubsystem.h"
+#include "Engine/GameInstance.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "EngineFontServices.h"
 #include "Fonts/FontMeasure.h"
 #include "Headquarters.h"
@@ -64,8 +70,8 @@ namespace
 	constexpr float MinimapSize = 144.f;
 	constexpr float ModeHeight = 62.f;
 	constexpr float FeedbackHeight = 26.f;
-	constexpr float BannerWidth = 580.f;
-	constexpr float BannerHeight = 112.f;
+	constexpr float ScreenWidth = 620.f;
+	constexpr float ScreenHeight = 560.f;
 	constexpr float HeaderHeight = 44.f;
 	constexpr float LabelHeight = 18.f;
 	constexpr float RowHeight = 26.f;
@@ -191,9 +197,9 @@ namespace
 		FRect Minimap;
 		FRect Construction;
 		FRect Feedback;
-		FRect Banner;
+		FRect Menu;
+		FRect Screen;
 		bool bFeedback = false;
-		bool bBanner = false;
 	};
 
 	FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
@@ -203,7 +209,9 @@ namespace
 		Layout.Scale = FMath::Clamp(FMath::Min(PixelWidth / ReferenceWidth, PixelHeight / ReferenceHeight), MinScale, MaxScale);
 		Layout.Width = PixelWidth / Layout.Scale;
 		Layout.Height = PixelHeight / Layout.Scale;
-		Layout.Top = {Margin, Margin, FMath::Min(980.f, Layout.Width - 2.f * Margin), TopHeight};
+		Layout.Top = {Margin, Margin, FMath::Min(980.f, Layout.Width - 120.f), TopHeight};
+		Layout.Menu = {Layout.Width - Margin - 90.f, Margin, 90.f, TopHeight};
+		Layout.Screen = {(Layout.Width - ScreenWidth) * .5f, (Layout.Height - ScreenHeight) * .5f, ScreenWidth, ScreenHeight};
 		Layout.Minimap = {Margin, Layout.Height - Margin - MinimapSize, MinimapSize, MinimapSize};
 		const float X = Layout.Minimap.Right() + Gap;
 		Layout.Construction = {X, Layout.Height - Margin - DeckHeight, BuildWidth, 28.f};
@@ -215,9 +223,6 @@ namespace
 			: FRect{InspectorX, Layout.Height - Margin - ModeHeight, Layout.Inspector.W, ModeHeight};
 		Layout.bFeedback = Context.Controller && !Context.Controller->GetOrderFeedback().IsEmpty();
 		Layout.Feedback = {Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight};
-		Layout.bBanner = Context.bTerminal;
-		Layout.Banner = {(Layout.Width - BannerWidth) * .5f, FMath::Max(TopHeight + 24.f, Layout.Height * .2f),
-			BannerWidth, BannerHeight};
 		return Layout;
 	}
 
@@ -255,7 +260,7 @@ namespace
 		return {Inspector.Right() - Pad - 230.f, Inspector.Bottom() - Pad - 36.f, 230.f, 36.f};
 	}
 
-	enum class EBlock : uint8 { None, Terminal, Funds, ForceLocked, Chosen };
+	enum class EBlock : uint8 { None, Terminal, Funds, ForceLocked, ForceUnconfigured, Chosen };
 
 	struct FButton
 	{
@@ -281,6 +286,66 @@ namespace
 	void ForEachButton(const FContext& Context, const FLayout& Layout, Fn&& Visit)
 	{
 		if (!Context.Controller || Layout.Scale <= 0.f) return;
+		const ECommandScreen Screen = Context.Controller->GetUIScreen();
+		if (Screen != ECommandScreen::Game)
+		{
+			const FRect& Panel = Layout.Screen;
+			const UCoopSessionSubsystem* Session = Context.Controller->GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>();
+			auto Button = [&Visit, &Panel, Session](EHUDAction Action, int32 Row)
+			{
+				const bool bAvailable = Action == EHUDAction::HostCoop ? Session && Session->CanHost()
+					: Action == EHUDAction::PlaySolo ? !Session || !Session->IsBusy() : true;
+				Visit(FButton{Action, {Panel.X + 40.f, Panel.Y + 300.f + Row * 46.f, Panel.W - 80.f, 38.f},
+					bAvailable ? EBlock::None : EBlock::Chosen, false, 0});
+			};
+			switch (Screen)
+			{
+			case ECommandScreen::MainMenu:
+			{
+				const float Width = (Panel.W - 88.f) * .5f;
+				const EBlock Block = Session && Session->IsBusy() ? EBlock::Chosen : EBlock::None;
+				Visit(FButton{EHUDAction::MapV2, {Panel.X + 40.f, Panel.Y + 246.f, Width, 38.f},
+					Block, !Session || Session->IsV2Selected(), 0});
+				Visit(FButton{EHUDAction::MapClassic, {Panel.X + 48.f + Width, Panel.Y + 246.f, Width, 38.f},
+					Block, Session && !Session->IsV2Selected(), 0});
+				Button(EHUDAction::PlaySolo, 0); Button(EHUDAction::HostCoop, 1);
+				Button(EHUDAction::Controls, 2); Button(EHUDAction::Audio, 3); Button(EHUDAction::Quit, 4);
+			}
+				break;
+			case ECommandScreen::Pause:
+				if (Session && Session->IsHosting())
+				{
+					const float Width = (Panel.W - 88.f) * .5f;
+					Visit(FButton{EHUDAction::Resume, {Panel.X + 40.f, Panel.Y + 300.f, Width, 38.f}, EBlock::None, false, 0});
+					Visit(FButton{EHUDAction::InviteFriends, {Panel.X + 48.f + Width, Panel.Y + 300.f, Width, 38.f},
+						Session->CanInvite() ? EBlock::None : EBlock::Chosen, false, 0});
+				}
+				else Button(EHUDAction::Resume, 0);
+				Button(EHUDAction::Controls, 1);
+				Button(EHUDAction::Audio, 2); Button(EHUDAction::MainMenu, 3); Button(EHUDAction::Quit, 4);
+				break;
+			case ECommandScreen::Controls:
+				Button(EHUDAction::Back, 4);
+				break;
+			case ECommandScreen::Audio:
+				Visit(FButton{EHUDAction::VolumeDown, {Panel.X + 40.f, Panel.Y + 280.f, 260.f, 44.f}, EBlock::None, false, 0});
+				Visit(FButton{EHUDAction::VolumeUp, {Panel.Right() - 300.f, Panel.Y + 280.f, 260.f, 44.f}, EBlock::None, false, 0});
+				Button(EHUDAction::Back, 4);
+				break;
+			case ECommandScreen::ConfirmLeave:
+				Button(EHUDAction::ConfirmLeave, 0); Button(EHUDAction::Back, 1);
+				break;
+			case ECommandScreen::ConfirmQuit:
+				Button(EHUDAction::ConfirmQuit, 0); Button(EHUDAction::Back, 1);
+				break;
+			case ECommandScreen::Result:
+				Button(EHUDAction::Restart, 0); Button(EHUDAction::MainMenu, 1); Button(EHUDAction::Quit, 2);
+				break;
+			default: break;
+			}
+			return;
+		}
+		Visit(FButton{EHUDAction::Menu, Layout.Menu, EBlock::None, false, 0});
 		Visit(FButton{EHUDAction::Construction, Layout.Construction, EBlock::None, false, 0});
 		if (!Context.bExpanded) return;
 		auto Emit = [&Context, &Visit](EHUDAction Action, const FRect& Rect, int32 Cost, EBlock Lock, bool bActive)
@@ -309,7 +374,7 @@ namespace
 		{
 			const FRect Recipes = Column(Layout.Inspector, 0, 3);
 			const FRect Production = Column(Layout.Inspector, 1, 3);
-			const FRect Fronts = Column(Layout.Inspector, 2, 3);
+			const FRect Goals = Column(Layout.Inspector, 2, 3);
 			const EBlock RoleLock = Building->bForceConfigured ? EBlock::ForceLocked : EBlock::None;
 			const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
 			const int32 RecipeCount = Content ? FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))) : 0;
@@ -322,10 +387,12 @@ namespace
 			Emit(EHUDAction::ToggleProduction, Row(Production, 1),
 				Building->bForceConfigured || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
 				EBlock::None, Building->bProductionEnabled);
-			const bool bFront = Building->HasConfiguredFront();
-			Emit(EHUDAction::FrontSecure, Row(Fronts, 0), 0, EBlock::None, bFront && Building->FrontOrder == EFrontOrder::Secure);
-			Emit(EHUDAction::FrontDefend, Row(Fronts, 1), 0, EBlock::None, bFront && Building->FrontOrder == EFrontOrder::Defend);
-			Emit(EHUDAction::FrontFallBack, Row(Fronts, 2), 0, EBlock::None, bFront && Building->FrontOrder == EFrontOrder::FallBack);
+			const EBlock GoalLock = Building->bForceConfigured && IsValid(Building->ForceGroup)
+				? EBlock::None : EBlock::ForceUnconfigured;
+			Emit(EHUDAction::GoalHold, Row(Goals, 0, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Hold);
+			Emit(EHUDAction::GoalExpand, Row(Goals, 1, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Expand);
+			Emit(EHUDAction::GoalAssault, Row(Goals, 2, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Assault);
+			Emit(EHUDAction::GoalFallBack, Row(Goals, 3, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::FallBack);
 		}
 		else if (Building->GetDefinition() && Building->GetDefinition()->bOffersResearch)
 		{
@@ -352,36 +419,38 @@ namespace
 	}
 
 
-	const TCHAR* FrontTitle(EFrontOrder Order)
+	const TCHAR* GoalTitle(EForceGoal Goal)
 	{
-		switch (Order)
+		switch (Goal)
 		{
-		case EFrontOrder::Secure: return TEXT("SECURE");
-		case EFrontOrder::Defend: return TEXT("DEFEND");
-		case EFrontOrder::FallBack: return TEXT("FALL BACK");
+		case EForceGoal::Hold: return TEXT("HOLD");
+		case EForceGoal::Expand: return TEXT("EXPAND");
+		case EForceGoal::Assault: return TEXT("ASSAULT");
+		case EForceGoal::FallBack: return TEXT("FALL BACK");
 		default: return TEXT("UNKNOWN");
 		}
 	}
 
-	const TCHAR* FrontPurpose(EFrontOrder Order)
+	const TCHAR* GoalPurpose(EForceGoal Goal)
 	{
-		switch (Order)
+		switch (Goal)
 		{
-		case EFrontOrder::Secure: return TEXT("attack-move");
-		case EFrontOrder::Defend: return TEXT("guard area");
-		case EFrontOrder::FallBack: return TEXT("regroup");
+		case EForceGoal::Hold: return TEXT("pick region");
+		case EForceGoal::Expand: return TEXT("capture region");
+		case EForceGoal::Assault: return TEXT("enemy main");
+		case EForceGoal::FallBack: return TEXT("regroup");
 		default: return TEXT("");
 		}
 	}
 
-	// Matches the front rings drawn in the world by the controller.
-	FLinearColor FrontColor(EFrontOrder Order)
+	FLinearColor GoalColor(EForceGoal Goal)
 	{
-		switch (Order)
+		switch (Goal)
 		{
-		case EFrontOrder::Secure: return FLinearColor(1.f, .36f, .30f);
-		case EFrontOrder::Defend: return FLinearColor(.38f, .92f, .48f);
-		case EFrontOrder::FallBack: return FLinearColor(1.f, .86f, .32f);
+		case EForceGoal::Hold: return FLinearColor(.38f, .92f, .48f);
+		case EForceGoal::Expand: return FLinearColor(.32f, .80f, 1.f);
+		case EForceGoal::Assault: return FLinearColor(1.f, .36f, .30f);
+		case EForceGoal::FallBack: return FLinearColor(1.f, .86f, .32f);
 		default: return Palette::Muted;
 		}
 	}
@@ -529,17 +598,186 @@ namespace
 		}
 	};
 
+	bool ProjectOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position, FVector2D& Screen)
+	{
+		// UE projection rejects points behind the camera; all overlays use HUD-scaled coordinates.
+		if (!Context.Controller->ProjectWorldLocationToScreen(Position, Screen)) return false;
+		Screen /= Paint.Scale;
+		return true;
+	}
+
+	bool OverlayFits(const FPainter& Paint, const FRect& Rect)
+	{
+		return Rect.X >= 0.f && Rect.Y >= 0.f
+			&& Rect.Right() <= Paint.Canvas->ClipX / Paint.Scale
+			&& Rect.Bottom() <= Paint.Canvas->ClipY / Paint.Scale;
+	}
+
+	void DrawUnitHealthBars(const FPainter& Paint, const FContext& Context)
+	{
+		if (!Context.State) return;
+		for (TActorIterator<AArmyUnit> It(Context.Controller->GetWorld()); It; ++It)
+		{
+			const AArmyUnit* Unit = *It;
+			const int32 Maximum = Unit->MaxHealth();
+			if (!Unit->IsAlive() || Maximum <= 0) continue;
+			// QuietSeconds is server-only repair state, not a replicated recent-combat clock.
+			const bool bSelectedForce = Context.Building && IsValid(Unit->GetGroup())
+				&& Unit->GetGroup() == Context.Building->ForceGroup;
+			if (Unit->GetHealth() >= Maximum && !bSelectedForce) continue;
+			FVector2D Screen;
+			if (!ProjectOverlay(Paint, Context, Unit->GetActorLocation() + FVector(0.f, 0.f, 135.f), Screen)) continue;
+			const FRect Back{Screen.X - 18.f, Screen.Y - 11.f, 36.f, 5.f};
+			if (!OverlayFits(Paint, Back)) continue;
+			Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
+			Paint.Bar({Back.X + 1.f, Back.Y + 1.f, Back.W - 2.f, Back.H - 2.f},
+				static_cast<float>(Unit->GetHealth()) / Maximum,
+				Unit->GetTeamIndex() == 5 ? Palette::Bad : Palette::Good);
+		}
+	}
+
+	void DrawStructureOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position,
+		FStringView Label, int32 Health, int32 Maximum, const FLinearColor& Color,
+		bool bConstructing = false, float Progress = 1.f)
+	{
+		if (Maximum <= 0) return;
+		FVector2D Screen;
+		if (!ProjectOverlay(Paint, Context, Position, Screen)) return;
+		const float Line = Paint.LineHeight(10.f, true);
+		const float Width = FMath::Clamp(Paint.TextWidth(Label, 10.f, true) + 12.f, 96.f, 220.f);
+		const FRect Back{Screen.X - Width * .5f, Screen.Y - Line - (bConstructing ? 20.f : 12.f) - 6.f,
+			Width, Line + (bConstructing ? 20.f : 12.f)};
+		if (!OverlayFits(Paint, Back)) return;
+		Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
+		Paint.TextIn(Label, {Back.X + 4.f, Back.Y + 2.f, Width - 8.f, Line},
+			10.f, Color, true, EAlign::Center);
+		Paint.Bar({Back.X + 4.f, Back.Y + Line + 4.f, Width - 8.f, 4.f},
+			static_cast<float>(Health) / Maximum, Color);
+		if (bConstructing)
+			Paint.Bar({Back.X + 4.f, Back.Y + Line + 12.f, Width - 8.f, 4.f}, Progress, Palette::Gold);
+	}
+
+	void DrawHeadquartersOverlays(const FPainter& Paint, const FContext& Context)
+	{
+		if (!Context.State) return;
+		const AHeadquarters* Headquarters[] = {Context.State->FriendlyHeadquarters.Get(), Context.State->EnemyHeadquarters.Get()};
+		for (const AHeadquarters* HQ : Headquarters)
+		{
+			if (!IsValid(HQ)) continue;
+			TStringBuilder<64> Label;
+			Label.Appendf(TEXT("%s HQ %d/%d"), HQ->TeamIndex == 5 ? TEXT("ENEMY") : TEXT("FRIENDLY"),
+				HQ->Health, HQ->MaxHealth());
+			DrawStructureOverlay(Paint, Context, HQ->GetActorLocation() + FVector(0.f, 0.f, 300.f),
+				Label.ToView(), HQ->Health, HQ->MaxHealth(), HQ->TeamIndex == 5 ? Palette::Bad : Palette::Good);
+		}
+	}
+
+	void DrawBuildingOverlays(const FPainter& Paint, const FContext& Context)
+	{
+		if (!Context.State) return;
+		for (const ACommandBuilding* Building : Context.State->Buildings)
+		{
+			if (!IsValid(Building) || !Building->IsAlive()) continue;
+			const UBuildingDefinition* Definition = Building->GetDefinition();
+			TStringBuilder<256> Label;
+			Label << (Definition ? FStringView(Definition->DisplayName.ToString()).Left(160) : FStringView(TEXT("BUILDING")));
+			Label.Appendf(TEXT("  %d/%d"), Building->Health, Building->MaxHealth());
+			DrawStructureOverlay(Paint, Context, Building->GetActorLocation() + FVector(0.f, 0.f, 220.f),
+				Label.ToView(), Building->Health, Building->MaxHealth(),
+				Building->TeamIndex == 5 ? Palette::Bad : Palette::Good,
+				!Building->IsComplete(), Building->ConstructionProgress);
+		}
+	}
+
+	void DrawSectorOverlays(const FPainter& Paint, const FContext& Context)
+	{
+		if (!Context.State) return;
+		const float Line = Paint.LineHeight(10.f, true);
+		for (const ACapturePoint* Site : Context.State->CaptureSites)
+		{
+			if (!IsValid(Site)) continue;
+			FVector2D Screen;
+			if (!ProjectOverlay(Paint, Context, Site->GetActorLocation() + FVector(0.f, 0.f, 110.f), Screen)) continue;
+			const FRect Back{Screen.X - 48.f, Screen.Y - Line - 18.f, 96.f, Line + 12.f};
+			if (!OverlayFits(Paint, Back)) continue;
+			TStringBuilder<32> Label;
+			Label.Appendf(TEXT("REGION %d"), Site->SiteIndex + 1);
+			const FLinearColor OwnerColor = Site->ControllingTeam == 0 ? Palette::Good
+				: Site->ControllingTeam == 5 ? Palette::Bad : Palette::Gold;
+			const FLinearColor CaptureColor = Site->CaptureProgress > 0.f ? Palette::Good
+				: Site->CaptureProgress < 0.f ? Palette::Bad : OwnerColor;
+			Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
+			Paint.TextIn(Label.ToView(), {Back.X, Back.Y + 2.f, Back.W, Line}, 10.f, OwnerColor, true, EAlign::Center);
+			Paint.Bar({Back.X + 4.f, Back.Y + Line + 4.f, Back.W - 8.f, 4.f},
+				FMath::Abs(Site->CaptureProgress), CaptureColor);
+		}
+		for (const ADepositSite* Deposit : Context.State->Deposits)
+		{
+			if (!IsValid(Deposit)) continue;
+			FVector2D Screen;
+			if (!ProjectOverlay(Paint, Context, Deposit->GetActorLocation() + FVector(0.f, 0.f, 100.f), Screen)) continue;
+			const FRect Back{Screen.X - 74.f, Screen.Y, 148.f, Line + 16.f};
+			if (!OverlayFits(Paint, Back)) continue;
+			const bool bTaken = IsValid(Deposit->Extractor);
+			const bool bEmpty = Deposit->Remaining <= 0;
+			const FLinearColor Color = bEmpty ? Palette::Muted : bTaken ? Palette::Gold : Palette::Good;
+			TStringBuilder<80> Label;
+			Label.Appendf(TEXT("%s  %d  +%d/s  %s"), Deposit->bRich ? TEXT("RICH") : TEXT("POWER"),
+				Deposit->Remaining, bEmpty ? 0 : Deposit->RatePerSecond(),
+				bEmpty ? TEXT("EMPTY") : bTaken ? TEXT("TAKEN") : TEXT("FREE"));
+			Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
+			Paint.TextIn(Label.ToView(), Back, 8.f, Color, true, EAlign::Center);
+		}
+	}
+
+	void DrawForceLabels(const FPainter& Paint, const FContext& Context)
+	{
+		if (!Context.State || !Context.Wallet) return;
+		const auto DrawNumber = [&Paint, &Context](const FVector& Position, int32 Number, int32 Commander, float Lift = 6.f)
+		{
+			FVector2D Screen;
+			if (!ProjectOverlay(Paint, Context, Position, Screen)) return;
+			TStringBuilder<16> Text;
+			Text.Appendf(TEXT("%d"), Number);
+			const float Width = FMath::Max(22.f, Paint.TextWidth(Text.ToView(), 14.f, true) + 10.f);
+			const float Height = Paint.LineHeight(14.f, true) + 4.f;
+			const FRect Badge{Screen.X - Width * .5f, Screen.Y - Height - Lift, Width, Height};
+			if (!OverlayFits(Paint, Badge)) return;
+			const FLinearColor Color = AArmyUnit::GetCommanderColor(Commander);
+			Paint.Fill(Badge, FLinearColor(.005f, .008f, .012f, .95f));
+			Paint.Outline(Badge, Color);
+			Paint.TextIn(Text.ToView(), Badge, 14.f, Color, true, EAlign::Center);
+		};
+		for (TActorIterator<AArmyUnit> It(Context.Controller->GetWorld()); It; ++It)
+		{
+			const AArmyUnit* Unit = *It;
+			const AArmyGroup* Group = Unit->GetGroup();
+			if (!Unit->IsAlive() || !IsValid(Group) || Group->ForceNumber <= 0
+				|| !IsValid(Group->GetOwningPlayerState()) || Group->GetTeamIndex() != 0 || Unit->GetTeamIndex() != 0) continue;
+			DrawNumber(Unit->GetActorLocation() + FVector(0.f, 0.f, 135.f),
+				Group->ForceNumber, Group->GetOwningPlayerState()->CommanderIndex, 17.f);
+		}
+		for (const ACommandBuilding* Building : Context.State->Buildings)
+		{
+			if (!IsValid(Building) || !Building->IsAlive() || Building->ForceNumber <= 0
+				|| !IsValid(Building->OwningPlayerState) || Building->TeamIndex != 0) continue;
+			DrawNumber(Building->GetActorLocation() + FVector(0.f, 0.f, 220.f),
+				Building->ForceNumber, Building->OwningPlayerState->CommanderIndex,
+				Paint.LineHeight(10.f, true) + 32.f);
+		}
+	}
+
 	struct FForces
 	{
 		int32 Barracks = 0;
 		int32 CompletedBarracks = 0;
 		int32 Producing = 0;
 		int32 Workshops = 0;
-		int32 Outposts = 0;
+		int32 Extractors = 0;
 		int32 Constructing = 0;
 		int32 ConfiguredForces = 0;
-		int32 OpenSectors = 0;
-		int32 CapturedSectors = 0;
+		int32 FreeDeposits = 0;
+		int32 ControlledRegions = 0;
 	};
 
 	FForces CountForces(const FContext& Context)
@@ -560,20 +798,16 @@ namespace
 				if (Building->bForceConfigured) ++Forces.ConfiguredForces;
 			}
 			else if (Definition && Definition->bOffersResearch) ++Forces.Workshops;
-			else if (Definition && Definition->bEstablishesSector) ++Forces.Outposts;
+			else if (Definition && Definition->bRequiresDeposit) ++Forces.Extractors;
 		}
-		// Sectors held by the team that do not yet have any friendly outpost, finished or not.
-		for (const ACapturePoint* Site : Context.State->CaptureSites)
-		{
-			if (!IsValid(Site) || Site->ControllingTeam != 0) continue;
-			++Forces.CapturedSectors;
-			bool bHasOutpost = false;
-			for (const ACommandBuilding* Building : Context.State->Buildings)
-				if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex == 0
-					&& Building->GetDefinition() && Building->GetDefinition()->bEstablishesSector
-					&& Building->OutpostSite == Site) bHasOutpost = true;
-			if (!bHasOutpost) ++Forces.OpenSectors;
-		}
+		for (const AMapRegion* Region : Context.State->Regions)
+			if (IsValid(Region) && Context.State->GetRegionController(Region->RegionIndex) == 0)
+				++Forces.ControlledRegions;
+		for (const ADepositSite* Deposit : Context.State->Deposits)
+			if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
+				&& Context.State->GetRegionController(Deposit->RegionIndex) == 0
+				&& !Context.State->IsRegionContested(Deposit->RegionIndex, 0))
+				++Forces.FreeDeposits;
 		return Forces;
 	}
 
@@ -600,9 +834,9 @@ namespace
 			return;
 		}
 		TStringBuilder<128> Economy;
-		Economy.Appendf(TEXT("C%d   %d resources  +%d/s   Forces %d   Sectors %d/%d"),
+		Economy.Appendf(TEXT("C%d   %d Power  +%d/s   Forces %d   Regions %d/%d"),
 			Context.Wallet->CommanderIndex + 1, Context.Balance, Context.Wallet->GetIncomePerSecond(),
-			Forces.ConfiguredForces, Context.State->ControlledResourceSites, Context.State->CaptureSites.Num());
+			Forces.ConfiguredForces, Forces.ControlledRegions, Context.State->Regions.Num());
 		Paint.TextIn(Economy.ToView(), {Top.X + Pad, Top.Y, Top.W - 2.f * Pad - 360.f, Top.H},
 			10.f, Palette::Gold, true);
 		const float HQX = Top.Right() - Pad - 350.f;
@@ -619,6 +853,7 @@ namespace
 		case EBlock::Terminal: Reason << TEXT("Match over"); break;
 		case EBlock::Funds: Reason.Appendf(TEXT("Need %d more"), Button.Shortfall); break;
 		case EBlock::ForceLocked: Reason << TEXT("Type locked"); break;
+		case EBlock::ForceUnconfigured: Reason << TEXT("Start & Lock first"); break;
 		case EBlock::Chosen: Reason << TEXT("Locked: one per commander"); break;
 		default: return 0.f;
 		}
@@ -638,6 +873,7 @@ namespace
 		Paint.Text(Title, Rect.X + 8.f, Rect.Y + 4.f * TextScale, 10.f * TextScale, Palette::Text, true, EAlign::Left, Rect.W - 16.f);
 		TStringBuilder<48> Detail;
 		Detail.Appendf(TEXT("%d  /  %.0fs"), Definition->BuildCost, Definition->BuildDuration);
+		if (Definition->bRequiresDeposit) Detail << TEXT("  /  deposit");
 		if (Button.Available()) Paint.Text(Detail.ToView(), Rect.X + 8.f, Rect.Y + 21.f * TextScale, 9.f * TextScale, Palette::Gold);
 		else DrawBlockReason(Paint, Button, Rect.X + 8.f, Rect.Y + 21.f * TextScale, 9.f * TextScale, Rect.W - 16.f);
 	}
@@ -714,15 +950,17 @@ namespace
 			RightColor = Palette::Muted;
 			break;
 		}
-		case EHUDAction::FrontSecure:
-		case EHUDAction::FrontDefend:
-		case EHUDAction::FrontFallBack:
+		case EHUDAction::GoalHold:
+		case EHUDAction::GoalExpand:
+		case EHUDAction::GoalAssault:
+		case EHUDAction::GoalFallBack:
 		{
-			const EFrontOrder Order = Button.Action == EHUDAction::FrontSecure ? EFrontOrder::Secure
-				: Button.Action == EHUDAction::FrontDefend ? EFrontOrder::Defend : EFrontOrder::FallBack;
-			Left << FrontTitle(Order);
-			Accent = FrontColor(Order);
-			Right << (Button.bActive ? TEXT("CURRENT") : FrontPurpose(Order));
+			const EForceGoal Goal = Button.Action == EHUDAction::GoalHold ? EForceGoal::Hold
+				: Button.Action == EHUDAction::GoalExpand ? EForceGoal::Expand
+				: Button.Action == EHUDAction::GoalAssault ? EForceGoal::Assault : EForceGoal::FallBack;
+			Left << GoalTitle(Goal);
+			Accent = GoalColor(Goal);
+			if (Button.Available()) Right << (Button.bActive ? TEXT("CURRENT") : GoalPurpose(Goal));
 			RightColor = Button.bActive ? Accent : Palette::Faint;
 			break;
 		}
@@ -739,10 +977,10 @@ namespace
 		const FRect& Rect = Button.Rect;
 		const float TextScale = FMath::Min(1.f, Rect.H / RowHeight);
 		const bool bOn = Button.Available();
-		const bool bActiveRecipeOrFront = Button.bActive && Button.Action != EHUDAction::ToggleProduction;
-		Paint.Fill(Rect, bActiveRecipeOrFront ? Tint(Accent, .2f, .96f) : !bOn ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
+		const bool bActiveRecipeOrGoal = Button.bActive && Button.Action != EHUDAction::ToggleProduction;
+		Paint.Fill(Rect, bActiveRecipeOrGoal ? Tint(Accent, .2f, .96f) : !bOn ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
 		Paint.Fill({Rect.X, Rect.Y, 3.f, Rect.H}, Accent.CopyWithNewOpacity(bOn || Button.bActive ? 1.f : .3f));
-		Paint.Outline(Rect, bActiveRecipeOrFront ? Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Accent.CopyWithNewOpacity(.7f) : Palette::Edge);
+		Paint.Outline(Rect, bActiveRecipeOrGoal ? Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Accent.CopyWithNewOpacity(.7f) : Palette::Edge);
 		float RightWidth = 0.f;
 		if (Right.Len() > 0) RightWidth = Paint.TextIn(Right.ToView(), Rect, 9.f * TextScale, RightColor, false, EAlign::Right, 9.f);
 		else if (!bOn)
@@ -822,9 +1060,20 @@ namespace
 		const int32 Owner = Context.Wallet ? Context.Wallet->CommanderIndex : -1;
 		const UBuildingDefinition* Definition = Building->GetDefinition();
 		const FLinearColor Accent = Definition ? Definition->Accent : Palette::Muted;
-		const FString Title = Definition ? Definition->DisplayName.ToString().ToUpper() : TEXT("BUILDING");
-		TStringBuilder<48> Subtitle;
-		Subtitle.Appendf(TEXT("C%d  \u00B7  your building"), Owner + 1);
+		FString Title = Definition ? Definition->DisplayName.ToString().ToUpper() : TEXT("BUILDING");
+		if (Building->ForceNumber > 0) Title += FString::Printf(TEXT(" %d"), Building->ForceNumber);
+		TStringBuilder<256> Subtitle;
+		if (Building->IsProducer())
+		{
+			Subtitle.Appendf(TEXT("C%d  \u00B7  %s  \u00B7  "), Owner + 1, GoalTitle(Building->ForceGoal));
+			const AMapRegion* Target = nullptr;
+			if (Context.State)
+				for (const AMapRegion* Region : Context.State->Regions)
+					if (IsValid(Region) && Region->RegionIndex == Building->GoalRegionIndex) { Target = Region; break; }
+			if (Target) Subtitle << Target->DisplayName.ToString();
+			else Subtitle << TEXT("region unavailable");
+		}
+		else Subtitle.Appendf(TEXT("C%d  \u00B7  your building"), Owner + 1);
 
 		if (!Building->IsComplete())
 		{
@@ -841,8 +1090,8 @@ namespace
 			else Status.Appendf(TEXT("%d%%  \u00B7  %.0fs remaining"), FMath::FloorToInt(Progress * 100.f),
 				FMath::CeilToFloat((1.f - Progress) * (Building->GetDefinition() ? Building->GetDefinition()->BuildDuration : 0.f)));
 			Paint.Text(Status.ToView(), Bar.X, Bar.Bottom() + 7.f, 11.f, Palette::Text, true);
-			Paint.Text(Building->IsProducer() ? TEXT("When complete: choose a permanent force type, Start and set a front.")
-				: Definition && Definition->bEstablishesSector ? TEXT("When complete: secures this sector's income and build rights.")
+			Paint.Text(Building->IsProducer() ? TEXT("When complete: choose a permanent force type, Start and set a goal.")
+				: Definition && Definition->bRequiresDeposit ? TEXT("When complete: extracts finite Power for your wallet only.")
 				: Definition && Definition->bOffersResearch ? TEXT("When complete: buy one specialization for your forces.") : TEXT(""),
 				Bar.X, Bar.Bottom() + 32.f, 9.f, Palette::Muted, false, EAlign::Left, Bar.W);
 			Paint.Text(TEXT("Cancelling refunds the unbuilt share of the cost."), Bar.X, Bar.Bottom() + 48.f, 9.f, Palette::Faint,
@@ -860,7 +1109,7 @@ namespace
 				Building->Health, Building->MaxHealth(), Status, StatusColor);
 			const FRect Recipes = Column(Inspector, 0, 3);
 			const FRect Production = Column(Inspector, 1, 3);
-			const FRect Fronts = Column(Inspector, 2, 3);
+			const FRect Goals = Column(Inspector, 2, 3);
 			ColumnLabel(Paint, Recipes, TEXT("FORCE TYPE"), Building->bForceConfigured ? TEXT("LOCKED") : TEXT("choose before Start"));
 			int32 Joined = 0, Travelling = 0;
 			Building->GetForceCounts(Joined, Travelling);
@@ -870,11 +1119,7 @@ namespace
 			TStringBuilder<32> ForceCounts;
 			ForceCounts.Appendf(TEXT("joined %d/%d"), Joined, Capacity);
 			ColumnLabel(Paint, Production, TEXT("FORCE"), ForceCounts.ToView());
-			const bool bFront = Building->HasConfiguredFront();
-			TStringBuilder<32> FrontState;
-			if (bFront) FrontState.Appendf(TEXT("%s set"), FrontTitle(Building->FrontOrder));
-			else FrontState << TEXT("unset: gather at barracks");
-			ColumnLabel(Paint, Fronts, TEXT("FRONT"), FrontState.ToView(), bFront ? FrontColor(Building->FrontOrder) : Palette::Warn);
+			ColumnLabel(Paint, Goals, TEXT("GOAL"), GoalTitle(Building->ForceGoal), GoalColor(Building->ForceGoal));
 
 			const FRect Progress = Row(Production, 0);
 			const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
@@ -926,33 +1171,34 @@ namespace
 			return;
 		}
 
-		if (!Definition || !Definition->bEstablishesSector)
+		if (!Definition || !Definition->bRequiresDeposit)
 		{
 			DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 				Building->Health, Building->MaxHealth(), FStringView(), Palette::Muted);
 			return;
 		}
 
-		const ACapturePoint* Site = IsValid(Building->OutpostSite) ? Building->OutpostSite.Get() : nullptr;
-		const bool bEstablished = Site && Site->IsEstablishedForTeam(0);
+		const ADepositSite* Site = IsValid(Building->Deposit) ? Building->Deposit.Get() : nullptr;
+		const bool bPaying = Site && Site->Remaining > 0;
 		DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
-			Building->Health, Building->MaxHealth(), bEstablished ? TEXT("SECTOR ESTABLISHED") : TEXT("SECTOR NOT ESTABLISHED"),
-			bEstablished ? Palette::Good : Palette::Warn);
+			Building->Health, Building->MaxHealth(), bPaying ? TEXT("EXTRACTING POWER") : TEXT("DEPOSIT EMPTY"),
+			bPaying ? Palette::Good : Palette::Warn);
 		const float X = Inspector.X + Pad;
 		const float Top = BodyTop(Inspector);
 		const float Width = Inspector.W - 2.f * Pad;
-		TStringBuilder<48> Sector;
-		if (Site) Sector.Appendf(TEXT("SECTOR %d"), Site->SiteIndex + 1);
-		else Sector << TEXT("SECTOR");
-		Paint.Text(Sector.ToView(), X, Top, 8.5f, Palette::Muted, true);
+		TStringBuilder<96> Deposit;
+		if (Site) Deposit.Appendf(TEXT("REGION %d  \u00B7  %s deposit  \u00B7  taken"),
+			Site->RegionIndex + 1, Site->bRich ? TEXT("rich") : TEXT("normal"));
+		else Deposit << TEXT("NO DEPOSIT");
+		Paint.Text(Deposit.ToView(), X, Top, 8.5f, Palette::Muted, true);
 		TStringBuilder<96> Income;
-		Income.Appendf(TEXT("+%d/s income for every friendly commander while this outpost stands."), ACommandGameState::ResourceIncomePerSecond);
+		Income.Appendf(TEXT("+%d Power/s to C%d only  \u00B7  %d remaining"),
+			bPaying ? Site->RatePerSecond() : 0, Owner + 1, Site ? Site->Remaining : 0);
 		Paint.Text(Income.ToView(), X, Top + 22.f, 10.5f, Palette::Text, false, EAlign::Left, Width);
-		TStringBuilder<96> Rights;
-		Rights.Appendf(TEXT("Team build rights within %.0f units of the sector centre."), ACapturePoint::TerritoryRadius);
-		Paint.Text(Rights.ToView(), X, Top + 44.f, 10.f, Palette::Muted, false, EAlign::Left, Width);
-		Paint.Text(TEXT("If destroyed, the sector loses its income and build rights."), X, Top + 64.f, 10.f, Palette::Warn,
-			false, EAlign::Left, Width);
+		Paint.Text(TEXT("Region control grants build rights; extractors do not lock capture."),
+			X, Top + 44.f, 10.f, Palette::Muted, false, EAlign::Left, Width);
+		Paint.Text(TEXT("Depletion stops income. Destruction frees this deposit."),
+			X, Top + 64.f, 10.f, Palette::Warn, false, EAlign::Left, Width);
 	}
 
 
@@ -974,7 +1220,7 @@ namespace
 		Line.Appendf(TEXT("Barracks %d  \u00B7  %d producing"), Forces.Barracks, Forces.Producing);
 		Paint.Text(Line.ToView(), Base.X, Y, 10.f, Palette::Text, false, EAlign::Left, Base.W);
 		Line.Reset();
-		Line.Appendf(TEXT("Workshops %d  \u00B7  Outposts %d"), Forces.Workshops, Forces.Outposts);
+		Line.Appendf(TEXT("Workshops %d  \u00B7  Extractors %d"), Forces.Workshops, Forces.Extractors);
 		Paint.Text(Line.ToView(), Base.X, Y + 19.f, 10.f, Palette::Text, false, EAlign::Left, Base.W);
 		Line.Reset();
 		Line.Appendf(TEXT("%d under construction"), Forces.Constructing);
@@ -987,13 +1233,13 @@ namespace
 		const TCHAR* First;
 		const TCHAR* Second;
 		if (Context.bTerminal) { First = TEXT("Match over."); Second = TEXT("Press Enter for a fresh match."); }
-		else if (Forces.Barracks == 0) { First = TEXT("Build a Barracks inside"); Second = TEXT("the cyan HQ ring."); }
-		else if (Forces.CompletedBarracks == 0) { First = TEXT("Barracks under construction."); Second = TEXT("Plan its force type and front."); }
+		else if (Forces.Barracks == 0) { First = TEXT("Build a Barracks on"); Second = TEXT("green preview cells."); }
+		else if (Forces.CompletedBarracks == 0) { First = TEXT("Barracks under construction."); Second = TEXT("Plan its force type and goal."); }
 		else if (Forces.ConfiguredForces == 0) { First = TEXT("Select your Barracks, choose"); Second = TEXT("a permanent type and Start."); }
-		else if (Forces.OpenSectors > 0) { First = TEXT("Build an Outpost on your"); Second = TEXT("captured sector for income."); }
-		else if (Forces.CapturedSectors == 0) { First = TEXT("Set a Secure front inside"); Second = TEXT("a sector ring to capture it."); }
+		else if (Forces.FreeDeposits > 0) { First = TEXT("Build an Extractor on a"); Second = TEXT("free deposit for private income."); }
+		else if (Forces.ControlledRegions <= 1) { First = TEXT("Choose Expand and pick"); Second = TEXT("a region to capture it."); }
 		else if (Forces.Workshops == 0) { First = TEXT("A Workshop unlocks one"); Second = TEXT("paid specialization."); }
-		else { First = TEXT("Set Barracks fronts and push"); Second = TEXT("toward the enemy HQ."); }
+		else { First = TEXT("Set Barracks goals and push"); Second = TEXT("toward the enemy HQ."); }
 		ColumnLabel(Paint, Next, TEXT("NEXT STEP"));
 		Paint.Text(First, Next.X, Y, 10.5f, Palette::Friendly, true, EAlign::Left, Next.W);
 		Paint.Text(Second, Next.X, Y + 18.f, 10.5f, Palette::Friendly, true, EAlign::Left, Next.W);
@@ -1044,14 +1290,14 @@ namespace
 			Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
 			return;
 		}
-		if (Controller->IsAssigningFront())
+		if (Controller->IsAssigningGoal())
 		{
-			const EFrontOrder Order = Controller->GetPendingFrontOrder();
-			Paint.Fill({Mode.X, Mode.Y, 4.f, Mode.H}, FrontColor(Order));
+			const EForceGoal Goal = Controller->GetPendingGoal();
+			Paint.Fill({Mode.X, Mode.Y, 4.f, Mode.H}, GoalColor(Goal));
 			TStringBuilder<32> Title;
-			Title.Appendf(TEXT("SET %s FRONT"), FrontTitle(Order));
+			Title.Appendf(TEXT("SET %s GOAL"), GoalTitle(Goal));
 			Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true);
-			Paint.Text(TEXT("Left-click navigable ground; this barracks' persistent force heads there."), X, Row2, 10.f,
+			Paint.Text(TEXT("Pick a region on ground or minimap; this barracks' force follows its goal."), X, Row2, 10.f,
 				Palette::Muted, false, EAlign::Left, TextWidth);
 			Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Assign"));
 			Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
@@ -1083,37 +1329,141 @@ namespace
 		Paint.TextIn(Context.Controller->GetOrderFeedback(), Strip, 10.f, FLinearColor(.98f, .88f, .66f), false, EAlign::Left, 12.f);
 	}
 
-	void DrawBanner(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
+	const TCHAR* ScreenButtonLabel(EHUDAction Action)
 	{
-		const FRect& Banner = Layout.Banner;
-		const bool bVictory = Context.State->MatchResult == EMatchResult::Victory;
-		const FLinearColor Accent = bVictory ? Palette::Good : Palette::Bad;
-		Paint.Fill(Banner, FLinearColor(.01f, .015f, .022f, .93f));
-		Paint.Fill({Banner.X, Banner.Y, Banner.W, 3.f}, Accent);
-		Paint.Fill({Banner.X, Banner.Bottom() - 3.f, Banner.W, 3.f}, Accent);
-		const float Center = Banner.Center().X;
-		Paint.Text(bVictory ? TEXT("VICTORY") : TEXT("DEFEAT"), Center, Banner.Y + 12.f, 28.f, Accent, true, EAlign::Center);
-		Paint.Text(bVictory ? TEXT("The enemy HQ has been destroyed.") : TEXT("Your HQ has been destroyed."),
-			Center, Banner.Y + 56.f, 11.f, Palette::Text, false, EAlign::Center);
-		constexpr const TCHAR* Label = TEXT("Start a fresh match  \u00B7  commands are locked");
-		const float Width = Paint.KeyWidth(TEXT("Enter"), Label);
-		Paint.DrawKey(Center - Width * .5f, Banner.Y + 82.f, TEXT("Enter"), Label);
+		switch (Action)
+		{
+		case EHUDAction::PlaySolo: return TEXT("PLAY VS JEV");
+		case EHUDAction::HostCoop: return TEXT("HOST CO-OP / STEAM");
+		case EHUDAction::MapV2: return TEXT("AVAILABILITY ZONE V2");
+		case EHUDAction::MapClassic: return TEXT("AVAILABILITY ZONE");
+		case EHUDAction::InviteFriends: return TEXT("INVITE FRIENDS");
+		case EHUDAction::Resume: return TEXT("RESUME MATCH");
+		case EHUDAction::Controls: return TEXT("HOW TO PLAY / CONTROLS");
+		case EHUDAction::Audio: return TEXT("AUDIO");
+		case EHUDAction::Back: return TEXT("BACK");
+		case EHUDAction::MainMenu: return TEXT("RETURN TO MAIN MENU");
+		case EHUDAction::Quit: return TEXT("QUIT");
+		case EHUDAction::ConfirmLeave: return TEXT("LEAVE MATCH");
+		case EHUDAction::ConfirmQuit: return TEXT("QUIT GAME");
+		case EHUDAction::VolumeDown: return TEXT("VOLUME -10%");
+		case EHUDAction::VolumeUp: return TEXT("VOLUME +10%");
+		case EHUDAction::Menu: return TEXT("MENU / ESC");
+		case EHUDAction::Restart: return TEXT("PLAY AGAIN");
+		default: return TEXT("");
+		}
 	}
+
+	void DrawScreenButton(const FPainter& Paint, const FButton& Button, bool bHover)
+	{
+		Paint.Fill(Button.Rect, !Button.Available() ? Palette::CardOff : bHover ? Palette::CardHover : Palette::Card);
+		Paint.Outline(Button.Rect, bHover || Button.bActive ? Palette::Gold : Palette::Edge);
+		Paint.TextIn(ScreenButtonLabel(Button.Action), Button.Rect, 12.f,
+			!Button.Available() ? Palette::Muted : bHover || Button.bActive ? Palette::Gold : Palette::Text, true, EAlign::Center);
+	}
+
+	void DrawScreen(const FPainter& Paint, const FContext& Context, const FLayout& Layout, EHUDAction Hover)
+	{
+		const ECommandScreen Screen = Context.Controller->GetUIScreen();
+		const FRect& Panel = Layout.Screen;
+		Paint.Fill({0, 0, Layout.Width, Layout.Height}, FLinearColor(.006f, .012f, .020f, Screen == ECommandScreen::MainMenu ? 1.f : .92f));
+		Paint.Panel(Panel);
+		Paint.Fill({Panel.X, Panel.Y, Panel.W, 3.f}, Palette::Gold);
+		const float Center = Panel.Center().X;
+		const float Left = Panel.X + 32.f;
+		const float Width = Panel.W - 64.f;
+		const TCHAR* Title = TEXT("POST-FRONTIER");
+		if (Screen == ECommandScreen::Pause) Title = TEXT("MATCH MENU");
+		else if (Screen == ECommandScreen::Controls) Title = TEXT("HOW TO PLAY");
+		else if (Screen == ECommandScreen::Audio) Title = TEXT("AUDIO");
+		else if (Screen == ECommandScreen::ConfirmLeave) Title = TEXT("LEAVE THIS MATCH?");
+		else if (Screen == ECommandScreen::ConfirmQuit) Title = TEXT("QUIT THE GAME?");
+		else if (Screen == ECommandScreen::Result) Title = Context.State->MatchResult == EMatchResult::Victory ? TEXT("VICTORY") : TEXT("DEFEAT");
+		Paint.Text(Title, Center, Panel.Y + 32.f, 28.f, Palette::Gold, true, EAlign::Center);
+		auto Line = [&Paint, Left, Width, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text)
+		{
+			Paint.Text(Text, Left, Panel.Y + 118.f + Index * 27.f, 11.f, Color, false, EAlign::Left, Width);
+		};
+		if (Screen != ECommandScreen::Controls && Screen != ECommandScreen::Audio)
+		{
+			if (const UCoopSessionSubsystem* Session = Context.Controller->GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>())
+			{
+				const FString Status = Session->GetStatus();
+				Line(*Status, Screen == ECommandScreen::MainMenu ? 0 : 6, Palette::Friendly);
+			}
+		}
+		if (Screen == ECommandScreen::MainMenu)
+		{
+			Paint.Text(TEXT("SOLO OR STEAM CO-OP  /  AVAILABILITY ZONE"), Center, Panel.Y + 82.f, 12.f, Palette::Friendly, true, EAlign::Center);
+			Line(TEXT("Build a base. Give your forces goals. Break JEV's headquarters."), 1);
+			Line(TEXT("Choose v2 (15 regions) or classic. Solo needs no connection."), 2, Palette::Muted);
+			Line(TEXT("Start with 600 resources; your baseline income is +2 per second."), 3, Palette::Muted);
+			Line(TEXT("Choose your map below, then play solo or host on Steam."), 4, Palette::Muted);
+		}
+		else if (Screen == ECommandScreen::Controls)
+		{
+			Line(TEXT("1  Build a Barracks on green grid preview cells (220 resources)."), 0);
+			Line(TEXT("2  Select it when complete. Choose a force type, then Start."), 1);
+			Line(TEXT("3  Choose Hold or Expand; click a region on ground or minimap."), 2);
+			Line(TEXT("4  Controlled regions allow building. Extractors (160) earn private Power."), 3);
+			Line(TEXT("5  Build a Workshop (190), buy one specialization (150)."), 4);
+			Line(TEXT("6  Assault pushes to JEV's HQ; Fall Back regroups at your barracks."), 5, Palette::Gold);
+			Line(TEXT("Units fight automatically. You command buildings and force goals."), 6, Palette::Friendly);
+			Line(TEXT("LMB: select / place / assign. RMB or Esc: cancel targeting."), 7);
+			Line(TEXT("WASD / middle drag: pan. Wheel: zoom. Space: selected building / HQ."), 8);
+			Line(TEXT("F4: show/hide deck. Esc: match menu (pauses solo only)."), 9);
+			Line(TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
+			Line(TEXT("Siege costs 180 once to configure; replacements cost per unit."), 11, Palette::Muted);
+		}
+		else if (Screen == ECommandScreen::Audio)
+		{
+			Line(TEXT("MASTER VOLUME  /  saved automatically"), 0, Palette::Muted);
+			TStringBuilder<32> Value;
+			Value.Appendf(TEXT("%d%%"), FMath::RoundToInt(Context.Controller->GetMasterVolume() * 100.f));
+			Paint.Text(Value.ToView(), Center, Panel.Y + 168.f, 24.f, Palette::Text, true, EAlign::Center);
+			Paint.Bar({Left, Panel.Y + 220.f, Width, 12.f}, Context.Controller->GetMasterVolume(), Palette::Friendly);
+			Line(TEXT("0% mutes gameplay and interface sounds."), 9, Palette::Muted);
+		}
+		else if (Screen == ECommandScreen::Pause)
+		{
+			Line(Context.Controller->GetWorld()->IsPaused() ? TEXT("Solo match paused. JEV and your economy are stopped.")
+				: TEXT("Online match continues while this menu is open."), 1, Palette::Friendly);
+			Line(TEXT("Resume keeps your buildings, goals and progress."), 3, Palette::Muted);
+			Line(TEXT("Leaving discards this match. There is no save / load yet."), 4, Palette::Warn);
+		}
+		else if (Screen == ECommandScreen::ConfirmLeave || Screen == ECommandScreen::ConfirmQuit)
+		{
+			Line(Context.Controller->IsMenuWorld() ? TEXT("Close Post-Frontier?")
+				: TEXT("Current match progress will be discarded."), 1, Palette::Warn);
+			if (Context.Controller->GetNetMode() == NM_ListenServer) Line(TEXT("You are the host: leaving ends the match for everyone."), 3, Palette::Warn);
+			Line(TEXT("Back or Esc cancels; no action is taken until you confirm."), 5, Palette::Muted);
+		}
+		else if (Screen == ECommandScreen::Result)
+		{
+			const bool bVictory = Context.State->MatchResult == EMatchResult::Victory;
+			Line(bVictory ? TEXT("JEV's headquarters is destroyed.") : TEXT("Your headquarters is destroyed."), 1, bVictory ? Palette::Good : Palette::Bad);
+			Line(TEXT("The match is finished. Gameplay commands are locked."), 3, Palette::Muted);
+			Line(TEXT("Play Again starts a fresh match on this map."), 4, Palette::Friendly);
+		}
+		ForEachButton(Context, Layout, [&](const FButton& Button) { DrawScreenButton(Paint, Button, Button.Action == Hover); });
+	}
+
 }
 
 bool ACommandHUD::IsPanelPoint(const FVector2D& Position) const
 {
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
 	if (!Controller) return false;
+	if (Controller->GetUIScreen() != ECommandScreen::Game) return true;
 	int32 Width, Height;
 	Controller->GetViewportSize(Width, Height);
 	const FContext Context = MakeContext(Controller);
 	const FLayout Layout = MakeLayout(Context, Width, Height);
 	if (Layout.Scale <= 0.f) return false;
 	const FVector2D Point = Position / Layout.Scale;
-	return Layout.Top.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
+	return Layout.Top.Contains(Point) || Layout.Menu.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
 		|| (Context.bExpanded && Layout.Build.Contains(Point)) || Layout.Bottom.Contains(Point)
-		|| (Layout.bFeedback && Layout.Feedback.Contains(Point)) || (Layout.bBanner && Layout.Banner.Contains(Point));
+		|| (Layout.bFeedback && Layout.Feedback.Contains(Point));
 }
 
 EHUDAction ACommandHUD::GetActionAtScreenPosition(const FVector2D& Position) const
@@ -1151,6 +1501,7 @@ bool ACommandHUD::GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) con
 {
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
 	if (!Controller) return false;
+	if (Controller->GetUIScreen() != ECommandScreen::Game) return false;
 	int32 Width, Height;
 	Controller->GetViewportSize(Width, Height);
 	const FLayout Layout = MakeLayout(MakeContext(Controller), Width, Height);
@@ -1169,6 +1520,14 @@ bool ACommandHUD::GetMinimapWorldPosition(const FVector2D& Position, FVector& Ou
 }
 
 
+void ACommandHUD::PostRender()
+{
+	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
+	// Engine draws debug text before DrawHUD, on a separate canvas that would cover modal screens.
+	if (Controller && Controller->GetUIScreen() != ECommandScreen::Game) DebugTextList.Reset();
+	Super::PostRender();
+}
+
 void ACommandHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -1180,12 +1539,22 @@ void ACommandHUD::DrawHUD()
 	const UFont* Font = GEngine->GetSmallFont();
 	if (Layout.Scale <= 0.f || !Font || !FEngineFontServices::IsInitialized()) return;
 	const FPainter Paint{Canvas, Layout.Scale, Font, FEngineFontServices::Get().GetFontMeasure()};
-	const FForces Forces = CountForces(Context);
 
 	EHUDAction Hover = EHUDAction::None;
 	float MouseX, MouseY;
 	if (Controller->GetMousePosition(MouseX, MouseY))
 		Hover = HitTest(Context, Layout, FVector2D(MouseX, MouseY) / Layout.Scale);
+	if (Controller->GetUIScreen() != ECommandScreen::Game)
+	{
+		DrawScreen(Paint, Context, Layout, Hover);
+		return;
+	}
+	const FForces Forces = CountForces(Context);
+	DrawUnitHealthBars(Paint, Context);
+	DrawHeadquartersOverlays(Paint, Context);
+	DrawBuildingOverlays(Paint, Context);
+	DrawSectorOverlays(Paint, Context);
+	DrawForceLabels(Paint, Context);
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	CommandMinimap::Draw(Canvas, Controller, FVector2D(Layout.Minimap.X, Layout.Minimap.Y) * Layout.Scale, Layout.Minimap.W * Layout.Scale);
@@ -1199,8 +1568,8 @@ void ACommandHUD::DrawHUD()
 	else DrawModeBar(Paint, Context, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button)
 	{
-		DrawButton(Paint, Context, Button, Button.Action == Hover);
+		if (Button.Action == EHUDAction::Menu) DrawScreenButton(Paint, Button, Button.Action == Hover);
+		else DrawButton(Paint, Context, Button, Button.Action == Hover);
 	});
 	if (Layout.bFeedback) DrawFeedback(Paint, Context, Layout);
-	if (Layout.bBanner) DrawBanner(Paint, Context, Layout);
 }

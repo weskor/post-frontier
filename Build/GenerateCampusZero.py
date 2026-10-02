@@ -110,6 +110,7 @@ else:
 cube = require(unreal.load_asset("/Engine/BasicShapes/Cube.Cube"), "Engine cube is missing")
 cylinder = require(unreal.load_asset("/Engine/BasicShapes/Cylinder.Cylinder"), "Engine cylinder is missing")
 blocking = []
+blocking_footprints = []
 
 
 def spawn(actor_class, label, location, rotation=unreal.Rotator()):
@@ -120,7 +121,8 @@ def spawn(actor_class, label, location, rotation=unreal.Rotator()):
 
 
 # Blocking geometry is vetted against the arena the game reads, so the match actors go in first.
-ARENA_X, ARENA_Y = MatchLayout.place(spawn)
+capture_anchors = {}
+ARENA_X, ARENA_Y = MatchLayout.place(spawn, capture_anchors)
 
 
 def footprint_clear(center, size, yaw):
@@ -145,6 +147,7 @@ def register_block(label, center, size, yaw, round_shape):
     """Vet a blocking footprint against the keep-outs and record it: one CAMPUS_ZERO_BLOCK line per footprint."""
     footprint_clear(center, size, yaw)
     blocking.append(label)
+    blocking_footprints.append((center[0], center[1], size[0], size[1], yaw))
     unreal.log("CAMPUS_ZERO_BLOCK %s cx=%.0f cy=%.0f sx=%.0f sy=%.0f yaw=%.0f cyl=%d" % (
         label, center[0], center[1], size[0], size[1], yaw, round_shape))
 
@@ -347,6 +350,11 @@ for index, (x, y) in enumerate(((-2300, -700), (-2300, 1300), (-1300, -2500), (-
     kit("BurnBarrel", "BurnBarrel%d" % index, (x, y), (70, 70), round_shape=True)
     light("BurnBarrelLight%d" % index, (x, y, 260), art.HUMAN_GLOW, 100, 380)
 kit("GeneratorShack", "GeneratorShack", (-4100, 500), (300, 400))
+
+regions = MatchLayout.region_plan((ARENA_X, ARENA_Y))
+deposits = MatchLayout.deposit_plan(regions, (ARENA_X, ARENA_Y),
+                                   lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))
+MatchLayout.place_regions(spawn, regions, deposits, capture_anchors)
 
 # ---------------------------------------------------------------- campus lights
 # Wall-mounted spots beside each hall's glow seam; the cone edge makes a small, sharp pool instead of a blob.

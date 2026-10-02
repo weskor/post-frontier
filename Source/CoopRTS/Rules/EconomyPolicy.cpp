@@ -1,13 +1,16 @@
 #include "EconomyPolicy.h"
 
-int32 EconomyPolicy::IncomePerTick(int32 Baseline, int32 PerSite, int32 Sites, int32 TickSeconds)
+FExtractorPayment EconomyPolicy::ExtractorPayment(const FExtractorPaymentInput& In)
 {
-	return (Baseline + PerSite * Sites) * TickSeconds;
-}
-
-int32 EconomyPolicy::EnemyIncomePerSecond(int32 Baseline, int32 PerSite, int32 Sites, int32 HumanCommanders)
-{
-	return Baseline * FMath::Max(1, HumanCommanders) + PerSite * Sites;
+	if (!In.bAlive || !In.bComplete || In.OwnerTeam != In.RecipientTeam
+		|| In.OwnerCommander != In.RecipientCommander || (In.OwnerTeam != 0 && In.OwnerTeam != 5)
+		|| (In.OwnerTeam == 0 && (In.OwnerCommander < 0 || In.OwnerCommander >= 5))
+		|| (In.OwnerTeam == 5 && In.OwnerCommander != -1)
+		|| In.RatePerSecond <= 0 || In.Remaining <= 0 || In.TickSeconds <= 0)
+		return { 0, In.Remaining };
+	const int32 Amount = static_cast<int32>(FMath::Min<int64>(In.Remaining,
+		static_cast<int64>(In.RatePerSecond) * In.TickSeconds));
+	return { Amount, In.Remaining - Amount };
 }
 
 int32 EconomyPolicy::AddResources(int32 Balance, int32 Amount)

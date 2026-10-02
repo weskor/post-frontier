@@ -50,7 +50,7 @@ void ACommandPlayerState::OnRep_TeamIndex()
 int32 ACommandPlayerState::GetIncomePerSecond() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	return State ? (TeamIndex == 5 ? State->GetEnemyIncomePerSecond() : State->GetIncomePerSecond())
+	return State ? State->GetIncomePerSecond(this)
 		: ACommandGameState::BaselineIncomePerSecond;
 }
 

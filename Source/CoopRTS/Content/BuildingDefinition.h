@@ -32,7 +32,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Capabilities")
 	bool bProducesForces = false;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Capabilities")
-	bool bEstablishesSector = false;
+	bool bRequiresDeposit = false;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Capabilities")
 	bool bOffersResearch = false;
 
@@ -51,6 +51,6 @@ public:
 	// Migration-only: EBuildingKind is derived from capabilities for callers that still branch on it.
 	EBuildingKind GetKind() const
 	{
-		return bProducesForces ? EBuildingKind::Barracks : bEstablishesSector ? EBuildingKind::Outpost : EBuildingKind::Workshop;
+		return bProducesForces ? EBuildingKind::Barracks : bRequiresDeposit ? EBuildingKind::Extractor : EBuildingKind::Workshop;
 	}
 };

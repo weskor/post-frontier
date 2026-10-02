@@ -250,6 +250,8 @@ SCENARIOS = {
     "combat": ("CoopRTS.Combat.Encounter", "combat"),
     "construction": ("CoopRTS.Construction.Lifecycle", "construction"),
     "production": ("CoopRTS.Construction.Production", "production"),
+    "force-identity": ("CoopRTS.Construction.ForceIdentity", "force-identity"),
+    "goal-orders": ("CoopRTS.Construction.GoalOrders", "goal-orders"),
     "strategy": ("CoopRTS.Enemy.ConstructionEconomy", "strategy"),
     "match-win": ("CoopRTS.Match.VictoryRestart", "match-win"),
     "match-loss": ("CoopRTS.Match.DefeatRestart", "match-loss"),

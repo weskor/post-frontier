@@ -1,0 +1,832 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_UI"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_UI_Click_01" 1
+  MARKER 1 0.250000 "" 1
+  MARKER 2 3.000000 "SW_Human_UI_Click_02" 1
+  MARKER 2 3.250000 "" 1
+  MARKER 3 6.000000 "SW_Human_UI_Click_03" 1
+  MARKER 3 6.250000 "" 1
+  MARKER 4 9.000000 "SW_Human_UI_Select_01" 1
+  MARKER 4 9.300000 "" 1
+  MARKER 5 12.000000 "SW_Human_UI_Select_02" 1
+  MARKER 5 12.300000 "" 1
+  MARKER 6 15.000000 "SW_Human_UI_Front_01" 1
+  MARKER 6 15.400000 "" 1
+  MARKER 7 18.000000 "SW_Human_UI_Front_02" 1
+  MARKER 7 18.400000 "" 1
+  MARKER 8 21.000000 "SW_Human_UI_Reject_01" 1
+  MARKER 8 21.400000 "" 1
+  MARKER 9 24.000000 "SW_Human_UI_Reject_02" 1
+  MARKER 9 24.400000 "" 1
+  MARKER 10 27.000000 "SW_Human_UI_Hover_01" 1
+  MARKER 10 27.120000 "" 1
+  MARKER 11 30.000000 "SW_Human_UI_Hover_02" 1
+  MARKER 11 30.120000 "" 1
+  MARKER 12 33.000000 "SW_Human_UI_CaptureTick_01" 1
+  MARKER 12 33.600000 "" 1
+  MARKER 13 36.000000 "SW_Human_UI_CaptureTick_02" 1
+  MARKER 13 36.600000 "" 1
+  MARKER 14 39.000000 "SW_Human_UI_CaptureTick_03" 1
+  MARKER 14 39.600000 "" 1
+  MARKER 15 42.000000 "SW_Human_UI_SectorCaptured_01" 1
+  MARKER 15 44.000000 "" 1
+  MARKER 16 45.000000 "SW_Human_UI_SectorCaptured_02" 1
+  MARKER 16 47.000000 "" 1
+  MARKER 17 48.000000 "SW_Human_UI_SectorLost_01" 1
+  MARKER 17 50.000000 "" 1
+  MARKER 18 51.000000 "SW_Human_UI_SectorLost_02" 1
+  MARKER 18 53.000000 "" 1
+  <TRACK
+    NAME "Switch"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.130729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_01 Switch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_01__Switch.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.132896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_02 Switch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_02__Switch.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.128896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_03 Switch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_03__Switch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Switch Low"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.101021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_01 Switch Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_01__SwitchLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.101021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_02 Switch Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_02__SwitchLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.101021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_03 Switch Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_03__SwitchLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Tick"
+    VOLPAN 0.199526 0 -1 -1 1
+    <ITEM
+      POSITION 0.002000
+      LENGTH 0.059458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_01 Tick"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_01__Tick.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.002000
+      LENGTH 0.059458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_02 Tick"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_02__Tick.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.002000
+      LENGTH 0.059458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Click_03 Tick"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Click_03__Tick.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Relay"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.214375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_01__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.222979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_02__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.142687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.130000
+      LENGTH 0.067354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Relay_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.142687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.130000
+      LENGTH 0.067354
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Relay_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.161479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_01 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_01__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.000000
+      LENGTH 0.163229
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_02 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_02__Relay.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.000000
+      LENGTH 0.164125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_03 Relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_03__Relay.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Contactor"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.142687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_01 Contactor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_01__Contactor.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.142687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_02 Contactor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_02__Contactor.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Spark"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 9.004000
+      LENGTH 0.030000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_01 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_01__Spark.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.004000
+      LENGTH 0.030000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Select_02 Spark"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Select_02__Spark.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Detent"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.218104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_01 Detent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_01__Detent.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.218104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_02 Detent"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_02__Detent.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Detent Low"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.095125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_01 Detent Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_01__DetentLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.095125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_02 Detent Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_02__DetentLow.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "PTT"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 15.068301
+      LENGTH 0.031792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_01 PTT"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_01__PTT.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.065921
+      LENGTH 0.031792
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_02 PTT"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_02__PTT.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Squelch"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 15.078301
+      LENGTH 0.169500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_01 Squelch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_01__Squelch.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.075921
+      LENGTH 0.058271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_02 Squelch"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_02__Squelch.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Static"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 15.078301
+      LENGTH 0.160000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_01 Static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_01__Static.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.075921
+      LENGTH 0.160000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Front_02 Static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Front_02__Static.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Buzzer"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 21.004000
+      LENGTH 0.119479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Buzzer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Buzzer.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.144000
+      LENGTH 0.118500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Buzzer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Buzzer_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.004000
+      LENGTH 0.125333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Buzzer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Buzzer.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.144000
+      LENGTH 0.125479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Buzzer"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Buzzer_02.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Grit"
+    VOLPAN 0.125893 0 -1 -1 1
+    <ITEM
+      POSITION 21.004000
+      LENGTH 0.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Grit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Grit.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.144000
+      LENGTH 0.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_01 Grit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_01__Grit_02.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.004000
+      LENGTH 0.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Grit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Grit.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.144000
+      LENGTH 0.100000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Reject_02 Grit"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Reject_02__Grit_02.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Hover"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.062979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Hover_01 Hover"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Hover_01__Hover.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.026750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Hover_02 Hover"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Hover_02__Hover.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Phosphor"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.020000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Hover_01 Phosphor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Hover_01__Phosphor.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.020000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_Hover_02 Phosphor"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_Hover_02__Phosphor.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ping"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 33.010000
+      LENGTH 0.590000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_01 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_01__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.010000
+      LENGTH 0.577562
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_02 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_02__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.010000
+      LENGTH 0.485729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_03 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_03__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 42.133832
+      LENGTH 0.545937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.137228
+      LENGTH 0.900000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 48.200000
+      LENGTH 0.687583
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__Ping.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.200000
+      LENGTH 0.611750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Ping"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__Ping.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ping High"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 42.353832
+      LENGTH 0.898896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Ping High"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__PingHigh.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.357228
+      LENGTH 0.408958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Ping High"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__PingHigh.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Hum"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 33.010000
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_01 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_01__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.010000
+      LENGTH 0.283292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_02 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_02__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 39.010000
+      LENGTH 0.238104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_CaptureTick_03 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_CaptureTick_03__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 42.030000
+      LENGTH 1.377125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.030000
+      LENGTH 1.377125
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 48.000000
+      LENGTH 1.324167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__Hum.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.000000
+      LENGTH 1.324167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Hum"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__Hum.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Breaker"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 42.000000
+      LENGTH 0.785646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Breaker.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.000000
+      LENGTH 0.785646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Breaker.wav"
+      >
+    >
+    <ITEM
+      POSITION 48.000000
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__Breaker.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.000000
+      LENGTH 0.713437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Breaker"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__Breaker.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Sci-Fi Lever"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 42.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Sci-Fi Lever"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Sci-FiLever.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.000000
+      LENGTH 0.897875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Sci-Fi Lever"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Sci-FiLever.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Snap"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 42.000000
+      LENGTH 0.317812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Snap.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.000000
+      LENGTH 0.317812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Snap"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Snap.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Arc"
+    VOLPAN 0.158489 0 -1 -1 1
+    <ITEM
+      POSITION 42.010000
+      LENGTH 0.392833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_01 Arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_01__Arc.wav"
+      >
+    >
+    <ITEM
+      POSITION 45.010000
+      LENGTH 0.392833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorCaptured_02 Arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorCaptured_02__Arc.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Fuse"
+    VOLPAN 0.630957 0 -1 -1 1
+    <ITEM
+      POSITION 48.000000
+      LENGTH 1.010104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Fuse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__Fuse.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.000000
+      LENGTH 1.010104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Fuse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__Fuse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power Down"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 48.050000
+      LENGTH 1.189062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__PowerDown.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.050000
+      LENGTH 1.259458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Power Down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__PowerDown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Ping Low"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 48.450000
+      LENGTH 1.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_01 Ping Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_01__PingLow.wav"
+      >
+    >
+    <ITEM
+      POSITION 51.450000
+      LENGTH 0.971458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_UI_SectorLost_02 Ping Low"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_UI/SW_Human_UI_SectorLost_02__PingLow.wav"
+      >
+    >
+  >
+>

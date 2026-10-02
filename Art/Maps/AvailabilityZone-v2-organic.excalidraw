@@ -1,0 +1,3568 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "az-organic-001",
+      "type": "rectangle",
+      "x": 75,
+      "y": 126,
+      "width": 1360,
+      "height": 956,
+      "angle": 0,
+      "strokeColor": "#c7d0d8",
+      "backgroundColor": "#e5ebea",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 11230,
+      "version": 1,
+      "versionNonce": 31528,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null
+    },
+    {
+      "id": "az-organic-002",
+      "type": "line",
+      "x": 384,
+      "y": 759,
+      "width": 24,
+      "height": 34,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 11739,
+      "version": 1,
+      "versionNonce": 32145,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          34
+        ],
+        [
+          24,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-003",
+      "type": "line",
+      "x": 341,
+      "y": 662,
+      "width": 66,
+      "height": 53,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 12248,
+      "version": 1,
+      "versionNonce": 32762,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          66,
+          53
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-004",
+      "type": "line",
+      "x": 318,
+      "y": 437,
+      "width": 46,
+      "height": 28,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 12757,
+      "version": 1,
+      "versionNonce": 33379,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          28
+        ],
+        [
+          46,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-005",
+      "type": "line",
+      "x": 556,
+      "y": 318,
+      "width": 102,
+      "height": 56,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 13266,
+      "version": 1,
+      "versionNonce": 33996,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          56
+        ],
+        [
+          102,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-006",
+      "type": "line",
+      "x": 855,
+      "y": 271,
+      "width": 183,
+      "height": 10,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 13775,
+      "version": 1,
+      "versionNonce": 34613,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          183,
+          10
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-007",
+      "type": "line",
+      "x": 1224,
+      "y": 273,
+      "width": 20,
+      "height": 17,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 14284,
+      "version": 1,
+      "versionNonce": 35230,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          20,
+          17
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-008",
+      "type": "line",
+      "x": 527,
+      "y": 658,
+      "width": 89,
+      "height": 114,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 14793,
+      "version": 1,
+      "versionNonce": 35847,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          114
+        ],
+        [
+          89,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-009",
+      "type": "line",
+      "x": 571,
+      "y": 516,
+      "width": 43,
+      "height": 18,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 15302,
+      "version": 1,
+      "versionNonce": 36464,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          43,
+          18
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-010",
+      "type": "line",
+      "x": 740,
+      "y": 386,
+      "width": 8,
+      "height": 61,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 15811,
+      "version": 1,
+      "versionNonce": 37081,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          8,
+          0
+        ],
+        [
+          0,
+          61
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-011",
+      "type": "line",
+      "x": 852,
+      "y": 477,
+      "width": 87,
+      "height": 22,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 16320,
+      "version": 1,
+      "versionNonce": 37698,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          22
+        ],
+        [
+          87,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-012",
+      "type": "line",
+      "x": 1080,
+      "y": 370,
+      "width": 23,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 16829,
+      "version": 1,
+      "versionNonce": 38315,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          29
+        ],
+        [
+          23,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-013",
+      "type": "line",
+      "x": 369,
+      "y": 878,
+      "width": 244,
+      "height": 46,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 17338,
+      "version": 1,
+      "versionNonce": 38932,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          46
+        ],
+        [
+          244,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-014",
+      "type": "line",
+      "x": 871,
+      "y": 780,
+      "width": 56,
+      "height": 52,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 17847,
+      "version": 1,
+      "versionNonce": 39549,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          52
+        ],
+        [
+          56,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-015",
+      "type": "line",
+      "x": 1034,
+      "y": 585,
+      "width": 16,
+      "height": 27,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 18356,
+      "version": 1,
+      "versionNonce": 40166,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          27
+        ],
+        [
+          16,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-016",
+      "type": "line",
+      "x": 1184,
+      "y": 378,
+      "width": 77,
+      "height": 301,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 18865,
+      "version": 1,
+      "versionNonce": 40783,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          301
+        ],
+        [
+          77,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-017",
+      "type": "line",
+      "x": 741,
+      "y": 679,
+      "width": 5,
+      "height": 54,
+      "angle": 0,
+      "strokeColor": "#8397a2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 9,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 19374,
+      "version": 1,
+      "versionNonce": 41400,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          54
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-018",
+      "type": "line",
+      "x": 113,
+      "y": 754,
+      "width": 311,
+      "height": 285,
+      "angle": 0,
+      "strokeColor": "#467fc2",
+      "backgroundColor": "#dbeafa",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 20066,
+      "version": 1,
+      "versionNonce": 42017,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          4,
+          105
+        ],
+        [
+          16,
+          78
+        ],
+        [
+          38,
+          51
+        ],
+        [
+          62,
+          32
+        ],
+        [
+          91,
+          33
+        ],
+        [
+          121,
+          21
+        ],
+        [
+          142,
+          0
+        ],
+        [
+          167,
+          14
+        ],
+        [
+          200,
+          21
+        ],
+        [
+          230,
+          18
+        ],
+        [
+          241,
+          45
+        ],
+        [
+          264,
+          65
+        ],
+        [
+          293,
+          71
+        ],
+        [
+          307,
+          98
+        ],
+        [
+          311,
+          131
+        ],
+        [
+          303,
+          161
+        ],
+        [
+          279,
+          182
+        ],
+        [
+          259,
+          212
+        ],
+        [
+          248,
+          243
+        ],
+        [
+          218,
+          245
+        ],
+        [
+          189,
+          260
+        ],
+        [
+          170,
+          285
+        ],
+        [
+          142,
+          269
+        ],
+        [
+          107,
+          262
+        ],
+        [
+          74,
+          266
+        ],
+        [
+          46,
+          250
+        ],
+        [
+          19,
+          225
+        ],
+        [
+          0,
+          198
+        ],
+        [
+          13,
+          170
+        ],
+        [
+          15,
+          135
+        ],
+        [
+          4,
+          105
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-019",
+      "type": "line",
+      "x": 351,
+      "y": 697,
+      "width": 206,
+      "height": 207,
+      "angle": 0,
+      "strokeColor": "#467fc2",
+      "backgroundColor": "#e3f0fc",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 20575,
+      "version": 1,
+      "versionNonce": 42634,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          7,
+          48
+        ],
+        [
+          25,
+          27
+        ],
+        [
+          51,
+          10
+        ],
+        [
+          77,
+          0
+        ],
+        [
+          99,
+          15
+        ],
+        [
+          127,
+          19
+        ],
+        [
+          153,
+          10
+        ],
+        [
+          163,
+          34
+        ],
+        [
+          182,
+          56
+        ],
+        [
+          206,
+          68
+        ],
+        [
+          190,
+          93
+        ],
+        [
+          187,
+          125
+        ],
+        [
+          199,
+          153
+        ],
+        [
+          187,
+          178
+        ],
+        [
+          165,
+          198
+        ],
+        [
+          138,
+          207
+        ],
+        [
+          113,
+          192
+        ],
+        [
+          82,
+          184
+        ],
+        [
+          52,
+          185
+        ],
+        [
+          46,
+          156
+        ],
+        [
+          27,
+          131
+        ],
+        [
+          0,
+          118
+        ],
+        [
+          12,
+          97
+        ],
+        [
+          15,
+          71
+        ],
+        [
+          7,
+          48
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-020",
+      "type": "line",
+      "x": 99,
+      "y": 424,
+      "width": 259,
+      "height": 291,
+      "angle": 0,
+      "strokeColor": "#5f8878",
+      "backgroundColor": "#dcece3",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 21084,
+      "version": 1,
+      "versionNonce": 43251,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          4,
+          64
+        ],
+        [
+          18,
+          41
+        ],
+        [
+          41,
+          20
+        ],
+        [
+          66,
+          7
+        ],
+        [
+          91,
+          17
+        ],
+        [
+          120,
+          14
+        ],
+        [
+          144,
+          0
+        ],
+        [
+          166,
+          21
+        ],
+        [
+          196,
+          37
+        ],
+        [
+          227,
+          43
+        ],
+        [
+          224,
+          72
+        ],
+        [
+          236,
+          101
+        ],
+        [
+          259,
+          121
+        ],
+        [
+          258,
+          160
+        ],
+        [
+          245,
+          202
+        ],
+        [
+          223,
+          236
+        ],
+        [
+          199,
+          247
+        ],
+        [
+          177,
+          268
+        ],
+        [
+          163,
+          291
+        ],
+        [
+          134,
+          270
+        ],
+        [
+          95,
+          259
+        ],
+        [
+          58,
+          263
+        ],
+        [
+          53,
+          232
+        ],
+        [
+          37,
+          201
+        ],
+        [
+          14,
+          179
+        ],
+        [
+          4,
+          144
+        ],
+        [
+          0,
+          101
+        ],
+        [
+          4,
+          64
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-021",
+      "type": "line",
+      "x": 328,
+      "y": 324,
+      "width": 266,
+      "height": 266,
+      "angle": 0,
+      "strokeColor": "#ca8730",
+      "backgroundColor": "#ffe8bd",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 21593,
+      "version": 1,
+      "versionNonce": 43868,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          24,
+          32
+        ],
+        [
+          46,
+          16
+        ],
+        [
+          76,
+          4
+        ],
+        [
+          104,
+          0
+        ],
+        [
+          130,
+          17
+        ],
+        [
+          164,
+          24
+        ],
+        [
+          195,
+          18
+        ],
+        [
+          209,
+          46
+        ],
+        [
+          234,
+          71
+        ],
+        [
+          262,
+          87
+        ],
+        [
+          249,
+          116
+        ],
+        [
+          251,
+          149
+        ],
+        [
+          266,
+          177
+        ],
+        [
+          256,
+          207
+        ],
+        [
+          235,
+          235
+        ],
+        [
+          207,
+          252
+        ],
+        [
+          178,
+          248
+        ],
+        [
+          144,
+          254
+        ],
+        [
+          116,
+          266
+        ],
+        [
+          97,
+          240
+        ],
+        [
+          67,
+          222
+        ],
+        [
+          34,
+          218
+        ],
+        [
+          33,
+          187
+        ],
+        [
+          20,
+          155
+        ],
+        [
+          0,
+          131
+        ],
+        [
+          1,
+          99
+        ],
+        [
+          10,
+          62
+        ],
+        [
+          24,
+          32
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-022",
+      "type": "line",
+      "x": 622,
+      "y": 172,
+      "width": 274,
+      "height": 230,
+      "angle": 0,
+      "strokeColor": "#5f8878",
+      "backgroundColor": "#dcece3",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 22102,
+      "version": 1,
+      "versionNonce": 44485,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          26,
+          27
+        ],
+        [
+          53,
+          12
+        ],
+        [
+          87,
+          2
+        ],
+        [
+          118,
+          0
+        ],
+        [
+          137,
+          24
+        ],
+        [
+          166,
+          41
+        ],
+        [
+          197,
+          45
+        ],
+        [
+          215,
+          70
+        ],
+        [
+          244,
+          92
+        ],
+        [
+          274,
+          103
+        ],
+        [
+          251,
+          127
+        ],
+        [
+          240,
+          161
+        ],
+        [
+          243,
+          195
+        ],
+        [
+          218,
+          216
+        ],
+        [
+          184,
+          229
+        ],
+        [
+          151,
+          230
+        ],
+        [
+          121,
+          205
+        ],
+        [
+          81,
+          183
+        ],
+        [
+          42,
+          172
+        ],
+        [
+          40,
+          142
+        ],
+        [
+          25,
+          114
+        ],
+        [
+          0,
+          96
+        ],
+        [
+          17,
+          78
+        ],
+        [
+          27,
+          53
+        ],
+        [
+          26,
+          27
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-023",
+      "type": "line",
+      "x": 581,
+      "y": 426,
+      "width": 281,
+      "height": 254,
+      "angle": 0,
+      "strokeColor": "#5f8878",
+      "backgroundColor": "#dcece3",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 22611,
+      "version": 1,
+      "versionNonce": 45102,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          28,
+          48
+        ],
+        [
+          50,
+          27
+        ],
+        [
+          80,
+          9
+        ],
+        [
+          110,
+          0
+        ],
+        [
+          138,
+          19
+        ],
+        [
+          175,
+          27
+        ],
+        [
+          210,
+          23
+        ],
+        [
+          223,
+          52
+        ],
+        [
+          247,
+          79
+        ],
+        [
+          274,
+          96
+        ],
+        [
+          262,
+          123
+        ],
+        [
+          265,
+          155
+        ],
+        [
+          281,
+          181
+        ],
+        [
+          264,
+          212
+        ],
+        [
+          234,
+          239
+        ],
+        [
+          201,
+          254
+        ],
+        [
+          168,
+          245
+        ],
+        [
+          129,
+          245
+        ],
+        [
+          95,
+          252
+        ],
+        [
+          80,
+          217
+        ],
+        [
+          51,
+          187
+        ],
+        [
+          16,
+          169
+        ],
+        [
+          21,
+          147
+        ],
+        [
+          15,
+          124
+        ],
+        [
+          0,
+          107
+        ],
+        [
+          2,
+          86
+        ],
+        [
+          13,
+          64
+        ],
+        [
+          28,
+          48
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-024",
+      "type": "line",
+      "x": 596,
+      "y": 700,
+      "width": 296,
+      "height": 283,
+      "angle": 0,
+      "strokeColor": "#ca8730",
+      "backgroundColor": "#ffe8bd",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 23120,
+      "version": 1,
+      "versionNonce": 45719,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          14,
+          37
+        ],
+        [
+          39,
+          19
+        ],
+        [
+          72,
+          5
+        ],
+        [
+          103,
+          0
+        ],
+        [
+          132,
+          19
+        ],
+        [
+          170,
+          28
+        ],
+        [
+          205,
+          24
+        ],
+        [
+          227,
+          57
+        ],
+        [
+          261,
+          89
+        ],
+        [
+          296,
+          110
+        ],
+        [
+          273,
+          143
+        ],
+        [
+          261,
+          187
+        ],
+        [
+          264,
+          228
+        ],
+        [
+          240,
+          255
+        ],
+        [
+          205,
+          275
+        ],
+        [
+          169,
+          283
+        ],
+        [
+          141,
+          266
+        ],
+        [
+          105,
+          256
+        ],
+        [
+          71,
+          254
+        ],
+        [
+          58,
+          223
+        ],
+        [
+          32,
+          197
+        ],
+        [
+          0,
+          184
+        ],
+        [
+          14,
+          139
+        ],
+        [
+          19,
+          85
+        ],
+        [
+          14,
+          37
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-025",
+      "type": "line",
+      "x": 900,
+      "y": 605,
+      "width": 305,
+      "height": 312,
+      "angle": 0,
+      "strokeColor": "#5f8878",
+      "backgroundColor": "#dcece3",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 23629,
+      "version": 1,
+      "versionNonce": 46336,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          22,
+          43
+        ],
+        [
+          44,
+          23
+        ],
+        [
+          74,
+          8
+        ],
+        [
+          103,
+          0
+        ],
+        [
+          132,
+          23
+        ],
+        [
+          172,
+          38
+        ],
+        [
+          211,
+          39
+        ],
+        [
+          234,
+          73
+        ],
+        [
+          268,
+          106
+        ],
+        [
+          304,
+          128
+        ],
+        [
+          289,
+          157
+        ],
+        [
+          289,
+          192
+        ],
+        [
+          302,
+          222
+        ],
+        [
+          280,
+          258
+        ],
+        [
+          244,
+          291
+        ],
+        [
+          206,
+          312
+        ],
+        [
+          177,
+          299
+        ],
+        [
+          140,
+          293
+        ],
+        [
+          107,
+          296
+        ],
+        [
+          86,
+          267
+        ],
+        [
+          52,
+          246
+        ],
+        [
+          16,
+          239
+        ],
+        [
+          21,
+          210
+        ],
+        [
+          15,
+          178
+        ],
+        [
+          0,
+          152
+        ],
+        [
+          0,
+          117
+        ],
+        [
+          8,
+          76
+        ],
+        [
+          22,
+          43
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-026",
+      "type": "line",
+      "x": 893,
+      "y": 362,
+      "width": 267,
+      "height": 249,
+      "angle": 0,
+      "strokeColor": "#ca8730",
+      "backgroundColor": "#ffe8bd",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 24138,
+      "version": 1,
+      "versionNonce": 46953,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          41,
+          35
+        ],
+        [
+          63,
+          18
+        ],
+        [
+          92,
+          5
+        ],
+        [
+          120,
+          0
+        ],
+        [
+          141,
+          19
+        ],
+        [
+          170,
+          28
+        ],
+        [
+          199,
+          25
+        ],
+        [
+          213,
+          56
+        ],
+        [
+          238,
+          86
+        ],
+        [
+          267,
+          106
+        ],
+        [
+          247,
+          129
+        ],
+        [
+          239,
+          161
+        ],
+        [
+          246,
+          192
+        ],
+        [
+          225,
+          219
+        ],
+        [
+          192,
+          240
+        ],
+        [
+          158,
+          249
+        ],
+        [
+          132,
+          231
+        ],
+        [
+          97,
+          219
+        ],
+        [
+          65,
+          216
+        ],
+        [
+          55,
+          184
+        ],
+        [
+          31,
+          156
+        ],
+        [
+          0,
+          141
+        ],
+        [
+          22,
+          112
+        ],
+        [
+          37,
+          73
+        ],
+        [
+          41,
+          35
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-027",
+      "type": "line",
+      "x": 1011,
+      "y": 214,
+      "width": 260,
+      "height": 194,
+      "angle": 0,
+      "strokeColor": "#b65361",
+      "backgroundColor": "#f8e8ec",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 24647,
+      "version": 1,
+      "versionNonce": 47570,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          20,
+          33
+        ],
+        [
+          43,
+          16
+        ],
+        [
+          75,
+          4
+        ],
+        [
+          104,
+          0
+        ],
+        [
+          129,
+          20
+        ],
+        [
+          163,
+          29
+        ],
+        [
+          195,
+          26
+        ],
+        [
+          209,
+          53
+        ],
+        [
+          233,
+          77
+        ],
+        [
+          260,
+          91
+        ],
+        [
+          238,
+          108
+        ],
+        [
+          228,
+          134
+        ],
+        [
+          232,
+          162
+        ],
+        [
+          210,
+          182
+        ],
+        [
+          179,
+          193
+        ],
+        [
+          148,
+          193
+        ],
+        [
+          125,
+          174
+        ],
+        [
+          93,
+          160
+        ],
+        [
+          63,
+          155
+        ],
+        [
+          52,
+          128
+        ],
+        [
+          29,
+          107
+        ],
+        [
+          0,
+          98
+        ],
+        [
+          16,
+          81
+        ],
+        [
+          23,
+          57
+        ],
+        [
+          20,
+          33
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-028",
+      "type": "line",
+      "x": 1183,
+      "y": 114,
+      "width": 227,
+      "height": 232,
+      "angle": 0,
+      "strokeColor": "#b65361",
+      "backgroundColor": "#f8dce2",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 25156,
+      "version": 1,
+      "versionNonce": 48187,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          13,
+          35
+        ],
+        [
+          41,
+          18
+        ],
+        [
+          77,
+          5
+        ],
+        [
+          110,
+          0
+        ],
+        [
+          133,
+          26
+        ],
+        [
+          166,
+          44
+        ],
+        [
+          201,
+          49
+        ],
+        [
+          201,
+          75
+        ],
+        [
+          210,
+          104
+        ],
+        [
+          227,
+          125
+        ],
+        [
+          204,
+          141
+        ],
+        [
+          192,
+          167
+        ],
+        [
+          194,
+          196
+        ],
+        [
+          175,
+          217
+        ],
+        [
+          147,
+          230
+        ],
+        [
+          118,
+          232
+        ],
+        [
+          98,
+          214
+        ],
+        [
+          71,
+          201
+        ],
+        [
+          44,
+          197
+        ],
+        [
+          42,
+          164
+        ],
+        [
+          26,
+          131
+        ],
+        [
+          0,
+          109
+        ],
+        [
+          14,
+          88
+        ],
+        [
+          19,
+          60
+        ],
+        [
+          13,
+          35
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-029",
+      "type": "line",
+      "x": 125,
+      "y": 436,
+      "width": 48,
+      "height": 44,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 25482,
+      "version": 1,
+      "versionNonce": 48804,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          44
+        ],
+        [
+          29,
+          18
+        ],
+        [
+          48,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-030",
+      "type": "line",
+      "x": 130,
+      "y": 611,
+      "width": 47,
+      "height": 74,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 25991,
+      "version": 1,
+      "versionNonce": 49421,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          18,
+          44
+        ],
+        [
+          47,
+          74
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-031",
+      "type": "line",
+      "x": 330,
+      "y": 344,
+      "width": 52,
+      "height": 65,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 26500,
+      "version": 1,
+      "versionNonce": 50038,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          65
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          52,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-032",
+      "type": "line",
+      "x": 582,
+      "y": 359,
+      "width": 79,
+      "height": 89,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 27009,
+      "version": 1,
+      "versionNonce": 50655,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          89
+        ],
+        [
+          26,
+          34
+        ],
+        [
+          79,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-033",
+      "type": "line",
+      "x": 831,
+      "y": 377,
+      "width": 85,
+      "height": 55,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 27518,
+      "version": 1,
+      "versionNonce": 51272,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          44,
+          13
+        ],
+        [
+          85,
+          55
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-034",
+      "type": "line",
+      "x": 866,
+      "y": 618,
+      "width": 47,
+      "height": 31,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 28027,
+      "version": 1,
+      "versionNonce": 51889,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          47,
+          31
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-035",
+      "type": "line",
+      "x": 1038,
+      "y": 612,
+      "width": 75,
+      "height": 35,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 28536,
+      "version": 1,
+      "versionNonce": 52506,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          37,
+          25
+        ],
+        [
+          75,
+          35
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-036",
+      "type": "line",
+      "x": 1222,
+      "y": 583,
+      "width": 84,
+      "height": 25,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 29045,
+      "version": 1,
+      "versionNonce": 53123,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          25
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          84,
+          7
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-037",
+      "type": "line",
+      "x": 404,
+      "y": 965,
+      "width": 69,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#465663",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 7,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 29554,
+      "version": 1,
+      "versionNonce": 53740,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "points": [
+        [
+          0,
+          45
+        ],
+        [
+          36,
+          30
+        ],
+        [
+          69,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
+    },
+    {
+      "id": "az-organic-038",
+      "type": "text",
+      "x": 191,
+      "y": 870,
+      "width": 198,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#467fc2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 30063,
+      "version": 1,
+      "versionNonce": 54357,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 19,
+      "fontFamily": 1,
+      "text": "HUMAN MAIN\nBunker idea",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 17,
+      "containerId": null,
+      "originalText": "HUMAN MAIN\nBunker idea",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-039",
+      "type": "text",
+      "x": 382,
+      "y": 779,
+      "width": 155,
+      "height": 21,
+      "angle": 0,
+      "strokeColor": "#467fc2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 30572,
+      "version": 1,
+      "versionNonce": 54974,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "near expansion",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "near expansion",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-040",
+      "type": "text",
+      "x": 145,
+      "y": 529,
+      "width": 165,
+      "height": 47,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 31081,
+      "version": 1,
+      "versionNonce": 55591,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "WEST WOODS\ntactics · cover",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "WEST WOODS\ntactics · cover",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-041",
+      "type": "text",
+      "x": 383,
+      "y": 417,
+      "width": 180,
+      "height": 47,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 31590,
+      "version": 1,
+      "versionNonce": 56208,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "A · UPLINK?\nreward · safer",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "A · UPLINK?\nreward · safer",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-042",
+      "type": "text",
+      "x": 666,
+      "y": 258,
+      "width": 180,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 32099,
+      "version": 1,
+      "versionNonce": 56825,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "HIGH RIDGE\ntactics · height",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "HIGH RIDGE\ntactics · height",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-043",
+      "type": "text",
+      "x": 636,
+      "y": 530,
+      "width": 180,
+      "height": 47,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 32608,
+      "version": 1,
+      "versionNonce": 57442,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "CROSSROADS\ntactics · rotate",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "CROSSROADS\ntactics · rotate",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-044",
+      "type": "text",
+      "x": 661,
+      "y": 811,
+      "width": 190,
+      "height": 47,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 33117,
+      "version": 1,
+      "versionNonce": 58059,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "B · POWER?\nreward · exposed",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "B · POWER?\nreward · exposed",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-045",
+      "type": "text",
+      "x": 960,
+      "y": 748,
+      "width": 177,
+      "height": 47,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 33626,
+      "version": 1,
+      "versionNonce": 58676,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "SERVICE CUT\ntactics · flank",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "SERVICE CUT\ntactics · flank",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-046",
+      "type": "text",
+      "x": 951,
+      "y": 463,
+      "width": 193,
+      "height": 45,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 34135,
+      "version": 1,
+      "versionNonce": 59293,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "C · COOLING?\nreward · contested",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "C · COOLING?\nreward · contested",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-047",
+      "type": "text",
+      "x": 1074,
+      "y": 304,
+      "width": 160,
+      "height": 21,
+      "angle": 0,
+      "strokeColor": "#b65361",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 34644,
+      "version": 1,
+      "versionNonce": 59910,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "near expansion",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "near expansion",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-048",
+      "type": "text",
+      "x": 1221,
+      "y": 210,
+      "width": 190,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#b65361",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 35153,
+      "version": 1,
+      "versionNonce": 60527,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 19,
+      "fontFamily": 1,
+      "text": "MACHINE MAIN\nCluster idea",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 17,
+      "containerId": null,
+      "originalText": "MACHINE MAIN\nCluster idea",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-049",
+      "type": "text",
+      "x": 107,
+      "y": 1061,
+      "width": 1290,
+      "height": 23,
+      "angle": 0,
+      "strokeColor": "#657384",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 35662,
+      "version": 1,
+      "versionNonce": 61144,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "REWARD  = capture / resource candidate       TACTICS  = terrain, no income       Pale lines  = traversable gaps",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "REWARD  = capture / resource candidate       TACTICS  = terrain, no income       Pale lines  = traversable gaps",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-050",
+      "type": "text",
+      "x": 94,
+      "y": 27,
+      "width": 1050,
+      "height": 37,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 36171,
+      "version": 1,
+      "versionNonce": 61761,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 28,
+      "fontFamily": 1,
+      "text": "AVAILABILITY ZONE · ORGANIC V2 SKETCH",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 25,
+      "containerId": null,
+      "originalText": "AVAILABILITY ZONE · ORGANIC V2 SKETCH",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-051",
+      "type": "text",
+      "x": 95,
+      "y": 78,
+      "width": 1270,
+      "height": 21,
+      "angle": 0,
+      "strokeColor": "#657384",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 36680,
+      "version": 1,
+      "versionNonce": 62378,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 16,
+      "fontFamily": 1,
+      "text": "Not to scale. A layout idea, not a gameplay map. Irregular regions and branching routes; nothing here changes v1.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 14,
+      "containerId": null,
+      "originalText": "Not to scale. A layout idea, not a gameplay map. Irregular regions and branching routes; nothing here changes v1.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-052",
+      "type": "rectangle",
+      "x": 1474,
+      "y": 126,
+      "width": 462,
+      "height": 956,
+      "angle": 0,
+      "strokeColor": "#c7d0d8",
+      "backgroundColor": "#fcfdfc",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 37189,
+      "version": 1,
+      "versionNonce": 62995,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null
+    },
+    {
+      "id": "az-organic-053",
+      "type": "text",
+      "x": 1497,
+      "y": 148,
+      "width": 405,
+      "height": 30,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 37698,
+      "version": 1,
+      "versionNonce": 63612,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 23,
+      "fontFamily": 1,
+      "text": "WHAT CHANGED",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 21,
+      "containerId": null,
+      "originalText": "WHAT CHANGED",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-054",
+      "type": "text",
+      "x": 1497,
+      "y": 197,
+      "width": 412,
+      "height": 94,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 38207,
+      "version": 1,
+      "versionNonce": 64229,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "Zones now have irregular edges and\npartial terrain boundaries—not discs.\nThe movement network branches, then\nrejoins through smaller openings.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "Zones now have irregular edges and\npartial terrain boundaries—not discs.\nThe movement network branches, then\nrejoins through smaller openings.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-055",
+      "type": "text",
+      "x": 1497,
+      "y": 334,
+      "width": 419,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 38716,
+      "version": 1,
+      "versionNonce": 64846,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 22,
+      "fontFamily": 1,
+      "text": "REWARD ≠ TACTICAL",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 20,
+      "containerId": null,
+      "originalText": "REWARD ≠ TACTICAL",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-056",
+      "type": "text",
+      "x": 1497,
+      "y": 374,
+      "width": 414,
+      "height": 94,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 39225,
+      "version": 1,
+      "versionNonce": 65463,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "Amber: possible capture / resources.\nGreen: useful ground without income.\nBases and near expansions are shown\nfor orientation, not assigned counts.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "Amber: possible capture / resources.\nGreen: useful ground without income.\nBases and near expansions are shown\nfor orientation, not assigned counts.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-057",
+      "type": "text",
+      "x": 1497,
+      "y": 528,
+      "width": 414,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 39734,
+      "version": 1,
+      "versionNonce": 66080,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 22,
+      "fontFamily": 1,
+      "text": "OPEN DESIGN QUESTIONS",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 20,
+      "containerId": null,
+      "originalText": "OPEN DESIGN QUESTIONS",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-058",
+      "type": "text",
+      "x": 1497,
+      "y": 574,
+      "width": 414,
+      "height": 118,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 40243,
+      "version": 1,
+      "versionNonce": 66697,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 18,
+      "fontFamily": 1,
+      "text": "• Which areas should contain “x”?\n• What is x: income, objective, or both?\n• Which terrain creates meaningful cover?\n• How far should a failed push travel?\n• Is the centre too busy or just right?",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 16,
+      "containerId": null,
+      "originalText": "• Which areas should contain “x”?\n• What is x: income, objective, or both?\n• Which terrain creates meaningful cover?\n• How far should a failed push travel?\n• Is the centre too busy or just right?",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-059",
+      "type": "text",
+      "x": 1497,
+      "y": 802,
+      "width": 413,
+      "height": 29,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 40752,
+      "version": 1,
+      "versionNonce": 67314,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 22,
+      "fontFamily": 1,
+      "text": "GAMEPLAY LIMIT",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 20,
+      "containerId": null,
+      "originalText": "GAMEPLAY LIMIT",
+      "lineHeight": 1.25,
+      "autoResize": false
+    },
+    {
+      "id": "az-organic-060",
+      "type": "text",
+      "x": 1497,
+      "y": 844,
+      "width": 415,
+      "height": 89,
+      "angle": 0,
+      "strokeColor": "#273c4d",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 41261,
+      "version": 1,
+      "versionNonce": 67931,
+      "isDeleted": false,
+      "boundElements": null,
+      "updated": 1780243200000,
+      "link": null,
+      "locked": false,
+      "created": null,
+      "fontSize": 17,
+      "fontFamily": 1,
+      "text": "Current sectors still use circular capture\nand territory radii. Organic ownership\nneeds a later code change; this drawing\ncommits no mechanics or map dimensions.",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "baseline": 15,
+      "containerId": null,
+      "originalText": "Current sectors still use circular capture\nand territory radii. Organic ownership\nneeds a later code change; this drawing\ncommits no mechanics or map dimensions.",
+      "lineHeight": 1.25,
+      "autoResize": false
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#e9eef3",
+    "gridSize": null
+  },
+  "files": {}
+}
