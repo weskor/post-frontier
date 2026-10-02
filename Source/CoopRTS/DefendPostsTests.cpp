@@ -54,7 +54,8 @@ public:
 			// No paid force or planner may change ownership while the fixture probes it.
 			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
 				if (It->IsProducer())
-					It->SetProduction(It->ProductionUnitIndex, false);
+					FCommandService::ConfigureProduction(It->OwningPlayerState, *It,
+						It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
 			Overlay = AWorldOverlay::Get(World);
 			if (!Check(Overlay.IsValid(), TEXT("A local game has its client world overlay"))
 				|| !ValidatePosts(*State, *Navigation))
