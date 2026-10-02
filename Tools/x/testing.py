@@ -60,8 +60,6 @@ def _automation(
         ctx.settings.default_map if scope.map == "default" else scope.map
     )
     log = ctx.run.dir / f"{name}-unreal.log"
-    # Movement retains main's 5 s of world ticking before testing unit membership.
-    discovery = "" if name == "movement" else "Now; "
     with ctx.locks.headless():
         before = editor_module(ctx).stat()
         inputs = ctx.freshness.current_hash("editor")
@@ -81,7 +79,7 @@ def _automation(
                 "-nosound",
                 "-unattended",
                 # UE's Now command clears the 5 s discovery delay, not readiness.
-                f"-ExecCmds=Automation {discovery}RunTests {scope.filter}; SoftQuit",
+                f"-ExecCmds=Automation Now; RunTests {scope.filter}; SoftQuit",
                 f"-abslog={log}",
                 "-stdout",
             ],
