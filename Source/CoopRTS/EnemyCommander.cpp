@@ -5,6 +5,7 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Commands/CommandService.h"
 #include "DepositSite.h"
 #include "MapRegion.h"
 #include "Content/MatchContent.h"
@@ -89,8 +90,7 @@ ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, int32 Bui
 	{
 		if (!KeepsRalliesClear(Center))
 			return nullptr;
-		FString Reason;
-		return State->TryPlaceBuilding(BuildingIndex, Center, Commander, TeamIndex, Reason);
+		return FCommandService::PlaceBuilding(Commander, BuildingIndex, Center).Building;
 	}
 	const AMapRegion* Region = State->FindRegionAt(Center);
 	if (!Region)
@@ -118,8 +118,7 @@ ACommandBuilding* AEnemyCommander::BuildNear(ACommandGameState* State, int32 Bui
 				}
 			if (bBlocksDeposit)
 				continue;
-			FString Reason;
-			if (ACommandBuilding* Building = State->TryPlaceBuilding(BuildingIndex, Location, Commander, TeamIndex, Reason))
+			if (ACommandBuilding* Building = FCommandService::PlaceBuilding(Commander, BuildingIndex, Location).Building)
 				return Building;
 		}
 	return nullptr;
@@ -291,13 +290,9 @@ void AEnemyCommander::EvaluatePlan()
 			: Roles[2] == 0                               ? EUnitRole::Siege
 			: Roles[0] <= Roles[1]                        ? EUnitRole::Frontline
 														  : EUnitRole::Ranged;
-		const int32 UnitIndex = Building->bForceConfigured ? Building->ProductionUnitIndex
-			: Role == EUnitRole::Frontline                 ? FrontlineIndex
-			: Role == EUnitRole::Ranged                    ? RangedIndex
-														   : SiegeIndex;
 		const bool bWasConfigured = Building->bForceConfigured;
 		if (!Building->bProductionEnabled)
-			Building->SetProduction(UnitIndex, true);
+			FCommandService::ConfigureProduction(Commander, Building, Role, true);
 		if (!bWasConfigured && Building->bForceConfigured)
 			++Roles[Role == EUnitRole::Frontline ? 0 : Role == EUnitRole::Ranged ? 1
 																				 : 2];
@@ -367,7 +362,7 @@ void AEnemyCommander::EvaluatePlan()
 		}
 		if (Building->ForceGoal != Goal || (Target != INDEX_NONE && Building->GoalRegionIndex != Target)
 			|| !Building->HasConfiguredFront())
-			Building->SetGoal(Goal, Target);
+			FCommandService::AssignGoal(Commander, Building, Goal, Target);
 	}
 
 	// Prefer the safest controlled forward anchor. Never construct on a contested region.
@@ -403,7 +398,7 @@ void AEnemyCommander::EvaluatePlan()
 		BuildNear(State, WorkshopIndex, Home);
 	else if (Workshop && Workshop->IsComplete() && Commander->Doctrine == EArmyDoctrine::None
 		&& Commander->Resources >= ACommandBuilding::ResearchCost + Reserve)
-		Workshop->TryResearch(EArmyDoctrine::FieldRepairs);
+		FCommandService::Research(Commander, Workshop, EArmyDoctrine::FieldRepairs);
 	if (TeamIndex == 5)
 	{
 		State->EnemyPlan = bThreatened ? TEXT("DEFEND REGIONS") : bAdvantage ? TEXT("ASSAULT HQ")
