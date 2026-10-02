@@ -125,19 +125,15 @@ def primitive(label, location, scale, surface, mesh=cube, collision=True):
 
 capture_anchors = {}
 arena_x, arena_y = MatchLayout.place(spawn, capture_anchors)
-primitive("ArenaFloor", (0, 0, -50), (arena_x / 50, arena_y / 50, 1), floor_material)
-primitive("CentralObstacle", (0, 0, 300), (12, 20, 6), obstacle_material)
-# Keep characters on the playable floor as well as bounding orders: 50 cm walls whose inner face is 50 cm inside the arena.
-primitive("BoundaryNorth", (0, arena_y - 25, 60), (arena_x / 50, 0.5, 1.2), wall_material)
-primitive("BoundarySouth", (0, -(arena_y - 25), 60), (arena_x / 50, 0.5, 1.2), wall_material)
-primitive("BoundaryEast", (arena_x - 25, 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
-primitive("BoundaryWest", (-(arena_x - 25), 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
-for index, y in enumerate((0, -850, 850, -1700, 1700)):
-    primitive("ArmyHome" + str(index), (-1800, y, 2), (5, 5, 0.04), team_materials[index], cylinder, False)
+MatchLayout.place_boot_geometry(
+    (arena_x, arena_y), primitive,
+    {"floor": floor_material, "obstacle": obstacle_material, "wall": wall_material,
+     "teams": team_materials, "cylinder": cylinder})
 regions = MatchLayout.region_plan((arena_x, arena_y), defend_posts=MatchLayout.BOOT_DEFEND_POSTS)
 post_errors = MatchLayout.defend_post_errors(
     regions, (arena_x, arena_y),
-    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance))
+    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance),
+    headquarters=[home[1] for home in MatchLayout.HEADQUARTERS])
 require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
 deposits = MatchLayout.deposit_plan(regions, (arena_x, arena_y),
                                    lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))

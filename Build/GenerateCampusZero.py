@@ -250,111 +250,23 @@ def spot(label, wall_point, outward, height, reach, rgb, intensity):
     component.set_editor_property("cast_shadows", False)
 
 
-# ---------------------------------------------------------------- ground
-block("Ground", (0, 0), (9000, 9000, 100), floor_mat, base=-100, check=False)
-block("GroundScrapyard", (-3000, 0), (3000, 9000, 1), scrap_ground, collision=False)
-block("GroundCampus", (3100, 0), (2800, 9000, 1), campus_ground, collision=False)
-# Road from the Bunker, along the south flank, into the campus gate.
-for index, (a, b) in enumerate((((-3500, -1150), (-850, -1150)), ((-850, -1150), (600, -1500)),
-                                ((600, -1500), (2600, -1500)), ((2600, -1500), (2600, 1500)))):
-    strip("Road%d" % index, a, b, 360, concrete, 1.5)
-    length = math.hypot(b[0] - a[0], b[1] - a[1])
-    for dash in range(int(length // 400)):
-        t0, t1 = (dash * 400 + 100) / length, (dash * 400 + 300) / length
-        strip("Road%dDash%d" % (index, dash), (a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0),
-              (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1), 18, road_line, 2.5)
-
-# ---------------------------------------------------------------- centre: Data Hall 0
-# Same footprint as Boot's CentralObstacle so crossing times stay comparable. The kit hall has its own roof,
-# glow seams and loading doors (two per long side), so the old roof, seam, door and rooftop primitives are gone.
-kit_hall("DataHall0", (0, 0), (1200, 2000), {"E": 2, "W": 2})
-
-# ---------------------------------------------------------------- east: the campus
-# Door sides are Unreal world directions, one door module per hall. They sit on the faces the CampusSpot pairs
-# below flank (HallA west, HallB north, HallC south), so each door has a pool of light either side.
-halls = (("HallA", (3550, 450), (900, 1300), {"W": 1}), ("HallB", (3300, -1650), (1300, 800), {"N": 1}),
-         ("HallC", (500, 3650), (1700, 700), {"S": 1}), ("HallD", (2900, 3750), (1100, 600), {}))
-for name, center, size, doors in halls:
-    kit_hall(name, center, size, doors)
-for index, (x, y) in enumerate(((2400, -3200), (3500, -3300), (3950, -2600))):
-    kit("CoolingTower", "CoolingTower%d" % index, (x, y), (560, 560), round_shape=True)
-# Campus perimeter fence with wide gates (north and south spans only; the middle stays open).
-for index, (x0, y0, y1) in enumerate(((1900, 2850, 4400), (1150, -4400, -2750))):
-    kit_run("FenceSegment", "CampusFence%d" % index, (x0, (y0 + y1) / 2), (30, y1 - y0), along_local_x=True)
-# Machine HQ plaza: a lit ring the Cluster (AHeadquarters) stands in; nothing blocks inside it.
-block("ClusterPlaza", ENEMY_HQ, (900, 900, 2), concrete, collision=False, mesh=cylinder)
-block("ClusterPlazaRing", ENEMY_HQ, (940, 940, 1.5), cyan, collision=False, mesh=cylinder)
-for index, angle in enumerate(range(0, 360, 45)):
-    x = ENEMY_HQ[0] + 650 * math.cos(math.radians(angle))
-    y = ENEMY_HQ[1] + 650 * math.sin(math.radians(angle))
-    if abs(x) < ARENA_X - 100 and abs(y) < ARENA_Y - 100:
-        kit("ClusterPylon", "ClusterPylon%d" % index, (x, y), (70, 70))
-
-# ---------------------------------------------------------------- capture sites
-# Substation 7: transformer yard and a pylon; cables run to the Cluster.
-sx, sy = SITES["Substation7"]
-for index, (dx, dy) in enumerate(((-600, -550), (600, -450), (650, 250))):
-    kit("Transformer", "Substation7Transformer%d" % index, (sx + dx, sy + dy), (220, 170))
-# The pylon blocks only its 150 x 150 body; its 700 cm cross-arm is 11 m up (EnvKit.GROUND_FOOTPRINT).
-kit("Pylon", "Substation7Pylon", (sx, sy - 900), (700, 150))
-# Cooling Plant: chiller drums around the Machine side of the ring.
-cx, cy = SITES["CoolingPlant"]
-for index, (dx, dy) in enumerate(((700, -150), (700, 350), (250, -750))):
-    kit("Chiller", "CoolingPlantChiller%d" % index, (cx + dx, cy + dy), (260, 260), round_shape=True)
-# Fibre Junction: comms mast and cable spools.
-fx, fy = SITES["FibreJunction"]
-kit("CommsMast", "FibreJunctionMast", (fx + 150, fy - 650), (80, 80))
-for index, (dx, dy) in enumerate(((-720, -150), (-640, 380), (720, 250))):
-    kit("CableSpool", "FibreJunctionSpool%d" % index, (fx + dx, fy + dy), (200, 200), round_shape=True)
-# Cyan cables from every site to the Cluster (future hook: tint amber while humans hold the site).
-for name, (x, y) in SITES.items():
-    corner = (2600, y)
-    strip(name + "CableA", (x, y), corner, 24, cyan_dim, 3)
-    strip(name + "CableB", corner, (2600, ENEMY_HQ[1]), 24, cyan_dim, 3)
-strip("ClusterCableTrunk", (2600, ENEMY_HQ[1]), ENEMY_HQ, 40, cyan_dim, 3)
-# Ground rings make each site readable at strategic zoom, outside the native capture marker.
-for name, center in SITES.items():
-    block(name + "Ring", center, (2 * CAPTURE_RADIUS + 20, 2 * CAPTURE_RADIUS + 20, 1.2), road_line,
-          collision=False, mesh=cylinder)
-    block(name + "RingInner", center, (2 * CAPTURE_RADIUS - 20, 2 * CAPTURE_RADIUS - 20, 1.6), floor_mat,
-          collision=False, mesh=cylinder)
-
-# ---------------------------------------------------------------- west: the scrapyard
-for index, (center, yaw, paint) in enumerate((((-3900, 1600), 90, container_blue), ((-3650, 2700), 10, rust),
-                                              ((-2300, 3400), 0, olive), ((-3900, -2500), 80, rust),
-                                              ((-2500, -3350), -8, container_blue), ((-1200, 3500), 20, rust))):
-    kit("Container", "Container%d" % index, center, (600, 245), yaw, materials={"Shell": paint})
-    kit("Container", "ContainerStack%d" % index, (center[0] + 40, center[1]), (600, 245), yaw + 4, base=260,
-        collision=False, materials={"Shell": olive if index % 2 else rust})
-for index, (center, yaw, paint) in enumerate((((-1100, 2600), 30, rust), ((-400, -3500), -20, olive),
-                                              ((-4000, 3700), 70, rust), ((-3200, -3900), 5, olive),
-                                              ((-600, 2300), -60, rust))):
-    kit("Wreck", "Wreck%d" % index, center, (420, 190), yaw, materials={"Shell": paint})
-# The Bunker's yard: a sandbag wall behind the HQ, a flag mast, work lamps. v9 also had 600 cm return walls at
-# hy +- 560 reaching 150 cm past the HQ centre; with the 335 cm HQ exclusion they closed both flanks of the HQ to
-# building (Saved/Verification/sc2-art-unreal/RESULTS.md, placement check), so only the rear wall is left.
-hx, hy = FRIENDLY_HQ
-block_center, block_size = (hx - 520, hy), (120, 900)
-kit_run("SandbagWall", "BunkerSandbags0", block_center, block_size, along_local_x=False, materials={"Shell": sandbag})
-block("BunkerMast", (hx - 520, hy + 520), (40, 40, 900), steel)
-block("BunkerBanner", (hx - 520, hy + 600), (10, 140, 200), team_materials[0], base=650, collision=False)
-for index, (dx, dy) in enumerate(((-520, -400), (-520, 400))):
-    block("BunkerLamp%d" % index, (hx + dx, hy + dy), (50, 50, 50), amber, base=110, collision=False)
-    # v8's intensity 260 clips the kit's bevelled sandbags
-    light("BunkerLampLight%d" % index, (hx + dx, hy + dy, 220), art.HUMAN_GLOW, 150, 500)
-# Army home pads, matching Boot's markers so players can find their formations.
-for index, y in enumerate((0, -850, 850, -1700, 1700)):
-    block("ArmyHome%d" % index, (-1800, y), (500, 500, 4), team_materials[index], base=0, collision=False, mesh=cylinder)
-# Scavenged power: burn barrels (fire is part of the kit piece) and a generator shack beside the scrapyard.
-for index, (x, y) in enumerate(((-2300, -700), (-2300, 1300), (-1300, -2500), (-1300, 2300))):
-    kit("BurnBarrel", "BurnBarrel%d" % index, (x, y), (70, 70), round_shape=True)
-    light("BurnBarrelLight%d" % index, (x, y, 260), art.HUMAN_GLOW, 100, 380)
-kit("GeneratorShack", "GeneratorShack", (-4100, 500), (300, 400))
+# The same authored geometry is emitted by the offline defend-post checks.
+MatchLayout.place_campus_zero_geometry(
+    (ARENA_X, ARENA_Y), block=block, kit=kit, kit_hall=kit_hall, kit_run=kit_run,
+    strip=strip, light=light,
+    surfaces={
+        "floor_mat": floor_mat, "scrap_ground": scrap_ground, "campus_ground": campus_ground,
+        "road_line": road_line, "concrete": concrete, "steel": steel, "cyan": cyan,
+        "cyan_dim": cyan_dim, "rust": rust, "olive": olive, "container_blue": container_blue,
+        "sandbag": sandbag, "amber": amber, "team_materials": team_materials,
+        "cylinder": cylinder, "human_glow": art.HUMAN_GLOW, "capture_radius": CAPTURE_RADIUS,
+    })
 
 regions = MatchLayout.region_plan((ARENA_X, ARENA_Y), defend_posts=MatchLayout.CAMPUS_ZERO_DEFEND_POSTS)
 post_errors = MatchLayout.defend_post_errors(
     regions, (ARENA_X, ARENA_Y),
-    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance))
+    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance),
+    headquarters=[home[1] for home in MatchLayout.HEADQUARTERS])
 require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
 deposits = MatchLayout.deposit_plan(regions, (ARENA_X, ARENA_Y),
                                    lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))

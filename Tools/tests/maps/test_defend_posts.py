@@ -124,7 +124,7 @@ def test_exact_stretch_boundary() -> None:
         "name": "Flat strip",
         "home_team": -1,
         "seed": (0, 0),
-        "poly": [(-7100, -100), (7100, -100), (7100, 100), (-7100, 100)],
+        "poly": [(-7145, -145), (7145, -145), (7145, 145), (-7145, 145)],
         "neighbours": [],
         "defend_posts": [[-3500, 0], [3500, 0]],
     }
@@ -133,9 +133,60 @@ def test_exact_stretch_boundary() -> None:
         return MatchLayout.clear_of_blockers(point, [], clearance)
 
     assert MatchLayout.defend_post_errors([region], (8000, 1000), clear_ground) == []
-    region["poly"] = [(-7150, -100), (7150, -100), (7150, 100), (-7150, 100)]
+    region["poly"] = [(-7195, -145), (7195, -145), (7195, 145), (-7195, 145)]
     errors = MatchLayout.defend_post_errors([region], (8000, 1000), clear_ground)
     assert len(errors) == 1 and "3550.0 cm" in errors[0]
+
+
+def test_uncovered_free_building_arena_edge() -> None:
+    region: MatchLayout.GameplayRegion = {
+        "index": 0,
+        "name": "Arena edge strip",
+        "home_team": -1,
+        "seed": (0, 0),
+        "poly": [(-7500, -150), (7500, -150), (7500, 150), (-7500, 150)],
+        "neighbours": [],
+        "defend_posts": [[-3500, 0], [3500, 0]],
+    }
+
+    def clear_ground(point: MatchLayout.Point, clearance: float) -> bool:
+        return MatchLayout.clear_of_blockers(point, [], clearance)
+
+    # Both real grid phases have uncovered placements in the centre-only arena
+    # margin band; the former extractor sampler excluded all of them.
+    samples = set(
+        MatchLayout.buildable_samples(
+            region, (7200, 1000), clear_ground, uncovered_by=region["defend_posts"]
+        )
+    )
+    assert (7075, 25) in samples  # Barracks: five cells, half-cell phase.
+    assert (7100, 0) in samples  # Workshop: six cells, whole-cell phase.
+    assert MatchLayout.defend_post_errors([region], (7200, 1000), clear_ground)
+
+
+def test_free_building_headquarters_clearance() -> None:
+    region: MatchLayout.GameplayRegion = {
+        "index": 0,
+        "name": "Main edge",
+        "home_team": 0,
+        "seed": (0, 0),
+        "poly": [(100, 0), (450, 0), (450, 250), (100, 250)],
+        "neighbours": [],
+        "defend_posts": [[325, 125], [400, 125]],
+    }
+
+    def clear_ground(point: MatchLayout.Point, clearance: float) -> bool:
+        return MatchLayout.clear_of_blockers(point, [], clearance)
+
+    samples = set(
+        MatchLayout.buildable_samples(
+            region, (1000, 1000), clear_ground, headquarters=[(0, 0, 110)]
+        )
+    )
+    # A legal Barracks just outside r+210 must not inherit the extractor's
+    # larger 175+210 exclusion. A nearer Barracks remains blocked.
+    assert (325, 125) in samples
+    assert (275, 125) not in samples
 
 
 def test_rederive_preserves_hand_edited_posts(

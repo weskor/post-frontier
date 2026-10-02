@@ -597,8 +597,6 @@ def defend_post_errors(data: MapData) -> list[str]:
             not inside(point, blocker["poly"])
             and clearance(point, blocker["poly"]) >= margin
             for blocker in data["blockers"]
-        ) and all(
-            math.dist(point, hq["pos"]) >= 210 + margin for hq in data["headquarters"]
         )
 
     return MatchLayout.defend_post_errors(
@@ -607,6 +605,7 @@ def defend_post_errors(data: MapData) -> list[str]:
         clear_ground,
         data["arena"]["placement_margin"],
         lambda poly, point: inside(point, poly),
+        headquarters=[hq["pos"] for hq in data["headquarters"]],
     )
 
 

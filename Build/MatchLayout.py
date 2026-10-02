@@ -50,6 +50,9 @@ HEADQUARTERS = (("Friendly Main", FRIENDLY_HQ, FRIENDLY_TEAM), ("Enemy Main", EN
 BUILD_GRID = 50
 EXTRACTOR_HALF_EXTENT = 100.0  # Four build-grid cells; includes the 95 cm physical footprint.
 DEPOSIT_CLEARANCE = 175.0  # Circumscribed footprint plus the 35 cm navigation agent radius.
+# Free-placement footprints from the building catalogue; extractors snap to deposits.
+FREE_BUILDING_HALF_EXTENTS = (125.0, 145.0)
+HEADQUARTERS_CLEARANCE = 210.0
 GEOMETRY_EPSILON = 1e-5
 
 # Authored world XY centimetres, indexed in region_plan's seed order. Keep these
@@ -70,6 +73,118 @@ CAMPUS_ZERO_DEFEND_POSTS = [
 ]
 DEFEND_POST_RANGE = 3500.0
 NAV_AGENT_RADIUS = 35.0
+
+
+def place_boot_geometry(half_extent: Point, primitive: Callable[..., Any], surfaces: Mapping[str, Any]) -> None:
+    """Emit Boot's authored geometry through the generator's primitive operation."""
+    arena_x, arena_y = half_extent
+    primitive("ArenaFloor", (0, 0, -50), (arena_x / 50, arena_y / 50, 1), surfaces["floor"])
+    primitive("CentralObstacle", (0, 0, 300), (12, 20, 6), surfaces["obstacle"])
+    # 50 cm walls whose inner face is 50 cm inside the arena.
+    primitive("BoundaryNorth", (0, arena_y - 25, 60), (arena_x / 50, 0.5, 1.2), surfaces["wall"])
+    primitive("BoundarySouth", (0, -(arena_y - 25), 60), (arena_x / 50, 0.5, 1.2), surfaces["wall"])
+    primitive("BoundaryEast", (arena_x - 25, 0, 60), (0.5, arena_y / 50, 1.2), surfaces["wall"])
+    primitive("BoundaryWest", (-(arena_x - 25), 0, 60), (0.5, arena_y / 50, 1.2), surfaces["wall"])
+    for index, y in enumerate((0, -850, 850, -1700, 1700)):
+        primitive("ArmyHome" + str(index), (-1800, y, 2), (5, 5, 0.04),
+                  surfaces["teams"][index], surfaces["cylinder"], False)
+
+
+def place_campus_zero_geometry(
+    half_extent: Point, *, block: Callable[..., Any], kit: Callable[..., Any],
+    kit_hall: Callable[..., Any], kit_run: Callable[..., Any], strip: Callable[..., Any],
+    light: Callable[..., Any], surfaces: Mapping[str, Any],
+) -> None:
+    """Emit CampusZero's authored geometry with the same operations online and offline."""
+    arena_x, arena_y = half_extent
+    (floor_mat, scrap_ground, campus_ground, road_line, concrete, steel, cyan, cyan_dim,
+     rust, olive, container_blue, sandbag, amber, team_materials, cylinder, human_glow) = (
+        surfaces[name] for name in (
+            "floor_mat", "scrap_ground", "campus_ground", "road_line", "concrete", "steel",
+            "cyan", "cyan_dim", "rust", "olive", "container_blue", "sandbag", "amber",
+            "team_materials", "cylinder", "human_glow"))
+    capture_radius = surfaces["capture_radius"]
+
+    # Ground and road from the Bunker, along the south flank, into the campus gate.
+    block("Ground", (0, 0), (9000, 9000, 100), floor_mat, base=-100, check=False)
+    block("GroundScrapyard", (-3000, 0), (3000, 9000, 1), scrap_ground, collision=False)
+    block("GroundCampus", (3100, 0), (2800, 9000, 1), campus_ground, collision=False)
+    for index, (a, b) in enumerate((((-3500, -1150), (-850, -1150)), ((-850, -1150), (600, -1500)),
+                                    ((600, -1500), (2600, -1500)), ((2600, -1500), (2600, 1500)))):
+        strip("Road%d" % index, a, b, 360, concrete, 1.5)
+        length = math.hypot(b[0] - a[0], b[1] - a[1])
+        for dash in range(int(length // 400)):
+            t0, t1 = (dash * 400 + 100) / length, (dash * 400 + 300) / length
+            strip("Road%dDash%d" % (index, dash), (a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0),
+                  (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1), 18, road_line, 2.5)
+
+    # Data halls use their full outer rectangles, matching the generator's collision registration.
+    kit_hall("DataHall0", (0, 0), (1200, 2000), {"E": 2, "W": 2})
+    halls: tuple[tuple[str, Point, Point, Mapping[str, int]], ...] = (
+        ("HallA", (3550, 450), (900, 1300), {"W": 1}), ("HallB", (3300, -1650), (1300, 800), {"N": 1}),
+        ("HallC", (500, 3650), (1700, 700), {"S": 1}), ("HallD", (2900, 3750), (1100, 600), {}))
+    for name, center, size, doors in halls:
+        kit_hall(name, center, size, doors)
+    for index, (x, y) in enumerate(((2400, -3200), (3500, -3300), (3950, -2600))):
+        kit("CoolingTower", "CoolingTower%d" % index, (x, y), (560, 560), round_shape=True)
+    for index, (x0, y0, y1) in enumerate(((1900, 2850, 4400), (1150, -4400, -2750))):
+        kit_run("FenceSegment", "CampusFence%d" % index, (x0, (y0 + y1) / 2), (30, y1 - y0), along_local_x=True)
+    block("ClusterPlaza", ENEMY_HQ, (900, 900, 2), concrete, collision=False, mesh=cylinder)
+    block("ClusterPlazaRing", ENEMY_HQ, (940, 940, 1.5), cyan, collision=False, mesh=cylinder)
+    for index, angle in enumerate(range(0, 360, 45)):
+        px = ENEMY_HQ[0] + 650 * math.cos(math.radians(angle))
+        py = ENEMY_HQ[1] + 650 * math.sin(math.radians(angle))
+        if abs(px) < arena_x - 100 and abs(py) < arena_y - 100:
+            kit("ClusterPylon", "ClusterPylon%d" % index, (px, py), (70, 70))
+
+    sx, sy = SITES["Substation7"]
+    for index, (dx, dy) in enumerate(((-600, -550), (600, -450), (650, 250))):
+        kit("Transformer", "Substation7Transformer%d" % index, (sx + dx, sy + dy), (220, 170))
+    # EnvKit's collision_size narrows the Pylon's high cross-arm to its ground body.
+    kit("Pylon", "Substation7Pylon", (sx, sy - 900), (700, 150))
+    cx, cy = SITES["CoolingPlant"]
+    for index, (dx, dy) in enumerate(((700, -150), (700, 350), (250, -750))):
+        kit("Chiller", "CoolingPlantChiller%d" % index, (cx + dx, cy + dy), (260, 260), round_shape=True)
+    fx, fy = SITES["FibreJunction"]
+    kit("CommsMast", "FibreJunctionMast", (fx + 150, fy - 650), (80, 80))
+    for index, (dx, dy) in enumerate(((-720, -150), (-640, 380), (720, 250))):
+        kit("CableSpool", "FibreJunctionSpool%d" % index, (fx + dx, fy + dy), (200, 200), round_shape=True)
+    for name, (x, y) in SITES.items():
+        corner = (2600, y)
+        strip(name + "CableA", (x, y), corner, 24, cyan_dim, 3)
+        strip(name + "CableB", corner, (2600, ENEMY_HQ[1]), 24, cyan_dim, 3)
+    strip("ClusterCableTrunk", (2600, ENEMY_HQ[1]), ENEMY_HQ, 40, cyan_dim, 3)
+    for name, center in SITES.items():
+        block(name + "Ring", center, (2 * capture_radius + 20, 2 * capture_radius + 20, 1.2), road_line,
+              collision=False, mesh=cylinder)
+        block(name + "RingInner", center, (2 * capture_radius - 20, 2 * capture_radius - 20, 1.6), floor_mat,
+              collision=False, mesh=cylinder)
+
+    for index, (center, yaw, paint) in enumerate((((-3900, 1600), 90, container_blue), ((-3650, 2700), 10, rust),
+                                                 ((-2300, 3400), 0, olive), ((-3900, -2500), 80, rust),
+                                                 ((-2500, -3350), -8, container_blue), ((-1200, 3500), 20, rust))):
+        kit("Container", "Container%d" % index, center, (600, 245), yaw, materials={"Shell": paint})
+        kit("Container", "ContainerStack%d" % index, (center[0] + 40, center[1]), (600, 245), yaw + 4, base=260,
+            collision=False, materials={"Shell": olive if index % 2 else rust})
+    for index, (center, yaw, paint) in enumerate((((-1100, 2600), 30, rust), ((-400, -3500), -20, olive),
+                                                 ((-4000, 3700), 70, rust), ((-3200, -3900), 5, olive),
+                                                 ((-600, 2300), -60, rust))):
+        kit("Wreck", "Wreck%d" % index, center, (420, 190), yaw, materials={"Shell": paint})
+    # Only the rear sandbag wall remains: return walls closed both HQ flanks to building.
+    hx, hy = FRIENDLY_HQ
+    block_center, block_size = (hx - 520, hy), (120, 900)
+    kit_run("SandbagWall", "BunkerSandbags0", block_center, block_size, along_local_x=False, materials={"Shell": sandbag})
+    block("BunkerMast", (hx - 520, hy + 520), (40, 40, 900), steel)
+    block("BunkerBanner", (hx - 520, hy + 600), (10, 140, 200), team_materials[0], base=650, collision=False)
+    for index, (dx, dy) in enumerate(((-520, -400), (-520, 400))):
+        block("BunkerLamp%d" % index, (hx + dx, hy + dy), (50, 50, 50), amber, base=110, collision=False)
+        light("BunkerLampLight%d" % index, (hx + dx, hy + dy, 220), human_glow, 150, 500)
+    for index, y in enumerate((0, -850, 850, -1700, 1700)):
+        block("ArmyHome%d" % index, (-1800, y), (500, 500, 4), team_materials[index], base=0, collision=False, mesh=cylinder)
+    for index, (x, y) in enumerate(((-2300, -700), (-2300, 1300), (-1300, -2500), (-1300, 2300))):
+        kit("BurnBarrel", "BurnBarrel%d" % index, (x, y), (70, 70), round_shape=True)
+        light("BurnBarrelLight%d" % index, (x, y, 260), human_glow, 100, 380)
+    kit("GeneratorShack", "GeneratorShack", (-4100, 500), (300, 400))
 
 
 def clip_polygon(poly: list[tuple[float, float]], normal: Point, limit: float) -> list[tuple[float, float]]:
@@ -176,31 +291,38 @@ def buildable_samples(
     placement_margin: float = 100.0,
     contains_point: Containment = contains,
     uncovered_by: Sequence[Point] = (),
+    headquarters: Sequence[Point] = (),
 ) -> Iterator[tuple[float, float]]:
-    """Build-grid samples with the same whole-footprint/ground clearance as deposit placement.
+    """Conservative superset of free Barracks/Workshop placement centres.
 
-    `uncovered_by` prunes already-covered samples before expensive ground queries;
-    it does not change which uncovered building placements count.
+    Match footprint/grid phase and the arena's centre-only placement margin.
+    Inscribed-circle obstruction clearance cannot reject a clear footprint box.
+    Navigation probes, transient actors, ownership and hostile-HQ exclusion are
+    deliberately omitted: they can only remove placements from these samples.
+    `uncovered_by` prunes covered samples before expensive ground queries.
     """
     hx, hy = half_extent
     poly = cast(Polygon, region["poly"])
-    x0 = max(min(p[0] for p in poly), -hx + placement_margin + DEPOSIT_CLEARANCE)
-    x1 = min(max(p[0] for p in poly), hx - placement_margin - DEPOSIT_CLEARANCE)
-    y0 = max(min(p[1] for p in poly), -hy + placement_margin + DEPOSIT_CLEARANCE)
-    y1 = min(max(p[1] for p in poly), hy - placement_margin - DEPOSIT_CLEARANCE)
-    for i in range(math.ceil(x0 / BUILD_GRID), math.floor(x1 / BUILD_GRID) + 1):
-        for j in range(math.ceil(y0 / BUILD_GRID), math.floor(y1 / BUILD_GRID) + 1):
-            point = (i * BUILD_GRID, j * BUILD_GRID)
-            if uncovered_by and any(math.dist(point, post) <= DEFEND_POST_RANGE for post in uncovered_by):
-                continue
-            if not contains_point(poly, point):
-                continue
-            if not all(contains_point(poly, (point[0] + dx, point[1] + dy))
-                       for dx in (-EXTRACTOR_HALF_EXTENT, EXTRACTOR_HALF_EXTENT)
-                       for dy in (-EXTRACTOR_HALF_EXTENT, EXTRACTOR_HALF_EXTENT)):
-                continue
-            if clear_ground(point, DEPOSIT_CLEARANCE):
-                yield point
+    x0 = max(min(p[0] for p in poly), -hx + placement_margin)
+    x1 = min(max(p[0] for p in poly), hx - placement_margin)
+    y0 = max(min(p[1] for p in poly), -hy + placement_margin)
+    y1 = min(max(p[1] for p in poly), hy - placement_margin)
+    for radius in FREE_BUILDING_HALF_EXTENTS:
+        offset = BUILD_GRID / 2 if math.ceil(2 * radius / BUILD_GRID) % 2 else 0.0
+        for i in range(math.ceil((x0 - offset) / BUILD_GRID), math.floor((x1 - offset) / BUILD_GRID) + 1):
+            for j in range(math.ceil((y0 - offset) / BUILD_GRID), math.floor((y1 - offset) / BUILD_GRID) + 1):
+                point = (i * BUILD_GRID + offset, j * BUILD_GRID + offset)
+                if uncovered_by and any(math.dist(point, post) <= DEFEND_POST_RANGE for post in uncovered_by):
+                    continue
+                if not contains_point(poly, point):
+                    continue
+                if not all(contains_point(poly, (point[0] + dx, point[1] + dy))
+                           for dx in (-radius, radius) for dy in (-radius, radius)):
+                    continue
+                if any(math.dist(point, home[:2]) <= radius + HEADQUARTERS_CLEARANCE for home in headquarters):
+                    continue
+                if clear_ground(point, radius):
+                    yield point
 
 
 def defend_post_errors(
@@ -209,10 +331,12 @@ def defend_post_errors(
     clear_ground: GroundClearance,
     placement_margin: float = 100.0,
     contains_point: Containment = contains,
+    headquarters: Sequence[Point] = (),
 ) -> list[str]:
     """Reject missing/extra, out-of-region, off-ground or >35m authored defend posts."""
     errors = []
     hx, hy = half_extent
+    home_blockers = [(*home[:2], 300, 300, 0) for home in headquarters]
     for region in regions:
         name = cast(str, region["name"])
         poly = cast(Polygon, region["poly"])
@@ -229,13 +353,15 @@ def defend_post_errors(
             if not contains_point(poly, post):
                 errors.append("%s: defend post %d outside region" % (name, index))
                 valid = False
-            if abs(post[0]) >= hx or abs(post[1]) >= hy or not clear_ground(post, NAV_AGENT_RADIUS):
+            if (abs(post[0]) >= hx or abs(post[1]) >= hy
+                    or not clear_ground(post, NAV_AGENT_RADIUS)
+                    or not clear_of_blockers(post, home_blockers, NAV_AGENT_RADIUS)):
                 errors.append("%s: defend post %d off walkable ground" % (name, index))
                 valid = False
         if not valid:
             continue
         sample = next(buildable_samples(region, half_extent, clear_ground, placement_margin,
-                                        contains_point, posts), None)
+                                        contains_point, posts, headquarters), None)
         if sample is not None:
             distance = min(math.dist(sample, post) for post in posts)
             errors.append("%s: buildable spot %s is %.1f cm from nearest defend post (maximum 3500 cm)"

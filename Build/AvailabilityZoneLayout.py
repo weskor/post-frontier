@@ -706,6 +706,9 @@ class Layout:
             self.data["match_actors"]["arena"]["half_extent"],
             self.deposit_clear,
             self.data["match_actors"]["arena"]["placement_margin"],
+            headquarters=[
+                hq["pos"] for hq in self.data["match_actors"]["headquarters"]
+            ],
         )
 
     # ------------------------------------------------------------------ landmarks and light masts
