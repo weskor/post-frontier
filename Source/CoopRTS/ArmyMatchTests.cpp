@@ -6,6 +6,7 @@
 #include "DepositSite.h"
 #include "Headquarters.h"
 #include "SimulationSettings.h"
+#include "Content/BuildingDefinition.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyMatchVictoryTest, "CoopRTS.Match.VictoryRestart",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -49,6 +50,12 @@ public:
 			if (Wallet->Doctrine != EArmyDoctrine::SiegeOptics
 				|| Wallet->Resources != BeforeResearch - ACommandBuilding::ResearchCost)
 				return Fail(TEXT("Old match must own a paid specialization"));
+			const UBuildingDefinition* Barracks = State->Content->Building(ArmyTestSetup::BarracksIndex);
+			if (!Barracks || Wallet->Resources < ACommandBuilding::GetBuildCost(*Barracks))
+				return Fail(TEXT("Terminal construction fixture must afford a barracks"));
+			MoveLocation = Friendly->GetCenter();
+			if (!State->Arena->ContainsTravel(MoveLocation))
+				return Fail(TEXT("Terminal Move fixture must be inside arena travel bounds"));
 			if (!FindBuildingLocation(State))
 				return Fail(TEXT("Terminal placement requires a previously valid HQ-region footprint"));
 			for (ACapturePoint* Site : State->CaptureSites)
@@ -98,10 +105,22 @@ public:
 				AfterShots += Unit->AttackCount;
 			if (AfterShots <= BeforeShots || (bVictory ? State->EnemyHeadquarters->Health : State->FriendlyHeadquarters->Health) != 0)
 				return Fail(TEXT("Outcome requires real attacks and zero target HQ health"));
+			if (!bVictory)
+			{
+				// The lethal hit is already proved. Isolate terminal rejection from the
+				// dead home HQ and hostile occupation, which independently deny building.
+				State->FriendlyHeadquarters->Health = 80;
+				for (AArmyUnit* Unit : Enemy->GetUnits())
+					Unit->SetActorLocation(ArmyTestSetup::HostileStaging(State)
+							+ FVector(0.f, Unit->GetCompositionSlot() * 100.f, 0.f),
+						false, nullptr, ETeleportType::TeleportPhysics);
+			}
+			if (!State->IsInBuildTerritory(ArmyTestSetup::BarracksIndex, 0, BuildingLocation))
+				return Fail(TEXT("Terminal construction fixture must remain in uncontested friendly territory"));
 			const uint32 Serial = Friendly->OrderSerial;
 			const int32 Balance = Wallet->Resources;
 			const int32 Buildings = State->Buildings.Num();
-			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 2300.f, 5.f));
+			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, MoveLocation);
 			PC->ServerPlaceBuilding(ArmyTestSetup::BarracksIndex, BuildingLocation);
 			ArmyTestSetup::Research(PC, EArmyDoctrine::FieldRepairs);
 			State->bVerificationIncomePaused = false; // Terminal state, not the fixture pause, must stop income.
@@ -175,6 +194,7 @@ private:
 	uint32 BeforeShots = 0;
 	double StartedAt = FPlatformTime::Seconds();
 	FVector BuildingLocation = FVector::ZeroVector;
+	FVector MoveLocation = FVector::ZeroVector;
 	TWeakObjectPtr<UWorld> OldWorld;
 	TWeakObjectPtr<ACommandGameState> OldState;
 	TWeakObjectPtr<AArmyGroup> Friendly;
