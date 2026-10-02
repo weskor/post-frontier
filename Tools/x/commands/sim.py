@@ -20,9 +20,10 @@ HELP = (
     "2400 game-second cap; 1x dilation. --matrix runs V2 baseline2/3/4 plus v1 baseline2. "
     "--duel runs the full ordered runtime combat roster, including mirrors, in each seed process; "
     "default V2 only, 120 Power per side in whole units, no configuration fees or autopilot. "
-    "--matches counts matrix seeds; --time-cap applies separately to each pair. "
+    "--matches counts matrix seeds; --time-cap defaults to 300 game-seconds separately per pair. "
     "Duel economy variants, --matrix and --compare-dilation are incompatible. "
     "Duel reports evaluate Docs/Design/units.md rules; balance failures are evidence, not runtime failures. "
+    "Stalled duels are invalid runtime failures, never draws or a balance baseline. "
     "Use --compare-dilation for paired telemetry comparison; --report-only RUN regenerates "
     "charts/reports without a game. Reports live in the recorded run directory, never Saved/Simulation."
 )
