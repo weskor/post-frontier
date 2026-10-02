@@ -12,10 +12,7 @@ import subprocess
 import sys
 import time
 
-from verify import ROOT, BINARY, DEFAULT_MAP, editor_stamp, package_stamp, identity, map_package, map_started
-
-ENGINE = Path(os.environ.get("UE_ROOT", str(Path.home() / ".local/opt/unreal-engine/5.8.3")))
-EDITOR = ENGINE / "Engine/Binaries/Linux/UnrealEditor"
+from verify import ROOT, BINARY, DEFAULT_MAP, module_stamp, package_stamp, identity, map_package, map_started
 
 
 def require(condition, explanation):
@@ -42,7 +39,7 @@ class NetworkRun:
         self.connection_health = {}
         self.pending = {}
         self.stopped = set()
-        self.artifact = editor_stamp() if mode == "editor" else package_stamp()
+        self.artifact = module_stamp() if mode == "editor" else package_stamp()
         self.run.mkdir(parents=True, exist_ok=False)
         (self.run / "run.json").write_text(json.dumps({"map": self.map_path, "mode": mode, "clients": clients, "emulation": emulation,
                                                      "rendered": rendered, "max_fps": max_fps,
@@ -88,7 +85,7 @@ class NetworkRun:
 
 
     def check_artifact(self):
-        require((editor_stamp() if self.mode == "editor" else package_stamp()) == self.artifact,
+        require((module_stamp() if self.mode == "editor" else package_stamp()) == self.artifact,
                 "binary/content changed while network session was running")
 
     def check_network_failures(self):
@@ -122,6 +119,7 @@ class NetworkRun:
         folder = self.run / name
         folder.mkdir()
         if self.mode == "editor":
+            EDITOR = Path(os.environ["UE_ROOT"]) / "Engine/Binaries/Linux/UnrealEditor"
             command = [str(EDITOR), str(ROOT / "CoopRTS.uproject"),
                        f"{self.map_path}?listen" if host else f"127.0.0.1:{self.port}",
                        "-game", "-nosound", "-unattended"]
@@ -143,7 +141,7 @@ class NetworkRun:
         if self.max_fps:
             command.append(f"-ExecCmds=t.MaxFPS {self.max_fps}")
         with (folder / "stdout.log").open("w") as output:
-            process = subprocess.Popen(command, cwd=ROOT if self.mode == "editor" else ROOT / "Builds/Linux",
+            process = subprocess.Popen(command, cwd=ROOT if self.mode == "editor" else BINARY.parents[3],
                                        stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
         self.peers[name] = {"process": process, "folder": folder, "command": command,
                             "identity": None, "rejection": rejection}
@@ -172,7 +170,7 @@ class NetworkRun:
     def establish_identity(self, name):
         entry = self.peers[name]
         info = identity(entry["process"].pid)
-        if info and info["exe"] == str(EDITOR if self.mode == "editor" else BINARY):
+        if info and info["exe"] == str(Path(entry["command"][0]).resolve()):
             entry["identity"] = info
             (entry["folder"] / "process.json").write_text(json.dumps({"pid": entry["process"].pid,
                 "identity": info, "command": entry["command"]}, indent=2))
@@ -903,13 +901,12 @@ SCENARIOS = {
 }
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     epilog="Slices (each starts its own host and clients; one stall never blocks another):\n"
-                                     + "\n".join(f"  {name}: {summary}" for name, (_, summary) in SCENARIOS.items())
-                                     + "\nLimit: state is observed through the in-process probe on loopback sockets; "
-                                     "no rendering, OS input or real network path is proved.")
-    parser.add_argument("--run", required=True, type=Path, help="fresh Saved/Verification/<id> directory")
+def configure(parser):
+    parser.epilog = ("Slices (each starts its own host and clients):\n"
+                     + "\n".join(f"  {name}: {summary}" for name, (_, summary) in SCENARIOS.items())
+                     + "\nProves one replicated contract through the loopback in-process probe. "
+                     "Cannot prove other slices, OS input, rendering, Steam or WAN. Construction "
+                     "runs the continuous acceptance chain; human coordination remains unproved.")
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
     parser.add_argument("--map", type=map_package, default=DEFAULT_MAP, help="world package path (default: %(default)s)")
     parser.add_argument("--clients", type=int, choices=(0, 1, 4), required=True)
@@ -919,12 +916,17 @@ def main():
     parser.add_argument("--rendered", action="store_true",
                         help="packaged Vulkan fallback if the real artifact rejects -nullrhi; no automatic visual proof")
     parser.add_argument("--max-fps", type=int, help="bound each verification peer's render/game frame rate")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    configure(parser)
     args = parser.parse_args()
     if args.rendered and args.mode != "packaged":
         parser.error("--rendered is only available for packaged runs")
     if args.max_fps is not None and args.max_fps < 1:
         parser.error("--max-fps must be positive")
-    run = NetworkRun(args.run.resolve(), args.mode, args.clients, args.emulation,
+    run = NetworkRun(Path(os.environ["X_HARNESS_DIR"]).resolve(), args.mode, args.clients, args.emulation,
                      args.rendered, args.max_fps, map_path=args.map)
     scenario, _ = SCENARIOS[args.scenario]
     try:
@@ -943,4 +945,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if not os.environ.get("X_RUN_ID"):
+        sys.exit("run through ./x verify")
     main()

@@ -13,9 +13,10 @@ import subprocess
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = Path(__file__).resolve().parent
-BINARY = ROOT / "Builds/Linux/CoopRTS/Binaries/Linux/CoopRTS"
+BINARY = ROOT / "Saved/Packages/development/latest/CoopRTS/Binaries/Linux/CoopRTS"
+POINTER = ROOT / "Intermediate/x-harness/pointer"
 READY = "Bringing up level for play"
 DEFAULT_MAP = "/Game/Maps/Boot"
 
@@ -49,51 +50,22 @@ def record(run, kind, **data):
         out.write(json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(), "kind": kind, **data}) + "\n")
 
 
-# Staleness guard limit: only these directories/suffixes are compared against the artifact
-# mtimes. Edits elsewhere (plugins, Build/ scripts, engine, generated code) are not detected,
-# and an mtime newer than the artifact is a heuristic, not proof the artifact differs.
-SOURCE_SUFFIXES = {".h", ".cpp", ".cs"}
-COOKED = (("Config", {".ini"}), ("Content", {".uasset", ".umap"}))
-
-
-def stale_file(directory, suffixes, limit):
-    for root, dirs, files in os.walk(ROOT / directory):
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
-        for name in files:
-            if os.path.splitext(name)[1] in suffixes:
-                path = Path(root, name)
-                if path.stat().st_mtime_ns > limit:
-                    return path.relative_to(ROOT)
-    return None
 
 
 def package_stamp():
-    if not BINARY.is_file():
-        raise RuntimeError("Package missing. Follow README Linux build/package commands first.")
-    packages = list((ROOT / "Builds/Linux/CoopRTS/Content/Paks").glob("*.pak"))
-    if not packages:
-        raise RuntimeError("Packaged content missing")
-    compiled = BINARY.stat().st_mtime_ns
-    cooked = min(p.stat().st_mtime_ns for p in packages)
-    for directory, suffixes, limit in (("Source", SOURCE_SUFFIXES, compiled), *((d, s, cooked) for d, s in COOKED)):
-        if newer := stale_file(directory, suffixes, limit):
-            raise RuntimeError(f"Package may be stale: {newer} is newer. Rebuild/package first.")
-    if (ROOT / "CoopRTS.uproject").stat().st_mtime_ns > min(compiled, cooked):
-        raise RuntimeError("Project descriptor is newer than package; rebuild first")
-    return {str(p.relative_to(ROOT)): [p.stat().st_size, p.stat().st_mtime_ns] for p in [BINARY, *packages]}
+    from x.verifying.artifacts import package_snapshot
+    return package_snapshot(ROOT)
 
 
-def editor_stamp():
-    module = ROOT / "Binaries/Linux/libUnrealEditor-CoopRTS.so"
-    if not module.is_file():
-        raise RuntimeError("Editor module missing. Build CoopRTSEditor using the README command first.")
-    compiled = module.stat().st_mtime_ns
-    # Editor runs load uncooked content, so only compiled sources can invalidate the module.
-    if newer := stale_file("Source", SOURCE_SUFFIXES, compiled):
-        raise RuntimeError(f"Editor module may be stale: {newer} is newer. Build CoopRTSEditor first.")
-    if (ROOT / "CoopRTS.uproject").stat().st_mtime_ns > compiled:
-        raise RuntimeError("Project descriptor is newer than editor module; build CoopRTSEditor first.")
-    return {str(module.relative_to(ROOT)): [module.stat().st_size, compiled]}
+def module_stamp():
+    from x.verifying.artifacts import editor_snapshot
+    return editor_snapshot(ROOT)
+
+
+def compile_pointer():
+    POINTER.parent.mkdir(parents=True, exist_ok=True)
+    flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
+    execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", POINTER, *flags])
 
 
 def state(run):
@@ -154,15 +126,14 @@ def launch(run, map_path=DEFAULT_MAP):
     execute(["hyprctl", "monitors", "-j"])
     run.mkdir(parents=True, exist_ok=False)
     command = [str(BINARY), map_path, "-windowed", "-ResX=1600", "-ResY=900", "-log", "-stdout", "-FullStdOutLogOutput", f"-abslog={run / 'game.log'}"]
-    flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
-    execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", run / "pointer", *flags])
+    compile_pointer()
     with (run / "stdout.log").open("w") as out:
-        process = subprocess.Popen(command, cwd=ROOT / "Builds/Linux", stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+        process = subprocess.Popen(command, cwd=BINARY.parents[3], stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
     try:
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             current = identity(process.pid)
-            if current and current["exe"] == str(BINARY):
+            if current and current["exe"] == str(BINARY.resolve()):
                 break
             if process.poll() is not None:
                 raise RuntimeError("Game exited during launch; inspect stdout.log")
@@ -220,7 +191,7 @@ def drive(run, args):
         else:
             execute(["wtype", "-k", key])
     elif args.command == "move":
-        execute([run / "pointer", "move", str(args.dx), str(args.dy)])
+        execute([POINTER, "move", str(args.dx), str(args.dy)])
     else:
         if args.command == "point" or not args.here:
             window = report["window"]
@@ -237,69 +208,10 @@ def drive(run, args):
             command = ["scroll", str(args.steps)]
         else:
             command = ["drag", str(args.dx), str(args.dy)]
-        execute([run / "pointer", *command])
+        execute([POINTER, *command])
     record(run, "input-complete", action=args.command)
 
 
-# scenario: (automation filter, evidence prefix). A filter without a leaf name (rules) runs
-# every test beneath it in one editor process; every reported result must be Success.
-SCENARIOS = {
-    "rules": ("CoopRTS.Rules", "rules"),
-    "orders": ("CoopRTS.Orders.ReplaceHoldRetreat", "regression"),
-    "movement": ("CoopRTS.Movement.TwoGroups", "movement"),
-    "combat": ("CoopRTS.Combat.Encounter", "combat"),
-    "construction": ("CoopRTS.Construction.Lifecycle", "construction"),
-    "production": ("CoopRTS.Construction.Production", "production"),
-    "force-identity": ("CoopRTS.Construction.ForceIdentity", "force-identity"),
-    "goal-orders": ("CoopRTS.Construction.GoalOrders", "goal-orders"),
-    "strategy": ("CoopRTS.Enemy.ConstructionEconomy", "strategy"),
-    "match-win": ("CoopRTS.Match.VictoryRestart", "match-win"),
-    "match-loss": ("CoopRTS.Match.DefeatRestart", "match-loss"),
-    "doctrine-siege": ("CoopRTS.Doctrine.SiegeOptics", "doctrine-siege"),
-    "doctrine-repairs": ("CoopRTS.Doctrine.FieldRepairs", "doctrine-repairs"),
-    "doctrine-frontline": ("CoopRTS.Doctrine.EntrenchedFrontline", "doctrine-frontline"),
-    "doctrine-restart": ("CoopRTS.Doctrine.Restart", "doctrine-restart"),
-}
-
-
-def completed_tests(text, test):
-    """(result, path) for every automation completion at or beneath the requested filter."""
-    return [(result, path) for result, path in re.findall(r"Test Completed\. Result=\{(\w+)\}.*?Path=\{([^}]*)\}", text)
-            if path == test or path.startswith(test + ".")]
-
-
-def regression(run, scenario, map_path=DEFAULT_MAP):
-    map_path = map_package(map_path)
-    editor = editor_stamp()
-    run.mkdir(parents=True, exist_ok=True)
-    test, prefix = SCENARIOS[scenario]
-    log = run / f"{prefix}.log"
-    if log.exists():
-        raise RuntimeError("Regression evidence already exists; use a fresh --run directory")
-    engine = Path(os.environ.get("UE_ROOT", str(Path.home() / ".local/opt/unreal-engine/5.8.3")))
-    command = [str(engine / "Engine/Binaries/Linux/UnrealEditor"), str(ROOT / "CoopRTS.uproject"),
-               map_path, "-game", "-nullrhi", "-nosound", "-unattended",
-               f"-ExecCmds=Automation RunTests {test}; SoftQuit", f"-abslog={log}", "-stdout"]
-    record(run, "regression", map=map_path, command=command, editor=editor)
-    with (run / f"{prefix}-stdout.log").open("w") as out:
-        result = subprocess.run(command, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
-    if editor_stamp() != editor:
-        raise RuntimeError("Editor module changed during regression; rerun after the build finishes in a fresh evidence directory.")
-    text = log.read_text(errors="replace") if log.exists() else ""
-    completed = completed_tests(text, test)
-    failed = sorted({path for outcome, path in completed if outcome != "Success"})
-    launch_failed = not map_started(text, map_path)
-    passed = (not launch_failed and result.returncode == 0 and bool(completed) and not failed
-              and "**** TEST COMPLETE. EXIT CODE: 0 ****" in text)
-    record(run, "regression-result", map=map_path, test=test, passed=passed, exit_code=result.returncode,
-           launch_failed=launch_failed, completed=sorted({path for _, path in completed}), failed=failed)
-    if launch_failed:
-        raise RuntimeError(f"Launch failure: requested map {map_path} did not start; inspect {log}"
-                           f" and {run / f'{prefix}-stdout.log'}")
-    if not passed:
-        raise RuntimeError(f"Regression did not report explicit Success for every test under {test}"
-                           f" (completed {len(completed)}, failed {failed}): {log}")
-    print(f"PASS: {test} ({len(completed)} test result(s)); evidence: {log}")
 
 
 def fraction(value):
@@ -309,24 +221,13 @@ def fraction(value):
     return number
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run", required=True, type=Path, help="Unique evidence directory, normally Saved/Verification/<name>")
+def configure(parser):
     commands = parser.add_subparsers(dest="command", required=True)
     launch_parser = commands.add_parser("launch")
     launch_parser.add_argument("--map", type=map_package, default=DEFAULT_MAP,
                                help="level package path (default /Game/Maps/Boot); existence checked by the engine")
     for name in ("doctor", "focus", "stop"):
         commands.add_parser(name)
-    regression_parser = commands.add_parser(
-        "regression", help="run one editor automation scenario headlessly (-nullrhi); evidence is the abslog",
-        description="Editor-module automation. 'rules' runs every CoopRTS.Rules.* deterministic rule test in one "
-                    "process and fails on any Result={Fail}; it proves rule precedence only, never navigation, "
-                    "replication or rendering. World scenarios run one latent test each on the selected --map.")
-    regression_parser.add_argument("--scenario", choices=list(SCENARIOS), default="construction",
-                                   help="rules: all CoopRTS.Rules tests in one process; others: one world test (default construction)")
-    regression_parser.add_argument("--map", type=map_package, default=DEFAULT_MAP,
-                                   help="level package path (default /Game/Maps/Boot); existence checked by the engine")
     snap = commands.add_parser("capture"); snap.add_argument("label")
     key = commands.add_parser("key"); key.add_argument("key", choices=["w", "a", "s", "d", "h", "r", "q", "tab", "space", "enter", "escape", "f4"])
     key.add_argument("--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000", help="Hold milliseconds, zero taps")
@@ -343,8 +244,13 @@ def main():
         elif name in ("drag", "move"):
             sub.add_argument("dx", type=int, choices=range(-200, 201), metavar="-200..200")
             sub.add_argument("dy", type=int, choices=range(-200, 201), metavar="-200..200")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    configure(parser)
     args = parser.parse_args()
-    run = args.run.resolve()
+    run = Path(os.environ["X_HARNESS_DIR"]).resolve()
     if args.command == "launch": launch(run, args.map)
     elif args.command == "doctor": print(json.dumps(doctor(run), indent=2))
     elif args.command == "focus":
@@ -355,11 +261,12 @@ def main():
         record(run, "focus", address=address)
     elif args.command == "stop": stop(run)
     elif args.command == "capture": capture(run, args.label)
-    elif args.command == "regression": regression(run, args.scenario, args.map)
     else: drive(run, args)
 
 
 if __name__ == "__main__":
+    if not os.environ.get("X_RUN_ID"):
+        sys.exit("run through ./x verify")
     try:
         main()
     except (RuntimeError, OSError, subprocess.SubprocessError) as error:

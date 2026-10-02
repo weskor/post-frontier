@@ -416,9 +416,8 @@ def label(text):
     return text
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--run", required=True, type=Path, help="fresh Saved/Verification/<id> directory")
+def configure(parser):
+    parser.description = __doc__
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
     parser.add_argument("--map", type=map_package, default=DEFAULT_MAP, help="world package path (default: %(default)s)")
     parser.add_argument("--res", type=resolution, action="append",
@@ -428,9 +427,15 @@ def main():
                         help="boot, place and select one barracks, capture <LABEL>-deck and <LABEL>-inspector at the "
                              "first resolution, then stop; no production fill, fronts, research or victory")
     parser.add_argument("--max-fps", type=int, default=30)
+
+
+def main():
+    import os
+    parser = argparse.ArgumentParser(description=__doc__)
+    configure(parser)
     args = parser.parse_args()
     resolutions = args.res or [(1600, 900)]
-    run = NetworkRun(args.run.resolve(), args.mode, 0, False, max_fps=args.max_fps, offscreen=resolutions[0],
+    run = NetworkRun(Path(os.environ["X_HARNESS_DIR"]).resolve(), args.mode, 0, False, max_fps=args.max_fps, offscreen=resolutions[0],
                      map_path=args.map)
     try:
         if args.quick:
@@ -451,4 +456,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import os
+    if not os.environ.get("X_RUN_ID"):
+        sys.exit("run through ./x verify")
     main()

@@ -6,14 +6,13 @@ import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import signal
 import subprocess
 import sys
 import time
 
-from verify import ROOT, BINARY, DEFAULT_MAP, SCRIPTS, READY, execute, identity, package_stamp, map_package, map_started
+from verify import ROOT, BINARY, DEFAULT_MAP, POINTER, READY, execute, identity, package_stamp, map_package, map_started, compile_pointer
 
 
 class WindowNotReady(RuntimeError):
@@ -96,8 +95,7 @@ def launch(run, clients, probe, map_path=DEFAULT_MAP):
             raise RuntimeError(f"Missing desktop prerequisite: {program}")
     execute(["hyprctl", "monitors", "-j"])
     run.mkdir(parents=True, exist_ok=False)
-    flags = shlex.split(execute(["pkg-config", "--cflags", "--libs", "wayland-client"]))
-    execute(["cc", "-Wall", "-Wextra", "-Werror", SCRIPTS / "pointer.c", "-o", run / "pointer", *flags])
+    compile_pointer()
     record = {"map": map_path, "package": package, "clients": clients, "probe": probe, "peers": {}}
     (run / "session.json").write_text(json.dumps(record, indent=2))
     # Connect to loopback only; use a freely chosen port to avoid adopting a different listen server.
@@ -121,12 +119,12 @@ def launch(run, clients, probe, map_path=DEFAULT_MAP):
                 if index == 0:
                     command.append("-CoopRTSNetVerifyAuthority")
             with (folder / "stdout.log").open("w") as output:
-                process = subprocess.Popen(command, cwd=ROOT / "Builds/Linux", stdout=output,
+                process = subprocess.Popen(command, cwd=BINARY.parents[3], stdout=output,
                                            stderr=subprocess.STDOUT, start_new_session=True)
             # A launch only fails on an observed process exit, never elapsed wall time.
             while True:
                 stamp = identity(process.pid)
-                if stamp and stamp["exe"] == str(BINARY):
+                if stamp and stamp["exe"] == str(BINARY.resolve()):
                     break
                 if process.poll() is not None:
                     raise RuntimeError(f"{name} failed to establish executable identity; inspect its stdout.log")
@@ -160,9 +158,7 @@ def fraction(value):
     return number
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run", required=True, type=Path)
+def configure(parser):
     commands = parser.add_subparsers(dest="action", required=True)
     launch_command = commands.add_parser("launch")
     launch_command.add_argument("--clients", type=int, choices=(1, 4), required=True)
@@ -183,8 +179,13 @@ def main():
             command.add_argument("--y", type=fraction, default=.5)
         if action == "click":
             command.add_argument("button", choices=("left", "right"))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    configure(parser)
     args = parser.parse_args()
-    run = args.run.resolve()
+    run = Path(os.environ["X_HARNESS_DIR"]).resolve()
     if args.action == "launch":
         launch(run, args.clients, args.probe, map_path=args.map)
         return
@@ -220,13 +221,15 @@ def main():
         y = int(window["at"][1] + window["size"][1] * args.y)
         execute(["hyprctl", "dispatch", f"hl.dsp.cursor.move({{x={x},y={y}}})"])
         doctor(run, args.peer, focused=True)
-        execute([run / "pointer", "click", "273" if args.button == "right" else "272"]
-                if args.action == "click" else [run / "pointer", "scroll", "0"])
+        execute([POINTER, "click", "273" if args.button == "right" else "272"]
+                if args.action == "click" else [POINTER, "scroll", "0"])
         event(run, args.action, peer=args.peer, x=args.x, y=args.y,
               **({"button": args.button} if args.action == "click" else {}))
 
 
 if __name__ == "__main__":
+    if not os.environ.get("X_RUN_ID"):
+        sys.exit("run through ./x verify")
     try:
         main()
     except (RuntimeError, OSError, subprocess.SubprocessError) as error:
