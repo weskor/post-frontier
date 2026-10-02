@@ -113,6 +113,7 @@ private:
 	void ToggleHUD();
 	void RequestRestart();
 	void FocusSelection();
+	void ToggleActivePause();
 	void HandleHUDAction(EHUDAction Action);
 	bool IsOwnedBuilding(const ACommandBuilding* Building) const;
 	bool CanIssueGameplayCommand();

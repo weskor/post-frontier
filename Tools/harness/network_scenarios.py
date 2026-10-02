@@ -6,6 +6,7 @@ from harness.network import NetworkRun
 from harness.network_economy import expand_and_research
 from harness.network_outcomes import finish, research, restart_and_converge
 from harness.network_ownership import reject_locked_commands
+from harness.network_pause import pause_scenario
 from harness.network_production import produce_and_replace
 from harness.network_session import build_barracks, configure_siege, connect, recruit
 
@@ -53,6 +54,10 @@ def construction_scenario(run: NetworkRun) -> None:
 
 
 SCENARIOS = {
+    "pause": (
+        pause_scenario,
+        "remote P freezes simulation, shared countdown, host early resume, spent pause rejection",
+    ),
     "ownership": (
         ownership_scenario,
         "paid placement, rejected duplicate/foreign commands, siege fee, locked-type rejections",

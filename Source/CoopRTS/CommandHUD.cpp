@@ -1,6 +1,7 @@
 #include "CommandHUD.h"
 
 #include "ArenaBounds.h"
+#include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "CommandMinimap.h"
 #include "Engine/Canvas.h"
@@ -66,7 +67,7 @@ bool ACommandHUD::IsPanelPoint(const FVector2D& Position) const
 	if (Layout.Scale <= 0.f)
 		return false;
 	const FVector2D Point = Position / Layout.Scale;
-	return Layout.Top.Contains(Point) || Layout.Menu.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
+	return Layout.Top.Contains(Point) || Layout.Menu.Contains(Point) || Layout.Pause.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
 		|| (Context.bExpanded && Layout.Build.Contains(Point)) || Layout.Bottom.Contains(Point)
 		|| (Layout.bFeedback && Layout.Feedback.Contains(Point));
 }
@@ -159,6 +160,8 @@ void ACommandHUD::DrawHUD()
 	if (Controller->GetUIScreen() != ECommandScreen::Game)
 	{
 		DrawScreen(Paint, Context, Layout, Hover);
+		if (Context.State && Context.State->IsActivePaused())
+			DrawButton(Paint, Context, { EHUDAction::ActivePause, Layout.Pause, EBlock::None, true, 0 }, false);
 		return;
 	}
 	const FForces Forces = CountForces(Context);

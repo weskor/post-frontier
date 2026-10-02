@@ -40,6 +40,8 @@ public:
 	static FCommandResult AssignFront(ACommandPlayerState* Commander, AArmyGroup* Army, EFrontOrder Order, const FVector& Location);
 	static FCommandResult Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice);
 	static FCommandResult Restart(ACommandPlayerController* Controller);
+	static FCommandResult Pause(ACommandPlayerController* Controller);
+	static FCommandResult Resume(ACommandPlayerController* Controller);
 	static FCommandResult IssueOrder(ACommandPlayerState* Commander, AArmyGroup* Army, EArmyOrder Order, const FVector& Destination);
 	static FCommandResult IssueAttack(ACommandPlayerState* Commander, AArmyGroup* Army, FVector Destination, AActor* Target);
 };

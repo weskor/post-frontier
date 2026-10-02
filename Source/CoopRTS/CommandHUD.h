@@ -50,7 +50,8 @@ enum class EHUDAction : uint8
 	GoalAssault = 39,
 	GoalFallBack = 40,
 	MapV2 = 41,
-	MapClassic = 42
+	MapClassic = 42,
+	ActivePause = 43
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

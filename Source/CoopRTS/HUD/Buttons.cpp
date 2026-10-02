@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "CommandGameState.h"
 
 namespace CommandHUDPanels
 {
@@ -11,6 +12,18 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 	}
 	switch (Button.Action)
 	{
+	case EHUDAction::ActivePause: {
+		Paint.Fill(Button.Rect, Button.Available() ? (bHover ? Palette::CardHover : Palette::Panel) : Palette::CardOff);
+		Paint.Outline(Button.Rect, Button.bActive ? Palette::Warn : Palette::Edge);
+		TStringBuilder<64> Label;
+		if (Button.bActive && Context.State && Context.State->GetNetMode() != NM_Standalone)
+			Label.Appendf(TEXT("PAUSED %ds  [P] Resume"), FMath::CeilToInt(Context.State->GetPauseSecondsRemaining()));
+		else
+			Label << (Button.bActive ? TEXT("PAUSED  [P] Resume") : Button.Available() ? TEXT("[P] Pause")
+																					   : TEXT("[P] Team pause spent"));
+		Paint.TextIn(Label.ToView(), Button.Rect, 10.f, Button.Available() ? Palette::Text : Palette::Muted, true, EAlign::Center);
+		break;
+	}
 	case EHUDAction::Construction:
 		Paint.Fill(Button.Rect, bHover ? Palette::CardHover : Palette::Panel);
 		Paint.Outline(Button.Rect, Palette::Friendly);

@@ -155,6 +155,27 @@ FCommandResult FCommandService::Restart(ACommandPlayerController* Controller)
 	}
 	return Verdict(true, FString());
 }
+FCommandResult FCommandService::Pause(ACommandPlayerController* Controller)
+{
+	ACommandPlayerState* Commander = IsValid(Controller) ? Controller->GetPlayerState<ACommandPlayerState>() : nullptr;
+	ACommandGameState* State = CommandState(Commander);
+	if (!State || Commander->TeamIndex != 0)
+		return Verdict(false, TEXT("Pause unavailable: no ongoing battle."), ECommandRejection::Unavailable);
+	if (State->GetNetMode() != NM_Standalone && State->IsCoopPauseSpent())
+		return Verdict(false, TEXT("Team pause spent: one pause per battle."));
+	const bool bAccepted = State->ApplyPause(Controller, true);
+	return Verdict(bAccepted, bAccepted ? TEXT("Paused: orders apply now; simulation continues on resume.") : TEXT("Battle is already paused."));
+}
+
+FCommandResult FCommandService::Resume(ACommandPlayerController* Controller)
+{
+	ACommandPlayerState* Commander = IsValid(Controller) ? Controller->GetPlayerState<ACommandPlayerState>() : nullptr;
+	ACommandGameState* State = CommandState(Commander);
+	if (!State || Commander->TeamIndex != 0)
+		return Verdict(false, TEXT("Resume unavailable: no ongoing battle."), ECommandRejection::Unavailable);
+	const bool bAccepted = State->ApplyPause(Controller, false);
+	return Verdict(bAccepted, bAccepted ? TEXT("Battle resumed.") : TEXT("Battle is not actively paused."));
+}
 
 FCommandResult FCommandService::IssueOrder(ACommandPlayerState* Commander, AArmyGroup* Army, EArmyOrder Order, const FVector& Destination)
 {

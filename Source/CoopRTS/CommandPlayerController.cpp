@@ -106,7 +106,7 @@ void ACommandPlayerController::SetupInputComponent()
 	auto Bind = [this, Input](const TCHAR* Name, FKey Key, void (ACommandPlayerController::*Method)(), ETriggerEvent Event) {
 		UInputAction* Action = NewObject<UInputAction>(this, Name);
 		Action->ValueType = EInputActionValueType::Boolean;
-		Action->bTriggerWhenPaused = Key == EKeys::LeftMouseButton || Key == EKeys::Escape || Key == EKeys::Enter;
+		Action->bTriggerWhenPaused = true; // Active pause preserves all selection, camera and order input.
 		Actions.Add(Action);
 		Mapping->MapKey(Action, Key);
 		Input->BindAction(Action, Event, this, Method);
@@ -123,6 +123,7 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("MenuOrCancel"), EKeys::Escape, &ThisClass::Escape, ETriggerEvent::Started);
 	Bind(TEXT("ToggleHUD"), EKeys::F4, &ThisClass::ToggleHUD, ETriggerEvent::Started);
 	Bind(TEXT("Restart"), EKeys::Enter, &ThisClass::RequestRestart, ETriggerEvent::Started);
+	Bind(TEXT("ActivePause"), EKeys::P, &ThisClass::ToggleActivePause, ETriggerEvent::Started);
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		InputSubsystem = Subsystem;
@@ -420,6 +421,17 @@ void ACommandPlayerController::RequestRestart()
 		HandleHUDAction(EHUDAction::PlaySolo);
 }
 
+void ACommandPlayerController::ToggleActivePause()
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (State && State->IsActivePaused())
+		MatchCommands->ServerResume();
+	else
+		MatchCommands->ServerPause();
+}
+
 bool ACommandPlayerController::IsMenuWorld() const
 {
 	return GetWorld() && GetWorld()->GetAuthGameMode<ACommandMenuGameMode>() != nullptr;
@@ -451,7 +463,8 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 	bDragging = false;
 	// Local menu overlays must never pause a listen host or its remote commanders.
 	if (GetNetMode() == NM_Standalone && !IsMenuWorld())
-		SetPause(NewScreen != ECommandScreen::Game && NewScreen != ECommandScreen::Result);
+		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
+			State->RefreshSoloMenuPause(this, NewScreen != ECommandScreen::Game && NewScreen != ECommandScreen::Result);
 	UE_LOG(LogTemp, Display, TEXT("Solo screen=%d paused=%d"), static_cast<int32>(GetUIScreen()), GetWorld()->IsPaused());
 }
 
@@ -710,6 +723,11 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		return;
 	if (GetUIScreen() != ECommandScreen::Game)
 		return;
+	if (Action == EHUDAction::ActivePause)
+	{
+		ToggleActivePause();
+		return;
+	}
 	const bool bGoalAction = Action == EHUDAction::GoalHold || Action == EHUDAction::GoalExpand
 		|| Action == EHUDAction::GoalAssault || Action == EHUDAction::GoalFallBack;
 	PlayUISound(bGoalAction ? TEXT("Front") : TEXT("Click"));

@@ -13,4 +13,14 @@ public:
 	UMatchCommandComponent();
 	UFUNCTION(Server, Reliable)
 	void ServerRequestRestart();
+	UFUNCTION(Server, Reliable)
+	void ServerPause();
+	UFUNCTION(Server, Reliable)
+	void ServerResume();
+	UFUNCTION(Client, Reliable)
+	void ClientPauseFeedback(const FString& Message, bool bAccepted);
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	uint32 PauseFeedbackSerial = 0;
+	bool bLastPauseAccepted = false;
+#endif
 };

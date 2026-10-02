@@ -171,6 +171,9 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 		return;
 	}
 	Visit(FButton{ EHUDAction::Menu, Layout.Menu, EBlock::None, false, 0 });
+	const bool bSpent = Context.State && Context.State->IsCoopPauseSpent() && !Context.State->IsActivePaused();
+	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
+		Context.State && Context.State->IsActivePaused(), 0 });
 	Visit(FButton{ EHUDAction::Construction, Layout.Construction, EBlock::None, false, 0 });
 	if (!Context.bExpanded)
 		return;

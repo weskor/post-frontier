@@ -17,6 +17,10 @@
 #include "Rules/PlacementPolicy.h"
 #include "Rules/EconomyPolicy.h"
 #include "SimulationSettings.h"
+#include "CommandPlayerController.h"
+#include "GameFramework/GameModeBase.h"
+#include "GameFramework/WorldSettings.h"
+#include "HAL/PlatformTime.h"
 
 namespace
 {
@@ -84,6 +88,7 @@ ACommandGameState::ACommandGameState()
 {
 	bReplicates = true;
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bTickEvenWhenPaused = true;
 }
 
 void ACommandGameState::BeginPlay()
@@ -127,9 +132,62 @@ void ACommandGameState::AddPlayerState(APlayerState* PlayerState)
 	Super::AddPlayerState(PlayerState);
 }
 
+bool ACommandGameState::ApplyPause(ACommandPlayerController* Controller, bool bPause)
+{
+	const bool bCoop = GetNetMode() != NM_Standalone;
+	if (bPause)
+	{
+		if (!PauseBudget.CanPause(bCoop) || !Controller->SetPause(true))
+			return false;
+		PauseBudget.Begin(bCoop, FPlatformTime::Seconds());
+	}
+	else
+	{
+		if (!PauseBudget.bPaused)
+			return false;
+		PauseBudget.Resume();
+		if (!bSoloMenuPaused)
+			GetWorld()->GetAuthGameMode()->ClearPause();
+	}
+	PublishPauseBudget();
+	// Pausing freezes normal replication scheduling; publish the engine pause flag now.
+	GetWorld()->GetWorldSettings()->ForceNetUpdate();
+	return true;
+}
+
+void ACommandGameState::PublishPauseBudget()
+{
+	bActivePaused = PauseBudget.bPaused;
+	bCoopPauseSpent = PauseBudget.bSpent;
+	PauseSecondsRemaining = static_cast<float>(PauseBudget.Remaining(FPlatformTime::Seconds()));
+	ForceNetUpdate();
+}
+
+void ACommandGameState::RefreshSoloMenuPause(ACommandPlayerController* Controller, bool bMenuPaused)
+{
+	if (!HasAuthority() || GetNetMode() != NM_Standalone)
+		return;
+	bSoloMenuPaused = bMenuPaused;
+	Controller->SetPause(bSoloMenuPaused || PauseBudget.bPaused);
+}
+
 void ACommandGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (HasAuthority() && PauseBudget.bPaused)
+	{
+		const double Now = FPlatformTime::Seconds();
+		if (PauseBudget.Expired(Now))
+		{
+			PauseBudget.Resume();
+			GetWorld()->GetAuthGameMode()->ClearPause();
+			GetWorld()->GetWorldSettings()->ForceNetUpdate();
+		}
+		PublishPauseBudget();
+		return; // This tick is real-time bookkeeping, never income.
+	}
+	if (GetWorld()->IsPaused())
+		return;
 	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing)
 		return;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
@@ -447,4 +505,7 @@ void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ACommandGameState, EnemyPlan);
 	DOREPLIFETIME(ACommandGameState, EnemyPlanRationale);
 	DOREPLIFETIME(ACommandGameState, EnemyCommander);
+	DOREPLIFETIME(ACommandGameState, bActivePaused);
+	DOREPLIFETIME(ACommandGameState, bCoopPauseSpent);
+	DOREPLIFETIME(ACommandGameState, PauseSecondsRemaining);
 }

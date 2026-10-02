@@ -97,10 +97,12 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Result, TEXT("uiScreen"), static_cast<int32>(PC->GetUIScreen()));
 		Number(Result, TEXT("masterVolume"), PC->GetMasterVolume());
 		Result->SetBoolField(TEXT("menuWorld"), PC->IsMenuWorld());
+		Number(Result, TEXT("pauseFeedbackSerial"), PC->MatchCommands->PauseFeedbackSerial);
+		Result->SetBoolField(TEXT("pauseAccepted"), PC->MatchCommands->bLastPauseAccepted);
 		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
 		{
 			TArray<TSharedPtr<FJsonValue>> Buttons;
-			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::GoalFallBack); ++Index)
+			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::ActivePause); ++Index)
 			{
 				FVector2D Position;
 				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
@@ -130,6 +132,9 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 #endif
 	}
 	Number(Result, TEXT("result"), static_cast<int32>(State->MatchResult));
+	Result->SetBoolField(TEXT("activePaused"), State->IsActivePaused());
+	Result->SetBoolField(TEXT("coopPauseSpent"), State->IsCoopPauseSpent());
+	Number(Result, TEXT("pauseRemaining"), State->GetPauseSecondsRemaining());
 	Result->SetBoolField(TEXT("placementValid"), bPlacementCandidateValid);
 	Vector(Result, TEXT("placementCandidate"), PlacementCandidate);
 	Number(Result, TEXT("enemyResources"), IsValid(State->EnemyCommander) ? State->EnemyCommander->Resources : 0);
@@ -373,6 +378,16 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
 	const int32 Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
 	ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	if (Action == TEXT("pause") || Action == TEXT("resume"))
+	{
+		if (!Own || Own->CommanderIndex < 0 || !State)
+			return TEXT("local owning controller unavailable");
+		if (Action == TEXT("pause"))
+			PC->MatchCommands->ServerPause();
+		else
+			PC->MatchCommands->ServerResume();
+		return FString();
+	}
 	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("goal")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
@@ -453,7 +468,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const FString KeyName = Request->GetStringField(TEXT("key"));
 			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
 				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R"))
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),

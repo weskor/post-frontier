@@ -93,6 +93,7 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Top = { Margin, Margin, FMath::Min(980.f, Layout.Width - 120.f), TopHeight };
 	Layout.Menu = { Layout.Width - Margin - 90.f, Margin, 90.f, TopHeight };
 	Layout.Screen = { (Layout.Width - ScreenWidth) * .5f, (Layout.Height - ScreenHeight) * .5f, ScreenWidth, ScreenHeight };
+	Layout.Pause = { Layout.Menu.Right() - 190.f, Layout.Menu.Bottom() + Gap, 190.f, TopHeight };
 	Layout.Minimap = { Margin, Layout.Height - Margin - MinimapSize, MinimapSize, MinimapSize };
 	const float X = Layout.Minimap.Right() + Gap;
 	Layout.Construction = { X, Layout.Height - Margin - DeckHeight, BuildWidth, 28.f };
@@ -144,7 +145,7 @@ EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector
 {
 	EHUDAction Result = EHUDAction::None;
 	ForEachButton(Context, Layout, [&Result, &VirtualPoint](const FButton& Button) {
-		if (Button.Available() && Button.Rect.Contains(VirtualPoint))
+		if ((Button.Available() || Button.Action == EHUDAction::ActivePause) && Button.Rect.Contains(VirtualPoint))
 			Result = Button.Action;
 	});
 	return Result;

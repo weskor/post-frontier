@@ -97,6 +97,7 @@ struct FLayout
 	FRect Construction;
 	FRect Feedback;
 	FRect Menu;
+	FRect Pause;
 	FRect Screen;
 	bool bFeedback = false;
 };

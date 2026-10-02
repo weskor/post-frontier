@@ -25,6 +25,7 @@ ACommandGameMode::ACommandGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bUseSeamlessTravel = true;
+	bPauseable = true;
 	PlayerControllerClass = ACommandPlayerController::StaticClass();
 	DefaultPawnClass = ACommandCamera::StaticClass();
 	HUDClass = ACommandHUD::StaticClass();

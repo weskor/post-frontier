@@ -28,7 +28,7 @@ Current-build values come from a source audit on 2026-10-01. README.md and World
 | Commanders | None | 4 commanders, all available from run 1: passive, region ability, ultimate, kit, card pool ([commanders.md](commanders.md)) |
 | Specializations | 3 at the Workshop, 150 each, one per commander | Siege Optics becomes a perk, Entrenched Frontline becomes Shield Wall, Field Repairs a Doctrine; the Workshop only gates tier 3 ([buildings.md](buildings.md), [cards.md](cards.md)) |
 | Leaving | A leaver's buildings and forces are destroyed | An AI adjutant takes over ([run.md](run.md)) |
-| Time | Solo menu pause; no pause in co-op | Solo active pause; 1 co-op pause of 60 s ([ui.md](ui.md)) |
+| Time | Solo active pause; shared co-op pause and countdown ([ui.md](ui.md)) | Solo opt-in imminent-win/loss slow-down ([ui.md](ui.md)) |
 | Information | Fully visible; no fog | Region visibility, blips and last-seen ghosts; shared team vision; JEV under the same fog ([map.md](map.md)) |
 | Names | Menu, map data and content still use the old display names: Availability Zone, Extractor, The Bunker, The Cluster, region labels such as Uplink | Habitable Zone, Drill Rig, Hardline, The Lattice, Skyhook and the rest of the far-future set ([World.md](../World.md#names-in-code-and-assets)) |
 | Meta | None (only audio volume is saved) | Unlocks only, ladder, codex, cosmetics ([meta.md](meta.md)) |

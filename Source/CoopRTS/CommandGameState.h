@@ -4,12 +4,14 @@
 #include "CommandPlayerState.h"
 #include "ConstructionTypes.h"
 #include "GameFramework/GameStateBase.h"
+#include "Rules/PauseBudget.h"
 #include "CommandGameState.generated.h"
 
 class AArenaBounds;
 class ACapturePoint;
 class ACommandBuilding;
 class ACommandPlayerState;
+class ACommandPlayerController;
 class AHeadquarters;
 class AMapRegion;
 class ADepositSite;
@@ -34,6 +36,11 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	void SetMatchResult(EMatchResult Result);
+	bool IsActivePaused() const { return bActivePaused; }
+	bool IsCoopPauseSpent() const { return bCoopPauseSpent; }
+	float GetPauseSecondsRemaining() const { return PauseSecondsRemaining; }
+	// Menu pause is separate from active pause; closing Esc must not resume P.
+	void RefreshSoloMenuPause(ACommandPlayerController* Controller, bool bMenuPaused);
 	float GetAudioLiveStartServerTime() const
 	{
 		return bMatchAudioInitialized ? AudioLiveStartServerTime : GetServerWorldTimeSeconds();
@@ -83,6 +90,16 @@ public:
 
 private:
 	friend class FCommandService;
+	bool ApplyPause(ACommandPlayerController* Controller, bool bPause);
+	void PublishPauseBudget();
+	FPauseBudget PauseBudget;
+	UPROPERTY(Replicated)
+	bool bActivePaused = false;
+	UPROPERTY(Replicated)
+	bool bCoopPauseSpent = false;
+	UPROPERTY(Replicated)
+	float PauseSecondsRemaining = 0.f;
+	bool bSoloMenuPaused = false;
 	ACommandBuilding* ApplyPlacement(int32 BuildingIndex, const FVector& Location,
 		ACommandPlayerState* Commander, int32 Team, FString& OutReason);
 	float IncomeElapsed = 0.f;
