@@ -106,8 +106,8 @@ class Locks:
 
     @contextmanager
     def build(self) -> Iterator[None]:
-        """Serialize UBT's shared state while retaining headless pool admission."""
-        with self.headless(), self.held(["build.lock"], fcntl.LOCK_EX):
+        """Wait for UBT's shared state before consuming a headless pool slot."""
+        with self.held(["build.lock"], fcntl.LOCK_EX), self.headless():
             yield
 
     @contextmanager

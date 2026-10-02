@@ -64,8 +64,10 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
 
 
 def group_rss_bytes(pgid: int) -> int:
-    """Sum resident pages for every process in the group, including grandchildren."""
-    pages = 0
+    """Sum the leader's descendants and process group, counting each PID once."""
+    resident: dict[int, int] = {}
+    children: dict[int, list[int]] = {}
+    pending = [pgid]
     with os.scandir("/proc") as entries:
         for entry in entries:
             if not entry.name.isdecimal():
@@ -75,11 +77,23 @@ def group_rss_bytes(pgid: int) -> int:
                 fields = (
                     (Path(entry.path) / "stat").read_text().rsplit(")", 1)[1].split()
                 )
+                pid = int(entry.name)
+                resident[pid] = int(fields[21])
+                children.setdefault(int(fields[1]), []).append(pid)
                 if int(fields[2]) == pgid:
-                    pages += int(fields[21])
+                    pending.append(pid)
             except (FileNotFoundError, ProcessLookupError, PermissionError):
                 # Processes can disappear between enumeration and reading stat.
                 continue
+    visited: set[int] = set()
+    pages = 0
+    while pending:
+        pid = pending.pop()
+        if pid in visited:
+            continue
+        visited.add(pid)
+        pages += resident.get(pid, 0)
+        pending.extend(children.get(pid, ()))
     return pages * os.sysconf("SC_PAGE_SIZE")
 
 

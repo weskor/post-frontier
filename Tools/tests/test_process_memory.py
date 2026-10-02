@@ -1,16 +1,18 @@
-"""Resident memory evidence covers the entire exec process group."""
+"""Resident memory evidence covers the process group and detached descendants."""
 
 from dataclasses import replace
 from pathlib import Path
 import sys
 
+import pytest
 from x import jsonio
 from x.context import Context
 from x.runs import Run
 from x.settings import load
 
 
-def test_exec_peak_sums_child_and_grandchild(repo: Path) -> None:
+@pytest.mark.parametrize("detached", [False, True])
+def test_exec_peak_sums_child_and_grandchild(repo: Path, detached: bool) -> None:
     settings = replace(
         load(repo), runs_root=repo.parent / "runs", lock_dir=repo.parent / "locks"
     )
@@ -19,9 +21,11 @@ def test_exec_peak_sums_child_and_grandchild(repo: Path) -> None:
     script = repo / "memory.py"
     script.write_text(
         "import os, pathlib, subprocess, sys, time\n"
-        "memory = bytearray(24 * 1024 * 1024)\n"
+        "memory = bytearray(b'x') * (24 * 1024 * 1024)\n"
         "depth = int(sys.argv[1])\n"
-        "child = subprocess.Popen([sys.executable, __file__, str(depth - 1)]) if depth else None\n"
+        "detached = bool(int(sys.argv[2]))\n"
+        "child = subprocess.Popen([sys.executable, __file__, str(depth - 1), str(int(detached))], "
+        "start_new_session=detached) if depth else None\n"
         "pages = int(pathlib.Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()[21])\n"
         "print(pages * os.sysconf('SC_PAGE_SIZE'), flush=True)\n"
         "if child is not None:\n"
@@ -29,7 +33,9 @@ def test_exec_peak_sums_child_and_grandchild(repo: Path) -> None:
         "else:\n"
         "    time.sleep(1)\n"
     )
-    assert ctx.exec([sys.executable, script, "2"], log="memory") == 0
+    assert (
+        ctx.exec([sys.executable, script, "2", str(int(detached))], log="memory") == 0
+    )
     expected_mb = sum(map(int, (run.dir / "memory.log").read_text().splitlines())) / (
         1024 * 1024
     )
