@@ -2,6 +2,9 @@
 
 #include "HUDTypes.h"
 
+struct FObjectiveEvent;
+struct FObjectiveForce;
+
 namespace CommandHUDPanels
 {
 FContext MakeContext(const ACommandPlayerController* Controller);
@@ -33,6 +36,15 @@ void DrawBuildingOverlays(const FPainter& Paint, const FContext& Context);
 void DrawSectorOverlays(const FPainter& Paint, const FContext& Context);
 void DrawForceLabels(const FPainter& Paint, const FContext& Context);
 void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout);
+FRect ObjectiveContributors(const FRect& Strip);
+int32 ObjectiveForceColumns(const FRect& Strip);
+void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, const FObjectiveForce& Force,
+	const FRect& Rect, float Alpha = 1.f);
+void ForEachAlert(const FContext& Context, const FLayout& Layout,
+	TFunctionRef<void(const FObjectiveEvent&, const FRect&, float)> Visit);
+bool HitTestAlert(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint,
+	FVector& OutWorld, int32& OutSequence);
+void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
 void DrawBuildCard(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover);
 void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);

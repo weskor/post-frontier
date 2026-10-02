@@ -27,6 +27,44 @@ from harness.network_session import Session, converged
 from harness.verify import JsonObject
 
 
+def event_sequence(state: JsonObject) -> int:
+    events = state["objectiveEvents"]
+    return int(events[-1]["sequence"]) if events else 0
+
+
+def objective_event(
+    run: NetworkRun, s: Session, event_id: str, target: int,
+    owner: int, force_number: int, after: int = 0,
+) -> dict[str, JsonObject]:
+    def matching(state: JsonObject) -> list[JsonObject]:
+        return [
+            event for event in state["objectiveEvents"]
+            if event["id"] == event_id and event["region"] == target
+            and event["sequence"] > after
+        ]
+
+    states = converged(
+        run, s.names, lambda st: bool(matching(st)),
+        f"{event_id} reaches every peer with region {target}",
+    )
+    expected = matching(states["host"])
+    require(len(expected) == 1, f"{event_id}: duplicate transition")
+    require(
+        any(
+            contributor["owner"] == owner
+            and contributor["forceNumber"] == force_number
+            and contributor["playerName"]
+            for contributor in expected[0]["forces"]
+        ),
+        f"{event_id}: wrong causing player or force",
+    )
+    require(
+        all(matching(state) == expected for state in states.values()),
+        f"{event_id}: remote event identity, attribution or location differs",
+    )
+    return states
+
+
 def deposit(state: JsonObject, index: int) -> JsonObject:
     return next(d for d in state["deposits"] if d["index"] == index)
 
@@ -55,6 +93,8 @@ def capture_region(
         if r["controller"] == 0 or r["index"] not in deposit_regions
     )
     target = select_goal_region(state, index, exclude=excluded)["index"]
+    after = event_sequence(state)
+    force_number = building(state, index)["forceNumber"]
     run.request(s.peer, "goal", building=index, goal=EXPAND, region=target)
     states = converged(
         run,
@@ -71,6 +111,9 @@ def capture_region(
     require(
         all(all(p["income"] == 2 for p in st["players"]) for st in states.values()),
         "bare region capture incorrectly provides income",
+    )
+    states = objective_event(
+        run, s, "region_captured", target, s.owner, force_number, after,
     )
     return target, states
 
@@ -200,6 +243,7 @@ def deplete_private_deposit(
         ),
         "finite final partial payment is capped and depleted extractor stops bonus on following tick",
     )
+    after = event_sequence(states["host"])
     run.request("host", "destroyExtractor", building=extractor)
     converged(
         run,
@@ -212,6 +256,7 @@ def deplete_private_deposit(
         ),
         "real lethal attack frees depleted deposit, while anchor control retains polygon rights",
     )
+    objective_event(run, s, "drill_rig_lost", target, -1, 0, after)
     run.phase(
         "natural polygon capture, builder-only finite income, depletion and destruction freeing across peers"
     )
@@ -307,6 +352,7 @@ def deplete_enemy_deposit(
         ),
         "JEV depletion caps partial bonus then stops it, without affecting friendly private income",
     )
+    after = event_sequence(states["host"])
     run.request(
         "host",
         "destroyExtractor",
@@ -320,6 +366,10 @@ def deplete_enemy_deposit(
             and region(st, deposit(st, enemy_index)["region"])["controller"] == 5
         ),
         "JEV extractor destruction frees deposit without altering enemy main ownership",
+    )
+    objective_event(
+        run, s, "drill_rig_lost", deposit(states["host"], enemy_index)["region"],
+        s.identities["host"], 0, after,
     )
     run.phase(
         "JEV wallet-only finite extractor payment, depletion and deposit freeing across peers"
@@ -340,13 +390,22 @@ def assault_and_finish(
         lambda st: goal_matches(st, index, ASSAULT, enemy_main),
         "Assault resolves the enemy main server-side on every peer",
     )
-    converged(
-        run,
-        s.names,
-        lambda st: st["enemyHQ"] < 900,
-        "Assault goal causes actual HQ weapon damage",
+    state = run.observe("host")
+    after = event_sequence(state)
+    force_number = building(state, index)["forceNumber"]
+    objective_event(
+        run, s, "enemy_hq_under_attack", enemy_main, s.owner, force_number,
     )
+    converged(
+        run, s.names, lambda st: 0 < st["enemyHQ"] <= 225,
+        "Assault crosses both HQ damage tiers through actual weapon damage",
+    )
+    for event_id in ("enemy_hq_half", "enemy_hq_critical"):
+        objective_event(run, s, event_id, enemy_main, s.owner, force_number)
     states = finish(run, s, squad, "weapon-caused victory replicates")
+    states = objective_event(
+        run, s, "enemy_hq_offline", enemy_main, s.owner, force_number, after,
+    )
     require(
         all(
             wallet(st, s.owner)["doctrine"] == 1 and wallet(st, s.owner)["wallet"] == 50

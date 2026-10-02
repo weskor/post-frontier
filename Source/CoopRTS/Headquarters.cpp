@@ -3,6 +3,7 @@
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
 #include "CoopAudioSubsystem.h"
+#include "ObjectiveAnnouncer.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -57,9 +58,24 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	if (!HasAuthority() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
 		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
 		return;
+	const int32 PreviousHealth = Health;
 	Health = FMath::Max(0, Health - Damage);
 	OnRep_Appearance();
 	ForceNetUpdate();
+	if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
+	{
+		static const FName OwnIds[] = { TEXT("own_hq_under_attack"), TEXT("own_hq_half"), TEXT("own_hq_critical"), TEXT("own_hq_offline") };
+		static const FName EnemyIds[] = { TEXT("enemy_hq_under_attack"), TEXT("enemy_hq_half"), TEXT("enemy_hq_critical"), TEXT("enemy_hq_offline") };
+		const FName* Ids = TeamIndex == 0 ? OwnIds : EnemyIds;
+		const int32 Tier = Health * 4 <= MaxHealth() ? 2 : Health * 2 <= MaxHealth() ? 1 : 0;
+		Announcer->RaiseFromUnit(Ids[0], TeamIndex, GetActorLocation(), Attacker, Tier);
+		if (PreviousHealth * 2 > MaxHealth() && Health * 2 <= MaxHealth())
+			Announcer->RaiseFromUnit(Ids[1], TeamIndex, GetActorLocation(), Attacker, 1);
+		if (PreviousHealth * 4 > MaxHealth() && Health * 4 <= MaxHealth())
+			Announcer->RaiseFromUnit(Ids[2], TeamIndex, GetActorLocation(), Attacker, 2);
+		if (Health == 0)
+			Announcer->RaiseFromUnit(Ids[3], TeamIndex, GetActorLocation(), Attacker, 2);
+	}
 	if (!Health)
 	{
 		UE_LOG(LogTemp, Display, TEXT("Headquarters destroyed team=%d attacker=%s"), TeamIndex, *Attacker->GetName());
@@ -78,12 +94,6 @@ void AHeadquarters::OnRep_Appearance()
 		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 		{
 			Audio->PlayUnit(ECoopAudioEvent::Impact, TeamIndex, EUnitRole::Siege, GetActorLocation(), this);
-			const float Now = GetWorld()->GetTimeSeconds();
-			if (Now >= NextAlarmAudioTime)
-			{
-				NextAlarmAudioTime = Now + 10.f;
-				Audio->PlayStructure(ECoopAudioEvent::HQAlarm, TeamIndex, GetActorLocation(), this);
-			}
 			if (bDestroyed)
 				Audio->PlayStructure(ECoopAudioEvent::HQDestroyed, TeamIndex, GetActorLocation(), this);
 		}

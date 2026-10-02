@@ -118,7 +118,7 @@ static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 	DrawScreenLine(Paint, Panel, TEXT("6  Assault pushes to JEV's HQ; Fall Back regroups at your barracks."), 5, Palette::Gold);
 	DrawScreenLine(Paint, Panel, TEXT("Units fight automatically. You command buildings and force goals."), 6, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("LMB: select / place / assign. RMB or Esc: cancel targeting."), 7);
-	DrawScreenLine(Paint, Panel, TEXT("WASD / middle drag: pan. Wheel: zoom. Space: selected building / HQ."), 8);
+	DrawScreenLine(Paint, Panel, TEXT("WASD / middle drag: pan. Wheel: zoom. Space: latest / older alert. F: selection / HQ."), 8);
 	DrawScreenLine(Paint, Panel, TEXT("F4: show/hide deck. Esc: match menu (pauses solo only)."), 9);
 	DrawScreenLine(Paint, Panel, TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 11, Palette::Muted);

@@ -16,6 +16,7 @@ class AHeadquarters;
 class AMapRegion;
 class ADepositSite;
 class UMatchContent;
+class UObjectiveAnnouncer;
 
 UENUM(BlueprintType)
 enum class EMatchResult : uint8
@@ -61,6 +62,8 @@ public:
 	// Single definition catalogue for every peer; indices replicated by actors resolve here.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Content")
 	TObjectPtr<UMatchContent> Content;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives")
+	TObjectPtr<UObjectiveAnnouncer> ObjectiveAnnouncer;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	TArray<TObjectPtr<AMapRegion>> Regions;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")

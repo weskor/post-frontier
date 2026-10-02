@@ -31,6 +31,7 @@
 #include "Commands/ProductionCommandComponent.h"
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/MatchCommandComponent.h"
+#include "ObjectiveAnnouncer.h"
 
 ACommandPlayerController::ACommandPlayerController()
 {
@@ -75,6 +76,8 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bPlacementPending = false;
 	Feedback.Reset();
 	bInitialFocusPending = true;
+	FocusedAlertSequence = 0;
+	LatestAlertSequence = 0;
 	PendingPan = FVector2D::ZeroVector;
 	PreviousDragPosition = FVector2D::ZeroVector;
 	bDragging = false;
@@ -119,7 +122,8 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("ZoomOut"), EKeys::MouseScrollDown, &ThisClass::ZoomOut, ETriggerEvent::Started);
 	Bind(TEXT("Select"), EKeys::LeftMouseButton, &ThisClass::SelectUnderCursor, ETriggerEvent::Started);
 	Bind(TEXT("CancelPointerMode"), EKeys::RightMouseButton, &ThisClass::CancelPointerMode, ETriggerEvent::Started);
-	Bind(TEXT("FocusSelection"), EKeys::SpaceBar, &ThisClass::FocusSelection, ETriggerEvent::Started);
+	Bind(TEXT("FocusAlert"), EKeys::SpaceBar, &ThisClass::FocusAlert, ETriggerEvent::Started);
+	Bind(TEXT("FocusSelection"), EKeys::F, &ThisClass::FocusSelection, ETriggerEvent::Started);
 	Bind(TEXT("MenuOrCancel"), EKeys::Escape, &ThisClass::Escape, ETriggerEvent::Started);
 	Bind(TEXT("ToggleHUD"), EKeys::F4, &ThisClass::ToggleHUD, ETriggerEvent::Started);
 	Bind(TEXT("Restart"), EKeys::Enter, &ThisClass::RequestRestart, ETriggerEvent::Started);
@@ -633,6 +637,12 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 		return true;
 	}
 	FVector WorldPosition;
+	int32 AlertSequence;
+	if (HUD->GetAlertWorldPosition(Position, WorldPosition, AlertSequence))
+	{
+		FocusAlertSequence(AlertSequence);
+		return true;
+	}
 	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
 	{
 		if (bAssigningGoal)
@@ -828,6 +838,49 @@ void ACommandPlayerController::FocusSelection()
 	bInitialFocusPending = false;
 	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
 		Camera->FocusOn(Target);
+}
+
+bool ACommandPlayerController::FocusAlertSequence(int32 Sequence)
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return false;
+	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this);
+	ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn());
+	if (!Announcer || !Camera)
+		return false;
+	const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+	for (const FObjectiveEvent& Event : Events)
+	{
+		if (Event.Sequence != Sequence)
+			continue;
+		Camera->FocusOn(Event.Location);
+		bInitialFocusPending = false;
+		FocusedAlertSequence = Sequence;
+		LatestAlertSequence = Events.Last().Sequence;
+		return true;
+	}
+	return false;
+}
+
+void ACommandPlayerController::FocusAlert()
+{
+	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this);
+	if (!Announcer || Announcer->GetEvents().IsEmpty())
+		return;
+	const TArray<FObjectiveEvent>& Events = Announcer->GetEvents();
+	int32 Index = Events.Num() - 1;
+	if (LatestAlertSequence == Events.Last().Sequence)
+	{
+		for (int32 Cursor = 0; Cursor < Events.Num(); ++Cursor)
+		{
+			if (Events[Cursor].Sequence == FocusedAlertSequence)
+			{
+				Index = FMath::Max(0, Cursor - 1);
+				break;
+			}
+		}
+	}
+	FocusAlertSequence(Events[Index].Sequence);
 }
 
 void ACommandPlayerController::CancelPointerMode()

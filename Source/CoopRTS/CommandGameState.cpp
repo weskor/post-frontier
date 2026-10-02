@@ -7,6 +7,7 @@
 #include "CommandPlayerState.h"
 #include "CoopAudioSubsystem.h"
 #include "Headquarters.h"
+#include "ObjectiveAnnouncer.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "Content/BuildingDefinition.h"
@@ -89,6 +90,7 @@ ACommandGameState::ACommandGameState()
 	bReplicates = true;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true;
+	ObjectiveAnnouncer = CreateDefaultSubobject<UObjectiveAnnouncer>(TEXT("Objective Announcer"));
 }
 
 void ACommandGameState::BeginPlay()

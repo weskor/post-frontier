@@ -44,7 +44,6 @@ private:
 	bool bAudioStateInitialized = false;
 	bool bDestroyedAudioPlayed = false;
 	int32 LastAudioHealth = 0;
-	float NextAlarmAudioTime = 0.f;
 	UFUNCTION()
 	void OnRep_Appearance();
 };

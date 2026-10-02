@@ -4,6 +4,7 @@
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
 #include "CoopAudioSubsystem.h"
+#include "ObjectiveAnnouncer.h"
 #include "DepositSite.h"
 #include "Content/MatchContent.h"
 #include "Components/BoxComponent.h"
@@ -307,6 +308,9 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	ForceNetUpdate();
 	if (!IsAlive())
 	{
+		if (Kind == EBuildingKind::Extractor)
+			if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
+				Announcer->RaiseFromUnit(TEXT("drill_rig_lost"), TeamIndex, GetActorLocation(), Attacker);
 		bProductionEnabled = false;
 		ReleaseDeposit();
 		FCommandBuildingTerminalSnapshot Snapshot;

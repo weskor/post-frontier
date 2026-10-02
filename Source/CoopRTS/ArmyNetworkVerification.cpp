@@ -22,6 +22,7 @@
 #include "CommandPlayerState.h"
 #include "EnemyCommander.h"
 #include "Headquarters.h"
+#include "ObjectiveAnnouncer.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
@@ -80,6 +81,60 @@ const UArmyUnitDefinition* ProductionDefinition(const ACommandGameState& State, 
 	return nullptr;
 }
 ACommandPlayerController* LocalController(UWorld* World);
+
+void AlertSurfaceSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Result)
+{
+	TArray<TSharedPtr<FJsonValue>> Rows;
+	const ACommandPlayerController* PC = LocalController(Context->GetWorld());
+	const ACommandHUD* HUD = PC ? Cast<ACommandHUD>(PC->GetHUD()) : nullptr;
+	Number(Result, TEXT("focusedAlertSequence"), PC ? PC->GetFocusedAlertSequence() : 0);
+	if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context); Announcer && HUD)
+		for (const FObjectiveEvent& Event : Announcer->GetEvents())
+		{
+			FVector2D Position;
+			if (!HUD->FindAlertScreenPosition(Event.Sequence, Position))
+				continue;
+			auto Row = Object();
+			Number(Row, TEXT("sequence"), Event.Sequence);
+			Number(Row, TEXT("x"), Position.X);
+			Number(Row, TEXT("y"), Position.Y);
+			Rows.Add(MakeShared<FJsonValueObject>(Row));
+		}
+	Result->SetArrayField(TEXT("uiAlerts"), Rows);
+}
+
+void ObjectiveSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Result)
+{
+	TArray<TSharedPtr<FJsonValue>> Events;
+	if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context))
+		for (const FObjectiveEvent& Event : Announcer->GetEvents())
+		{
+			auto Entry = Object();
+			Number(Entry, TEXT("sequence"), Event.Sequence);
+			Entry->SetStringField(TEXT("id"), Event.Id.ToString());
+			Number(Entry, TEXT("serverTime"), Event.ServerTime);
+			Vector(Entry, TEXT("position"), Event.Location);
+			Number(Entry, TEXT("region"), Event.RegionIndex);
+			Entry->SetStringField(TEXT("regionName"), Event.RegionName);
+			Number(Entry, TEXT("affectedTeam"), Event.AffectedTeam);
+			Number(Entry, TEXT("damageTier"), Event.DamageTier);
+			TArray<TSharedPtr<FJsonValue>> Forces;
+			for (const FObjectiveForce& Force : Event.Forces)
+			{
+				auto Contributor = Object();
+				Number(Contributor, TEXT("team"), Force.TeamIndex);
+				Number(Contributor, TEXT("owner"), Force.CommanderIndex);
+				Number(Contributor, TEXT("forceNumber"), Force.ForceNumber);
+				Number(Contributor, TEXT("unitIndex"), Force.UnitIndex);
+				Contributor->SetStringField(TEXT("playerName"), Force.PlayerName);
+				Forces.Add(MakeShared<FJsonValueObject>(Contributor));
+			}
+			Entry->SetArrayField(TEXT("forces"), Forces);
+			Events.Add(MakeShared<FJsonValueObject>(Entry));
+		}
+	Result->SetArrayField(TEXT("objectiveEvents"), Events);
+	AlertSurfaceSnapshot(Context, Result);
+}
 
 TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 {
@@ -348,6 +403,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Vector(Result, TEXT("friendlyHQPosition"), State->FriendlyHeadquarters->GetActorLocation());
 	if (IsValid(State->EnemyHeadquarters))
 		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
+	ObjectiveSnapshot(State, Result);
 	return Result;
 }
 AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
@@ -475,7 +531,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const FString KeyName = Request->GetStringField(TEXT("key"));
 			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
 				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P"))
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R")
+				&& KeyName != TEXT("P") && KeyName != TEXT("F"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
@@ -638,6 +695,15 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	}
 	if (!Army)
 		return TEXT("server fixture army unavailable");
+	if (Action == TEXT("hqDamage"))
+	{
+		const int32 Damage = static_cast<int32>(Request->GetIntegerField(TEXT("damage")));
+		AHeadquarters* Target = State->EnemyHeadquarters;
+		if (!IsValid(Target) || Damage <= 0 || Damage >= Target->Health || Army->GetUnits().IsEmpty())
+			return TEXT("nonlethal HQ damage fixture unavailable");
+		Target->ReceiveAttack(Damage, Army->GetUnits()[0]);
+		return FString();
+	}
 	if (Action == TEXT("capture"))
 	{
 		const int32 SiteIndex = static_cast<int32>(Request->GetIntegerField(TEXT("site")));

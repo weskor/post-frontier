@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "DepositSite.h"
 #include "MapRegion.h"
+#include "ObjectiveAnnouncer.h"
 
 namespace CommandHUDPanels
 {
@@ -103,6 +104,18 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 		FMath::Min(InspectorWidth, Layout.Width - InspectorX - Margin), DeckHeight };
 	Layout.Bottom = Context.bExpanded ? Layout.Inspector
 									  : FRect{ InspectorX, Layout.Height - Margin - ModeHeight, Layout.Inspector.W, ModeHeight };
+	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
+	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
+	if (Announcer && !Announcer->GetEvents().IsEmpty())
+	{
+		const int32 Columns = ObjectiveForceColumns(Layout.Objectives);
+		const int32 Rows = FMath::Min(MaxObjectiveForceRows,
+			FMath::DivideAndRoundUp(Announcer->GetEvents().Last().Forces.Num(), Columns));
+		Layout.Objectives.H = FMath::Max(ObjectiveHeight, 27.f + Rows * (21.f + RowGap) - RowGap + Pad);
+	}
+	const float AlertBottom = FMath::Min(Layout.Construction.Y, Layout.Bottom.Y) - Gap - FeedbackHeight;
+	Layout.Alerts = { Layout.Width - Margin - AlertWidth, Layout.Objectives.Bottom() + Gap, AlertWidth,
+		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
 	Layout.bFeedback = Context.Controller && !Context.Controller->GetOrderFeedback().IsEmpty();
 	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
 	return Layout;

@@ -71,6 +71,16 @@ kind = "automation"
 filter = "CoopRTS.Movement.TwoGroups"
 map = "default"
 
+[scopes.objective-events]
+kind = "automation"
+filter = "CoopRTS.Objectives.Events"
+map = "default"
+
+[scopes.objective-assets]
+kind = "automation"
+filter = "CoopRTS.Objectives.Assets"
+map = "default"
+
 [scopes.orders]
 kind = "automation"
 filter = "CoopRTS.Orders.ReplaceHoldRetreat"
@@ -198,7 +208,7 @@ kind = "lint"
 "Source/CoopRTS/CommandGameState.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/CommandHUD.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/CommandHUD.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
-"Source/CoopRTS/HUD/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/HUD/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "objective-events"]
 "Source/CoopRTS/CommandMenuGameMode.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/CommandMenuGameMode.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/CommandMinimap.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
@@ -262,10 +272,10 @@ kind = "lint"
 "Tools/harness/network_pause.py" = ["pause-network", "tools"]
 # Pause contracts supplement, never replace, the existing include-closure scopes.
 "Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network"]
-"Source/CoopRTS/CommandGameState.*" = ["pause", "pause-network"]
+"Source/CoopRTS/CommandGameState.*" = ["pause", "pause-network", "objective-events"]
 "Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network"]
-"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network"]
-"Source/CoopRTS/CommandHUD.*" = ["pause"]
+"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events"]
+"Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events"]
 "Source/CoopRTS/HUD/*.cpp" = ["pause"]
 "Tools/harness/network_scenarios.py" = ["pause-network", "tools"]
 "Source/CoopRTS/ArmyNetworkVerification.*" = ["pause", "pause-network"]
@@ -273,3 +283,11 @@ kind = "lint"
 "Tools/harness/network_session.py" = ["pause-network", "tools"]
 "Tools/harness/network_cli.py" = ["pause-network", "tools"]
 "Tools/harness/network_pause_hud.py" = ["pause-network", "tools"]
+"Source/CoopRTS/ObjectiveAnnouncer.*" = ["objective-events", "objective-assets"]
+"Source/CoopRTS/ObjectiveAnnouncerTests.cpp" = ["objective-events", "objective-assets"]
+"Source/CoopRTS/AnnouncerRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/AnnouncerPolicy.*" = ["rules", "objective-events", "objective-assets"]
+"Source/CoopRTS/Headquarters.*" = ["objective-events"]
+"Source/CoopRTS/CapturePoint.*" = ["objective-events"]
+"Source/CoopRTS/CommandBuilding.*" = ["objective-events"]
+"Source/CoopRTS/CoopAudioSubsystem.*" = ["objective-events", "objective-assets"]

@@ -14,6 +14,8 @@
 #include "Sound/SoundWave.h"
 #include "Sound/ReverbEffect.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Rules/AnnouncerPolicy.h"
+#include "ObjectiveAnnouncer.h"
 
 namespace
 {
@@ -70,7 +72,6 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 		{ ECoopAudioEvent::Cancel, TEXT("Cancel"), 2 },
 		{ ECoopAudioEvent::Destroyed, TEXT("Destroyed"), 3 },
 		{ ECoopAudioEvent::Deploy, TEXT("Deploy"), 2 },
-		{ ECoopAudioEvent::HQAlarm, TEXT("HQAlarm"), 2 },
 		{ ECoopAudioEvent::HQDestroyed, TEXT("HQDestroyed"), 1 }
 	};
 	for (int32 Team : { 0, 5 })
@@ -93,6 +94,14 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 	};
 	for (const FCueSpec& Spec : UI)
 		Load(0, UIRole, TEXT("UI"), Spec);
+	for (const AnnouncerPolicy::FDefinition& Definition : AnnouncerPolicy::Definitions())
+	{
+		const FString Name = FString::Printf(TEXT("VO_%s"), Definition.Id);
+		const FString Path = FString::Printf(TEXT("/Game/Audio/Announcer/%s.%s"), *Name, *Name);
+		ConstructorHelpers::FObjectFinder<USoundWave> Wave(*Path);
+		if (Wave.Succeeded())
+			AnnouncerSounds.Add(FName(Definition.Id), Wave.Object);
+	}
 }
 
 UWorld* UCoopAudioSubsystem::GetWorld() const
@@ -113,6 +122,8 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	// Copy references once; variant history belongs to this instance, never the CDO.
 	const UCoopAudioSubsystem* Defaults = GetDefault<UCoopAudioSubsystem>();
 	Sounds = Defaults->Sounds;
+	AnnouncerSounds = Defaults->AnnouncerSounds;
+	AnnouncerQueue.Reserve(UObjectiveAnnouncer::HistoryLimit);
 	MasterClass = Defaults->MasterClass;
 	MasterMix = Defaults->MasterMix;
 	WorldAttenuation = Defaults->WorldAttenuation;
@@ -135,9 +146,11 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	const bool bReverbLoaded = IsValid(WorldReverb.Get());
 	LoadedWaves += bAmbienceLoaded ? 1 : 0;
 	UE_LOG(LogTemp, Display,
-		TEXT("CoopAudio library initialized: cues=%d/44 waves=%d/115 master_class=%d master_mix=%d world_attenuation=%d ambience=%d world_reverb=%d"),
-		Sounds.Num(), LoadedWaves, bMasterClassLoaded, bMasterMixLoaded, bAttenuationLoaded, bAmbienceLoaded, bReverbLoaded);
-	if (Sounds.Num() != 44 || LoadedWaves != 115 || !bMasterClassLoaded || !bMasterMixLoaded || !bAttenuationLoaded
+		TEXT("CoopAudio library initialized: cues=%d/42 waves=%d/111 announcer=%d/%d master_class=%d master_mix=%d world_attenuation=%d ambience=%d world_reverb=%d"),
+		Sounds.Num(), LoadedWaves, AnnouncerSounds.Num(), AnnouncerPolicy::Definitions().Num(),
+		bMasterClassLoaded, bMasterMixLoaded, bAttenuationLoaded, bAmbienceLoaded, bReverbLoaded);
+	if (Sounds.Num() != 42 || LoadedWaves != 111 || AnnouncerSounds.Num() != AnnouncerPolicy::Definitions().Num()
+		|| !bMasterClassLoaded || !bMasterMixLoaded || !bAttenuationLoaded
 		|| !bAmbienceLoaded || !bReverbLoaded)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Incomplete CoopAudio runtime library; see initialization counts"));
@@ -164,6 +177,7 @@ void UCoopAudioSubsystem::Deinitialize()
 		UGameplayStatics::DeactivateReverbEffect(World, ReverbTag);
 	AmbienceWorld.Reset();
 	StopAllConstruction();
+	StopAnnouncer();
 	if (UWorld* World = MixWorld.Get())
 		UGameplayStatics::PopSoundMixModifier(World, MasterMix);
 	MixWorld.Reset();
@@ -267,7 +281,7 @@ void UCoopAudioSubsystem::PlayStructure(ECoopAudioEvent Event, int32 Team, const
 {
 	if (Event == ECoopAudioEvent::Research && Team == 5)
 		Event = ECoopAudioEvent::Notify;
-	Play(Event, Team, StructureRole, Location, Event == ECoopAudioEvent::HQAlarm && Team == 0);
+	Play(Event, Team, StructureRole, Location, false);
 }
 
 void UCoopAudioSubsystem::StartConstruction(AActor* Owner, int32 Team)
@@ -330,6 +344,71 @@ void UCoopAudioSubsystem::PlayUI(FName Event)
 		return;
 	}
 	Play(Cue, 0, Cue == ECoopAudioEvent::Research ? StructureRole : UIRole, FVector::ZeroVector, true);
+}
+
+void UCoopAudioSubsystem::PlayAnnouncer(FName Id)
+{
+	UWorld* World = GetWorld();
+	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer
+		|| World->bIsTearingDown || !AnnouncerSounds.Contains(Id))
+		return;
+	if (AnnouncerWorld.IsValid() && AnnouncerWorld != World)
+		StopAnnouncer();
+	AnnouncerWorld = World;
+	AnnouncerQueue.Add(Id);
+	if (!IsValid(AnnouncerComponent.Get()) || !AnnouncerComponent->IsPlaying())
+		StartNextAnnouncer();
+}
+
+void UCoopAudioSubsystem::StartNextAnnouncer()
+{
+	UWorld* World = AnnouncerWorld.Get();
+	if (!World || World->bIsTearingDown)
+		return;
+	while (AnnouncerQueueCursor < AnnouncerQueue.Num())
+	{
+		const TObjectPtr<USoundWave>* Found = AnnouncerSounds.Find(AnnouncerQueue[AnnouncerQueueCursor++]);
+		USoundWave* Wave = Found ? Found->Get() : nullptr;
+		if (!IsValid(Wave))
+			continue;
+		ApplyMasterMix(World);
+		if (!IsValid(AnnouncerComponent.Get()))
+		{
+			AnnouncerComponent = NewObject<UAudioComponent>(World->GetWorldSettings());
+			AnnouncerComponent->bAutoDestroy = false;
+			AnnouncerComponent->bStopWhenOwnerDestroyed = true;
+			AnnouncerComponent->bAllowSpatialization = false;
+			AnnouncerComponent->bIsUISound = true;
+			AnnouncerComponent->SoundClassOverride = MasterClass;
+			AnnouncerComponent->OnAudioFinishedNative.AddUObject(this, &UCoopAudioSubsystem::AnnouncerFinished);
+			AnnouncerComponent->RegisterComponentWithWorld(World);
+		}
+		AnnouncerComponent->SetSound(Wave);
+		AnnouncerComponent->Play();
+		return;
+	}
+	AnnouncerQueue.Reset();
+	AnnouncerQueueCursor = 0;
+}
+
+void UCoopAudioSubsystem::AnnouncerFinished(UAudioComponent* Component)
+{
+	if (Component == AnnouncerComponent.Get())
+		StartNextAnnouncer();
+}
+
+void UCoopAudioSubsystem::StopAnnouncer()
+{
+	AnnouncerQueue.Reset();
+	AnnouncerQueueCursor = 0;
+	if (IsValid(AnnouncerComponent.Get()))
+	{
+		AnnouncerComponent->OnAudioFinishedNative.RemoveAll(this);
+		AnnouncerComponent->Stop();
+		AnnouncerComponent->DestroyComponent();
+	}
+	AnnouncerComponent = nullptr;
+	AnnouncerWorld.Reset();
 }
 
 void UCoopAudioSubsystem::UpdateListener(UWorld* World, ELevelTick TickType, float DeltaSeconds)
@@ -402,12 +481,16 @@ void UCoopAudioSubsystem::TearDownWorld(UWorld* World)
 {
 	if (AmbienceWorld == World)
 		StopAmbience();
+	if (AnnouncerWorld == World)
+		StopAnnouncer();
 }
 
 void UCoopAudioSubsystem::CleanupWorld(UWorld* World, bool bSessionEnded, bool bCleanupResources)
 {
 	if (!World || World->GetGameInstance() != GetGameInstance())
 		return;
+	if (AnnouncerWorld == World)
+		StopAnnouncer();
 	if (AmbienceWorld == World)
 	{
 		StopAmbience();

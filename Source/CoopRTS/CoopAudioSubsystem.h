@@ -27,7 +27,6 @@ enum class ECoopAudioEvent : uint8
 	Destroyed,
 	Deploy,
 	Research,
-	HQAlarm,
 	HQDestroyed,
 	Notify,
 	CaptureTick,
@@ -80,6 +79,7 @@ public:
 	void StopConstruction(AActor* Owner);
 	void PlayCapture(ECoopAudioEvent Event, const FVector& Location, int32 Milestone = 0);
 	void PlayOutcome(bool bVictory);
+	void PlayAnnouncer(FName Id);
 
 private:
 	UPROPERTY()
@@ -96,6 +96,13 @@ private:
 	TObjectPtr<UReverbEffect> WorldReverb;
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> AmbienceComponent;
+	UPROPERTY()
+	TMap<FName, TObjectPtr<USoundWave>> AnnouncerSounds;
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> AnnouncerComponent;
+	TArray<FName> AnnouncerQueue;
+	int32 AnnouncerQueueCursor = 0;
+	TWeakObjectPtr<UWorld> AnnouncerWorld;
 	UPROPERTY()
 	TObjectPtr<UCoopAudioSettings> Settings;
 	float MasterVolume = 1.f;
@@ -119,4 +126,7 @@ private:
 	void UpdateAmbience(UWorld* World);
 	void StopAmbience();
 	void TearDownWorld(UWorld* World);
+	void StartNextAnnouncer();
+	void AnnouncerFinished(UAudioComponent* Component);
+	void StopAnnouncer();
 };

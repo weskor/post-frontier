@@ -40,7 +40,7 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     capture.shot("minimap-camera-northwest")
     capture.minimap(0.99, 0.01)
     capture.minimap(0.5, 0.5)
-    capture.key("SpaceBar")
+    capture.key("F")
 
     capture.hud(BUILD_BARRACKS, "Build Barracks card enters placement")
     capture.wait(
@@ -49,7 +49,7 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     )
     capture.shot("placement-mode")
     capture.minimap(0.75, 0.75)
-    capture.key("SpaceBar")
+    capture.key("F")
     capture.key("Escape")
     capture.wait(
         lambda s: not s["placing"] and s["hudExpanded"],
@@ -59,7 +59,7 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     capture.wait(lambda s: not s["hudExpanded"], "F4 hides deck")
     capture.shot("deck-hidden")
     capture.minimap(0.5, 0.5)
-    capture.key("SpaceBar")
+    capture.key("F")
     capture.hud(CONSTRUCTION, "Persistent Construction button reopens hidden choices")
     capture.wait(
         lambda s: s["hudExpanded"], "Construction reopens deck without a hotkey"
@@ -126,7 +126,7 @@ def siege_producer(
         if b["index"] != barracks
     )
     run.request("host", "select", target="building", building=siege)
-    capture.key("SpaceBar")
+    capture.key("F")
     capture.wait(
         lambda s: building(s, siege)["constructionProgress"] == 1,
         "Siege producer complete",
@@ -168,7 +168,7 @@ def research(run: NetworkRun, capture: Capture, owner: int) -> None:
     )
     workshop = owned_buildings(state, owner, WORKSHOP)[0]["index"]
     run.request("host", "select", target="building", building=workshop)
-    capture.key("SpaceBar")
+    capture.key("F")
     capture.wait(
         lambda s: building(s, workshop)["constructionProgress"] == 1,
         "workshop complete",
@@ -186,7 +186,7 @@ def other_resolutions(
     resolutions: Sequence[tuple[int, int]],
 ) -> None:
     run.request("host", "select", target="building", building=barracks)
-    capture.key("SpaceBar")
+    capture.key("F")
     for width, height in resolutions[1:]:
         run.request("host", "resolution", width=width, height=height)
 
@@ -206,6 +206,66 @@ def other_resolutions(
         )
 
 
+def at_alert(state: JsonObject, alert: JsonObject) -> bool:
+    return bool(
+        state["focusedAlertSequence"] == alert["sequence"]
+        and all(
+            abs(state["cameraPosition"][axis] - alert["position"][axis]) < 1
+            for axis in (0, 1)
+        )
+    )
+
+
+def awareness(run: NetworkRun, capture: Capture, owner: int, squad: int, barracks: int) -> None:
+    state = capture.state()
+    initial_camera = state["cameraPosition"]
+    run.request(
+        "host", "hqDamage", owner=owner, army=squad, damage=state["enemyHQ"] - 450,
+    )
+    state = capture.wait(
+        lambda s: any(e["id"] == "enemy_hq_half" for e in s["objectiveEvents"]),
+        "real HQ damage raises attributed threshold alert",
+    )
+    require(state["cameraPosition"] == initial_camera, "receiving an alert moved the camera")
+    latest = state["objectiveEvents"][-1]
+    require(latest["id"] == "enemy_hq_half", "HQ half-health transition is not latest alert")
+    require(
+        any(f["owner"] == owner for f in latest["forces"]),
+        "HQ alert omitted the attacking player's force",
+    )
+    capture.shot("objective-strip-and-alert-feed")
+    capture.minimap(0.25, 0.25)
+    before = capture.state()["cameraPosition"]
+    run.request("host", "select", target="building", building=barracks)
+    require(capture.state()["cameraPosition"] == before, "selecting moved the camera")
+    capture.key("SpaceBar")
+    state = capture.wait(
+        lambda s: at_alert(s, latest),
+        "Space actually focuses newest objective alert",
+    )
+    previous = state["objectiveEvents"][-2]
+    capture.key("SpaceBar")
+    capture.wait(
+        lambda s: at_alert(s, previous),
+        "second Space steps to the preceding alert",
+    )
+    row = next(row for row in capture.state()["uiAlerts"] if row["sequence"] == latest["sequence"])
+    capture.minimap(0.5, 0.5)
+    run.request("host", "hudClick", x=row["x"], y=row["y"])
+    capture.wait(
+        lambda s: at_alert(s, latest),
+        "clicking the rendered feed row actually focuses its location",
+    )
+    capture.shot("objective-feed-click-camera")
+    state = capture.wait(
+        lambda s: not any(row["sequence"] == latest["sequence"] for row in s["uiAlerts"]),
+        "alert feed expires without removing objective history",
+    )
+    require(state["objectiveEvents"][-1] == latest, "fading feed removed objective history")
+    capture.shot("objective-strip-after-feed-expiry")
+    run.phase("objective strip, attributed feed, selection stability, Space history and feed click")
+
+
 def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     capture = Capture(run)
     pid, state = boot(run, capture, resolutions[0])
@@ -221,6 +281,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     siege_producer(run, capture, owner, barracks)
     research(run, capture, owner)
     other_resolutions(run, capture, barracks, resolutions)
+    awareness(run, capture, owner, squad, barracks)
     run.request("host", "finish", owner=owner, army=squad, win=True)
     capture.wait(lambda s: s["result"] == 1, "weapon-caused victory")
     capture.shot("victory")

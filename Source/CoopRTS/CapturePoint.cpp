@@ -4,6 +4,7 @@
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
 #include "CoopAudioSubsystem.h"
+#include "ObjectiveAnnouncer.h"
 #include "WorldOverlay.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -71,8 +72,10 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 		return;
 	bool bFriendly = false;
 	bool bEnemy = false;
+	TArray<const AArmyUnit*, TInlineAllocator<8>> ContributingUnits;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 	{
+		const AArmyUnit* PresentUnit = nullptr;
 		for (const AArmyUnit* Unit : It->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()
@@ -82,7 +85,10 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 				bFriendly = true;
 			else if (It->GetTeamIndex() == 5)
 				bEnemy = true;
+			PresentUnit = Unit;
 		}
+		if (PresentUnit)
+			ContributingUnits.Add(PresentUnit);
 	}
 	const bool bOccupancyChanged = bFriendlyPresent != bFriendly || bEnemyPresent != bEnemy;
 	if (bOccupancyChanged)
@@ -110,6 +116,18 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 	}
 	if (PreviousOwner != ControllingTeam)
 	{
+		if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
+		{
+			TArray<FObjectiveForce> Contributors;
+			Contributors.Reserve(ContributingUnits.Num());
+			for (const AArmyUnit* Unit : ContributingUnits)
+				if (Unit->GetTeamIndex() == (bFriendly ? 0 : 5))
+					Contributors.Add(UObjectiveAnnouncer::DescribeForce(Unit));
+			if (PreviousOwner == 0)
+				Announcer->Raise(TEXT("region_lost"), 0, GetActorLocation(), Contributors);
+			if (ControllingTeam == 0)
+				Announcer->Raise(TEXT("region_captured"), 0, GetActorLocation(), Contributors);
+		}
 		UE_LOG(LogTemp, Display, TEXT("Capture site=%d kind=%d owner=%d progress=%.2f"), SiteIndex,
 			static_cast<int32>(SiteKind), ControllingTeam, CaptureProgress);
 	}

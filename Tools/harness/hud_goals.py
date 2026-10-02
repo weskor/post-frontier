@@ -34,7 +34,7 @@ def cancel_goals(capture: Capture, barracks: int) -> None:
 
         capture.wait(picking_goal, f"{label} region targeting mode")
         capture.shot(f"{label}-region-mode")
-        capture.key("SpaceBar")
+        capture.key("F")
         capture.key("Escape")
         cancelled = capture.wait(
             lambda s: not s["assigningGoal"] and s["hudExpanded"],

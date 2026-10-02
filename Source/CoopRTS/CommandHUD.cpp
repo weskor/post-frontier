@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "EngineFontServices.h"
 #include "HUD/HUDPanels.h"
+#include "ObjectiveAnnouncer.h"
 
 using namespace CommandHUDPanels;
 
@@ -67,7 +68,11 @@ bool ACommandHUD::IsPanelPoint(const FVector2D& Position) const
 	if (Layout.Scale <= 0.f)
 		return false;
 	const FVector2D Point = Position / Layout.Scale;
-	return Layout.Top.Contains(Point) || Layout.Menu.Contains(Point) || Layout.Pause.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
+	FVector AlertWorld;
+	int32 AlertSequence;
+	return HitTestAlert(Context, Layout, Point, AlertWorld, AlertSequence)
+		|| Layout.Top.Contains(Point) || Layout.Objectives.Contains(Point)
+		|| Layout.Menu.Contains(Point) || Layout.Pause.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
 		|| (Context.bExpanded && Layout.Build.Contains(Point)) || Layout.Bottom.Contains(Point)
 		|| (Layout.bFeedback && Layout.Feedback.Contains(Point));
 }
@@ -129,6 +134,40 @@ bool ACommandHUD::GetMinimapWorldPosition(const FVector2D& Position, FVector& Ou
 		&& CommandMinimap::ScreenToWorld(AArenaBounds::Find(GetWorld()), Position, Origin, Size, OutWorld);
 }
 
+bool ACommandHUD::GetAlertWorldPosition(const FVector2D& Position, FVector& OutWorld, int32& OutSequence) const
+{
+	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
+	if (!Controller || Controller->GetUIScreen() != ECommandScreen::Game)
+		return false;
+	int32 Width, Height;
+	Controller->GetViewportSize(Width, Height);
+	const FContext Context = MakeContext(Controller);
+	const FLayout Layout = MakeLayout(Context, Width, Height);
+	return Layout.Scale > 0.f && HitTestAlert(Context, Layout, Position / Layout.Scale, OutWorld, OutSequence);
+}
+
+bool ACommandHUD::FindAlertScreenPosition(int32 Sequence, FVector2D& OutPosition) const
+{
+	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
+	if (!Controller || Controller->GetUIScreen() != ECommandScreen::Game)
+		return false;
+	int32 Width, Height;
+	Controller->GetViewportSize(Width, Height);
+	const FContext Context = MakeContext(Controller);
+	const FLayout Layout = MakeLayout(Context, Width, Height);
+	if (Layout.Scale <= 0.f)
+		return false;
+	bool bFound = false;
+	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float) {
+		if (Event.Sequence == Sequence)
+		{
+			OutPosition = Rect.Center() * Layout.Scale;
+			bFound = true;
+		}
+	});
+	return bFound;
+}
+
 void ACommandHUD::PostRender()
 {
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
@@ -173,6 +212,7 @@ void ACommandHUD::DrawHUD()
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
+	DrawObjectiveAlerts(Paint, Context, Layout);
 	if (Context.bExpanded)
 	{
 		DrawBuildPanel(Paint, Layout);

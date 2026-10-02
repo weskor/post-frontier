@@ -57,6 +57,9 @@ public:
 	ECommandScreen GetUIScreen() const;
 	float GetMasterVolume() const;
 	bool IsMenuWorld() const;
+	bool FocusAlertSequence(int32 Sequence);
+	void FocusAlert();
+	int32 GetFocusedAlertSequence() const { return FocusedAlertSequence; }
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UConstructionCommandComponent> ConstructionCommands;
@@ -98,6 +101,8 @@ private:
 	ECommandScreen Screen = ECommandScreen::Game;
 	ECommandScreen ReturnScreen = ECommandScreen::Game;
 	bool bTravelPending = false;
+	int32 FocusedAlertSequence = 0;
+	int32 LatestAlertSequence = 0;
 	void Escape();
 	void ShowScreen(ECommandScreen NewScreen);
 	void PlayUISound(FName Event);

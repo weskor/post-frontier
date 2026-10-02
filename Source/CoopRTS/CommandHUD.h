@@ -72,4 +72,6 @@ public:
 	bool FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const;
 	bool GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) const;
 	bool GetMinimapWorldPosition(const FVector2D& Position, FVector& OutWorld) const;
+	bool GetAlertWorldPosition(const FVector2D& Position, FVector& OutWorld, int32& OutSequence) const;
+	bool FindAlertScreenPosition(int32 Sequence, FVector2D& OutPosition) const;
 };
