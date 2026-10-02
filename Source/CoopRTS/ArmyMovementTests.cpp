@@ -304,6 +304,7 @@ private:
 		FBox BestObstacle(ForceInit);
 		FVector BestAxis = FVector::ZeroVector;
 		FVector BestWall = FVector::ZeroVector;
+		double BestGroundHeight = 0.;
 		EligibleObstacles = 0;
 		ClearCircuits = 0;
 		for (TActorIterator<AStaticMeshActor> It(State->GetWorld()); It; ++It)
@@ -323,14 +324,22 @@ private:
 			const double Distance = FVector::DistSquared2D(Obstacle.GetCenter(), Midpoint);
 			if (Distance >= BestDistance)
 				continue;
-			GroundHeight = Obstacle.Min.Z;
 			for (int32 Axis = 0; Axis < 2; ++Axis)
 			{
 				TravelAxis = Axis == 0 ? FVector::ForwardVector : FVector::RightVector;
 				SideAxis = Axis == 0 ? FVector::RightVector : FVector::ForwardVector;
 				TravelExtent = Axis == 0 ? Extent.X : Extent.Y;
 				SideExtent = Axis == 0 ? Extent.Y : Extent.X;
-				const FVector Home = CircuitPoint(-TravelExtent - 1200., 0.);
+				FVector Home = CircuitPoint(-TravelExtent - 1200., 0.);
+				Home.Z = State->FriendlyHeadquarters->GetActorLocation().Z;
+				const FNavAgentProperties& Agent = GetDefault<AArmyUnit>()->GetNavAgentPropertiesRef();
+				FNavLocation Ground;
+				if (!Navigation->ProjectPointToNavigation(Home, Ground, FVector(35., 35., AArenaBounds::HalfHeight), &Agent)
+					|| FVector::Dist2D(Home, Ground.Location) > 35.
+					|| !AArenaBounds::IsTravelLocation(State->GetWorld(), Ground.Location))
+					continue;
+				Home = Ground.Location;
+				GroundHeight = Home.Z;
 				const FVector Targets[] = {
 					Home, CircuitPoint(-TravelExtent - 2200., 0.),
 					CircuitPoint(-TravelExtent - 2450., SideExtent + 900.),
@@ -351,7 +360,6 @@ private:
 				if (!bClear)
 					continue;
 				++ClearCircuits;
-				const FNavAgentProperties& Agent = GetDefault<AArmyUnit>()->GetNavAgentPropertiesRef();
 				const ANavigationData* NavData = Navigation->GetNavDataForProps(Agent, Home);
 				FNavLocation Probe;
 				bool bFoundWall = false;
@@ -378,9 +386,13 @@ private:
 				BestObstacle = Obstacle;
 				BestAxis = TravelAxis;
 				BestWall = Probe.Location;
+				BestGroundHeight = Home.Z;
 				break;
 			}
 		}
+		if (!Check(EligibleObstacles > 0 && ClearCircuits > 0,
+				TEXT("No placed blocking obstacle with a clear navigable circuit")))
+			return false;
 		if (!BestObstacle.IsValid)
 			return false;
 		Obstacle = BestObstacle;
@@ -388,10 +400,10 @@ private:
 		SideAxis = FVector(TravelAxis.Y, TravelAxis.X, 0.);
 		TravelExtent = FVector::DotProduct(Obstacle.GetExtent(), TravelAxis);
 		SideExtent = FVector::DotProduct(Obstacle.GetExtent(), SideAxis);
-		GroundHeight = Obstacle.Min.Z;
+		GroundHeight = BestGroundHeight;
 		WallProbe = BestWall;
-		Test->AddInfo(FString::Printf(TEXT("Map circuit obstacle=%s axis=%s wall=%s"),
-			*Obstacle.ToString(), *TravelAxis.ToCompactString(), *WallProbe.ToCompactString()));
+		Test->AddInfo(FString::Printf(TEXT("Map circuit obstacle=%s axis=%s wall=%s groundHeight=%.1f"),
+			*Obstacle.ToString(), *TravelAxis.ToCompactString(), *WallProbe.ToCompactString(), GroundHeight));
 		return true;
 	}
 
@@ -425,7 +437,7 @@ private:
 		if (!bFixturesReady)
 		{
 			if (!FindCircuit(State))
-				return false;
+				return bFailed;
 			Groups[0] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 0,
 				CircuitPoint(-TravelExtent - 1200., 0.) + FVector(0., 0., 100.));
 			Groups[1] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 1,
