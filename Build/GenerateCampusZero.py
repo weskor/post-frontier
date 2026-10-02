@@ -351,7 +351,11 @@ for index, (x, y) in enumerate(((-2300, -700), (-2300, 1300), (-1300, -2500), (-
     light("BurnBarrelLight%d" % index, (x, y, 260), art.HUMAN_GLOW, 100, 380)
 kit("GeneratorShack", "GeneratorShack", (-4100, 500), (300, 400))
 
-regions = MatchLayout.region_plan((ARENA_X, ARENA_Y))
+regions = MatchLayout.region_plan((ARENA_X, ARENA_Y), defend_posts=MatchLayout.CAMPUS_ZERO_DEFEND_POSTS)
+post_errors = MatchLayout.defend_post_errors(
+    regions, (ARENA_X, ARENA_Y),
+    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance))
+require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
 deposits = MatchLayout.deposit_plan(regions, (ARENA_X, ARENA_Y),
                                    lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))
 MatchLayout.place_regions(spawn, regions, deposits, capture_anchors)

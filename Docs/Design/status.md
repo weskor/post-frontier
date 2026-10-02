@@ -14,7 +14,7 @@ Current-build values come from a source audit on 2026-10-01. README.md and World
 | Income | Extractor pays only its builder, even after its region is lost | Team pool split evenly; connected chain required; reward regions pay Data ([economy.md](economy.md)) |
 | Gifting | Not possible | Free, unlimited, logged ([economy.md](economy.md)) |
 | Bases | One shared main, free placement | Shared HQ with a build zone per commander ([map.md](map.md)) |
-| Map | Fixed layouts, no traits or neutrals; one capture point per region | Randomized variants under fairness rules, link toggles, 2–3 defend posts per region, region traits, neutrals ([map.md](map.md)); map events later |
+| Map | Fixed layouts, no traits or neutrals; one capture point per region; authored defend posts with checked coverage and local-team ground markers ([map.md](map.md)) | Randomized variants under fairness rules, link toggles, region traits, neutrals ([map.md](map.md)); map events later |
 | Units | [Built] Three retagged types with shared faction stats, armor and definition-driven class speeds; stats authored as text ([units.md](units.md)) | Nine niches, Shielded units, splash and faction twists ([units.md](units.md)) |
 | Production | One Barracks type for every unit | Barracks, Factory and Lab by unit group ([buildings.md](buildings.md)) |
 | Upgrades | None | Tier 2 branch, tier 3 mastery, perk slots, per barracks ([forces.md](forces.md)) |

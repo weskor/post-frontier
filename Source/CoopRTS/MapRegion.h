@@ -23,6 +23,7 @@ public:
 	AMapRegion();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	bool Contains(const FVector& WorldLocation) const;
+	const TArray<FVector>& GetDefendPosts() const { return DefendPosts; }
 
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	int32 RegionIndex = INDEX_NONE;
@@ -34,6 +35,8 @@ public:
 	int32 HomeTeam = -1;
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	TArray<FVector2D> Polygon;
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
+	TArray<FVector> DefendPosts;
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	TArray<int32> Neighbours;
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")

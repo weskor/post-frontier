@@ -90,6 +90,7 @@ def v2_map(v2_data: "V2Data") -> "V2Data":
     for region in result["regions"]:
         region["poly"] = [point[:] for point in region["poly"]]
         region["neighbours"] = region["neighbours"][:]
+        region["defend_posts"] = [point[:] for point in region["defend_posts"]]
         if region["anchor"] is not None:
             region["anchor"] = region["anchor"][:]
     result["headquarters"] = deepcopy(v2_data["headquarters"])

@@ -26,6 +26,8 @@ from pathlib import Path
 import subprocess
 from typing import NotRequired, TypedDict, cast
 
+import MatchLayout
+
 Point = list[float]
 Cell = tuple[int, int]
 Polygon = list[Point]
@@ -53,6 +55,7 @@ class Region(TypedDict):
     poly: Polygon
     anchor: list[float] | None
     neighbours: list[int]
+    defend_posts: list[list[float]]
 
 
 class Deposit(TypedDict):
@@ -393,6 +396,12 @@ def rock_poly(element: SketchElement) -> Polygon:
 def derive() -> None:
     elements = cast(SketchDocument, json.loads(SKETCH.read_text()))["elements"]
     assert [e["type"] for e in elements[:15]] == ["line"] * 15
+    # Posts are authored world data, not another sketch-derived/runtime placement.
+    # Preserve hand edits when re-deriving the region outlines and deposit sites.
+    authored_posts = {
+        region["index"]: region["defend_posts"]
+        for region in cast(MapData, json.loads(DATA.read_text()))["regions"]
+    }
     assert len([e for e in elements if e["type"] == "diamond"]) == 16
     labels = raster_countries(elements)
     # Simplify only after collecting bends from ALL rings. A corner on one
@@ -430,6 +439,7 @@ def derive() -> None:
                 poly=poly,
                 anchor=world(anchor) if anchor else None,
                 neighbours=[],
+                defend_posts=authored_posts[k],
             )
         )
     # Shared-edge incidence is the source of truth for neighbour relations.
@@ -579,6 +589,27 @@ def site_errors(data: MapData) -> list[str]:
     return errors
 
 
+def defend_post_errors(data: MapData) -> list[str]:
+    """Validate authored posts against gameplay countries and actual ground rocks."""
+
+    def clear_ground(point: Sequence[float], margin: float) -> bool:
+        return all(
+            not inside(point, blocker["poly"])
+            and clearance(point, blocker["poly"]) >= margin
+            for blocker in data["blockers"]
+        ) and all(
+            math.dist(point, hq["pos"]) >= 210 + margin for hq in data["headquarters"]
+        )
+
+    return MatchLayout.defend_post_errors(
+        data["regions"],
+        data["arena"]["half_extent"],
+        clear_ground,
+        data["arena"]["placement_margin"],
+        lambda poly, point: inside(point, poly),
+    )
+
+
 def topology(data: MapData) -> tuple[int, float, list[str]]:
     """Check exact opposing shared edges, neighbour metadata and arena coverage."""
     errors: list[str] = []
@@ -658,7 +689,7 @@ def symmetry_errors(data: MapData) -> list[str]:
 
 
 def audit(data: MapData) -> None:
-    errors = region_errors(data) + site_errors(data)
+    errors = region_errors(data) + site_errors(data) + defend_post_errors(data)
     regions = data["regions"]
     edge_count, boundary_length, edge_errors = topology(data)
     errors.extend(edge_errors)

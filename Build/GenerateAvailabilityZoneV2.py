@@ -13,6 +13,7 @@ import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import MatchLayout
+import DrawAvailabilityZoneV2
 
 MAP_PATH = "/Game/Maps/AvailabilityZoneV2"
 JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Maps", "AvailabilityZoneV2.json")
@@ -82,6 +83,8 @@ def validate(data):
                 "Deposit outside its region or with unknown kind")
     for rock in data["blockers"]:
         require(len(rock["poly"]) >= 3 and area(rock["poly"]) > 0, "Invalid CCW blocker polygon " + rock["id"])
+    post_errors = DrawAvailabilityZoneV2.defend_post_errors(data)
+    require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
     return by_index
 
 
@@ -226,6 +229,7 @@ def place_match_actors(region_defs, deposit_defs):
         actor.set_editor_property("home_team", region["home_team"])
         actor.set_editor_property("polygon", [unreal.Vector2D(*point) for point in region["poly"]])
         actor.set_editor_property("neighbours", region["neighbours"])
+        actor.set_editor_property("defend_posts", [unreal.Vector(x, y, 0) for x, y in region["defend_posts"]])
         if index in anchors:
             actor.set_editor_property("anchor", anchors[index])
     for index, deposit in enumerate(deposit_defs):

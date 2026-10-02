@@ -25,6 +25,7 @@ void AMapRegion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AMapRegion, RegionRole);
 	DOREPLIFETIME(AMapRegion, HomeTeam);
 	DOREPLIFETIME(AMapRegion, Polygon);
+	DOREPLIFETIME(AMapRegion, DefendPosts);
 	DOREPLIFETIME(AMapRegion, Neighbours);
 	DOREPLIFETIME(AMapRegion, Anchor);
 }

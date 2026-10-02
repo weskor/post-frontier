@@ -259,6 +259,31 @@ class OpenFieldData(TypedDict):
     size: list[float]
 
 
+class MatchArenaData(TypedDict):
+    pos: list[float]
+    half_extent: list[float]
+    placement_margin: float
+
+
+class MatchHeadquartersData(TypedDict):
+    label: str
+    team_index: int
+    pos: list[float]
+
+
+class MatchSectorData(TypedDict):
+    label: str
+    site_index: int
+    site_kind: str
+    pos: list[float]
+
+
+class MatchActorsData(TypedDict):
+    arena: MatchArenaData
+    headquarters: list[MatchHeadquartersData]
+    sectors: list[MatchSectorData]
+
+
 class MapData(TypedDict):
     name: str
     title: str
@@ -281,6 +306,7 @@ class MapData(TypedDict):
     open_fields: list[OpenFieldData]
     build_pockets: list[BuildPocketData]
     decoration: list[DecorationData]
+    match_actors: MatchActorsData
 
 
 class TextOptions(TypedDict, total=False):

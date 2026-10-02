@@ -1,9 +1,13 @@
 #include "WorldOverlay.h"
 
+#include "CommandGameState.h"
+#include "CommandPlayerController.h"
+#include "CommandPlayerState.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Containers/StaticArray.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "MapRegion.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -169,6 +173,35 @@ void AWorldOverlay::Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>
 void AWorldOverlay::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(It->Get());
+		if (!Controller || !Controller->IsLocalController())
+			continue;
+		const ACommandPlayerState* Player = Controller->GetPlayerState<ACommandPlayerState>();
+		if (State && Player && Player->TeamIndex >= 0)
+			for (const AMapRegion* Region : State->Regions)
+			{
+				if (!IsValid(Region) || State->GetRegionController(Region->RegionIndex) != Player->TeamIndex)
+					continue;
+				for (const FVector& Post : Region->GetDefendPosts())
+				{
+					const FVector Center = Post + FVector(0., 0., 8.);
+					const FColor Color = FColor::Green;
+					for (int32 Segment = 0; Segment < 8; ++Segment)
+					{
+						const FVector2D A = CircleDirections<8>()[Segment];
+						const FVector2D B = CircleDirections<8>()[(Segment + 1) % 8];
+						Line(Center + FVector(A.X * 65., A.Y * 65., 0.),
+							Center + FVector(B.X * 65., B.Y * 65., 0.), Color, 4.f);
+					}
+					Line(Center - FVector(18., 0., 0.), Center + FVector(18., 0., 0.), Color, 4.f);
+					Line(Center - FVector(0., 18., 0.), Center + FVector(0., 18., 0.), Color, 4.f);
+				}
+			}
+		break;
+	}
 	const float Now = GetWorld()->GetTimeSeconds();
 	Flashes.RemoveAllSwap([Now](const FFlash& Flash) { return Flash.Expires <= Now; }, EAllowShrinking::No);
 	for (const FFlash& Flash : Flashes)

@@ -37,6 +37,7 @@
   "regions": [
     {
       "index": 0,
+      "defend_posts": [[-5700, -7200], [-8500, -7500]],
       "name": "Human Main",
       "role": "main",
       "home_team": 0,
@@ -963,6 +964,7 @@
     },
     {
       "index": 1,
+      "defend_posts": [[-4000, -3700], [-3800, -1000]],
       "name": "Human Near",
       "role": "natural",
       "home_team": -1,
@@ -2855,6 +2857,7 @@
     },
     {
       "index": 2,
+      "defend_posts": [[300, -8600], [-2800, -8600], [-1900, -5100]],
       "name": "West Cut",
       "role": "tactical",
       "home_team": -1,
@@ -4233,6 +4236,7 @@
     },
     {
       "index": 3,
+      "defend_posts": [[400, -5500], [3100, -7700], [4100, -4300]],
       "name": "Uplink",
       "role": "reward",
       "home_team": -1,
@@ -6167,6 +6171,7 @@
     },
     {
       "index": 4,
+      "defend_posts": [[8600, -8100], [5300, -8500], [7900, -4800]],
       "name": "North Ridge",
       "role": "tactical",
       "home_team": -1,
@@ -7299,6 +7304,7 @@
     },
     {
       "index": 5,
+      "defend_posts": [[9100, -900], [5000, -600]],
       "name": "Relay Plant",
       "role": "reward",
       "home_team": -1,
@@ -9118,6 +9124,7 @@
     },
     {
       "index": 6,
+      "defend_posts": [[2000, 700], [1100, -2100]],
       "name": "Interchange",
       "role": "tactical",
       "home_team": -1,
@@ -10667,6 +10674,7 @@
     },
     {
       "index": 7,
+      "defend_posts": [[-600, 300], [-2700, 2000]],
       "name": "Switchback",
       "role": "tactical",
       "home_team": -1,
@@ -12458,6 +12466,7 @@
     },
     {
       "index": 8,
+      "defend_posts": [[-4900, 4100], [-8000, 7200], [-7600, 2900]],
       "name": "Power Yard",
       "role": "reward",
       "home_team": -1,
@@ -14236,6 +14245,7 @@
     },
     {
       "index": 9,
+      "defend_posts": [[-8000, -200], [-8000, -3300]],
       "name": "South Outcrop",
       "role": "tactical",
       "home_team": -1,
@@ -15181,6 +15191,7 @@
     },
     {
       "index": 10,
+      "defend_posts": [[-2300, 6300], [-7600, 9000], [-2800, 8800]],
       "name": "East Spur",
       "role": "tactical",
       "home_team": -1,
@@ -16530,6 +16541,7 @@
     },
     {
       "index": 11,
+      "defend_posts": [[-500, 4500], [1400, 8400]],
       "name": "Cooling",
       "role": "reward",
       "home_team": -1,
@@ -17960,6 +17972,7 @@
     },
     {
       "index": 12,
+      "defend_posts": [[3900, 7200], [3300, 4300]],
       "name": "Canal Walk",
       "role": "tactical",
       "home_team": -1,
@@ -19667,6 +19680,7 @@
     },
     {
       "index": 13,
+      "defend_posts": [[7900, 3500], [6100, 5000]],
       "name": "Machine Near",
       "role": "natural",
       "home_team": -1,
@@ -21248,6 +21262,7 @@
     },
     {
       "index": 14,
+      "defend_posts": [[8800, 7500], [6400, 8300]],
       "name": "Machine Main",
       "role": "main",
       "home_team": 5,

@@ -42,6 +42,7 @@ from typing import ClassVar, NotRequired, TypedDict, TypeVar, cast
 
 import DrawMapLayout
 from DrawMapLayout import Cell, MapData, Point, Polygon, WorldPoint
+import MatchLayout
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -63,6 +64,21 @@ BAY_EXIT_RING = 365.0
 FOOTPRINT_MARGIN = 300.0  # keep-out margin around every ramp footprint
 PLAYER_START = (-8000.0, -6000.0)
 PLAYER_START_KEEP_OUT = 150.0
+
+# Indexed by the generated Voronoi gameplay regions (two mains, then site_index
+# order), not by the JSON's eight elevation/terrain polygons.
+GAMEPLAY_DEFEND_POSTS: list[list[list[float]]] = [
+    [[-7200, -3800], [-7000, -5600]],
+    [[7200, 5400], [7000, 3800]],
+    [[-3000, -5800], [-4800, -6200]],
+    [[-3800, -1200], [-4200, -3000]],
+    [[-4800, 1000], [-7000, 800]],
+    [[-600, -4200], [1800, -4000]],
+    [[-600, 3000], [0, 5400]],
+    [[6800, -800], [4600, -1200]],
+    [[4000, 2800], [4200, 600]],
+    [[3000, 5800], [5000, 6000]],
+]
 
 # Where the kit's asymmetric pieces look at yaw 0 in Unreal (Blender +Y is Unreal -Y): a CornerOuter's two low
 # neighbours at yaw 0. ImportTerrainKit measures the imported mesh against this.
@@ -139,6 +155,25 @@ class LampData(TowerData):
 def load(path: str | os.PathLike[str] | None = None) -> MapData:
     with open(path or MAP_JSON) as handle:
         return cast(MapData, json.load(handle))
+
+
+def gameplay_regions(data: MapData | None = None) -> list[MatchLayout.GameplayRegion]:
+    """The generator's complete arena tiling, with editable authored defend posts."""
+    data = data or load()
+    return MatchLayout.region_plan(
+        data["match_actors"]["arena"]["half_extent"],
+        [
+            (hq["label"], hq["pos"], hq["team_index"])
+            for hq in data["match_actors"]["headquarters"]
+        ],
+        [
+            (sector["name"], sector["pos"])
+            for sector in sorted(
+                data["sectors"], key=lambda sector: sector["site_index"]
+            )
+        ],
+        GAMEPLAY_DEFEND_POSTS,
+    )
 
 
 # ----------------------------------------------------------------------------- small geometry
@@ -246,6 +281,7 @@ class Layout:
             self._dress()
         self._check()
         self.check_seal()
+        self.issues.extend(self.defend_post_errors())
 
     # ------------------------------------------------------------------ grid
     def cell_of(self, x: float, y: float) -> Cell:
@@ -660,6 +696,17 @@ class Layout:
             ):
                 return False
         return True
+
+    def defend_post_errors(
+        self, regions: list[MatchLayout.GameplayRegion] | None = None
+    ) -> list[str]:
+        """Coverage uses gameplay regions and all finished blocking dressing."""
+        return MatchLayout.defend_post_errors(
+            gameplay_regions(self.data) if regions is None else regions,
+            self.data["match_actors"]["arena"]["half_extent"],
+            self.deposit_clear,
+            self.data["match_actors"]["arena"]["placement_margin"],
+        )
 
     # ------------------------------------------------------------------ landmarks and light masts
     def _towers(self) -> None:

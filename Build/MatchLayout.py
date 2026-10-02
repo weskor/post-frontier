@@ -4,9 +4,35 @@ Boot and CampusZero share the prototype HQ/sector coordinates. AvailabilityZone 
 JSON coordinates to the same clipped Voronoi planner. Unreal is only needed when placing actors.
 """
 import math
+from importlib import import_module
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from itertools import chain
+from typing import Any, NotRequired, TypedDict, TypeVar, cast
+
+Point = Sequence[float]
+Polygon = Sequence[Point]
+GroundClearance = Callable[[Point, float], bool]
+Containment = Callable[[Polygon, Point], bool]
+T = TypeVar("T")
 
 
-def require(value, message):
+class GameplayRegion(TypedDict):
+    index: int
+    name: str
+    home_team: int
+    seed: tuple[float, ...]
+    poly: list[tuple[float, float]]
+    neighbours: list[int]
+    defend_posts: NotRequired[list[list[float]]]
+
+
+class Deposit(TypedDict):
+    region: int
+    pos: Point
+    kind: str
+
+
+def require(value: T, message: str) -> T:
     if not value:
         raise RuntimeError(message)
     return value
@@ -26,8 +52,27 @@ EXTRACTOR_HALF_EXTENT = 100.0  # Four build-grid cells; includes the 95 cm physi
 DEPOSIT_CLEARANCE = 175.0  # Circumscribed footprint plus the 35 cm navigation agent radius.
 GEOMETRY_EPSILON = 1e-5
 
+# Authored world XY centimetres, indexed in region_plan's seed order. Keep these
+# editable: the one-off coverage estimate is not part of map generation.
+BOOT_DEFEND_POSTS = [
+    [[-3100, 2200], [-3100, -1400]],
+    [[2500, 3600], [4200, 700]],
+    [[-2000, -3600], [-900, -900]],
+    [[2400, 0], [-800, 2500]],
+    [[3100, -2700], [500, -2600]],
+]
+CAMPUS_ZERO_DEFEND_POSTS = [
+    [[-3100, 2200], [-3100, -2300]],
+    [[4300, 600], [2500, 3200]],
+    [[-2000, -3600], [-900, -900]],
+    [[2100, -400], [-500, 2800]],
+    [[3100, -2700], [500, -2600]],
+]
+DEFEND_POST_RANGE = 3500.0
+NAV_AGENT_RADIUS = 35.0
 
-def clip_polygon(poly, normal, limit):
+
+def clip_polygon(poly: list[tuple[float, float]], normal: Point, limit: float) -> list[tuple[float, float]]:
     """Intersect a CCW convex polygon with normal.dot(point) <= limit."""
     result = []
     for a, b in zip(poly, poly[1:] + poly[:1]):
@@ -38,7 +83,7 @@ def clip_polygon(poly, normal, limit):
         if (da <= 0) != (db <= 0):
             t = da / (da - db)
             result.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
-    cleaned = []
+    cleaned: list[tuple[float, float]] = []
     for p in result:
         if not cleaned or math.dist(p, cleaned[-1]) > GEOMETRY_EPSILON:
             cleaned.append(p)
@@ -47,23 +92,23 @@ def clip_polygon(poly, normal, limit):
     return cleaned
 
 
-def contains(poly, point):
+def contains(poly: Polygon, point: Point) -> bool:
     """Boundary-inclusive containment for the planner's CCW convex polygons."""
-    for a, b in zip(poly, poly[1:] + poly[:1]):
+    for a, b in zip(poly, chain(poly[1:], poly[:1])):
         dx, dy = b[0] - a[0], b[1] - a[1]
         if dx * (point[1] - a[1]) - dy * (point[0] - a[0]) < -GEOMETRY_EPSILON * math.hypot(dx, dy):
             return False
     return len(poly) >= 3
 
 
-def shared_edge(a_poly, b_poly):
+def shared_edge(a_poly: Polygon, b_poly: Polygon) -> bool:
     """Neighbours share a positive-length polygon edge, not just a vertex."""
-    for a, b in zip(a_poly, a_poly[1:] + a_poly[:1]):
+    for a, b in zip(a_poly, chain(a_poly[1:], a_poly[:1])):
         length = math.dist(a, b)
         if length <= GEOMETRY_EPSILON:
             continue
         ux, uy = (b[0] - a[0]) / length, (b[1] - a[1]) / length
-        for c, d in zip(b_poly, b_poly[1:] + b_poly[:1]):
+        for c, d in zip(b_poly, chain(b_poly[1:], b_poly[:1])):
             if any(abs(ux * (p[1] - a[1]) - uy * (p[0] - a[0])) > GEOMETRY_EPSILON for p in (c, d)):
                 continue
             lo, hi = sorted(ux * (p[0] - a[0]) + uy * (p[1] - a[1]) for p in (c, d))
@@ -72,8 +117,13 @@ def shared_edge(a_poly, b_poly):
     return False
 
 
-def region_plan(half_extent, headquarters=HEADQUARTERS, sectors=None):
-    """Tile the full arena rectangle around HQs and ordered sectors; mains are always indices 0/1."""
+def region_plan(
+    half_extent: Point,
+    headquarters: Sequence[tuple[str, Point, int]] = HEADQUARTERS,
+    sectors: Sequence[tuple[str, Point]] | None = None,
+    defend_posts: Sequence[Sequence[Point]] | None = None,
+) -> list[GameplayRegion]:
+    """Tile the arena around ordered seeds, optionally attaching indexed authored posts."""
     sectors = list(SITES.items()) if sectors is None else list(sectors)
     headquarters = sorted(headquarters, key=lambda h: h[2])
     require([h[2] for h in headquarters] == [FRIENDLY_TEAM, ENEMY_TEAM], "Exactly two home teams required")
@@ -82,10 +132,12 @@ def region_plan(half_extent, headquarters=HEADQUARTERS, sectors=None):
     seeds = [(name, tuple(pos[:2]), team) for name, pos, team in headquarters]
     seeds += [(name, tuple(pos[:2]), -1) for name, pos in sectors]
     require(len({p for _, p, _ in seeds}) == len(seeds), "Region seeds must be distinct")
+    if defend_posts is not None:
+        require(len(defend_posts) == len(seeds), "Every gameplay region requires authored defend posts")
     require(all(abs(p[0]) < hx and abs(p[1]) < hy for _, p, _ in seeds), "Region seeds must be inside arena")
-    regions = []
+    regions: list[GameplayRegion] = []
     for index, (name, seed, team) in enumerate(seeds):
-        poly = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+        poly: list[tuple[float, float]] = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
         for other_index, (_, other, _) in enumerate(seeds):
             if other_index == index:
                 continue
@@ -96,6 +148,8 @@ def region_plan(half_extent, headquarters=HEADQUARTERS, sectors=None):
         require(len(poly) >= 3, "Region %s has an empty polygon" % name)
         regions.append({"index": index, "name": name, "home_team": team, "seed": seed,
                         "poly": poly, "neighbours": []})
+        if defend_posts is not None:
+            regions[-1]["defend_posts"] = [list(point) for point in defend_posts[index]]
     for a in regions:
         for b in regions[a["index"] + 1:]:
             if shared_edge(a["poly"], b["poly"]):
@@ -104,7 +158,7 @@ def region_plan(half_extent, headquarters=HEADQUARTERS, sectors=None):
     return regions
 
 
-def clear_of_blockers(point, blockers, clearance=DEPOSIT_CLEARANCE):
+def clear_of_blockers(point: Point, blockers: Sequence[Sequence[float]], clearance: float = DEPOSIT_CLEARANCE) -> bool:
     """Conservative footprint clearance from oriented (cx, cy, sx, sy, yaw) ground blockers."""
     for cx, cy, sx, sy, yaw in blockers:
         c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
@@ -115,7 +169,84 @@ def clear_of_blockers(point, blockers, clearance=DEPOSIT_CLEARANCE):
     return True
 
 
-def deposit_plan(regions, half_extent, clear_ground, placement_margin=100.0):
+def buildable_samples(
+    region: Mapping[str, object],
+    half_extent: Point,
+    clear_ground: GroundClearance,
+    placement_margin: float = 100.0,
+    contains_point: Containment = contains,
+    uncovered_by: Sequence[Point] = (),
+) -> Iterator[tuple[float, float]]:
+    """Build-grid samples with the same whole-footprint/ground clearance as deposit placement.
+
+    `uncovered_by` prunes already-covered samples before expensive ground queries;
+    it does not change which uncovered building placements count.
+    """
+    hx, hy = half_extent
+    poly = cast(Polygon, region["poly"])
+    x0 = max(min(p[0] for p in poly), -hx + placement_margin + DEPOSIT_CLEARANCE)
+    x1 = min(max(p[0] for p in poly), hx - placement_margin - DEPOSIT_CLEARANCE)
+    y0 = max(min(p[1] for p in poly), -hy + placement_margin + DEPOSIT_CLEARANCE)
+    y1 = min(max(p[1] for p in poly), hy - placement_margin - DEPOSIT_CLEARANCE)
+    for i in range(math.ceil(x0 / BUILD_GRID), math.floor(x1 / BUILD_GRID) + 1):
+        for j in range(math.ceil(y0 / BUILD_GRID), math.floor(y1 / BUILD_GRID) + 1):
+            point = (i * BUILD_GRID, j * BUILD_GRID)
+            if uncovered_by and any(math.dist(point, post) <= DEFEND_POST_RANGE for post in uncovered_by):
+                continue
+            if not contains_point(poly, point):
+                continue
+            if not all(contains_point(poly, (point[0] + dx, point[1] + dy))
+                       for dx in (-EXTRACTOR_HALF_EXTENT, EXTRACTOR_HALF_EXTENT)
+                       for dy in (-EXTRACTOR_HALF_EXTENT, EXTRACTOR_HALF_EXTENT)):
+                continue
+            if clear_ground(point, DEPOSIT_CLEARANCE):
+                yield point
+
+
+def defend_post_errors(
+    regions: Sequence[Mapping[str, object]],
+    half_extent: Point,
+    clear_ground: GroundClearance,
+    placement_margin: float = 100.0,
+    contains_point: Containment = contains,
+) -> list[str]:
+    """Reject missing/extra, out-of-region, off-ground or >35m authored defend posts."""
+    errors = []
+    hx, hy = half_extent
+    for region in regions:
+        name = cast(str, region["name"])
+        poly = cast(Polygon, region["poly"])
+        posts = cast(Sequence[Point], region.get("defend_posts", []))
+        if not 2 <= len(posts) <= 3:
+            errors.append("%s: requires 2-3 defend posts (got %d)" % (name, len(posts)))
+            continue
+        valid = True
+        for index, post in enumerate(posts):
+            if len(post) != 2 or not all(math.isfinite(value) for value in post):
+                errors.append("%s: defend post %d requires finite world XY coordinates" % (name, index))
+                valid = False
+                continue
+            if not contains_point(poly, post):
+                errors.append("%s: defend post %d outside region" % (name, index))
+                valid = False
+            if abs(post[0]) >= hx or abs(post[1]) >= hy or not clear_ground(post, NAV_AGENT_RADIUS):
+                errors.append("%s: defend post %d off walkable ground" % (name, index))
+                valid = False
+        if not valid:
+            continue
+        sample = next(buildable_samples(region, half_extent, clear_ground, placement_margin,
+                                        contains_point, posts), None)
+        if sample is not None:
+            distance = min(math.dist(sample, post) for post in posts)
+            errors.append("%s: buildable spot %s is %.1f cm from nearest defend post (maximum 3500 cm)"
+                          % (name, sample, distance))
+    return errors
+
+
+def deposit_plan(
+    regions: Sequence[GameplayRegion], half_extent: Point, clear_ground: Callable[[Point], bool],
+    placement_margin: float = 100.0,
+) -> list[Deposit]:
     """Find 2 normal deposits per main and 1 per sector on clear, grid-aligned ground.
 
     Search concentric build-grid rings about each seed. Every footprint corner stays in the same region,
@@ -123,7 +254,7 @@ def deposit_plan(regions, half_extent, clear_ground, placement_margin=100.0):
     `clear_ground(point)` checks the map's finished ground-level collision/navigation plan.
     """
     hx, hy = half_extent
-    deposits = []
+    deposits: list[Deposit] = []
     homes = [r for r in regions if r["home_team"] >= 0]
     for region in regions:
         seed = region["seed"]
@@ -159,9 +290,12 @@ def deposit_plan(regions, half_extent, clear_ground, placement_margin=100.0):
     return deposits
 
 
-def place_regions(spawn, regions, deposits, anchors):
+def place_regions(
+    spawn: Callable[..., Any], regions: Sequence[GameplayRegion], deposits: Sequence[Deposit],
+    anchors: Mapping[int, Any],
+) -> None:
     """Place the binding MapRegion/DepositSite reflected properties after the map's blockers are known."""
-    import unreal
+    unreal = import_module("unreal")
 
     region_class = native_class("MapRegion")
     deposit_class = native_class("DepositSite")
@@ -173,9 +307,12 @@ def place_regions(spawn, regions, deposits, anchors):
         actor.set_editor_property("region_role", unreal.RegionRole.MAIN if index < 2 else unreal.RegionRole.TACTICAL)
         actor.set_editor_property("home_team", region["home_team"])
         actor.set_editor_property("polygon", [unreal.Vector2D(*p) for p in region["poly"]])
+        actor.set_editor_property("defend_posts", [unreal.Vector(p[0], p[1], 0) for p in region["defend_posts"]])
         actor.set_editor_property("neighbours", region["neighbours"])
         if index >= 2:
-            anchor = require(anchors.get(index), "Region %d has no capture anchor" % index)
+            anchor = anchors.get(index)
+            if not anchor:
+                raise RuntimeError("Region %d has no capture anchor" % index)
             require(anchor.get_editor_property("site_index") == index, "Capture anchor index differs from region")
             actor.set_editor_property("anchor", anchor)
     for index, deposit in enumerate(deposits):
@@ -185,20 +322,20 @@ def place_regions(spawn, regions, deposits, anchors):
     unreal.log("MATCH_REGIONS_GENERATED regions=%d deposits=%d" % (len(regions), len(deposits)))
 
 
-def native_class(name):
-    import unreal
+def native_class(name: str) -> Any:
+    unreal = import_module("unreal")
 
     return require(unreal.load_class(None, "/Script/CoopRTS." + name),
                    "Build CoopRTSEditor before generating the map")
 
 
-def place(spawn, anchors):
+def place(spawn: Callable[..., Any], anchors: dict[int, Any]) -> tuple[float, float]:
     """Place arena, HQs and indexed capture anchors with `spawn(actor_class, label, location)`.
 
     Fill `anchors` keyed by region index. The caller places regions/deposits after recording its blockers.
     Return the arena half extent (x, y) used by floor, navigation and region planning.
     """
-    import unreal
+    unreal = import_module("unreal")
 
     arena = spawn(native_class("ArenaBounds"), "Arena", (0, 0, 0))
     for index, (name, (x, y)) in enumerate(SITES.items(), start=2):

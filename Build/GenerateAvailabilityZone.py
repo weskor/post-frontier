@@ -212,10 +212,9 @@ def place_match_actors():
 
 # Blocking geometry is vetted against the arena the game reads, so the match actors go in first.
 ARENA_X, ARENA_Y = place_match_actors()
-regions = MatchLayout.region_plan(
-    (ARENA_X, ARENA_Y),
-    [(hq["label"], hq["pos"], hq["team_index"]) for hq in data["match_actors"]["headquarters"]],
-    [(sector["name"], sector["pos"]) for sector in sorted(data["sectors"], key=lambda s: s["site_index"])])
+regions = az.gameplay_regions(data)
+post_errors = layout.defend_post_errors()
+require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
 deposits = MatchLayout.deposit_plan(
     regions, (ARENA_X, ARENA_Y),
     lambda point: layout.deposit_clear(point, MatchLayout.DEPOSIT_CLEARANCE),

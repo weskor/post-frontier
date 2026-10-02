@@ -11,6 +11,16 @@ kind = "automation"
 filter = "CoopRTS.Construction.Lifecycle"
 map = "default"
 
+[scopes.defend-posts-boot]
+kind = "automation"
+filter = "CoopRTS.Map.DefendPosts"
+map = "/Game/Maps/Boot"
+
+[scopes.defend-posts-v2]
+kind = "automation"
+filter = "CoopRTS.Map.DefendPosts"
+map = "/Game/Maps/AvailabilityZoneV2"
+
 [scopes.doctrine-frontline]
 kind = "automation"
 filter = "CoopRTS.Doctrine.EntrenchedFrontline"
@@ -117,9 +127,12 @@ kind = "lint"
 "Build/AvailabilityZoneLayout.py" = ["maps", "tools"]
 "Build/Maps/**" = ["maps", "tools"]
 "Build/Audio/**" = ["tools"]
+"Build/Maps/AvailabilityZoneV2.json" = ["defend-posts-v2"]
 "Build/Generate*.py" = ["lint"]
 "Build/GenerateMatchContent.py" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Build/Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Build/GenerateCommandMap.py" = ["defend-posts-boot"]
+"Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2"]
 "Build/Import*.py" = ["lint"]
 "Build/Build*.py" = ["lint"]
 "Build/Fetch*.py" = ["lint"]
@@ -128,7 +141,7 @@ kind = "lint"
 "Build/EnvKit.py" = ["lint"]
 "Build/ExportUIAssets.py" = ["lint"]
 "Build/MasterMaterials.py" = ["lint"]
-"Build/MatchLayout.py" = ["lint"]
+"Build/MatchLayout.py" = ["maps", "tools", "defend-posts-boot", "defend-posts-v2"]
 "Tools/harness/simulate_matches.py" = ["lint"]
 "Build/TerrainKit.py" = ["lint"]
 "Build/VerifyMasks.py" = ["lint"]
@@ -138,6 +151,8 @@ kind = "lint"
 "Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "CoopRTS.uproject" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/**/*.cs" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
+"Content/Maps/Boot.umap" = ["defend-posts-boot"]
+"Content/Maps/AvailabilityZoneV2.umap" = ["defend-posts-v2"]
 
 # C++ entries derive from local include closure of each test translation unit.
 # A .cpp is covered whenever it implements a header in that closure.
@@ -182,6 +197,7 @@ kind = "lint"
 "Source/CoopRTS/CommandPlayerState.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/CommandPlayerState.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/ConstructionTests.cpp" = ["construction", "production"]
+"Source/CoopRTS/DefendPostsTests.cpp" = ["defend-posts-boot", "defend-posts-v2"]
 "Source/CoopRTS/ConstructionTypes.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/Content/BuildingDefinition.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/Content/BuildingDefinition.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
@@ -203,9 +219,9 @@ kind = "lint"
 "Source/CoopRTS/GoalOrderTests.cpp" = ["goal-orders"]
 "Source/CoopRTS/Headquarters.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/Headquarters.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
-"Source/CoopRTS/MapRegion.cpp" = ["construction", "goal-orders", "production", "strategy"]
-"Source/CoopRTS/MapRegion.h" = ["construction", "goal-orders", "production", "strategy"]
 "Source/CoopRTS/JevScalingTests.cpp" = ["jev-scaling"]
+"Source/CoopRTS/MapRegion.cpp" = ["construction", "goal-orders", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]
+"Source/CoopRTS/MapRegion.h" = ["construction", "goal-orders", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]
 "Source/CoopRTS/MatchSimulationSubsystem.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/CoopRTS/MatchSimulationSubsystem.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/CoopRTS/Rules/EconomyPolicy.cpp" = ["jev-scaling", "rules"]
@@ -226,5 +242,5 @@ kind = "lint"
 "Source/CoopRTS/SimulationSettings.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/CoopRTS/SimulationSettings.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/CoopRTS/SimulationDuelTests.cpp" = ["simulation-duel"]
-"Source/CoopRTS/WorldOverlay.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
-"Source/CoopRTS/WorldOverlay.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/WorldOverlay.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "defend-posts-boot", "defend-posts-v2"]
+"Source/CoopRTS/WorldOverlay.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "defend-posts-boot", "defend-posts-v2"]

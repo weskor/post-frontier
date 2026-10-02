@@ -33,9 +33,10 @@
 - Each commander gets **their own build zone** in the main region, so nobody blocks a friend's space. Placement inside a zone is free grid, as today.
 - Captured regions outside the main stay open to everyone.
 
-## Region size and defend posts [New] — decided
+## Region size and defend posts [Built unless noted]
 
-- Every region carries **2–3 authored defend posts**, where holding forces wait ([forces.md](forces.md)).
+- Every shipped region carries **2–3 authored defend posts** on walkable ground. They are map data on the server and clients, and show as small ground markers in the local team's regions.
+- **[Change]:** holding forces wait at these posts ([forces.md](forces.md)).
 - **Stretch limit:** every buildable spot must be within **35 m** of a defend post (starting value: about 8 s at today's 4.2 m/s). A region that needs more than 3 posts is too stretched and gets split or reshaped. The map checker enforces both rules.
 - **Habitable Zone v2 check (2026-10-02):** measured from the single capture point, a region's farthest point is 48 m away on average, and 75 m in East Spur. An automatic placement estimate brings every region inside 35 m with 2–3 posts each, 35 in total, so no region needs reshaping.
 

@@ -134,7 +134,11 @@ primitive("BoundaryEast", (arena_x - 25, 0, 60), (0.5, arena_y / 50, 1.2), wall_
 primitive("BoundaryWest", (-(arena_x - 25), 0, 60), (0.5, arena_y / 50, 1.2), wall_material)
 for index, y in enumerate((0, -850, 850, -1700, 1700)):
     primitive("ArmyHome" + str(index), (-1800, y, 2), (5, 5, 0.04), team_materials[index], cylinder, False)
-regions = MatchLayout.region_plan((arena_x, arena_y))
+regions = MatchLayout.region_plan((arena_x, arena_y), defend_posts=MatchLayout.BOOT_DEFEND_POSTS)
+post_errors = MatchLayout.defend_post_errors(
+    regions, (arena_x, arena_y),
+    lambda point, clearance: MatchLayout.clear_of_blockers(point, blocking_footprints, clearance))
+require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
 deposits = MatchLayout.deposit_plan(regions, (arena_x, arena_y),
                                    lambda point: MatchLayout.clear_of_blockers(point, blocking_footprints))
 MatchLayout.place_regions(spawn, regions, deposits, capture_anchors)
