@@ -1,4 +1,4 @@
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
 #include "Commands/CommandService.h"
@@ -260,7 +260,7 @@ private:
 		const int32 Health = HQ->Health;
 		HQ->ReceiveAttack(Damage, Attacker);
 		if (!Check(HQ->Health == FMath::Max(0, Health - Damage)
-				&& Announcer->GetEvents().Num() == Before + (Id.IsNone() ? 0 : 1),
+					&& Announcer->GetEvents().Num() == Before + (Id.IsNone() ? 0 : 1),
 				TEXT("A valid HQ hit applies damage and emits only its most urgent event, or suppresses the known force")))
 			return false;
 		if (Id.IsNone())
@@ -361,8 +361,10 @@ private:
 			AHeadquarters* FreshHQ = World->SpawnActor<AHeadquarters>(OwnHQ->GetActorLocation(), FRotator::ZeroRotator);
 			if (!Check(FreshHQ != nullptr, TEXT("First-hit priority fixture is a distinct HQ at the original location")))
 				return false;
-			const int32 Remaining = FirstTier == 1 ? FreshHQ->MaxHealth() / 2 : FirstTier == 2 ? FreshHQ->MaxHealth() / 4 : 0;
-			const FName Id = FirstTier == 1 ? TEXT("own_hq_half") : FirstTier == 2 ? TEXT("own_hq_critical") : TEXT("own_hq_offline");
+			const int32 Remaining = FirstTier == 1 ? FreshHQ->MaxHealth() / 2 : FirstTier == 2 ? FreshHQ->MaxHealth() / 4
+																							   : 0;
+			const FName Id = FirstTier == 1 ? TEXT("own_hq_half") : FirstTier == 2 ? TEXT("own_hq_critical")
+																				   : TEXT("own_hq_offline");
 			const int32 Damage = FreshHQ->Health - Remaining + (FirstTier == 3 ? 1 : 0);
 			if (!Hit(FreshHQ, EnemyHit, Damage, Id, FMath::Min(FirstTier, 2))
 				|| !Hit(FreshHQ, EnemyHit, 1))

@@ -236,12 +236,12 @@ def damage_alert(
     require(
         state["cameraPosition"] == initial_camera, "receiving an alert moved the camera"
     )
-    latest = state["objectiveEvents"][-1]
+    latest: JsonObject = state["objectiveEvents"][-1]
     require(
         latest["id"] == "enemy_hq_half", "HQ half-health transition is not latest alert"
     )
     require(
-        state["objectiveEvents"] == history + [latest],
+        state["objectiveEvents"] == [*history, latest],
         "single HQ hit must add exactly one half-health event",
     )
     require(

@@ -119,8 +119,7 @@ def objective_event(
         lambda values: (
             bool(matching(values["host"]))
             and all(
-                matching(state) == matching(values["host"])
-                for state in values.values()
+                matching(state) == matching(values["host"]) for state in values.values()
             )
         ),
         f"{event_id} converges on every peer with region {target}",
