@@ -70,6 +70,16 @@ def import_announcer():
         sound.set_editor_property("concurrency_set", [])
         save(sound)
         unreal.log("ANNOUNCER_WAVE " + expected)
+    expected_names = {"VO_" + line["id"] for line in lines}
+    for path in editor.list_assets(destination, recursive=False, include_folder=False):
+        name = path.rsplit("/", 1)[-1].split(".", 1)[0]
+        if name.startswith("VO_") and name not in expected_names:
+            require(isinstance(editor.load_asset(path), unreal.SoundWave), "Not a stale SoundWave: " + path)
+            require(editor.delete_asset(path), "Failed to prune stale announcer wave: " + path)
+            # ForceDeleteObjects reports object count, not removal of the package file.
+            package = ROOT / "Content/Audio/Announcer" / (name + ".uasset")
+            package.unlink(missing_ok=True)
+            unreal.log("ANNOUNCER_PRUNED " + path)
     unreal.log("ANNOUNCER_IMPORTED waves=" + str(len(lines)))
 
 

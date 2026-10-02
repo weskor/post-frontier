@@ -113,6 +113,8 @@ The player's first objective set is authored in [announcer_lines.json](../Build/
 
 `./x gen render-announcer-voice` renders the entire script on a Linux CPU with Piper, then uses the existing Unreal audio importer to create `/Game/Audio/Announcer/VO_<id>` sound waves from `Art/Audio/Announcer/VO_<id>.wav`. Adding a line needs only one `{id, text}` entry and regeneration. Model URLs, SHA-256 pins and commercial-use terms live in [SOURCES.md](../Art/Audio/SOURCES.md); package versions are pinned in [RenderAnnouncerVoice.py](../Build/RenderAnnouncerVoice.py). Generation and audition options live only in [`./x help gen`](../x).
 
+The script is authoritative for both generated folders. After a successful render, unlisted `VO_*.wav` files are pruned; after a successful import, unlisted announcer SoundWaves and their package files are deleted. Other filenames, folders and the world audio library are untouched. Removing a line therefore removes its generated assets on regeneration.
+
 The selected voice is **en_US-ljspeech-high**, a single US-English female narrator. The choice favours a measured human dispatcher over JEV's synthetic corporate persona; this is a tone decision, not human listening approval. Synthesis uses length scale 1.05, generator noise 0, duration noise 0 and 0.12-second sentence gaps. Both stochastic inputs are disabled. A 300–3500 Hz fourth-order radio filter precedes the shared audio finishing stage: -18 LUFS, at most -1 dBTP, 48-kHz/24-bit mono. Waves route directly to the existing master class at gain 1 and priority 4; they do not add mix assets, spatial attenuation or a playback queue.
 
 The model and its phoneme config download once into verified local storage; inference is offline thereafter. Corrupt cached/downloaded files fail closed. The command writes a script-order audition reel with half-second gaps. Unreal import asserts and logs each actual loaded `SoundWave` path before reporting `ANNOUNCER_IMPORTED waves=11`. Rendering/import proof does not establish event playback or human mix approval.
@@ -123,14 +125,11 @@ The model and its phoneme config download once into verified local storage; infe
 | --- | --- | --- |
 | Match start | "Session started. Your conversation may be used to improve our models." (Machine voice, World.md match text) | — |
 | Building under attack | "Bunkhouse's taking fire." / "Structure under attack." | 10 s per building, 5 s global |
-| HQ under attack | "Hardline is under attack." | 10 s |
 | Units under attack (away from camera) | "Our crew's taking fire." | 10 s |
 | Not enough power | "Not enough power." | 2 s |
 | Invalid placement | "Can't build there." | 1 s |
 | Construction complete | "Bunkhouse's up." / "Siphon Rig's online." | per building |
 | Research complete | "Tinker Bay says it works. Probably." | — |
-| Sector captured | "We've got the substation." | per sector |
-| Sector lost | "Lost the substation." | per sector |
 | Force wiped | "Bunkhouse's crew is gone." | per force |
 | Victory | "Model deprecated." | — |
 | Defeat | "Your session has expired. Humanity has been sunset." (Machine voice) | — |
@@ -280,7 +279,7 @@ The ambience render's analytical measurements and their listening limits are rec
 
 Historical import counts (2026-09-30) were 114 waves and 20 support assets. Counts alone do not prove runtime playback.
 
-Each runtime subsystem initialization logs loaded-object counts once. After the announcer UI cutover, the complete library diagnostic must report `cues=42/42 waves=111/111` plus `announcer=11/11`, with `master_class=1 master_mix=1 world_attenuation=1 ambience=1 world_reverb=1`. The base count includes the separate ambience wave; the obsolete HQAlarm runtime cues and their four wave references are removed, while the announcer count is separate. These are valid runtime references, not source/import counts. Incomplete initialization emits an error; per-shot missing-cue errors remain enabled, including under `-nosound`. This diagnostic is a runtime library-loading proof, not an audible-playback proof. The following historical evidence covers the earlier 114-wave dry library, not the new bed/filter/reverb or announcer playback; fresh C++ build and packaged start/mute/end/leave/restart/travel audition remain unverified here (shared runtime window reserved by the orchestrator).
+Each runtime subsystem initialization logs loaded-object counts once. The current complete library must report `CoopAudio library initialized: cues=44/44 waves=115/115 master_class=1 master_mix=1 world_attenuation=1 ambience=1 world_reverb=1`. Counts include the separate ambience wave plus 44 event cues, and valid runtime references, not source/import counts. Incomplete initialization emits an error; per-shot missing-cue errors remain enabled, including under `-nosound`. This diagnostic is a runtime library-loading proof, not an audible-playback proof. Announcer runtime count changes belong to the announcer UI integration. The following historical evidence covers the earlier 114-wave dry library, not the new bed/filter/reverb or announcer playback; fresh C++ build and packaged start/mute/end/leave/restart/travel audition remain unverified here (shared runtime window reserved by the orchestrator).
 
 After the explicit CDO-to-instance initialization correction, the final-verification owner reported `construction-b`, `win-a` and `loss-a` regressions PASS, with runtime library counts `44/44` cues and `114/114` waves.
 

@@ -7,7 +7,13 @@ import wave
 
 import numpy as np
 import pytest
-from RenderAnnouncerVoice import Line, finish_voice, load_lines, verified_file
+from RenderAnnouncerVoice import (
+    Line,
+    finish_voice,
+    load_lines,
+    prune_wavs,
+    verified_file,
+)
 from unit_audio.core import loudness, sf, true_peak
 
 
@@ -88,3 +94,20 @@ def test_voice_finish_determinism_and_loudness(tmp_path: Path) -> None:
     audio, _ = sf.read(first, dtype="float64", always_2d=True)
     assert loudness(audio[:, 0]) == pytest.approx(-18.0, abs=0.2)
     assert 20 * np.log10(true_peak(audio[:, 0])) <= -1.0 + 0.001
+
+
+def test_script_has_generated_wave_and_imported_asset() -> None:
+    root = Path(__file__).resolve().parents[2]
+    for line in load_lines(root / "Build/Audio/announcer_lines.json"):
+        name = f"VO_{line.id}"
+        assert (root / "Art/Audio/Announcer" / f"{name}.wav").is_file(), name
+        assert (root / "Content/Audio/Announcer" / f"{name}.uasset").is_file(), name
+
+
+def test_pruning_removes_only_unlisted_voice_wavs(tmp_path: Path) -> None:
+    for name in ("VO_kept.wav", "VO_removed.wav", "SW_unrelated.wav", "VO_kept.txt"):
+        (tmp_path / name).write_bytes(b"preserved bytes")
+    prune_wavs([Line("kept", "Kept.")], tmp_path)
+    assert not (tmp_path / "VO_removed.wav").exists()
+    for name in ("VO_kept.wav", "SW_unrelated.wav", "VO_kept.txt"):
+        assert (tmp_path / name).read_bytes() == b"preserved bytes"

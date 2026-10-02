@@ -287,6 +287,7 @@ GENERATORS = (
         "Render the scripted human dispatcher with pinned offline CPU TTS, then import.",
         HELP="Downloads and verifies the pinned voice once; synthesis is offline. "
         "Add {id, text} to Build/Audio/announcer_lines.json and regenerate. "
+        "Removed ids are pruned from generated WAVs and imported announcer waves. "
         "Pass -- --render-only to skip Unreal import. The saved reel follows script order.",
     ),
     Generator(

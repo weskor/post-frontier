@@ -102,6 +102,14 @@ def finish_voice(samples: Audio, rate: int, destination: Path) -> tuple[float, f
     return lufs, peak
 
 
+def prune_wavs(lines: list[Line], output: Path) -> None:
+    expected = {f"VO_{line.id}.wav" for line in lines}
+    for source in output.glob("VO_*.wav"):
+        if source.is_file() and source.name not in expected:
+            source.unlink()
+            print(f"ANNOUNCER_PRUNED {source.name}", flush=True)
+
+
 def render_lines(lines: list[Line], model: Path, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix="announcer-") as temporary:
@@ -138,6 +146,7 @@ def render_lines(lines: list[Line], model: Path, output: Path) -> None:
                 f"ANNOUNCER_RENDERED {destination.name} lufs={lufs:.2f} peak={peak:.2f}",
                 flush=True,
             )
+    prune_wavs(lines, output)
 
 
 def main() -> None:

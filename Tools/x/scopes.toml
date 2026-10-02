@@ -111,6 +111,7 @@ kind = "lint"
 "Build/DrawAvailabilityZoneV2.py" = ["maps", "tools"]
 "Build/AvailabilityZoneLayout.py" = ["maps", "tools"]
 "Build/Maps/**" = ["maps", "tools"]
+"Build/Audio/**" = ["tools"]
 "Build/Generate*.py" = ["lint"]
 "Build/Import*.py" = ["lint"]
 "Build/Build*.py" = ["lint"]
