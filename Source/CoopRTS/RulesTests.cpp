@@ -7,6 +7,7 @@
 #include "Rules/GoalPath.h"
 #include "Rules/CombatPolicy.h"
 #include "Rules/TargetingPolicy.h"
+#include "Rules/PursuitPolicy.h"
 #include "CommandGameState.h" // EMatchResult is declared in this pinned header; no actors are instantiated.
 
 // Pure rule tests: no world, no actors. Values are arbitrary; assertions are invariants.
@@ -709,6 +710,48 @@ bool FTargetingOrderTest::RunTest(const FString& Parameters)
 	EMP.Consider(EDamageType::EMP, 0, EArmorClass::Shielded, 100.);
 	EMP.Consider(EDamageType::EMP, 1, EArmorClass::Heavy, 25.);
 	TestEqual(TEXT("EMP has no HP preference until shield rules are built"), EMP.Index, 1);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPursuitTransitionsTest, "CoopRTS.Rules.Combat.PursuitTransitions",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FPursuitTransitionsTest::RunTest(const FString& Parameters)
+{
+	const FVector Origin = FVector::ZeroVector;
+	for (const float Range : { 175.f, 560.f, 1150.f })
+	{
+		const auto Decide = [&](float Distance, bool bPursuing, bool bChanged, const FVector& LastGoal) {
+			return PursuitPolicy::Evaluate(Origin, FVector(Distance, 0.f, 0.f), Range,
+				Origin, 2000.f, 0.f, bPursuing, bChanged, LastGoal);
+		};
+		const FPursuitDecision Firing = Decide(Range, true, false, Origin);
+		TestTrue(TEXT("Exact weapon boundary fires"), Firing.bInRange);
+		TestFalse(TEXT("In-range unit does not issue pursuit"), Firing.bIssueMove);
+		// All bands cross the former hysteresis window; for 1150 the old window
+		// ends before weapon range, but first out-of-range movement still matters.
+		for (const float Distance : { Range + 1.f, Range + 25.f, FMath::Max(Range + 1.f, .82f * Range + 129.f) })
+		{
+			const FPursuitDecision Leaving = Decide(Distance, false, false, Origin);
+			TestTrue(TEXT("Leaving firing range always starts pursuit"), Leaving.bIssueMove);
+			TestTrue(TEXT("Pursuit endpoint is inside weapon range"),
+				FVector::Dist2D(Leaving.Goal, FVector(Distance, 0.f, 0.f)) < Range);
+			TestFalse(TEXT("Stationary target does not reissue an accepted move"),
+				Decide(Distance, true, false, Leaving.Goal).bIssueMove);
+			TestTrue(TEXT("A finished path outside range must resume even with an unchanged endpoint"),
+				Decide(Distance, false, false, Leaving.Goal).bIssueMove);
+			TestTrue(TEXT("Switch to a nearby target bypasses prior goal hysteresis"),
+				Decide(Distance + 10.f, true, true, Leaving.Goal).bIssueMove);
+			TestFalse(TEXT("Target drift exactly at 130 cm does not reissue"),
+				Decide(Distance + 130.f, true, false, Leaving.Goal).bIssueMove);
+			TestTrue(TEXT("Target drift above 130 cm reissues"),
+				Decide(Distance + 131.f, true, false, Leaving.Goal).bIssueMove);
+		}
+	}
+	const FPursuitDecision Clamped = PursuitPolicy::Evaluate(Origin, FVector(1000.f, 0.f, 0.f),
+		175.f, Origin, 500.f, 7.f, false, false, Origin);
+	TestTrue(TEXT("Pursuit goal stays inside order leash"), FMath::IsNearlyEqual(Clamped.Goal.Size2D(), 500.));
+	TestEqual(TEXT("Pursuit goal keeps order height"), Clamped.Goal.Z, 7.);
 	return true;
 }
 

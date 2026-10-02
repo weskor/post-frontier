@@ -20,6 +20,7 @@
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Rules/TargetingPolicy.h"
+#include "Rules/PursuitPolicy.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArmyOrders, Log, All);
 
@@ -704,6 +705,7 @@ void AArmyGroup::UpdateCombat()
 				for (ACommandBuilding* Building : *HostileBuildings)
 					Consider(Building);
 		}
+		const bool bTargetChanged = Unit->Target != Chosen;
 		if (Unit->Target != Chosen)
 		{
 			Unit->Target = Chosen;
@@ -719,49 +721,50 @@ void AArmyGroup::UpdateCombat()
 			}
 			continue;
 		}
-		const float Distance = FVector::Dist2D(Unit->GetActorLocation(), Chosen->GetActorLocation());
 		if (Order == EArmyOrder::Attack && AI)
 		{
-			if (Distance <= Unit->WeaponRange())
+			const bool bEnRoute = bAutomaticFront && FrontOrder == EFrontOrder::Secure
+				&& FVector::DistSquared2D(Unit->GetActorLocation(), Destination) > FMath::Square(PursuitRadius);
+			const FVector PursuitAnchor = bEnRoute ? Unit->GetActorLocation() : Destination;
+			const bool bActivePursuit = Unit->bPursuing && AI->GetMoveStatus() != EPathFollowingStatus::Idle;
+			const FPursuitDecision Decision = PursuitPolicy::Evaluate(Unit->GetActorLocation(),
+				Chosen->GetActorLocation(), Unit->WeaponRange(), PursuitAnchor, PursuitRadius,
+				Destination.Z, bActivePursuit, bTargetChanged, Unit->PursuitGoal);
+			if (bTargetChanged || Decision.bInRange || !bActivePursuit)
+				Unit->bPursuing = false;
+			if (Decision.bInRange)
 			{
 				if (AI->GetMoveStatus() != EPathFollowingStatus::Idle)
 				{
 					AI->StopMovement();
 					Unit->GetCharacterMovement()->StopMovementImmediately();
 				}
-				Unit->bPursuing = true;
-				Unit->PursuitGoal = Unit->GetActorLocation();
 			}
-			else
+			else if (Decision.bIssueMove)
 			{
-				FVector Direction = Unit->GetActorLocation() - Chosen->GetActorLocation();
-				Direction.Z = 0.f;
-				Direction.Normalize();
-				FVector Goal = Chosen->GetActorLocation() + Direction * (Unit->WeaponRange() * .82f);
-				Goal.Z = Destination.Z;
-				const bool bEnRoute = bAutomaticFront && FrontOrder == EFrontOrder::Secure
-					&& FVector::DistSquared2D(Unit->GetActorLocation(), Destination) > FMath::Square(PursuitRadius);
-				const FVector PursuitAnchor = bEnRoute ? Unit->GetActorLocation() : Destination;
-				const FVector Offset = Goal - PursuitAnchor;
-				if (Offset.Size2D() > PursuitRadius)
-					Goal = PursuitAnchor + Offset.GetSafeNormal2D() * PursuitRadius;
-				if (!Unit->bPursuing || FVector::DistSquared2D(Goal, Unit->PursuitGoal) > FMath::Square(130.f))
+				const FVector& Goal = Decision.Goal;
+				UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+				FPreparedMove Pursuit;
+				Pursuit.Controller = AI;
+				if (Navigation && PrepareMove(*Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(), Unit->GetNavAgentLocation(), Goal, Pursuit, 75.f))
 				{
-					UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-					FPreparedMove Pursuit;
-					Pursuit.Controller = AI;
-					if (Navigation && PrepareMove(*Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(), Unit->GetNavAgentLocation(), Goal, Pursuit, 75.f))
+					bool bWithinBounds = true;
+					for (const FNavPathPoint& Point : Pursuit.Path->GetPathPoints())
 					{
-						bool bWithinBounds = true;
-						for (const FNavPathPoint& Point : Pursuit.Path->GetPathPoints())
+						if (FVector::DistSquared2D(Point.Location, PursuitAnchor) > FMath::Square(PursuitRadius))
 						{
-							if (FVector::DistSquared2D(Point.Location, PursuitAnchor) > FMath::Square(PursuitRadius))
-							{
-								bWithinBounds = false;
-								break;
-							}
+							bWithinBounds = false;
+							break;
 						}
-						if (bWithinBounds && StartPreparedMove(Pursuit))
+					}
+					if (bWithinBounds)
+					{
+						// Arrival tolerance must fit inside the 18% weapon-range margin.
+						FAIMoveRequest Request(Pursuit.Goal);
+						Request.SetAcceptanceRadius(FMath::Min(35.f, Unit->WeaponRange() * .09f));
+						Request.SetReachTestIncludesAgentRadius(false);
+						Request.SetAllowPartialPath(false);
+						if (AI->RequestMove(Request, Pursuit.Path).IsValid())
 						{
 							Unit->bPursuing = true;
 							Unit->PursuitGoal = Pursuit.Goal;
