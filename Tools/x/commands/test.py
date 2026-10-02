@@ -8,7 +8,41 @@ from x.testing import run_scopes
 
 NAME = "test"
 SUMMARY = "Run named test scopes, building the editor automatically when stale."
-HELP = "./x test <scope> [<scope>...] [--map /Game/Maps/Boot]\n./x test --list\n--map overrides the world of every automation scope in this invocation; other scope kinds are unchanged.\nOnly /Game/... package paths without extensions or URL options are accepted; the engine resolves existence.\nWithout --map, each scope retains its configured map; only ./x test accepts it.\nRuns every requested scope and retains per-scope results and logs.\nAutomation requires explicit Success, zero exit, SoftQuit and the requested map.\nMap validator images go to the run directory; lint-only scopes need ./x check."
+HELP = """./x test <scope> [<scope>...] [--map /Game/Maps/Boot]
+./x test --list
+--map overrides the world of every automation scope in this invocation; other
+scope kinds are unchanged. Only /Game/... package paths without extensions or
+URL options are accepted; the engine resolves existence. Without --map, each
+scope retains its configured map; only ./x test accepts this override.
+
+Use ./x check for change proof: it selects scopes from Tools/x/scopes.toml.
+Use named tests for a diagnosed failure or a specifically requested baseline;
+--list prints the available scope names, kinds and automation filters. Do not
+invent scenarios or duplicate the path-to-test map in documentation.
+Runs every requested scope once and retains per-scope results and logs. Automation
+builds the editor automatically when its configured source hashes are stale,
+then launches a fresh headless world on the scope's configured map.
+
+Proof limits:
+- Python/tool and map-validator scopes prove only their checks; validator images
+  go to the run directory. Lint-only scopes need ./x check.
+- Rules assertions are world-free even though today's runner starts the editor:
+  they cannot prove actors, navigation, replication, rendering or native input.
+- World assertions can exercise real actors/navigation/payment/arrival, only
+  where asserted. Controlled fixtures are not an unaided new-match playthrough;
+  a second controller in one world is not a remote client. Standalone Success
+  cannot prove client ownership, replication, hit testing or presentation.
+
+Automation requires the requested map to start, at least one completed test
+under the requested filter, every matching result Success, zero process exit
+and **** TEST COMPLETE. EXIT CODE: 0 **** from SoftQuit. Unrelated successes,
+accepted-order logs or timed exits do not pass. Module/input mutation fails.
+Freshness covers configured hash inputs, not arbitrary engine/toolchain changes.
+The runner stops a child process group when its watched log stops growing for
+the configured stall interval; log growth is not proof of gameplay progress.
+Inspect failures with ./x runs <id>, diagnose and rerun the affected scope.
+Never weaken assertions or product behavior merely to get green.
+"""
 RECORD = True
 
 

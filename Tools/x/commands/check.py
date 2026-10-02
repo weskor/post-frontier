@@ -18,7 +18,18 @@ By default inspect changes against main, the index, worktree and untracked files
 --all lints every tracked file; tests still follow changed paths, including deletions.
 Print each selected scope and the changed paths that selected it.
 Python format, lint and tests use uv run --locked, syncing the locked dev environment.
-Exit zero means lint and every selected scope passed.
+Exit zero means lint and every selected scope passed, not every proof tier.
+This is the only change proof; use ./x land to land it. Tools/x/scopes.toml owns
+selection, so do not hand-pick fewer tests or recreate a feature-to-test table.
+Name the changed behavior and observable failure condition before checking.
+Start with this scoped proof; move outward only for a contract it cannot express,
+and run slow ./x verify extras only when the task brief names them. A routine
+change does not authorize a full gameplay, topology or fault acceptance matrix.
+Compilation, accepted commands and screenshots do not replace live assertions.
+Never weaken assertions to pass. Preserve failed/interrupted runs, separate
+product defects from harness/setup failures, then make a targeted correction
+and rerun ./x check. Inspect exact scope results and limits via ./x runs <id>
+and ./x help test; do not claim untested native, replicated or Steam behavior.
 """
 RECORD = True
 

@@ -56,7 +56,7 @@ The runner owns:
 
 ## Parallel work
 
-- **One branch per task, one git worktree per worker slot.** A slot's worktree is reused for its next task once the previous one has landed, so its `Binaries/` and `Intermediate/` stay warm; a full module build in a fresh worktree takes 10–15 s. The derived-data cache is shared. Roles, panes and the task loop are in the [orchestrate skill](../../.agents/skills/orchestrate/SKILL.md).
+- **One branch per task, one git worktree per worker slot.** A slot's worktree is reused for its next task once the previous one has landed, so its `Binaries/` and `Intermediate/` stay warm; a full non-unity module build in a fresh worktree takes ~30 s (run `20261002-103603-build-c862`). The derived-data cache is shared. Roles, panes and the task loop are in the [orchestrate skill](../../.agents/skills/orchestrate/SKILL.md).
 - **Unity builds are off** for the game module (done in phase 1: `CoopRTS.Build.cs` sets `bUseUnity = false`). Each `.cpp` compiles separately, so same-named helpers in different files no longer collide ([architecture audit](Audit/architecture.md)).
 - **Generated binaries never conflict:** agents don't commit them, and `land` regenerates them serially under the exclusive lock.
 - **Feature folders:** code, tests and the scope entry for a feature live together, so a task touches one folder plus the shared interfaces.
@@ -97,7 +97,7 @@ Strict in enforcement, careful in which rules it carries: checks that people see
    - direct engine or UBT invocations outside the runner;
    - edits to generated files outside `land`;
    - `TODO`, `FIXME`, `HACK` and stub markers;
-   - docs citing paths under `Saved/`;
+   - docs citing paths under the untracked `Saved` directory;
    - procedure text duplicated outside `./x help`, `AGENTS.md` and the orchestrate skill.
 2. **Architecture rules:** which layer may include or call which.
    - Pure rules code includes no actors.
@@ -106,6 +106,7 @@ Strict in enforcement, careful in which rules it carries: checks that people see
    - Every source file sits in the path-to-scope map.
 3. **Size limits:** files at most **500 lines**, functions at most **60 lines**, to stop new god objects. They switch on folder by folder as each folder becomes clean. Measured 2026-10-02 for files:
    - `Source/CoopRTS/Rules/` and `Source/CoopRTS/Content/` already pass; they switch on in phase 1, once function lengths are checked.
+   - `Tools/harness/**` switches on in phase 2 together with the harness tests.
    - `Build/` has 10 files over 500 lines (mostly art and map generators); it switches on in phase 4.
    - The rest of `Source/CoopRTS/` has 8 files over 500 lines, including `CommandHUD.cpp` at 1,575; it switches on in phase 5, after the splits.
 4. **Formatting:** clang-format for C++ and a Python formatter, applied automatically. Uniform formatting also cuts merge conflicts between agents.
@@ -127,9 +128,10 @@ Each phase ends with its exit check passing through `./x check`.
 
 Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md)) can start after phase 1. Each later phase can run alongside gameplay work, as long as the two don't touch the same files.
 
+**Evidence history (resolved):** the owner's existing untracked verification archive stays on disk; docs no longer cite it. Run records under the runs root are the evidence from now on; see `./x help runs`.
+
 ## Open
 
 - **N for the headless pool:** measure RAM per headless process.
 - **Low-Level Tests on UE 5.8/Linux:** prototype before committing to them.
 - **Asset regeneration at landing:** generators take minutes, so batch them, and decide whether `land` blocks on regeneration or a follow-up commit does it.
-- **Evidence history:** `Saved/Verification` is 3.3 GB and untracked, and tracked docs cite 89 paths in it. Archive or prune it, and replace those citations with run records.

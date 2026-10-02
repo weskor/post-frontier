@@ -75,7 +75,7 @@ This returns once the worker is working. Dispatch every ready slice before waiti
 
 ### 5. Wait
 
-For each working agent, start one async bash job:
+For each working agent, start one async bash job with its own tool timeout greater than herdr's `--timeout` (greater than 1,800 seconds for the wait below):
 
 ```bash
 herdr agent wait <name> --timeout 1800000
@@ -137,9 +137,9 @@ Workers have no fallback: stop and tell the user.
 2. **Start with `git status`.** If an earlier attempt left changes on the branch, continue from them.
 3. **Change only the files the brief lists.** If you need another file, stop, explain why in the report and reply `BLOCKED`.
 4. **Don't ask questions.** When a decision is missing, write it in the report and reply `BLOCKED`.
-5. **Unreal only if the brief allows it, and always under the lock:** `flock /tmp/cooprts-work/ue.lock <command>` (until `./x` owns locks). Check the log of every run at least every 3 minutes. Stop the run if gameplay logging stops for 5 minutes, or if the match ends while a test still waits. Never kill a process you didn't start. Never write into `Builds/`.
+5. **Unreal only through `./x` commands, which take the locks and stop stalled runs,** and only if the brief allows it. Never kill a process you didn't start. Never write into `Builds/`.
 6. **The [lint policy](../../../Docs/Engineering/Setup.md) applies even before lint enforces it:** no suppressions, no `TODO`/`FIXME`/`HACK` or stubs, no disabled tests.
-7. **Verify with the check the brief names,** following [verify-cooprts](../verify-cooprts/SKILL.md) (after phase 1: `./x check`). Never weaken a test to make it pass.
+7. **Verify with `./x check`; the command chooses the scopes.** Run `./x verify` only when the brief names it. Never weaken a test to make it pass.
 8. **Write `/tmp/cooprts-work/tasks/<slug>/report.md`,** at most 45 lines:
    1. Files and functions changed.
    2. Behaviour now, with exact constants.
