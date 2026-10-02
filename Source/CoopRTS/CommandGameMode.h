@@ -7,7 +7,6 @@ class ACommandPlayerController;
 class AEnemyCommander;
 class UMatchContent;
 
-
 UCLASS()
 class COOPRTS_API ACommandGameMode : public AGameModeBase
 {

@@ -25,7 +25,11 @@ public:
 	FString GetStatus() const;
 	bool IsV2Selected() const { return bV2Selected; }
 	FName GetSelectedMap() const { return bV2Selected ? FName(TEXT("/Game/Maps/AvailabilityZoneV2")) : FName(TEXT("/Game/Maps/AvailabilityZone")); }
-	void SelectMap(bool bV2) { if (!IsBusy()) bV2Selected = bV2; }
+	void SelectMap(bool bV2)
+	{
+		if (!IsBusy())
+			bV2Selected = bV2;
+	}
 	void Host();
 	void Invite();
 	void Leave(bool bQuit = false);
@@ -34,8 +38,20 @@ public:
 #endif
 
 private:
-	enum class EOperation : uint8 { Idle, Creating, Joining, Destroying };
-	enum class EAfterDestroy : uint8 { None, Menu, Quit, Join };
+	enum class EOperation : uint8
+	{
+		Idle,
+		Creating,
+		Joining,
+		Destroying
+	};
+	enum class EAfterDestroy : uint8
+	{
+		None,
+		Menu,
+		Quit,
+		Join
+	};
 	IOnlineSessionPtr Sessions;
 	EOperation Operation = EOperation::Idle;
 	EAfterDestroy AfterDestroy = EAfterDestroy::None;

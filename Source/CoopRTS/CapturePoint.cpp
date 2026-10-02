@@ -24,9 +24,11 @@ ACapturePoint::ACapturePoint()
 	Marker->SetCanEverAffectNavigation(false);
 	Marker->SetWorldScale3D(FVector(2.5f, 2.5f, .04f));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	if (Cylinder.Succeeded()) Marker->SetStaticMesh(Cylinder.Object);
+	if (Cylinder.Succeeded())
+		Marker->SetStaticMesh(Cylinder.Object);
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("/Game/Materials/M_CommandUnit.M_CommandUnit"));
-	if (Material.Succeeded()) Marker->SetMaterial(0, Material.Object);
+	if (Material.Succeeded())
+		Marker->SetMaterial(0, Material.Object);
 }
 
 void ACapturePoint::BeginPlay()
@@ -53,7 +55,8 @@ void ACapturePoint::Tick(float DeltaSeconds)
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		const FColor Color = ControllingTeam == 0 ? FColor::Green : ControllingTeam == 5 ? FColor::Red : FColor::Yellow;
+		const FColor Color = ControllingTeam == 0 ? FColor::Green : ControllingTeam == 5 ? FColor::Red
+																						 : FColor::Yellow;
 		if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
 			Overlay->Ring(GetActorLocation() + FVector(0.f, 0.f, 9.f), CaptureRadius, Color);
 	}
@@ -61,9 +64,11 @@ void ACapturePoint::Tick(float DeltaSeconds)
 
 void ACapturePoint::AdvanceCapture(float Seconds)
 {
-	if (!HasAuthority() || Seconds < 0.f) return;
+	if (!HasAuthority() || Seconds < 0.f)
+		return;
 	const ACommandGameState* MatchState = GetWorld()->GetGameState<ACommandGameState>();
-	if (MatchState && MatchState->MatchResult != EMatchResult::Ongoing) return;
+	if (MatchState && MatchState->MatchResult != EMatchResult::Ongoing)
+		return;
 	bool bFriendly = false;
 	bool bEnemy = false;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
@@ -71,9 +76,12 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 		for (const AArmyUnit* Unit : It->GetUnits())
 		{
 			if (!IsValid(Unit) || !Unit->IsAlive()
-				|| FVector::DistSquared2D(Unit->GetActorLocation(), GetActorLocation()) > FMath::Square(CaptureRadius)) continue;
-			if (It->GetTeamIndex() == 0) bFriendly = true;
-			else if (It->GetTeamIndex() == 5) bEnemy = true;
+				|| FVector::DistSquared2D(Unit->GetActorLocation(), GetActorLocation()) > FMath::Square(CaptureRadius))
+				continue;
+			if (It->GetTeamIndex() == 0)
+				bFriendly = true;
+			else if (It->GetTeamIndex() == 5)
+				bEnemy = true;
 		}
 	}
 	const bool bOccupancyChanged = bFriendlyPresent != bFriendly || bEnemyPresent != bEnemy;
@@ -89,9 +97,12 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 	const float Previous = CaptureProgress;
 	const int32 PreviousOwner = ControllingTeam;
 	CaptureProgress = FMath::Clamp(CaptureProgress + (bFriendly ? 1.f : -1.f) * .125f * Seconds, -1.f, 1.f);
-	if ((Previous > 0.f && CaptureProgress <= 0.f) || (Previous < 0.f && CaptureProgress >= 0.f)) ControllingTeam = -1;
-	if (CaptureProgress >= 1.f) ControllingTeam = 0;
-	else if (CaptureProgress <= -1.f) ControllingTeam = 5;
+	if ((Previous > 0.f && CaptureProgress <= 0.f) || (Previous < 0.f && CaptureProgress >= 0.f))
+		ControllingTeam = -1;
+	if (CaptureProgress >= 1.f)
+		ControllingTeam = 0;
+	else if (CaptureProgress <= -1.f)
+		ControllingTeam = 5;
 	if (Previous != CaptureProgress || PreviousOwner != ControllingTeam)
 	{
 		OnRep_Capture();
@@ -107,13 +118,15 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 void ACapturePoint::OnRep_Capture()
 {
 	UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(Marker->GetMaterial(0));
-	if (!Material) Material = Marker->CreateAndSetMaterialInstanceDynamic(0);
+	if (!Material)
+		Material = Marker->CreateAndSetMaterialInstanceDynamic(0);
 	if (Material)
 	{
-		Material->SetVectorParameterValue(TEXT("TeamColor"), ControllingTeam == 0 ? FLinearColor::Green
-			: ControllingTeam == 5 ? FLinearColor::Red : FLinearColor(1.f, .7f, .05f));
+		Material->SetVectorParameterValue(TEXT("TeamColor"), ControllingTeam == 0 ? FLinearColor::Green : ControllingTeam == 5 ? FLinearColor::Red
+																															   : FLinearColor(1.f, .7f, .05f));
 	}
-	if (!bCaptureAudioInitialized) return;
+	if (!bCaptureAudioInitialized)
+		return;
 	const float PreviousProgress = LastAudioCaptureProgress;
 	const int32 PreviousOwner = LastAudioControllingTeam;
 	LastAudioCaptureProgress = CaptureProgress;

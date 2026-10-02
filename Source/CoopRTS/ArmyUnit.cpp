@@ -100,7 +100,7 @@ void AArmyUnit::Tick(float DeltaSeconds)
 		else
 		{
 			const float HealTime = QuietSeconds >= 5.f ? DeltaSeconds
-				: FMath::Max(0.f, QuietSeconds + DeltaSeconds - 5.f);
+													   : FMath::Max(0.f, QuietSeconds + DeltaSeconds - 5.f);
 			QuietSeconds += DeltaSeconds;
 			if (Health < MaxHealth())
 			{
@@ -114,11 +114,11 @@ void AArmyUnit::Tick(float DeltaSeconds)
 					ForceNetUpdate();
 				}
 			}
-			if (Health >= MaxHealth()) HealAccumulator = 0.f;
+			if (Health >= MaxHealth())
+				HealAccumulator = 0.f;
 		}
 	}
 }
-
 
 FLinearColor AArmyUnit::GetCommanderColor(int32 InCommanderIndex)
 {
@@ -130,7 +130,8 @@ FLinearColor AArmyUnit::GetCommanderColor(int32 InCommanderIndex)
 		FLinearColor(.04f, .85f, .80f)
 	};
 	return InCommanderIndex >= 0 && InCommanderIndex < UE_ARRAY_COUNT(Colors)
-		? Colors[InCommanderIndex] : FLinearColor(1.f, .08f, .08f);
+		? Colors[InCommanderIndex]
+		: FLinearColor(1.f, .08f, .08f);
 }
 
 void AArmyUnit::OnRep_Appearance()
@@ -138,20 +139,24 @@ void AArmyUnit::OnRep_Appearance()
 	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
 	const bool bDied = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDeathAudioPlayed;
 	LastAudioHealth = Health;
-	if (bDied) bDeathAudioPlayed = true;
+	if (bDied)
+		bDeathAudioPlayed = true;
 	if (bTookDamage)
 	{
 		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 		{
 			Audio->PlayUnit(ECoopAudioEvent::Impact, TeamIndex, UnitRole, GetActorLocation(), this);
-			if (bDied) Audio->PlayUnit(ECoopAudioEvent::Death, TeamIndex, UnitRole, GetActorLocation(), this);
+			if (bDied)
+				Audio->PlayUnit(ECoopAudioEvent::Death, TeamIndex, UnitRole, GetActorLocation(), this);
 		}
 	}
 
 	const FLinearColor CommanderColor = TeamIndex == 5
-		? FLinearColor(1.f, .08f, .08f) : GetCommanderColor(CommanderIndex);
+		? FLinearColor(1.f, .08f, .08f)
+		: GetCommanderColor(CommanderIndex);
 	UStaticMesh* Themed = Definition
-		? (TeamIndex == 5 ? Definition->MachineMesh : Definition->HumanMesh).LoadSynchronous() : nullptr;
+		? (TeamIndex == 5 ? Definition->MachineMesh : Definition->HumanMesh).LoadSynchronous()
+		: nullptr;
 	if (Themed && Body->GetStaticMesh() != Themed)
 	{
 		Body->SetStaticMesh(Themed);
@@ -167,10 +172,12 @@ void AArmyUnit::OnRep_Appearance()
 	if (Material)
 	{
 		const FLinearColor ArmyColor = ArmyIndex == 1
-			? FMath::Lerp(CommanderColor, FLinearColor::White, 0.45f) : CommanderColor;
+			? FMath::Lerp(CommanderColor, FLinearColor::White, 0.45f)
+			: CommanderColor;
 		Material->SetVectorParameterValue(TEXT("TeamColor"), Health > 0 ? ArmyColor : FLinearColor(0.08f, 0.08f, 0.08f));
 	}
-	if (Themed) Body->SetRelativeScale3D(FVector::OneVector);
+	if (Themed)
+		Body->SetRelativeScale3D(FVector::OneVector);
 }
 
 int32 AArmyUnit::MaxHealth() const
@@ -191,8 +198,7 @@ void AArmyUnit::ResetRepairTimer()
 
 float AArmyUnit::WeaponRange() const
 {
-	return Definition ? Definition->Range * (UnitRole == EUnitRole::Siege
-		&& GetDoctrine() == EArmyDoctrine::SiegeOptics ? 1.25f : 1.f) : 0.f;
+	return Definition ? Definition->Range * (UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics ? 1.25f : 1.f) : 0.f;
 }
 
 float AArmyUnit::AttackInterval() const
@@ -211,9 +217,11 @@ void AArmyUnit::OnRep_Attack()
 			Audio->PlayUnit(ECoopAudioEvent::Attack, TeamIndex, UnitRole, GetActorLocation(), this);
 		}
 	}
-	if (!CombatTarget::IsAliveHostile(Target.Get(), TeamIndex) || GetNetMode() == NM_DedicatedServer) return;
+	if (!CombatTarget::IsAliveHostile(Target.Get(), TeamIndex) || GetNetMode() == NM_DedicatedServer)
+		return;
 	const FColor Color = UnitRole == EUnitRole::Siege ? FColor::Purple
-		: UnitRole == EUnitRole::Ranged ? FColor::Cyan : FColor::Yellow;
+		: UnitRole == EUnitRole::Ranged               ? FColor::Cyan
+													  : FColor::Yellow;
 	if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
 		Overlay->Attack(GetActorLocation() + FVector(0.f, 0.f, 90.f),
 			Target->GetActorLocation() + FVector(0.f, 0.f, 75.f), Color, UnitRole == EUnitRole::Siege);
@@ -228,7 +236,8 @@ void AArmyUnit::FireAt(AActor* Victim)
 		|| FVector::Dist2D(GetActorLocation(), Victim->GetActorLocation()) > WeaponRange())
 		return;
 	const float Now = GetWorld()->GetTimeSeconds();
-	if (Now < NextAttackTime) return;
+	if (Now < NextAttackTime)
+		return;
 	NextAttackTime = Now + AttackInterval();
 	ResetRepairTimer();
 	Target = Victim;
@@ -237,7 +246,8 @@ void AArmyUnit::FireAt(AActor* Victim)
 	ForceNetUpdate();
 	// Integer tradeoffs truncate toward zero for both units and HQ.
 	const int32 Damage = UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics
-		? Definition->AttackDamage * 3 / 4 : Definition->AttackDamage;
+		? Definition->AttackDamage * 3 / 4
+		: Definition->AttackDamage;
 	CombatTarget::ReceiveAttack(Victim, Damage, this);
 }
 
@@ -246,21 +256,25 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
-		|| Attacker->TeamIndex == TeamIndex || Damage <= 0) return;
+		|| Attacker->TeamIndex == TeamIndex || Damage <= 0)
+		return;
 	ResetRepairTimer();
 	const int32 AppliedDamage = !bReinforcing && UnitRole == EUnitRole::Frontline
-		&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
-		&& IsValid(Group) && Group->bAutomaticFront && Group->FrontOrder == EFrontOrder::Defend
-		&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
-		? Damage * 3 / 4 : Damage;
+			&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
+			&& IsValid(Group) && Group->bAutomaticFront && Group->FrontOrder == EFrontOrder::Defend
+			&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
+		? Damage * 3 / 4
+		: Damage;
 	Health = FMath::Max(0, Health - AppliedDamage);
 	OnRep_Appearance();
 	ForceNetUpdate();
 	if (Health == 0)
 	{
 		UE_LOG(LogTemp, Display, TEXT("Combat death %s role=%d killer=%s"), *GetName(), static_cast<int32>(UnitRole), *Attacker->GetName());
-		if (AAIController* AI = Cast<AAIController>(GetController())) AI->StopMovement();
-		if (AController* Controller = GetController()) Controller->Destroy();
+		if (AAIController* AI = Cast<AAIController>(GetController()))
+			AI->StopMovement();
+		if (AController* Controller = GetController())
+			Controller->Destroy();
 		GetCharacterMovement()->StopMovementImmediately();
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Target = nullptr;

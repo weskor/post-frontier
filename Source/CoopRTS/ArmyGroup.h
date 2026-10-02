@@ -99,7 +99,6 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	TObjectPtr<ACommandPlayerState> OwningPlayerState;
 
-
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	int32 ArmyIndex = 0;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")

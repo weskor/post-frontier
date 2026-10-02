@@ -5,7 +5,13 @@
 #include "ForceGoals.generated.h"
 
 UENUM(BlueprintType)
-enum class EForceGoal : uint8 { Hold, Expand, Assault, FallBack };
+enum class EForceGoal : uint8
+{
+	Hold,
+	Expand,
+	Assault,
+	FallBack
+};
 
 // Authority-only cache, bounded by the stable region graph. Never allocates while ticking.
 struct FForceGoalDriver

@@ -20,46 +20,46 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FProductionTerminalFreezeTest, "CoopRTS.Rules.P
 
 namespace
 {
-	constexpr float Duration = 7.5f;
-	constexpr int32 Capacity = 4;
-	constexpr int32 UnitCost = 35;
+constexpr float Duration = 7.5f;
+constexpr int32 Capacity = 4;
+constexpr int32 UnitCost = 35;
 
-	// A live, complete, configured, enabled producer with room, funds and half its work done.
-	FProductionInput Ready(float Progress = Duration * .5f, float DeltaSeconds = 0.f)
-	{
-		FProductionInput In{};
-		In.bMatchOngoing = In.bProducer = In.bComplete = In.bAlive = In.bConfigured = In.bForceValid = In.bEnabled = In.bWalletValid = true;
-		In.Joined = 1;
-		In.Travelling = 1;
-		In.Capacity = Capacity;
-		In.Balance = UnitCost;
-		In.UnitCost = UnitCost;
-		In.Progress = Progress;
-		In.Duration = Duration;
-		In.DeltaSeconds = DeltaSeconds;
-		return In;
-	}
+// A live, complete, configured, enabled producer with room, funds and half its work done.
+FProductionInput Ready(float Progress = Duration * .5f, float DeltaSeconds = 0.f)
+{
+	FProductionInput In{};
+	In.bMatchOngoing = In.bProducer = In.bComplete = In.bAlive = In.bConfigured = In.bForceValid = In.bEnabled = In.bWalletValid = true;
+	In.Joined = 1;
+	In.Travelling = 1;
+	In.Capacity = Capacity;
+	In.Balance = UnitCost;
+	In.UnitCost = UnitCost;
+	In.Progress = Progress;
+	In.Duration = Duration;
+	In.DeltaSeconds = DeltaSeconds;
+	return In;
+}
 
-	bool ExpectState(FAutomationTestBase& Test, const TCHAR* What, const FProductionInput& In, EProductionState Expected)
-	{
-		return Test.TestEqual(What, static_cast<int32>(ProductionPolicy::Evaluate(In).State), static_cast<int32>(Expected));
-	}
+bool ExpectState(FAutomationTestBase& Test, const TCHAR* What, const FProductionInput& In, EProductionState Expected)
+{
+	return Test.TestEqual(What, static_cast<int32>(ProductionPolicy::Evaluate(In).State), static_cast<int32>(Expected));
+}
 
-	// A masked state must neither move work nor ask the adapter to deploy, whatever the tick length.
-	bool ExpectHeld(FAutomationTestBase& Test, const TCHAR* What, FProductionInput In, EProductionState Expected)
+// A masked state must neither move work nor ask the adapter to deploy, whatever the tick length.
+bool ExpectHeld(FAutomationTestBase& Test, const TCHAR* What, FProductionInput In, EProductionState Expected)
+{
+	bool bOk = true;
+	for (const float Delta : { 0.f, .016f, 60.f })
 	{
-		bool bOk = true;
-		for (const float Delta : {0.f, .016f, 60.f})
-		{
-			In.DeltaSeconds = Delta;
-			const FProductionDecision Decision = ProductionPolicy::Evaluate(In);
-			bOk &= Test.TestEqual(What, static_cast<int32>(Decision.State), static_cast<int32>(Expected));
-			bOk &= Test.TestTrue(FString::Printf(TEXT("%s: progress held at %g for dt=%g"), What, In.Progress, Delta),
-				Decision.NewProgress == In.Progress);
-			bOk &= Test.TestFalse(FString::Printf(TEXT("%s: no deployment for dt=%g"), What, Delta), Decision.bDeploymentDue);
-		}
-		return bOk;
+		In.DeltaSeconds = Delta;
+		const FProductionDecision Decision = ProductionPolicy::Evaluate(In);
+		bOk &= Test.TestEqual(What, static_cast<int32>(Decision.State), static_cast<int32>(Expected));
+		bOk &= Test.TestTrue(FString::Printf(TEXT("%s: progress held at %g for dt=%g"), What, In.Progress, Delta),
+			Decision.NewProgress == In.Progress);
+		bOk &= Test.TestFalse(FString::Printf(TEXT("%s: no deployment for dt=%g"), What, Delta), Decision.bDeploymentDue);
 	}
+	return bOk;
+}
 }
 
 bool FProductionPrecedenceTest::RunTest(const FString& Parameters)
@@ -114,7 +114,7 @@ bool FProductionPrecedenceTest::RunTest(const FString& Parameters)
 
 bool FProductionProgressPreservedTest::RunTest(const FString& Parameters)
 {
-	for (const float Progress : {0.f, Duration * .5f, Duration})
+	for (const float Progress : { 0.f, Duration * .5f, Duration })
 	{
 		FProductionInput Paused = Ready(Progress);
 		Paused.bEnabled = false;
@@ -164,7 +164,7 @@ bool FProductionDeploymentBoundaryTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Overshoot is due"), Over.bDeploymentDue);
 
 	// Work already complete: no further advance, but every tick retries deployment.
-	for (const float Delta : {0.f, .016f, 60.f})
+	for (const float Delta : { 0.f, .016f, 60.f })
 	{
 		const FProductionDecision Blocked = ProductionPolicy::Evaluate(Ready(Duration, Delta));
 		TestEqual(TEXT("Completed work is blocked deployment"), static_cast<int32>(Blocked.State), static_cast<int32>(EProductionState::DeploymentBlocked));
@@ -177,7 +177,7 @@ bool FProductionDeploymentBoundaryTest::RunTest(const FString& Parameters)
 bool FProductionTerminalFreezeTest::RunTest(const FString& Parameters)
 {
 	// A finished match freezes producers regardless of how ready they are, including completed work.
-	for (const float Progress : {0.f, Duration * .5f, Duration})
+	for (const float Progress : { 0.f, Duration * .5f, Duration })
 	{
 		FProductionInput Finished = Ready(Progress);
 		Finished.bMatchOngoing = false;
@@ -223,26 +223,26 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOutcomeHealthTest, "CoopRTS.Rules.Outcome.Heal
 
 namespace
 {
-	const FVector2D HomePolygon[] = { {-1000., -1000.}, {1000., -1000.}, {1000., 1000.}, {-1000., 1000.} };
-	const FPlacementRegion HomeRegions[] = { { 0, HomePolygon, 0, false } };
+const FVector2D HomePolygon[] = { { -1000., -1000. }, { 1000., -1000. }, { 1000., 1000. }, { -1000., 1000. } };
+const FPlacementRegion HomeRegions[] = { { 0, HomePolygon, 0, false } };
 
-	FPlacementInput PlacementReady()
-	{
-		FPlacementInput In{};
-		In.Team = 0;
-		In.FootprintRadius = 80.f;
-		In.HomePosition = FVector::ZeroVector;
-		In.HostilePosition = FVector(8000.f, 0.f, 0.f);
-		In.Position = FVector(600.f, 0.f, 0.f);
-		In.bInsidePlacementBounds = In.bHeadquartersAvailable = true;
-		In.Regions = HomeRegions;
-		return In;
-	}
+FPlacementInput PlacementReady()
+{
+	FPlacementInput In{};
+	In.Team = 0;
+	In.FootprintRadius = 80.f;
+	In.HomePosition = FVector::ZeroVector;
+	In.HostilePosition = FVector(8000.f, 0.f, 0.f);
+	In.Position = FVector(600.f, 0.f, 0.f);
+	In.bInsidePlacementBounds = In.bHeadquartersAvailable = true;
+	In.Regions = HomeRegions;
+	return In;
+}
 
-	void ExpectPlacement(FAutomationTestBase& Test, const TCHAR* What, const FPlacementInput& In, EPlacementVerdict Expected)
-	{
-		Test.TestEqual(What, static_cast<int32>(PlacementPolicy::Evaluate(In).Verdict), static_cast<int32>(Expected));
-	}
+void ExpectPlacement(FAutomationTestBase& Test, const TCHAR* What, const FPlacementInput& In, EPlacementVerdict Expected)
+{
+	Test.TestEqual(What, static_cast<int32>(PlacementPolicy::Evaluate(In).Verdict), static_cast<int32>(Expected));
+}
 }
 
 bool FPlacementGridTest::RunTest(const FString& Parameters)
@@ -287,7 +287,7 @@ bool FPlacementTerritoryTest::RunTest(const FString& Parameters)
 	ExpectPlacement(*this, TEXT("Controlled main provides build rights"), In, EPlacementVerdict::Valid);
 	In.Position = FVector(3000.f, 0.f, 0.f);
 	ExpectPlacement(*this, TEXT("Outside polygons has no build rights"), In, EPlacementVerdict::TerritoryRequired);
-	const FVector2D Polygon[] = { {2000., -1000.}, {4000., -1000.}, {4000., 1000.}, {2000., 1000.} };
+	const FVector2D Polygon[] = { { 2000., -1000. }, { 4000., -1000. }, { 4000., 1000. }, { 2000., 1000. } };
 	FPlacementRegion Regions[] = { { 7, Polygon, 0, false } };
 	In.Regions = Regions;
 	ExpectPlacement(*this, TEXT("Capture grants rights without an extractor"), In, EPlacementVerdict::Valid);
@@ -323,7 +323,7 @@ bool FPlacementBuildTerritoryTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Exact polygon edge includes footprint"), InTerritory());
 	In.Position.X += 1.f;
 	TestFalse(TEXT("Straddling polygon edge rejected"), InTerritory());
-	const FVector2D Adjacent[] = { {1000., -1000.}, {2000., -1000.}, {2000., 1000.}, {1000., 1000.} };
+	const FVector2D Adjacent[] = { { 1000., -1000. }, { 2000., -1000. }, { 2000., 1000. }, { 1000., 1000. } };
 	FPlacementRegion Regions[] = { HomeRegions[0], { 1, Adjacent, 0, false } };
 	In.Regions = Regions;
 	In.Position.X = 1000.f;
@@ -352,22 +352,22 @@ bool FPlacementPolygonTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Polygon edge is inside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(1000., 0.)));
 	TestTrue(TEXT("Polygon corner is inside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(-1000., 1000.)));
 	TestFalse(TEXT("Point beyond edge is outside"), PlacementPolicy::ContainsPoint(HomePolygon, FVector2D(1000.01, 0.)));
-	const FVector2D Clockwise[] = { {-1000., -1000.}, {-1000., 1000.}, {1000., 1000.}, {1000., -1000.}, {-1000., -1000.} };
+	const FVector2D Clockwise[] = { { -1000., -1000. }, { -1000., 1000. }, { 1000., 1000. }, { 1000., -1000. }, { -1000., -1000. } };
 	TestTrue(TEXT("Clockwise polygon with repeated closing vertex works"), PlacementPolicy::ContainsPoint(Clockwise, FVector2D(200., -300.)));
 	TestFalse(TEXT("Empty polygon excludes every point"), PlacementPolicy::ContainsPoint({}, FVector2D::ZeroVector));
-	const FVector2D Segment[] = { {0., 0.}, {1., 0.} };
+	const FVector2D Segment[] = { { 0., 0. }, { 1., 0. } };
 	TestFalse(TEXT("Two vertices are not a region"), PlacementPolicy::ContainsPoint(Segment, FVector2D(.5, 0.)));
-	const FVector2D Concave[] = { {0., 0.}, {600., 0.}, {600., 200.}, {200., 200.}, {200., 600.}, {0., 600.} };
+	const FVector2D Concave[] = { { 0., 0. }, { 600., 0. }, { 600., 200. }, { 200., 200. }, { 200., 600. }, { 0., 600. } };
 	TestTrue(TEXT("Concave polygon includes a side arm"), PlacementPolicy::ContainsPoint(Concave, FVector2D(500., 100.)));
 	TestFalse(TEXT("Concave indentation is outside"), PlacementPolicy::ContainsPoint(Concave, FVector2D(300., 300.)));
 	TestFalse(TEXT("Centre and cardinal samples cannot mask a diagonal corner outside"),
 		PlacementPolicy::ContainsFootprint(Concave, FVector(150., 150., 9000.), 100.f));
 	TestTrue(TEXT("XY footprint fitting exactly along concave edge is accepted"),
 		PlacementPolicy::ContainsFootprint(Concave, FVector(100., 100., -9000.), 100.f));
-	const FVector2D Diamond[] = { {0., -1000.}, {1000., 0.}, {0., 1000.}, {-1000., 0.} };
+	const FVector2D Diamond[] = { { 0., -1000. }, { 1000., 0. }, { 0., 1000. }, { -1000., 0. } };
 	TestTrue(TEXT("Square corners exactly on oblique edges fit"), PlacementPolicy::ContainsFootprint(Diamond, FVector(840., 0., 0.), 80.f));
 	TestFalse(TEXT("Square corners beyond oblique edges fail"), PlacementPolicy::ContainsFootprint(Diamond, FVector(841., 0., 0.), 80.f));
-	const FVector2D SnapBoundary[] = { {-1000., -1000.}, {999., -1000.}, {999., 1000.}, {-1000., 1000.} };
+	const FVector2D SnapBoundary[] = { { -1000., -1000. }, { 999., -1000. }, { 999., 1000. }, { -1000., 1000. } };
 	const FVector Requested(873., 0., 23.);
 	TestTrue(TEXT("Unsnapped request can fit near a boundary"), PlacementPolicy::ContainsFootprint(SnapBoundary, Requested, 125.f));
 	const FVector Snapped = PlacementPolicy::SnapToBuildGrid(Requested, 125.f);
@@ -383,7 +383,8 @@ bool FPlacementDepositTest::RunTest(const FString& Parameters)
 		{ Requested + FVector(100., 0., -9000.), 3, -1, false, false },
 		{ Requested + FVector(150., 0., -9000.), 3, 0, false, true },
 		{ Requested + FVector(200., 0., -9000.), 4, 0, false, false },
-		{ Requested + FVector(250., 0., -9000.), 4, 0, false, false } };
+		{ Requested + FVector(250., 0., -9000.), 4, 0, false, false }
+	};
 	TestEqual(TEXT("Occupied, neutral and contested closer deposits are excluded"),
 		PlacementPolicy::SelectFreeDeposit(0, Requested, Deposits), 3);
 	Deposits[3].bOccupied = true;
@@ -446,7 +447,7 @@ bool FPlacementHeadquartersTest::RunTest(const FString& Parameters)
 	ExpectPlacement(*this, TEXT("Home HQ exclusion boundary inclusive"), In, EPlacementVerdict::HeadquartersTooClose);
 	In.Position.X += 1.f;
 	ExpectPlacement(*this, TEXT("Outside home HQ exclusion allowed"), In, EPlacementVerdict::Valid);
-	const FVector2D Forward[] = { {6000., -2000.}, {8000., -2000.}, {8000., 2000.}, {6000., 2000.} };
+	const FVector2D Forward[] = { { 6000., -2000. }, { 8000., -2000. }, { 8000., 2000. }, { 6000., 2000. } };
 	const FPlacementRegion Regions[] = { { 2, Forward, 0, false } };
 	In.Regions = Regions;
 	In.Position = In.HostilePosition - FVector(PlacementPolicy::HostileHeadquartersClearance + In.FootprintRadius, 0.f, 0.f);
@@ -565,8 +566,7 @@ bool FEconomyAffordabilityTest::RunTest(const FString& Parameters)
 
 bool FOutcomeHealthTest::RunTest(const FString& Parameters)
 {
-	const auto ExpectOutcome = [this](const TCHAR* What, int32 FriendlyHealth, int32 EnemyHealth, EMatchResult Expected)
-	{
+	const auto ExpectOutcome = [this](const TCHAR* What, int32 FriendlyHealth, int32 EnemyHealth, EMatchResult Expected) {
 		const EMatchResult Result = OutcomePolicy::Evaluate({ FriendlyHealth, EnemyHealth,
 			EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
 		TestEqual(What, static_cast<int32>(Result), static_cast<int32>(Expected));

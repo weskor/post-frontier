@@ -1,7 +1,11 @@
 #include "Modules/ModuleManager.h"
 
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
-namespace CoopRTSNetworkVerification { void Start(); void Stop(); }
+namespace CoopRTSNetworkVerification
+{
+void Start();
+void Stop();
+}
 #endif
 
 class FCoopRTSModule final : public FDefaultGameModuleImpl

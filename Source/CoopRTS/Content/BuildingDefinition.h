@@ -51,6 +51,7 @@ public:
 	// Migration-only: EBuildingKind is derived from capabilities for callers that still branch on it.
 	EBuildingKind GetKind() const
 	{
-		return bProducesForces ? EBuildingKind::Barracks : bRequiresDeposit ? EBuildingKind::Extractor : EBuildingKind::Workshop;
+		return bProducesForces ? EBuildingKind::Barracks : bRequiresDeposit ? EBuildingKind::Extractor
+																			: EBuildingKind::Workshop;
 	}
 };

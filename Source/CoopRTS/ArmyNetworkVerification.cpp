@@ -43,8 +43,8 @@ FTSTicker::FDelegateHandle TickHandle;
 int32 LastCommand = 0;
 int32 Generation = 0;
 TWeakObjectPtr<UWorld> LastWorld;
-	FVector PlacementCandidate = FVector::ZeroVector;
-	bool bPlacementCandidateValid = false;
+FVector PlacementCandidate = FVector::ZeroVector;
+bool bPlacementCandidateValid = false;
 
 TSharedPtr<FJsonObject> Object() { return MakeShared<FJsonObject>(); }
 int32 LifetimeId(const UObject* Value)
@@ -67,9 +67,11 @@ void Vector(const TSharedPtr<FJsonObject>& ObjectValue, const TCHAR* Key, FVecto
 // Unit definition currently selected by a producer; production rules read the same definition.
 const UArmyUnitDefinition* ProductionDefinition(const ACommandGameState& State, const ACommandBuilding& Building)
 {
-	if (!State.Content) return nullptr;
+	if (!State.Content)
+		return nullptr;
 	for (int32 Index = 0; const UArmyUnitDefinition* Definition = State.Content->Unit(Index); ++Index)
-		if (Definition->Role == Building.ProductionRole) return Definition;
+		if (Definition->Role == Building.ProductionRole)
+			return Definition;
 	return nullptr;
 }
 ACommandPlayerController* LocalController(UWorld* World);
@@ -79,7 +81,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	auto Result = Object();
 	Number(Result, TEXT("generation"), Generation);
 	Result->SetBoolField(TEXT("ready"), World != nullptr);
-	if (!World) return Result;
+	if (!World)
+		return Result;
 	Number(Result, TEXT("netMode"), static_cast<int32>(World->GetNetMode()));
 	Result->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(World->GetOutermost()->GetName()));
 	Result->SetBoolField(TEXT("worldPaused"), World->IsPaused());
@@ -95,7 +98,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::GoalFallBack); ++Index)
 			{
 				FVector2D Position;
-				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position)) continue;
+				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
+					continue;
 				auto Button = Object();
 				Number(Button, TEXT("action"), Index);
 				Number(Button, TEXT("x"), Position.X);
@@ -106,7 +110,11 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		}
 	}
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	if (!State) { Result->SetBoolField(TEXT("ready"), false); return Result; }
+	if (!State)
+	{
+		Result->SetBoolField(TEXT("ready"), false);
+		return Result;
+	}
 	Number(Result, TEXT("gameStateId"), LifetimeId(State));
 	if (const UNetDriver* Driver = World->GetNetDriver())
 	{
@@ -121,15 +129,15 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Vector(Result, TEXT("placementCandidate"), PlacementCandidate);
 	Number(Result, TEXT("enemyResources"), IsValid(State->EnemyCommander) ? State->EnemyCommander->Resources : 0);
 	if (IsValid(State->Arena))
-		Result->SetArrayField(TEXT("arenaHalfExtent"), {MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X),
-			MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y)});
+		Result->SetArrayField(TEXT("arenaHalfExtent"), { MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X), MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y) });
 	Number(Result, TEXT("enemyIncome"), State->GetEnemyIncomePerSecond());
 	Result->SetBoolField(TEXT("incomePaused"), State->bVerificationIncomePaused);
 	auto Wallets = TArray<TSharedPtr<FJsonValue>>();
 	for (const APlayerState* PS : State->PlayerArray)
 	{
 		const auto* Wallet = Cast<ACommandPlayerState>(PS);
-		if (!IsValid(Wallet)) continue;
+		if (!IsValid(Wallet))
+			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Wallet->CommanderIndex);
 		Number(Entry, TEXT("wallet"), Wallet->Resources);
@@ -149,14 +157,15 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Number(Result, TEXT("pendingGoal"), static_cast<int32>(It->GetPendingGoal()));
 			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
 			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
-			if (const APawn* Camera = It->GetPawn()) Vector(Result, TEXT("cameraPosition"), Camera->GetActorLocation());
+			if (const APawn* Camera = It->GetPawn())
+				Vector(Result, TEXT("cameraPosition"), Camera->GetActorLocation());
 			if (const ACommandHUD* HUD = Cast<ACommandHUD>(It->GetHUD()))
 			{
 				FVector2D Origin;
 				float Size;
 				if (HUD->GetMinimapScreenRect(Origin, Size))
 				{
-					Result->SetArrayField(TEXT("minimapOrigin"), {MakeShared<FJsonValueNumber>(Origin.X), MakeShared<FJsonValueNumber>(Origin.Y)});
+					Result->SetArrayField(TEXT("minimapOrigin"), { MakeShared<FJsonValueNumber>(Origin.X), MakeShared<FJsonValueNumber>(Origin.Y) });
 					Number(Result, TEXT("minimapSize"), Size);
 				}
 			}
@@ -195,7 +204,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		auto Units = TArray<TSharedPtr<FJsonValue>>();
 		for (const AArmyUnit* Unit : Group->GetUnits())
 		{
-			if (!IsValid(Unit)) continue;
+			if (!IsValid(Unit))
+				continue;
 			auto Member = Object();
 			Number(Member, TEXT("actorId"), LifetimeId(Unit));
 			Number(Member, TEXT("maxHealth"), Unit->MaxHealth());
@@ -217,7 +227,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	for (int32 Index = 0; Index < State->Buildings.Num(); ++Index)
 	{
 		const ACommandBuilding* Building = State->Buildings[Index];
-		if (!IsValid(Building)) continue;
+		if (!IsValid(Building))
+			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Index);
 		Number(Entry, TEXT("actorId"), LifetimeId(Building));
@@ -254,7 +265,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	auto Sites = TArray<TSharedPtr<FJsonValue>>();
 	for (const ACapturePoint* Site : State->CaptureSites)
 	{
-		if (!IsValid(Site)) continue;
+		if (!IsValid(Site))
+			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("actorId"), LifetimeId(Site));
 		Number(Entry, TEXT("index"), Site->SiteIndex);
@@ -270,7 +282,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	auto Regions = TArray<TSharedPtr<FJsonValue>>();
 	for (const AMapRegion* Region : State->Regions)
 	{
-		if (!IsValid(Region)) continue;
+		if (!IsValid(Region))
+			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Region->RegionIndex);
 		Entry->SetStringField(TEXT("name"), Region->DisplayName.ToString());
@@ -281,7 +294,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Entry->SetBoolField(TEXT("enemyContested"), State->IsRegionContested(Region->RegionIndex, 5));
 		Vector(Entry, TEXT("anchor"), State->GetRegionAnchor(Region->RegionIndex));
 		TArray<TSharedPtr<FJsonValue>> Neighbours;
-		for (int32 Neighbour : Region->Neighbours) Neighbours.Add(MakeShared<FJsonValueNumber>(Neighbour));
+		for (int32 Neighbour : Region->Neighbours)
+			Neighbours.Add(MakeShared<FJsonValueNumber>(Neighbour));
 		Entry->SetArrayField(TEXT("neighbours"), Neighbours);
 		TArray<TSharedPtr<FJsonValue>> Polygon;
 		for (const FVector2D& Point : Region->Polygon)
@@ -299,7 +313,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	for (int32 Index = 0; Index < State->Deposits.Num(); ++Index)
 	{
 		const ADepositSite* Deposit = State->Deposits[Index];
-		if (!IsValid(Deposit)) continue;
+		if (!IsValid(Deposit))
+			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Index);
 		Number(Entry, TEXT("actorId"), LifetimeId(Deposit));
@@ -319,29 +334,35 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	Result->SetArrayField(TEXT("deposits"), Deposits);
 	Number(Result, TEXT("friendlyHQ"), IsValid(State->FriendlyHeadquarters) ? State->FriendlyHeadquarters->Health : -1);
 	Number(Result, TEXT("enemyHQ"), IsValid(State->EnemyHeadquarters) ? State->EnemyHeadquarters->Health : -1);
-	if (IsValid(State->FriendlyHeadquarters)) Vector(Result, TEXT("friendlyHQPosition"), State->FriendlyHeadquarters->GetActorLocation());
-	if (IsValid(State->EnemyHeadquarters)) Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
+	if (IsValid(State->FriendlyHeadquarters))
+		Vector(Result, TEXT("friendlyHQPosition"), State->FriendlyHeadquarters->GetActorLocation());
+	if (IsValid(State->EnemyHeadquarters))
+		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
 	return Result;
 }
 AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
 {
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 		if (It->GetArmyIndex() == Index && IsValid(It->GetOwningPlayerState())
-			&& It->GetOwningPlayerState()->CommanderIndex == Owner) return *It;
+			&& It->GetOwningPlayerState()->CommanderIndex == Owner)
+			return *It;
 	return nullptr;
 }
 ACommandPlayerController* LocalController(UWorld* World)
 {
 	for (TActorIterator<ACommandPlayerController> It(World); It; ++It)
-		if (It->IsLocalController()) return *It;
+		if (It->IsLocalController())
+			return *It;
 	return nullptr;
 }
 FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 {
-	if (!World) return TEXT("game world unavailable");
+	if (!World)
+		return TEXT("game world unavailable");
 	FString Action;
 	Request->TryGetStringField(TEXT("action"), Action);
-	if (Action == TEXT("observe")) return FString();
+	if (Action == TEXT("observe"))
+		return FString();
 	ACommandPlayerController* PC = LocalController(World);
 	const ACommandPlayerState* Own = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
 	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
@@ -350,7 +371,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("goal")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
-		if (!Own || Own->CommanderIndex < 0 || !State) return TEXT("local owning controller unavailable");
+		if (!Own || Own->CommanderIndex < 0 || !State)
+			return TEXT("local owning controller unavailable");
 		if (Action == TEXT("build"))
 			PC->ServerPlaceBuilding(static_cast<int32>(Request->GetIntegerField(TEXT("kind"))),
 				FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f));
@@ -360,13 +382,17 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex]))
 				return TEXT("building not replicated locally");
 			ACommandBuilding* Building = State->Buildings[BuildingIndex];
-			if (Action == TEXT("production")) PC->ServerConfigureProduction(Building,
-				static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
-			else if (Action == TEXT("goal")) PC->ServerAssignGoal(Building,
-				static_cast<EForceGoal>(Request->GetIntegerField(TEXT("goal"))),
-				static_cast<int32>(Request->GetIntegerField(TEXT("region"))));
-			else if (Action == TEXT("cancel")) PC->ServerCancelBuilding(Building);
-			else PC->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
+			if (Action == TEXT("production"))
+				PC->ServerConfigureProduction(Building,
+					static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
+			else if (Action == TEXT("goal"))
+				PC->ServerAssignGoal(Building,
+					static_cast<EForceGoal>(Request->GetIntegerField(TEXT("goal"))),
+					static_cast<int32>(Request->GetIntegerField(TEXT("region"))));
+			else if (Action == TEXT("cancel"))
+				PC->ServerCancelBuilding(Building);
+			else
+				PC->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
 		}
 		return FString();
 	}
@@ -374,22 +400,26 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (Action == TEXT("select") || Action == TEXT("hud") || Action == TEXT("hudClick") || Action == TEXT("key")
 		|| Action == TEXT("screenshot") || Action == TEXT("resolution"))
 	{
-		if (!PC) return TEXT("local controller unavailable");
+		if (!PC)
+			return TEXT("local controller unavailable");
 		if (Action == TEXT("select"))
 		{
 			const FString Target = Request->GetStringField(TEXT("target"));
-			if (Target == TEXT("none")) PC->SelectActor(nullptr);
+			if (Target == TEXT("none"))
+				PC->SelectActor(nullptr);
 			else if (Target == TEXT("building"))
 			{
 				const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
 				if (!State || !State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex]))
 					return TEXT("building not replicated locally");
 				PC->SelectActor(State->Buildings[BuildingIndex]);
-				if (PC->GetSelectedBuilding() != State->Buildings[BuildingIndex]) return TEXT("building selection rejected");
+				if (PC->GetSelectedBuilding() != State->Buildings[BuildingIndex])
+					return TEXT("building selection rejected");
 			}
 			else if (Target == TEXT("squad"))
 				return TEXT("Squad selection removed; select its production building and configure a goal instead.");
-			else return TEXT("unknown selection target");
+			else
+				return TEXT("unknown selection target");
 			return FString();
 		}
 		if (Action == TEXT("hud"))
@@ -397,15 +427,19 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
 			const EHUDAction HUDAction = static_cast<EHUDAction>(Request->GetIntegerField(TEXT("hudAction")));
 			FVector2D Position;
-			if (!HUD || !HUD->FindActionScreenPosition(HUDAction, Position)) return TEXT("HUD action not visible and available");
-			if (HUD->GetActionAtScreenPosition(Position) != HUDAction) return TEXT("HUD hit test disagrees with drawn geometry");
-			if (!PC->HandleHUDClick(Position)) return TEXT("HUD click missed every panel");
+			if (!HUD || !HUD->FindActionScreenPosition(HUDAction, Position))
+				return TEXT("HUD action not visible and available");
+			if (HUD->GetActionAtScreenPosition(Position) != HUDAction)
+				return TEXT("HUD hit test disagrees with drawn geometry");
+			if (!PC->HandleHUDClick(Position))
+				return TEXT("HUD click missed every panel");
 			return FString();
 		}
 		if (Action == TEXT("hudClick"))
 		{
 			const FVector2D Position(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")));
-			if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y)) return TEXT("invalid HUD screen point");
+			if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y))
+				return TEXT("invalid HUD screen point");
 			return PC->HandleHUDClick(Position) ? FString() : TEXT("HUD click missed every panel");
 		}
 		if (Action == TEXT("key"))
@@ -414,7 +448,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const FString KeyName = Request->GetStringField(TEXT("key"));
 			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
 				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R")) return TEXT("unsupported probe key");
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R"))
+				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
 				FKey(*KeyName), Request->GetBoolField(TEXT("pressed")) ? IE_Pressed : IE_Released, FPlatformTime::Cycles64()));
@@ -423,27 +458,33 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		if (Action == TEXT("screenshot"))
 		{
 			const FString Path = Request->GetStringField(TEXT("path"));
-			if (Path.IsEmpty()) return TEXT("screenshot path required");
+			if (Path.IsEmpty())
+				return TEXT("screenshot path required");
 			FScreenshotRequest::RequestScreenshot(Path, false, false);
 			return FString();
 		}
 		const int32 Width = static_cast<int32>(Request->GetIntegerField(TEXT("width")));
 		const int32 Height = static_cast<int32>(Request->GetIntegerField(TEXT("height")));
-		if (Width < 640 || Height < 480 || Width > 7680 || Height > 4320) return TEXT("resolution out of bounds");
+		if (Width < 640 || Height < 480 || Width > 7680 || Height > 4320)
+			return TEXT("resolution out of bounds");
 		PC->ConsoleCommand(FString::Printf(TEXT("r.SetRes %dx%dw"), Width, Height));
 		return FString();
 	}
 	if (Action == TEXT("restart") || Action == TEXT("order") || Action == TEXT("attack"))
 	{
-		if (!Own || Own->CommanderIndex < 0) return TEXT("local owning controller unavailable");
-		if (Action == TEXT("restart")) PC->ServerRequestRestart();
+		if (!Own || Own->CommanderIndex < 0)
+			return TEXT("local owning controller unavailable");
+		if (Action == TEXT("restart"))
+			PC->ServerRequestRestart();
 		else
 		{
 			AArmyGroup* Army = FindArmy(World, Owner, Index);
-			if (!Army) return TEXT("target army not replicated locally");
+			if (!Army)
+				return TEXT("target army not replicated locally");
 			if (Action == TEXT("attack"))
 			{
-				if (!State || !IsValid(State->EnemyHeadquarters)) return TEXT("enemy HQ not replicated");
+				if (!State || !IsValid(State->EnemyHeadquarters))
+					return TEXT("enemy HQ not replicated");
 				PC->ServerIssueAttack(Army, State->EnemyHeadquarters->GetActorLocation(), State->EnemyHeadquarters);
 			}
 			else
@@ -457,13 +498,16 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	// No fixture execution on clients, even if a malicious client sends fixture commands.
 	if (!bAuthorityFixtures || !World->GetAuthGameMode() || World->GetNetMode() != NM_ListenServer)
 		return TEXT("host-only authority fixture switch required");
-	if (!State) return TEXT("server fixture state unavailable");
+	if (!State)
+		return TEXT("server fixture state unavailable");
 	AArmyGroup* Army = FindArmy(World, Owner, Index);
 	if (Action == TEXT("isolate"))
 	{
-		for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			It->Destroy();
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->GetTeamIndex() == 5) It->IssueHold();
+			if (It->GetTeamIndex() == 5)
+				It->IssueHold();
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
 				Building->SetProduction(Building->ProductionUnitIndex, false);
@@ -473,7 +517,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		bPlacementCandidateValid = false;
 		const int32 BuildingIndex = static_cast<int32>(Request->GetIntegerField(TEXT("kind")));
-		if (!IsValid(State->FriendlyHeadquarters)) return TEXT("friendly HQ unavailable");
+		if (!IsValid(State->FriendlyHeadquarters))
+			return TEXT("friendly HQ unavailable");
 		const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
 		for (int32 Ring = 0; Ring < 9; ++Ring)
 			for (int32 Direction = 0; Direction < 32; ++Direction)
@@ -499,7 +544,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	}
 	if (Action == TEXT("incomeTick"))
 	{
-		if (!State->bVerificationIncomePaused) return TEXT("pause natural income before isolated payment tick");
+		if (!State->bVerificationIncomePaused)
+			return TEXT("pause natural income before isolated payment tick");
 		State->bVerificationIncomePaused = false;
 		State->Tick(2.f);
 		State->bVerificationIncomePaused = true;
@@ -510,23 +556,28 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		const int32 DepositIndex = Request->GetIntegerField(TEXT("deposit"));
 		const int32 Remaining = Request->GetIntegerField(TEXT("remaining"));
 		if (!State->Deposits.IsValidIndex(DepositIndex) || !IsValid(State->Deposits[DepositIndex])
-			|| Remaining < 0 || Remaining > 3000) return TEXT("invalid finite deposit fixture");
+			|| Remaining < 0 || Remaining > 3000)
+			return TEXT("invalid finite deposit fixture");
 		State->Deposits[DepositIndex]->Remaining = Remaining;
 		State->Deposits[DepositIndex]->ForceNetUpdate();
 		return FString();
 	}
 	if (Action == TEXT("enemyExtractor"))
 	{
-		if (!IsValid(State->EnemyCommander) || !State->Content) return TEXT("JEV construction fixture unavailable");
+		if (!IsValid(State->EnemyCommander) || !State->Content)
+			return TEXT("JEV construction fixture unavailable");
 		for (ADepositSite* Deposit : State->Deposits)
 		{
-			if (!IsValid(Deposit) || IsValid(Deposit->Extractor) || State->GetRegionController(Deposit->RegionIndex) != 5) continue;
+			if (!IsValid(Deposit) || IsValid(Deposit->Extractor) || State->GetRegionController(Deposit->RegionIndex) != 5)
+				continue;
 			const int32 BuildingIndex = State->Content->BuildingIndexOf(TEXT("extractor"));
 			FString Reason;
-			if (!State->ValidateBuildingPlacement(BuildingIndex, 5, Deposit->GetActorLocation(), Reason)) continue;
+			if (!State->ValidateBuildingPlacement(BuildingIndex, 5, Deposit->GetActorLocation(), Reason))
+				continue;
 			State->EnemyCommander->Resources = 160;
 			ACommandBuilding* Extractor = State->TryPlaceBuilding(BuildingIndex, Deposit->GetActorLocation(), State->EnemyCommander, 5, Reason);
-			if (!Extractor) return TEXT("paid JEV extractor fixture rejected");
+			if (!Extractor)
+				return TEXT("paid JEV extractor fixture rejected");
 			Extractor->Tick(60.f); // Accelerated construction fixture, not natural completion proof.
 			return FString();
 		}
@@ -536,7 +587,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
 		if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex])
-			|| State->Buildings[BuildingIndex]->Kind != EBuildingKind::Extractor) return TEXT("extractor fixture unavailable");
+			|| State->Buildings[BuildingIndex]->Kind != EBuildingKind::Extractor)
+			return TEXT("extractor fixture unavailable");
 		ACommandBuilding* Extractor = State->Buildings[BuildingIndex];
 		const int32 HostileTeam = Extractor->TeamIndex == 5 ? 0 : 5;
 		ACommandPlayerState* HostileWallet = HostileTeam == 5 ? State->EnemyCommander.Get() : PC->GetPlayerState<ACommandPlayerState>();
@@ -544,10 +596,15 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		const FTransform Transform(FRotator::ZeroRotator, Staging + FVector(0.f, 0.f, 100.f));
 		AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 			nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (!Hostile) return TEXT("hostile extractor damage fixture allocation failed");
-		Hostile->Initialize(FArmyGroupSpawn{HostileTeam, HostileWallet, -1, nullptr, Transform.GetLocation()});
+		if (!Hostile)
+			return TEXT("hostile extractor damage fixture allocation failed");
+		Hostile->Initialize(FArmyGroupSpawn{ HostileTeam, HostileWallet, -1, nullptr, Transform.GetLocation() });
 		Hostile->FinishSpawning(Transform);
-		if (!Hostile->SpawnUnits()) { Hostile->Destroy(); return TEXT("hostile extractor damage fixture spawn failed"); }
+		if (!Hostile->SpawnUnits())
+		{
+			Hostile->Destroy();
+			return TEXT("hostile extractor damage fixture spawn failed");
+		}
 		Extractor->ReceiveAttack(Extractor->Health, Hostile->GetUnits()[0]);
 		const bool bDestroyed = !IsValid(Extractor) || !Extractor->IsAlive();
 		Hostile->Destroy();
@@ -558,22 +615,28 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		ACommandPlayerState* Wallet = nullptr;
 		for (APlayerState* Player : State->PlayerArray)
 			if (auto* Candidate = Cast<ACommandPlayerState>(Player))
-				if (Candidate->CommanderIndex == Owner) Wallet = Candidate;
-		if (!Wallet) return TEXT("fixture wallet unavailable");
+				if (Candidate->CommanderIndex == Owner)
+					Wallet = Candidate;
+		if (!Wallet)
+			return TEXT("fixture wallet unavailable");
 		const int32 Amount = static_cast<int32>(Request->GetIntegerField(TEXT("amount")));
-		if (Amount < 0 || Amount > 1000) return TEXT("fixture wallet amount out of bounds");
+		if (Amount < 0 || Amount > 1000)
+			return TEXT("fixture wallet amount out of bounds");
 		Wallet->Resources = Amount;
 		Wallet->ForceNetUpdate();
 		return FString();
 	}
-	if (!Army) return TEXT("server fixture army unavailable");
+	if (!Army)
+		return TEXT("server fixture army unavailable");
 	if (Action == TEXT("capture"))
 	{
 		const int32 SiteIndex = static_cast<int32>(Request->GetIntegerField(TEXT("site")));
 		ACapturePoint* Site = nullptr;
 		for (ACapturePoint* Candidate : State->CaptureSites)
-			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex) Site = Candidate;
-		if (!Site || Army->GetUnits().IsEmpty()) return TEXT("capture site or unit unavailable");
+			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex)
+				Site = Candidate;
+		if (!Site || Army->GetUnits().IsEmpty())
+			return TEXT("capture site or unit unavailable");
 		Army->GetUnits()[0]->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 95.f), false, nullptr, ETeleportType::TeleportPhysics);
 		return FString();
 	}
@@ -586,17 +649,24 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		ACapturePoint* Site = nullptr;
 		for (ACapturePoint* Candidate : State->CaptureSites)
 			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex
-				&& Candidate->SiteKind == ECaptureSiteKind::Resource) Site = Candidate;
+				&& Candidate->SiteKind == ECaptureSiteKind::Resource)
+				Site = Candidate;
 		AArmyGroup* SelectedGroup = Army;
 		if (bEnemy)
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->GetTeamIndex() == 5) { SelectedGroup = *It; break; }
+				if (It->GetTeamIndex() == 5)
+				{
+					SelectedGroup = *It;
+					break;
+				}
 		if (!Site || !IsValid(SelectedGroup) || SelectedGroup->GetTeamIndex() != (bEnemy ? 5 : 0))
 			return TEXT("objective resource site or army unavailable");
 		AArmyUnit* Unit = nullptr;
 		for (AArmyUnit* Candidate : SelectedGroup->GetUnits())
-			if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetCompositionSlot() == Slot) Unit = Candidate;
-		if (!Unit) return TEXT("objective live unit slot unavailable");
+			if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetCompositionSlot() == Slot)
+				Unit = Candidate;
+		if (!Unit)
+			return TEXT("objective live unit slot unavailable");
 		// Only real units are moved; AdvanceCapture samples them on the normal server tick.
 		const FVector Location = bPresent
 			? Site->GetActorLocation() + FVector(bEnemy ? 370.f : -30.f, 0.f, 95.f)
@@ -609,11 +679,13 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		if (!IsValid(State->EnemyHeadquarters) || Army->GetUnits().IsEmpty() || Army->GetTeamIndex() != 0)
 			return TEXT("objective friendly army or enemy HQ unavailable");
-		if (!Army->IssueHold()) return TEXT("objective friendly army could not hold");
+		if (!Army->IssueHold())
+			return TEXT("objective friendly army could not hold");
 		const FVector Anchor = State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 700.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
 		{
-			if (!IsValid(Unit) || !Unit->IsAlive()) continue;
+			if (!IsValid(Unit) || !Unit->IsAlive())
+				continue;
 			const FVector Offset(0.f, Unit->GetCompositionSlot() % 2 ? 110.f : -110.f, 0.f);
 			Unit->SetActorLocation(Anchor + Offset, false, nullptr, ETeleportType::TeleportPhysics);
 			Unit->ForceNetUpdate();
@@ -625,8 +697,10 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		const int32 Slot = static_cast<int32>(Request->GetIntegerField(TEXT("slot")));
 		AArmyUnit* Victim = nullptr;
 		for (AArmyUnit* Unit : Army->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == Slot) Victim = Unit;
-		if (!Victim) return TEXT("live casualty or hostile shooter unavailable");
+			if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == Slot)
+				Victim = Unit;
+		if (!Victim)
+			return TEXT("live casualty or hostile shooter unavailable");
 		AArmyUnit* Shooter = nullptr;
 		for (TActorIterator<AArmyGroup> It(World); It && !Shooter; ++It)
 			if (It->GetTeamIndex() == 5 && It->GetTeamIndex() != Victim->GetTeamIndex())
@@ -638,19 +712,26 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 					}
 		if (!IsValid(Shooter))
 		{
-			if (!IsValid(State->EnemyHeadquarters)) return TEXT("enemy HQ unavailable for hostile staging");
+			if (!IsValid(State->EnemyHeadquarters))
+				return TEXT("enemy HQ unavailable for hostile staging");
 			// Hostile fixtures stage in front of the enemy HQ, never at a literal map coordinate.
 			const FTransform Transform(FRotator::ZeroRotator,
 				State->EnemyHeadquarters->GetActorLocation() + FVector(-1400.f, 0.f, -10.f));
 			AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-			if (!Hostile) return TEXT("hostile casualty fixture allocation failed");
-			Hostile->Initialize(FArmyGroupSpawn{5, State->EnemyCommander, -1, nullptr, Transform.GetLocation()});
+			if (!Hostile)
+				return TEXT("hostile casualty fixture allocation failed");
+			Hostile->Initialize(FArmyGroupSpawn{ 5, State->EnemyCommander, -1, nullptr, Transform.GetLocation() });
 			Hostile->FinishSpawning(Transform);
-			if (!Hostile->SpawnUnits()) { Hostile->Destroy(); return TEXT("hostile casualty fixture spawn failed"); }
+			if (!Hostile->SpawnUnits())
+			{
+				Hostile->Destroy();
+				return TEXT("hostile casualty fixture spawn failed");
+			}
 			Hostile->IssueHold();
 			Hostile->SetActorTickEnabled(false);
-			for (AArmyUnit* Unit : Hostile->GetUnits()) Unit->SetActorTickEnabled(false);
+			for (AArmyUnit* Unit : Hostile->GetUnits())
+				Unit->SetActorTickEnabled(false);
 			Shooter = Hostile->GetUnits()[0];
 		}
 		if (!IsValid(Shooter) || !Shooter->IsAlive() || Shooter->GetTeamIndex() == Victim->GetTeamIndex())
@@ -666,8 +747,13 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		AArmyUnit* Shooter = bWin && !Army->GetUnits().IsEmpty() ? Army->GetUnits()[0] : nullptr;
 		if (!bWin)
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->GetTeamIndex() == 5 && !It->GetUnits().IsEmpty()) { Shooter = It->GetUnits()[0]; break; }
-		if (!IsValid(Target) || !IsValid(Shooter)) return TEXT("HQ or shooter unavailable");
+				if (It->GetTeamIndex() == 5 && !It->GetUnits().IsEmpty())
+				{
+					Shooter = It->GetUnits()[0];
+					break;
+				}
+		if (!IsValid(Target) || !IsValid(Shooter))
+			return TEXT("HQ or shooter unavailable");
 		Target->Health = 1;
 		Target->ForceNetUpdate();
 		const FVector Previous = Shooter->GetActorLocation();
@@ -686,7 +772,10 @@ bool Tick(float)
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			if (UWorld* Candidate = Context.World())
 				if (Candidate->IsGameWorld())
-				{ World = Candidate; break; }
+				{
+					World = Candidate;
+					break;
+				}
 	if (World && World != LastWorld.Get())
 	{
 		LastWorld = World;
@@ -694,11 +783,14 @@ bool Tick(float)
 		bPlacementCandidateValid = false;
 	}
 	FString Input;
-	if (!FFileHelper::LoadFileToString(Input, *(Directory / TEXT("request.json")))) return true;
+	if (!FFileHelper::LoadFileToString(Input, *(Directory / TEXT("request.json"))))
+		return true;
 	TSharedPtr<FJsonObject> Request;
-	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Input), Request) || !Request.IsValid()) return true;
+	if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Input), Request) || !Request.IsValid())
+		return true;
 	int32 Id = 0;
-	if (!Request->TryGetNumberField(TEXT("id"), Id) || Id <= LastCommand) return true;
+	if (!Request->TryGetNumberField(TEXT("id"), Id) || Id <= LastCommand)
+		return true;
 	LastCommand = Id;
 	auto Reply = Object();
 	Number(Reply, TEXT("id"), Id);
@@ -717,15 +809,18 @@ bool Tick(float)
 void Start()
 {
 	if (!FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyDir="), Directory)
-		|| !FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyPeer="), Peer)) return;
+		|| !FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyPeer="), Peer))
+		return;
 	bAuthorityFixtures = FParse::Param(FCommandLine::Get(), TEXT("CoopRTSNetVerifyAuthority"));
-	if (Directory.IsEmpty() || Peer.IsEmpty()) return;
+	if (Directory.IsEmpty() || Peer.IsEmpty())
+		return;
 	UE_LOG(LogTemp, Display, TEXT("Network verification enabled peer=%s authorityFixtures=%d"), *Peer, bAuthorityFixtures);
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick), .1f);
 }
 void Stop()
 {
-	if (TickHandle.IsValid()) FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
+	if (TickHandle.IsValid())
+		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 }
 } // namespace CoopRTSNetworkVerification
 #endif

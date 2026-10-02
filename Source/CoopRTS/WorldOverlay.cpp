@@ -9,21 +9,20 @@
 
 namespace
 {
-	template<int32 Segments>
-	const TStaticArray<FVector2D, Segments>& CircleDirections()
-	{
-		static const TStaticArray<FVector2D, Segments> Directions = []
+template <int32 Segments>
+const TStaticArray<FVector2D, Segments>& CircleDirections()
+{
+	static const TStaticArray<FVector2D, Segments> Directions = [] {
+		TStaticArray<FVector2D, Segments> Result;
+		for (int32 Index = 0; Index < Segments; ++Index)
 		{
-			TStaticArray<FVector2D, Segments> Result;
-			for (int32 Index = 0; Index < Segments; ++Index)
-			{
-				const double Angle = Index * (2. * UE_PI / Segments);
-				Result[Index] = FVector2D(FMath::Cos(Angle), FMath::Sin(Angle));
-			}
-			return Result;
-		}();
-		return Directions;
-	}
+			const double Angle = Index * (2. * UE_PI / Segments);
+			Result[Index] = FVector2D(FMath::Cos(Angle), FMath::Sin(Angle));
+		}
+		return Result;
+	}();
+	return Directions;
+}
 }
 
 AWorldOverlay::AWorldOverlay()
@@ -75,7 +74,8 @@ AWorldOverlay* UWorldOverlaySubsystem::GetOverlay()
 AWorldOverlay* AWorldOverlay::Get(const UObject* Context)
 {
 	UWorld* World = Context ? Context->GetWorld() : nullptr;
-	if (!World || World->GetNetMode() == NM_DedicatedServer) return nullptr;
+	if (!World || World->GetNetMode() == NM_DedicatedServer)
+		return nullptr;
 	UWorldOverlaySubsystem* Subsystem = World->GetSubsystem<UWorldOverlaySubsystem>();
 	return Subsystem ? Subsystem->GetOverlay() : nullptr;
 }
@@ -89,17 +89,21 @@ void AWorldOverlay::Line(const FVector& Start, const FVector& End, FColor Color,
 {
 	const FVector Delta = End - Start;
 	const double Length = Delta.Size();
-	if (Length <= UE_SMALL_NUMBER) return;
+	if (Length <= UE_SMALL_NUMBER)
+		return;
 	PendingLines.Add({ FTransform(Delta.Rotation(), (Start + End) * .5,
-		FVector(Length * .01, Width * .01, Width * .01)), FLinearColor(Color) });
+						   FVector(Length * .01, Width * .01, Width * .01)),
+		FLinearColor(Color) });
 }
 
 void AWorldOverlay::Square(const FVector& Center, const FVector2D& HalfSize, FColor Color, float Width)
 {
 	const FVector Corners[] = {
 		Center + FVector(-HalfSize.X, -HalfSize.Y, 0.), Center + FVector(HalfSize.X, -HalfSize.Y, 0.),
-		Center + FVector(HalfSize.X, HalfSize.Y, 0.), Center + FVector(-HalfSize.X, HalfSize.Y, 0.) };
-	for (int32 Index = 0; Index < 4; ++Index) Line(Corners[Index], Corners[(Index + 1) % 4], Color, Width);
+		Center + FVector(HalfSize.X, HalfSize.Y, 0.), Center + FVector(-HalfSize.X, HalfSize.Y, 0.)
+	};
+	for (int32 Index = 0; Index < 4; ++Index)
+		Line(Corners[Index], Corners[(Index + 1) % 4], Color, Width);
 }
 
 void AWorldOverlay::Ring(const FVector& Center, float Radius, FColor Color)
@@ -124,14 +128,17 @@ void AWorldOverlay::Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>
 {
 	bool bChanged = false;
 	const int32 AddedInstances = Pending.Num() - Mesh->GetInstanceCount();
-	if (AddedInstances > 0) Mesh->PreAllocateInstancesMemory(AddedInstances);
+	if (AddedInstances > 0)
+		Mesh->PreAllocateInstancesMemory(AddedInstances);
 	if (AddedInstances < 0)
 	{
-		if (AddedInstances == -1) Mesh->RemoveInstance(Pending.Num());
+		if (AddedInstances == -1)
+			Mesh->RemoveInstance(Pending.Num());
 		else
 		{
 			RemovalIndices.Reset(-AddedInstances);
-			for (int32 Index = Mesh->GetInstanceCount() - 1; Index >= Pending.Num(); --Index) RemovalIndices.Add(Index);
+			for (int32 Index = Mesh->GetInstanceCount() - 1; Index >= Pending.Num(); --Index)
+				RemovalIndices.Add(Index);
 			Mesh->RemoveInstances(RemovalIndices, true);
 		}
 		bChanged = true;
@@ -140,16 +147,20 @@ void AWorldOverlay::Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>
 	{
 		const FInstance& Instance = Pending[Index];
 		const bool bExisting = Previous.IsValidIndex(Index);
-		if (bExisting && Instance.Transform.Equals(Previous[Index].Transform) && Instance.Color == Previous[Index].Color) continue;
-		if (bExisting) Mesh->UpdateInstanceTransform(Index, Instance.Transform, false, false, true);
-		else Mesh->AddInstance(Instance.Transform);
+		if (bExisting && Instance.Transform.Equals(Previous[Index].Transform) && Instance.Color == Previous[Index].Color)
+			continue;
+		if (bExisting)
+			Mesh->UpdateInstanceTransform(Index, Instance.Transform, false, false, true);
+		else
+			Mesh->AddInstance(Instance.Transform);
 		Mesh->SetCustomDataValue(Index, 0, Instance.Color.R);
 		Mesh->SetCustomDataValue(Index, 1, Instance.Color.G);
 		Mesh->SetCustomDataValue(Index, 2, Instance.Color.B);
 		Mesh->SetCustomDataValue(Index, 3, Instance.Color.A);
 		bChanged = true;
 	}
-	if (bChanged) Mesh->MarkRenderInstancesDirty();
+	if (bChanged)
+		Mesh->MarkRenderInstancesDirty();
 	// Swap retained buffers rather than allocating or copying every frame.
 	Swap(Previous, Pending);
 	Pending.Reset();
@@ -168,12 +179,12 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 		for (int32 Axis = 0; Axis < 3; ++Axis)
 			for (int32 Segment = 0; Segment < 8; ++Segment)
 			{
-				auto Point = [&Flash, Radius, Axis](int32 Index)
-				{
+				auto Point = [&Flash, Radius, Axis](int32 Index) {
 					const FVector2D Direction = CircleDirections<8>()[Index % 8];
 					const double X = Direction.X * Radius;
 					const double Y = Direction.Y * Radius;
-					return Flash.End + (Axis == 0 ? FVector(X, Y, 0.) : Axis == 1 ? FVector(X, 0., Y) : FVector(0., X, Y));
+					return Flash.End + (Axis == 0 ? FVector(X, Y, 0.) : Axis == 1 ? FVector(X, 0., Y)
+																				  : FVector(0., X, Y));
 				};
 				Line(Point(Segment), Point(Segment + 1), Flash.Color, 2.f);
 			}

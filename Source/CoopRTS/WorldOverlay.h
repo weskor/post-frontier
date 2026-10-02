@@ -37,8 +37,10 @@ private:
 		float Expires;
 	};
 	void Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>& Pending, TArray<FInstance>& Previous);
-	UPROPERTY() TObjectPtr<UInstancedStaticMeshComponent> Cells;
-	UPROPERTY() TObjectPtr<UInstancedStaticMeshComponent> Lines;
+	UPROPERTY()
+	TObjectPtr<UInstancedStaticMeshComponent> Cells;
+	UPROPERTY()
+	TObjectPtr<UInstancedStaticMeshComponent> Lines;
 	TArray<FInstance> PendingCells;
 	TArray<FInstance> PendingLines;
 	TArray<FInstance> PreviousCells;
@@ -55,5 +57,6 @@ public:
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 	AWorldOverlay* GetOverlay();
 private:
-	UPROPERTY() TObjectPtr<AWorldOverlay> Overlay;
+	UPROPERTY()
+	TObjectPtr<AWorldOverlay> Overlay;
 };

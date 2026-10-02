@@ -20,24 +20,34 @@ public:
 		UWorld* World = nullptr;
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			if (Context.World() && Context.World()->IsGameWorld() && Context.World()->GetNetMode() != NM_Client)
-				{ World = Context.World(); break; }
-		if (!World) return false;
+			{
+				World = Context.World();
+				break;
+			}
+		if (!World)
+			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		ACommandPlayerState* Wallet = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
-		if (!State || !PC || !Wallet || !State->FriendlyHeadquarters || !State->EnemyHeadquarters) return false;
+		if (!State || !PC || !Wallet || !State->FriendlyHeadquarters || !State->EnemyHeadquarters)
+			return false;
 		if (Stage == 0)
 		{
-			if (World->GetTimeSeconds() < 3.f || !ArmyTestSetup::CombatActors(World)) return false;
+			if (World->GetTimeSeconds() < 3.f || !ArmyTestSetup::CombatActors(World))
+				return false;
 			State->bVerificationIncomePaused = true;
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			{
-				if (It->GetTeamIndex() == 5) Enemy = *It;
-				else if (It->GetOwningPlayerState() == Wallet && It->GetArmyIndex() == 0) Friendly = *It;
+				if (It->GetTeamIndex() == 5)
+					Enemy = *It;
+				else if (It->GetOwningPlayerState() == Wallet && It->GetArmyIndex() == 0)
+					Friendly = *It;
 			}
-			if (!Friendly.IsValid() || !Enemy.IsValid()) return Fail(TEXT("Live outcome fixture armies missing"));
+			if (!Friendly.IsValid() || !Enemy.IsValid())
+				return Fail(TEXT("Live outcome fixture armies missing"));
 			ArmyTestSetup::Research(PC, EArmyDoctrine::SiegeOptics);
-			if (Wallet->Doctrine != EArmyDoctrine::SiegeOptics) return Fail(TEXT("Old match must own a paid specialization"));
+			if (Wallet->Doctrine != EArmyDoctrine::SiegeOptics)
+				return Fail(TEXT("Old match must own a paid specialization"));
 			AHeadquarters* Target = bVictory ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
 			AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
 			Target->Health = 80; // Short encounter fixture; real weapons deliver every subsequent hit.
@@ -47,8 +57,10 @@ public:
 					false, nullptr, ETeleportType::TeleportPhysics);
 				BeforeShots += Unit->AttackCount;
 			}
-			if (bVictory) PC->ServerIssueAttack(Attacker, Target->GetActorLocation(), Target);
-			else Attacker->IssueAttack(Target->GetActorLocation(), Target);
+			if (bVictory)
+				PC->ServerIssueAttack(Attacker, Target->GetActorLocation(), Target);
+			else
+				Attacker->IssueAttack(Target->GetActorLocation(), Target);
 			if (Attacker->Order != EArmyOrder::Attack || Attacker->AttackTarget != Target)
 				return Fail(TEXT("A targeted HQ attack must be accepted without a shield prerequisite"));
 			OldState = State;
@@ -59,13 +71,15 @@ public:
 		}
 		if (Stage == 1)
 		{
-			if (State->MatchResult == EMatchResult::Ongoing) return false;
+			if (State->MatchResult == EMatchResult::Ongoing)
+				return false;
 			const EMatchResult Expected = bVictory ? EMatchResult::Victory : EMatchResult::Defeat;
 			if (State->MatchResult != Expected || !Friendly.IsValid() || !Enemy.IsValid())
 				return Fail(TEXT("Weapon encounter resolved to the wrong outcome"));
 			const AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
 			uint32 AfterShots = 0;
-			for (const AArmyUnit* Unit : Attacker->GetUnits()) AfterShots += Unit->AttackCount;
+			for (const AArmyUnit* Unit : Attacker->GetUnits())
+				AfterShots += Unit->AttackCount;
 			if (AfterShots <= BeforeShots || (bVictory ? State->EnemyHeadquarters->Health : State->FriendlyHeadquarters->Health) != 0)
 				return Fail(TEXT("Outcome requires real attacks and zero target HQ health"));
 			const uint32 Serial = Friendly->OrderSerial;
@@ -84,7 +98,8 @@ public:
 			Test->AddInfo(TEXT("Outcome and terminal guards observed; seamless fresh world requested."));
 			return false;
 		}
-		if (World == OldWorld.Get() || State == OldState.Get() || Wallet->CommanderIndex < 0) return false;
+		if (World == OldWorld.Get() || State == OldState.Get() || Wallet->CommanderIndex < 0)
+			return false;
 		if (State->MatchResult != EMatchResult::Ongoing || Wallet->CommanderIndex != Slot
 			|| Wallet->Doctrine != EArmyDoctrine::None
 			|| Wallet->Resources < ACommandPlayerState::InitialResources
@@ -94,9 +109,11 @@ public:
 			|| State->GetIncomePerSecond(Wallet) != ACommandGameState::BaselineIncomePerSecond)
 			return Fail(TEXT("Restart must preserve commander identity but reset economy/research/HQs/territory"));
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->GetTeamIndex() == 0) return Fail(TEXT("Fresh world must not recreate fixed player armies"));
+			if (It->GetTeamIndex() == 0)
+				return Fail(TEXT("Fresh world must not recreate fixed player armies"));
 		for (ACommandBuilding* Building : State->Buildings)
-			if (IsValid(Building) && Building->TeamIndex == 0) return Fail(TEXT("Old player buildings must not survive restart"));
+			if (IsValid(Building) && Building->TeamIndex == 0)
+				return Fail(TEXT("Old player buildings must not survive restart"));
 		for (ACapturePoint* Site : State->CaptureSites)
 			if (!IsValid(Site) || Site->ControllingTeam != -1 || Site->CaptureProgress != 0.f)
 				return Fail(TEXT("New sectors must start neutral"));
@@ -108,7 +125,11 @@ public:
 		return true;
 	}
 private:
-	bool Fail(const TCHAR* Message) { Test->AddError(Message); return true; }
+	bool Fail(const TCHAR* Message)
+	{
+		Test->AddError(Message);
+		return true;
+	}
 	FAutomationTestBase* Test;
 	bool bVictory;
 	int32 Stage = 0;
@@ -119,6 +140,14 @@ private:
 	TWeakObjectPtr<AArmyGroup> Friendly;
 	TWeakObjectPtr<AArmyGroup> Enemy;
 };
-bool FArmyMatchVictoryTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FArmyMatchScenario(this, true)); return true; }
-bool FArmyMatchDefeatTest::RunTest(const FString&) { ADD_LATENT_AUTOMATION_COMMAND(FArmyMatchScenario(this, false)); return true; }
+bool FArmyMatchVictoryTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FArmyMatchScenario(this, true));
+	return true;
+}
+bool FArmyMatchDefeatTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FArmyMatchScenario(this, false));
+	return true;
+}
 #endif

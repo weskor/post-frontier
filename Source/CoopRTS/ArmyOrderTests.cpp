@@ -27,37 +27,55 @@ public:
 				if (UWorld* World = Context.World())
 					if (World->IsGameWorld() && World->GetNetMode() == NM_Standalone)
 					{
-						for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
+						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+							It->Destroy();
 						bIsolated = true; // Keep this historical order scenario independent of strategic AI.
 						break;
 					}
 		}
 		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 35.) { Test->AddError(TEXT("Timed out waiting for live army navigation")); return true; }
+		if (Now - Started > 35.)
+		{
+			Test->AddError(TEXT("Timed out waiting for live army navigation"));
+			return true;
+		}
 		if (Stage == 0)
 		{
 			for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			{
 				UWorld* World = Context.World();
-				if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_Client) continue;
-				if (!ArmyTestSetup::CombatActors(World)) continue;
+				if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_Client)
+					continue;
+				if (!ArmyTestSetup::CombatActors(World))
+					continue;
 				for (TActorIterator<AArmyGroup> It(World); It; ++It)
 				{
 					if (auto* Owner = Cast<ACommandPlayerController>(It->GetOwner()))
 					{
-						if (Owner->IsLocalController() && It->GetArmyIndex() == 0 && It->GetUnits().Num() == 6) { Army = *It; Controller = Owner; break; }
+						if (Owner->IsLocalController() && It->GetArmyIndex() == 0 && It->GetUnits().Num() == 6)
+						{
+							Army = *It;
+							Controller = Owner;
+							break;
+						}
 					}
 				}
 			}
-			if (!Army.IsValid() || Now - Started < 3.) return false;
+			if (!Army.IsValid() || Now - Started < 3.)
+				return false;
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, FVector(-1800, 1800, 0));
-			if (Army->OrderSerial == Serial) return false; // Navmesh can still be generating.
+			if (Army->OrderSerial == Serial)
+				return false; // Navmesh can still be generating.
 			NextStage(Now);
 			return false;
 		}
-		if (!Army.IsValid() || !Controller.IsValid()) { Test->AddError(TEXT("Army or controller disappeared during orders")); return true; }
+		if (!Army.IsValid() || !Controller.IsValid())
+		{
+			Test->AddError(TEXT("Army or controller disappeared during orders"));
+			return true;
+		}
 		if (Stage == 1 && Now - StageStarted >= 1.5)
 		{
 			Test->TestTrue(TEXT("Units actually move under the initial order"), FVector::Dist2D(StartCenter, Army->GetCenter()) > 100.);
@@ -78,7 +96,8 @@ public:
 		}
 		else if (Stage == 3 && Now - StageStarted >= .5)
 		{
-			for (AArmyUnit* Unit : Army->GetUnits()) HeldPositions.Add(Unit->GetActorLocation());
+			for (AArmyUnit* Unit : Army->GetUnits())
+				HeldPositions.Add(Unit->GetActorLocation());
 			Serial = Army->OrderSerial;
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, FVector(100000, 0, 0));
 			Test->TestEqual(TEXT("Out-of-bounds request preserves the accepted order"), Army->OrderSerial, Serial);
@@ -101,7 +120,11 @@ public:
 		return false;
 	}
 private:
-	void NextStage(double Now) { ++Stage; StageStarted = Now; }
+	void NextStage(double Now)
+	{
+		++Stage;
+		StageStarted = Now;
+	}
 	FAutomationTestBase* Test;
 	TWeakObjectPtr<AArmyGroup> Army;
 	TWeakObjectPtr<ACommandPlayerController> Controller;

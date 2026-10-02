@@ -20,13 +20,12 @@
 
 namespace
 {
-	FAutoConsoleCommandWithWorldAndArgs VerifySteamSession(
-		TEXT("CoopSteam.Verify"), TEXT("Development only: state, checksum, reject, invite-refusal (solo-host fixture)."),
-		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
-		{
-			if (World && World->GetGameInstance())
-				World->GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>()->VerifySession(Args);
-		}));
+FAutoConsoleCommandWithWorldAndArgs VerifySteamSession(
+	TEXT("CoopSteam.Verify"), TEXT("Development only: state, checksum, reject, invite-refusal (solo-host fixture)."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) {
+		if (World && World->GetGameInstance())
+			World->GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>()->VerifySession(Args);
+	}));
 }
 
 void UCoopSessionSubsystem::VerifySession(const TArray<FString>& Args)
@@ -98,7 +97,8 @@ void UCoopSessionSubsystem::Deinitialize()
 		Sessions->ClearOnJoinSessionCompleteDelegate_Handle(JoinHandle);
 		Sessions->ClearOnDestroySessionCompleteDelegate_Handle(DestroyHandle);
 		Sessions->ClearOnSessionUserInviteAcceptedDelegate_Handle(InviteHandle);
-		if (Sessions->GetNamedSession(NAME_GameSession)) Sessions->DestroySession(NAME_GameSession);
+		if (Sessions->GetNamedSession(NAME_GameSession))
+			Sessions->DestroySession(NAME_GameSession);
 		Sessions.Reset();
 	}
 	Super::Deinitialize();
@@ -107,7 +107,8 @@ void UCoopSessionSubsystem::Deinitialize()
 bool UCoopSessionSubsystem::IsSteamAvailable() const
 {
 	IOnlineSubsystem* Online = IOnlineSubsystem::Get();
-	if (!Sessions.IsValid() || !Online || Online->GetSubsystemName() != FName(TEXT("STEAM"))) return false;
+	if (!Sessions.IsValid() || !Online || Online->GetSubsystemName() != FName(TEXT("STEAM")))
+		return false;
 	const IOnlineIdentityPtr Identity = Online->GetIdentityInterface();
 	return Identity.IsValid() && Identity->GetLoginStatus(0) == ELoginStatus::LoggedIn;
 }
@@ -125,8 +126,10 @@ bool UCoopSessionSubsystem::CanInvite() const
 
 FString UCoopSessionSubsystem::GetStatus() const
 {
-	if (!Message.IsEmpty()) return Message;
-	if (!IsSteamAvailable()) return TEXT("Steam unavailable - start Steam and log in. Solo works offline.");
+	if (!Message.IsEmpty())
+		return Message;
+	if (!IsSteamAvailable())
+		return TEXT("Steam unavailable - start Steam and log in. Solo works offline.");
 	if (bHosting || (Sessions.IsValid() && Sessions->GetNamedSession(NAME_GameSession)))
 	{
 		const AGameStateBase* State = GetWorld() ? GetWorld()->GetGameState() : nullptr;
@@ -167,10 +170,19 @@ void UCoopSessionSubsystem::Host()
 
 void UCoopSessionSubsystem::OnCreated(FName Name, bool bSuccess)
 {
-	if (Name != NAME_GameSession || Operation != EOperation::Creating) return;
+	if (Name != NAME_GameSession || Operation != EOperation::Creating)
+		return;
 	Operation = EOperation::Idle;
-	if (AfterDestroy != EAfterDestroy::None) { DestroyThen(AfterDestroy); return; }
-	if (!bSuccess) { FailToMenu(TEXT("Steam lobby creation failed. Try again or play solo.")); return; }
+	if (AfterDestroy != EAfterDestroy::None)
+	{
+		DestroyThen(AfterDestroy);
+		return;
+	}
+	if (!bSuccess)
+	{
+		FailToMenu(TEXT("Steam lobby creation failed. Try again or play solo."));
+		return;
+	}
 	bHosting = true;
 	Message.Empty();
 	UE_LOG(LogTemp, Display, TEXT("CoopSteam: lobby created public=5; opening %s listen"), *GetSelectedMap().ToString());
@@ -179,7 +191,11 @@ void UCoopSessionSubsystem::OnCreated(FName Name, bool bSuccess)
 
 void UCoopSessionSubsystem::Invite()
 {
-	if (!CanInvite()) { SetMessage(TEXT("Invites require a hosted Steam match and a logged-in Steam client.")); return; }
+	if (!CanInvite())
+	{
+		SetMessage(TEXT("Invites require a hosted Steam match and a logged-in Steam client."));
+		return;
+	}
 	const IOnlineExternalUIPtr UI = IOnlineSubsystem::Get()->GetExternalUIInterface();
 	if (!UI.IsValid() || !UI->ShowInviteUI(0, NAME_GameSession))
 		SetMessage(TEXT("Steam invite overlay unavailable. Enable the Steam overlay."));
@@ -216,7 +232,11 @@ void UCoopSessionSubsystem::OnInviteAccepted(bool bSuccess, int32 LocalUser, FUn
 void UCoopSessionSubsystem::JoinPendingInvite()
 {
 	AfterDestroy = EAfterDestroy::None;
-	if (!IsSteamAvailable() || !PendingInvite.IsValid()) { FailToMenu(TEXT("Steam join unavailable. Start Steam and request a new invite.")); return; }
+	if (!IsSteamAvailable() || !PendingInvite.IsValid())
+	{
+		FailToMenu(TEXT("Steam join unavailable. Start Steam and request a new invite."));
+		return;
+	}
 	Operation = EOperation::Joining;
 	SetMessage(TEXT("Joining Steam lobby..."));
 	if (!Sessions->JoinSession(InviteUser, NAME_GameSession, PendingInvite) && Operation == EOperation::Joining)
@@ -226,9 +246,14 @@ void UCoopSessionSubsystem::JoinPendingInvite()
 
 void UCoopSessionSubsystem::OnJoined(FName Name, EOnJoinSessionCompleteResult::Type Result)
 {
-	if (Name != NAME_GameSession || Operation != EOperation::Joining) return;
+	if (Name != NAME_GameSession || Operation != EOperation::Joining)
+		return;
 	Operation = EOperation::Idle;
-	if (AfterDestroy != EAfterDestroy::None) { DestroyThen(AfterDestroy); return; }
+	if (AfterDestroy != EAfterDestroy::None)
+	{
+		DestroyThen(AfterDestroy);
+		return;
+	}
 	FString Address;
 	APlayerController* Controller = GetGameInstance()->GetFirstLocalPlayerController();
 	if (Result != EOnJoinSessionCompleteResult::Success || !Controller
@@ -240,7 +265,8 @@ void UCoopSessionSubsystem::OnJoined(FName Name, EOnJoinSessionCompleteResult::T
 #if !UE_BUILD_SHIPPING
 	// Do not connect Steam to its own identity: cancellation races its local listener.
 	// The rejection fixture still joins the real lobby, then uses an unused loopback port.
-	if (bVerifyPendingRejection) Address = TEXT("127.0.0.1:1");
+	if (bVerifyPendingRejection)
+		Address = TEXT("127.0.0.1:1");
 #endif
 	SetMessage(TEXT("Connecting to Steam host..."));
 	UE_LOG(LogTemp, Display, TEXT("CoopSteam: lobby joined; ClientTravel %s"), *Address);
@@ -250,11 +276,12 @@ void UCoopSessionSubsystem::OnJoined(FName Name, EOnJoinSessionCompleteResult::T
 #if !UE_BUILD_SHIPPING
 	if (bVerifyPendingRejection)
 	{
-		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float)
-		{
-			if (!bVerifyPendingRejection) return false;
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float) {
+			if (!bVerifyPendingRejection)
+				return false;
 			FWorldContext* Context = GetGameInstance()->GetWorldContext();
-			if (!Context || !Context->PendingNetGame) return true;
+			if (!Context || !Context->PendingNetGame)
+				return true;
 			Context->PendingNetGame->ConnectionError = TEXT("Match full (developer verification)");
 			bVerifyPendingRejection = false;
 			UE_LOG(LogTemp, Display, TEXT("CoopSteamVerify: rejecting real pending join"));
@@ -274,8 +301,13 @@ void UCoopSessionSubsystem::DestroyThen(EAfterDestroy Next)
 {
 	AfterDestroy = Next;
 	// Async create/join must finish before destroying their named session.
-	if (Operation != EOperation::Idle) return;
-	if (!Sessions.IsValid() || !Sessions->GetNamedSession(NAME_GameSession)) { FinishDeparture(); return; }
+	if (Operation != EOperation::Idle)
+		return;
+	if (!Sessions.IsValid() || !Sessions->GetNamedSession(NAME_GameSession))
+	{
+		FinishDeparture();
+		return;
+	}
 	Operation = EOperation::Destroying;
 	UE_LOG(LogTemp, Display, TEXT("CoopSteam: destroying session"));
 	if (!Sessions->DestroySession(NAME_GameSession) && Operation == EOperation::Destroying)
@@ -284,7 +316,8 @@ void UCoopSessionSubsystem::DestroyThen(EAfterDestroy Next)
 
 void UCoopSessionSubsystem::OnDestroyed(FName Name, bool bSuccess)
 {
-	if (Name != NAME_GameSession || Operation != EOperation::Destroying) return;
+	if (Name != NAME_GameSession || Operation != EOperation::Destroying)
+		return;
 	Operation = EOperation::Idle;
 	if (!bSuccess)
 	{
@@ -301,9 +334,14 @@ void UCoopSessionSubsystem::FinishDeparture()
 	bHosting = false;
 	const EAfterDestroy Next = AfterDestroy;
 	AfterDestroy = EAfterDestroy::None;
-	if (Next == EAfterDestroy::Join) { JoinPendingInvite(); return; }
+	if (Next == EAfterDestroy::Join)
+	{
+		JoinPendingInvite();
+		return;
+	}
 	APlayerController* Controller = GetGameInstance()->GetFirstLocalPlayerController();
-	if (Controller) Controller->SetPause(false);
+	if (Controller)
+		Controller->SetPause(false);
 	if (Next == EAfterDestroy::Quit)
 		UKismetSystemLibrary::QuitGame(GetGameInstance(), Controller, EQuitPreference::Quit, false);
 	else if (Next == EAfterDestroy::Menu)
@@ -323,7 +361,8 @@ void UCoopSessionSubsystem::OnNetworkFailure(UWorld* World, UNetDriver* Driver, 
 {
 	if (World)
 	{
-		if (World->GetGameInstance() != GetGameInstance()) return;
+		if (World->GetGameInstance() != GetGameInstance())
+			return;
 		// Only a broken listener may end the host lobby; client faults are isolated.
 		if (World->GetNetMode() == NM_ListenServer
 			&& Type != ENetworkFailure::NetDriverListenFailure
@@ -335,16 +374,20 @@ void UCoopSessionSubsystem::OnNetworkFailure(UWorld* World, UNetDriver* Driver, 
 	{
 		// Pending handshakes have no world. Scope the driver to this game instance,
 		// not every subsystem subscribed to the engine-wide failure delegate.
-		if (!GEngine || !Driver || Driver->NetDriverName != NAME_PendingNetDriver) return;
+		if (!GEngine || !Driver || Driver->NetDriverName != NAME_PendingNetDriver)
+			return;
 		const FWorldContext* Context = GEngine->GetWorldContextFromPendingNetGameNetDriver(Driver);
-		if (!Context || Context->OwningGameInstance != GetGameInstance()) return;
+		if (!Context || Context->OwningGameInstance != GetGameInstance())
+			return;
 	}
-	if (AfterDestroy != EAfterDestroy::None || Operation == EOperation::Destroying) return;
+	if (AfterDestroy != EAfterDestroy::None || Operation == EOperation::Destroying)
+		return;
 	FailToMenu(FString::Printf(TEXT("Connection failed: %s"), *Error));
 }
 
 void UCoopSessionSubsystem::OnTravelFailure(UWorld* World, ETravelFailure::Type Type, const FString& Error)
 {
-	if (!World || World->GetGameInstance() != GetGameInstance() || AfterDestroy != EAfterDestroy::None) return;
+	if (!World || World->GetGameInstance() != GetGameInstance() || AfterDestroy != EAfterDestroy::None)
+		return;
 	FailToMenu(FString::Printf(TEXT("Travel failed: %s"), *Error));
 }

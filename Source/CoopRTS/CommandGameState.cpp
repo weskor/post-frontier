@@ -20,62 +20,64 @@
 
 namespace
 {
-	using FPlacementRegions = TArray<FPlacementRegion, TInlineAllocator<16>>;
+using FPlacementRegions = TArray<FPlacementRegion, TInlineAllocator<16>>;
 
-	const AMapRegion* FindRegion(const ACommandGameState& State, int32 RegionIndex)
+const AMapRegion* FindRegion(const ACommandGameState& State, int32 RegionIndex)
+{
+	for (const AMapRegion* Region : State.Regions)
+		if (IsValid(Region) && Region->RegionIndex == RegionIndex)
+			return Region;
+	return nullptr;
+}
+
+void CollectPlacementRegions(const ACommandGameState& State, int32 Team, FPlacementRegions& Out)
+{
+	Out.Reserve(State.Regions.Num());
+	for (const AMapRegion* Region : State.Regions)
+		if (IsValid(Region))
+			Out.Add({ Region->RegionIndex, Region->Polygon, State.GetRegionController(Region->RegionIndex), false });
+	for (TActorIterator<AArmyUnit> It(State.GetWorld()); It; ++It)
 	{
-		for (const AMapRegion* Region : State.Regions)
-			if (IsValid(Region) && Region->RegionIndex == RegionIndex) return Region;
-		return nullptr;
+		if (!It->IsAlive() || It->GetTeamIndex() == Team)
+			continue;
+		const FVector Location = It->GetActorLocation();
+		for (FPlacementRegion& Region : Out)
+			if (!Region.bContested && PlacementPolicy::ContainsPoint(Region.Polygon, FVector2D(Location.X, Location.Y)))
+				Region.bContested = true;
 	}
+}
 
-	void CollectPlacementRegions(const ACommandGameState& State, int32 Team, FPlacementRegions& Out)
+int32 FindFreeDeposit(const ACommandGameState& State, const FVector& RequestedLocation, int32 Team,
+	TConstArrayView<FPlacementRegion> Regions)
+{
+	TArray<FPlacementDeposit, TInlineAllocator<32>> Deposits;
+	Deposits.Reserve(State.Deposits.Num());
+	for (const ADepositSite* Deposit : State.Deposits)
 	{
-		Out.Reserve(State.Regions.Num());
-		for (const AMapRegion* Region : State.Regions)
-			if (IsValid(Region))
-				Out.Add({ Region->RegionIndex, Region->Polygon, State.GetRegionController(Region->RegionIndex), false });
-		for (TActorIterator<AArmyUnit> It(State.GetWorld()); It; ++It)
+		FPlacementDeposit Candidate{ FVector::ZeroVector, INDEX_NONE, -1, true, false };
+		if (IsValid(Deposit))
 		{
-			if (!It->IsAlive() || It->GetTeamIndex() == Team) continue;
-			const FVector Location = It->GetActorLocation();
-			for (FPlacementRegion& Region : Out)
-				if (!Region.bContested && PlacementPolicy::ContainsPoint(Region.Polygon, FVector2D(Location.X, Location.Y)))
-					Region.bContested = true;
+			Candidate.Position = Deposit->GetActorLocation();
+			Candidate.RegionIndex = Deposit->RegionIndex;
+			Candidate.bOccupied = IsValid(Deposit->Extractor);
+			for (const FPlacementRegion& Region : Regions)
+				if (Region.RegionIndex == Deposit->RegionIndex)
+				{
+					Candidate.ControllingTeam = Region.ControllingTeam;
+					Candidate.bContested = Region.bContested;
+					break;
+				}
 		}
+		Deposits.Add(Candidate);
 	}
+	return PlacementPolicy::SelectFreeDeposit(Team, RequestedLocation, Deposits);
+}
 
-	int32 FindFreeDeposit(const ACommandGameState& State, const FVector& RequestedLocation, int32 Team,
-		TConstArrayView<FPlacementRegion> Regions)
-	{
-		TArray<FPlacementDeposit, TInlineAllocator<32>> Deposits;
-		Deposits.Reserve(State.Deposits.Num());
-		for (const ADepositSite* Deposit : State.Deposits)
-		{
-			FPlacementDeposit Candidate{ FVector::ZeroVector, INDEX_NONE, -1, true, false };
-			if (IsValid(Deposit))
-			{
-				Candidate.Position = Deposit->GetActorLocation();
-				Candidate.RegionIndex = Deposit->RegionIndex;
-				Candidate.bOccupied = IsValid(Deposit->Extractor);
-				for (const FPlacementRegion& Region : Regions)
-					if (Region.RegionIndex == Deposit->RegionIndex)
-					{
-						Candidate.ControllingTeam = Region.ControllingTeam;
-						Candidate.bContested = Region.bContested;
-						break;
-					}
-			}
-			Deposits.Add(Candidate);
-		}
-		return PlacementPolicy::SelectFreeDeposit(Team, RequestedLocation, Deposits);
-	}
-
-	bool IsPayingExtractor(const ACommandBuilding* Building, const ADepositSite* Deposit)
-	{
-		return IsValid(Building) && Building->IsAlive() && Building->IsComplete()
-			&& Building->Kind == EBuildingKind::Extractor && Building->Deposit == Deposit;
-	}
+bool IsPayingExtractor(const ACommandBuilding* Building, const ADepositSite* Deposit)
+{
+	return IsValid(Building) && Building->IsAlive() && Building->IsComplete()
+		&& Building->Kind == EBuildingKind::Extractor && Building->Deposit == Deposit;
+}
 }
 
 ACommandGameState::ACommandGameState()
@@ -95,7 +97,8 @@ void ACommandGameState::BeginPlay()
 
 void ACommandGameState::SetMatchResult(EMatchResult Result)
 {
-	if (!HasAuthority() || MatchResult == Result) return;
+	if (!HasAuthority() || MatchResult == Result)
+		return;
 	MatchResult = Result;
 	OnRep_MatchResult();
 	ForceNetUpdate();
@@ -103,11 +106,13 @@ void ACommandGameState::SetMatchResult(EMatchResult Result)
 
 void ACommandGameState::OnRep_MatchResult()
 {
-	if (!bMatchAudioInitialized) return;
+	if (!bMatchAudioInitialized)
+		return;
 	const EMatchResult PreviousResult = LastAudioMatchResult;
 	LastAudioMatchResult = MatchResult;
 	if (bOutcomeAudioPlayed || PreviousResult != EMatchResult::Ongoing
-		|| MatchResult == EMatchResult::Ongoing) return;
+		|| MatchResult == EMatchResult::Ongoing)
+		return;
 	bOutcomeAudioPlayed = true;
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 		Audio->PlayOutcome(MatchResult == EMatchResult::Victory);
@@ -117,16 +122,19 @@ void ACommandGameState::AddPlayerState(APlayerState* PlayerState)
 {
 	// The controllerless enemy is match-local, not a human roster or travel member.
 	if (const ACommandPlayerState* Commander = Cast<ACommandPlayerState>(PlayerState))
-		if (Commander->TeamIndex == 5) return;
+		if (Commander->TeamIndex == 5)
+			return;
 	Super::AddPlayerState(PlayerState);
 }
 
 void ACommandGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing) return;
+	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing)
+		return;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
-	if (bVerificationIncomePaused) return;
+	if (bVerificationIncomePaused)
+		return;
 #endif
 	IncomeElapsed += DeltaSeconds;
 	while (IncomeElapsed >= 2.f)
@@ -136,22 +144,25 @@ void ACommandGameState::Tick(float DeltaSeconds)
 			if (ACommandPlayerState* Wallet = Cast<ACommandPlayerState>(Player))
 				if (Wallet->TeamIndex == 0 && Wallet->CommanderIndex >= 0 && Wallet->CommanderIndex < 5)
 					Wallet->AddResources(GetBaselineIncomePerSecond() * 2);
-		if (IsValid(EnemyCommander)) EnemyCommander->AddResources(GetBaselineIncomePerSecond() * 2);
+		if (IsValid(EnemyCommander))
+			EnemyCommander->AddResources(GetBaselineIncomePerSecond() * 2);
 		for (ADepositSite* Deposit : Deposits)
 		{
-			if (!IsValid(Deposit)) continue;
+			if (!IsValid(Deposit))
+				continue;
 			ACommandBuilding* Building = Deposit->Extractor;
-			if (!IsPayingExtractor(Building, Deposit)) continue;
+			if (!IsPayingExtractor(Building, Deposit))
+				continue;
 			ACommandPlayerState* Wallet = Building->OwningPlayerState;
 			if (!IsValid(Wallet) || Wallet->GetWorld() != GetWorld()
 				|| (Building->TeamIndex == 5 && Wallet != EnemyCommander)
-				|| (Building->TeamIndex == 0 && !PlayerArray.ContainsByPredicate([Wallet](const TObjectPtr<APlayerState>& Player)
-					{ return Player.Get() == Wallet; }))) continue;
-			const FExtractorPayment Payment = EconomyPolicy::ExtractorPayment({
-				Deposit->RatePerSecond(), Deposit->Remaining, 2, Building->TeamIndex,
+				|| (Building->TeamIndex == 0 && !PlayerArray.ContainsByPredicate([Wallet](const TObjectPtr<APlayerState>& Player) { return Player.Get() == Wallet; })))
+				continue;
+			const FExtractorPayment Payment = EconomyPolicy::ExtractorPayment({ Deposit->RatePerSecond(), Deposit->Remaining, 2, Building->TeamIndex,
 				Wallet->CommanderIndex, Wallet->TeamIndex, Wallet->CommanderIndex,
 				Building->IsAlive(), Building->IsComplete() });
-			if (Payment.Amount == 0) continue;
+			if (Payment.Amount == 0)
+				continue;
 			Wallet->AddResources(Payment.Amount);
 			Deposit->Remaining = Payment.Remaining;
 			Deposit->ForceNetUpdate();
@@ -167,7 +178,8 @@ int32 ACommandGameState::GetBaselineIncomePerSecond() const
 int32 ACommandGameState::GetIncomePerSecond(const ACommandPlayerState* Commander) const
 {
 	int32 Income = GetBaselineIncomePerSecond();
-	if (!IsValid(Commander)) return Income;
+	if (!IsValid(Commander))
+		return Income;
 	for (const ADepositSite* Deposit : Deposits)
 		if (IsValid(Deposit) && Deposit->Remaining > 0 && IsPayingExtractor(Deposit->Extractor, Deposit)
 			&& Deposit->Extractor->OwningPlayerState == Commander
@@ -184,16 +196,19 @@ int32 ACommandGameState::GetEnemyIncomePerSecond() const
 const AMapRegion* ACommandGameState::FindRegionAt(const FVector& Location) const
 {
 	for (const AMapRegion* Region : Regions)
-		if (IsValid(Region) && Region->Contains(Location)) return Region;
+		if (IsValid(Region) && Region->Contains(Location))
+			return Region;
 	return nullptr;
 }
 
 int32 ACommandGameState::GetRegionController(int32 RegionIndex) const
 {
 	const AMapRegion* Region = FindRegion(*this, RegionIndex);
-	if (!Region) return -1;
+	if (!Region)
+		return -1;
 	const AHeadquarters* Home = Region->HomeTeam == 0 ? FriendlyHeadquarters
-		: Region->HomeTeam == 5 ? EnemyHeadquarters : nullptr;
+		: Region->HomeTeam == 5                       ? EnemyHeadquarters
+													  : nullptr;
 	return PlacementPolicy::RegionController(Region->RegionRole == ERegionRole::Main, Region->HomeTeam,
 		IsValid(Home) && Home->IsAlive(), IsValid(Region->Anchor) ? Region->Anchor->ControllingTeam : -1);
 }
@@ -201,33 +216,39 @@ int32 ACommandGameState::GetRegionController(int32 RegionIndex) const
 bool ACommandGameState::IsRegionContested(int32 RegionIndex, int32 ForTeam) const
 {
 	const AMapRegion* Region = FindRegion(*this, RegionIndex);
-	if (!Region || (ForTeam != 0 && ForTeam != 5) || !GetWorld()) return false;
+	if (!Region || (ForTeam != 0 && ForTeam != 5) || !GetWorld())
+		return false;
 	for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
-		if (It->IsAlive() && It->GetTeamIndex() != ForTeam && Region->Contains(It->GetActorLocation())) return true;
+		if (It->IsAlive() && It->GetTeamIndex() != ForTeam && Region->Contains(It->GetActorLocation()))
+			return true;
 	return false;
 }
 
 FVector ACommandGameState::GetRegionAnchor(int32 RegionIndex) const
 {
 	const AMapRegion* Region = FindRegion(*this, RegionIndex);
-	if (!Region) return FVector::ZeroVector;
+	if (!Region)
+		return FVector::ZeroVector;
 	if (Region->RegionRole != ERegionRole::Main)
 		return IsValid(Region->Anchor) ? Region->Anchor->GetActorLocation() : FVector::ZeroVector;
 	const AHeadquarters* Home = Region->HomeTeam == 0 ? FriendlyHeadquarters
-		: Region->HomeTeam == 5 ? EnemyHeadquarters : nullptr;
+		: Region->HomeTeam == 5                       ? EnemyHeadquarters
+													  : nullptr;
 	return IsValid(Home) ? Home->GetActorLocation() : FVector::ZeroVector;
 }
 
 FVector ACommandGameState::ResolveBuildingLocation(int32 BuildingIndex, const FVector& RequestedLocation, int32 Team) const
 {
 	const UBuildingDefinition* Definition = IsValid(Content) ? Content->Building(BuildingIndex) : nullptr;
-	if (!Definition) return RequestedLocation;
+	if (!Definition)
+		return RequestedLocation;
 	if (!Definition->bRequiresDeposit)
 		return PlacementPolicy::SnapToBuildGrid(RequestedLocation, ACommandBuilding::GetFootprintRadius(*Definition));
 	FPlacementRegions PlacementRegions;
 	CollectPlacementRegions(*this, Team, PlacementRegions);
 	const int32 Index = FindFreeDeposit(*this, RequestedLocation, Team, PlacementRegions);
-	if (Index == INDEX_NONE) return RequestedLocation;
+	if (Index == INDEX_NONE)
+		return RequestedLocation;
 	const FVector Position = Deposits[Index]->GetActorLocation();
 	return FVector(Position.X, Position.Y, RequestedLocation.Z);
 }
@@ -235,25 +256,29 @@ FVector ACommandGameState::ResolveBuildingLocation(int32 BuildingIndex, const FV
 bool ACommandGameState::IsInBuildTerritory(int32 BuildingIndex, int32 Team, const FVector& RequestedLocation) const
 {
 	const UBuildingDefinition* Definition = IsValid(Content) ? Content->Building(BuildingIndex) : nullptr;
-	if (!Definition || (Team != 0 && Team != 5)) return false;
+	if (!Definition || (Team != 0 && Team != 5))
+		return false;
 	FVector Location = PlacementPolicy::SnapToBuildGrid(RequestedLocation, ACommandBuilding::GetFootprintRadius(*Definition));
 	const AHeadquarters* Home = Team == 0 ? FriendlyHeadquarters : EnemyHeadquarters;
-	if (!IsValid(Home) || !Home->IsAlive()) return false;
+	if (!IsValid(Home) || !Home->IsAlive())
+		return false;
 	if (!Definition->bRequiresDeposit)
 	{
-		if (!IsValid(Arena) || !Arena->ContainsPlacement(Location)) return false;
+		if (!IsValid(Arena) || !Arena->ContainsPlacement(Location))
+			return false;
 		// Grid tint visits every cell: only inspect troops after a polygon actually contains this footprint.
 		for (const AMapRegion* Region : Regions)
-			if (IsValid(Region) && PlacementPolicy::ContainsFootprint(Region->Polygon, Location,
-				ACommandBuilding::GetFootprintRadius(*Definition))
+			if (IsValid(Region) && PlacementPolicy::ContainsFootprint(Region->Polygon, Location, ACommandBuilding::GetFootprintRadius(*Definition))
 				&& GetRegionController(Region->RegionIndex) == Team
-				&& !IsRegionContested(Region->RegionIndex, Team)) return true;
+				&& !IsRegionContested(Region->RegionIndex, Team))
+				return true;
 		return false;
 	}
 	FPlacementRegions PlacementRegions;
 	CollectPlacementRegions(*this, Team, PlacementRegions);
 	const int32 Index = FindFreeDeposit(*this, RequestedLocation, Team, PlacementRegions);
-	if (Index == INDEX_NONE) return false;
+	if (Index == INDEX_NONE)
+		return false;
 	const ADepositSite* Deposit = Deposits[Index];
 	const FVector Position = Deposit->GetActorLocation();
 	Location = FVector(Position.X, Position.Y, RequestedLocation.Z);
@@ -301,7 +326,8 @@ bool ACommandGameState::ValidateBuildingPlacement(int32 BuildingIndex, int32 Tea
 				ACommandBuilding::GetFootprintRadius(*Existing->GetDefinition()), Existing->IsAlive() });
 	TArray<FVector, TInlineAllocator<64>> EnemyTroops;
 	for (TActorIterator<AArmyUnit> It(World); It; ++It)
-		if (It->IsAlive() && It->GetTeamIndex() != Team) EnemyTroops.Add(It->GetActorLocation());
+		if (It->IsAlive() && It->GetTeamIndex() != Team)
+			EnemyTroops.Add(It->GetActorLocation());
 	const FPlacementDecision Decision = PlacementPolicy::Evaluate({ Team, Location,
 		IsValid(Home) ? Home->GetActorLocation() : FVector::ZeroVector,
 		IsValid(HostileHQ) ? HostileHQ->GetActorLocation() : FVector::ZeroVector,
@@ -310,16 +336,35 @@ bool ACommandGameState::ValidateBuildingPlacement(int32 BuildingIndex, int32 Tea
 		PlacementRegions, PlacementBuildings, EnemyTroops });
 	switch (Decision.Verdict)
 	{
-	case EPlacementVerdict::Valid: break;
-	case EPlacementVerdict::Invalid: OutReason = TEXT("Invalid building, team or match"); return false;
-	case EPlacementVerdict::OutsideBounds: OutReason = TEXT("Outside arena bounds"); return false;
-	case EPlacementVerdict::HeadquartersUnavailable: OutReason = TEXT("Headquarters unavailable"); return false;
-	case EPlacementVerdict::EnemyHeadquartersTooClose: OutReason = TEXT("Too close to enemy headquarters"); return false;
-	case EPlacementVerdict::Contested: OutReason = TEXT("Region is contested"); return false;
-	case EPlacementVerdict::TerritoryRequired: OutReason = TEXT("Footprint must fit one controlled, uncontested region"); return false;
-	case EPlacementVerdict::EnemyTroopsTooClose: OutReason = TEXT("Enemy troops too close"); return false;
-	case EPlacementVerdict::BuildingOverlap: OutReason = TEXT("Building footprint overlaps"); return false;
-	case EPlacementVerdict::HeadquartersTooClose: OutReason = TEXT("Too close to headquarters"); return false;
+	case EPlacementVerdict::Valid:
+		break;
+	case EPlacementVerdict::Invalid:
+		OutReason = TEXT("Invalid building, team or match");
+		return false;
+	case EPlacementVerdict::OutsideBounds:
+		OutReason = TEXT("Outside arena bounds");
+		return false;
+	case EPlacementVerdict::HeadquartersUnavailable:
+		OutReason = TEXT("Headquarters unavailable");
+		return false;
+	case EPlacementVerdict::EnemyHeadquartersTooClose:
+		OutReason = TEXT("Too close to enemy headquarters");
+		return false;
+	case EPlacementVerdict::Contested:
+		OutReason = TEXT("Region is contested");
+		return false;
+	case EPlacementVerdict::TerritoryRequired:
+		OutReason = TEXT("Footprint must fit one controlled, uncontested region");
+		return false;
+	case EPlacementVerdict::EnemyTroopsTooClose:
+		OutReason = TEXT("Enemy troops too close");
+		return false;
+	case EPlacementVerdict::BuildingOverlap:
+		OutReason = TEXT("Building footprint overlaps");
+		return false;
+	case EPlacementVerdict::HeadquartersTooClose:
+		OutReason = TEXT("Too close to headquarters");
+		return false;
 	}
 	if (Deposit && Deposit->RegionIndex != Decision.RegionIndex)
 	{
@@ -333,7 +378,7 @@ bool ACommandGameState::ValidateBuildingPlacement(int32 BuildingIndex, int32 Tea
 	Objects.AddObjectTypesToQuery(ECC_Pawn);
 	FCollisionQueryParams Query(SCENE_QUERY_STAT(BuildingPlacement), false);
 	if (World->OverlapAnyTestByObjectType(Center, FQuat::Identity, Objects,
-		FCollisionShape::MakeBox(FVector(Radius, Radius, 55.f)), Query))
+			FCollisionShape::MakeBox(FVector(Radius, Radius, 55.f)), Query))
 	{
 		OutReason = TEXT("Footprint blocked by terrain or obstacle");
 		return false;
@@ -377,13 +422,12 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 		OutReason = TEXT("Server authority required");
 		return nullptr;
 	}
-	if (!ValidateBuildingPlacement(BuildingIndex, Team, RequestedLocation, OutReason)) return nullptr;
+	if (!ValidateBuildingPlacement(BuildingIndex, Team, RequestedLocation, OutReason))
+		return nullptr;
 	const FVector Location = ResolveBuildingLocation(BuildingIndex, RequestedLocation, Team);
 	const UBuildingDefinition& Definition = *Content->Building(BuildingIndex);
 	if (!IsValid(Commander) || Commander->GetWorld() != GetWorld() || Commander->TeamIndex != Team
-		|| (Team == 0 && (Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5
-			|| !PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player)
-				{ return Player.Get() == Commander; })))
+		|| (Team == 0 && (Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5 || !PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player) { return Player.Get() == Commander; })))
 		|| (Team == 5 && Commander != EnemyCommander))
 	{
 		OutReason = TEXT("Invalid building owner");
@@ -400,9 +444,14 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 	{
 		for (ADepositSite* Candidate : Deposits)
 		{
-			if (!IsValid(Candidate) || IsValid(Candidate->Extractor)) continue;
+			if (!IsValid(Candidate) || IsValid(Candidate->Extractor))
+				continue;
 			const FVector Position = Candidate->GetActorLocation();
-			if (Position.X == Location.X && Position.Y == Location.Y) { Deposit = Candidate; break; }
+			if (Position.X == Location.X && Position.Y == Location.Y)
+			{
+				Deposit = Candidate;
+				break;
+			}
 		}
 		if (!Deposit)
 		{
@@ -448,7 +497,8 @@ ACommandBuilding* ACommandGameState::TryPlaceBuilding(int32 BuildingIndex, const
 			Deposit->Extractor = nullptr;
 			Deposit->ForceNetUpdate();
 		}
-		if (IsValid(Building)) Building->Destroy();
+		if (IsValid(Building))
+			Building->Destroy();
 		OutReason = TEXT("Building spawn failed");
 		return nullptr;
 	}

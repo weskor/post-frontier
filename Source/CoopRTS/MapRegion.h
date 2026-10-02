@@ -9,7 +9,10 @@ class ACapturePoint;
 UENUM(BlueprintType)
 enum class ERegionRole : uint8
 {
-	Main, Natural, Reward, Tactical
+	Main,
+	Natural,
+	Reward,
+	Tactical
 };
 
 UCLASS()

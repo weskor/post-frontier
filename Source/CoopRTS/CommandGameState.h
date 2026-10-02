@@ -23,7 +23,6 @@ enum class EMatchResult : uint8
 	Defeat
 };
 
-
 UCLASS()
 class COOPRTS_API ACommandGameState : public AGameStateBase
 {

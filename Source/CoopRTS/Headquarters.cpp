@@ -29,13 +29,17 @@ AHeadquarters::AHeadquarters()
 	Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Body->SetCanEverAffectNavigation(false);
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
-	if (Cube.Succeeded()) Body->SetStaticMesh(Cube.Object);
+	if (Cube.Succeeded())
+		Body->SetStaticMesh(Cube.Object);
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("/Game/Materials/M_CommandUnit.M_CommandUnit"));
-	if (Material.Succeeded()) Body->SetMaterial(0, Material.Object);
+	if (Material.Succeeded())
+		Body->SetMaterial(0, Material.Object);
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Human(TEXT("/Game/Art/Units/SM_Human_HQ.SM_Human_HQ"));
-	if (Human.Succeeded()) HumanMesh = Human.Object;
+	if (Human.Succeeded())
+		HumanMesh = Human.Object;
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Machine(TEXT("/Game/Art/Units/SM_Machine_HQ.SM_Machine_HQ"));
-	if (Machine.Succeeded()) MachineMesh = Machine.Object;
+	if (Machine.Succeeded())
+		MachineMesh = Machine.Object;
 }
 
 void AHeadquarters::BeginPlay()
@@ -51,7 +55,8 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
-		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing) return;
+		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
+		return;
 	Health = FMath::Max(0, Health - Damage);
 	OnRep_Appearance();
 	ForceNetUpdate();
@@ -66,7 +71,8 @@ void AHeadquarters::OnRep_Appearance()
 	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
 	const bool bDestroyed = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDestroyedAudioPlayed;
 	LastAudioHealth = Health;
-	if (bDestroyed) bDestroyedAudioPlayed = true;
+	if (bDestroyed)
+		bDestroyedAudioPlayed = true;
 	if (bTookDamage)
 	{
 		if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
@@ -78,11 +84,13 @@ void AHeadquarters::OnRep_Appearance()
 				NextAlarmAudioTime = Now + 10.f;
 				Audio->PlayStructure(ECoopAudioEvent::HQAlarm, TeamIndex, GetActorLocation(), this);
 			}
-			if (bDestroyed) Audio->PlayStructure(ECoopAudioEvent::HQDestroyed, TeamIndex, GetActorLocation(), this);
+			if (bDestroyed)
+				Audio->PlayStructure(ECoopAudioEvent::HQDestroyed, TeamIndex, GetActorLocation(), this);
 		}
 	}
 
-	if (GetNetMode() == NM_DedicatedServer) return;
+	if (GetNetMode() == NM_DedicatedServer)
+		return;
 	UStaticMesh* Themed = (TeamIndex == 5 ? MachineMesh : HumanMesh).Get();
 	if (Themed && Body->GetStaticMesh() != Themed)
 	{
@@ -93,9 +101,11 @@ void AHeadquarters::OnRep_Appearance()
 	}
 	const int32 TeamSlot = Themed ? FMath::Max(0, Body->GetMaterialIndex(TEXT("Team"))) : 0;
 	UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(Body->GetMaterial(TeamSlot));
-	if (!Material) Material = Body->CreateAndSetMaterialInstanceDynamic(TeamSlot);
-	if (Material) Material->SetVectorParameterValue(TEXT("TeamColor"), !IsAlive() ? FLinearColor(.08f, .08f, .08f)
-		: TeamIndex == 5 ? FLinearColor(1.f, .08f, .08f) : FLinearColor(.04f, .50f, 1.f));
+	if (!Material)
+		Material = Body->CreateAndSetMaterialInstanceDynamic(TeamSlot);
+	if (Material)
+		Material->SetVectorParameterValue(TEXT("TeamColor"), !IsAlive() ? FLinearColor(.08f, .08f, .08f) : TeamIndex == 5 ? FLinearColor(1.f, .08f, .08f)
+																														  : FLinearColor(.04f, .50f, 1.f));
 }
 
 void AHeadquarters::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

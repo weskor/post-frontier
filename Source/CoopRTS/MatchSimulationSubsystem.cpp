@@ -30,20 +30,21 @@
 
 namespace
 {
-	int32 TeamSlot(int32 Team) { return Team == 0 ? 0 : Team == 5 ? 1 : INDEX_NONE; }
+int32 TeamSlot(int32 Team) { return Team == 0 ? 0 : Team == 5 ? 1
+															  : INDEX_NONE; }
 
-	TArray<TSharedPtr<FJsonValue>> Position(const FVector& P)
-	{
-		return { MakeShared<FJsonValueNumber>(P.X), MakeShared<FJsonValueNumber>(P.Y), MakeShared<FJsonValueNumber>(P.Z) };
-	}
+TArray<TSharedPtr<FJsonValue>> Position(const FVector& P)
+{
+	return { MakeShared<FJsonValueNumber>(P.X), MakeShared<FJsonValueNumber>(P.Y), MakeShared<FJsonValueNumber>(P.Z) };
+}
 
-	void Append(FJsonObject& Object, const TCHAR* Field, const TSharedRef<FJsonObject>& Item)
-	{
-		TArray<TSharedPtr<FJsonValue>>* Array = nullptr;
-		Object.GetField<EJson::Array>(Field)->TryGetArray(Array);
-		check(Array);
-		Array->Add(MakeShared<FJsonValueObject>(Item));
-	}
+void Append(FJsonObject& Object, const TCHAR* Field, const TSharedRef<FJsonObject>& Item)
+{
+	TArray<TSharedPtr<FJsonValue>>* Array = nullptr;
+	Object.GetField<EJson::Array>(Field)->TryGetArray(Array);
+	check(Array);
+	Array->Add(MakeShared<FJsonValueObject>(Item));
+}
 }
 
 bool UMatchSimulationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -125,7 +126,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	int32 EnemyPlanners = 0;
 	for (TActorIterator<AEnemyCommander> It(GetWorld()); It; ++It)
 	{
-		if (It->TeamIndex == 5) ++EnemyPlanners;
+		if (It->TeamIndex == 5)
+			++EnemyPlanners;
 		else
 		{
 			Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Map already contains an autopilot planner"));
@@ -177,7 +179,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	TArray<TSharedPtr<FJsonValue>> Regions;
 	for (const AMapRegion* Region : State.Regions)
 	{
-		if (!IsValid(Region)) continue;
+		if (!IsValid(Region))
+			continue;
 		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 		Row->SetNumberField(TEXT("index"), Region->RegionIndex);
 		Row->SetStringField(TEXT("name"), Region->DisplayName.ToString());
@@ -188,7 +191,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 		for (const FVector2D& P : Region->Polygon)
 			Polygon.Add(MakeShared<FJsonValueArray>(TArray<TSharedPtr<FJsonValue>>{
 				MakeShared<FJsonValueNumber>(P.X), MakeShared<FJsonValueNumber>(P.Y) }));
-		for (int32 Index : Region->Neighbours) Neighbours.Add(MakeShared<FJsonValueNumber>(Index));
+		for (int32 Index : Region->Neighbours)
+			Neighbours.Add(MakeShared<FJsonValueNumber>(Index));
 		Row->SetArrayField(TEXT("polygon"), MoveTemp(Polygon));
 		Row->SetArrayField(TEXT("neighbours"), MoveTemp(Neighbours));
 		Regions.Add(MakeShared<FJsonValueObject>(Row));
@@ -198,7 +202,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	TArray<TSharedPtr<FJsonValue>> Deposits;
 	for (const ADepositSite* Deposit : State.Deposits)
 	{
-		if (!IsValid(Deposit)) continue;
+		if (!IsValid(Deposit))
+			continue;
 		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 		Row->SetStringField(TEXT("id"), Deposit->GetName());
 		Row->SetNumberField(TEXT("region"), Deposit->RegionIndex);
@@ -212,7 +217,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	TArray<TSharedPtr<FJsonValue>> Units;
 	for (const UArmyUnitDefinition* Definition : State.Content->Units)
 	{
-		if (!IsValid(Definition)) continue;
+		if (!IsValid(Definition))
+			continue;
 		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 		Row->SetStringField(TEXT("id"), Definition->Id.ToString());
 		Row->SetNumberField(TEXT("role"), static_cast<uint8>(Definition->Role));
@@ -229,7 +235,8 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	Event(TEXT("match_started"));
 	Observe(State);
 	Snapshot(State, 0.);
-	if (!Flush()) Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot write initial telemetry"));
+	if (!Flush())
+		Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot write initial telemetry"));
 	return !bFinished;
 }
 
@@ -256,9 +263,11 @@ void UMatchSimulationSubsystem::Observe(ACommandGameState& State)
 	}
 	for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
 	{
-		if (!It->IsAlive()) continue;
+		if (!It->IsAlive())
+			continue;
 		const int32 Slot = TeamSlot(It->GetTeamIndex());
-		if (Slot == INDEX_NONE) continue;
+		if (Slot == INDEX_NONE)
+			continue;
 		const TWeakObjectPtr<AArmyUnit> Key(*It);
 		FObservedUnit* Previous = ObservedUnits.Find(Key);
 		if (!Previous)
@@ -278,10 +287,13 @@ void UMatchSimulationSubsystem::Observe(ACommandGameState& State)
 	}
 	for (const ACommandBuilding* Building : State.Buildings)
 	{
-		if (!IsValid(Building) || !Building->IsAlive()) continue;
+		if (!IsValid(Building) || !Building->IsAlive())
+			continue;
 		const int32 Slot = TeamSlot(Building->TeamIndex);
-		const int32 Kind = Building->Kind == EBuildingKind::Extractor ? 0 : Building->IsProducer() ? 1 : INDEX_NONE;
-		if (Slot == INDEX_NONE || Kind == INDEX_NONE) continue;
+		const int32 Kind = Building->Kind == EBuildingKind::Extractor ? 0 : Building->IsProducer() ? 1
+																								   : INDEX_NONE;
+		if (Slot == INDEX_NONE || Kind == INDEX_NONE)
+			continue;
 		if (!FirstPlaced[Slot][Kind])
 		{
 			FirstPlaced[Slot][Kind] = true;
@@ -296,10 +308,12 @@ void UMatchSimulationSubsystem::Observe(ACommandGameState& State)
 	}
 	for (const AMapRegion* Region : State.Regions)
 	{
-		if (!IsValid(Region)) continue;
+		if (!IsValid(Region))
+			continue;
 		const int32 Owner = State.GetRegionController(Region->RegionIndex);
 		int32& Previous = RegionOwners.FindChecked(Region->RegionIndex);
-		if (Owner == Previous) continue;
+		if (Owner == Previous)
+			continue;
 		const TSharedRef<FJsonObject> Row = Event(TEXT("region_control"), Owner);
 		Row->SetNumberField(TEXT("region"), Region->RegionIndex);
 		Row->SetNumberField(TEXT("previous_team"), Previous);
@@ -360,12 +374,15 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 		TArray<TSharedPtr<FJsonValue>> Buildings, Forces, OwnedRegions;
 		for (const ACommandBuilding* Building : State.Buildings)
 		{
-			if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != Team) continue;
-			if (Building->IsProducer()) ++Barracks;
+			if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != Team)
+				continue;
+			if (Building->IsProducer())
+				++Barracks;
 			if (Building->Kind == EBuildingKind::Extractor)
 			{
 				++Extractors;
-				if (Building->IsComplete()) ++CompleteExtractors;
+				if (Building->IsComplete())
+					++CompleteExtractors;
 			}
 			const TSharedRef<FJsonObject> Detail = MakeShared<FJsonObject>();
 			Detail->SetStringField(TEXT("id"), Building->GetName());
@@ -388,23 +405,31 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 				OwnedRegions.Add(MakeShared<FJsonValueNumber>(Region->RegionIndex));
 			}
 		for (const ADepositSite* Deposit : State.Deposits)
-			if (IsValid(Deposit) && State.GetRegionController(Deposit->RegionIndex) == Team) Remaining += Deposit->Remaining;
+			if (IsValid(Deposit) && State.GetRegionController(Deposit->RegionIndex) == Team)
+				Remaining += Deposit->Remaining;
 		for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
 		{
-			if (!It->IsAlive() || It->GetTeamIndex() != Team) continue;
+			if (!It->IsAlive() || It->GetTeamIndex() != Team)
+				continue;
 			++Alive;
-			if (It->IsReinforcing()) ++Reinforcing;
+			if (It->IsReinforcing())
+				++Reinforcing;
 			const int32 Role = static_cast<uint8>(It->GetUnitRole());
-			if (Role < 3) ++Roles[Role];
+			if (Role < 3)
+				++Roles[Role];
 			const AMapRegion* Region = State.FindRegionAt(It->GetActorLocation());
 			++UnitRegions.FindOrAdd(Region ? Region->RegionIndex : INDEX_NONE);
 		}
 		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		{
-			if (It->GetTeamIndex() != Team) continue;
+			if (It->GetTeamIndex() != Team)
+				continue;
 			int32 Strength = 0;
-			for (const AArmyUnit* Unit : It->GetUnits()) if (IsValid(Unit) && Unit->IsAlive()) ++Strength;
-			if (!Strength) continue;
+			for (const AArmyUnit* Unit : It->GetUnits())
+				if (IsValid(Unit) && Unit->IsAlive())
+					++Strength;
+			if (!Strength)
+				continue;
 			const TSharedRef<FJsonObject> Detail = MakeShared<FJsonObject>();
 			Detail->SetStringField(TEXT("id"), It->GetName());
 			Detail->SetNumberField(TEXT("number"), It->ForceNumber);
@@ -419,7 +444,8 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 		for (const auto& Pair : UnitRegions)
 		{
 			Concentration->SetNumberField(FString::FromInt(Pair.Key), Pair.Value);
-			if (Pair.Key != INDEX_NONE) Largest = FMath::Max(Largest, Pair.Value);
+			if (Pair.Key != INDEX_NONE)
+				Largest = FMath::Max(Largest, Pair.Value);
 		}
 		Summary->SetNumberField(TEXT("barracks"), Barracks);
 		Summary->SetNumberField(TEXT("extractors"), Extractors);
@@ -440,7 +466,8 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 	TArray<TSharedPtr<FJsonValue>> Deposits;
 	for (const ADepositSite* Deposit : State.Deposits)
 	{
-		if (!IsValid(Deposit)) continue;
+		if (!IsValid(Deposit))
+			continue;
 		const TSharedRef<FJsonObject> Detail = MakeShared<FJsonObject>();
 		Detail->SetStringField(TEXT("id"), Deposit->GetName());
 		Detail->SetNumberField(TEXT("region"), Deposit->RegionIndex);
@@ -456,27 +483,34 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 bool UMatchSimulationSubsystem::Flush()
 {
 	const FString& Path = FSimulationSettings::Get().Output;
-	if (Path.IsEmpty() || FPaths::IsRelative(Path)) return false;
-	if (!IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), true)) return false;
+	if (Path.IsEmpty() || FPaths::IsRelative(Path))
+		return false;
+	if (!IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), true))
+		return false;
 	Report->SetNumberField(TEXT("duration"), bStarted ? GetWorld()->GetTimeSeconds() - StartWorldTime : 0.);
 	Report->SetNumberField(TEXT("wall_duration"), FPlatformTime::Seconds() - StartWallTime);
 	Report->SetNumberField(TEXT("max_game_delta_seconds"), MaxGameDelta);
 	FString Json;
 	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Json);
 	if (!FJsonSerializer::Serialize(Report, Writer)
-		|| !FFileHelper::SaveStringToFile(Json, *(Path + TEXT(".tmp")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM)) return false;
+		|| !FFileHelper::SaveStringToFile(Json, *(Path + TEXT(".tmp")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		return false;
 	return IFileManager::Get().Move(*Path, *(Path + TEXT(".tmp")), true, false, false, true);
 }
 
 void UMatchSimulationSubsystem::Finish(const TCHAR* Status, const TCHAR* Outcome, int32 Winner, const FString& Error)
 {
-	if (bFinished) return;
+	if (bFinished)
+		return;
 	bFinished = true;
 	Report->SetStringField(TEXT("status"), Status);
 	Report->SetStringField(TEXT("outcome"), Outcome);
-	if (Winner == 0 || Winner == 5) Report->SetNumberField(TEXT("winner"), Winner);
-	else Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
-	if (!Error.IsEmpty()) Report->SetStringField(TEXT("error"), Error);
+	if (Winner == 0 || Winner == 5)
+		Report->SetNumberField(TEXT("winner"), Winner);
+	else
+		Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
+	if (!Error.IsEmpty())
+		Report->SetStringField(TEXT("error"), Error);
 	Event(TEXT("match_finished"))->SetStringField(TEXT("outcome"), Outcome);
 	const bool bWritten = Flush();
 	const bool bSuccess = FCString::Strcmp(Status, TEXT("complete")) == 0 && bWritten;
@@ -486,7 +520,8 @@ void UMatchSimulationSubsystem::Finish(const TCHAR* Status, const TCHAR* Outcome
 
 void UMatchSimulationSubsystem::Tick(float DeltaTime)
 {
-	if (bFinished || !GetWorld()->HasBegunPlay()) return;
+	if (bFinished || !GetWorld()->HasBegunPlay())
+		return;
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!State)
 	{
@@ -523,7 +558,8 @@ void UMatchSimulationSubsystem::Tick(float DeltaTime)
 	{
 		// A same-frame HQ death must be an outcome, not a time-cap draw, even before GameMode's tick.
 		Snapshot(*State, Time);
-		const int32 Winner = State->FriendlyHeadquarters->Health <= 0 ? 5 : State->EnemyHeadquarters->Health <= 0 ? 0 : -1;
+		const int32 Winner = State->FriendlyHeadquarters->Health <= 0 ? 5 : State->EnemyHeadquarters->Health <= 0 ? 0
+																												  : -1;
 		Finish(TEXT("complete"), Winner == -1 ? TEXT("time_cap") : TEXT("hq_destroyed"), Winner);
 		return;
 	}
@@ -532,7 +568,8 @@ void UMatchSimulationSubsystem::Tick(float DeltaTime)
 		Snapshot(*State, NextSnapshot);
 		// Never fabricate past states if a coarse frame skipped a sampling boundary.
 		NextSnapshot = (FMath::FloorToDouble(Time / 30.) + 1.) * 30.;
-		if (!Flush()) Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot persist telemetry checkpoint"));
+		if (!Flush())
+			Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot persist telemetry checkpoint"));
 	}
 }
 

@@ -52,49 +52,65 @@ inline UWorld* World()
 	if (GEngine)
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			if (UWorld* Candidate = Context.World())
-				if (Candidate->IsGameWorld() && Candidate->GetNetMode() == NM_Standalone) return Candidate;
+				if (Candidate->IsGameWorld() && Candidate->GetNetMode() == NM_Standalone)
+					return Candidate;
 	return nullptr;
 }
 inline ACommandPlayerController* Controller(UWorld* World)
 {
 	for (TActorIterator<ACommandPlayerController> It(World); It; ++It)
-		if (It->IsLocalController()) return *It;
+		if (It->IsLocalController())
+			return *It;
 	return nullptr;
 }
 inline AArmyGroup* SpawnGroup(UWorld* World, ACommandPlayerController* Owner, int32 Index, const FVector& Home)
 {
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	ACommandPlayerState* Wallet = Owner ? Owner->GetPlayerState<ACommandPlayerState>()
-		: State ? State->EnemyCommander.Get() : nullptr;
-	if (!IsValid(Wallet)) return nullptr;
+		: State                         ? State->EnemyCommander.Get()
+										: nullptr;
+	if (!IsValid(Wallet))
+		return nullptr;
 	const FTransform Transform(Home);
 	AArmyGroup* Group = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 		Owner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!Group) return nullptr;
-	Group->Initialize({Owner ? 0 : 5, Wallet, Index, nullptr, Home});
+	if (!Group)
+		return nullptr;
+	Group->Initialize({ Owner ? 0 : 5, Wallet, Index, nullptr, Home });
 	Group->FinishSpawning(Transform);
-	if (!Group->SpawnUnits()) { Group->Destroy(); return nullptr; }
+	if (!Group->SpawnUnits())
+	{
+		Group->Destroy();
+		return nullptr;
+	}
 	return Group;
 }
 // Combat/order tests explicitly arrange mixed-role opponents. Normal matches
 // start without armies; these fixtures do not prove barracks production.
 inline bool CombatActors(UWorld* World)
 {
-	if (!World) return false;
+	if (!World)
+		return false;
 	ACommandPlayerController* Owner = Controller(World);
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	if (!Owner || !Owner->GetPlayerState<ACommandPlayerState>()
-		|| Owner->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0 || !MapReady(State)) return false;
+		|| Owner->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0 || !MapReady(State))
+		return false;
 	bool Present[3] = {};
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 	{
-		if (It->GetTeamIndex() == 5) Present[2] = true;
-		else if (It->GetOwner() == Owner && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2) Present[It->GetArmyIndex()] = true;
+		if (It->GetTeamIndex() == 5)
+			Present[2] = true;
+		else if (It->GetOwner() == Owner && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
+			Present[It->GetArmyIndex()] = true;
 	}
-	for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
+	for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+		It->Destroy();
 	for (int32 Index = 0; Index < 2; ++Index)
-		if (!Present[Index] && !SpawnGroup(World, Owner, Index, FromFriendlyHQ(State, 1700.f - Index * 1000.f, 600.f, 100.f))) return false;
-	if (!Present[2] && !SpawnGroup(World, nullptr, -1, HostileStaging(State))) return false;
+		if (!Present[Index] && !SpawnGroup(World, Owner, Index, FromFriendlyHQ(State, 1700.f - Index * 1000.f, 600.f, 100.f)))
+			return false;
+	if (!Present[2] && !SpawnGroup(World, nullptr, -1, HostileStaging(State)))
+		return false;
 	return true;
 }
 // A completed workshop is an explicit fixture for effect tests. Construction
@@ -106,15 +122,21 @@ inline void Research(ACommandPlayerController* Owner, EArmyDoctrine Choice)
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	ACommandBuilding* Workshop = nullptr;
 	for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-		if (It->Kind == EBuildingKind::Workshop && It->OwningPlayerState == Wallet) { Workshop = *It; break; }
+		if (It->Kind == EBuildingKind::Workshop && It->OwningPlayerState == Wallet)
+		{
+			Workshop = *It;
+			break;
+		}
 	if (!Workshop)
 	{
-		if (!MapReady(State)) return;
+		if (!MapReady(State))
+			return;
 		// Behind the friendly HQ, one row per commander so fixtures never overlap.
 		const FTransform Transform(FromFriendlyHQ(State, -300.f, -800.f - Wallet->CommanderIndex * 350.f, 5.f));
 		Workshop = World->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(), Transform,
 			Owner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (!Workshop) return;
+		if (!Workshop)
+			return;
 		Workshop->BuildingIndex = WorkshopIndex; // Kind derives from the definition on BeginPlay.
 		Workshop->OwningPlayerState = Wallet;
 		Workshop->ConstructionProgress = 1.f;

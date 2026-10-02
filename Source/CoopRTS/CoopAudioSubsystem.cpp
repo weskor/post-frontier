@@ -17,11 +17,16 @@
 
 namespace
 {
-	constexpr int32 StructureRole = 3;
-	constexpr int32 UIRole = 4;
-	constexpr TCHAR SettingsSlot[] = TEXT("CoopAudioSettings");
-	const FName ReverbTag(TEXT("CoopWorldReverb"));
-	struct FCueSpec { ECoopAudioEvent Event; const TCHAR* Name; int32 Count; };
+constexpr int32 StructureRole = 3;
+constexpr int32 UIRole = 4;
+constexpr TCHAR SettingsSlot[] = TEXT("CoopAudioSettings");
+const FName ReverbTag(TEXT("CoopWorldReverb"));
+struct FCueSpec
+{
+	ECoopAudioEvent Event;
+	const TCHAR* Name;
+	int32 Count;
+};
 }
 
 int32 UCoopAudioSubsystem::CueKey(ECoopAudioEvent Event, int32 Team, int32 Role)
@@ -32,7 +37,8 @@ int32 UCoopAudioSubsystem::CueKey(ECoopAudioEvent Event, int32 Team, int32 Role)
 UCoopAudioSubsystem::UCoopAudioSubsystem()
 {
 	// Hard CDO references make all imported waves and mix assets cook dependencies.
-	if (!HasAnyFlags(RF_ClassDefaultObject)) return;
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+		return;
 	ConstructorHelpers::FObjectFinder<USoundClass> Master(TEXT("/Game/Audio/Mix/SC_Master.SC_Master"));
 	ConstructorHelpers::FObjectFinder<USoundMix> Mix(TEXT("/Game/Audio/Mix/SM_Master.SM_Master"));
 	ConstructorHelpers::FObjectFinder<USoundAttenuation> Attenuation(TEXT("/Game/Audio/Mix/ATT_World.ATT_World"));
@@ -43,8 +49,7 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 	ConstructorHelpers::FObjectFinder<UReverbEffect> Reverb(TEXT("/Game/Audio/Mix/RE_World.RE_World"));
 	AmbienceWave = Bed.Object;
 	WorldReverb = Reverb.Object;
-	const auto Load = [this](int32 Team, int32 Role, const TCHAR* Folder, const FCueSpec& Spec)
-	{
+	const auto Load = [this](int32 Team, int32 Role, const TCHAR* Folder, const FCueSpec& Spec) {
 		const TCHAR* Faction = Team == 5 ? TEXT("Machine") : TEXT("Human");
 		FCoopAudioVariants& Cue = Sounds.Add(CueKey(Spec.Event, Team, Role));
 		Cue.Waves.Reserve(Spec.Count);
@@ -53,7 +58,8 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 			const FString Name = FString::Printf(TEXT("SW_%s_%s_%s_%02d"), Faction, Folder, Spec.Name, Index);
 			const FString Path = FString::Printf(TEXT("/Game/Audio/%s/%s/%s.%s"), Faction, Folder, *Name, *Name);
 			ConstructorHelpers::FObjectFinder<USoundWave> Wave(*Path);
-			if (Wave.Succeeded()) Cue.Waves.Add(Wave.Object);
+			if (Wave.Succeeded())
+				Cue.Waves.Add(Wave.Object);
 		}
 	};
 	const TCHAR* Roles[] = { TEXT("Frontline"), TEXT("Ranged"), TEXT("Siege") };
@@ -75,10 +81,9 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 			Load(Team, Role, Roles[Role], { ECoopAudioEvent::Impact, TEXT("Impact"), 3 });
 			Load(Team, Role, Roles[Role], { ECoopAudioEvent::Death, TEXT("Death"), 3 });
 		}
-		for (const FCueSpec& Spec : Structures) Load(Team, StructureRole, TEXT("Structure"), Spec);
-		Load(Team, StructureRole, TEXT("Structure"), Team == 5
-			? FCueSpec{ ECoopAudioEvent::Notify, TEXT("Notify"), 2 }
-			: FCueSpec{ ECoopAudioEvent::Research, TEXT("Research"), 2 });
+		for (const FCueSpec& Spec : Structures)
+			Load(Team, StructureRole, TEXT("Structure"), Spec);
+		Load(Team, StructureRole, TEXT("Structure"), Team == 5 ? FCueSpec{ ECoopAudioEvent::Notify, TEXT("Notify"), 2 } : FCueSpec{ ECoopAudioEvent::Research, TEXT("Research"), 2 });
 	}
 	const FCueSpec UI[] = {
 		{ ECoopAudioEvent::Click, TEXT("Click"), 3 }, { ECoopAudioEvent::Select, TEXT("Select"), 2 },
@@ -86,7 +91,8 @@ UCoopAudioSubsystem::UCoopAudioSubsystem()
 		{ ECoopAudioEvent::Hover, TEXT("Hover"), 2 }, { ECoopAudioEvent::CaptureTick, TEXT("CaptureTick"), 3 },
 		{ ECoopAudioEvent::SectorCaptured, TEXT("SectorCaptured"), 2 }, { ECoopAudioEvent::SectorLost, TEXT("SectorLost"), 2 }
 	};
-	for (const FCueSpec& Spec : UI) Load(0, UIRole, TEXT("UI"), Spec);
+	for (const FCueSpec& Spec : UI)
+		Load(0, UIRole, TEXT("UI"), Spec);
 }
 
 UWorld* UCoopAudioSubsystem::GetWorld() const
@@ -118,7 +124,8 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		Cue.Value.LastVariant = INDEX_NONE;
 		for (const TObjectPtr<USoundWave>& Wave : Cue.Value.Waves)
 		{
-			if (IsValid(Wave.Get())) ++LoadedWaves;
+			if (IsValid(Wave.Get()))
+				++LoadedWaves;
 		}
 	}
 	const bool bMasterClassLoaded = IsValid(MasterClass.Get());
@@ -136,7 +143,8 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		UE_LOG(LogTemp, Error, TEXT("Incomplete CoopAudio runtime library; see initialization counts"));
 	}
 	Settings = Cast<UCoopAudioSettings>(UGameplayStatics::LoadGameFromSlot(SettingsSlot, 0));
-	if (!Settings) Settings = NewObject<UCoopAudioSettings>(this);
+	if (!Settings)
+		Settings = NewObject<UCoopAudioSettings>(this);
 	MasterVolume = FMath::IsFinite(Settings->MasterVolume) ? FMath::Clamp(Settings->MasterVolume, 0.f, 1.f) : 1.f;
 	Random.Initialize(FPlatformTime::Cycles());
 	ListenerHandle = FWorldDelegates::OnWorldPostActorTick.AddUObject(this, &UCoopAudioSubsystem::UpdateListener);
@@ -149,12 +157,15 @@ void UCoopAudioSubsystem::Deinitialize()
 	FWorldDelegates::OnWorldPostActorTick.Remove(ListenerHandle);
 	FWorldDelegates::OnWorldCleanup.Remove(CleanupHandle);
 	FWorldDelegates::OnWorldBeginTearDown.Remove(TearDownHandle);
-	if (IsValid(AmbienceComponent.Get())) AmbienceComponent->Stop();
+	if (IsValid(AmbienceComponent.Get()))
+		AmbienceComponent->Stop();
 	AmbienceComponent = nullptr;
-	if (UWorld* World = AmbienceWorld.Get()) UGameplayStatics::DeactivateReverbEffect(World, ReverbTag);
+	if (UWorld* World = AmbienceWorld.Get())
+		UGameplayStatics::DeactivateReverbEffect(World, ReverbTag);
 	AmbienceWorld.Reset();
 	StopAllConstruction();
-	if (UWorld* World = MixWorld.Get()) UGameplayStatics::PopSoundMixModifier(World, MasterMix);
+	if (UWorld* World = MixWorld.Get())
+		UGameplayStatics::PopSoundMixModifier(World, MasterMix);
 	MixWorld.Reset();
 	Super::Deinitialize();
 }
@@ -162,7 +173,8 @@ void UCoopAudioSubsystem::Deinitialize()
 UCoopAudioSubsystem* UCoopAudioSubsystem::Get(const UObject* WorldContext)
 {
 	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
-	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer || IsRunningCommandlet()) return nullptr;
+	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer || IsRunningCommandlet())
+		return nullptr;
 	UGameInstance* Instance = World->GetGameInstance();
 	return Instance ? Instance->GetSubsystem<UCoopAudioSubsystem>() : nullptr;
 }
@@ -170,7 +182,8 @@ UCoopAudioSubsystem* UCoopAudioSubsystem::Get(const UObject* WorldContext)
 void UCoopAudioSubsystem::ApplyMasterMix(UWorld* World)
 {
 	if (!World || World->GetGameInstance() != GetGameInstance() || World->GetNetMode() == NM_DedicatedServer
-		|| !MasterClass || !MasterMix) return;
+		|| !MasterClass || !MasterMix)
+		return;
 	if (MixWorld != World)
 	{
 		UGameplayStatics::PushSoundMixModifier(World, MasterMix);
@@ -181,9 +194,11 @@ void UCoopAudioSubsystem::ApplyMasterMix(UWorld* World)
 
 void UCoopAudioSubsystem::SetMasterVolume(float Volume)
 {
-	if (!FMath::IsFinite(Volume)) return;
+	if (!FMath::IsFinite(Volume))
+		return;
 	const float Clamped = FMath::Clamp(Volume, 0.f, 1.f);
-	if (FMath::IsNearlyEqual(MasterVolume, Clamped)) return;
+	if (FMath::IsNearlyEqual(MasterVolume, Clamped))
+		return;
 	MasterVolume = Clamped;
 	Settings->MasterVolume = MasterVolume;
 	if (!UGameplayStatics::SaveGameToSlot(Settings, SettingsSlot, 0))
@@ -204,11 +219,11 @@ USoundWave* UCoopAudioSubsystem::Choose(ECoopAudioEvent Event, int32 Team, int32
 	int32 Index = Variant;
 	if (Index == INDEX_NONE)
 	{
-		Index = Cue->Waves.Num() == 1 ? 0 : Cue->LastVariant == INDEX_NONE
-			? Random.RandRange(0, Cue->Waves.Num() - 1)
-			: (Cue->LastVariant + 1 + Random.RandRange(0, Cue->Waves.Num() - 2)) % Cue->Waves.Num();
+		Index = Cue->Waves.Num() == 1 ? 0 : Cue->LastVariant == INDEX_NONE ? Random.RandRange(0, Cue->Waves.Num() - 1)
+																		   : (Cue->LastVariant + 1 + Random.RandRange(0, Cue->Waves.Num() - 2)) % Cue->Waves.Num();
 	}
-	if (!Cue->Waves.IsValidIndex(Index)) return nullptr;
+	if (!Cue->Waves.IsValidIndex(Index))
+		return nullptr;
 	Cue->LastVariant = Index;
 	return Cue->Waves[Index];
 }
@@ -217,10 +232,13 @@ UAudioComponent* UCoopAudioSubsystem::Play(ECoopAudioEvent Event, int32 Team, in
 	const FVector& Location, bool bUI, AActor* LoopOwner, int32 Variant)
 {
 	UWorld* World = GetWorld();
-	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer) return nullptr;
+	if (!World || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer)
+		return nullptr;
 	USoundWave* Wave = Choose(Event, Team, Role, Variant);
-	if (!Wave) return nullptr;
-	if (MixWorld != World) ApplyMasterMix(World);
+	if (!Wave)
+		return nullptr;
+	if (MixWorld != World)
+		ApplyMasterMix(World);
 	AActor* ComponentOwner = LoopOwner ? LoopOwner : World->GetWorldSettings();
 	UAudioComponent* Component = NewObject<UAudioComponent>(ComponentOwner);
 	Component->bAutoDestroy = true;
@@ -240,19 +258,22 @@ UAudioComponent* UCoopAudioSubsystem::Play(ECoopAudioEvent Event, int32 Team, in
 void UCoopAudioSubsystem::PlayUnit(ECoopAudioEvent Event, int32 Team, EUnitRole Role,
 	const FVector& Location, AActor* Owner)
 {
-	if (Event != ECoopAudioEvent::Attack && Event != ECoopAudioEvent::Impact && Event != ECoopAudioEvent::Death) return;
+	if (Event != ECoopAudioEvent::Attack && Event != ECoopAudioEvent::Impact && Event != ECoopAudioEvent::Death)
+		return;
 	Play(Event, Team, static_cast<int32>(Role), Location, false);
 }
 
 void UCoopAudioSubsystem::PlayStructure(ECoopAudioEvent Event, int32 Team, const FVector& Location, AActor* Owner)
 {
-	if (Event == ECoopAudioEvent::Research && Team == 5) Event = ECoopAudioEvent::Notify;
+	if (Event == ECoopAudioEvent::Research && Team == 5)
+		Event = ECoopAudioEvent::Notify;
 	Play(Event, Team, StructureRole, Location, Event == ECoopAudioEvent::HQAlarm && Team == 0);
 }
 
 void UCoopAudioSubsystem::StartConstruction(AActor* Owner, int32 Team)
 {
-	if (!IsValid(Owner) || ConstructionLoops.Contains(Owner)) return;
+	if (!IsValid(Owner) || ConstructionLoops.Contains(Owner))
+		return;
 	if (UAudioComponent* Component = Play(ECoopAudioEvent::ConstructLoop, Team, StructureRole, Owner->GetActorLocation(), false, Owner))
 		ConstructionLoops.Add(Owner, Component);
 }
@@ -261,19 +282,22 @@ void UCoopAudioSubsystem::StopConstruction(AActor* Owner)
 {
 	TWeakObjectPtr<UAudioComponent> Component;
 	if (ConstructionLoops.RemoveAndCopyValue(Owner, Component))
-		if (Component.IsValid()) Component->Stop();
+		if (Component.IsValid())
+			Component->Stop();
 }
 
 void UCoopAudioSubsystem::StopAllConstruction()
 {
 	for (const auto& Entry : ConstructionLoops)
-		if (Entry.Value.IsValid()) Entry.Value->Stop();
+		if (Entry.Value.IsValid())
+			Entry.Value->Stop();
 	ConstructionLoops.Reset();
 }
 
 void UCoopAudioSubsystem::PlayCapture(ECoopAudioEvent Event, const FVector& Location, int32 Milestone)
 {
-	if (Event != ECoopAudioEvent::CaptureTick && Event != ECoopAudioEvent::SectorCaptured && Event != ECoopAudioEvent::SectorLost) return;
+	if (Event != ECoopAudioEvent::CaptureTick && Event != ECoopAudioEvent::SectorCaptured && Event != ECoopAudioEvent::SectorLost)
+		return;
 	Play(Event, 0, UIRole, Location, Event != ECoopAudioEvent::CaptureTick, nullptr,
 		Event == ECoopAudioEvent::CaptureTick ? Milestone : INDEX_NONE);
 }
@@ -290,11 +314,16 @@ void UCoopAudioSubsystem::PlayUI(FName Event)
 {
 	static const FName Click(TEXT("Click")), Select(TEXT("Select")), Front(TEXT("Front")), Reject(TEXT("Reject")), Research(TEXT("Research"));
 	ECoopAudioEvent Cue;
-	if (Event == Click) Cue = ECoopAudioEvent::Click;
-	else if (Event == Select) Cue = ECoopAudioEvent::Select;
-	else if (Event == Front) Cue = ECoopAudioEvent::Front;
-	else if (Event == Reject) Cue = ECoopAudioEvent::Reject;
-	else if (Event == Research) Cue = ECoopAudioEvent::Research;
+	if (Event == Click)
+		Cue = ECoopAudioEvent::Click;
+	else if (Event == Select)
+		Cue = ECoopAudioEvent::Select;
+	else if (Event == Front)
+		Cue = ECoopAudioEvent::Front;
+	else if (Event == Reject)
+		Cue = ECoopAudioEvent::Reject;
+	else if (Event == Research)
+		Cue = ECoopAudioEvent::Research;
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Unsupported UI audio event %s"), *Event.ToString());
@@ -305,14 +334,17 @@ void UCoopAudioSubsystem::PlayUI(FName Event)
 
 void UCoopAudioSubsystem::UpdateListener(UWorld* World, ELevelTick TickType, float DeltaSeconds)
 {
-	if (!World || World->GetGameInstance() != GetGameInstance() || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer) return;
-	if (MixWorld != World) ApplyMasterMix(World);
+	if (!World || World->GetGameInstance() != GetGameInstance() || !World->IsGameWorld() || World->GetNetMode() == NM_DedicatedServer)
+		return;
+	if (MixWorld != World)
+		ApplyMasterMix(World);
 	UpdateAmbience(World);
 	// One ambience lifecycle guard plus camera/listener geometry; one-shot events stay push-driven.
 	for (ULocalPlayer* Player : GetGameInstance()->GetLocalPlayers())
 	{
 		APlayerController* Controller = Player ? Player->GetPlayerController(World) : nullptr;
-		if (!Controller || !Controller->IsLocalController()) continue;
+		if (!Controller || !Controller->IsLocalController())
+			continue;
 		FVector View;
 		FRotator Rotation;
 		Controller->GetPlayerViewPoint(View, Rotation);
@@ -330,43 +362,52 @@ void UCoopAudioSubsystem::UpdateAmbience(UWorld* World)
 		&& !World->bIsTearingDown && !GetGameInstance()->GetLocalPlayers().IsEmpty();
 	if (!bInMatch)
 	{
-		if (AmbienceWorld == World) StopAmbience();
+		if (AmbienceWorld == World)
+			StopAmbience();
 		return;
 	}
 	if (AmbienceWorld != World)
 	{
 		StopAmbience();
 		// Let an outgoing travel fade finish before creating the next bed; never stack.
-		if (IsValid(AmbienceComponent.Get()) && AmbienceComponent->IsPlaying()) return;
+		if (IsValid(AmbienceComponent.Get()) && AmbienceComponent->IsPlaying())
+			return;
 		AmbienceComponent = nullptr;
 		AmbienceWorld = World;
 		bAmbienceStopping = false;
-		if (WorldReverb) UGameplayStatics::ActivateReverbEffect(World, WorldReverb, ReverbTag, 1.f, 1.f, 1.f);
+		if (WorldReverb)
+			UGameplayStatics::ActivateReverbEffect(World, WorldReverb, ReverbTag, 1.f, 1.f, 1.f);
 		if (AmbienceWave)
 		{
 			// Persistent only so leave/travel can finish its fade; still owned by this subsystem.
 			AmbienceComponent = UGameplayStatics::CreateSound2D(World, AmbienceWave, 1.f, 1.f, 0.f, nullptr, true, true);
-			if (AmbienceComponent) AmbienceComponent->FadeIn(2.f, 1.f);
+			if (AmbienceComponent)
+				AmbienceComponent->FadeIn(2.f, 1.f);
 		}
 	}
 }
 
 void UCoopAudioSubsystem::StopAmbience()
 {
-	if (bAmbienceStopping) return;
+	if (bAmbienceStopping)
+		return;
 	bAmbienceStopping = true;
-	if (IsValid(AmbienceComponent.Get())) AmbienceComponent->FadeOut(1.f, 0.f);
-	if (UWorld* World = AmbienceWorld.Get()) UGameplayStatics::DeactivateReverbEffect(World, ReverbTag);
+	if (IsValid(AmbienceComponent.Get()))
+		AmbienceComponent->FadeOut(1.f, 0.f);
+	if (UWorld* World = AmbienceWorld.Get())
+		UGameplayStatics::DeactivateReverbEffect(World, ReverbTag);
 }
 
 void UCoopAudioSubsystem::TearDownWorld(UWorld* World)
 {
-	if (AmbienceWorld == World) StopAmbience();
+	if (AmbienceWorld == World)
+		StopAmbience();
 }
 
 void UCoopAudioSubsystem::CleanupWorld(UWorld* World, bool bSessionEnded, bool bCleanupResources)
 {
-	if (!World || World->GetGameInstance() != GetGameInstance()) return;
+	if (!World || World->GetGameInstance() != GetGameInstance())
+		return;
 	if (AmbienceWorld == World)
 	{
 		StopAmbience();
@@ -375,7 +416,8 @@ void UCoopAudioSubsystem::CleanupWorld(UWorld* World, bool bSessionEnded, bool b
 	for (auto It = ConstructionLoops.CreateIterator(); It; ++It)
 		if (!It.Key().IsValid() || It.Key()->GetWorld() == World)
 		{
-			if (It.Value().IsValid()) It.Value()->Stop();
+			if (It.Value().IsValid())
+				It.Value()->Stop();
 			It.RemoveCurrent();
 		}
 	if (MixWorld == World)

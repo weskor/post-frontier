@@ -45,7 +45,6 @@ public:
 	// Visual identity only; combat/capture allegiance uses TeamIndex.
 	static FLinearColor GetCommanderColor(int32 InCommanderIndex);
 
-
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<AActor> Target;
 
@@ -113,5 +112,4 @@ private:
 	void OnRep_Appearance();
 	UFUNCTION()
 	void OnRep_Attack();
-
 };

@@ -17,9 +17,27 @@ class UReverbEffect;
 UENUM()
 enum class ECoopAudioEvent : uint8
 {
-	Attack, Impact, Death, Place, ConstructLoop, Complete, Cancel, Destroyed,
-	Deploy, Research, HQAlarm, HQDestroyed, Notify, CaptureTick, SectorCaptured,
-	SectorLost, Click, Select, Front, Reject, Hover
+	Attack,
+	Impact,
+	Death,
+	Place,
+	ConstructLoop,
+	Complete,
+	Cancel,
+	Destroyed,
+	Deploy,
+	Research,
+	HQAlarm,
+	HQDestroyed,
+	Notify,
+	CaptureTick,
+	SectorCaptured,
+	SectorLost,
+	Click,
+	Select,
+	Front,
+	Reject,
+	Hover
 };
 
 USTRUCT()

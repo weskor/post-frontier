@@ -27,9 +27,16 @@ struct FPlacementBuilding
 
 enum class EPlacementVerdict : uint8
 {
-	Valid, Invalid, OutsideBounds, HeadquartersUnavailable, EnemyHeadquartersTooClose,
-	Contested, TerritoryRequired, EnemyTroopsTooClose,
-	BuildingOverlap, HeadquartersTooClose
+	Valid,
+	Invalid,
+	OutsideBounds,
+	HeadquartersUnavailable,
+	EnemyHeadquartersTooClose,
+	Contested,
+	TerritoryRequired,
+	EnemyTroopsTooClose,
+	BuildingOverlap,
+	HeadquartersTooClose
 };
 
 struct FPlacementInput
@@ -51,22 +58,22 @@ struct FPlacementDecision
 
 namespace PlacementPolicy
 {
-	constexpr float BuildGridCellSize = 50.f;
-	int32 FootprintCells(float HalfExtent);
-	// Snap XY to whole-cell footprints; preserve terrain height. Ties choose positive XY.
-	FVector SnapToBuildGrid(const FVector& Position, float HalfExtent);
-	constexpr float HostileHeadquartersClearance = 1000.f;
-	constexpr float DepositSnapRadius = 300.f;
-	constexpr float HeadquartersClearance = 210.f;
-	constexpr float EnemyTroopClearance = 330.f;
-	constexpr float BuildingClearance = 55.f;
-	// Polygon boundaries are included, for either winding order and concave polygons.
-	bool ContainsPoint(TConstArrayView<FVector2D> Polygon, const FVector2D& Point);
-	bool ContainsFootprint(TConstArrayView<FVector2D> Polygon, const FVector& Position, float HalfExtent);
-	int32 RegionController(bool bMain, int32 HomeTeam, bool bHomeHeadquartersAlive, int32 AnchorController);
-	// Ties retain the first deposit in the stable region/XY order; occupancy excludes construction too.
-	int32 SelectFreeDeposit(int32 Team, const FVector& RequestedLocation, TConstArrayView<FPlacementDeposit> Deposits);
-	// Bounds and territory only; excludes HQ clearance, troops and building overlap.
-	FPlacementDecision EvaluateTerritory(const FPlacementInput& In);
-	FPlacementDecision Evaluate(const FPlacementInput& In);
+constexpr float BuildGridCellSize = 50.f;
+int32 FootprintCells(float HalfExtent);
+// Snap XY to whole-cell footprints; preserve terrain height. Ties choose positive XY.
+FVector SnapToBuildGrid(const FVector& Position, float HalfExtent);
+constexpr float HostileHeadquartersClearance = 1000.f;
+constexpr float DepositSnapRadius = 300.f;
+constexpr float HeadquartersClearance = 210.f;
+constexpr float EnemyTroopClearance = 330.f;
+constexpr float BuildingClearance = 55.f;
+// Polygon boundaries are included, for either winding order and concave polygons.
+bool ContainsPoint(TConstArrayView<FVector2D> Polygon, const FVector2D& Point);
+bool ContainsFootprint(TConstArrayView<FVector2D> Polygon, const FVector& Position, float HalfExtent);
+int32 RegionController(bool bMain, int32 HomeTeam, bool bHomeHeadquartersAlive, int32 AnchorController);
+// Ties retain the first deposit in the stable region/XY order; occupancy excludes construction too.
+int32 SelectFreeDeposit(int32 Team, const FVector& RequestedLocation, TConstArrayView<FPlacementDeposit> Deposits);
+// Bounds and territory only; excludes HQ clearance, troops and building overlap.
+FPlacementDecision EvaluateTerritory(const FPlacementInput& In);
+FPlacementDecision Evaluate(const FPlacementInput& In);
 }

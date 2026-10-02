@@ -14,5 +14,5 @@ struct FOutcomeInput
 
 namespace OutcomePolicy
 {
-	EMatchResult Evaluate(const FOutcomeInput& In);
+EMatchResult Evaluate(const FOutcomeInput& In);
 }

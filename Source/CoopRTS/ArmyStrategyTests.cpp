@@ -17,16 +17,19 @@ public:
 	bool Update() override
 	{
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f) return false;
+		if (!World || World->GetTimeSeconds() < 3.f)
+			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
-		if (!State || !PC || !ArmyTestSetup::MapReady(State)) return false;
+		if (!State || !PC || !ArmyTestSetup::MapReady(State))
+			return false;
 		if (State->MatchResult != EMatchResult::Ongoing)
 			return Fail(TEXT("Strategy fixture ended the match before its required economy/recovery states; cannot keep waiting"));
 		if (World->GetTimeSeconds() >= NextProgress)
 		{
 			int32 Joined = 0, Travelling = 0;
-			if (Production.IsValid()) Production->GetForceCounts(Joined, Travelling);
+			if (Production.IsValid())
+				Production->GetForceCounts(Joined, Travelling);
 			UE_LOG(LogTemp, Display, TEXT("Strategy progress stage=%d wallet=%d income=%d joined=%d travelling=%d forward=%d"),
 				Stage, State->EnemyCommander ? State->EnemyCommander->Resources : -1, State->GetEnemyIncomePerSecond(),
 				Joined, Travelling, ForwardProduction.IsValid());
@@ -34,8 +37,10 @@ public:
 		}
 		AEnemyCommander* Planner = nullptr;
 		for (TActorIterator<AEnemyCommander> It(World); It && !Planner; ++It)
-			if (It->TeamIndex == 5) Planner = *It;
-		if (!Planner) return Fail(TEXT("New match must create the economic enemy commander"));
+			if (It->TeamIndex == 5)
+				Planner = *It;
+		if (!Planner)
+			return Fail(TEXT("New match must create the economic enemy commander"));
 		if (!IsValid(State->EnemyCommander) || State->EnemyCommander->CommanderIndex != -1
 			|| State->EnemyCommander->TeamIndex != 5 || State->EnemyCommander->GetOwner()
 			|| State->PlayerArray.Contains(State->EnemyCommander))
@@ -81,8 +86,12 @@ public:
 		}
 		if (Stage == 0)
 		{
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It) if (It->TeamIndex == 5) It->Destroy();
-			for (TActorIterator<AArmyGroup> It(World); It; ++It) if (It->GetTeamIndex() == 5) It->Destroy();
+			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+				if (It->TeamIndex == 5)
+					It->Destroy();
+			for (TActorIterator<AArmyGroup> It(World); It; ++It)
+				if (It->GetTeamIndex() == 5)
+					It->Destroy();
 			State->bVerificationIncomePaused = true;
 			State->EnemyCommander->Resources = 600;
 			HumanBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
@@ -96,7 +105,8 @@ public:
 			{
 				AArmyGroup* Guard = ArmyTestSetup::SpawnGroup(World, PC, 30 + Index,
 					ArmyTestSetup::FromFriendlyHQ(State, -250.f, Index ? 350.f : -350.f, 100.f));
-				if (!Guard) return Fail(TEXT("Passive human home-guard fixture could not spawn"));
+				if (!Guard)
+					return Fail(TEXT("Passive human home-guard fixture could not spawn"));
 				Guard->SetActorTickEnabled(false);
 				for (AArmyUnit* Unit : Guard->GetUnits())
 				{
@@ -107,7 +117,8 @@ public:
 			}
 			Planner->EvaluatePlan();
 			for (ACommandBuilding* Building : State->Buildings)
-				if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer()) Production = Building;
+				if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
+					Production = Building;
 			const int32 BarracksCost = State->Content->FindBuilding(TEXT("barracks"))->BuildCost;
 			if (!Production.IsValid() || State->EnemyCommander->Resources != 600 - BarracksCost
 				|| Production->OwningPlayerState != State->EnemyCommander || Production->IsComplete())
@@ -119,7 +130,8 @@ public:
 		if (Stage == 1)
 		{
 			AArmyGroup* Produced = Production.IsValid() ? Production->ForceGroup.Get() : nullptr;
-			if (!IsValid(Produced) || Produced->GetUnits().IsEmpty()) return false;
+			if (!IsValid(Produced) || Produced->GetUnits().IsEmpty())
+				return false;
 			int32 Joined, Travelling;
 			Production->GetForceCounts(Joined, Travelling);
 			const int32 Count = Joined + Travelling;
@@ -140,7 +152,8 @@ public:
 			Test->AddInfo(TEXT("Enemy naturally produced one paid recruit; waiting for real region capture and completed extractor."));
 			return false;
 		}
-		if (!Production.IsValid() || !Recovery.IsValid()) return Fail(TEXT("Enemy lost its producer-owned expansion force"));
+		if (!Production.IsValid() || !Recovery.IsValid())
+			return Fail(TEXT("Enemy lost its producer-owned expansion force"));
 		int32 Joined, Travelling;
 		Production->GetForceCounts(Joined, Travelling);
 		const int32 Count = Joined + Travelling;
@@ -148,7 +161,8 @@ public:
 		if (Joined > 0 && HomeRegion && Production->GetGoalWaypointRegionIndex() != HomeRegion->RegionIndex
 			&& (Production->ForceGoal == EForceGoal::Expand || Production->ForceGoal == EForceGoal::Hold)
 			&& FVector::Dist2D(Production->FrontLocation,
-				State->GetRegionAnchor(Production->GetGoalWaypointRegionIndex())) <= 75.f
+				   State->GetRegionAnchor(Production->GetGoalWaypointRegionIndex()))
+				<= 75.f
 			&& Recovery->bAutomaticFront)
 			bObservedRegionAdvance = true;
 		int32 ConstructionSpend = 0, ProductionSpend = 0;
@@ -168,7 +182,8 @@ public:
 						return Fail(TEXT("Forward barracks must first appear unfinished through normal paid construction"));
 					ForwardProduction = Building;
 				}
-				if (!Building->IsProducer() || !Building->bForceConfigured) continue;
+				if (!Building->IsProducer() || !Building->bForceConfigured)
+					continue;
 				int32 ForceJoined, ForceTravelling;
 				Building->GetForceCounts(ForceJoined, ForceTravelling);
 				if (ForceJoined + ForceTravelling > ACommandBuilding::GetForceCapacity(*State->Content->Unit(Building->ProductionUnitIndex)))
@@ -190,22 +205,27 @@ public:
 		for (ADepositSite* Deposit : State->Deposits)
 		{
 			ACommandBuilding* Extractor = IsValid(Deposit) ? Deposit->Extractor.Get() : nullptr;
-			if (!IsValid(Extractor) || !Extractor->IsAlive() || !Extractor->IsComplete() || Extractor->TeamIndex != 5) continue;
+			if (!IsValid(Extractor) || !Extractor->IsAlive() || !Extractor->IsComplete() || Extractor->TeamIndex != 5)
+				continue;
 			if (Extractor->OwningPlayerState != State->EnemyCommander || Extractor->Deposit != Deposit)
 				return Fail(TEXT("Enemy extractor must retain its owning JEV wallet and deposit backlink"));
-			if (Deposit->Remaining > 0) ExtractorRate += Deposit->RatePerSecond();
+			if (Deposit->Remaining > 0)
+				ExtractorRate += Deposit->RatePerSecond();
 			for (const AMapRegion* Region : State->Regions)
 				if (IsValid(Region) && Region->RegionIndex == Deposit->RegionIndex && IsValid(Region->Anchor)
-					&& State->GetRegionController(Region->RegionIndex) == 5) CapturedExtractor = Extractor;
+					&& State->GetRegionController(Region->RegionIndex) == 5)
+					CapturedExtractor = Extractor;
 		}
 		if (!CapturedExtractor || !bObservedRegionAdvance || !ForwardProduction.IsValid() || !ForwardProduction->IsComplete()
-			|| !ForwardProduction->bForceConfigured || !IsValid(ForwardProduction->ForceGroup)) return false;
+			|| !ForwardProduction->bForceConfigured || !IsValid(ForwardProduction->ForceGroup))
+			return false;
 		const AMapRegion* ForwardRegion = State->FindRegionAt(ForwardProduction->GetActorLocation());
 		if (!ForwardRegion || State->GetRegionController(ForwardRegion->RegionIndex) != 5)
 			return Fail(TEXT("Naturally completed forward barracks must retain captured-region build rights"));
 		int32 ForwardJoined, ForwardTravelling;
 		ForwardProduction->GetForceCounts(ForwardJoined, ForwardTravelling);
-		if (ForwardJoined == 0) return false; // Normal paid deployment and physical arrival, not configuration alone.
+		if (ForwardJoined == 0)
+			return false; // Normal paid deployment and physical arrival, not configuration alone.
 		// Capture can be performed by travellers. Do not damage an empty joined roster
 		// or let newly arriving healthy recruits dilute the recovery threshold.
 		if (Joined != ACommandBuilding::GetForceCapacity(*Production->GetProductionDefinition()) || Travelling != 0)
@@ -225,7 +245,8 @@ public:
 		const int32 RegionIndex = TargetDeposit->RegionIndex;
 		const int32 EnemyBefore = State->EnemyCommander->Resources;
 		TArray<int32> Reserves;
-		for (const ADepositSite* Deposit : State->Deposits) Reserves.Add(IsValid(Deposit) ? Deposit->Remaining : 0);
+		for (const ADepositSite* Deposit : State->Deposits)
+			Reserves.Add(IsValid(Deposit) ? Deposit->Remaining : 0);
 		State->bVerificationIncomePaused = false;
 		State->Tick(2.f);
 		State->bVerificationIncomePaused = true;
@@ -236,12 +257,17 @@ public:
 		for (int32 Index = 0; Index < State->Deposits.Num(); ++Index)
 		{
 			ADepositSite* Deposit = State->Deposits[Index];
-			if (!IsValid(Deposit)) continue;
+			if (!IsValid(Deposit))
+				continue;
 			const ACommandBuilding* Extractor = Deposit->Extractor;
 			const bool bPays = IsValid(Extractor) && Extractor->IsAlive() && Extractor->IsComplete() && Extractor->TeamIndex == 5;
 			if (Deposit->Remaining != Reserves[Index] - (bPays ? Deposit->RatePerSecond() * 2 : 0))
 				return Fail(TEXT("JEV payment drains each paying deposit exactly once"));
-			if (bPays) { Deposit->Remaining = 3; FinalBonus += 3; }
+			if (bPays)
+			{
+				Deposit->Remaining = 3;
+				FinalBonus += 3;
+			}
 		}
 		const int32 FinalBefore = State->EnemyCommander->Resources;
 		State->bVerificationIncomePaused = false;
@@ -252,24 +278,32 @@ public:
 			|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance + 12)
 			return Fail(TEXT("JEV final finite payment is capped; exhausted extractors stop bonus for every wallet"));
 		AArmyGroup* Destroyer = ArmyTestSetup::SpawnGroup(World, PC, 21, ArmyTestSetup::FromFriendlyHQ(State, 0.f, 0.f, 100.f));
-		if (!Destroyer) return Fail(TEXT("Enemy extractor destruction fixture could not spawn"));
+		if (!Destroyer)
+			return Fail(TEXT("Enemy extractor destruction fixture could not spawn"));
 		CapturedExtractor->ReceiveAttack(CapturedExtractor->Health, Destroyer->GetUnits()[0]);
 		Destroyer->Destroy();
 		if (IsValid(TargetDeposit->Extractor) || State->GetRegionController(RegionIndex) != 5)
 			return Fail(TEXT("Destroying enemy extractor must free its deposit without recapturing region"));
-		for (ACommandBuilding* Producer : EnabledProducers) Producer->SetProduction(Producer->ProductionUnitIndex, true);
+		for (ACommandBuilding* Producer : EnabledProducers)
+			Producer->SetProduction(Producer->ProductionUnitIndex, true);
 		const FVector ThreatAnchor = State->GetRegionAnchor(ForwardRegion->RegionIndex);
 		ACommandBuilding* NearestDefender = nullptr;
 		float NearestDistance = TNumericLimits<float>::Max();
 		for (ACommandBuilding* Producer : State->Buildings)
 		{
 			if (!IsValid(Producer) || Producer->TeamIndex != 5 || !Producer->IsProducer()
-				|| !Producer->IsComplete() || !IsValid(Producer->ForceGroup)) continue;
+				|| !Producer->IsComplete() || !IsValid(Producer->ForceGroup))
+				continue;
 			const float Distance = FVector::DistSquared2D(Producer->ForceGroup->GetCenter(), ThreatAnchor);
-			if (Distance < NearestDistance) { NearestDistance = Distance; NearestDefender = Producer; }
+			if (Distance < NearestDistance)
+			{
+				NearestDistance = Distance;
+				NearestDefender = Producer;
+			}
 		}
 		AArmyGroup* Threat = ArmyTestSetup::SpawnGroup(World, PC, 20, ThreatAnchor + FVector(0.f, 0.f, 100.f));
-		if (!Threat) return Fail(TEXT("Real hostile-pressure fixture could not spawn"));
+		if (!Threat)
+			return Fail(TEXT("Real hostile-pressure fixture could not spawn"));
 		if (!State->IsRegionContested(ForwardRegion->RegionIndex, 5))
 			return Fail(TEXT("Defense fixture must place real hostile units inside the captured forward region"));
 		Planner->EvaluatePlan();
@@ -303,9 +337,12 @@ public:
 		OtherForce = OtherProduction->ForceGroup;
 		ACommandBuilding* Workshop = nullptr;
 		for (ACommandBuilding* Building : State->Buildings)
-			if (IsValid(Building) && Building->TeamIndex == 5 && Building->Kind == EBuildingKind::Workshop) Workshop = Building;
-		if (!Workshop) Workshop = PlaceEnemy(State, TEXT("workshop"), State->EnemyHeadquarters->GetActorLocation());
-		if (!Workshop) return Fail(TEXT("Recovery research fixture has no legal workshop footprint"));
+			if (IsValid(Building) && Building->TeamIndex == 5 && Building->Kind == EBuildingKind::Workshop)
+				Workshop = Building;
+		if (!Workshop)
+			Workshop = PlaceEnemy(State, TEXT("workshop"), State->EnemyHeadquarters->GetActorLocation());
+		if (!Workshop)
+			return Fail(TEXT("Recovery research fixture has no legal workshop footprint"));
 		Workshop->Tick(60.f);
 		const int32 ResearchBefore = State->EnemyCommander->Resources;
 		if (State->EnemyCommander->Doctrine == EArmyDoctrine::None)
@@ -333,7 +370,11 @@ public:
 		return false;
 	}
 private:
-	bool Fail(const TCHAR* Message) { Test->AddError(Message); return true; }
+	bool Fail(const TCHAR* Message)
+	{
+		Test->AddError(Message);
+		return true;
+	}
 	ACommandBuilding* PlaceEnemy(ACommandGameState* State, FName Id, const FVector& Center)
 	{
 		for (int32 Ring = 0; Ring < 9; ++Ring)
@@ -343,10 +384,12 @@ private:
 				FVector Location = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
 				Location.Z = 5.f;
 				Location = State->ResolveBuildingLocation(State->Content->BuildingIndexOf(Id), Location, 5);
-				if (State->FindRegionAt(Location) != State->FindRegionAt(Center)) continue;
+				if (State->FindRegionAt(Location) != State->FindRegionAt(Center))
+					continue;
 				FString Reason;
 				if (ACommandBuilding* Building = State->TryPlaceBuilding(State->Content->BuildingIndexOf(Id), Location,
-					State->EnemyCommander, 5, Reason)) return Building;
+						State->EnemyCommander, 5, Reason))
+					return Building;
 			}
 		return nullptr;
 	}

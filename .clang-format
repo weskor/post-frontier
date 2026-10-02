@@ -1,0 +1,62 @@
+# clang-format 22.1.8 (/usr/bin/clang-format)
+BasedOnStyle: Microsoft
+UseTab: ForContinuationAndIndentation
+IndentWidth: 4
+TabWidth: 4
+AccessModifierOffset: -4
+ColumnLimit: 0
+PointerAlignment: Left
+NamespaceIndentation: None
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AlignAfterOpenBracket: false
+AlignOperands: DontAlign
+AlignTrailingComments:
+  Kind: Never
+BreakBeforeBinaryOperators: NonAssignment
+Cpp11BracedListStyle: Block
+EmptyLineBeforeAccessModifier: Leave
+SortIncludes: Never
+SortUsingDeclarations: Never
+ReflowComments: Never
+FixNamespaceComments: false
+# Allman braces, except existing inline lambdas.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterExternBlock: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: true
+# Reflection and declaration macros are complete statements without semicolons.
+StatementMacros:
+  - UCLASS
+  - USTRUCT
+  - UENUM
+  - UPROPERTY
+  - UFUNCTION
+  - GENERATED_BODY
+  - GENERATED_UCLASS_BODY
+  - GENERATED_USTRUCT_BODY
+  - DECLARE_LOG_CATEGORY_EXTERN
+  - DECLARE_LOG_CATEGORY_CLASS
+  - DECLARE_DELEGATE
+  - DECLARE_MULTICAST_DELEGATE
+  - DECLARE_DYNAMIC_MULTICAST_DELEGATE
+  - DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam
+  - IMPLEMENT_PRIMARY_GAME_MODULE
+  - IMPLEMENT_GAME_MODULE
+  - IMPLEMENT_MODULE
+  - IMPLEMENT_SIMPLE_AUTOMATION_TEST
+  - IMPLEMENT_COMPLEX_AUTOMATION_TEST
+MacroBlockBegin: '^BEGIN_DEFINE_SPEC$'
+MacroBlockEnd: '^END_DEFINE_SPEC$'

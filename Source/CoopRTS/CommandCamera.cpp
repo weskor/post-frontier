@@ -8,7 +8,7 @@
 
 namespace
 {
-	constexpr float MinArmLength = 700.0f;
+constexpr float MinArmLength = 700.0f;
 }
 
 ACommandCamera::ACommandCamera()
@@ -45,7 +45,8 @@ ACommandCamera::ACommandCamera()
 
 void ACommandCamera::Pan(FVector2D Axis, float DeltaSeconds)
 {
-	if (!IsLocallyControlled() || Axis.IsNearlyZero()) return;
+	if (!IsLocallyControlled() || Axis.IsNearlyZero())
+		return;
 	const FVector2D Direction = Axis.GetClampedToMaxSize(1.0);
 	const double Distance = SpringArm->TargetArmLength * 1.1 * DeltaSeconds;
 	FocusOn(GetActorLocation() + FVector(Direction.X, Direction.Y, 0.0) * Distance);
@@ -53,7 +54,8 @@ void ACommandCamera::Pan(FVector2D Axis, float DeltaSeconds)
 
 void ACommandCamera::Drag(FVector2D PixelDelta)
 {
-	if (!IsLocallyControlled()) return;
+	if (!IsLocallyControlled())
+		return;
 	const APlayerController* PlayerController = Cast<APlayerController>(GetController());
 	if (!PlayerController || PixelDelta.IsNearlyZero())
 	{
@@ -76,7 +78,7 @@ void ACommandCamera::Drag(FVector2D PixelDelta)
 	FVector CurrentOrigin;
 	FVector CurrentDirection;
 	if (!PlayerController->DeprojectScreenPositionToWorld(
-		MouseX - PixelDelta.X, MouseY - PixelDelta.Y, PreviousOrigin, PreviousDirection)
+			MouseX - PixelDelta.X, MouseY - PixelDelta.Y, PreviousOrigin, PreviousDirection)
 		|| !PlayerController->DeprojectScreenPositionToWorld(
 			MouseX, MouseY, CurrentOrigin, CurrentDirection))
 	{
@@ -98,7 +100,8 @@ void ACommandCamera::Drag(FVector2D PixelDelta)
 void ACommandCamera::Zoom(float Axis)
 {
 	const AArenaBounds* Arena = IsLocallyControlled() ? AArenaBounds::Find(GetWorld()) : nullptr;
-	if (!Arena) return;
+	if (!Arena)
+		return;
 	// Fully zoomed out, the arm spans the arena's half extent.
 	SpringArm->TargetArmLength = FMath::Clamp(SpringArm->TargetArmLength * FMath::Pow(1.15f, -Axis),
 		MinArmLength, static_cast<float>(Arena->HalfExtent.GetMax()));
@@ -107,7 +110,8 @@ void ACommandCamera::Zoom(float Axis)
 void ACommandCamera::FocusOn(FVector Location)
 {
 	const AArenaBounds* Arena = IsLocallyControlled() ? AArenaBounds::Find(GetWorld()) : nullptr;
-	if (!Arena) return;
+	if (!Arena)
+		return;
 	Location.X = FMath::Clamp(Location.X, -Arena->HalfExtent.X, Arena->HalfExtent.X);
 	Location.Y = FMath::Clamp(Location.Y, -Arena->HalfExtent.Y, Arena->HalfExtent.Y);
 	Location.Z = 0.0;

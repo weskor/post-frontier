@@ -94,9 +94,11 @@ void ACommandBuilding::BeginPlay()
 	if (HasAuthority())
 	{
 		// Kind is a derived, replicated view of the definition for callers that still branch on it.
-		if (const UBuildingDefinition* Definition = GetDefinition()) Kind = Definition->GetKind();
+		if (const UBuildingDefinition* Definition = GetDefinition())
+			Kind = Definition->GetKind();
 	}
-	if (HasAuthority() && Health <= 0) Health = MaxHealth();
+	if (HasAuthority() && Health <= 0)
+		Health = MaxHealth();
 	AudioPreviousHealth = Health;
 	bAudioWasComplete = IsComplete();
 	AudioDeploymentCount = DeploymentCount;
@@ -119,21 +121,34 @@ void ACommandBuilding::BeginPlay()
 					{
 						if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
 							|| !Other->IsAlive() || !Other->IsProducer() || Other->TeamIndex != TeamIndex
-							|| (TeamIndex != 5 && Other->OwningPlayerState != OwningPlayerState)) continue;
-						if (Other->ForceNumber == ForceNumber) { bReserved = true; break; }
+							|| (TeamIndex != 5 && Other->OwningPlayerState != OwningPlayerState))
+							continue;
+						if (Other->ForceNumber == ForceNumber)
+						{
+							bReserved = true;
+							break;
+						}
 					}
-					if (bReserved) continue;
+					if (bReserved)
+						continue;
 					for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 					{
 						const AArmyGroup* Group = *It;
 						if (Group->IsActorBeingDestroyed() || Group->GetTeamIndex() != TeamIndex
 							|| Group->ForceNumber != ForceNumber
-							|| (TeamIndex != 5 && Group->GetOwningPlayerState() != OwningPlayerState)) continue;
+							|| (TeamIndex != 5 && Group->GetOwningPlayerState() != OwningPlayerState))
+							continue;
 						for (const AArmyUnit* Unit : Group->GetUnits())
-							if (IsValid(Unit) && Unit->IsAlive()) { bReserved = true; break; }
-						if (bReserved) break;
+							if (IsValid(Unit) && Unit->IsAlive())
+							{
+								bReserved = true;
+								break;
+							}
+						if (bReserved)
+							break;
 					}
-					if (!bReserved) break;
+					if (!bReserved)
+						break;
 				}
 			}
 			State->Buildings.AddUnique(this);
@@ -149,12 +164,14 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 	if (HasAuthority())
 	{
 		ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-		if (!State || State->MatchResult != EMatchResult::Ongoing || !IsAlive()) return;
+		if (!State || State->MatchResult != EMatchResult::Ongoing || !IsAlive())
+			return;
 		if (!IsComplete())
 		{
 			const UBuildingDefinition* Definition = GetDefinition();
 			const float Duration = Definition ? GetBuildDuration(*Definition) : 0.f;
-			if (Duration <= 0.f) return;
+			if (Duration <= 0.f)
+				return;
 			ConstructionProgress = FMath::Min(1.f, ConstructionProgress + DeltaSeconds / Duration);
 			if (IsComplete())
 			{
@@ -162,13 +179,15 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 				ForceNetUpdate();
 			}
 		}
-		else TickProduction(DeltaSeconds);
+		else
+			TickProduction(DeltaSeconds);
 		TickGoal();
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		// Producer locks replicate independently of Body; host and standalone never receive an OnRep, so resync here.
-		if (DesiredMesh().ToSoftObjectPath() != AppliedMesh) OnRep_Appearance();
+		if (DesiredMesh().ToSoftObjectPath() != AppliedMesh)
+			OnRep_Appearance();
 	}
 }
 
@@ -185,9 +204,15 @@ void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			ForceGroup->DetachProducer();
 			bool bSurvivors = false;
 			for (const AArmyUnit* Unit : ForceGroup->GetUnits())
-				if (IsValid(Unit) && Unit->IsAlive()) { bSurvivors = true; break; }
-			if (bSurvivors) ForceGroup->ForceNetUpdate();
-			else ForceGroup->Destroy();
+				if (IsValid(Unit) && Unit->IsAlive())
+				{
+					bSurvivors = true;
+					break;
+				}
+			if (bSurvivors)
+				ForceGroup->ForceNetUpdate();
+			else
+				ForceGroup->Destroy();
 		}
 		ForceGroup = nullptr;
 		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
@@ -201,7 +226,8 @@ void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ACommandBuilding::ReleaseDeposit()
 {
-	if (!HasAuthority() || !IsValid(Deposit) || Deposit->Extractor != this) return;
+	if (!HasAuthority() || !IsValid(Deposit) || Deposit->Extractor != this)
+		return;
 	Deposit->Extractor = nullptr;
 	Deposit->ForceNetUpdate();
 }
@@ -209,11 +235,14 @@ void ACommandBuilding::ReleaseDeposit()
 void ACommandBuilding::OnRep_Appearance()
 {
 	NotifyAudioState();
-	if (!Footprint || !Body) return;
+	if (!Footprint || !Body)
+		return;
 	const UBuildingDefinition* Definition = GetDefinition();
 	const float Radius = Definition ? GetFootprintRadius(*Definition) : 0.f;
-	if (Radius > 0.f) Footprint->SetBoxExtent(FVector(Radius, Radius, 65.f));
-	if (GetNetMode() == NM_DedicatedServer) return;
+	if (Radius > 0.f)
+		Footprint->SetBoxExtent(FVector(Radius, Radius, 65.f));
+	if (GetNetMode() == NM_DedicatedServer)
+		return;
 	const TSoftObjectPtr<UStaticMesh> Soft = DesiredMesh();
 	AppliedMesh = Soft.ToSoftObjectPath();
 	UStaticMesh* Themed = Soft.LoadSynchronous();
@@ -223,7 +252,8 @@ void ACommandBuilding::OnRep_Appearance()
 		Body->SetStaticMesh(Desired);
 		// SetStaticMesh keeps the previous mesh's override (and any dynamic instance); drop them so the Team slot starts from the mesh default.
 		Body->EmptyOverrideMaterials();
-		if (!Themed && CubeMaterial) Body->SetMaterial(0, CubeMaterial);
+		if (!Themed && CubeMaterial)
+			Body->SetMaterial(0, CubeMaterial);
 	}
 	if (Themed)
 	{
@@ -240,23 +270,28 @@ void ACommandBuilding::OnRep_Appearance()
 	}
 	const int32 TeamSlot = Themed ? FMath::Max(0, Body->GetMaterialIndex(TEXT("Team"))) : 0;
 	UMaterialInstanceDynamic* Material = Cast<UMaterialInstanceDynamic>(Body->GetMaterial(TeamSlot));
-	if (!Material) Material = Body->CreateAndSetMaterialInstanceDynamic(TeamSlot);
-	if (Material) Material->SetVectorParameterValue(TEXT("TeamColor"), !IsAlive() ? FLinearColor(.12f, .12f, .12f)
-		: !IsComplete() ? FLinearColor(.8f, .6f, .18f) : TeamIndex == 5 ? FLinearColor(1.f, .08f, .08f)
-		: FLinearColor(.04f, .5f, 1.f));
+	if (!Material)
+		Material = Body->CreateAndSetMaterialInstanceDynamic(TeamSlot);
+	if (Material)
+		Material->SetVectorParameterValue(TEXT("TeamColor"), !IsAlive() ? FLinearColor(.12f, .12f, .12f) : !IsComplete() ? FLinearColor(.8f, .6f, .18f)
+				: TeamIndex == 5                                                                                         ? FLinearColor(1.f, .08f, .08f)
+																														 : FLinearColor(.04f, .5f, 1.f));
 }
 
 TSoftObjectPtr<UStaticMesh> ACommandBuilding::DesiredMesh() const
 {
 	const UBuildingDefinition* Definition = GetDefinition();
-	if (!Definition) return nullptr;
-	if (!IsComplete()) return Definition->ConstructionMesh;
+	if (!Definition)
+		return nullptr;
+	if (!IsComplete())
+		return Definition->ConstructionMesh;
 	const bool bMachine = TeamIndex == 5;
 	// Producers show the locked-type variant once configured; an unlisted type keeps the neutral mesh.
 	if (Definition->bProducesForces && bForceConfigured)
 	{
 		const TArray<TSoftObjectPtr<UStaticMesh>>& Variants = bMachine ? Definition->MachineRoleMeshes : Definition->HumanRoleMeshes;
-		if (Variants.IsValidIndex(ProductionUnitIndex) && !Variants[ProductionUnitIndex].IsNull()) return Variants[ProductionUnitIndex];
+		if (Variants.IsValidIndex(ProductionUnitIndex) && !Variants[ProductionUnitIndex].IsNull())
+			return Variants[ProductionUnitIndex];
 	}
 	return bMachine ? Definition->MachineMesh : Definition->HumanMesh;
 }
@@ -265,7 +300,8 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
-		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing) return;
+		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
+		return;
 	Health = FMath::Max(0, Health - Damage);
 	OnRep_Appearance();
 	ForceNetUpdate();
@@ -284,7 +320,8 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 bool ACommandBuilding::TrySpend(int32 Cost)
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !State || State->MatchResult != EMatchResult::Ongoing || Cost <= 0) return false;
+	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !State || State->MatchResult != EMatchResult::Ongoing || Cost <= 0)
+		return false;
 	return IsValid(OwningPlayerState) && OwningPlayerState->GetWorld() == GetWorld()
 		&& OwningPlayerState->TeamIndex == TeamIndex
 		&& OwningPlayerState->TrySpend(Cost);
@@ -293,10 +330,12 @@ bool ACommandBuilding::TrySpend(int32 Cost)
 bool ACommandBuilding::CancelConstruction()
 {
 	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing) return false;
+	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing)
+		return false;
 	const UBuildingDefinition* Definition = GetDefinition();
 	const int32 Refund = Definition ? EconomyPolicy::CancellationRefund(GetBuildCost(*Definition), ConstructionProgress) : 0;
-	if (IsValid(OwningPlayerState)) OwningPlayerState->AddResources(Refund);
+	if (IsValid(OwningPlayerState))
+		OwningPlayerState->AddResources(Refund);
 	ReleaseDeposit();
 	FCommandBuildingTerminalSnapshot Snapshot;
 	Snapshot.bCancelled = true;
@@ -307,15 +346,17 @@ bool ACommandBuilding::CancelConstruction()
 	return true;
 }
 
-
 bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
 {
 	const UBuildingDefinition* Definition = GetDefinition();
 	if (!Definition || !Definition->bOffersResearch || !IsComplete()
 		|| (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
-			&& Choice != EArmyDoctrine::EntrenchedFrontline)) return false;
-	if (!IsValid(OwningPlayerState) || OwningPlayerState->Doctrine != EArmyDoctrine::None) return false;
-	if (!TrySpend(ResearchCost)) return false;
+			&& Choice != EArmyDoctrine::EntrenchedFrontline))
+		return false;
+	if (!IsValid(OwningPlayerState) || OwningPlayerState->Doctrine != EArmyDoctrine::None)
+		return false;
+	if (!TrySpend(ResearchCost))
+		return false;
 	if (!OwningPlayerState->TryChooseDoctrine(Choice))
 	{
 		OwningPlayerState->AddResources(ResearchCost);
@@ -329,9 +370,11 @@ bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
 
 void ACommandBuilding::NotifyPlacementCommitted()
 {
-	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || PlacementCommittedServerTime >= 0.) return;
+	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || PlacementCommittedServerTime >= 0.)
+		return;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!State) return;
+	if (!State)
+		return;
 	PlacementCommittedServerTime = State->GetServerWorldTimeSeconds();
 	OnRep_PlacementCommitted();
 	ForceNetUpdate();
@@ -339,13 +382,13 @@ void ACommandBuilding::NotifyPlacementCommitted()
 
 void ACommandBuilding::OnRep_PlacementCommitted()
 {
-	if (!bAudioStateInitialized || bPlacementAudioObserved || PlacementCommittedServerTime < 0.) return;
+	if (!bAudioStateInitialized || bPlacementAudioObserved || PlacementCommittedServerTime < 0.)
+		return;
 	bPlacementAudioObserved = true;
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-		if (IsAlive() && !bTerminalAudioHandled && (HasAuthority()
-			|| (State && PlacementCommittedServerTime >= State->GetAudioLiveStartServerTime())))
+		if (IsAlive() && !bTerminalAudioHandled && (HasAuthority() || (State && PlacementCommittedServerTime >= State->GetAudioLiveStartServerTime())))
 		{
 			Audio->PlayStructure(ECoopAudioEvent::Place, TeamIndex, GetActorLocation(), this);
 		}
@@ -355,14 +398,17 @@ void ACommandBuilding::OnRep_PlacementCommitted()
 
 void ACommandBuilding::StopConstructionAudio()
 {
-	if (!bConstructionAudioRunning) return;
+	if (!bConstructionAudioRunning)
+		return;
 	bConstructionAudioRunning = false;
-	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this)) Audio->StopConstruction(this);
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		Audio->StopConstruction(this);
 }
 
 void ACommandBuilding::NotifyTerminalAudio()
 {
-	if (bTerminalAudioHandled) return;
+	if (bTerminalAudioHandled)
+		return;
 	bTerminalAudioHandled = true;
 	StopConstructionAudio();
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
@@ -374,7 +420,8 @@ void ACommandBuilding::NotifyTerminalAudio()
 
 void ACommandBuilding::NotifyAudioState()
 {
-	if (!bAudioStateInitialized) return;
+	if (!bAudioStateInitialized)
+		return;
 	if (bTerminalAudioHandled)
 	{
 		Health = 0;
@@ -398,7 +445,8 @@ void ACommandBuilding::NotifyAudioState()
 		NotifyTerminalAudio();
 		return;
 	}
-	if (bComplete || !IsAlive()) StopConstructionAudio();
+	if (bComplete || !IsAlive())
+		StopConstructionAudio();
 	else if (PlacementCommittedServerTime >= 0. && !bConstructionAudioRunning && Audio)
 	{
 		bConstructionAudioRunning = true;
@@ -423,10 +471,12 @@ void ACommandBuilding::MulticastTerminalState_Implementation(const FCommandBuild
 
 void ACommandBuilding::OnRep_DeploymentCount()
 {
-	if (!bAudioStateInitialized) return;
+	if (!bAudioStateInitialized)
+		return;
 	const uint32 PreviousCount = AudioDeploymentCount;
 	AudioDeploymentCount = DeploymentCount;
-	if (bTerminalAudioHandled) return;
+	if (bTerminalAudioHandled)
+		return;
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 	{
 		for (uint32 Count = PreviousCount; Count < DeploymentCount; ++Count)
@@ -438,10 +488,12 @@ void ACommandBuilding::OnRep_DeploymentCount()
 
 void ACommandBuilding::OnRep_ResearchCount()
 {
-	if (!bAudioStateInitialized) return;
+	if (!bAudioStateInitialized)
+		return;
 	const uint32 PreviousCount = AudioResearchCount;
 	AudioResearchCount = ResearchCount;
-	if (bTerminalAudioHandled) return;
+	if (bTerminalAudioHandled)
+		return;
 	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
 	{
 		for (uint32 Count = PreviousCount; Count < ResearchCount; ++Count)

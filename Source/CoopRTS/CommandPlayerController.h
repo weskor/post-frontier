@@ -17,7 +17,17 @@ class UInputMappingContext;
 class UEnhancedInputLocalPlayerSubsystem;
 enum class EHUDAction : uint8;
 
-enum class ECommandScreen : uint8 { Game, MainMenu, Pause, Controls, Audio, ConfirmLeave, ConfirmQuit, Result };
+enum class ECommandScreen : uint8
+{
+	Game,
+	MainMenu,
+	Pause,
+	Controls,
+	Audio,
+	ConfirmLeave,
+	ConfirmQuit,
+	Result
+};
 
 UCLASS()
 class COOPRTS_API ACommandPlayerController : public APlayerController
@@ -79,9 +89,12 @@ protected:
 	virtual void PostSeamlessTravel() override;
 
 private:
-	UPROPERTY(Transient) TObjectPtr<ACommandBuilding> SelectedBuilding;
-	UPROPERTY(Transient) TObjectPtr<UInputMappingContext> Mapping;
-	UPROPERTY(Transient) TArray<TObjectPtr<UInputAction>> Actions;
+	UPROPERTY(Transient)
+	TObjectPtr<ACommandBuilding> SelectedBuilding;
+	UPROPERTY(Transient)
+	TObjectPtr<UInputMappingContext> Mapping;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UInputAction>> Actions;
 	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> InputSubsystem;
 	FString Feedback;
 	bool bPlacingBuilding = false;

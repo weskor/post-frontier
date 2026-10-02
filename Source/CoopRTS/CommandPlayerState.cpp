@@ -21,7 +21,8 @@ void ACommandPlayerState::CopyProperties(APlayerState* NewPlayerState)
 
 void ACommandPlayerState::ResetForNewMatch()
 {
-	if (!HasAuthority()) return;
+	if (!HasAuthority())
+		return;
 	Resources = InitialResources;
 	Doctrine = EArmyDoctrine::None;
 	ForceNetUpdate();
@@ -33,7 +34,8 @@ bool ACommandPlayerState::TryChooseDoctrine(EArmyDoctrine Choice)
 	if (!HasAuthority() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| Doctrine != EArmyDoctrine::None
 		|| (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
-			&& Choice != EArmyDoctrine::EntrenchedFrontline)) return false;
+			&& Choice != EArmyDoctrine::EntrenchedFrontline))
+		return false;
 	Doctrine = Choice;
 	ForceNetUpdate();
 	return true;
@@ -51,12 +53,13 @@ int32 ACommandPlayerState::GetIncomePerSecond() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	return State ? State->GetIncomePerSecond(this)
-		: ACommandGameState::BaselineIncomePerSecond;
+				 : ACommandGameState::BaselineIncomePerSecond;
 }
 
 bool ACommandPlayerState::TrySpend(int32 Cost)
 {
-	if (!HasAuthority() || !EconomyPolicy::CanAfford(Resources, Cost)) return false;
+	if (!HasAuthority() || !EconomyPolicy::CanAfford(Resources, Cost))
+		return false;
 	Resources -= Cost;
 	ForceNetUpdate();
 	return true;
@@ -64,7 +67,8 @@ bool ACommandPlayerState::TrySpend(int32 Cost)
 
 void ACommandPlayerState::AddResources(int32 Amount)
 {
-	if (!HasAuthority() || Amount <= 0) return;
+	if (!HasAuthority() || Amount <= 0)
+		return;
 	Resources = EconomyPolicy::AddResources(Resources, Amount);
 	ForceNetUpdate();
 }

@@ -6,8 +6,17 @@
 UENUM(BlueprintType)
 enum class EProductionState : uint8
 {
-	MatchFinished, NotProducer, UnderConstruction, Unconfigured, ForceUnavailable,
-	Paused, ForceComplete, WalletUnavailable, InsufficientResources, DeploymentBlocked, Producing
+	MatchFinished,
+	NotProducer,
+	UnderConstruction,
+	Unconfigured,
+	ForceUnavailable,
+	Paused,
+	ForceComplete,
+	WalletUnavailable,
+	InsufficientResources,
+	DeploymentBlocked,
+	Producing
 };
 
 struct FProductionInput
@@ -20,12 +29,12 @@ struct FProductionInput
 struct FProductionDecision
 {
 	EProductionState State;
-	float NewProgress;      // progress after DeltaSeconds; unchanged unless State == Producing
-	bool bDeploymentDue;    // NewProgress >= Duration and the adapter should attempt one deployment
+	float NewProgress; // progress after DeltaSeconds; unchanged unless State == Producing
+	bool bDeploymentDue; // NewProgress >= Duration and the adapter should attempt one deployment
 };
 
 namespace ProductionPolicy
 {
-	// Pure: no world, no actors. Precedence is fixed; earlier states mask later ones.
-	FProductionDecision Evaluate(const FProductionInput& In);
+// Pure: no world, no actors. Precedence is fixed; earlier states mask later ones.
+FProductionDecision Evaluate(const FProductionInput& In);
 }

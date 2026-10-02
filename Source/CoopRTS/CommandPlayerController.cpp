@@ -50,14 +50,16 @@ void ACommandPlayerController::BeginPlay()
 
 void ACommandPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (InputSubsystem.IsValid() && Mapping) InputSubsystem->RemoveMappingContext(Mapping);
+	if (InputSubsystem.IsValid() && Mapping)
+		InputSubsystem->RemoveMappingContext(Mapping);
 	InputSubsystem.Reset();
 	Super::EndPlay(EndPlayReason);
 }
 
 void ACommandPlayerController::ResetLocalMatchView()
 {
-	if (!IsLocalController()) return;
+	if (!IsLocalController())
+		return;
 	SelectedBuilding = nullptr;
 	bPlacingBuilding = false;
 	bAssigningGoal = false;
@@ -76,7 +78,8 @@ void ACommandPlayerController::ResetLocalMatchView()
 void ACommandPlayerController::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)
 {
 	Super::GetSeamlessTravelActorList(bToEntry, ActorList);
-	if (!bToEntry) ResetLocalMatchView();
+	if (!bToEntry)
+		ResetLocalMatchView();
 }
 
 void ACommandPlayerController::PostSeamlessTravel()
@@ -88,11 +91,11 @@ void ACommandPlayerController::PostSeamlessTravel()
 void ACommandPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
-	if (!IsLocalController()) return;
+	if (!IsLocalController())
+		return;
 	UEnhancedInputComponent* Input = CastChecked<UEnhancedInputComponent>(InputComponent);
 	Mapping = NewObject<UInputMappingContext>(this);
-	auto Bind = [this, Input](const TCHAR* Name, FKey Key, void (ACommandPlayerController::*Method)(), ETriggerEvent Event)
-	{
+	auto Bind = [this, Input](const TCHAR* Name, FKey Key, void (ACommandPlayerController::*Method)(), ETriggerEvent Event) {
 		UInputAction* Action = NewObject<UInputAction>(this, Name);
 		Action->ValueType = EInputActionValueType::Boolean;
 		Action->bTriggerWhenPaused = Key == EKeys::LeftMouseButton || Key == EKeys::Escape || Key == EKeys::Enter;
@@ -122,16 +125,23 @@ void ACommandPlayerController::SetupInputComponent()
 void ACommandPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
-	if (!IsLocalController()) return;
+	if (!IsLocalController())
+		return;
 	if (GetUIScreen() != ECommandScreen::Game)
 	{
 		PendingPan = FVector2D::ZeroVector;
 		bDragging = false;
 		return;
 	}
-	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding)) { SelectedBuilding = nullptr; bAssigningGoal = false; }
-	if (!PendingPan.IsNearlyZero()) bInitialFocusPending = false;
-	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Pan(PendingPan, DeltaTime);
+	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding))
+	{
+		SelectedBuilding = nullptr;
+		bAssigningGoal = false;
+	}
+	if (!PendingPan.IsNearlyZero())
+		bInitialFocusPending = false;
+	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+		Camera->Pan(PendingPan, DeltaTime);
 	PendingPan = FVector2D::ZeroVector;
 	if (bInitialFocusPending)
 	{
@@ -152,14 +162,17 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		if (bDragging && Position != PreviousDragPosition)
 		{
 			bInitialFocusPending = false;
-			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Drag(Position - PreviousDragPosition);
+			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+				Camera->Drag(Position - PreviousDragPosition);
 		}
 		PreviousDragPosition = Position;
 		bDragging = true;
 	}
-	else bDragging = false;
+	else
+		bDragging = false;
 	AWorldOverlay* Overlay = AWorldOverlay::Get(this);
-	if (!Overlay) return;
+	if (!Overlay)
+		return;
 	if (bPlacingBuilding)
 	{
 		FVector Location;
@@ -200,9 +213,9 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 						bCanPlace ? FColor(0, 220, 45, 180) : FColor(240, 25, 20, 180));
 		}
 	}
-	const auto OutlineRegion = [Overlay](const AMapRegion* Region, FColor Color)
-	{
-		if (!IsValid(Region) || Region->Polygon.Num() < 3) return;
+	const auto OutlineRegion = [Overlay](const AMapRegion* Region, FColor Color) {
+		if (!IsValid(Region) || Region->Polygon.Num() < 3)
+			return;
 		for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
 		{
 			const FVector2D& A = Region->Polygon[Index];
@@ -219,9 +232,9 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 				if (IsValid(Region) && Region->RegionIndex == SelectedBuilding->GoalRegionIndex)
 				{
 					if (Region != HoveredRegion)
-						OutlineRegion(Region, SelectedBuilding->ForceGoal == EForceGoal::Assault ? FColor::Red
-							: SelectedBuilding->ForceGoal == EForceGoal::FallBack ? FColor::Yellow
-							: SelectedBuilding->ForceGoal == EForceGoal::Expand ? FColor(82, 204, 255) : FColor::Green);
+						OutlineRegion(Region, SelectedBuilding->ForceGoal == EForceGoal::Assault ? FColor::Red : SelectedBuilding->ForceGoal == EForceGoal::FallBack ? FColor::Yellow
+								: SelectedBuilding->ForceGoal == EForceGoal::Expand                                                                                  ? FColor(82, 204, 255)
+																																									 : FColor::Green);
 					break;
 				}
 	}
@@ -240,7 +253,8 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	{
 		const FVector Base = SelectedBuilding->FrontLocation + FVector(0.f, 0.f, 16.f);
 		const FColor Color = SelectedBuilding->FrontOrder == EFrontOrder::Secure ? FColor::Red
-			: SelectedBuilding->FrontOrder == EFrontOrder::Defend ? FColor::Green : FColor::Yellow;
+			: SelectedBuilding->FrontOrder == EFrontOrder::Defend                ? FColor::Green
+																				 : FColor::Yellow;
 		Overlay->Line(Base, Base + FVector(0.f, 0.f, 250.f), Color, 3.f);
 		Overlay->Square(Base, FVector2D(75.f, 75.f), Color, 3.f);
 	}
@@ -252,8 +266,10 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 			Center, FColor::Cyan, 2.f);
 		if (SelectedBuilding->HasConfiguredFront())
 			Overlay->Line(Center, SelectedBuilding->FrontLocation + FVector(0.f, 0.f, 24.f),
-				SelectedBuilding->FrontOrder == EFrontOrder::Secure ? FColor::Red
-				: SelectedBuilding->FrontOrder == EFrontOrder::Defend ? FColor::Green : FColor::Yellow, 2.f);
+				SelectedBuilding->FrontOrder == EFrontOrder::Secure       ? FColor::Red
+					: SelectedBuilding->FrontOrder == EFrontOrder::Defend ? FColor::Green
+																		  : FColor::Yellow,
+				2.f);
 	}
 }
 
@@ -261,8 +277,22 @@ void ACommandPlayerController::PanForward() { PendingPan.X += 1.f; }
 void ACommandPlayerController::PanBackward() { PendingPan.X -= 1.f; }
 void ACommandPlayerController::PanLeft() { PendingPan.Y -= 1.f; }
 void ACommandPlayerController::PanRight() { PendingPan.Y += 1.f; }
-void ACommandPlayerController::ZoomIn() { if (GetUIScreen() != ECommandScreen::Game) return; bInitialFocusPending = false; if (auto* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Zoom(1); }
-void ACommandPlayerController::ZoomOut() { if (GetUIScreen() != ECommandScreen::Game) return; bInitialFocusPending = false; if (auto* Camera = Cast<ACommandCamera>(GetPawn())) Camera->Zoom(-1); }
+void ACommandPlayerController::ZoomIn()
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
+	bInitialFocusPending = false;
+	if (auto* Camera = Cast<ACommandCamera>(GetPawn()))
+		Camera->Zoom(1);
+}
+void ACommandPlayerController::ZoomOut()
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
+	bInitialFocusPending = false;
+	if (auto* Camera = Cast<ACommandCamera>(GetPawn()))
+		Camera->Zoom(-1);
+}
 
 bool ACommandPlayerController::CursorHit(FHitResult& Hit) const
 {
@@ -274,9 +304,11 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	float X, Y;
 	FVector Origin, Direction;
 	if (!GetMousePosition(X, Y) || !DeprojectScreenPositionToWorld(X, Y, Origin, Direction)
-		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER) return false;
+		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER)
+		return false;
 	const float Time = -Origin.Z / Direction.Z;
-	if (Time <= 0.f || !FMath::IsFinite(Time)) return false;
+	if (Time <= 0.f || !FMath::IsFinite(Time))
+		return false;
 	Location = Origin + Direction * Time;
 	Location.Z = 0.f;
 	return !Location.ContainsNaN();
@@ -288,16 +320,20 @@ const AMapRegion* ACommandPlayerController::CursorGoalRegion() const
 	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
 	float X, Y;
 	FVector Location;
-	if (!State || !GetMousePosition(X, Y)) return nullptr;
+	if (!State || !GetMousePosition(X, Y))
+		return nullptr;
 	const FVector2D Position(X, Y);
-	if (HUD && HUD->GetMinimapWorldPosition(Position, Location)) return State->FindRegionAt(Location);
-	if (HUD && HUD->IsPanelPoint(Position)) return nullptr;
+	if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
+		return State->FindRegionAt(Location);
+	if (HUD && HUD->IsPanelPoint(Position))
+		return nullptr;
 	return CursorGround(Location) ? State->FindRegionAt(Location) : nullptr;
 }
 
 void ACommandPlayerController::AssignGoalAt(const FVector& Location)
 {
-	if (!CanIssueGameplayCommand() || !IsOwnedBuilding(SelectedBuilding)) return;
+	if (!CanIssueGameplayCommand() || !IsOwnedBuilding(SelectedBuilding))
+		return;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const AMapRegion* Region = State ? State->FindRegionAt(Location) : nullptr;
 	if (!Region)
@@ -321,8 +357,13 @@ const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() co
 bool ACommandPlayerController::GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const
 {
 	bCanPlace = false;
-	if (!bPlacingBuilding) return false;
-	if (!CursorGround(Location)) { Reason = TEXT("Point at ground to place."); return false; }
+	if (!bPlacingBuilding)
+		return false;
+	if (!CursorGround(Location))
+	{
+		Reason = TEXT("Point at ground to place.");
+		return false;
+	}
 	if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
 		Location = State->ResolveBuildingLocation(PlacementIndex, Location);
 	bCanPlace = CanPlaceBuildingAt(PlacementIndex, Location, Reason);
@@ -338,7 +379,8 @@ bool ACommandPlayerController::CanPlaceBuildingAt(int32 BuildingIndex, const FVe
 		Reason = TEXT("Territory and wallet syncing.");
 		return false;
 	}
-	if (!State->ValidateBuildingPlacement(BuildingIndex, 0, Location, Reason)) return false;
+	if (!State->ValidateBuildingPlacement(BuildingIndex, 0, Location, Reason))
+		return false;
 	const int32 Cost = ACommandBuilding::GetBuildCost(*State->Content->Building(BuildingIndex));
 	if (Wallet->Resources < Cost)
 	{
@@ -356,22 +398,26 @@ bool ACommandPlayerController::IsMatchTerminal() const
 
 bool ACommandPlayerController::CanIssueGameplayCommand()
 {
-	if (GetUIScreen() == ECommandScreen::Game) return true;
+	if (GetUIScreen() == ECommandScreen::Game)
+		return true;
 	Feedback = TEXT("Match over: press Enter to restart.");
 	return false;
 }
 
 void ACommandPlayerController::RequestRestart()
 {
-	if (GetUIScreen() == ECommandScreen::Result) ServerRequestRestart();
-	else if (GetUIScreen() == ECommandScreen::MainMenu) HandleHUDAction(EHUDAction::PlaySolo);
+	if (GetUIScreen() == ECommandScreen::Result)
+		ServerRequestRestart();
+	else if (GetUIScreen() == ECommandScreen::MainMenu)
+		HandleHUDAction(EHUDAction::PlaySolo);
 }
 
 void ACommandPlayerController::ServerRequestRestart_Implementation()
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (State && State->MatchResult != EMatchResult::Ongoing)
-		if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>()) Mode->RequestRestart(this);
+		if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>())
+			Mode->RequestRestart(this);
 }
 
 bool ACommandPlayerController::IsMenuWorld() const
@@ -394,7 +440,8 @@ float ACommandPlayerController::GetMasterVolume() const
 void ACommandPlayerController::PlayUISound(FName Event)
 {
 	if (UGameInstance* Instance = GetGameInstance())
-		if (UCoopAudioSubsystem* Audio = Instance->GetSubsystem<UCoopAudioSubsystem>()) Audio->PlayUI(Event);
+		if (UCoopAudioSubsystem* Audio = Instance->GetSubsystem<UCoopAudioSubsystem>())
+			Audio->PlayUI(Event);
 }
 
 void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
@@ -410,99 +457,130 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 
 void ACommandPlayerController::Escape()
 {
-	if (bPlacingBuilding || bAssigningGoal) { CancelMode(); return; }
+	if (bPlacingBuilding || bAssigningGoal)
+	{
+		CancelMode();
+		return;
+	}
 	const ECommandScreen Current = GetUIScreen();
-	if (Current == ECommandScreen::Game) ShowScreen(ECommandScreen::Pause);
-	else if (Current == ECommandScreen::Pause) ShowScreen(ECommandScreen::Game);
+	if (Current == ECommandScreen::Game)
+		ShowScreen(ECommandScreen::Pause);
+	else if (Current == ECommandScreen::Pause)
+		ShowScreen(ECommandScreen::Game);
 	else if (Current == ECommandScreen::MainMenu)
 	{
 		ReturnScreen = Current;
 		ShowScreen(ECommandScreen::ConfirmQuit);
 	}
-	else if (Current != ECommandScreen::Result) ShowScreen(ReturnScreen);
+	else if (Current != ECommandScreen::Result)
+		ShowScreen(ReturnScreen);
 	PlayUISound(TEXT("Click"));
 }
 
 bool ACommandPlayerController::HandleScreenAction(EHUDAction Action)
 {
 	const bool bMapAction = Action == EHUDAction::MapV2 || Action == EHUDAction::MapClassic;
-	if (!bMapAction && (static_cast<uint8>(Action) < static_cast<uint8>(EHUDAction::PlaySolo)
-		|| static_cast<uint8>(Action) > static_cast<uint8>(EHUDAction::InviteFriends))) return false;
-	if (bTravelPending) return true;
+	if (!bMapAction && (static_cast<uint8>(Action) < static_cast<uint8>(EHUDAction::PlaySolo) || static_cast<uint8>(Action) > static_cast<uint8>(EHUDAction::InviteFriends)))
+		return false;
+	if (bTravelPending)
+		return true;
 	const ECommandScreen Current = GetUIScreen();
 	UCoopSessionSubsystem* Session = GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>();
 	switch (Action)
 	{
 	case EHUDAction::MapV2:
 	case EHUDAction::MapClassic:
-		if (Current != ECommandScreen::MainMenu || !IsMenuWorld()) return true;
-		if (Session) Session->SelectMap(Action == EHUDAction::MapV2);
+		if (Current != ECommandScreen::MainMenu || !IsMenuWorld())
+			return true;
+		if (Session)
+			Session->SelectMap(Action == EHUDAction::MapV2);
 		break;
 	case EHUDAction::PlaySolo:
-		if (Current != ECommandScreen::MainMenu || !IsMenuWorld()) return true;
-		if (Session && Session->IsBusy()) return true;
+		if (Current != ECommandScreen::MainMenu || !IsMenuWorld())
+			return true;
+		if (Session && Session->IsBusy())
+			return true;
 		bTravelPending = true;
 		UGameplayStatics::OpenLevel(this, Session ? Session->GetSelectedMap() : FName(TEXT("/Game/Maps/AvailabilityZoneV2")));
 		break;
 	case EHUDAction::HostCoop:
-		if (Current != ECommandScreen::MainMenu || !IsMenuWorld()) return true;
-		if (Session) Session->Host();
+		if (Current != ECommandScreen::MainMenu || !IsMenuWorld())
+			return true;
+		if (Session)
+			Session->Host();
 		break;
 	case EHUDAction::InviteFriends:
-		if (Current != ECommandScreen::Pause && Current != ECommandScreen::Result) return true;
-		if (Session) Session->Invite();
+		if (Current != ECommandScreen::Pause && Current != ECommandScreen::Result)
+			return true;
+		if (Session)
+			Session->Invite();
 		break;
 	case EHUDAction::Menu:
-		if (Current != ECommandScreen::Game) return true;
+		if (Current != ECommandScreen::Game)
+			return true;
 		CancelMode();
 		ShowScreen(ECommandScreen::Pause);
 		break;
 	case EHUDAction::Resume:
-		if (Current != ECommandScreen::Pause) return true;
+		if (Current != ECommandScreen::Pause)
+			return true;
 		ShowScreen(ECommandScreen::Game);
 		break;
 	case EHUDAction::Controls:
 	case EHUDAction::Audio:
-		if (Current != ECommandScreen::MainMenu && Current != ECommandScreen::Pause && Current != ECommandScreen::Result) return true;
+		if (Current != ECommandScreen::MainMenu && Current != ECommandScreen::Pause && Current != ECommandScreen::Result)
+			return true;
 		ReturnScreen = Current;
 		ShowScreen(Action == EHUDAction::Controls ? ECommandScreen::Controls : ECommandScreen::Audio);
 		break;
 	case EHUDAction::Back:
 		if (Current != ECommandScreen::Controls && Current != ECommandScreen::Audio
-			&& Current != ECommandScreen::ConfirmLeave && Current != ECommandScreen::ConfirmQuit) return true;
+			&& Current != ECommandScreen::ConfirmLeave && Current != ECommandScreen::ConfirmQuit)
+			return true;
 		ShowScreen(ReturnScreen);
 		break;
 	case EHUDAction::MainMenu:
 	case EHUDAction::Quit:
-		if (Current != ECommandScreen::MainMenu && Current != ECommandScreen::Pause && Current != ECommandScreen::Result) return true;
-		if (Action == EHUDAction::MainMenu && IsMenuWorld()) return true;
+		if (Current != ECommandScreen::MainMenu && Current != ECommandScreen::Pause && Current != ECommandScreen::Result)
+			return true;
+		if (Action == EHUDAction::MainMenu && IsMenuWorld())
+			return true;
 		ReturnScreen = Current;
 		ShowScreen(Action == EHUDAction::MainMenu ? ECommandScreen::ConfirmLeave : ECommandScreen::ConfirmQuit);
 		break;
 	case EHUDAction::ConfirmLeave:
-		if (Current != ECommandScreen::ConfirmLeave) return true;
+		if (Current != ECommandScreen::ConfirmLeave)
+			return true;
 		SetPause(false);
-		if (Session) Session->Leave();
-		else UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/Menu"));
+		if (Session)
+			Session->Leave();
+		else
+			UGameplayStatics::OpenLevel(this, TEXT("/Game/Maps/Menu"));
 		break;
 	case EHUDAction::ConfirmQuit:
-		if (Current != ECommandScreen::ConfirmQuit) return true;
-		if (Session) Session->Leave(true);
-		else UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+		if (Current != ECommandScreen::ConfirmQuit)
+			return true;
+		if (Session)
+			Session->Leave(true);
+		else
+			UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
 		break;
 	case EHUDAction::Restart:
-		if (Current != ECommandScreen::Result) return true;
+		if (Current != ECommandScreen::Result)
+			return true;
 		SetPause(false);
 		RequestRestart();
 		break;
 	case EHUDAction::VolumeDown:
 	case EHUDAction::VolumeUp:
-		if (Current != ECommandScreen::Audio) return true;
+		if (Current != ECommandScreen::Audio)
+			return true;
 		if (UGameInstance* Instance = GetGameInstance())
 			if (UCoopAudioSubsystem* Audio = Instance->GetSubsystem<UCoopAudioSubsystem>())
 				Audio->SetMasterVolume(FMath::Clamp(Audio->GetMasterVolume() + (Action == EHUDAction::VolumeUp ? .1f : -.1f), 0.f, 1.f));
 		break;
-	default: return true;
+	default:
+		return true;
 	}
 	PlayUISound(TEXT("Click"));
 	return true;
@@ -539,14 +617,16 @@ void ACommandPlayerController::CancelMode()
 
 void ACommandPlayerController::ToggleHUD()
 {
-	if (GetUIScreen() != ECommandScreen::Game) return;
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
 	bHUDExpanded = !bHUDExpanded;
 }
 
 bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 {
 	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
-	if (!HUD) return false;
+	if (!HUD)
+		return false;
 	if (GetUIScreen() != ECommandScreen::Game)
 	{
 		HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
@@ -561,10 +641,12 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 			return true;
 		}
 		bInitialFocusPending = false;
-		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->FocusOn(WorldPosition);
+		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+			Camera->FocusOn(WorldPosition);
 		return true;
 	}
-	if (!HUD->IsPanelPoint(Position)) return false;
+	if (!HUD->IsPanelPoint(Position))
+		return false;
 	HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
 	return true;
 }
@@ -590,17 +672,21 @@ void ACommandPlayerController::SelectActor(AActor* Actor)
 		}
 	}
 	SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
-	if (SelectedBuilding) bHUDExpanded = true;
-	if (SelectedBuilding) PlayUISound(TEXT("Select"));
+	if (SelectedBuilding)
+		bHUDExpanded = true;
+	if (SelectedBuilding)
+		PlayUISound(TEXT("Select"));
 }
 
 void ACommandPlayerController::SelectUnderCursor()
 {
 	float MouseX, MouseY;
-	if (GetMousePosition(MouseX, MouseY) && HandleHUDClick(FVector2D(MouseX, MouseY))) return;
+	if (GetMousePosition(MouseX, MouseY) && HandleHUDClick(FVector2D(MouseX, MouseY)))
+		return;
 	if (bPlacingBuilding)
 	{
-		if (!CanIssueGameplayCommand() || bPlacementPending) return;
+		if (!CanIssueGameplayCommand() || bPlacementPending)
+			return;
 		FVector Location;
 		FString Reason;
 		bool bCanPlace = false;
@@ -618,29 +704,41 @@ void ACommandPlayerController::SelectUnderCursor()
 	if (bAssigningGoal)
 	{
 		FVector Location;
-		if (CursorGround(Location)) AssignGoalAt(Location);
-		else Feedback = TEXT("Choose a region on the ground or minimap.");
+		if (CursorGround(Location))
+			AssignGoalAt(Location);
+		else
+			Feedback = TEXT("Choose a region on the ground or minimap.");
 		return;
 	}
 	FHitResult Hit;
-	if (CursorHit(Hit)) SelectActor(Hit.GetActor());
+	if (CursorHit(Hit))
+		SelectActor(Hit.GetActor());
 }
 
 void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 {
-	if (Action == EHUDAction::None) return;
-	if (HandleScreenAction(Action)) return;
-	if (GetUIScreen() != ECommandScreen::Game) return;
+	if (Action == EHUDAction::None)
+		return;
+	if (HandleScreenAction(Action))
+		return;
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
 	const bool bGoalAction = Action == EHUDAction::GoalHold || Action == EHUDAction::GoalExpand
 		|| Action == EHUDAction::GoalAssault || Action == EHUDAction::GoalFallBack;
 	PlayUISound(bGoalAction ? TEXT("Front") : TEXT("Click"));
-	if (Action == EHUDAction::Construction) { CancelMode(); return; }
-	if (!CanIssueGameplayCommand()) return;
+	if (Action == EHUDAction::Construction)
+	{
+		CancelMode();
+		return;
+	}
+	if (!CanIssueGameplayCommand())
+		return;
 	const int32 BuildIndex = BuildSlot(Action);
 	if (BuildIndex != INDEX_NONE)
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-		if (!State || !IsValid(State->Content) || !State->Content->Building(BuildIndex)) return;
+		if (!State || !IsValid(State->Content) || !State->Content->Building(BuildIndex))
+			return;
 		PlacementIndex = BuildIndex;
 		bPlacingBuilding = true;
 		bAssigningGoal = false;
@@ -648,7 +746,11 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		Feedback = TEXT("Left-click valid ground; right-click/Esc cancels.");
 		return;
 	}
-	if (!IsOwnedBuilding(SelectedBuilding)) { Feedback = TEXT("Select your building first."); return; }
+	if (!IsOwnedBuilding(SelectedBuilding))
+	{
+		Feedback = TEXT("Select your building first.");
+		return;
+	}
 	if (Action == EHUDAction::CancelConstruction)
 	{
 		ServerCancelBuilding(SelectedBuilding);
@@ -656,11 +758,12 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	}
 	if (Action == EHUDAction::ResearchSiege || Action == EHUDAction::ResearchRepairs || Action == EHUDAction::ResearchEntrenched)
 	{
-		ServerResearch(SelectedBuilding, Action == EHUDAction::ResearchSiege ? EArmyDoctrine::SiegeOptics
-			: Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs : EArmyDoctrine::EntrenchedFrontline);
+		ServerResearch(SelectedBuilding, Action == EHUDAction::ResearchSiege ? EArmyDoctrine::SiegeOptics : Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs
+																																				  : EArmyDoctrine::EntrenchedFrontline);
 		return;
 	}
-	if (!SelectedBuilding->IsProducer()) return;
+	if (!SelectedBuilding->IsProducer())
+		return;
 	if (bGoalAction)
 	{
 		if (!SelectedBuilding->IsComplete() || !SelectedBuilding->bForceConfigured || !IsValid(SelectedBuilding->ForceGroup))
@@ -670,8 +773,9 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 			return;
 		}
 		PendingGoal = Action == EHUDAction::GoalHold ? EForceGoal::Hold
-			: Action == EHUDAction::GoalExpand ? EForceGoal::Expand
-			: Action == EHUDAction::GoalAssault ? EForceGoal::Assault : EForceGoal::FallBack;
+			: Action == EHUDAction::GoalExpand       ? EForceGoal::Expand
+			: Action == EHUDAction::GoalAssault      ? EForceGoal::Assault
+													 : EForceGoal::FallBack;
 		bPlacingBuilding = false;
 		if (PendingGoal == EForceGoal::Assault || PendingGoal == EForceGoal::FallBack)
 		{
@@ -691,38 +795,44 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		return;
 	}
 	const int32 RecipeIndex = RecipeSlot(Action);
-	if (RecipeIndex == INDEX_NONE) return;
-	if (SelectedBuilding->bForceConfigured) return; // Locked even while paused; no role-change RPC.
+	if (RecipeIndex == INDEX_NONE)
+		return;
+	if (SelectedBuilding->bForceConfigured)
+		return; // Locked even while paused; no role-change RPC.
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const UArmyUnitDefinition* Definition = State && IsValid(State->Content) ? State->Content->Unit(RecipeIndex) : nullptr;
-	if (!Definition) return;
+	if (!Definition)
+		return;
 	ServerConfigureProduction(SelectedBuilding, Definition->Role, false);
 }
 
-
 void ACommandPlayerController::FocusSelection()
 {
-	if (GetUIScreen() != ECommandScreen::Game) return;
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
 	FVector Target;
-	if (IsOwnedBuilding(SelectedBuilding)) Target = SelectedBuilding->GetActorLocation();
+	if (IsOwnedBuilding(SelectedBuilding))
+		Target = SelectedBuilding->GetActorLocation();
 	else
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-		if (!State || !IsValid(State->FriendlyHeadquarters)) return;
+		if (!State || !IsValid(State->FriendlyHeadquarters))
+			return;
 		Target = State->FriendlyHeadquarters->GetActorLocation();
 	}
 	bInitialFocusPending = false;
-	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn())) Camera->FocusOn(Target);
+	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+		Camera->FocusOn(Target);
 }
 
-	void ACommandPlayerController::CancelPointerMode()
+void ACommandPlayerController::CancelPointerMode()
+{
+	if (bPlacingBuilding || bAssigningGoal)
 	{
-		if (bPlacingBuilding || bAssigningGoal)
-		{
-			CancelMode();
-			Feedback = TEXT("Mode cancelled.");
-		}
+		CancelMode();
+		Feedback = TEXT("Mode cancelled.");
 	}
+}
 
 void ACommandPlayerController::ServerPlaceBuilding_Implementation(int32 BuildingIndex, FVector Location)
 {
@@ -735,30 +845,42 @@ void ACommandPlayerController::ServerPlaceBuilding_Implementation(int32 Building
 		Reason = TEXT("Placement rejected: match or commander unavailable.");
 	else if (!(bAccepted = State->TryPlaceBuilding(BuildingIndex, Location, Wallet, 0, Reason)))
 	{
-		if (Reason.IsEmpty()) Reason = TEXT("Placement rejected by server.");
+		if (Reason.IsEmpty())
+			Reason = TEXT("Placement rejected by server.");
 	}
-	else Reason = TEXT("Building placed; construction started.");
+	else
+		Reason = TEXT("Building placed; construction started.");
 	ClientPlacementFeedback(Reason, bAccepted);
 }
 
 void ACommandPlayerController::ServerCancelBuilding_Implementation(ACommandBuilding* Building)
 {
-	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Cancel rejected: not your living building or match ended."), false); return; }
+	if (!IsValidBuildingCommand(Building))
+	{
+		ClientConstructionFeedback(TEXT("Cancel rejected: not your living building or match ended."), false);
+		return;
+	}
 	const bool bAccepted = Building->CancelConstruction();
 	ClientConstructionFeedback(bAccepted ? TEXT("Construction cancelled; unbuilt portion refunded.")
-		: TEXT("Cancel rejected: building is complete."), bAccepted);
+										 : TEXT("Cancel rejected: building is complete."),
+		bAccepted);
 }
 
 void ACommandPlayerController::ServerConfigureProduction_Implementation(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
 {
-	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Production rejected: not your living building or match ended."), false); return; }
+	if (!IsValidBuildingCommand(Building))
+	{
+		ClientConstructionFeedback(TEXT("Production rejected: not your living building or match ended."), false);
+		return;
+	}
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const int32 UnitIndex = State && IsValid(State->Content) ? State->Content->UnitIndexForRole(Recipe) : -1;
 	const bool bAccepted = Building->SetProduction(UnitIndex, bEnabled);
 	const FString StateName = StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState()));
 	ClientConstructionFeedback(bAccepted
-		? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *StateName)
-		: FString::Printf(TEXT("Production rejected: %s"), *StateName), bAccepted);
+			? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *StateName)
+			: FString::Printf(TEXT("Production rejected: %s"), *StateName),
+		bAccepted);
 }
 
 void ACommandPlayerController::ServerAssignGoal_Implementation(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex)
@@ -771,30 +893,41 @@ void ACommandPlayerController::ServerAssignGoal_Implementation(ACommandBuilding*
 	}
 	const bool bAccepted = Building->SetGoal(Goal, RegionIndex);
 	ClientConstructionFeedback(bAccepted ? TEXT("Goal assigned to this building's force.")
-		: TEXT("Goal rejected: invalid or unreachable region, enemy main, or unavailable force."), bAccepted);
+										 : TEXT("Goal rejected: invalid or unreachable region, enemy main, or unavailable force."),
+		bAccepted);
 }
 
 void ACommandPlayerController::ServerAssignFront_Implementation(ACommandBuilding* Building, EFrontOrder Order, FVector Location)
 {
-	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Front rejected: not your living building or match ended."), false); return; }
+	if (!IsValidBuildingCommand(Building))
+	{
+		ClientConstructionFeedback(TEXT("Front rejected: not your living building or match ended."), false);
+		return;
+	}
 	const bool bAccepted = Building->SetFront(Order, Location);
 	ClientConstructionFeedback(bAccepted ? TEXT("Front assigned to this building's force.")
-		: TEXT("Front rejected: select a completed barracks and valid ground inside the arena."), bAccepted);
+										 : TEXT("Front rejected: select a completed barracks and valid ground inside the arena."),
+		bAccepted);
 }
-
 
 void ACommandPlayerController::ServerResearch_Implementation(ACommandBuilding* Building, EArmyDoctrine Choice)
 {
-	if (!IsValidBuildingCommand(Building)) { ClientConstructionFeedback(TEXT("Research rejected: not your living building or match ended."), false); return; }
+	if (!IsValidBuildingCommand(Building))
+	{
+		ClientConstructionFeedback(TEXT("Research rejected: not your living building or match ended."), false);
+		return;
+	}
 	const bool bAccepted = Building->TryResearch(Choice);
 	ClientConstructionFeedback(bAccepted ? TEXT("Workshop specialization purchased for your forces.")
-		: FString::Printf(TEXT("Research rejected: requires completed workshop, no existing specialization, and %d resources."), ACommandBuilding::ResearchCost), bAccepted);
+										 : FString::Printf(TEXT("Research rejected: requires completed workshop, no existing specialization, and %d resources."), ACommandBuilding::ResearchCost),
+		bAccepted);
 }
 
 void ACommandPlayerController::ClientConstructionFeedback_Implementation(const FString& Message, bool bAccepted)
 {
 	Feedback = Message;
-	if (!bAccepted) PlayUISound(TEXT("Reject"));
+	if (!bAccepted)
+		PlayUISound(TEXT("Reject"));
 }
 
 void ACommandPlayerController::ClientPlacementFeedback_Implementation(const FString& Message, bool bAccepted)
@@ -806,7 +939,8 @@ void ACommandPlayerController::ClientPlacementFeedback_Implementation(const FStr
 		bPlacingBuilding = false;
 		bHUDExpanded = true;
 	}
-	else PlayUISound(TEXT("Reject"));
+	else
+		PlayUISound(TEXT("Reject"));
 }
 
 void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army, FVector Destination, AActor* Target)
@@ -829,7 +963,11 @@ void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army
 				else if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
 					bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->GetTeamIndex();
 			}
-			if (!bValidTarget) { ClientAttackFeedback(false); return; }
+			if (!bValidTarget)
+			{
+				ClientAttackFeedback(false);
+				return;
+			}
 			Destination = Target->GetActorLocation();
 		}
 		if (IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
@@ -841,7 +979,7 @@ void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army
 void ACommandPlayerController::ClientAttackFeedback_Implementation(bool bAccepted)
 {
 	Feedback = bAccepted ? TEXT("Attack order accepted; manual order overrides automatic front.")
-		: TEXT("Attack rejected: choose a live enemy unit, building, HQ or reachable ground.");
+						 : TEXT("Attack rejected: choose a live enemy unit, building, HQ or reachable ground.");
 }
 
 void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army, EArmyOrder Order, FVector Destination)
@@ -853,10 +991,17 @@ void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army,
 	{
 		switch (Order)
 		{
-		case EArmyOrder::Move: bAccepted = Army->IssueMove(Destination); break;
-		case EArmyOrder::Hold: bAccepted = Army->IssueHold(); break;
-		case EArmyOrder::Retreat: bAccepted = Army->IssueRetreat(); break;
-		default: break;
+		case EArmyOrder::Move:
+			bAccepted = Army->IssueMove(Destination);
+			break;
+		case EArmyOrder::Hold:
+			bAccepted = Army->IssueHold();
+			break;
+		case EArmyOrder::Retreat:
+			bAccepted = Army->IssueRetreat();
+			break;
+		default:
+			break;
 		}
 	}
 	ClientOrderFeedback(bAccepted);
@@ -865,5 +1010,5 @@ void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army,
 void ACommandPlayerController::ClientOrderFeedback_Implementation(bool bAccepted)
 {
 	Feedback = bAccepted ? TEXT("Manual order accepted; automatic front disabled for this squad.")
-		: TEXT("Order rejected: choose reachable ground inside the arena.");
+						 : TEXT("Order rejected: choose reachable ground inside the arena.");
 }

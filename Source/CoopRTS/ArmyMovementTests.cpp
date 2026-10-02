@@ -35,23 +35,27 @@ public:
 				if (UWorld* World = Context.World())
 					if (World->IsGameWorld() && World->GetNetMode() == NM_Standalone)
 					{
-						for (TActorIterator<AEnemyCommander> It(World); It; ++It) It->Destroy();
+						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+							It->Destroy();
 						bIsolated = true; // Crossing retains its original static defender.
 						break;
 					}
 		}
 		const double Now = FPlatformTime::Seconds();
-		if (bFailed) return true;
+		if (bFailed)
+			return true;
 		if (Now - Started > 90.)
 		{
 			Test->AddError(FString::Printf(TEXT("TwoGroups exceeded 90 seconds in stage %d"), static_cast<int32>(Stage)));
 			for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 			{
-				if (!Groups[GroupIndex].IsValid()) continue;
+				if (!Groups[GroupIndex].IsValid())
+					continue;
 				for (int32 Index = 0; Index < Groups[GroupIndex]->GetUnits().Num(); ++Index)
 				{
 					const AArmyUnit* Unit = Groups[GroupIndex]->GetUnits()[Index];
-					if (!IsValid(Unit)) continue;
+					if (!IsValid(Unit))
+						continue;
 					const UPathFollowingComponent* Following = GetFollowing(Unit);
 					Test->AddInfo(FString::Printf(TEXT("Army %d unit %d position=%s goal=%s speed=%.1f status=%d reached=%d"),
 						GroupIndex, Index, *Unit->GetActorLocation().ToCompactString(),
@@ -63,15 +67,19 @@ public:
 			return true;
 		}
 
-		if (Stage == EStage::FindGroups) return Start(Now);
+		if (Stage == EStage::FindGroups)
+			return Start(Now);
 		if (!Check(Controller.IsValid() && Groups[0].IsValid() && Groups[1].IsValid() && Enemy.IsValid(),
-			TEXT("Both groups, their controller and the opposing army survive"))) return true;
+				TEXT("Both groups, their controller and the opposing army survive")))
+			return true;
 		for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 		{
-			if (!Check(Groups[GroupIndex]->GetUnits().Num() == 6, TEXT("No units disappear or appear unexpectedly"))) return true;
+			if (!Check(Groups[GroupIndex]->GetUnits().Num() == 6, TEXT("No units disappear or appear unexpectedly")))
+				return true;
 			for (AArmyUnit* Unit : Groups[GroupIndex]->GetUnits())
 			{
-				if (!Check(IsValid(Unit) && Unit->GetGroup() == Groups[GroupIndex].Get(), TEXT("Every unit retains its own group"))) return true;
+				if (!Check(IsValid(Unit) && Unit->GetGroup() == Groups[GroupIndex].Get(), TEXT("Every unit retains its own group")))
+					return true;
 				if (Stage >= EStage::Crossing)
 				{
 					const FVector Location = Unit->GetActorLocation();
@@ -96,9 +104,11 @@ public:
 			if (Now - StageStarted >= .12)
 			{
 				const double Offset = (ReplacementCount % 2 == 0) ? 250. : -250.;
-				if (!Move(0, FVector(-2800. + Offset, 1900., 0.)) || !Move(1, FVector(-1800. - Offset, -1900., 0.))) return true;
+				if (!Move(0, FVector(-2800. + Offset, 1900., 0.)) || !Move(1, FVector(-1800. - Offset, -1900., 0.)))
+					return true;
 				StageStarted = Now;
-				if (++ReplacementCount == 8) SetStage(EStage::BeforeRejection, Now);
+				if (++ReplacementCount == 8)
+					SetStage(EStage::BeforeRejection, Now);
 			}
 			break;
 		case EStage::BeforeRejection:
@@ -108,16 +118,19 @@ public:
 				FNavLocation Projected;
 				const FNavAgentProperties& Agent = Groups[0]->GetUnits()[0]->GetNavAgentPropertiesRef();
 				if (!Check(Navigation && Navigation->ProjectPointToNavigation(FVector(0., 4370., 0.), Projected, FVector(75., 75., 200.), &Agent),
-					TEXT("Near-wall rejection probe has a navigable center"))) return true;
+						TEXT("Near-wall rejection probe has a navigable center")))
+					return true;
 				for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 				{
 					for (AArmyUnit* Unit : Groups[GroupIndex]->GetUnits())
-						if (!Check(Unit->GetVelocity().Size2D() > 25., TEXT("Every unit is moving before rejected requests"))) return true;
+						if (!Check(Unit->GetVelocity().Size2D() > 25., TEXT("Every unit is moving before rejected requests")))
+							return true;
 					// A click on the obstacle's top is not a reachable ground order;
 					// north-wall center is on the floor but its +180 Y slots cannot fit.
 					if (!RejectMove(GroupIndex, FVector(100000., 0., 0.), TEXT("Out-of-bounds"))
 						|| !RejectMove(GroupIndex, FVector(0., 0., 600.), TEXT("Unreachable obstacle top"))
-						|| !RejectMove(GroupIndex, FVector(0., 4370., 0.), TEXT("Near-wall formation"))) return true;
+						|| !RejectMove(GroupIndex, FVector(0., 4370., 0.), TEXT("Near-wall formation")))
+						return true;
 					RememberPositions(GroupIndex);
 				}
 				SetStage(EStage::AfterRejection, Now);
@@ -132,22 +145,26 @@ public:
 						const FVector Position = Groups[GroupIndex]->GetUnits()[Index]->GetActorLocation();
 						if (!Check(FVector::Dist2D(Position, Positions[GroupIndex][Index]) > 30., TEXT("Rejected requests do not stop any unit"))
 							|| !Check(FVector::Dist2D(Position, Goals[GroupIndex][Index]) + 30. < FVector::Dist2D(Positions[GroupIndex][Index], Goals[GroupIndex][Index]),
-								TEXT("Every unit continues toward its accepted replacement"))) return true;
+								TEXT("Every unit continues toward its accepted replacement")))
+							return true;
 					}
-				if (!Move(0, FVector(2200., 400., 0.)) || !Move(1, FVector(2200., -400., 0.))) return true;
+				if (!Move(0, FVector(2200., 400., 0.)) || !Move(1, FVector(2200., -400., 0.)))
+					return true;
 				SetStage(EStage::Crossing, Now);
 			}
 			break;
 		case EStage::Crossing:
 			if (Now - StageStarted >= 2.)
 			{
-				if (!Move(0, FVector(2800., 650., 0.))) return true;
+				if (!Move(0, FVector(2800., 650., 0.)))
+					return true;
 				for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 				{
 					const uint32 Serial = Groups[GroupIndex]->OrderSerial;
 					Controller->ServerIssueOrder(Groups[GroupIndex].Get(), EArmyOrder::Hold, FVector::ZeroVector);
 					if (!Check(Groups[GroupIndex]->Order == EArmyOrder::Hold && Groups[GroupIndex]->OrderSerial > Serial,
-						TEXT("Immediate Hold replaces travel for every member"))) return true;
+							TEXT("Immediate Hold replaces travel for every member")))
+						return true;
 					RememberPositions(GroupIndex);
 				}
 				SetStage(EStage::Held, Now);
@@ -160,40 +177,61 @@ public:
 					AArmyUnit* Unit = Groups[GroupIndex]->GetUnits()[Index];
 					UPathFollowingComponent* Following = GetFollowing(Unit);
 					if (!Check(FVector::Dist2D(Unit->GetActorLocation(), Positions[GroupIndex][Index]) < 5.
-						&& Unit->GetVelocity().Size2D() < 1. && Following && Following->GetStatus() == EPathFollowingStatus::Idle,
-						FString::Printf(TEXT("Army %d unit %d stays at its immediate Hold position"), GroupIndex, Index))) return true;
+								&& Unit->GetVelocity().Size2D() < 1. && Following && Following->GetStatus() == EPathFollowingStatus::Idle,
+							FString::Printf(TEXT("Army %d unit %d stays at its immediate Hold position"), GroupIndex, Index)))
+						return true;
 				}
 			if (Now - StageStarted >= 1.)
 			{
-				if (!Move(0, FVector(2300., 400., 0.)) || !Move(1, FVector(2300., -400., 0.))) return true;
+				if (!Move(0, FVector(2300., 400., 0.)) || !Move(1, FVector(2300., -400., 0.)))
+					return true;
 				SetStage(EStage::FinalArrival, Now);
 			}
 			break;
 		case EStage::FinalArrival:
-			if (AllArrived()) SetStage(EStage::Settled, Now);
+			if (AllArrived())
+				SetStage(EStage::Settled, Now);
 			break;
 		case EStage::Settled:
-			if (!Check(AllArrived(), TEXT("No stale order resumes after all units reach the latest destination"))) return true;
+			if (!Check(AllArrived(), TEXT("No stale order resumes after all units reach the latest destination")))
+				return true;
 			if (Now - StageStarted >= 1.)
 			{
 				for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
 					for (AArmyUnit* Unit : Group->GetUnits())
-						if (!Check(WentAroundObstacle.Contains(Unit), FString::Printf(TEXT("%s crossed around the central obstacle"), *Unit->GetName()))) return true;
+						if (!Check(WentAroundObstacle.Contains(Unit), FString::Printf(TEXT("%s crossed around the central obstacle"), *Unit->GetName())))
+							return true;
 				Test->AddInfo(TEXT("TwoGroups passed: independent armies, every-unit exchange and obstacle crossing, eight rapid replacements, atomic invalid orders with continued motion, immediate per-unit Hold, and all twelve units at their latest goals."));
 				return true;
 			}
 			break;
-		default: break;
+		default:
+			break;
 		}
 		return bFailed;
 	}
 
 private:
-	enum class EStage : uint8 { FindGroups, Exchange, RapidReplacement, BeforeRejection, AfterRejection, Crossing, Held, FinalArrival, Settled };
+	enum class EStage : uint8
+	{
+		FindGroups,
+		Exchange,
+		RapidReplacement,
+		BeforeRejection,
+		AfterRejection,
+		Crossing,
+		Held,
+		FinalArrival,
+		Settled
+	};
 
 	bool Check(bool bCondition, const FString& Message)
 	{
-		if (!bCondition) { Test->AddError(Message); bFailed = true; }
+		if (!bCondition)
+		{
+			Test->AddError(Message);
+			bFailed = true;
+		}
 		return bCondition;
 	}
 
@@ -206,30 +244,42 @@ private:
 	bool bEnemyPositioned = false;
 	bool Start(double Now)
 	{
-		if (Now - Started < 3.) return false;
+		if (Now - Started < 3.)
+			return false;
 		if (!Controller.IsValid())
 		{
 			for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			{
 				UWorld* World = Context.World();
-				if (!World || !World->IsGameWorld() || World->GetNetMode() != NM_Standalone) continue;
+				if (!World || !World->IsGameWorld() || World->GetNetMode() != NM_Standalone)
+					continue;
 				for (TActorIterator<ACommandPlayerController> It(World); It; ++It)
-					if (It->IsLocalController()) { Controller = *It; break; }
-				if (Controller.IsValid()) break;
+					if (It->IsLocalController())
+					{
+						Controller = *It;
+						break;
+					}
+				if (Controller.IsValid())
+					break;
 			}
 		}
-		if (!Controller.IsValid()) return false;
-		if (!ArmyTestSetup::CombatActors(Controller->GetWorld())) return false;
+		if (!Controller.IsValid())
+			return false;
+		if (!ArmyTestSetup::CombatActors(Controller->GetWorld()))
+			return false;
 		for (TActorIterator<AArmyGroup> It(Controller->GetWorld()); It; ++It)
 		{
-			if (It->IsOpposingArmy()) Enemy = *It;
+			if (It->IsOpposingArmy())
+				Enemy = *It;
 			if (It->GetOwner() == Controller.Get() && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
 			{
-				if (!Check(!Groups[It->GetArmyIndex()].IsValid() || Groups[It->GetArmyIndex()].Get() == *It, TEXT("ArmyIndex uniquely identifies each local group"))) return true;
+				if (!Check(!Groups[It->GetArmyIndex()].IsValid() || Groups[It->GetArmyIndex()].Get() == *It, TEXT("ArmyIndex uniquely identifies each local group")))
+					return true;
 				Groups[It->GetArmyIndex()] = *It;
 			}
 		}
-		if (!Groups[0].IsValid() || !Groups[1].IsValid() || !Enemy.IsValid() || Enemy->GetUnits().IsEmpty()) return false;
+		if (!Groups[0].IsValid() || !Groups[1].IsValid() || !Enemy.IsValid() || Enemy->GetUnits().IsEmpty())
+			return false;
 		if (!bEnemyPositioned)
 		{
 			// The strategic actor may have travelled before automation attaches.
@@ -249,22 +299,29 @@ private:
 		for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
 		{
 			if (!Check(Group->OrderSerial == 0 && Group->Order == EArmyOrder::Hold && Group->GetUnits().Num() == 6,
-				TEXT("TwoGroups requires fresh Boot groups: six units and no earlier orders"))) return true;
+					TEXT("TwoGroups requires fresh Boot groups: six units and no earlier orders")))
+				return true;
 			for (AArmyUnit* Unit : Group->GetUnits())
 			{
 				if (!Check(IsValid(Unit) && Unit->GetGroup() == Group.Get()
-					&& Unit->GetTeamIndex() == Group->GetTeamIndex() && !UniqueUnits.Contains(Unit)
-					&& FVector::Dist2D(Unit->GetActorLocation(), Group->GetHomeLocation()) < 450., TEXT("Each starting member belongs exclusively to its group at home"))) return true;
+							&& Unit->GetTeamIndex() == Group->GetTeamIndex() && !UniqueUnits.Contains(Unit)
+							&& FVector::Dist2D(Unit->GetActorLocation(), Group->GetHomeLocation()) < 450.,
+						TEXT("Each starting member belongs exclusively to its group at home")))
+					return true;
 				UniqueUnits.Add(Unit);
 			}
 		}
-		if (!Check(Groups[0]->GetTeamIndex() == Groups[1]->GetTeamIndex() && Groups[0]->GetOwner() == Groups[1]->GetOwner(), TEXT("Two independent armies belong to the same player"))) return true;
+		if (!Check(Groups[0]->GetTeamIndex() == Groups[1]->GetTeamIndex() && Groups[0]->GetOwner() == Groups[1]->GetOwner(), TEXT("Two independent armies belong to the same player")))
+			return true;
 		// A rejected first request is safe to retry while dynamic navmesh starts.
 		Controller->ServerIssueOrder(Groups[0].Get(), EArmyOrder::Move, Groups[0]->GetHomeLocation() + FVector(0., 650., 0.));
-		if (Groups[0]->OrderSerial == 0) return false;
+		if (Groups[0]->OrderSerial == 0)
+			return false;
 		if (!Check(Groups[1]->OrderSerial == 0 && Groups[1]->Order == EArmyOrder::Hold,
-			TEXT("Ordering army zero does not order army one"))) return true;
-		if (!Move(0, Groups[1]->GetHomeLocation()) || !Move(1, Groups[0]->GetHomeLocation())) return true;
+				TEXT("Ordering army zero does not order army one")))
+			return true;
+		if (!Move(0, Groups[1]->GetHomeLocation()) || !Move(1, Groups[0]->GetHomeLocation()))
+			return true;
 		SetStage(EStage::Exchange, Now);
 		return false;
 	}
@@ -279,7 +336,8 @@ private:
 		const FVector OtherDestination = Other->Destination;
 		Controller->ServerIssueOrder(Group, EArmyOrder::Move, Target);
 		return Check(Group->OrderSerial > Serial && Group->Order == EArmyOrder::Move
-			&& FVector::Dist2D(Group->Destination, Target) < 100., TEXT("Valid replacement is accepted at the requested destination"))
+					   && FVector::Dist2D(Group->Destination, Target) < 100.,
+				   TEXT("Valid replacement is accepted at the requested destination"))
 			&& Check(Other->OrderSerial == OtherSerial && Other->Order == OtherOrder && Other->Destination.Equals(OtherDestination), TEXT("Ordering one army preserves the other army's accepted order"))
 			&& CaptureGoals(GroupIndex);
 	}
@@ -291,9 +349,11 @@ private:
 		{
 			UPathFollowingComponent* Following = GetFollowing(Unit);
 			if (!Check(Following && Following->GetPath().IsValid() && Following->GetStatus() == EPathFollowingStatus::Moving,
-				TEXT("Every member receives a real active navigation path"))) return false;
+					TEXT("Every member receives a real active navigation path")))
+				return false;
 			const FVector Goal = Following->GetPath()->GetEndLocation();
-			if (!Check(FVector::Dist2D(Goal, Groups[GroupIndex]->Destination) < 450., TEXT("Every member's path ends in the commanded formation"))) return false;
+			if (!Check(FVector::Dist2D(Goal, Groups[GroupIndex]->Destination) < 450., TEXT("Every member's path ends in the commanded formation")))
+				return false;
 			Goals[GroupIndex].Add(Goal);
 		}
 		return true;
@@ -308,7 +368,8 @@ private:
 				const UPathFollowingComponent* Following = GetFollowing(Unit);
 				if (!Goals[GroupIndex].IsValidIndex(Index) || !Following || Following->GetStatus() != EPathFollowingStatus::Idle
 					|| !Following->DidMoveReachGoal()
-					|| Unit->GetVelocity().Size2D() > 5. || FVector::Dist2D(Unit->GetActorLocation(), Goals[GroupIndex][Index]) > 80.) return false;
+					|| Unit->GetVelocity().Size2D() > 5. || FVector::Dist2D(Unit->GetActorLocation(), Goals[GroupIndex][Index]) > 80.)
+					return false;
 			}
 		return true;
 	}
@@ -320,26 +381,33 @@ private:
 		const EArmyOrder Order = Group->Order;
 		const FVector Destination = Group->Destination;
 		TArray<FAIRequestID, TInlineAllocator<6>> Requests;
-		for (AArmyUnit* Unit : Group->GetUnits()) Requests.Add(GetFollowing(Unit)->GetCurrentRequestId());
+		for (AArmyUnit* Unit : Group->GetUnits())
+			Requests.Add(GetFollowing(Unit)->GetCurrentRequestId());
 		if (!Check(!Group->IssueMove(Target), FString::Printf(TEXT("%s request is rejected"), Description))
-			|| !Check(Group->OrderSerial == Serial && Group->Order == Order && Group->Destination.Equals(Destination), TEXT("Rejected request preserves accepted order state"))) return false;
+			|| !Check(Group->OrderSerial == Serial && Group->Order == Order && Group->Destination.Equals(Destination), TEXT("Rejected request preserves accepted order state")))
+			return false;
 		for (int32 Index = 0; Index < Group->GetUnits().Num(); ++Index)
 		{
 			UPathFollowingComponent* Following = GetFollowing(Group->GetUnits()[Index]);
 			if (!Check(Following && Following->GetCurrentRequestId() == Requests[Index] && Following->GetStatus() == EPathFollowingStatus::Moving,
-				TEXT("Rejected request preserves each active AI request"))) return false;
+					TEXT("Rejected request preserves each active AI request")))
+				return false;
 		}
 		return true;
 	}
 
-
 	void RememberPositions(int32 GroupIndex)
 	{
 		Positions[GroupIndex].Reset();
-		for (AArmyUnit* Unit : Groups[GroupIndex]->GetUnits()) Positions[GroupIndex].Add(Unit->GetActorLocation());
+		for (AArmyUnit* Unit : Groups[GroupIndex]->GetUnits())
+			Positions[GroupIndex].Add(Unit->GetActorLocation());
 	}
 
-	void SetStage(EStage Next, double Now) { Stage = Next; StageStarted = Now; }
+	void SetStage(EStage Next, double Now)
+	{
+		Stage = Next;
+		StageStarted = Now;
+	}
 
 	FAutomationTestBase* Test;
 	TWeakObjectPtr<ACommandPlayerController> Controller;
