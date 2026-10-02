@@ -13,8 +13,8 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyReplacementTest, "CoopRTS.Orders.ReplaceHoldRetreat",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-// Runs against real characters, AI controllers and the arena navmesh in a running game.
-// Use a fresh Boot map; this scenario deliberately moves the local player's army.
+// Runs against real characters, AI controllers and the loaded map's navmesh.
+// Fresh standalone world; fixture homes derive from the placed HQs, not fixed armies.
 class FArmyReplacementScenario : public IAutomationLatentCommand
 {
 public:
@@ -29,7 +29,7 @@ public:
 					{
 						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
 							It->Destroy();
-						bIsolated = true; // Keep this historical order scenario independent of strategic AI.
+						bIsolated = true; // Keep order navigation independent of strategic AI.
 						break;
 					}
 		}
@@ -65,7 +65,7 @@ public:
 				return false;
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, FVector(-1800, 1800, 0));
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, Army->GetHomeLocation() + FVector(0.f, 1800.f, 0.f));
 			if (Army->OrderSerial == Serial)
 				return false; // Navmesh can still be generating.
 			NextStage(Now);
@@ -80,7 +80,7 @@ public:
 		{
 			Test->TestTrue(TEXT("Units actually move under the initial order"), FVector::Dist2D(StartCenter, Army->GetCenter()) > 100.);
 			StartCenter = Army->GetCenter();
-			Replacement = FVector(-3000, -1500, 0);
+			Replacement = Army->GetHomeLocation() + FVector(-1200.f, -1500.f, 0.f);
 			Serial = Army->OrderSerial;
 			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, Replacement);
 			Test->TestTrue(TEXT("Replacement receives a new order serial"), Army->OrderSerial > Serial);
@@ -90,7 +90,7 @@ public:
 		else if (Stage == 2 && Now - StageStarted >= 1.5)
 		{
 			Test->TestTrue(TEXT("Units approach the replacement rather than stale intent"), FVector::Dist2D(Army->GetCenter(), Replacement) + 100. < FVector::Dist2D(StartCenter, Replacement));
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, FVector::ZeroVector);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			Test->TestTrue(TEXT("Hold replaces movement state"), Army->Order == EArmyOrder::Hold);
 			NextStage(Now);
 		}
@@ -99,7 +99,8 @@ public:
 			for (AArmyUnit* Unit : Army->GetUnits())
 				HeldPositions.Add(Unit->GetActorLocation());
 			Serial = Army->OrderSerial;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, FVector(100000, 0, 0));
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, ArmyTestSetup::OutsideArena(State));
 			Test->TestEqual(TEXT("Out-of-bounds request preserves the accepted order"), Army->OrderSerial, Serial);
 			NextStage(Now);
 		}
@@ -107,13 +108,13 @@ public:
 		{
 			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
 				Test->TestTrue(TEXT("Every unit stays stopped after Hold"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, FVector::ZeroVector);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
 			Test->TestTrue(TEXT("Retreat replaces Hold"), Army->Order == EArmyOrder::Retreat);
 			NextStage(Now);
 		}
 		else if (Stage == 5 && FVector::Dist2D(Army->GetCenter(), Army->GetHomeLocation()) < 150.)
 		{
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, FVector::ZeroVector);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			Test->AddInfo(TEXT("Live navigation passed: initial move, replacement, individual unit Hold, invalid destination, retreat home."));
 			return true;
 		}
