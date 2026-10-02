@@ -1,51 +1,10 @@
 #include "HUDPanels.h"
 #include "CommandGameState.h"
-#include "DepositSite.h"
-#include "MapRegion.h"
 #include "Headquarters.h"
 
 namespace CommandHUDPanels
 {
-FForces CountForces(const FContext& Context)
-{
-	FForces Forces;
-	if (!Context.State || !Context.Wallet)
-		return Forces;
-	for (const ACommandBuilding* Building : Context.State->Buildings)
-	{
-		if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != 0
-			|| Building->OwningPlayerState != Context.Wallet)
-			continue;
-		if (!Building->IsComplete())
-			++Forces.Constructing;
-		const UBuildingDefinition* Definition = Building->GetDefinition();
-		if (Building->IsProducer())
-		{
-			++Forces.Barracks;
-			if (Building->IsComplete())
-				++Forces.CompletedBarracks;
-			if (Building->IsComplete() && Building->GetProductionState() == EProductionState::Producing)
-				++Forces.Producing;
-			if (Building->bForceConfigured)
-				++Forces.ConfiguredForces;
-		}
-		else if (Definition && Definition->bOffersResearch)
-			++Forces.Workshops;
-		else if (Definition && Definition->bRequiresDeposit)
-			++Forces.Extractors;
-	}
-	for (const AMapRegion* Region : Context.State->Regions)
-		if (IsValid(Region) && Context.State->GetRegionController(Region->RegionIndex) == 0)
-			++Forces.ControlledRegions;
-	for (const ADepositSite* Deposit : Context.State->Deposits)
-		if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
-			&& Context.State->GetRegionController(Deposit->RegionIndex) == 0
-			&& !Context.State->IsRegionContested(Deposit->RegionIndex, 0))
-			++Forces.FreeDeposits;
-	return Forces;
-}
-
-void DrawHQBar(const FPainter& Paint, const FRect& Rect, const TCHAR* Label, const AHeadquarters* HQ, const FLinearColor& Color)
+static void DrawHQBar(const FPainter& Paint, const FRect& Rect, const TCHAR* Label, const AHeadquarters* HQ, const FLinearColor& Color)
 {
 	const int32 Health = IsValid(HQ) ? HQ->Health : 0;
 	const int32 Max = IsValid(HQ) ? FMath::Max(1, HQ->MaxHealth()) : 1;

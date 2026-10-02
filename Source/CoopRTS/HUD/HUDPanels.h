@@ -48,7 +48,7 @@ void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& 
 void DrawFeedback(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
 void DrawScreenButton(const FPainter& Paint, const FButton& Button, bool bHover);
 void DrawScreen(const FPainter& Paint, const FContext& Context, const FLayout& Layout, EHUDAction Hover);
-void DrawScreenLine(const FPainter& Paint, const FRect& Panel, const TCHAR* Text, int32 Index, const FLinearColor& Color);
+void DrawScreenLine(const FPainter& Paint, const FRect& Panel, const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text);
 void DrawResult(const FPainter& Paint, const FContext& Context, const FRect& Panel);
 void DrawMinimap(const FPainter& Paint, ACommandPlayerController* Controller, const FLayout& Layout);
 }

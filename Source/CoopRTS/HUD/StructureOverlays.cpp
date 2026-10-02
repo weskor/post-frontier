@@ -4,7 +4,7 @@
 
 namespace CommandHUDPanels
 {
-void DrawStructureOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position,
+static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position,
 	FStringView Label, int32 Health, int32 Maximum, const FLinearColor& Color,
 	bool bConstructing = false, float Progress = 1.f)
 {

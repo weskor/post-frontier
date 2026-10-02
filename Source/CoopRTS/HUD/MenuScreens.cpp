@@ -7,7 +7,7 @@
 
 namespace CommandHUDPanels
 {
-const TCHAR* ScreenButtonLabel(EHUDAction Action)
+static const TCHAR* ScreenButtonLabel(EHUDAction Action)
 {
 	switch (Action)
 	{
@@ -85,15 +85,13 @@ static const TCHAR* ScreenTitle(const FContext& Context, ECommandScreen Screen)
 
 static void DrawSessionStatus(const FPainter& Paint, const FContext& Context, const FRect& Panel, ECommandScreen Screen)
 {
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
+
 	if (Screen != ECommandScreen::Controls && Screen != ECommandScreen::Audio)
 	{
 		if (const UCoopSessionSubsystem* Session = Context.Controller->GetGameInstance()->GetSubsystem<UCoopSessionSubsystem>())
 		{
 			const FString Status = Session->GetStatus();
-			Line(*Status, Screen == ECommandScreen::MainMenu ? 0 : 6, Palette::Friendly);
+			DrawScreenLine(Paint, Panel, *Status, Screen == ECommandScreen::MainMenu ? 0 : 6, Palette::Friendly);
 		}
 	}
 }
@@ -101,33 +99,29 @@ static void DrawSessionStatus(const FPainter& Paint, const FContext& Context, co
 static void DrawMainMenuContent(const FPainter& Paint, const FRect& Panel)
 {
 	const float Center = Panel.Center().X;
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
+
 	Paint.Text(TEXT("SOLO OR STEAM CO-OP  /  AVAILABILITY ZONE"), Center, Panel.Y + 82.f, 12.f, Palette::Friendly, true, EAlign::Center);
-	Line(TEXT("Build a base. Give your forces goals. Break JEV's headquarters."), 1);
-	Line(TEXT("Choose v2 (15 regions) or classic. Solo needs no connection."), 2, Palette::Muted);
-	Line(TEXT("Start with 600 resources; your baseline income is +2 per second."), 3, Palette::Muted);
-	Line(TEXT("Choose your map below, then play solo or host on Steam."), 4, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Build a base. Give your forces goals. Break JEV's headquarters."), 1);
+	DrawScreenLine(Paint, Panel, TEXT("Choose v2 (15 regions) or classic. Solo needs no connection."), 2, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Start with 600 resources; your baseline income is +2 per second."), 3, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Choose your map below, then play solo or host on Steam."), 4, Palette::Muted);
 }
 
 static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 {
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
-	Line(TEXT("1  Build a Barracks on green grid preview cells (220 resources)."), 0);
-	Line(TEXT("2  Select it when complete. Choose a force type, then Start."), 1);
-	Line(TEXT("3  Choose Hold or Expand; click a region on ground or minimap."), 2);
-	Line(TEXT("4  Controlled regions allow building. Extractors (160) earn private Power."), 3);
-	Line(TEXT("5  Build a Workshop (190), buy one specialization (150)."), 4);
-	Line(TEXT("6  Assault pushes to JEV's HQ; Fall Back regroups at your barracks."), 5, Palette::Gold);
-	Line(TEXT("Units fight automatically. You command buildings and force goals."), 6, Palette::Friendly);
-	Line(TEXT("LMB: select / place / assign. RMB or Esc: cancel targeting."), 7);
-	Line(TEXT("WASD / middle drag: pan. Wheel: zoom. Space: selected building / HQ."), 8);
-	Line(TEXT("F4: show/hide deck. Esc: match menu (pauses solo only)."), 9);
-	Line(TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
-	Line(TEXT("Siege costs 180 once to configure; replacements cost per unit."), 11, Palette::Muted);
+
+	DrawScreenLine(Paint, Panel, TEXT("1  Build a Barracks on green grid preview cells (220 resources)."), 0);
+	DrawScreenLine(Paint, Panel, TEXT("2  Select it when complete. Choose a force type, then Start."), 1);
+	DrawScreenLine(Paint, Panel, TEXT("3  Choose Hold or Expand; click a region on ground or minimap."), 2);
+	DrawScreenLine(Paint, Panel, TEXT("4  Controlled regions allow building. Extractors (160) earn private Power."), 3);
+	DrawScreenLine(Paint, Panel, TEXT("5  Build a Workshop (190), buy one specialization (150)."), 4);
+	DrawScreenLine(Paint, Panel, TEXT("6  Assault pushes to JEV's HQ; Fall Back regroups at your barracks."), 5, Palette::Gold);
+	DrawScreenLine(Paint, Panel, TEXT("Units fight automatically. You command buildings and force goals."), 6, Palette::Friendly);
+	DrawScreenLine(Paint, Panel, TEXT("LMB: select / place / assign. RMB or Esc: cancel targeting."), 7);
+	DrawScreenLine(Paint, Panel, TEXT("WASD / middle drag: pan. Wheel: zoom. Space: selected building / HQ."), 8);
+	DrawScreenLine(Paint, Panel, TEXT("F4: show/hide deck. Esc: match menu (pauses solo only)."), 9);
+	DrawScreenLine(Paint, Panel, TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 11, Palette::Muted);
 }
 
 static void DrawAudioContent(const FPainter& Paint, const FContext& Context, const FRect& Panel)
@@ -135,40 +129,32 @@ static void DrawAudioContent(const FPainter& Paint, const FContext& Context, con
 	const float Center = Panel.Center().X;
 	const float Left = Panel.X + 32.f;
 	const float Width = Panel.W - 64.f;
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
-	Line(TEXT("MASTER VOLUME  /  saved automatically"), 0, Palette::Muted);
+
+	DrawScreenLine(Paint, Panel, TEXT("MASTER VOLUME  /  saved automatically"), 0, Palette::Muted);
 	TStringBuilder<32> Value;
 	Value.Appendf(TEXT("%d%%"), FMath::RoundToInt(Context.Controller->GetMasterVolume() * 100.f));
 	Paint.Text(Value.ToView(), Center, Panel.Y + 168.f, 24.f, Palette::Text, true, EAlign::Center);
 	Paint.Bar({ Left, Panel.Y + 220.f, Width, 12.f }, Context.Controller->GetMasterVolume(), Palette::Friendly);
-	Line(TEXT("0% mutes gameplay and interface sounds."), 9, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("0% mutes gameplay and interface sounds."), 9, Palette::Muted);
 }
 
 static void DrawPauseContent(const FPainter& Paint, const FContext& Context, const FRect& Panel)
 {
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
-	Line(Context.Controller->GetWorld()->IsPaused() ? TEXT("Solo match paused. JEV and your economy are stopped.")
-													: TEXT("Online match continues while this menu is open."),
+
+	DrawScreenLine(Paint, Panel, Context.Controller->GetWorld()->IsPaused() ? TEXT("Solo match paused. JEV and your economy are stopped.") : TEXT("Online match continues while this menu is open."),
 		1, Palette::Friendly);
-	Line(TEXT("Resume keeps your buildings, goals and progress."), 3, Palette::Muted);
-	Line(TEXT("Leaving discards this match. There is no save / load yet."), 4, Palette::Warn);
+	DrawScreenLine(Paint, Panel, TEXT("Resume keeps your buildings, goals and progress."), 3, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Leaving discards this match. There is no save / load yet."), 4, Palette::Warn);
 }
 
 static void DrawConfirmationContent(const FPainter& Paint, const FContext& Context, const FRect& Panel)
 {
-	auto Line = [&Paint, &Panel](const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text) {
-		DrawScreenLine(Paint, Panel, Text, Index, Color);
-	};
-	Line(Context.Controller->IsMenuWorld() ? TEXT("Close Post-Frontier?")
-										   : TEXT("Current match progress will be discarded."),
+
+	DrawScreenLine(Paint, Panel, Context.Controller->IsMenuWorld() ? TEXT("Close Post-Frontier?") : TEXT("Current match progress will be discarded."),
 		1, Palette::Warn);
 	if (Context.Controller->GetNetMode() == NM_ListenServer)
-		Line(TEXT("You are the host: leaving ends the match for everyone."), 3, Palette::Warn);
-	Line(TEXT("Back or Esc cancels; no action is taken until you confirm."), 5, Palette::Muted);
+		DrawScreenLine(Paint, Panel, TEXT("You are the host: leaving ends the match for everyone."), 3, Palette::Warn);
+	DrawScreenLine(Paint, Panel, TEXT("Back or Esc cancels; no action is taken until you confirm."), 5, Palette::Muted);
 }
 
 void DrawScreen(const FPainter& Paint, const FContext& Context, const FLayout& Layout, EHUDAction Hover)

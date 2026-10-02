@@ -3,6 +3,8 @@
 #include "CommandGameState.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
+#include "DepositSite.h"
+#include "MapRegion.h"
 
 namespace CommandHUDPanels
 {
@@ -24,14 +26,44 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	return Context;
 }
 
-constexpr EHUDAction BuildActions[] = {
-	EHUDAction::BuildSlot0, EHUDAction::BuildSlot1, EHUDAction::BuildSlot2,
-	EHUDAction::BuildSlot3, EHUDAction::BuildSlot4, EHUDAction::BuildSlot5
-};
-constexpr EHUDAction RecipeActions[] = {
-	EHUDAction::RecipeSlot0, EHUDAction::RecipeSlot1, EHUDAction::RecipeSlot2,
-	EHUDAction::RecipeSlot3, EHUDAction::RecipeSlot4, EHUDAction::RecipeSlot5
-};
+FForces CountForces(const FContext& Context)
+{
+	FForces Forces;
+	if (!Context.State || !Context.Wallet)
+		return Forces;
+	for (const ACommandBuilding* Building : Context.State->Buildings)
+	{
+		if (!IsValid(Building) || !Building->IsAlive() || Building->TeamIndex != 0
+			|| Building->OwningPlayerState != Context.Wallet)
+			continue;
+		if (!Building->IsComplete())
+			++Forces.Constructing;
+		const UBuildingDefinition* Definition = Building->GetDefinition();
+		if (Building->IsProducer())
+		{
+			++Forces.Barracks;
+			if (Building->IsComplete())
+				++Forces.CompletedBarracks;
+			if (Building->IsComplete() && Building->GetProductionState() == EProductionState::Producing)
+				++Forces.Producing;
+			if (Building->bForceConfigured)
+				++Forces.ConfiguredForces;
+		}
+		else if (Definition && Definition->bOffersResearch)
+			++Forces.Workshops;
+		else if (Definition && Definition->bRequiresDeposit)
+			++Forces.Extractors;
+	}
+	for (const AMapRegion* Region : Context.State->Regions)
+		if (IsValid(Region) && Context.State->GetRegionController(Region->RegionIndex) == 0)
+			++Forces.ControlledRegions;
+	for (const ADepositSite* Deposit : Context.State->Deposits)
+		if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
+			&& Context.State->GetRegionController(Deposit->RegionIndex) == 0
+			&& !Context.State->IsRegionContested(Deposit->RegionIndex, 0))
+			++Forces.FreeDeposits;
+	return Forces;
+}
 
 const UMatchContent* MatchContent(const FContext& Context)
 {

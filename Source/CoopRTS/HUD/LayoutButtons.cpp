@@ -15,7 +15,7 @@ constexpr EHUDAction RecipeActions[] = {
 	EHUDAction::RecipeSlot0, EHUDAction::RecipeSlot1, EHUDAction::RecipeSlot2,
 	EHUDAction::RecipeSlot3, EHUDAction::RecipeSlot4, EHUDAction::RecipeSlot5
 };
-EHUDAction ResearchAction(EArmyDoctrine Choice)
+static EHUDAction ResearchAction(EArmyDoctrine Choice)
 {
 	return Choice == EArmyDoctrine::SiegeOptics ? EHUDAction::ResearchSiege
 		: Choice == EArmyDoctrine::FieldRepairs ? EHUDAction::ResearchRepairs
