@@ -1,6 +1,6 @@
 # Every rule is blocking; scopes grow only when an entire folder is clean.
 # Path globs: * matches one component; ** crosses directories.
-# Tools/harness and Build Python lint/types await their own migration slices.
+# Build Python lint/types await their own migration slice.
 # Docs/Engineering/Audit is frozen measured evidence: both doc rules stay off.
 [rules]
 suppression = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
@@ -15,6 +15,6 @@ procedure-text = ["Docs/Design/**", "Docs/Design.md", "Docs/Research/**", "Docs/
 rules-includes = ["Source/CoopRTS/Rules/**"]
 file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
 function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
-format = ["Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]
-ruff = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]
-mypy = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]
+format = ["Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]
+ruff = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]
+mypy = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]

@@ -12,7 +12,11 @@ research, victory) at the first resolution, selected-barracks captures at the ot
 the deck and a selected building's inspector render; it never proves production, starvation, goals,
 research or victory presentation.
 """
+
+from __future__ import annotations
+
 import argparse
+from collections.abc import Callable, Sequence
 import json
 import os
 from pathlib import Path
@@ -21,103 +25,176 @@ import shutil
 import struct
 import subprocess
 import sys
+from typing import cast
 
-from network import (NetworkRun, require, owned_buildings, wallet, building, force, alive_units, distance2,
-                     force_counts_match, region, select_goal_region, goal_matches,
-                     BARRACKS, WORKSHOP, RANGED, SIEGE, HOLD, EXPAND, ASSAULT, FALL_BACK)
-from verify import DEFAULT_MAP, map_package
+from harness.network import (
+    ASSAULT,
+    BARRACKS,
+    EXPAND,
+    FALL_BACK,
+    HOLD,
+    RANGED,
+    SIEGE,
+    WORKSHOP,
+    NetworkRun,
+    alive_units,
+    building,
+    distance2,
+    force,
+    force_counts_match,
+    goal_matches,
+    owned_buildings,
+    region,
+    require,
+    select_goal_region,
+    wallet,
+)
+from harness.verify import DEFAULT_MAP, JsonObject, map_package
 
 # EHUDAction ordinals from Source/CoopRTS/CommandHUD.h.
-BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, RESEARCH_REPAIRS = 1, 6, 7, 8, 13
+BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, RESEARCH_REPAIRS = (
+    1,
+    6,
+    7,
+    8,
+    13,
+)
 CONSTRUCTION = 15
 GOAL_HOLD, GOAL_EXPAND, GOAL_ASSAULT, GOAL_FALL_BACK = 37, 38, 39, 40
 
 
-def minimap_region_point(state, target):
+def minimap_region_point(state: JsonObject, target: int) -> tuple[float, float]:
     """Inverse of the HUD's arena-to-minimap transform, using a replicated region anchor."""
     anchor = region(state, target)["anchor"]
     half = state["arenaHalfExtent"]
     origin, size = state["minimapOrigin"], state["minimapSize"]
     horizontal = (anchor[1] + half[1]) / (2 * half[1])
     vertical = (half[0] - anchor[0]) / (2 * half[0])
-    require(0 < horizontal < 1 and 0 < vertical < 1, "region anchor is outside the clickable minimap")
+    require(
+        0 < horizontal < 1 and 0 < vertical < 1,
+        "region anchor is outside the clickable minimap",
+    )
     return origin[0] + size * horizontal, origin[1] + size * vertical
 
 
-def png_size(path):
+def png_size(path: Path) -> tuple[int, int]:
     header = path.read_bytes()[:24]
     require(header[:8] == b"\x89PNG\r\n\x1a\n", f"{path} is not a PNG")
-    return struct.unpack(">II", header[16:24])
+    return cast(tuple[int, int], struct.unpack(">II", header[16:24]))
 
 
-def compositor_windows(pid):
+def compositor_windows(pid: int) -> list[str] | None:
     """Read-only Hyprland query: windows owned by pid. None when no compositor query is available."""
     if not shutil.which("hyprctl"):
         return None
     try:
-        clients = json.loads(subprocess.run(["hyprctl", "clients", "-j"], check=True, capture_output=True, text=True).stdout)
+        clients = json.loads(
+            subprocess.run(
+                ["hyprctl", "clients", "-j"], check=True, capture_output=True, text=True
+            ).stdout
+        )
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         return None
     return [c.get("title", "") for c in clients if c.get("pid") == pid]
 
 
 class Capture:
-    def __init__(self, run):
+    def __init__(self, run: NetworkRun) -> None:
         self.run = run
         self.folder = run.run / "captures"
         self.folder.mkdir()
         self.count = 0
 
-    def state(self):
+    def state(self) -> JsonObject:
         return self.run.observe("host")
 
-    def wait(self, predicate, description):
-        return self.run.await_states(["host"], lambda s: predicate(s["host"]), description)["host"]
+    def wait(
+        self, predicate: Callable[[JsonObject], object], description: str
+    ) -> JsonObject:
+        return self.run.await_states(
+            ["host"], lambda s: predicate(s["host"]), description
+        )["host"]
 
-    def hud(self, action, description):
+    def hud(self, action: int, description: str) -> None:
         self.run.request("host", "hud", hudAction=action)
         self.run.phase(f"HUD click via shared geometry: {description}")
 
-    def key(self, name):
+    def key(self, name: str) -> None:
         self.run.request("host", "key", key=name, pressed=True)
         self.run.request("host", "key", key=name, pressed=False)
 
-    def minimap(self, horizontal, vertical):
+    def minimap(self, horizontal: float, vertical: float) -> None:
         before = self.state()
-        require(not before["assigningGoal"], "camera-only minimap check cannot run while picking a goal")
+        require(
+            not before["assigningGoal"],
+            "camera-only minimap check cannot run while picking a goal",
+        )
         origin = before["minimapOrigin"]
         size = before["minimapSize"]
-        self.run.request("host", "hudClick", x=origin[0] + size * horizontal, y=origin[1] + size * vertical)
+        self.run.request(
+            "host",
+            "hudClick",
+            x=origin[0] + size * horizontal,
+            y=origin[1] + size * vertical,
+        )
         # The minimap spans the replicated arena: top edge is +X, left edge is -Y.
         half = before["arenaHalfExtent"]
-        expected = (half[0] - 2 * half[0] * vertical, -half[1] + 2 * half[1] * horizontal, 0)
-        after = self.wait(lambda s: all(abs(actual - target) < 1
-                                       for actual, target in zip(s["cameraPosition"], expected)),
-                          f"minimap camera focus at {expected}")
-        require((after["placing"], after["assigningGoal"]) == (before["placing"], before["assigningGoal"]),
-                "minimap camera click changed active placement/goal mode")
-        require([(b["actorId"], b["forceGoal"], b["goalRegionIndex"]) for b in after["buildings"]]
-                == [(b["actorId"], b["forceGoal"], b["goalRegionIndex"]) for b in before["buildings"]],
-                "minimap camera click placed a building or reassigned a goal")
+        expected = (
+            half[0] - 2 * half[0] * vertical,
+            -half[1] + 2 * half[1] * horizontal,
+            0,
+        )
+        after = self.wait(
+            lambda s: all(
+                abs(actual - target) < 1
+                for actual, target in zip(s["cameraPosition"], expected, strict=False)
+            ),
+            f"minimap camera focus at {expected}",
+        )
+        require(
+            (after["placing"], after["assigningGoal"])
+            == (before["placing"], before["assigningGoal"]),
+            "minimap camera click changed active placement/goal mode",
+        )
+        require(
+            [
+                (b["actorId"], b["forceGoal"], b["goalRegionIndex"])
+                for b in after["buildings"]
+            ]
+            == [
+                (b["actorId"], b["forceGoal"], b["goalRegionIndex"])
+                for b in before["buildings"]
+            ],
+            "minimap camera click placed a building or reassigned a goal",
+        )
         self.run.phase(f"minimap camera-only click at {horizontal:.2f},{vertical:.2f}")
 
-    def pick_region(self, index, goal, target):
+    def pick_region(self, index: int, goal: int, target: int) -> None:
         before = self.state()
-        require(before["assigningGoal"] and before["pendingGoal"] == goal, "requested goal pick mode is inactive")
+        require(
+            before["assigningGoal"] and before["pendingGoal"] == goal,
+            "requested goal pick mode is inactive",
+        )
         x, y = minimap_region_point(before, target)
         self.run.request("host", "hudClick", x=x, y=y)
-        self.wait(lambda s: not s["assigningGoal"] and s["hudExpanded"]
-                  and goal_matches(s, index, goal, target), "minimap submits selected region goal")
+        self.wait(
+            lambda s: (
+                not s["assigningGoal"]
+                and s["hudExpanded"]
+                and goal_matches(s, index, goal, target)
+            ),
+            "minimap submits selected region goal",
+        )
         self.run.phase(f"minimap selected region {target} for goal {goal}")
 
-    def shot(self, label):
+    def shot(self, label: str) -> Path:
         state = self.state()
         self.count += 1
         path = self.folder / f"{self.count:02d}-{label}.png"
         self.run.request("host", "screenshot", path=str(path))
         previous = -1
 
-        def written():
+        def written() -> bool | None:
             nonlocal previous
             if not path.exists():
                 return None
@@ -125,50 +202,78 @@ class Capture:
             stable = size > 0 and size == previous
             previous = size
             return stable or None
+
         self.run.until(written, f"screenshot {path.name} written", 5, names=["host"])
         width, height = png_size(path)
-        require((width, height) == (state["viewportWidth"], state["viewportHeight"]),
-                f"{path.name}: {width}x{height} does not match viewport {state['viewportWidth']}x{state['viewportHeight']}")
-        self.run.event("capture", path=str(path), width=width, height=height, hudExpanded=state["hudExpanded"],
-                       placing=state["placing"], assigningGoal=state["assigningGoal"],
-                       feedback=state.get("orderFeedback", ""))
+        require(
+            (width, height) == (state["viewportWidth"], state["viewportHeight"]),
+            f"{path.name}: {width}x{height} does not match viewport {state['viewportWidth']}x{state['viewportHeight']}",
+        )
+        self.run.event(
+            "capture",
+            path=str(path),
+            width=width,
+            height=height,
+            hudExpanded=state["hudExpanded"],
+            placing=state["placing"],
+            assigningGoal=state["assigningGoal"],
+            feedback=state.get("orderFeedback", ""),
+        )
         print(f"Captured {path} ({width}x{height})", flush=True)
         return path
 
 
-def no_compositor_windows(run, pid):
+def no_compositor_windows(run: NetworkRun, pid: int) -> None:
     windows = compositor_windows(pid)
     run.event("compositor-windows", pid=pid, windows=windows)
     require(not windows, f"offscreen host mapped compositor windows: {windows}")
 
 
-def boot(run, capture, resolution):
+def boot(
+    run: NetworkRun, capture: Capture, resolution: tuple[int, int]
+) -> tuple[int, JsonObject]:
     """Rendered, isolated listen host with a fresh expanded deck at the requested viewport."""
     run.start("host", host=True)
     pid = run.peers["host"]["process"].pid
-    state = capture.wait(lambda s: s["localIndex"] >= 0 and bool(s["sites"]) and bool(s["regions"])
-                         and s["viewportWidth"] > 0, "rendered listen host with commander and regions")
+    state = capture.wait(
+        lambda s: (
+            s["localIndex"] >= 0
+            and bool(s["sites"])
+            and bool(s["regions"])
+            and s["viewportWidth"] > 0
+        ),
+        "rendered listen host with commander and regions",
+    )
     no_compositor_windows(run, pid)
     run.request("host", "isolate")
     run.phase("isolated enemy planner for stable presentation states (fixture)")
-    capture.wait(lambda s: s["hudExpanded"] and not s["buildingSelected"], "fresh expanded deck")
+    capture.wait(
+        lambda s: s["hudExpanded"] and not s["buildingSelected"], "fresh expanded deck"
+    )
     # The offscreen null platform ignores -ResX/-ResY; keep that launch size as a small-viewport check.
     launch = (state["viewportWidth"], state["viewportHeight"])
     if launch != resolution:
         capture.shot(f"start-overview-launch-{launch[0]}x{launch[1]}")
         width, height = resolution
         run.request("host", "resolution", width=width, height=height)
-        state = capture.wait(lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height), f"viewport {width}x{height}")
+        state = capture.wait(
+            lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height),
+            f"viewport {width}x{height}",
+        )
     return pid, state
 
 
-def place_barracks(run, capture, owner, count, description):
+def place_barracks(
+    run: NetworkRun, capture: Capture, owner: int, count: int, description: str
+) -> JsonObject:
     candidate = run.request("host", "placement", kind=BARRACKS)["placementCandidate"]
     run.request("host", "build", kind=BARRACKS, x=candidate[0], y=candidate[1])
-    return capture.wait(lambda s: len(owned_buildings(s, owner, BARRACKS)) == count, description)
+    return capture.wait(
+        lambda s: len(owned_buildings(s, owner, BARRACKS)) == count, description
+    )
 
 
-def quick(run, label, resolution):
+def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]
@@ -177,40 +282,54 @@ def quick(run, label, resolution):
     state = place_barracks(run, capture, owner, 1, "owned barracks placed")
     barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
     run.request("host", "select", target="building", building=barracks)
-    state = capture.wait(lambda s: s["buildingSelected"] and building(s, barracks)["constructionProgress"] == 1,
-                         "selected barracks complete")
-    require(building(state, barracks)["productionState"] == "Unconfigured",
-            "fresh completed barracks does not present as unconfigured")
+    state = capture.wait(
+        lambda s: (
+            s["buildingSelected"] and building(s, barracks)["constructionProgress"] == 1
+        ),
+        "selected barracks complete",
+    )
+    require(
+        building(state, barracks)["productionState"] == "Unconfigured",
+        "fresh completed barracks does not present as unconfigured",
+    )
     capture.shot(f"{label}-inspector")
     no_compositor_windows(run, pid)
     run.event("PASS", captures=capture.count, resolutions=[resolution], quick=label)
 
 
-def scenario(run, resolutions):
+def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     capture = Capture(run)
     pid, state = boot(run, capture, resolutions[0])
     owner = state["localIndex"]
     capture.shot("start-overview")
-    capture.minimap(.25, .25)
+    capture.minimap(0.25, 0.25)
     capture.shot("minimap-camera-northwest")
-    capture.minimap(.99, .01)
-    capture.minimap(.5, .5)
+    capture.minimap(0.99, 0.01)
+    capture.minimap(0.5, 0.5)
     capture.key("SpaceBar")
 
     capture.hud(BUILD_BARRACKS, "Build Barracks card enters placement")
-    capture.wait(lambda s: s["placing"] and not s["hudExpanded"], "placement mode with collapsed deck")
+    capture.wait(
+        lambda s: s["placing"] and not s["hudExpanded"],
+        "placement mode with collapsed deck",
+    )
     capture.shot("placement-mode")
-    capture.minimap(.75, .75)
+    capture.minimap(0.75, 0.75)
     capture.key("SpaceBar")
     capture.key("Escape")
-    capture.wait(lambda s: not s["placing"] and s["hudExpanded"], "Escape cancels placement and reopens deck")
+    capture.wait(
+        lambda s: not s["placing"] and s["hudExpanded"],
+        "Escape cancels placement and reopens deck",
+    )
     capture.key("F4")
     capture.wait(lambda s: not s["hudExpanded"], "F4 hides deck")
     capture.shot("deck-hidden")
-    capture.minimap(.5, .5)
+    capture.minimap(0.5, 0.5)
     capture.key("SpaceBar")
     capture.hud(CONSTRUCTION, "Persistent Construction button reopens hidden choices")
-    capture.wait(lambda s: s["hudExpanded"], "Construction reopens deck without a hotkey")
+    capture.wait(
+        lambda s: s["hudExpanded"], "Construction reopens deck without a hotkey"
+    )
     capture.key("F4")
     capture.wait(lambda s: not s["hudExpanded"], "F4 hides reopened deck")
     capture.key("F4")
@@ -219,170 +338,339 @@ def scenario(run, resolutions):
 
     run.request("host", "fund", owner=owner, amount=1000)
     state = place_barracks(run, capture, owner, 1, "owned barracks placed")
-    require(state["hudExpanded"] and not state["placing"],
-            "successful placement did not restore construction choices")
-    capture.hud(BUILD_BARRACKS, "Build choices remain available immediately after placement")
-    capture.wait(lambda s: s["placing"], "second building choice without F4 or selection")
+    require(
+        state["hudExpanded"] and not state["placing"],
+        "successful placement did not restore construction choices",
+    )
+    capture.hud(
+        BUILD_BARRACKS, "Build choices remain available immediately after placement"
+    )
+    capture.wait(
+        lambda s: s["placing"], "second building choice without F4 or selection"
+    )
     capture.key("Escape")
-    run.phase("accepted placement reopens build choices; a second placement needs no discovery hotkey")
+    run.phase(
+        "accepted placement reopens build choices; a second placement needs no discovery hotkey"
+    )
     barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
     run.request("host", "select", target="building", building=barracks)
-    capture.wait(lambda s: s["buildingSelected"] and 0.15 < building(s, barracks)["constructionProgress"] < 0.9,
-                 "barracks visibly under construction")
+    capture.wait(
+        lambda s: (
+            s["buildingSelected"]
+            and 0.15 < building(s, barracks)["constructionProgress"] < 0.9
+        ),
+        "barracks visibly under construction",
+    )
     capture.shot("barracks-constructing")
-    capture.wait(lambda s: building(s, barracks)["constructionProgress"] == 1, "barracks complete")
+    capture.wait(
+        lambda s: building(s, barracks)["constructionProgress"] == 1,
+        "barracks complete",
+    )
     capture.shot("barracks-ready")
     capture.hud(RECIPE_SIEGE, "Preview Siege before the first Start")
-    capture.wait(lambda s: building(s, barracks)["recipe"] == SIEGE and not building(s, barracks)["configured"],
-                 "Siege remains a freely selectable unconfigured type")
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["recipe"] == SIEGE
+            and not building(s, barracks)["configured"]
+        ),
+        "Siege remains a freely selectable unconfigured type",
+    )
     capture.shot("barracks-siege-unconfigured")
 
     run.request("host", "income", paused=True)
     run.request("host", "fund", owner=owner, amount=30)
     capture.hud(RECIPE_RANGED, "Ranged recipe")
-    capture.wait(lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated")
+    capture.wait(
+        lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated"
+    )
     capture.hud(TOGGLE_PRODUCTION, "Start production")
-    capture.wait(lambda s: building(s, barracks)["enabled"] and building(s, barracks)["configured"]
-                 and building(s, barracks)["productionSeconds"] > building(s, barracks)["unitTime"] * .25,
-                 "configured force production progressing")
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["enabled"]
+            and building(s, barracks)["configured"]
+            and building(s, barracks)["productionSeconds"]
+            > building(s, barracks)["unitTime"] * 0.25
+        ),
+        "configured force production progressing",
+    )
     capture.shot("barracks-producing-locked-type")
     capture.hud(TOGGLE_PRODUCTION, "Pause partially produced unit")
-    paused = capture.wait(lambda s: not building(s, barracks)["enabled"], "partial unit paused")
+    paused = capture.wait(
+        lambda s: not building(s, barracks)["enabled"], "partial unit paused"
+    )
     progress = building(paused, barracks)["productionSeconds"]
     capture.shot("barracks-paused-locked-type")
     run.request("host", "hud", hudAction=RECIPE_SIEGE, expect_rejection=True)
     locked = capture.state()
-    require(building(locked, barracks)["recipe"] == RANGED and building(locked, barracks)["configured"]
-            and building(locked, barracks)["productionSeconds"] == progress
-            and wallet(locked, owner)["wallet"] == wallet(paused, owner)["wallet"],
-            "paused configured force exposed a type-changing action or mutated work/wallet")
+    require(
+        building(locked, barracks)["recipe"] == RANGED
+        and building(locked, barracks)["configured"]
+        and building(locked, barracks)["productionSeconds"] == progress
+        and wallet(locked, owner)["wallet"] == wallet(paused, owner)["wallet"],
+        "paused configured force exposed a type-changing action or mutated work/wallet",
+    )
     capture.hud(TOGGLE_PRODUCTION, "Resume locked ranged force")
     run.request("host", "fund", owner=owner, amount=0)
-    capture.wait(lambda s: building(s, barracks)["productionState"] == "InsufficientResources",
-                 "enabled production reports insufficient resources")
+    capture.wait(
+        lambda s: building(s, barracks)["productionState"] == "InsufficientResources",
+        "enabled production reports insufficient resources",
+    )
     capture.shot("barracks-waiting-resources")
 
-    for action, goal, label in ((GOAL_HOLD, HOLD, "hold"), (GOAL_EXPAND, EXPAND, "expand")):
+    for action, goal, label in (
+        (GOAL_HOLD, HOLD, "hold"),
+        (GOAL_EXPAND, EXPAND, "expand"),
+    ):
         before_goal = building(capture.state(), barracks)
         capture.hud(action, f"{label.title()} enters region targeting")
-        capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == goal and not s["hudExpanded"],
-                     f"{label} region targeting mode")
+
+        def picking_goal(s: JsonObject, goal: int = goal) -> object:
+            return (
+                s["assigningGoal"] and s["pendingGoal"] == goal and not s["hudExpanded"]
+            )
+
+        capture.wait(picking_goal, f"{label} region targeting mode")
         capture.shot(f"{label}-region-mode")
         capture.key("SpaceBar")
         capture.key("Escape")
-        cancelled = capture.wait(lambda s: not s["assigningGoal"] and s["hudExpanded"],
-                                 f"Escape cancels {label} region targeting")
-        require(goal_matches(cancelled, barracks, before_goal["forceGoal"], before_goal["goalRegionIndex"]),
-                "cancelling a region pick mutated the existing goal")
-    enemy_main = next(r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5)
+        cancelled = capture.wait(
+            lambda s: not s["assigningGoal"] and s["hudExpanded"],
+            f"Escape cancels {label} region targeting",
+        )
+        require(
+            goal_matches(
+                cancelled,
+                barracks,
+                before_goal["forceGoal"],
+                before_goal["goalRegionIndex"],
+            ),
+            "cancelling a region pick mutated the existing goal",
+        )
+    enemy_main = next(
+        r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5
+    )
     capture.hud(GOAL_ASSAULT, "Assault applies immediately without a region pick")
-    capture.wait(lambda s: not s["assigningGoal"] and goal_matches(s, barracks, ASSAULT, enemy_main),
-                 "Assault resolves the enemy main")
+    capture.wait(
+        lambda s: (
+            not s["assigningGoal"] and goal_matches(s, barracks, ASSAULT, enemy_main)
+        ),
+        "Assault resolves the enemy main",
+    )
     capture.shot("assault-goal")
     capture.hud(GOAL_FALL_BACK, "Fall Back applies immediately")
-    capture.wait(lambda s: not s["assigningGoal"] and building(s, barracks)["forceGoal"] == FALL_BACK,
-                 "Fall Back goal without targeting")
+    capture.wait(
+        lambda s: (
+            not s["assigningGoal"] and building(s, barracks)["forceGoal"] == FALL_BACK
+        ),
+        "Fall Back goal without targeting",
+    )
     capture.shot("fall-back-goal")
     target = select_goal_region(capture.state(), barracks)["index"]
     capture.hud(GOAL_EXPAND, "Expand picks a region through the minimap")
-    capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == EXPAND, "Expand minimap pick mode")
+    capture.wait(
+        lambda s: s["assigningGoal"] and s["pendingGoal"] == EXPAND,
+        "Expand minimap pick mode",
+    )
     capture.pick_region(barracks, EXPAND, target)
     capture.shot("expand-region-assigned")
     capture.hud(GOAL_HOLD, "Hold replaces Expand on the selected region")
-    capture.wait(lambda s: s["assigningGoal"] and s["pendingGoal"] == HOLD, "Hold minimap pick mode")
+    capture.wait(
+        lambda s: s["assigningGoal"] and s["pendingGoal"] == HOLD,
+        "Hold minimap pick mode",
+    )
     capture.pick_region(barracks, HOLD, target)
     before_resume = building(capture.state(), barracks)
-    run.request("host", "fund", owner=owner, amount=(4 - before_resume["joined"] - before_resume["travelling"]) * 30)
-    capture.wait(lambda s: building(s, barracks)["productionState"] == "Producing",
-                 "funding automatically resumes enabled production")
+    run.request(
+        "host",
+        "fund",
+        owner=owner,
+        amount=(4 - before_resume["joined"] - before_resume["travelling"]) * 30,
+    )
+    capture.wait(
+        lambda s: building(s, barracks)["productionState"] == "Producing",
+        "funding automatically resumes enabled production",
+    )
     run.phase("resource starvation and automatic resume without toggling production")
-    state = capture.wait(lambda s: building(s, barracks)["travelling"] > 0 and force_counts_match(s, owner, barracks)
-                         and goal_matches(s, barracks, HOLD, target), "paid unit travelling from producer to held region")
+    state = capture.wait(
+        lambda s: (
+            building(s, barracks)["travelling"] > 0
+            and force_counts_match(s, owner, barracks)
+            and goal_matches(s, barracks, HOLD, target)
+        ),
+        "paid unit travelling from producer to held region",
+    )
     squad = building(state, barracks)["forceID"]
     capture.shot("barracks-recruit-travelling")
-    state = capture.wait(lambda s: building(s, barracks)["joined"] == 4
-                         and building(s, barracks)["travelling"] == 0 and force_counts_match(s, owner, barracks)
-                         and building(s, barracks)["productionState"] == "ForceComplete",
-                         "four paid ranged units physically join and fill their own force")
-    require(building(state, barracks)["capacity"] == 4 and wallet(state, owner)["wallet"] == 0,
-            "ranged force capacity or single-unit payment mismatch")
+    state = capture.wait(
+        lambda s: (
+            building(s, barracks)["joined"] == 4
+            and building(s, barracks)["travelling"] == 0
+            and force_counts_match(s, owner, barracks)
+            and building(s, barracks)["productionState"] == "ForceComplete"
+        ),
+        "four paid ranged units physically join and fill their own force",
+    )
+    require(
+        building(state, barracks)["capacity"] == 4
+        and wallet(state, owner)["wallet"] == 0,
+        "ranged force capacity or single-unit payment mismatch",
+    )
     capture.shot("barracks-force-complete")
     capture.hud(TOGGLE_PRODUCTION, "Pause full force")
-    capture.wait(lambda s: not building(s, barracks)["enabled"]
-                 and building(s, barracks)["productionState"] == "Paused", "explicit pause takes priority while full")
+    capture.wait(
+        lambda s: (
+            not building(s, barracks)["enabled"]
+            and building(s, barracks)["productionState"] == "Paused"
+        ),
+        "explicit pause takes priority while full",
+    )
     capture.shot("barracks-full-paused")
     capture.hud(TOGGLE_PRODUCTION, "Enable full force")
-    capture.wait(lambda s: building(s, barracks)["enabled"]
-                 and building(s, barracks)["productionState"] == "ForceComplete"
-                 and building(s, barracks)["joined"] == 4 and wallet(s, owner)["wallet"] == 0,
-                 "enabled full force reports automatic capacity waiting, without charging")
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["enabled"]
+            and building(s, barracks)["productionState"] == "ForceComplete"
+            and building(s, barracks)["joined"] == 4
+            and wallet(s, owner)["wallet"] == 0
+        ),
+        "enabled full force reports automatic capacity waiting, without charging",
+    )
     capture.hud(TOGGLE_PRODUCTION, "Pause full force before casualty")
-    capture.wait(lambda s: building(s, barracks)["productionState"] == "Paused", "full force paused again")
+    capture.wait(
+        lambda s: building(s, barracks)["productionState"] == "Paused",
+        "full force paused again",
+    )
     victim = alive_units(force(state, owner, barracks))[0]
     run.request("host", "kill", owner=owner, army=squad, slot=victim["slot"])
-    capture.wait(lambda s: building(s, barracks)["joined"] == 3 and building(s, barracks)["travelling"] == 0,
-                 "real casualty creates force deficit")
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["joined"] == 3
+            and building(s, barracks)["travelling"] == 0
+        ),
+        "real casualty creates force deficit",
+    )
     capture.shot("barracks-casualty-deficit-paused")
     run.request("host", "fund", owner=owner, amount=30)
     capture.hud(TOGGLE_PRODUCTION, "Resume automatic paid replacement")
-    state = capture.wait(lambda s: building(s, barracks)["travelling"] == 1
-                         and building(s, barracks)["joined"] == 3 and wallet(s, owner)["wallet"] == 0
-                         and force_counts_match(s, owner, barracks), "one paid replacement leaves the producer")
-    recruit = next(u for u in alive_units(force(state, owner, barracks)) if u["reinforcing"])
+    state = capture.wait(
+        lambda s: (
+            building(s, barracks)["travelling"] == 1
+            and building(s, barracks)["joined"] == 3
+            and wallet(s, owner)["wallet"] == 0
+            and force_counts_match(s, owner, barracks)
+        ),
+        "one paid replacement leaves the producer",
+    )
+    recruit = next(
+        u for u in alive_units(force(state, owner, barracks)) if u["reinforcing"]
+    )
     origin = recruit["position"]
     capture.shot("barracks-replacement-travelling")
-    moved_target = select_goal_region(capture.state(), barracks, exclude=(target,))["index"]
+    moved_target = select_goal_region(capture.state(), barracks, exclude=(target,))[
+        "index"
+    ]
     run.request("host", "goal", building=barracks, goal=HOLD, region=moved_target)
-    capture.wait(lambda s: goal_matches(s, barracks, HOLD, moved_target)
-                 and distance2(building(s, barracks)["front"], region(s, moved_target)["anchor"]) < 1,
-                 "replacement force retargets to the new held region")
-    capture.wait(lambda s: any(u["slot"] == recruit["slot"] and distance2(u["position"], origin) > 200 ** 2
-                              for u in alive_units(force(s, owner, barracks))),
-                 "same paid replacement physically tracks the retargeted force")
-    capture.wait(lambda s: building(s, barracks)["joined"] == 4 and building(s, barracks)["travelling"] == 0
-                 and force_counts_match(s, owner, barracks), "replacement physically arrives")
+    capture.wait(
+        lambda s: (
+            goal_matches(s, barracks, HOLD, moved_target)
+            and distance2(
+                building(s, barracks)["front"], region(s, moved_target)["anchor"]
+            )
+            < 1
+        ),
+        "replacement force retargets to the new held region",
+    )
+    capture.wait(
+        lambda s: any(
+            u["slot"] == recruit["slot"] and distance2(u["position"], origin) > 200**2
+            for u in alive_units(force(s, owner, barracks))
+        ),
+        "same paid replacement physically tracks the retargeted force",
+    )
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["joined"] == 4
+            and building(s, barracks)["travelling"] == 0
+            and force_counts_match(s, owner, barracks)
+        ),
+        "replacement physically arrives",
+    )
     capture.shot("barracks-replacement-complete")
     capture.hud(TOGGLE_PRODUCTION, "Pause after replacement proof")
-    state = capture.wait(lambda s: not building(s, barracks)["enabled"], "force paused for presentation checks")
-    run.phase("permanent type, partial pause, starvation, four-unit force, real casualty and paid physical replacement")
+    state = capture.wait(
+        lambda s: not building(s, barracks)["enabled"],
+        "force paused for presentation checks",
+    )
+    run.phase(
+        "permanent type, partial pause, starvation, four-unit force, real casualty and paid physical replacement"
+    )
     roster = [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner]
     for key in ("Tab", "Q", "H", "R"):
         capture.key(key)
     state = capture.state()
-    require(roster == [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner],
-            "removed manual squad keys changed automatic squad orders")
+    require(
+        roster
+        == [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner],
+        "removed manual squad keys changed automatic squad orders",
+    )
     require(state["buildingSelected"], "removed Tab binding changed building selection")
-    run.phase("former squad-control keys preserve automatic goals and building selection")
+    run.phase(
+        "former squad-control keys preserve automatic goals and building selection"
+    )
 
     run.request("host", "fund", owner=owner, amount=400)
     state = place_barracks(run, capture, owner, 2, "independent Siege producer placed")
-    siege = next(b["index"] for b in owned_buildings(state, owner, BARRACKS) if b["index"] != barracks)
+    siege = next(
+        b["index"]
+        for b in owned_buildings(state, owner, BARRACKS)
+        if b["index"] != barracks
+    )
     run.request("host", "select", target="building", building=siege)
     capture.key("SpaceBar")
-    capture.wait(lambda s: building(s, siege)["constructionProgress"] == 1, "Siege producer complete")
+    capture.wait(
+        lambda s: building(s, siege)["constructionProgress"] == 1,
+        "Siege producer complete",
+    )
     capture.hud(RECIPE_SIEGE, "Choose Siege for an independent producer")
-    capture.wait(lambda s: building(s, siege)["recipe"] == SIEGE, "independent Siege type selected")
+    capture.wait(
+        lambda s: building(s, siege)["recipe"] == SIEGE,
+        "independent Siege type selected",
+    )
     capture.shot("siege-first-start-180")
     capture.hud(TOGGLE_PRODUCTION, "Pay one-time Siege configuration and lock")
-    capture.wait(lambda s: building(s, siege)["configured"] and building(s, siege)["enabled"]
-                 and wallet(s, owner)["wallet"] == 0 and building(s, siege)["joined"] == 0
-                 and building(s, siege)["travelling"] == 0
-                 and building(s, siege)["productionState"] == "InsufficientResources",
-                 "exactly 180 configures Siege without an unpaid unit")
+    capture.wait(
+        lambda s: (
+            building(s, siege)["configured"]
+            and building(s, siege)["enabled"]
+            and wallet(s, owner)["wallet"] == 0
+            and building(s, siege)["joined"] == 0
+            and building(s, siege)["travelling"] == 0
+            and building(s, siege)["productionState"] == "InsufficientResources"
+        ),
+        "exactly 180 configures Siege without an unpaid unit",
+    )
     capture.shot("siege-locked-waiting-unit-funds")
     capture.hud(TOGGLE_PRODUCTION, "Pause configured Siege before other purchases")
-    capture.wait(lambda s: not building(s, siege)["enabled"], "Siege paused without changing type")
+    capture.wait(
+        lambda s: not building(s, siege)["enabled"],
+        "Siege paused without changing type",
+    )
     run.phase("rendered first-Start Siege fee and locked independent two-slot force")
 
     run.request("host", "select", target="none")
     candidate = run.request("host", "placement", kind=WORKSHOP)["placementCandidate"]
     run.request("host", "fund", owner=owner, amount=400)
     run.request("host", "build", kind=WORKSHOP, x=candidate[0], y=candidate[1])
-    state = capture.wait(lambda s: len(owned_buildings(s, owner, WORKSHOP)) == 1, "owned workshop placed")
+    state = capture.wait(
+        lambda s: len(owned_buildings(s, owner, WORKSHOP)) == 1, "owned workshop placed"
+    )
     workshop = owned_buildings(state, owner, WORKSHOP)[0]["index"]
     run.request("host", "select", target="building", building=workshop)
     capture.key("SpaceBar")
-    capture.wait(lambda s: building(s, workshop)["constructionProgress"] == 1, "workshop complete")
+    capture.wait(
+        lambda s: building(s, workshop)["constructionProgress"] == 1,
+        "workshop complete",
+    )
     capture.shot("workshop-research")
     capture.hud(RESEARCH_REPAIRS, "Buy Field Repairs")
     capture.wait(lambda s: wallet(s, owner)["doctrine"] == 2, "Field Repairs owned")
@@ -392,12 +680,21 @@ def scenario(run, resolutions):
     capture.key("SpaceBar")
     for width, height in resolutions[1:]:
         run.request("host", "resolution", width=width, height=height)
-        capture.wait(lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height), f"viewport {width}x{height}")
+
+        def viewport_matches(
+            s: JsonObject, width: int = width, height: int = height
+        ) -> bool:
+            return (s["viewportWidth"], s["viewportHeight"]) == (width, height)
+
+        capture.wait(viewport_matches, f"viewport {width}x{height}")
         capture.shot(f"barracks-{width}x{height}")
     if len(resolutions) > 1:
         width, height = resolutions[0]
         run.request("host", "resolution", width=width, height=height)
-        capture.wait(lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height), "primary viewport restored")
+        capture.wait(
+            lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height),
+            "primary viewport restored",
+        )
 
     run.request("host", "finish", owner=owner, army=squad, win=True)
     capture.wait(lambda s: s["result"] == 1, "weapon-caused victory")
@@ -406,41 +703,63 @@ def scenario(run, resolutions):
     run.event("PASS", captures=capture.count, resolutions=resolutions)
 
 
-def resolution(text):
+def resolution(text: str) -> tuple[int, int]:
     width, height = (int(v) for v in text.lower().split("x"))
     return width, height
 
 
-def label(text):
+def label(text: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", text):
         raise argparse.ArgumentTypeError("use letters, numbers, underscores or hyphens")
     return text
 
 
-def configure(parser):
+def configure(parser: argparse.ArgumentParser) -> None:
     parser.description = __doc__
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
-    parser.add_argument("--map", type=map_package, default=DEFAULT_MAP, help="world package path (default: %(default)s)")
-    parser.add_argument("--res", type=resolution, action="append",
-                        help="viewport WxH set with r.SetRes; the first hosts the full state sequence, others "
-                             "capture the selected barracks (default 1600x900); --quick uses only the first")
-    parser.add_argument("--quick", type=label, metavar="LABEL",
-                        help="boot, place and select one barracks, capture <LABEL>-deck and <LABEL>-inspector at the "
-                             "first resolution, then stop; no production fill, fronts, research or victory")
+    parser.add_argument(
+        "--map",
+        type=map_package,
+        default=DEFAULT_MAP,
+        help="world package path (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--res",
+        type=resolution,
+        action="append",
+        help="viewport WxH set with r.SetRes; the first hosts the full state sequence, others "
+        "capture the selected barracks (default 1600x900); --quick uses only the first",
+    )
+    parser.add_argument(
+        "--quick",
+        type=label,
+        metavar="LABEL",
+        help="boot, place and select one barracks, capture <LABEL>-deck and <LABEL>-inspector at the "
+        "first resolution, then stop; no production fill, fronts, research or victory",
+    )
     parser.add_argument("--max-fps", type=int, default=30)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     configure(parser)
     args = parser.parse_args()
     resolutions = args.res or [(1600, 900)]
-    run = NetworkRun(Path(os.environ["X_HARNESS_DIR"]).resolve(), args.mode, 0, False, max_fps=args.max_fps, offscreen=resolutions[0],
-                     map_path=args.map)
+    run = NetworkRun(
+        Path(os.environ["X_HARNESS_DIR"]).resolve(),
+        args.mode,
+        0,
+        False,
+        max_fps=args.max_fps,
+        offscreen=resolutions[0],
+        map_path=args.map,
+    )
     try:
         if args.quick:
             quick(run, args.quick, resolutions[0])
-            print(f"PASS: quick {args.quick} at {resolutions[0][0]}x{resolutions[0][1]}; evidence: {run.run}")
+            print(
+                f"PASS: quick {args.quick} at {resolutions[0][0]}x{resolutions[0][1]}; evidence: {run.run}"
+            )
         else:
             scenario(run, resolutions)
             print(f"PASS: {len(resolutions)} viewport(s); evidence: {run.run}")
