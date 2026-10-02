@@ -70,7 +70,8 @@ Bindings live in `CommandPlayerController` and click actions in `CommandHUD`.
 | HUD Build Barracks / Extractor / Workshop, then left-click ground | Enter grid placement mode (Extractor: near a free deposit); request a building at snapped XY after preview and server checks |
 | HUD Hold / Expand goal button, then left-click a region on the ground or minimap | Assign that goal and target region to the selected owned barracks; the hovered region is outlined. Assault and Fall Back apply on click, without a target |
 | Right-click or Esc during placement/goal targeting | Cancel that mode without placing/assigning |
-| Esc outside targeting / Menu button | Open match menu; solo pauses simulation, co-op matches keep running; Resume returns to play |
+| Esc outside targeting / Menu button | Open match menu; solo pauses simulation, co-op menu overlays do not pause the battle; closing the menu preserves an existing active pause |
+| P / on-screen [P] Pause button | Active pause/resume, leaving selection, inspection and orders available. Orders apply immediately; simulation continues on resume. Solo pause is reusable; co-op shares one pause per battle with a visible countdown and early resume by any player ([Time rules](Docs/Design/ui.md)) |
 | Left-click owned building / owned living unit / clear world | Select building / select unit's living producer / clear selection; enemy, foreign, dead and orphan units clear selection, not individual-unit control |
 | HUD on selected building | Cancel unfinished construction; for barracks choose type before first Start, lock/start/pause/resume production or set its goal; for workshop buy one specialization |
 | Left-click minimap | Pan camera; while choosing a Hold/Expand region it picks that region instead; usable in placement and hidden modes |

@@ -80,9 +80,13 @@ public:
 			if (!FCommandService::IssueOrder(Wallet, Army.Get(), EArmyOrder::Move, Destination))
 				return false;
 			FCommandService::IssueOrder(Wallet, Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			Controller->ServerPause();
+			Test->TestFalse(TEXT("Engine pause RPC cannot bypass the command budget"), World->IsPaused());
 			if (!FCommandService::Pause(Controller.Get()))
 				return Fail(TEXT("Solo pause command rejected"));
 			Test->TestTrue(TEXT("Pause freezes the actual world with game UI still open"), World->IsPaused() && State->IsActivePaused() && Controller->GetUIScreen() == ECommandScreen::Game);
+			Controller->ServerPause();
+			Test->TestTrue(TEXT("Engine pause RPC cannot resume active pause"), World->IsPaused());
 			SimulationTime = World->GetTimeSeconds();
 			Balance = Wallet->Resources;
 			Center = Army->GetCenter();

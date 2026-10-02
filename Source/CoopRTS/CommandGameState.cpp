@@ -18,7 +18,7 @@
 #include "Rules/EconomyPolicy.h"
 #include "SimulationSettings.h"
 #include "CommandPlayerController.h"
-#include "GameFramework/GameModeBase.h"
+#include "CommandGameMode.h"
 #include "GameFramework/WorldSettings.h"
 #include "HAL/PlatformTime.h"
 
@@ -137,7 +137,8 @@ bool ACommandGameState::ApplyPause(ACommandPlayerController* Controller, bool bP
 	const bool bCoop = GetNetMode() != NM_Standalone;
 	if (bPause)
 	{
-		if (!PauseBudget.CanPause(bCoop) || !Controller->SetPause(true))
+		ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>();
+		if (!PauseBudget.CanPause(bCoop) || !Mode || !Mode->ApplyMatchPause(Controller, true))
 			return false;
 		PauseBudget.Begin(bCoop, FPlatformTime::Seconds());
 	}
@@ -147,7 +148,7 @@ bool ACommandGameState::ApplyPause(ACommandPlayerController* Controller, bool bP
 			return false;
 		PauseBudget.Resume();
 		if (!bSoloMenuPaused)
-			GetWorld()->GetAuthGameMode()->ClearPause();
+			GetWorld()->GetAuthGameMode<ACommandGameMode>()->ApplyMatchPause(Controller, false);
 	}
 	PublishPauseBudget();
 	// Pausing freezes normal replication scheduling; publish the engine pause flag now.
@@ -168,7 +169,8 @@ void ACommandGameState::RefreshSoloMenuPause(ACommandPlayerController* Controlle
 	if (!HasAuthority() || GetNetMode() != NM_Standalone)
 		return;
 	bSoloMenuPaused = bMenuPaused;
-	Controller->SetPause(bSoloMenuPaused || PauseBudget.bPaused);
+	if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>())
+		Mode->ApplyMatchPause(Controller, bSoloMenuPaused || PauseBudget.bPaused);
 }
 
 void ACommandGameState::Tick(float DeltaSeconds)
@@ -180,7 +182,7 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		if (PauseBudget.Expired(Now))
 		{
 			PauseBudget.Resume();
-			GetWorld()->GetAuthGameMode()->ClearPause();
+			GetWorld()->GetAuthGameMode<ACommandGameMode>()->ApplyMatchPause(nullptr, false);
 			GetWorld()->GetWorldSettings()->ForceNetUpdate();
 		}
 		PublishPauseBudget();

@@ -28,6 +28,7 @@ def main() -> None:
         args.rendered,
         args.max_fps,
         map_path=args.map,
+        offscreen=(1600, 900) if args.offscreen else None,
     )
     scenario, _ = SCENARIOS[args.scenario]
     try:

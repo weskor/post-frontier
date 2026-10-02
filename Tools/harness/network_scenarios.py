@@ -7,6 +7,7 @@ from harness.network_economy import expand_and_research
 from harness.network_outcomes import finish, research, restart_and_converge
 from harness.network_ownership import reject_locked_commands
 from harness.network_pause import pause_scenario
+from harness.network_pause_hud import pause_hud_scenario
 from harness.network_production import produce_and_replace
 from harness.network_session import build_barracks, configure_siege, connect, recruit
 
@@ -57,6 +58,10 @@ SCENARIOS = {
     "pause": (
         pause_scenario,
         "remote P freezes simulation, shared countdown, host early resume, spent pause rejection",
+    ),
+    "pause-hud": (
+        pause_hud_scenario,
+        "offscreen paused HUD, shared countdown progression and spent action captures",
     ),
     "ownership": (
         ownership_scenario,

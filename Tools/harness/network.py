@@ -292,6 +292,11 @@ def configure(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--clients", type=int, choices=(0, 1, 4), required=True)
     parser.add_argument(
+        "--offscreen",
+        action="store_true",
+        help="render Vulkan offscreen at 1600x900 for HUD captures; not compositor/OS input",
+    )
+    parser.add_argument(
         "--scenario",
         choices=list(SCENARIOS),
         default="construction",

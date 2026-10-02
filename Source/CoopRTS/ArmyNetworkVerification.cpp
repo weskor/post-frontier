@@ -378,6 +378,13 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
 	const int32 Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
 	ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	if (Action == TEXT("enginePause"))
+	{
+		if (!PC)
+			return TEXT("local owning controller unavailable");
+		PC->ServerPause();
+		return FString();
+	}
 	if (Action == TEXT("pause") || Action == TEXT("resume"))
 	{
 		if (!Own || Own->CommanderIndex < 0 || !State)

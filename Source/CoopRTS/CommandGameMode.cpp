@@ -20,12 +20,13 @@
 #include "Content/MatchContent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Rules/OutcomePolicy.h"
+#include "GameFramework/WorldSettings.h"
 
 ACommandGameMode::ACommandGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bUseSeamlessTravel = true;
-	bPauseable = true;
+	bPauseable = false;
 	PlayerControllerClass = ACommandPlayerController::StaticClass();
 	DefaultPawnClass = ACommandCamera::StaticClass();
 	HUDClass = ACommandHUD::StaticClass();
@@ -34,6 +35,39 @@ ACommandGameMode::ACommandGameMode()
 	static ConstructorHelpers::FObjectFinder<UMatchContent> Content(TEXT("/Game/Content/DA_MatchContent.DA_MatchContent"));
 	if (Content.Succeeded())
 		DefaultContent = Content.Object;
+}
+
+bool ACommandGameMode::SetPause(APlayerController* PC, FCanUnpause CanUnpauseDelegate)
+{
+	return false;
+}
+
+bool ACommandGameMode::ClearPause()
+{
+	return false;
+}
+
+bool ACommandGameMode::AllowPausing(APlayerController* PC)
+{
+	return bApplyingMatchPause;
+}
+
+bool ACommandGameMode::ApplyMatchPause(APlayerController* Controller, bool bPause)
+{
+	if (GetWorld()->IsPaused() == bPause)
+		return true;
+	TGuardValue<bool> Gate(bApplyingMatchPause, true);
+	if (!bPause)
+		return Super::ClearPause();
+	const ACommandGameState* State = GetGameState<ACommandGameState>();
+	if (!State || !IsValid(State->EnemyCommander))
+		return false;
+	if (!Super::SetPause(Controller, FCanUnpause::CreateUObject(this, &ThisClass::CanUnpauseMatch)))
+		return false;
+	// Both delegate and replicated marker outlive every human controller. Reuse the
+	// existing controllerless, match-local PlayerState instead of allocating a marker.
+	GetWorldSettings()->SetPauserPlayerState(State->EnemyCommander);
+	return true;
 }
 
 void ACommandGameMode::Tick(float DeltaSeconds)
