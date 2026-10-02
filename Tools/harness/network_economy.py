@@ -31,6 +31,19 @@ def deposit(state: JsonObject, index: int) -> JsonObject:
     return next(d for d in state["deposits"] if d["index"] == index)
 
 
+def jev_baseline(
+    run: NetworkRun, payments: int, paid_payments: int = 0
+) -> tuple[int, int]:
+    """Expected credits and floored rate for the host plus every client."""
+    rate_tenths = 2 * (10 + 3 * run.clients)
+    # connect pauses income before clients join: earlier natural solo ticks
+    # leave no fraction. Keep the carry across this scenario's explicit ticks,
+    # including enemyExtractor's wallet reset, which does not reset the carry.
+    before_tenths = 2 * rate_tenths * paid_payments
+    credits = (before_tenths + 2 * rate_tenths * payments) // 10 - before_tenths // 10
+    return credits, rate_tenths // 10
+
+
 def capture_region(
     run: NetworkRun, s: Session, index: int
 ) -> tuple[int, dict[str, JsonObject]]:
@@ -136,13 +149,14 @@ def pay_private_income(
     deposit_index, rate, total = free["index"], free["rate"], free["remaining"]
     before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
     enemy_before = states["host"]["enemyResources"]
+    enemy_payment, _ = jev_baseline(run, payments=1)
     run.request("host", "incomeTick")
     states = converged(
         run,
         s.names,
         lambda st: (
             deposit(st, deposit_index)["remaining"] == total - 2 * rate
-            and st["enemyResources"] == enemy_before + 4
+            and st["enemyResources"] == enemy_before + enemy_payment
             and all(
                 p["wallet"]
                 == before[p["index"]] + 4 + (2 * rate if p["index"] == s.owner else 0)
@@ -167,6 +181,7 @@ def deplete_private_deposit(
     run.request("host", "depositRemaining", deposit=deposit_index, remaining=3)
     before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
     enemy_before = states["host"]["enemyResources"]
+    enemy_payment, _ = jev_baseline(run, payments=2, paid_payments=1)
     run.request("host", "incomeTick")
     run.request("host", "incomeTick")
     states = converged(
@@ -175,7 +190,7 @@ def deplete_private_deposit(
         lambda st: (
             deposit(st, deposit_index)["remaining"] == 0
             and wallet(st, s.owner)["income"] == 2
-            and st["enemyResources"] == enemy_before + 8
+            and st["enemyResources"] == enemy_before + enemy_payment
             and all(
                 p["wallet"]
                 == before[p["index"]] + 8 + (3 if p["index"] == s.owner else 0)
@@ -246,13 +261,14 @@ def pay_enemy_income(
         enemy_deposit["remaining"],
     )
     before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    enemy_payment, enemy_income = jev_baseline(run, payments=1, paid_payments=3)
     run.request("host", "incomeTick")
     states = converged(
         run,
         s.names,
         lambda st: (
-            st["enemyIncome"] == 2 + enemy_rate
-            and st["enemyResources"] == 4 + 2 * enemy_rate
+            st["enemyIncome"] == enemy_income + enemy_rate
+            and st["enemyResources"] == enemy_payment + 2 * enemy_rate
             and deposit(st, enemy_index)["remaining"] == enemy_total - 2 * enemy_rate
             and all(
                 p["wallet"] == before[p["index"]] + 4 and p["income"] == 2
@@ -274,14 +290,15 @@ def deplete_enemy_deposit(
     run.request("host", "depositRemaining", deposit=enemy_index, remaining=3)
     enemy_before = states["host"]["enemyResources"]
     before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    enemy_payment, enemy_income = jev_baseline(run, payments=2, paid_payments=4)
     run.request("host", "incomeTick")
     run.request("host", "incomeTick")
     states = converged(
         run,
         s.names,
         lambda st: (
-            st["enemyResources"] == enemy_before + 11
-            and st["enemyIncome"] == 2
+            st["enemyResources"] == enemy_before + enemy_payment + 3
+            and st["enemyIncome"] == enemy_income
             and deposit(st, enemy_index)["remaining"] == 0
             and all(
                 p["wallet"] == before[p["index"]] + 8 and p["income"] == 2

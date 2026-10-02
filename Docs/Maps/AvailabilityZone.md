@@ -67,7 +67,7 @@ The number is `SiteIndex + 1`, the HUD's `SECTOR n`. Index `i` and `7 − i` are
 
 ## Size and travel times
 
-Unit speed is `MaxWalkSpeed = 420` cm/s (`ArmyUnit.cpp`), so **10 s = 4200 cm** (the second bar on the plan). The README fixes only the match arc, roughly 12–18 minutes, and the current economy sets the pace inside it, not distance: each human commander earns 2/s plus 12/s per established friendly sector; JEV earns `2 × max(1, human commanders) + 12 × established enemy sectors` per second. Both are paid every 2 s (`CommandGameState.h`, `Rules/EconomyPolicy.cpp`, `CommandGameState::Tick`). Distance decides two things: how expensive a losing push is (recruits walk the whole way to their moving formation; there are no teleports) and when JEV's first wave lands. The targets below give a 45 s base-to-base crossing, 2.7 × Boot's straight-line 17 s, and single-digit-second hops between a base and its naturals.
+Unit speed is `MaxWalkSpeed = 420` cm/s (`ArmyUnit.cpp`), so **10 s = 4200 cm** (the second bar on the plan). The match-duration target lives in [battle.md](../Design/battle.md), and the current economy sets the pace inside it, not distance: human commanders have private wallets and finite Extractor income ([README](../../README.md)); JEV's baseline scales with the live human commander count, with fractional credits carried between payments, while its own extraction income remains unscaled ([JEV scaling](../Design/jev.md)). Controlled regions alone pay no income. Distance decides two things: how expensive a losing push is (recruits walk the whole way to their moving formation; there are no teleports) and when JEV's first wave lands. The targets below give a 45 s base-to-base crossing, 2.7 × Boot's straight-line 17 s, and single-digit-second hops between a base and its naturals.
 
 Measured on a 100 cm raster with line-of-sight smoothing, a 100 cm clearance ring, 16-neighbour Dijkstra. Real Detour paths will differ by a few percent; crowds and formation offsets add more *[INFERENCE: not measured]*.
 
@@ -176,7 +176,7 @@ Honest limits of the shared-HQ arrangement (all from the code):
 
 - **No claim system.** The server only checks territory, overlap, navigation and money, not which commander stands where. Two players can build over each other's bays; the pockets are a courtesy, and the bay paint makes it visible.
 - **Same camera start.** `bInitialFocusPending` focuses the friendly HQ for every commander. Both start on the Bunker.
-- **Only JEV's baseline scales.** Its one wallet earns `2 × max(1, human commanders) + 12 × established enemy sectors` per second; the sector bonus is unscaled. With two humans and three shared established friendly sectors, the team makes 2 × (2 + 12 × 3) = **76/s** against JEV's 2 × 2 + 12 × 2 = **28/s** with its two established naturals. Paid every 2 s, that is 152 for the human team (76 each) and 56 for JEV. Human sector income scales with commander count; JEV's does not, so 2P still has an economic advantage without proposal P3.
+- **Only JEV's baseline scales.** The live commander-count factor and fractional carry are defined in [JEV scaling](../Design/jev.md). Extraction remains private and unscaled; shared region control does not grant an income bonus to either side ([current economy](../../README.md)). Earlier team-income comparisons based on established sectors do not describe this build.
 - **Space.** 2P needs about eight barracks plus workshops. The Bunker disc holds seven practically, so the second player's production lives on the naturals (10 practical each).
 
 ### PROPOSAL: per-player start locations (code the gameplay team would own)
@@ -264,9 +264,9 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 ## Balance notes
 
 - **Rush distance**: 190 m, 45 s. JEV's first wave lands about 2:10–2:20; a human rush at 0:40 can be at JEV's exposed natural at about 1:18 and, if it stands on the lip, forces a Defend.
-- **What each side can hold**: human realistically 4 sectors by mid-game, 5–6 if it pushes; JEV **2** (its naturals) because it assaults at two. That is 2 + 12 × 4 = **50/s** per commander with four established sectors (2 + 12 × 6 = **74/s** with six) against JEV's 2 × 1 + 12 × 2 = **26/s** in solo, or 2 × 2 + 12 × 2 = **28/s** in 2P. Whether this is a fair fight depends on JEV's force sizes, not on the map: the numbers show why JEV needs help (P3).
+- **Income cannot be inferred from sector counts.** Capturing more territory provides access to finite deposits, not a fixed income bonus. Compare each commander's living Extractors and remaining reserves with JEV's own Extractors and [scaled baseline](../Design/jev.md); the earlier established-sector income estimates are obsolete.
 - **What JEV contests first**: Transformer Row, then Switchyard. It does not contest the middle at all until it assaults, and it never picks Cooling Plant or Substation 7 while two sectors are established.
-- **2P vs 1P**: at the same established-sector counts, 2P doubles the human team income; JEV's baseline rises from 2/s to 4/s, but its sector bonus stays fixed. With four friendly sectors and two enemy sectors, solo is 50/s against 26/s; 2P is 2 × 50 = **100/s** against **28/s**. This income asymmetry can make the friend test easier; it is not a map change.
+- **2P vs 1P**: a second commander adds a private human economy and changes JEV's baseline by the [player-count factor](../Design/jev.md), not by doubling it. JEV extraction is unscaled. Whether this income asymmetry makes the friend test easier needs measured private-wallet and finite-deposit playtests; it is not a map change.
 - **Ranged and siege ignore height.** `WeaponRange` is a 2D distance and there is no line-of-sight or high-ground rule (`ArmyUnit.cpp`). Siege (range 1150) standing on the Terrace lip (x = −6200) reaches any building whose centre is north of x = −7350: bays A1/B1 (x = −6860) and A2/B2 (−7283) are in reach; A3/B3, A4/B4 and the HQ (−7400, 1200 cm from the lip) are not. Ranged (560) reaches nothing on the plateau from the lip. *[INFERENCE from the range check]* Proposal P5 (high ground) fixes this properly; until then the plateau's north half is shellable from below.
 - **Intruder margin**: 1200 vs 1500 cm. The 300 cm margin is what makes a raid on the lip trigger the Defend behaviour, so do not deepen the plateau.
 
@@ -284,7 +284,7 @@ A Human/Machine split follows the diagonal: the south-west half uses the Human l
 | **JEV always takes the shortest nav path** | Detour | One lane per wave; two equal routes give no guaranteed split | Equal routes plus proposal P3 |
 | **No vision, no fog, no high-ground rule**; range is 2D | `ArmyUnit::WeaponRange` | Watchtowers and cliff advantages do nothing in code | Proposal P5; cliffs only block movement |
 | **Buildings are nav obstacles; none can be destroyed except by fire; finished ones cannot be cancelled** | `ACommandBuilding` (`NavArea_Null`) | Walls and plugs are possible in territory; nothing in code opens a path later | No choke in a disc; breach is proposal P4 |
-| **JEV scales only its baseline with human commander count**: `2 × max(1, humans) + 12 × established enemy sectors` per second | `ACommandGameState::GetEnemyIncomePerSecond`, `EconomyPolicy::EnemyIncomePerSecond` | Human team sector income scales with commander count; JEV's sector bonus does not. 2P still has an economic advantage at equal territory | Noted; proposal P3 |
+| **JEV scales only its baseline with live human commander count** ([JEV scaling](../Design/jev.md)) | `ACommandGameState::GetEnemyBaselineIncomePerSecond`, `EconomyPolicy::JevPlayerCountFactor` | Extraction stays private and unscaled; territory alone supplies no income. The relative 2P economy needs measured playtests | Noted; proposal P3 |
 | **Five commanders, slots 0–4** | `PreLogin`, `HandleStartingNewPlayer` | No per-slot start, spawn or camera position | Same start for all |
 | **Maps are hard-coded in the harness** | `verify.py` (`/Game/Maps/Boot`), `network.py`, `Build/MatchLayout.py` | The new map cannot be smoke-tested until the harness takes a map argument | Listed in the implementation doc |
 
@@ -299,7 +299,7 @@ Checks: level overlap, kit-grid alignment of regions, blockers, ramp pieces and 
 1. **Elevation.** Today's code cannot host the kit's 300 cm steps on buildable ground (proposal P1). Do P1 first and build Phase B directly, or ship the flat walled Phase A greybox first?
 2. **JEV routes.** Are two equal routes enough, or is a lane choice in `EnemyCommander` (P3) a precondition for calling the map done?
 3. **Second start.** Do you want the per-player start proposal (P2) built before the friend test, or is the shared Bunker with paint bays enough for the first co-op session?
-4. **JEV at two players (original design question).** Should JEV's income scale with the commander count for 2P, or should the first friend test show the raw difference? **Current code:** the baseline already scales (`2 × max(1, humans)`/s); the +12/s per established enemy sector does not.
+4. **JEV at two players (original design question, resolved).** Baseline scaling follows [JEV scaling](../Design/jev.md); extraction is unscaled and no established-sector bonus exists. The remaining friend-test question is whether this pressure is sufficient on this layout.
 5. **Names.** The map name and sector names are placeholders in the World.md tone; confirm or replace them before art and HUD copy depend on them.
 
 ## v2 direction (user feedback)
