@@ -30,6 +30,8 @@ public:
 	int32 GetUnitIndex() const { return UnitIndex; }
 	UArmyUnitDefinition* GetDefinition() const { return Definition.Get(); }
 	EUnitRole GetUnitRole() const { return UnitRole; }
+	EArmorClass GetArmorClass() const { return Definition->ArmorClass; }
+	EDamageType GetDamageType() const { return Definition->DamageType; }
 	int32 GetHealth() const { return Health; }
 	bool IsReinforcing() const { return bReinforcing; }
 	const FVector& GetReinforcementGoal() const { return ReinforcementGoal; }

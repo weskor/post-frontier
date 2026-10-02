@@ -29,6 +29,18 @@ bool CombatTarget::IsAliveHostile(const AActor* Target, int32 AttackerTeam)
 	return false;
 }
 
+EArmorClass CombatTarget::ArmorClass(const AActor* Target)
+{
+	if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target))
+		return Unit->GetArmorClass();
+	if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
+		return HQ->GetArmorClass();
+	if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
+		return Building->GetArmorClass();
+	checkNoEntry();
+	return EArmorClass::Structure;
+}
+
 void CombatTarget::ReceiveAttack(AActor* Target, int32 Damage, AArmyUnit* Attacker)
 {
 	if (!IsValid(Attacker) || !CombatTarget::IsAliveHostile(Target, Attacker->GetTeamIndex()))

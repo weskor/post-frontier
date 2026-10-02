@@ -5,6 +5,8 @@
 #include "Rules/EconomyPolicy.h"
 #include "Rules/OutcomePolicy.h"
 #include "Rules/GoalPath.h"
+#include "Rules/CombatPolicy.h"
+#include "Rules/TargetingPolicy.h"
 #include "CommandGameState.h" // EMatchResult is declared in this pinned header; no actors are instantiated.
 
 // Pure rule tests: no world, no actors. Values are arbitrary; assertions are invariants.
@@ -647,6 +649,66 @@ bool FGoalPathTest::RunTest(const FString& Parameters)
 		ForceGoals::NextWaypoint(Wide, 2, 0, 1), INDEX_NONE);
 	TestEqual(TEXT("Oversized graph rejects before reading it"),
 		ForceGoals::NextWaypoint(Wide, ForceGoals::MaxRegions + 1, 0, 1), INDEX_NONE);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCounterMatrixTest, "CoopRTS.Rules.Combat.CounterMatrix",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTargetingOrderTest, "CoopRTS.Rules.Combat.TargetingOrder",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FCounterMatrixTest::RunTest(const FString& Parameters)
+{
+	const EArmorClass Armors[] = { EArmorClass::Light, EArmorClass::Heavy, EArmorClass::Shielded, EArmorClass::Structure };
+	const EDamageType Types[] = { EDamageType::Kinetic, EDamageType::Piercing, EDamageType::Demolition, EDamageType::EMP };
+	// Independent matrix: EMP's shield behavior is not an HP class bonus.
+	const int32 Expected[][4] = {
+		{ 60, 40, 40, 40 },
+		{ 40, 60, 40, 40 },
+		{ 40, 40, 40, 60 },
+		{ 40, 40, 40, 40 }
+	};
+	for (int32 Type = 0; Type < 4; ++Type)
+		for (int32 Armor = 0; Armor < 4; ++Armor)
+		{
+			const FString Label = FString::Printf(TEXT("Damage type %d against armor %d"), Type, Armor);
+			TestEqual(Label, CombatPolicy::Damage(40, Types[Type], Armors[Armor]), Expected[Type][Armor]);
+			TestEqual(Label + TEXT(" bonus classification"), CombatPolicy::IsStrongAgainst(Types[Type], Armors[Armor]),
+				Expected[Type][Armor] == 60);
+		}
+	TestEqual(TEXT("Half HP from an odd boosted hit truncates"), CombatPolicy::Damage(15, EDamageType::Kinetic, EArmorClass::Light), 22);
+	TestEqual(TEXT("Zero damage stays zero"), CombatPolicy::Damage(0, EDamageType::Demolition, EArmorClass::Structure), 0);
+	return true;
+}
+
+bool FTargetingOrderTest::RunTest(const FString& Parameters)
+{
+	const EDamageType Types[] = { EDamageType::Kinetic, EDamageType::Piercing, EDamageType::Demolition };
+	const EArmorClass Preferred[] = { EArmorClass::Light, EArmorClass::Heavy, EArmorClass::Structure };
+	const EArmorClass Other[] = { EArmorClass::Heavy, EArmorClass::Light, EArmorClass::Light };
+	for (int32 Type = 0; Type < 3; ++Type)
+	{
+		FTargetSelection Selection;
+		TestEqual(TEXT("No eligible enemies means no target"), Selection.Index, INDEX_NONE);
+		Selection.Consider(Types[Type], 0, Other[Type], 1.);
+		Selection.Consider(Types[Type], 1, Preferred[Type], 100.);
+		TestEqual(TEXT("Counter armor outranks a nearer non-counter"), Selection.Index, 1);
+		Selection.Consider(Types[Type], 2, Other[Type], .5);
+		TestEqual(TEXT("Later nearer non-counter cannot displace a counter"), Selection.Index, 1);
+		Selection.Consider(Types[Type], 3, Preferred[Type], 25.);
+		TestEqual(TEXT("Nearest matching armor wins"), Selection.Index, 3);
+		Selection.Consider(Types[Type], 4, Preferred[Type], 25.);
+		TestEqual(TEXT("Exact tie retains the first candidate"), Selection.Index, 3);
+
+		FTargetSelection Fallback;
+		Fallback.Consider(Types[Type], 0, EArmorClass::Shielded, 100.);
+		Fallback.Consider(Types[Type], 1, Other[Type], 4.);
+		TestEqual(TEXT("Without a counter target nearest wins across classes"), Fallback.Index, 1);
+	}
+	FTargetSelection EMP;
+	EMP.Consider(EDamageType::EMP, 0, EArmorClass::Shielded, 100.);
+	EMP.Consider(EDamageType::EMP, 1, EArmorClass::Heavy, 25.);
+	TestEqual(TEXT("EMP has no HP preference until shield rules are built"), EMP.Index, 1);
 	return true;
 }
 

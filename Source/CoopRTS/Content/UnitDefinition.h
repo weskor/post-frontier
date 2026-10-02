@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "Rules/CombatPolicy.h"
 #include "UnitDefinition.generated.h"
 
 class UStaticMesh;
@@ -47,11 +48,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	EUnitRole Role = EUnitRole::Frontline;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	int32 MaxHealth = 140;
+	int32 MaxHealth = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	int32 AttackDamage = 14;
+	int32 AttackDamage = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	float Range = 175.f;
+	float Range = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	float Interval = .7f;
+	float Interval = 0.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	EArmorClass ArmorClass = EArmorClass::Light;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	EDamageType DamageType = EDamageType::Kinetic;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement")
+	float MoveSpeed = 0.f;
 };

@@ -56,6 +56,7 @@ public:
 	bool IsProducer() const;
 	bool IsComplete() const { return ConstructionProgress >= 1.f; }
 	bool IsAlive() const { return Health > 0; }
+	EArmorClass GetArmorClass() const { return EArmorClass::Structure; }
 	int32 MaxHealth() const;
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	void NotifyPlacementCommitted();

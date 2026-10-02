@@ -301,8 +301,9 @@ private:
 		Siege->NextAttackTime = 0.f;
 		Siege->FireAt(HQ);
 		Siege->SetActorLocation(SiegeHome, false, nullptr, ETeleportType::TeleportPhysics);
-		if (!Check(HQ->Health == HQBefore - OpticsDamage && HQ->IsAlive(),
-				TEXT("Optics siege range and reduced damage also hit a real hostile HQ")))
+		const int32 StructureOpticsDamage = (Siege->GetDefinition()->AttackDamage * 3 / 2) * 3 / 4;
+		if (!Check(HQ->Health == HQBefore - StructureOpticsDamage && HQ->IsAlive(),
+				TEXT("Optics siege composes the Structure bonus with reduced damage at extended HQ range")))
 			return true;
 		AArmyGroup* Later = ArmyTestSetup::SpawnGroup(Actors.World.Get(), Actors.Controller.Get(), 2,
 			ArmyTestSetup::FromFriendlyHQ(Actors.State.Get(), 1700.f, 1700.f, 100.f));
@@ -546,10 +547,15 @@ private:
 			if (!Check(OtherProtected == Protected && Actors.Armies[1]->bAutomaticFront,
 					TEXT("Second owned Defend army gains identical protection")))
 				return true;
+			AArmyUnit* Piercing = Actors.Enemy->GetUnits()[2];
+			const int32 PiercingProtected = (Piercing->GetDefinition()->AttackDamage * 3 / 2) * 3 / 4;
+			if (!Check(WeaponHitFresh(Piercing, Held) == PiercingProtected,
+					TEXT("Stationary Defend frontline mitigation composes with the Piercing bonus against Heavy")))
+				return true;
 			AArmyUnit* Ranged = Actors.Armies[0]->GetUnits()[2];
 			if (!Check(Ranged->GetUnitRole() == EUnitRole::Ranged
-						&& WeaponHit(Enemy, Ranged) == Baseline,
-					TEXT("Stationary Defend ranged units do not inherit frontline-only mitigation")))
+						&& WeaponHit(Enemy, Ranged) == Baseline * 3 / 2,
+					TEXT("Stationary Defend Light ranged takes full Kinetic bonus without frontline-only mitigation")))
 				return true;
 			Start = Moving->GetActorLocation();
 			if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Actors.Armies[1].Get(), EFrontOrder::Defend,

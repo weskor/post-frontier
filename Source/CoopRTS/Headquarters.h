@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Rules/CombatPolicy.h"
 #include "GameFramework/Actor.h"
 #include "Headquarters.generated.h"
 
@@ -20,6 +21,7 @@ public:
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	int32 MaxHealth() const { return 900; }
 	bool IsAlive() const { return Health > 0; }
+	EArmorClass GetArmorClass() const { return EArmorClass::Structure; }
 
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Match")
 	int32 Health = 900;

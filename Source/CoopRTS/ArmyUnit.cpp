@@ -34,7 +34,6 @@ AArmyUnit::AArmyUnit()
 	GetMesh()->SetCanEverAffectNavigation(false);
 
 	UCharacterMovementComponent* Movement = GetCharacterMovement();
-	Movement->MaxWalkSpeed = 420.0f;
 	Movement->MaxAcceleration = 1600.0f;
 	Movement->BrakingDecelerationWalking = 2000.0f;
 	Movement->bOrientRotationToMovement = true;
@@ -72,6 +71,7 @@ void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InComma
 	UnitIndex = InUnitIndex;
 	Definition = InDefinition;
 	UnitRole = Definition->Role;
+	GetCharacterMovement()->MaxWalkSpeed = Definition->MoveSpeed;
 	Health = MaxHealth();
 	bReinforcing = bInReinforcing;
 }
@@ -136,6 +136,8 @@ FLinearColor AArmyUnit::GetCommanderColor(int32 InCommanderIndex)
 
 void AArmyUnit::OnRep_Appearance()
 {
+	if (Definition)
+		GetCharacterMovement()->MaxWalkSpeed = Definition->MoveSpeed;
 	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
 	const bool bDied = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDeathAudioPlayed;
 	LastAudioHealth = Health;
@@ -244,10 +246,11 @@ void AArmyUnit::FireAt(AActor* Victim)
 	++AttackCount;
 	OnRep_Attack();
 	ForceNetUpdate();
-	// Integer tradeoffs truncate toward zero for both units and HQ.
+	const int32 CounterDamage = CombatPolicy::Damage(Definition->AttackDamage, GetDamageType(), CombatTarget::ArmorClass(Victim));
+	// Apply the class bonus first, then the existing integer Workshop tradeoff.
 	const int32 Damage = UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics
-		? Definition->AttackDamage * 3 / 4
-		: Definition->AttackDamage;
+		? CounterDamage * 3 / 4
+		: CounterDamage;
 	CombatTarget::ReceiveAttack(Victim, Damage, this);
 }
 

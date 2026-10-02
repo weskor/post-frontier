@@ -19,6 +19,7 @@
 #include "NavigationData.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Rules/TargetingPolicy.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArmyOrders, Log, All);
 
@@ -641,47 +642,27 @@ void AArmyGroup::UpdateCombat()
 					<= FVector::Dist2D(Unit->GetActorLocation(), Destination) + 250.f;
 			return (bNearAnchor && Distance <= FMath::Square(1450.f)) || bEnRoute;
 		};
-		AActor* Chosen = Permitted(Unit->Target.Get()) ? Unit->Target.Get() : nullptr;
-		if (!Chosen && Permitted(AttackTarget.Get()))
-			Chosen = AttackTarget.Get();
-		if (!Chosen)
-		{
-			float Best = TNumericLimits<float>::Max();
-			for (AArmyUnit* Enemy : Enemies)
-			{
-				if (!Permitted(Enemy))
-					continue;
-				const float Distance = FVector::DistSquared2D(Unit->GetActorLocation(), Enemy->GetActorLocation());
-				if (Distance < Best)
-				{
-					Best = Distance;
-					Chosen = Enemy;
-				}
-			}
-			if (Permitted(HostileHQ))
-			{
-				const float Distance = FVector::DistSquared2D(Unit->GetActorLocation(), HostileHQ->GetActorLocation());
-				if (Distance < Best)
-				{
-					Best = Distance;
-					Chosen = HostileHQ;
-				}
-			}
-			if (HostileBuildings)
-			{
-				for (ACommandBuilding* Building : *HostileBuildings)
-				{
-					if (!Permitted(Building))
-						continue;
-					const float Distance = FVector::DistSquared2D(Unit->GetActorLocation(), Building->GetActorLocation());
-					if (Distance < Best)
-					{
-						Best = Distance;
-						Chosen = Building;
-					}
-				}
-			}
-		}
+		AActor* Chosen = nullptr;
+		FTargetSelection Selection;
+		int32 CandidateIndex = 0;
+		auto Consider = [&](AActor* Candidate) {
+			if (!Permitted(Candidate))
+				return;
+			const int32 IndexInSelection = CandidateIndex++;
+			Selection.Consider(Unit->GetDamageType(), IndexInSelection, CombatTarget::ArmorClass(Candidate),
+				FVector::DistSquared2D(Unit->GetActorLocation(), Candidate->GetActorLocation()));
+			if (Selection.Index == IndexInSelection)
+				Chosen = Candidate;
+		};
+		// Existing intent breaks exact ties only; it cannot mask a counter or a nearer enemy.
+		Consider(Unit->Target.Get());
+		Consider(AttackTarget.Get());
+		for (AArmyUnit* Enemy : Enemies)
+			Consider(Enemy);
+		Consider(HostileHQ);
+		if (HostileBuildings)
+			for (ACommandBuilding* Building : *HostileBuildings)
+				Consider(Building);
 		if (Unit->Target != Chosen)
 		{
 			Unit->Target = Chosen;

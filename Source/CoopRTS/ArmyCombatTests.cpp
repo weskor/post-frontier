@@ -4,11 +4,13 @@
 #include "ArmyTestSetup.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
+#include "CombatTarget.h"
 #include "CommandPlayerController.h"
 #include "EnemyCommander.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "HAL/PlatformTime.h"
+#include "Headquarters.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyCombatTest, "CoopRTS.Combat.Encounter",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -337,18 +339,63 @@ private:
 				return true;
 			Victim->SetActorLocation(Shooter->GetActorLocation() + FVector(Shooter->WeaponRange() - 75.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 			Shooter->FireAt(Victim.Get());
-			if (!Check(Victim->GetHealth() < Health && Shooter->AttackCount == Shots + 1,
-					TEXT("Role weapon applies authoritative damage within its own range")))
+			const int32 ExpectedDamage = Shooter == Ranged
+				? Shooter->GetDefinition()->AttackDamage * 3 / 2
+				: Shooter->GetDefinition()->AttackDamage;
+			if (!Check(Victim->GetHealth() == Health - ExpectedDamage && Shooter->AttackCount == Shots + 1,
+					TEXT("Heavy target takes Piercing bonus and neutral Kinetic/Demolition damage within range")))
 				return true;
 		}
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
 		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter()); // Reset target acquired by the direct range probes.
+		if (!CheckCounterAcquisition(State))
+			return true;
 		Victim = Enemy->GetUnits()[1]; // Fresh defender: range probes do not pre-damage the encounter target.
 		// Bring one frontline defender into the friendly HQ-derived approach,
 		// leaving the other defenders at their enemy HQ-derived fixture spawn.
 		Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		SetStage(7, Now); // A rejected request while dynamic navigation starts is safe to retry.
 		return false;
+	}
+
+	bool CheckCounterAcquisition(const ACommandGameState* State)
+	{
+		// Run real acquisition without advancing cooldowns or hurting these fixtures.
+		// Positions come from the map's HQ, and are restored before the encounter.
+		FVector FriendlyPositions[6];
+		FVector HostilePositions[6];
+		for (int32 Index = 0; Index < 6; ++Index)
+		{
+			FriendlyPositions[Index] = Army->GetUnits()[Index]->GetActorLocation();
+			HostilePositions[Index] = Enemy->GetUnits()[Index]->GetActorLocation();
+			Army->GetUnits()[Index]->NextAttackTime = TNumericLimits<float>::Max();
+		}
+		AHeadquarters* HQ = State->EnemyHeadquarters;
+		const FVector Anchor = HQ->GetActorLocation() + FVector(900.f, 0.f, 0.f);
+		for (AArmyUnit* Unit : Army->GetUnits())
+			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
+		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bool bOk = Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[2]
+				&& Army->GetUnits()[2]->Target == Enemy->GetUnits()[0]
+				&& Army->GetUnits()[4]->Target
+				&& CombatTarget::ArmorClass(Army->GetUnits()[4]->Target) == EArmorClass::Structure,
+			TEXT("Live acquisition prefers nearest Light for Kinetic, Heavy for Piercing, and Structure for Demolition"));
+		// The old target must not hide a newly closer matching-class enemy.
+		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(75.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[4],
+			TEXT("Acquisition replaces a live target when a nearer matching-class enemy appears"));
+		for (int32 Index = 0; Index < 6; ++Index)
+		{
+			Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
+			Enemy->GetUnits()[Index]->SetActorLocation(HostilePositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
+			Army->GetUnits()[Index]->NextAttackTime = 0.f;
+		}
+		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+		return bOk;
 	}
 
 	FAutomationTestBase* Test;

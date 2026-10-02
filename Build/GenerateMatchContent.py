@@ -1,17 +1,21 @@
 """Create or update the match content catalogue: unit and building definitions plus DA_MatchContent.
 
-Existing /Game/Units/DA_* assets keep their tuned combat values; only the data-driven
-fields (identity, production, meshes) are written. Catalogue order is a replicated
-contract: units frontline=0, ranged=1, siege=2; buildings barracks=0, extractor=1, workshop=2.
+Build/Content/units.json owns all unit stats, including the preserved serialized
+combat values. Catalogue order is a replicated contract: units frontline=0,
+ranged=1, siege=2; buildings barracks=0, extractor=1, workshop=2.
 
-After building CoopRTSEditor, run UnrealEditor-Cmd with -EnablePlugins=PythonScriptPlugin
--ExecutePythonScript="$PWD/Build/GenerateMatchContent.py" -unattended -nullrhi -nosplash.
+Run through ./x gen generate-match-content.
 """
+import json
+from pathlib import Path
+
 import unreal
 
 assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 role_type = getattr(unreal, "UnitRole", None) or getattr(unreal, "EUnitRole")
+armor_type = getattr(unreal, "ArmorClass", None) or getattr(unreal, "EArmorClass")
+damage_type = getattr(unreal, "DamageType", None) or getattr(unreal, "EDamageType")
 
 
 def require(value, message):
@@ -28,8 +32,8 @@ def mesh(path):
     return require(unreal.load_asset(path), "Could not load " + path)
 
 
-def data_asset(path, asset_class, create_defaults):
-    """Load the asset at path or create it; create_defaults are applied only on creation."""
+def data_asset(path, asset_class):
+    """Load or create an asset; callers apply the same text values to both."""
     if assets.does_asset_exist(path):
         asset = require(assets.load_asset(path), "Could not load " + path)
         if not isinstance(asset, asset_class):
@@ -40,8 +44,6 @@ def data_asset(path, asset_class, create_defaults):
     factory.set_editor_property("data_asset_class", asset_class.static_class())
     folder, name = path.rsplit("/", 1)
     asset = require(tools.create_asset(name, folder, asset_class, factory), "Could not create " + path)
-    for property_name, value in create_defaults:
-        asset.set_editor_property(property_name, value)
     unreal.log("MATCH_CONTENT_CREATED " + path)
     return asset
 
@@ -54,21 +56,24 @@ def apply(asset, values):
 
 unit_art = "/Game/Art/Units/"
 units = []
-for name, role, health, damage, attack_range, interval, cost, duration, capacity, fee, accent in (
-    ("Frontline", role_type.FRONTLINE, 140, 14, 175.0, 0.7, 20, 10.0 / 3.0, 6, 0, (0.85, 0.85, 0.85)),
-    ("Ranged", role_type.RANGED, 90, 18, 560.0, 1.15, 30, 13.0 / 3.0, 4, 0, (0.55, 0.85, 1.0)),
-    ("Siege", role_type.SIEGE, 110, 42, 1150.0, 2.6, 50, 20.0 / 3.0, 2, 180, (1.0, 0.65, 0.25)),
-):
-    unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition, (
-        ("role", role), ("max_health", health), ("attack_damage", damage),
-        ("range", attack_range), ("interval", interval),
-    ))
-    apply(unit, (
-        ("id", name.lower()), ("display_name", name), ("accent", unreal.LinearColor(*accent, 1.0)),
-        ("unit_cost", cost), ("capacity", capacity), ("configuration_cost", fee), ("unit_duration", duration),
+with (Path(__file__).parent / "Content" / "units.json").open(encoding="utf-8") as source:
+    unit_definitions = json.load(source)
+for definition in unit_definitions:
+    name = definition["asset_name"]
+    unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
+    values = [(key, definition[key]) for key in (
+        "id", "display_name", "max_health", "attack_damage", "range", "interval",
+        "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
+    )]
+    values.extend((
+        ("role", getattr(role_type, definition["role"])),
+        ("armor_class", getattr(armor_type, definition["armor_class"])),
+        ("damage_type", getattr(damage_type, definition["damage_type"])),
+        ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
         ("human_mesh", mesh(unit_art + "SM_Human_" + name)),
         ("machine_mesh", mesh(unit_art + "SM_Machine_" + name)),
     ))
+    apply(unit, values)
     units.append(unit)
 
 building_art = "/Game/Art/Buildings/"
@@ -79,7 +84,7 @@ for name, asset_name, cost, duration, health, footprint, produces, deposit, rese
     ("Extractor", "Outpost", 160, 9.0, 350, 95.0, False, True, False, (0.16, 0.85, 0.25)),
     ("Workshop", "Workshop", 190, 14.0, 400, 145.0, False, False, True, (0.65, 0.25, 1.0)),
 ):
-    building = data_asset("/Game/Content/DA_" + asset_name, unreal.BuildingDefinition, ())
+    building = data_asset("/Game/Content/DA_" + asset_name, unreal.BuildingDefinition)
     # Producer locked-type variants follow catalogue unit order; other buildings have none.
     role_meshes = {"human": [], "machine": []}
     if produces:
@@ -98,6 +103,6 @@ for name, asset_name, cost, duration, health, footprint, produces, deposit, rese
     ))
     buildings.append(building)
 
-content = data_asset("/Game/Content/DA_MatchContent", unreal.MatchContent, ())
+content = data_asset("/Game/Content/DA_MatchContent", unreal.MatchContent)
 apply(content, (("units", units), ("buildings", buildings)))
 unreal.log("MATCH_CONTENT_READY units=%d buildings=%d" % (len(units), len(buildings)))

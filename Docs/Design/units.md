@@ -2,9 +2,9 @@
 
 > Part of the [Post-Frontier design](../Design.md). Related: [cards](cards.md), [commanders](commanders.md), [meta](meta.md).
 
-## Problem
+## Problem before the counter retag
 
-A full barracks of each type is worth very different amounts. All units move at the same 420 cm/s.
+A full barracks of each type was worth very different amounts. Before the step 1a retag, all units moved at the same speed.
 
 | Full barracks | HP | DPS | Cost to fill | Range |
 |---|---:|---:|---:|---:|
@@ -12,22 +12,23 @@ A full barracks of each type is worth very different amounts. All units move at 
 | Ranged ×4 | 360 | 63 | 120 | 560 |
 | Siege ×2 | 220 | 32 | 100 + 180 | 1150 |
 
-- No armor or damage-type modifiers exist, and targeting is nearest-first, so Frontline dominates. The only damage modifiers today are the three Workshop specializations: Siege Optics (×1.25 Siege range, ×0.75 damage), Entrenched Frontline (×0.75 damage taken), and Field Repairs (healing).
-- Without micro, Ranged cannot kite to make up for it: Frontline closes the 385 cm range gap in about 1 s.
+- Before the retag, no armor or damage-type modifiers existed and targeting was nearest-first, so Frontline dominated. The three Workshop specializations still work: Siege Optics (×1.25 Siege range, ×0.75 damage), Entrenched Frontline (×0.75 damage taken), and Field Repairs (healing).
+- Without micro, Ranged could not kite to make up for it. The retag adds counters and class speeds without tuning the other combat or production values; balance validation is still required.
 
-## Counter system [New] — decided
+## Counter system [Change] — decided
 
-**Armor classes plus bonus damage**, StarCraft II style. Every unit has one armor class, and every weapon has one damage type that deals bonus damage to one class. A counter is readable from two icons: the unit's armor and its weapon.
+**Armor classes plus bonus damage [Built]**, StarCraft II style. Every unit has one armor class and every weapon has one damage type. Kinetic, Piercing and Demolition each deal bonus damage to one class. The two-icon presentation is [New].
 
 | Armor class | What it is | Weak to |
 |---|---|---|
 | Light | Unarmored, fast, cheap | Kinetic |
 | Heavy | Armor plating, slow, high HP | Piercing |
-| Shielded | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
+| Shielded [New] | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
 | Structure | Buildings and HQs | Demolition |
 
-- **Bonus:** ×1.5 damage against the matching class, ×1.0 otherwise. Starting value; tune it in the harness.
-- **Shields — decided:**
+- **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the class bonus applies before the outgoing Siege Optics and incoming Entrenched Frontline modifiers. EMP currently has no HP bonus; its shield rule comes with Shielded units.
+- **Targeting [Built]:** the automatic rule in [forces.md](forces.md) is implemented. Eligibility still respects weapon range and the existing pursuit leash; current intent only breaks exact ties. Force-card presentation remains [New].
+- **Shields [New] — decided:**
   - Shield points absorb damage before HP.
   - They regenerate at 10% per second after 4 s without taking damage.
   - **EMP deals ×2 to shield points**; this replaces EMP's ×1.5 class bonus.
@@ -41,7 +42,7 @@ A full barracks of each type is worth very different amounts. All units move at 
 - **Shape:** hand-designed niches, each tagged with an armor class.
 - **Factions:** humans and the Machine share roles and armor classes. Each faction has its own **twists** and its own look. JEV keeps using the same rules as the players.
 - **Force size:** small squads of 2–6 units per barracks, as today. Every unit stays readable and losses feel personal. The Juggernaut is the exception at capacity 1.
-- **Speed by armor class:** Light is fast, Shielded medium, Heavy slow; the Raider is faster still. Today every unit moves at 420 cm/s. Arrival timing becomes part of planning.
+- **Speed by armor class [Change]:** Light is fast and Heavy slow [Built], using the speed bands below. Shielded medium and the faster Raider remain [New]. Every unit moves at its definition's speed; mixed-selection synchronization belongs to [forces.md](forces.md) and is not built here.
 - **No friendly fire.** Splash only hits enemies; players can't steer units away from it, so friendly fire would feel unfair.
 - **Unit abilities:** every unit has passive traits. Some also have **auto-cast abilities** that fire on a published rule, e.g. *shield bash when an enemy is in melee range*. The player never casts them.
 
@@ -51,9 +52,9 @@ Each unit's Human and Machine display names live in [World.md](../World.md#unit-
 
 | # | Unit | Armor | Damage | Job |
 |---|---|---|---|---|
-| 1 | Brawler | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline) |
-| 2 | Rifle | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged) |
-| 3 | Artillery | Light | Demolition + splash, long range | Breaks buildings and clumps (today's Siege) |
+| 1 | Brawler [Built] | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline; balance tuning pending) |
+| 2 | Rifle [Built] | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged; balance tuning pending) |
+| 3 | Artillery [Change] | Light [Built] | Demolition [Built] + splash [New], long range | Breaks buildings; clump damage is [New] (today's Siege) |
 | 4 | Lancer | Shielded | Piercing beam | Durable assault unit against Heavy |
 | 5 | Scrambler | Light | EMP | Strips shields; an auto-cast pulse stuns buildings |
 | 6 | Raider | Light, fast | Kinetic | Prefers Drill Rigs and isolated targets, captures quickly, cuts supply chains |
@@ -85,10 +86,12 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 
 ## Stat profiles — decided shape, starting values
 
+**Current stats [Built]:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. The retag preserves the serialized HP, damage, range, interval, cost, duration, capacity and configuration fee; only armor, damage type, speed and role display names change. The proposed numbers below are not yet applied.
+
 **Rules:**
 - **Cost:** a combat squad costs about 120 Power to fill, support squads cost less, and the Juggernaut about 2×.
 - **Range bands:** melee 175, short 300, mid 550, long 1150. Branches move a unit up or down a band.
-- **Speed bands by armor class:** slow 360 (Heavy), medium 420 (Shielded), fast 480 (Light), very fast 560 (Raider).
+- **Speed bands by armor class [Change]:** slow 360 (Heavy) and fast 480 (Light) are [Built]; medium 420 (Shielded) and very fast 560 (Raider) are [New].
 - **Auto-casts at tier 1:** only the specialists (Scrambler, Repair crew, Shield projector). Branches add auto-casts to other units, e.g. the Warden's taunt.
 
 Starting values for tuning in the harness duel matrix:
