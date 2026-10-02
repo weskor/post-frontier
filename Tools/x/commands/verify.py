@@ -2,8 +2,8 @@
 
 import argparse
 import importlib
-import sys
 from pathlib import Path
+import sys
 from types import ModuleType
 
 from x.building import ensure_editor

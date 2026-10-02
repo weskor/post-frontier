@@ -12,6 +12,9 @@ def publish(repo: Path) -> Path:
     binary = root / "CoopRTS/Binaries/Linux/CoopRTS"
     binary.parent.mkdir(parents=True)
     binary.write_bytes(b"package")
+    content = root / "CoopRTS/Content/Paks"
+    content.mkdir(parents=True)
+    (content / "CoopRTS.pak").write_bytes(b"cooked-content")
     jsonio.save(
         root / "package.json", {"package_hash": freshness.current_hash(repo, "package")}
     )
@@ -57,3 +60,14 @@ def test_package_binary_mutation_changes_snapshot(repo: Path) -> None:
     before = package_snapshot(repo)
     (root / "CoopRTS/Binaries/Linux/CoopRTS").write_bytes(b"modified-package")
     assert package_snapshot(repo) != before
+
+
+@pytest.mark.parametrize("directory_only", [False, True])
+def test_package_without_content_refuses(repo: Path, directory_only: bool) -> None:
+    root = publish(repo)
+    content = root / "CoopRTS/Content/Paks"
+    (content / "CoopRTS.pak").unlink()
+    if directory_only:
+        (content / "empty-directory").mkdir()
+    with pytest.raises(RuntimeError, match=r"content missing; run ./x package"):
+        package_snapshot(repo)

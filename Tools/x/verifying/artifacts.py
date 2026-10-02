@@ -1,7 +1,7 @@
 """Runner hash/stamp snapshots used by slow harnesses, never mtime heuristics."""
 
-import hashlib
 from functools import lru_cache
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +30,12 @@ def package_snapshot(repo: Path) -> dict[str, Any]:
         raise RuntimeError("package stale; run ./x package")
     if not (root / "CoopRTS/Binaries/Linux/CoopRTS").is_file():
         raise RuntimeError("package binary missing; run ./x package")
-    artifacts = [root / "CoopRTS/Binaries/Linux/CoopRTS"]
-    artifacts.extend(sorted((root / "CoopRTS/Content/Paks").glob("*")))
+    content = sorted(
+        path for path in (root / "CoopRTS/Content/Paks").glob("*") if path.is_file()
+    )
+    if not content:
+        raise RuntimeError("packaged content missing; run ./x package")
+    artifacts = [root / "CoopRTS/Binaries/Linux/CoopRTS", *content]
     hashes = {
         str(path.relative_to(root)): digest(path)
         for path in artifacts

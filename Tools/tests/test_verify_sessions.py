@@ -1,13 +1,13 @@
 """Real holder locks survive invocation exit and release only with owned games."""
 
+from collections.abc import Callable
+from dataclasses import replace
 import fcntl
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
-from collections.abc import Callable
-from dataclasses import replace
-from pathlib import Path
 
 import pytest
 from x import jsonio
@@ -98,3 +98,37 @@ def test_failed_launch_does_not_leave_exclusive_lock(
     eventually(lambda: identity(pid) is None)
     assert not blocked(ctx.settings.lock_dir / "ue.lock")
     os.waitpid(pid, 0)
+
+
+def test_action_without_session_reports_launch_prerequisite(
+    repo: Path, tmp_path: Path
+) -> None:
+    ctx = context(repo, tmp_path, "capture")
+    with (
+        pytest.raises(
+            RuntimeError,
+            match=r"no active native session; run ./x verify native launch",
+        ),
+        lease(ctx, "native", "capture", tmp_path / "unused"),
+    ):
+        raise AssertionError("missing session should not admit an action")
+
+
+def test_holder_exit_does_not_mask_harness_failure(repo: Path, tmp_path: Path) -> None:
+    from x.verifying.cleanup import stop_owned
+
+    ctx = context(repo, tmp_path, "launch")
+    assert ctx.run is not None
+    pid = 0
+    try:
+        with (
+            pytest.raises(RuntimeError, match="original harness failure"),
+            lease(ctx, "native", "launch", ctx.run.dir / "harness"),
+        ):
+            record = jsonio.load(manifest(ctx, "native"))
+            pid = int(record["pid"])
+            stop_owned(record)
+            raise RuntimeError("original harness failure")
+    finally:
+        if pid:
+            os.waitpid(pid, 0)

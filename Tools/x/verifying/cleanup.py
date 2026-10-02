@@ -1,9 +1,9 @@
 """Retire recorded children if the runner interrupts or stalls a harness."""
 
 import os
+from pathlib import Path
 import select
 import signal
-from pathlib import Path
 from typing import Any
 
 from x import jsonio

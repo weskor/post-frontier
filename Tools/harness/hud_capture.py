@@ -14,6 +14,7 @@ research or victory presentation.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -430,7 +431,6 @@ def configure(parser):
 
 
 def main():
-    import os
     parser = argparse.ArgumentParser(description=__doc__)
     configure(parser)
     args = parser.parse_args()
@@ -456,7 +456,6 @@ def main():
 
 
 if __name__ == "__main__":
-    import os
     if not os.environ.get("X_RUN_ID"):
         sys.exit("run through ./x verify")
     main()
