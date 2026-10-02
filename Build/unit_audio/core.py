@@ -17,6 +17,8 @@ from typing import Literal, Protocol, cast, overload
 
 import numpy as np
 from numpy.typing import NDArray
+import pedalboard
+from pedalboard._pedalboard import Pedalboard
 from scipy.signal import butter, resample_poly, sosfilt
 
 Audio = NDArray[np.float64]
@@ -53,31 +55,8 @@ class LoudnessModule(Protocol):
     def Meter(self, rate: int) -> LoudnessMeter: ...
 
 
-class AudioProcessor(Protocol):
-    def __call__(
-        self, audio: Audio | Float32Audio, sample_rate: int
-    ) -> Float32Audio: ...
-
-
-class PedalboardModule(Protocol):
-    def Limiter(self, *, threshold_db: float, release_ms: float) -> object: ...
-
-    def Reverb(
-        self,
-        *,
-        room_size: float,
-        damping: float,
-        wet_level: float,
-        dry_level: float,
-        width: float,
-    ) -> object: ...
-
-    def Pedalboard(self, plugins: list[object]) -> AudioProcessor: ...
-
-
 sf = cast(SoundFileModule, import_module("soundfile"))
 pyloudnorm = cast(LoudnessModule, import_module("pyloudnorm"))
-pedalboard = cast(PedalboardModule, import_module("pedalboard"))
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES_DIR = ROOT / "Saved" / "AudioSources" / "Sonniss"
@@ -317,7 +296,7 @@ def write_session(unit: Unit, placed: list[PlacedLayer], session: Path) -> None:
 LOUDNESS = pyloudnorm.Meter(SR)
 CEILING = 10 ** (TRUE_PEAK_CEILING_DBFS / 20)
 # JUCE's limiter (pedalboard.Limiter) adds make-up gain up to 0 dBFS; finish() rescales after it.
-LIMITER = pedalboard.Pedalboard([pedalboard.Limiter(threshold_db=-6.0, release_ms=60)])
+LIMITER = Pedalboard([pedalboard.Limiter(threshold_db=-6.0, release_ms=60)])
 
 
 def true_peak(y: Audio) -> float:

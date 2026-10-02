@@ -108,7 +108,9 @@ def test_exception_is_exact_and_unused_entries_block() -> None:
     marker = Finding("a.py", 2, "marker", "stub")
     suppression = Finding("a.py", 3, "suppression", "suppressed")
     other = Finding("b.py", 2, "marker", "stub")
-    policy = Policy({}, [ExceptionEntry("marker", "a.py", "genuine false positive")])
+    policy = Policy(
+        {}, [ExceptionEntry("marker", "a.py", "genuine false positive")], None
+    )
     assert apply_exceptions([marker, suppression, other], policy) == [
         suppression,
         other,

@@ -5,10 +5,9 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import tomllib
 
 from x.context import Context
-from x.lint.model import Finding, matches
+from x.lint.model import Finding, Policy, matches
 
 
 def execute(
@@ -31,41 +30,32 @@ def binary(name: str) -> str:
     return found
 
 
-def python_groups(ctx: Context, paths: list[str]) -> list[tuple[str | None, list[str]]]:
-    with (ctx.repo / "Tools/x/lint.toml").open("rb") as source:
-        spec: object = tomllib.load(source).get("python")
-    if spec is None:
+def python_groups(
+    policy: Policy, paths: list[str]
+) -> list[tuple[str | None, list[str]]]:
+    if policy.python is None:
         return [(None, paths)] if paths else []
-    if not isinstance(spec, dict) or set(spec) != {"version", "paths"}:
-        raise ValueError("python target requires version and paths")
-    version: object = spec["version"]
-    patterns: object = spec["paths"]
-    if (
-        not isinstance(version, str)
-        or re.fullmatch(r"3\.\d+", version) is None
-        or not isinstance(patterns, list)
-        or any(not isinstance(pattern, str) for pattern in patterns)
-    ):
-        raise ValueError("python target requires a version and path globs")
-    embedded = [p for p in paths if any(matches(p, glob) for glob in patterns)]
+    embedded = [
+        p for p in paths if any(matches(p, glob) for glob in policy.python.paths)
+    ]
     embedded_set = set(embedded)
     normal = [p for p in paths if p not in embedded_set]
     return [
         (target, files)
-        for target, files in ((None, normal), (version, embedded))
+        for target, files in ((None, normal), (policy.python.version, embedded))
         if files
     ]
 
 
 def format_files(
-    ctx: Context, paths: list[str], *, fix: bool
+    ctx: Context, paths: list[str], policy: Policy, *, fix: bool
 ) -> tuple[list[Finding], list[Path]]:
     """Return findings and changed paths from the formatters' existing snapshots."""
     python = [p for p in paths if p.endswith(".py") or p == "x"]
     cpp = [p for p in paths if Path(p).suffix in {".h", ".cpp"}]
     findings: list[Finding] = []
     reformatted: list[Path] = []
-    for target, files in python_groups(ctx, python):
+    for target, files in python_groups(policy, python):
         python_findings, python_reformatted = format_python(
             ctx, files, fix=fix, target=target
         )
@@ -174,10 +164,12 @@ def diagnostics(
     return findings
 
 
-def lint_python(ctx: Context, rule: str, paths: list[str]) -> list[Finding]:
+def lint_python(
+    ctx: Context, rule: str, paths: list[str], policy: Policy
+) -> list[Finding]:
     return [
         finding
-        for target, files in python_groups(ctx, paths)
+        for target, files in python_groups(policy, paths)
         for finding in lint_python_group(ctx, rule, files, target)
     ]
 

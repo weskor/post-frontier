@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = ["remotezip==0.12.6", "numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0", "pedalboard==0.9.25", "pyloudnorm==0.2.0"]
 # ///
 """Fetch the recorded source layers used by the unit sound recipes (Build/unit_audio/*.py SOURCES).

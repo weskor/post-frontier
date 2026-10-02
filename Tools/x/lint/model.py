@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from functools import cache
 from pathlib import Path
+import re
 import tomllib
+from typing import cast
 
 RULES = (
     "suppression",
@@ -65,9 +67,16 @@ class ExceptionEntry:
 
 
 @dataclass(frozen=True)
+class PythonTarget:
+    version: str
+    paths: Sequence[str]
+
+
+@dataclass(frozen=True)
 class Policy:
     rules: dict[str, list[str]]
     exceptions: Sequence[ExceptionEntry]
+    python: PythonTarget | None
 
     def enabled(self, rule: str, path: str) -> bool:
         return any(matches(path, pattern) for pattern in self.rules.get(rule, []))
@@ -87,9 +96,7 @@ def configuration(path: str) -> Iterator[None]:
         raise PolicyError(path, error) from error
 
 
-def load_rules(repo: Path) -> dict[str, list[str]]:
-    with (repo / "Tools/x/lint.toml").open("rb") as source:
-        rules = tomllib.load(source)["rules"]
+def parse_rules(rules: object) -> dict[str, list[str]]:
     if not isinstance(rules, dict):
         raise ValueError("rules must be a table")
     if set(rules) != set(RULES):
@@ -99,7 +106,24 @@ def load_rules(repo: Path) -> dict[str, list[str]]:
         for v in rules.values()
     ):
         raise ValueError("rule scopes must be lists of path globs")
-    return rules
+    return cast(dict[str, list[str]], rules)
+
+
+def parse_python(spec: object) -> PythonTarget | None:
+    if spec is None:
+        return None
+    if not isinstance(spec, dict) or set(spec) != {"version", "paths"}:
+        raise ValueError("python target requires version and paths")
+    version: object = spec["version"]
+    patterns: object = spec["paths"]
+    if (
+        not isinstance(version, str)
+        or re.fullmatch(r"3\.\d+", version) is None
+        or not isinstance(patterns, list)
+        or any(not isinstance(pattern, str) for pattern in patterns)
+    ):
+        raise ValueError("python target requires a version and path globs")
+    return PythonTarget(version, cast(list[str], patterns))
 
 
 def load_exceptions(repo: Path, rules: dict[str, list[str]]) -> list[ExceptionEntry]:
@@ -130,10 +154,13 @@ def load_exceptions(repo: Path, rules: dict[str, list[str]]) -> list[ExceptionEn
 
 def load(repo: Path) -> Policy:
     with configuration("Tools/x/lint.toml"):
-        rules = load_rules(repo)
+        with (repo / "Tools/x/lint.toml").open("rb") as source:
+            spec = tomllib.load(source)
+        rules = parse_rules(spec["rules"])
+        python = parse_python(spec.get("python"))
     with configuration("Tools/x/lint-exceptions.toml"):
         exceptions = load_exceptions(repo, rules)
-    return Policy(rules, exceptions)
+    return Policy(rules, exceptions, python)
 
 
 def load_path(path: str) -> bool:

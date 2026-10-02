@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = ["numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0", "pedalboard==0.9.25", "pyloudnorm==0.2.0"]
 # ///
 """Render an original 72-BPM dark synth / low-horn listening sketch, not a game import.
@@ -24,6 +24,8 @@ import subprocess
 from typing import cast
 
 import numpy as np
+import pedalboard
+from pedalboard._pedalboard import Pedalboard
 from scipy.signal import correlate, find_peaks, resample_poly
 from unit_audio.core import (
     SR,
@@ -33,7 +35,6 @@ from unit_audio.core import (
     event,
     fades,
     filt,
-    pedalboard,
     pitch,
     pyloudnorm,
     seconds,
@@ -103,7 +104,7 @@ def analog(
 
 
 def space(stem: Float32Audio, room: float, wet: float) -> Float32Audio:
-    return pedalboard.Pedalboard(
+    return Pedalboard(
         [
             pedalboard.Reverb(
                 room_size=room, damping=0.66, wet_level=wet, dry_level=0.85, width=1.0

@@ -85,7 +85,7 @@ def check_rule(
     if rule in {"ruff", "mypy"}:
         if rule == "mypy" and (paths or mypy_changed):
             paths = [p for p in repository_files(ctx.repo) if policy.enabled(rule, p)]
-        return tools.lint_python(ctx, rule, paths)
+        return tools.lint_python(ctx, rule, paths, policy)
     findings: list[Finding] = []
     for path in paths:
         suffixes = {".md"} if rule in {"saved-path", "procedure-text"} else CODE
@@ -127,7 +127,7 @@ def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> LintResult:
             if rule == "format":
                 format_paths = [p for p in selected if policy.enabled(rule, p)]
                 format_findings, reformatted = tools.format_files(
-                    ctx, format_paths, fix=fix
+                    ctx, format_paths, policy, fix=fix
                 )
                 findings.extend(format_findings)
             else:
