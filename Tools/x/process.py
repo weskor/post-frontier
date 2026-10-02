@@ -29,11 +29,13 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
     try:
         os.killpg(child.pid, signal.SIGTERM)
     except ProcessLookupError:
+        child.wait()
         return
     # The parent may exit while a descendant ignores TERM. Always kill the group.
     deadline = time.monotonic() + 0.5
     while time.monotonic() < deadline:
-        child.poll()
+        if child.poll() is not None:
+            break
         time.sleep(0.02)
     try:
         os.killpg(child.pid, signal.SIGKILL)

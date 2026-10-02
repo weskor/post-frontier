@@ -192,6 +192,9 @@ def test_killed_holder_releases_and_dead_metadata_ignored(
 ) -> None:
     holder = workers.start("killed", mode)
     workers.await_entry("killed")
+    dead_metadata = next(
+        (workers.root / "locks").glob(f"ue.lock.{holder.pid}.*.holder.json")
+    )
     holder.kill()
     holder.wait(timeout=8)
     following = workers.start("following", "exclusive")
@@ -199,6 +202,7 @@ def test_killed_holder_releases_and_dead_metadata_ignored(
     reader = workers.start("reader", "headless")
     workers.waiting("reader", "ue.lock")
     assert f"pid {holder.pid} " not in workers.log("reader")
+    assert not dead_metadata.exists()
     workers.release("following", following)
     workers.await_entry("reader")
     workers.release("reader", reader)

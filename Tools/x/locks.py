@@ -36,6 +36,9 @@ class Locks:
                 try:
                     holder = jsonio.load(path)
                     os.kill(int(holder["pid"]), 0)
+                except ProcessLookupError:
+                    path.unlink(missing_ok=True)
+                    continue
                 except (OSError, ValueError, KeyError, json.JSONDecodeError):
                     continue
                 holders.append(

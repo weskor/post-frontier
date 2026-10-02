@@ -35,6 +35,12 @@ class Context:
         watch: Path | None = None,
         stall_seconds: float | None = None,
     ) -> int:
+        """Run a child quietly and retain its log and outcome as evidence.
+
+        Any non-zero or stalled exec fails the run, even if the command returns
+        zero later. Probes whose exit code is data must use plain subprocess,
+        not ctx.exec.
+        """
         if self.run is None:
             raise RuntimeError("child execution requires a recorded command")
         log_path = self.run.dir / f"{log}.log"

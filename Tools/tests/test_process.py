@@ -4,6 +4,7 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -12,6 +13,7 @@ import pytest
 
 from x import jsonio
 from x.context import Context
+from x.process import kill_group
 from x.runs import Run
 from x.settings import load
 
@@ -170,3 +172,11 @@ def test_ctrl_c_kills_child_group_and_records_interrupt(ctx: Context) -> None:
     assert ctx.run.record["execs"][0]["exit_code"] == 130
     assert ctx.run.finish(130, interrupted=True) == 130
     assert jsonio.load(ctx.run.dir / "record.json")["status"] == "interrupted"
+
+
+def test_missing_process_group_still_reaps_child() -> None:
+    with subprocess.Popen([sys.executable, "-c", "raise SystemExit(3)"]) as child:
+        kill_group(child)
+        assert child.returncode == 3
+        with pytest.raises(ChildProcessError):
+            os.waitpid(child.pid, os.WNOHANG)

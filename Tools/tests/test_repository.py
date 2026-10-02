@@ -1,6 +1,6 @@
 """Consumer-visible settings, hashing and changed-path boundaries."""
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 import os
 from pathlib import Path
 
@@ -8,6 +8,7 @@ import pytest
 
 from conftest import git
 from x import freshness, gitinfo
+from x.context import Context
 from x.settings import load
 
 
@@ -93,3 +94,19 @@ def test_changed_files_include_all_states_and_deletions(repo: Path) -> None:
     main = repo.parent / "main-tree"
     git(repo, "worktree", "add", str(main), "main")
     assert gitinfo.main_worktree(repo) == main
+
+
+def test_context_freshness_uses_passed_settings(repo: Path) -> None:
+    settings = replace(load(repo), freshness={"editor": ("Content/**",)})
+    ctx = Context(repo, settings)
+    (repo / "Tools/x/settings.toml").unlink()
+    (repo / "Content").mkdir()
+    content = repo / "Content/map.umap"
+    content.write_bytes(b"initial")
+    original = ctx.freshness.current_hash("editor")
+    ctx.freshness.stamp("editor", "settings-run")
+    (repo / "Source/rules.cpp").write_text("excluded source change")
+    assert ctx.freshness.is_fresh("editor")
+    content.write_bytes(b"changed")
+    assert ctx.freshness.current_hash("editor") != original
+    assert not ctx.freshness.is_fresh("editor")
