@@ -4,6 +4,7 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "AIController.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "HAL/PlatformTime.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyPursuitTest, "CoopRTS.Combat.Pursuit",
@@ -70,6 +71,20 @@ public:
 			return false;
 		}
 		const float Elapsed = World->GetTimeSeconds() - StageStarted;
+		if (Stage == 3)
+		{
+			bool bRegrouped = true;
+			for (int32 Index = 0; Index < Friendly->GetUnits().Num(); ++Index)
+				bRegrouped &= FVector::Dist2D(Friendly->GetUnits()[Index]->GetActorLocation(), FightEndPositions[Index]) > 60.f;
+			if (bRegrouped)
+				return Finish();
+			if (Elapsed > 3.f)
+			{
+				Test->AddError(TEXT("Standing survivors did not physically regroup after losing their last target"));
+				return Finish();
+			}
+			return false;
+		}
 		if (Stage == 1)
 		{
 			if (Elapsed > 20.f)
@@ -111,7 +126,21 @@ public:
 		{
 			Test->TestTrue(TEXT("Brawlers reach and damage the second Artillery after killing the first"), bReachedSecond);
 			Test->TestFalse(TEXT("Brawlers survive to finish both Artillery"), Friendly->GetUnits().IsEmpty());
-			return Finish();
+			FightEndPositions.Reset();
+			for (AArmyUnit* Unit : Friendly->GetUnits())
+				FightEndPositions.Add(Unit->GetActorLocation());
+			// No replacement order: the engaged flag must send standing survivors
+			// back to their formation once the last hostile has died.
+			static_cast<AActor*>(Friendly.Get())->Tick(.25f);
+			for (AArmyUnit* Unit : Friendly->GetUnits())
+			{
+				const AAIController* AI = Cast<AAIController>(Unit->GetController());
+				Test->TestTrue(TEXT("Standing survivor resumes formation travel after its last target dies"),
+					!Unit->Target && !Unit->bPursuing && AI && AI->GetMoveStatus() == EPathFollowingStatus::Moving);
+			}
+			Stage = 3;
+			StageStarted = World->GetTimeSeconds();
+			return false;
 		}
 		if (Friendly->GetUnits().IsEmpty() || Elapsed > 25.f)
 		{
@@ -188,6 +217,7 @@ private:
 	TWeakObjectPtr<AArmyGroup> Friendly, Hostile;
 	TWeakObjectPtr<AArmyUnit> Left, Right, FirstArtillery, SecondArtillery;
 	FVector Anchor = FVector::ZeroVector;
+	TArray<FVector> FightEndPositions;
 	double Started;
 	float StageStarted = 0.f;
 	int32 Stage = 0;

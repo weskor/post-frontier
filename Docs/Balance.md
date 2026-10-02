@@ -144,7 +144,7 @@ Each row reports the left/team-0 and right/team-5 result separately, with ten fi
 
 Measured worth is **0.86875 Brawler**, **0.534375 Rifle**, **0.096875 Artillery**; maximum/minimum is **8.96774**, failing the design's worth check. Base HP/DPS per Power is **7 / 1.00000**, **3 / 0.52174**, and **2.2 / 0.32308**, respectively: Brawler dominates both other units on both metrics, and Rifle dominates Artillery. These are measured failures, not permission to tune stats in the pursuit fix. Rule definitions remain in [units.md](Design/units.md).
 
-[Built] Pursuit now compares hysteresis against the last accepted move endpoint, clears firing/switch/completed-path state, and retains the **130 cm** reissue threshold while a pursuit is active. Desired standoff is `max(0, min(0.82 × range, range − 70 cm))`, reserving short-range arrival clearance: the former melee endpoint could leave two idle capsules **177.5 cm** apart despite a **175 cm** weapon range. The failed intermediate run `20261002-223534-sim-10fc` retained that residual stall; it is not the baseline.
+Pursuit rules live in [units.md](Design/units.md). In the failed intermediate run `20261002-223534-sim-10fc`, the former melee endpoint left two idle capsules **177.5 cm** apart despite **175 cm** weapons; that residual arrival stall is diagnostic evidence, not the baseline.
 
 The earlier run `20261002-174444-sim-57a0` remains invalidated: the old harness counted pursuit stalls as cap draws. Its raw artifacts remain diagnostic only. Alternated creation order and seeded offsets reduce ordering bias and near-replication; ten seeds do not establish independent random samples or statistical reproducibility.
 

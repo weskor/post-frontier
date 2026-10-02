@@ -115,6 +115,8 @@ private:
 	FVector ReinforcementTarget(const AArmyUnit& Unit) const;
 	float CombatAccumulator = 0.f;
 	float FrontMaintenanceSeconds = 0.f;
+	// Stable composition slots retain retry clocks through unit-array compaction.
+	TArray<float, TInlineAllocator<6>> NextPursuitAttempts;
 	bool bProducedGroup = false;
 	int32 ForceCapacity = 0;
 	void StopAllUnits();

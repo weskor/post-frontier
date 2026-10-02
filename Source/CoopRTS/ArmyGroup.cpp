@@ -723,17 +723,24 @@ void AArmyGroup::UpdateCombat()
 		}
 		if (Order == EArmyOrder::Attack && AI)
 		{
+			const int32 Slot = Unit->CompositionSlot;
+			if (NextPursuitAttempts.Num() <= Slot)
+				NextPursuitAttempts.SetNumZeroed(Slot + 1);
+			const float Now = GetWorld()->GetTimeSeconds();
 			const bool bEnRoute = bAutomaticFront && FrontOrder == EFrontOrder::Secure
 				&& FVector::DistSquared2D(Unit->GetActorLocation(), Destination) > FMath::Square(PursuitRadius);
 			const FVector PursuitAnchor = bEnRoute ? Unit->GetActorLocation() : Destination;
 			const bool bActivePursuit = Unit->bPursuing && AI->GetMoveStatus() != EPathFollowingStatus::Idle;
 			const FPursuitDecision Decision = PursuitPolicy::Evaluate(Unit->GetActorLocation(),
-				Chosen->GetActorLocation(), Unit->WeaponRange(), PursuitAnchor, PursuitRadius,
-				Destination.Z, bActivePursuit, bTargetChanged, Unit->PursuitGoal);
-			if (bTargetChanged || Decision.bInRange || !bActivePursuit)
+				Chosen->GetActorLocation(), Unit->WeaponRange(), Unit->GetSimpleCollisionRadius() + 35.f,
+				PursuitAnchor, PursuitRadius, Destination.Z, bActivePursuit, bTargetChanged,
+				Unit->PursuitGoal, Now >= NextPursuitAttempts[Slot]);
+			if (bTargetChanged)
 				Unit->bPursuing = false;
 			if (Decision.bInRange)
 			{
+				Unit->bPursuing = true; // Engaged: front maintenance and regrouping depend on this flag.
+				NextPursuitAttempts[Slot] = 0.f;
 				if (AI->GetMoveStatus() != EPathFollowingStatus::Idle)
 				{
 					AI->StopMovement();
@@ -742,6 +749,7 @@ void AArmyGroup::UpdateCombat()
 			}
 			else if (Decision.bIssueMove)
 			{
+				NextPursuitAttempts[Slot] = Now + PursuitPolicy::IdleRetrySeconds;
 				const FVector& Goal = Decision.Goal;
 				UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 				FPreparedMove Pursuit;
