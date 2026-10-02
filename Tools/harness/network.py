@@ -23,11 +23,11 @@ from harness.verify import (
     ROOT,
     JsonObject,
     identity,
-    map_package,
     map_started,
     module_stamp,
     package_stamp,
 )
+from x.scopes import map_package
 
 
 def require(condition: object, explanation: str) -> None:

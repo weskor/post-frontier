@@ -1,5 +1,6 @@
 """Repository-relative glob routing, including paths deleted from disk."""
 
+import argparse
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
@@ -16,6 +17,14 @@ class Scope:
     map: str = ""
     paths: tuple[str, ...] = ()
     commands: tuple[tuple[str, ...], ...] = ()
+
+
+def map_package(value: str) -> str:
+    if not re.fullmatch(r"/Game/(?:[A-Za-z0-9_]+/)*[A-Za-z0-9_]+", value):
+        raise argparse.ArgumentTypeError(
+            "Use a /Game/... package path without an extension or URL options"
+        )
+    return value
 
 
 def matches(parts: tuple[str, ...], pattern: tuple[str, ...]) -> bool:
@@ -68,13 +77,15 @@ def _scope(name: str, spec: Mapping[str, Any]) -> Scope:
         if not isinstance(test_filter, str) or not test_filter.strip():
             raise ValueError(f"scope {name}: automation requires a non-empty filter")
         map_path = spec.get("map")
-        if not isinstance(map_path, str) or (
-            map_path != "default"
-            and not re.fullmatch(r"/Game/(?:[A-Za-z0-9_]+/)*[A-Za-z0-9_]+", map_path)
-        ):
+        try:
+            if not isinstance(map_path, str):
+                raise argparse.ArgumentTypeError("Map must be a string")
+            if map_path != "default":
+                map_package(map_path)
+        except argparse.ArgumentTypeError as error:
             raise ValueError(
                 f"scope {name}: automation requires default or a /Game/... map"
-            )
+            ) from error
     if kind == "script":
         commands = spec.get("commands")
         if (

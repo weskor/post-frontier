@@ -49,7 +49,8 @@ from harness.network import (
     select_goal_region,
     wallet,
 )
-from harness.verify import DEFAULT_MAP, JsonObject, map_package
+from harness.verify import DEFAULT_MAP, JsonObject
+from x.scopes import map_package
 
 # EHUDAction ordinals from Source/CoopRTS/CommandHUD.h.
 BUILD_BARRACKS, RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION, RESEARCH_REPAIRS = (

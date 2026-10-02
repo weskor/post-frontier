@@ -25,10 +25,10 @@ from harness.verify import (
     compile_pointer,
     execute,
     identity,
-    map_package,
     map_started,
     package_stamp,
 )
+from x.scopes import map_package
 
 
 class WindowNotReady(RuntimeError):

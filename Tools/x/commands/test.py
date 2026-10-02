@@ -3,18 +3,16 @@
 import argparse
 
 from x.context import Context
-from x.scopes import load
+from x.scopes import load, map_package
 from x.testing import run_scopes
 
 NAME = "test"
 SUMMARY = "Run named test scopes, building the editor automatically when stale."
-HELP = "./x test <scope> [<scope>...] [--map /Game/Maps/Boot]\n./x test --list\n--map overrides the world of every automation scope in this invocation; other scope kinds are unchanged.\nOnly /Game/... package paths without extensions or URL options are accepted; the engine resolves existence.\nWithout --map, each scope retains its configured map. ./x check never supplies an override.\nRuns every requested scope and retains per-scope results and logs.\nAutomation requires explicit Success, zero exit, SoftQuit and the requested map.\nMap validator images go to the run directory; lint-only scopes need ./x check."
+HELP = "./x test <scope> [<scope>...] [--map /Game/Maps/Boot]\n./x test --list\n--map overrides the world of every automation scope in this invocation; other scope kinds are unchanged.\nOnly /Game/... package paths without extensions or URL options are accepted; the engine resolves existence.\nWithout --map, each scope retains its configured map; only ./x test accepts it.\nRuns every requested scope and retains per-scope results and logs.\nAutomation requires explicit Success, zero exit, SoftQuit and the requested map.\nMap validator images go to the run directory; lint-only scopes need ./x check."
 RECORD = True
 
 
 def configure(parser: argparse.ArgumentParser) -> None:
-    from harness.verify import map_package
-
     parser.add_argument("scopes", nargs="*")
     parser.add_argument("--list", action="store_true", dest="list_scopes")
     parser.add_argument(

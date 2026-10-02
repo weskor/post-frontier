@@ -18,6 +18,8 @@ import sys
 import time
 from typing import Any, cast
 
+from x import scopes
+
 # JSON session and compositor payloads are dynamic third-party records.
 type JsonObject = dict[str, Any]
 
@@ -27,14 +29,6 @@ BINARY = ROOT / "Saved/Packages/development/latest/CoopRTS/Binaries/Linux/CoopRT
 POINTER = ROOT / "Intermediate/x-harness/pointer"
 READY = "Bringing up level for play"
 DEFAULT_MAP = "/Game/Maps/Boot"
-
-
-def map_package(value: str) -> str:
-    if not re.fullmatch(r"/Game/(?:[A-Za-z0-9_]+/)*[A-Za-z0-9_]+", value):
-        raise argparse.ArgumentTypeError(
-            "Use a /Game/... package path without an extension or URL options"
-        )
-    return value
 
 
 def map_started(text: str, map_path: str) -> bool:
@@ -175,7 +169,7 @@ def stop(run: Path) -> None:
 
 
 def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
-    map_path = map_package(map_path)
+    map_path = scopes.map_package(map_path)
     stamp = package_stamp()
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
@@ -319,7 +313,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
     launch_parser = commands.add_parser("launch")
     launch_parser.add_argument(
         "--map",
-        type=map_package,
+        type=scopes.map_package,
         default=DEFAULT_MAP,
         help="level package path (default /Game/Maps/Boot); existence checked by the engine",
     )
