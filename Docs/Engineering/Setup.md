@@ -57,7 +57,7 @@ The runner owns:
 ## Parallel work
 
 - **One branch per task, one git worktree per worker slot.** A slot's worktree is reused for its next task once the previous one has landed, so its `Binaries/` and `Intermediate/` stay warm; a full module build in a fresh worktree takes 10–15 s. The derived-data cache is shared. Roles, panes and the task loop are in the [orchestrate skill](../../.agents/skills/orchestrate/SKILL.md).
-- **Unity builds are off** for the game module. Today two agents adding same-named helpers in different files can break each other's build ([architecture audit](Audit/architecture.md)).
+- **Unity builds are off** for the game module (done in phase 1: `CoopRTS.Build.cs` sets `bUseUnity = false`). Each `.cpp` compiles separately, so same-named helpers in different files no longer collide ([architecture audit](Audit/architecture.md)).
 - **Generated binaries never conflict:** agents don't commit them, and `land` regenerates them serially under the exclusive lock.
 - **Feature folders:** code, tests and the scope entry for a feature live together, so a task touches one folder plus the shared interfaces.
 
@@ -119,11 +119,11 @@ Each phase ends with its exit check passing through `./x check`.
 | Phase | Work | Exit check |
 |---|---|---|
 | 0 | Baseline commit | Done: `3104bdc` |
-| 1 | `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; the lint policy with workaround detectors, architecture rules, formatting and Python lint and types; size limits for `Rules/` and `Content/`; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Every documented procedure is a `./x` command; a direct commit to main is rejected; lint is green |
+| 1 | Unity builds off for the game module (done); `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; the lint policy with workaround detectors, architecture rules, formatting and Python lint and types; size limits for `Rules/` and `Content/`; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Every documented procedure is a `./x` command; a direct commit to main is rejected; lint is green |
 | 2 | Green suite: port or delete the 9 red tests; Low-Level Tests prototype, then move the 18 rules tests; Python tests for map validators | `./x check` is green; rules tests run without starting the editor |
 | 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
 | 4 | Content as text; deterministic generators, split to the size limits; `land` regenerates binaries; size limits switch on for `Build/` | Changing a unit stat is a text-only diff |
-| 5 | Split the god objects; extract pure decision logic; unity builds off; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
+| 5 | Split the god objects; extract pure decision logic; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
 
 Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md)) can start after phase 1. Each later phase can run alongside gameplay work, as long as the two don't touch the same files.
 
