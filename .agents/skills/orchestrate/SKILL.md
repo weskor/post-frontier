@@ -152,6 +152,8 @@ Land one slice at a time.
 
 Prompt the worker: "Run `./x land`, reply DONE." The hook rejects other updates to main.
 
+After the strict-landing hook cutover, every already-in-flight task branch must run `git rebase main` **before** invoking `./x land`. Landing code is imported before land's internal rebase, so an old runner cannot authorize the new hook even if that internal rebase succeeds. Resolve behavior-changing rebase conflicts through re-review before authorizing landing.
+
 If landing fails, the worker follows the landing-failure rule in [Worker rules](#worker-rules). `./x land` aborts conflicting rebases and prints their paths; the worker resolves them by rebasing its task branch onto main using the brief's entry-ownership instructions. If resolving a conflict changes behaviour, the worker updates its report and replies `BLOCKED` without retrying `./x land`; send the slice for re-review through an idle reviewer cleared with `/new`, then explicitly authorize another landing attempt after review passes. Otherwise the worker reruns `./x check`, commits any fixes and retries `./x land`.
 
 If `./x check` or `./x land` reports `main audit failed` or `hook integrity failed`, stop and ask the owner; do not repair main, rewrite audit evidence or retry landing to bypass the refusal. Main's worktree must be clean before landing.

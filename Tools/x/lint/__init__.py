@@ -95,7 +95,9 @@ def check_rule(
         try:
             text = (ctx.repo / path).read_text()
         except UnicodeDecodeError:
-            continue
+            if rule == "land-bypass":
+                continue
+            raise
         if rule == "rules-includes":
             headers = frozenset(
                 p.name for p in (ctx.repo / "Source/CoopRTS/Rules").glob("*.h")

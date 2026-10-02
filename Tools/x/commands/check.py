@@ -2,12 +2,11 @@
 
 import argparse
 from dataclasses import dataclass
-import fcntl
 from pathlib import Path
 
 from x import gitinfo, lint
 from x.context import Context
-from x.landing import audit_main
+from x.landing import audit_check
 from x.scopes import load
 from x.testing import run_scopes
 
@@ -48,8 +47,7 @@ class CheckResult:
 
 def check(ctx: Context, *, all_files: bool = False, audit: bool = True) -> CheckResult:
     if audit:
-        with ctx.locks.held(["land.lock"], fcntl.LOCK_EX):
-            audit_main(ctx.repo)
+        audit_check(ctx)
     changed = gitinfo.changed_files(ctx.repo)
     paths = (
         [Path(p) for p in lint.repository_files(ctx.repo, tracked=True)]

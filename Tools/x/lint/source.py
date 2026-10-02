@@ -16,6 +16,7 @@ PATTERNS = {
         r"|update-ref\b[^\n]*(?:refs/heads/main\b|[\"'\s]main[\"'\s])"
         r"|update-ref[\"']?\s*,\s*(?:[\"']-d[\"']\s*,\s*)?[\"'](?:refs/heads/)?main[\"']"
         r"|\.git[/\\]+refs\b|x-land-(?:grant\.json|ledger\.jsonl)"
+        r"|refs/x/land-ledger\b"
     ),
 }
 LEXEMES = re.compile(
@@ -90,20 +91,6 @@ def functions(path: str, text: str) -> list[tuple[int, int]]:
 
 
 def land_bypass(path: str, text: str) -> list[Finding]:
-    if (
-        path == "Tools/x/landing.py"
-        or path.startswith("Tools/hooks/")
-        or path
-        in {
-            "Tools/tests/test_land.py",
-            "Tools/tests/test_land_hooks.py",
-            "Tools/tests/test_land_lock.py",
-            "Tools/tests/test_land_strict.py",
-            "Tools/tests/test_land_bypass.py",
-            "Tools/tests/landing_support.py",
-        }
-    ):
-        return []
     return [
         Finding(
             path,

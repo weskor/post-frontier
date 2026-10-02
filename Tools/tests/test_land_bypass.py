@@ -23,6 +23,7 @@ from x.lint.model import load
         'echo "$tip" > .git/refs/heads/main',
         'Path("x-land-grant.json").write_text(data)',
         'Path("x-land-ledger.jsonl").unlink()',
+        'git update-ref -d refs/x/land-ledger',
     ],
 )
 def test_bypass_snippets_block(path: str, snippet: str) -> None:
@@ -55,15 +56,17 @@ def test_other_refs_and_normal_landing_allowed(snippet: str) -> None:
     ],
 )
 def test_enforcement_and_its_tests_are_exempt(path: str) -> None:
-    assert (
-        source.scan("land-bypass", path, "git -c core.hooksPath=/dev/null commit") == []
-    )
+    policy = load(Path(__file__).parents[2])
+    assert not policy.enabled("land-bypass", path)
+    assert source.scan("land-bypass", path, "git -c core.hooksPath=/dev/null commit")
 
 
 @pytest.mark.parametrize(
     "path", ["Tools/test_land_helper.py", "Tools/tests/test_landscape.py"]
 )
 def test_unrelated_land_named_files_are_not_exempt(path: str) -> None:
+    policy = load(Path(__file__).parents[2])
+    assert policy.enabled("land-bypass", path)
     assert source.scan("land-bypass", path, "git commit --no-verify")
 
 

@@ -84,6 +84,19 @@ def authorize(common, old, new):
         return False
     # Keep transaction-bound evidence for committed/aborted, not a reusable grant.
     pending = common / "x-land-grant.json.prepared"
+    if pending.exists():
+        previous = json.loads(pending.read_text())
+        previous_pid = previous["transaction_pid"]
+        if not isinstance(previous_pid, int) or previous_pid <= 0:
+            raise ValueError("invalid prepared transaction pid")
+        try:
+            os.kill(previous_pid, 0)
+        except ProcessLookupError:
+            pending.unlink()
+        else:
+            state = Path(f"/proc/{previous_pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+            if state == "Z":
+                pending.unlink()
     with pending.open("x") as stream:
         json.dump({**grant, "transaction_pid": os.getppid()}, stream)
         stream.flush()
@@ -105,6 +118,11 @@ def finish(common, updates, committed):
         ledger = common / "x-land-ledger.jsonl"
         entries = [json.loads(line) for line in ledger.read_text().splitlines()]
         endpoint = entries[-1].get("new", entries[-1].get("seed"))
+        anchor_ref = "refs/x/land-ledger"
+        anchor_oid = git("rev-parse", "--verify", anchor_ref)
+        anchor = json.loads(git("cat-file", "blob", anchor_oid))
+        if anchor != {"entries": len(entries), "new": endpoint}:
+            raise ValueError("ledger disagrees with its anchor before commit")
         if endpoint != grant["old"] or git("rev-parse", "refs/heads/main") != grant["new"]:
             raise ValueError("main transaction differs from the landing ledger")
         entry = {
@@ -115,6 +133,9 @@ def finish(common, updates, committed):
             stream.write(json.dumps(entry) + "\n")
             stream.flush()
             os.fsync(stream.fileno())
+        data = json.dumps({"entries": len(entries) + 1, "new": grant["new"]}).encode()
+        oid = subprocess.check_output(["git", "hash-object", "-w", "--stdin"], input=data).decode().strip()
+        git("update-ref", anchor_ref, oid, anchor_oid)
     pending.unlink()
 
 
@@ -141,7 +162,11 @@ def main():
         try:
             if maintenance(old, new, current, common):
                 continue
-            if not current and new.strip("0") and not (common / "x-land-ledger.jsonl").exists():
+            if (
+                not current and new.strip("0") and not (common / "x-land-ledger.jsonl").exists()
+                and subprocess.run(["git", "rev-parse", "--verify", "--quiet", "refs/x/land-ledger"],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 1
+            ):
                 continue
             if authorize(common, old, new):
                 continue

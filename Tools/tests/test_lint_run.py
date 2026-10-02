@@ -226,3 +226,22 @@ def test_embedded_python_rejects_newer_syntax(
     assert lint.run(
         context(lint_repo), [Path("embedded.py"), Path("normal.py")], fix=False
     ).ok
+
+
+@pytest.mark.parametrize("suffix", [".cpp", ".py"])
+@pytest.mark.parametrize("rule", ["marker", "suppression", "rules-includes"])
+def test_non_utf8_source_cannot_escape_source_rules(
+    lint_repo: Path, capsys: pytest.CaptureFixture[str], suffix: str, rule: str
+) -> None:
+    name = "invalid" + suffix
+    configure(lint_repo, {rule: [name]})
+    (lint_repo / name).write_bytes(b"\xff\n")
+    result = lint.run(context(lint_repo), [Path(name)], fix=False)
+    assert not result.ok
+    assert rule in capsys.readouterr().out
+
+
+def test_binary_bytes_are_skipped_only_by_bypass_rule(lint_repo: Path) -> None:
+    configure(lint_repo, {"land-bypass": ["payload.bin"]})
+    (lint_repo / "payload.bin").write_bytes(b"\xff\x00\x01")
+    assert lint.run(context(lint_repo), [Path("payload.bin")], fix=False).ok

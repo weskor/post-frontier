@@ -210,3 +210,38 @@ def test_land_killed_after_merge_keeps_committed_ledger(repo: Path) -> None:
     assert not (repo / ".git" / (GRANT + ".prepared")).exists()
     checked = invoke(task, "check")
     assert checked.returncode == 0, checked.stdout + checked.stderr
+
+
+def test_rejected_checkout_restores_main_and_its_hooks(repo: Path, task: Path) -> None:
+    commit_file(task, "Docs/task.md", "would replace main\n")
+    commit_file(task, "Docs/new.md", "would add a tracked file\n")
+    hook = "Tools/hooks/post-merge"
+    original = (repo / hook).read_bytes()
+    commit_file(task, hook, original.decode() + "\n# incoming hook\n")
+    before = git(repo, "rev-parse", "main")
+    pending = repo / ".git" / (GRANT + ".prepared")
+    pending.write_text(json.dumps({"transaction_pid": os.getpid()}))
+    rejected = invoke(task, "land")
+    assert rejected.returncode == 1, rejected.stdout + rejected.stderr
+    assert "main only moves through ./x land" in next(
+        (repo.parent / "runs").glob("*/land-merge.log")
+    ).read_text()
+    assert git(repo, "rev-parse", "main") == before
+    assert git(repo, "status", "--porcelain") == ""
+    assert (repo / hook).read_bytes() == original
+    assert not (repo / "Docs/new.md").exists()
+    assert not pending.exists()
+    assert invoke(task, "help").returncode == 0
+    retry = invoke(task, "land")
+    assert retry.returncode == 0, retry.stdout + retry.stderr
+    assert git(repo, "rev-parse", "main") == git(task, "rev-parse", "HEAD")
+
+
+def test_landing_replaces_dead_prepared_transaction(repo: Path, task: Path) -> None:
+    commit_file(task, "Docs/task.md", "recovers stale evidence\n")
+    pending = repo / ".git" / (GRANT + ".prepared")
+    pending.write_text(json.dumps({"transaction_pid": 2147483647}))
+    result = invoke(task, "land")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert git(repo, "rev-parse", "main") == git(task, "rev-parse", "HEAD")
+    assert not pending.exists()

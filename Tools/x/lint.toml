@@ -5,7 +5,13 @@
 suppression = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
 disabled-test = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
 marker = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
-land-bypass = ["**", "!Docs/Engineering/Audit/**"]
+land-bypass = [
+    "**", "!Docs/Engineering/Audit/**", "!Tools/hooks/**", "!Tools/x/landing.py",
+    "!Tools/tests/test_land.py", "!Tools/tests/test_land_hooks.py",
+    "!Tools/tests/test_land_lock.py", "!Tools/tests/test_land_strict.py",
+    "!Tools/tests/test_land_bypass.py", "!Tools/tests/landing_support.py",
+    "!Tools/tests/test_land_audit.py",
+]
 # Build and the legacy verification scripts still name direct engine commands.
 direct-engine = [
     "Source/**", "Tools/**", "Build/unit_audio/**", "x",
