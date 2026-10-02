@@ -33,10 +33,14 @@ def binary(ctx: Context, name: str) -> str:
     return found
 
 
-def format_files(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
+def format_files(
+    ctx: Context, paths: list[str], *, fix: bool
+) -> tuple[list[Finding], list[Path]]:
+    """Return findings and changed paths from the formatters' existing snapshots."""
     python = [p for p in paths if p.endswith(".py") or p == "x"]
     cpp = [p for p in paths if Path(p).suffix in {".h", ".cpp"}]
     findings: list[Finding] = []
+    reformatted: list[Path] = []
     if python:
         before = {p: (ctx.repo / p).read_bytes() for p in python} if fix else {}
         if fix:
@@ -50,6 +54,7 @@ def format_files(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
             for path, content in before.items():
                 if (ctx.repo / path).read_bytes() != content:
                     print(f"reformatted {path}")
+                    reformatted.append(Path(path))
         checked = execute(
             ctx, [binary(ctx, "ruff"), "format", "--check", *python], "format-check"
         )
@@ -63,11 +68,15 @@ def format_files(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
             if not changed:
                 findings.extend(diagnostics(checked, "format", python[0]))
     if cpp:
-        findings.extend(format_cpp(ctx, cpp, fix=fix))
-    return findings
+        cpp_findings, cpp_reformatted = format_cpp(ctx, cpp, fix=fix)
+        findings.extend(cpp_findings)
+        reformatted.extend(cpp_reformatted)
+    return findings, reformatted
 
 
-def format_cpp(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
+def format_cpp(
+    ctx: Context, paths: list[str], *, fix: bool
+) -> tuple[list[Finding], list[Path]]:
     config = ctx.repo / ".clang-format"
     expected = re.search(
         r"clang-format (\d+\.\d+\.\d+)", config.read_text().splitlines()[0]
@@ -88,17 +97,21 @@ def format_cpp(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
                 "format",
                 f"exact formatter version required: {expected[1] if expected else 'missing'}; {version.stdout.strip()}",
             )
-        ]
+        ], []
     before = {p: (ctx.repo / p).read_bytes() for p in paths} if fix else {}
+    findings: list[Finding] = []
+    reformatted: list[Path] = []
     if fix:
         applied = execute(ctx, [tool, "-i", *paths], "clang-fix")
         if applied.returncode:
-            return [Finding(paths[0], 1, "format", applied.stderr.strip())]
+            findings.append(Finding(paths[0], 1, "format", applied.stderr.strip()))
         for path, content in before.items():
             if (ctx.repo / path).read_bytes() != content:
                 print(f"reformatted {path}")
+                reformatted.append(Path(path))
     checked = execute(ctx, [tool, "--dry-run", "--Werror", *paths], "clang-check")
-    return diagnostics(checked, "format", paths[0])
+    findings.extend(diagnostics(checked, "format", paths[0]))
+    return findings, reformatted
 
 
 def diagnostics(

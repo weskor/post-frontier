@@ -55,7 +55,8 @@ class Locks:
             self.run.add_lock_wait(name, time.monotonic() - started)
 
     @contextmanager
-    def _held(self, names: list[str], mode: int) -> Iterator[None]:
+    def held(self, names: list[str], mode: int) -> Iterator[None]:
+        """Acquire one named lock, reporting its holder and recording contention."""
         self.root.mkdir(parents=True, exist_ok=True)
         started = time.monotonic()
         streams: list[tuple[str, IO[bytes]]] = []
@@ -96,9 +97,9 @@ class Locks:
     @contextmanager
     def headless(self) -> Iterator[None]:
         with ExitStack() as held:
-            with self._held(["turnstile.lock"], fcntl.LOCK_EX):
-                held.enter_context(self._held(["ue.lock"], fcntl.LOCK_SH))
-            with self._held(
+            with self.held(["turnstile.lock"], fcntl.LOCK_EX):
+                held.enter_context(self.held(["ue.lock"], fcntl.LOCK_SH))
+            with self.held(
                 [f"pool-{index}.lock" for index in range(self.pool_size)], fcntl.LOCK_EX
             ):
                 yield
@@ -106,6 +107,6 @@ class Locks:
     @contextmanager
     def exclusive(self) -> Iterator[None]:
         with ExitStack() as held:
-            with self._held(["turnstile.lock"], fcntl.LOCK_EX):
-                held.enter_context(self._held(["ue.lock"], fcntl.LOCK_EX))
+            with self.held(["turnstile.lock"], fcntl.LOCK_EX):
+                held.enter_context(self.held(["ue.lock"], fcntl.LOCK_EX))
             yield

@@ -91,7 +91,7 @@ def test_cross_file_types_and_deleted_files(
         'def value() -> str:\n    return "changed"\n'
     )
     ctx = context(lint_repo)
-    assert not lint.run(ctx, [Path("provider.py"), Path("deleted.py")], fix=False)
+    assert not lint.run(ctx, [Path("provider.py"), Path("deleted.py")], fix=False).ok
     assert "consumer.py:2: mypy:" in capsys.readouterr().out
 
 
@@ -105,9 +105,9 @@ def test_unused_exception_on_unchanged_path_blocks(
     )
     (lint_repo / "old.py").write_text("# TODO\n")
     ctx = context(lint_repo)
-    assert lint.run(ctx, [], fix=False)
+    assert lint.run(ctx, [], fix=False).ok
     (lint_repo / "old.py").write_text("# clean\n")
-    assert not lint.run(ctx, [], fix=False)
+    assert not lint.run(ctx, [], fix=False).ok
     assert "unused exception for old.py" in capsys.readouterr().out
 
 
@@ -117,7 +117,7 @@ def test_ruff_and_format_failures_block(
     configure(lint_repo, {"ruff": ["bad.py"], "format": ["bad.py"]})
     (lint_repo / "bad.py").write_text("answer=unknown_name\n")
     ctx = context(lint_repo)
-    assert not lint.run(ctx, [Path("bad.py")], fix=False)
+    assert not lint.run(ctx, [Path("bad.py")], fix=False).ok
     output = capsys.readouterr().out
     assert "bad.py:1: ruff: F821" in output
     assert "bad.py:1: format:" in output
@@ -132,7 +132,7 @@ def test_exact_clang_version_is_required(
     )
     (lint_repo / "test.cpp").write_text("int value() { return 1; }\n")
     ctx = context(lint_repo)
-    assert not lint.run(ctx, [Path("test.cpp")], fix=True)
+    assert not lint.run(ctx, [Path("test.cpp")], fix=True).ok
     assert "exact formatter version required: 0.0.0" in capsys.readouterr().out
     assert (lint_repo / "test.cpp").read_text() == "int value() { return 1; }\n"
 
@@ -148,7 +148,7 @@ def test_deleted_strict_module_rechecks_its_consumers(
     git(lint_repo, "add", ".")
     git(lint_repo, "commit", "-m", "typed pair")
     (lint_repo / "provider.py").unlink()
-    assert not lint.run(context(lint_repo), [Path("provider.py")], fix=False)
+    assert not lint.run(context(lint_repo), [Path("provider.py")], fix=False).ok
     output = capsys.readouterr().out
     assert "consumer.py:1: mypy:" in output and "[import-not-found]" in output
 
@@ -178,7 +178,7 @@ def test_invalid_configuration_is_a_blocking_finding(
     configure(lint_repo, {"marker": ["*.py"]})
     (lint_repo / "Tools/x" / filename).write_text(contents)
     ctx = context(lint_repo)
-    assert not lint.run(ctx, [], fix=True)
+    assert not lint.run(ctx, [], fix=True).ok
     output = capsys.readouterr().out
     assert f"Tools/x/{filename}:1: configuration:" in output
     assert "lint: 1 findings" in output and "Traceback" not in output
@@ -195,7 +195,7 @@ def test_format_findings_name_only_the_unformatted_files(
         (lint_repo / filename).write_text("answer=1\n")
     assert not lint.run(
         context(lint_repo), [Path(p) for p in ("a.py", "b.py", "c.py")], fix=False
-    )
+    ).ok
     output = capsys.readouterr().out
     assert "a.py:1: format:" not in output
     for filename in ("b.py", "c.py"):

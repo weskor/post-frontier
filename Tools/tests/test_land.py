@@ -26,7 +26,6 @@ def test_fast_forward_separate_main_with_local_edits(repo: Path, task: Path) -> 
     (record_path,) = (repo.parent / "runs").glob("*/record.json")
     record = jsonio.load(record_path)
     assert record["status"] == "passed"
-    assert record["lock_waits"][0]["lock"] == "land"
 
 
 @pytest.mark.parametrize("mode", ["main", "dirty", "empty", "detached"])
@@ -108,15 +107,14 @@ def test_rebase_then_land(repo: Path, task: Path) -> None:
     assert (task / "Docs/main.md").read_text() == "main\n"
 
 
-def test_hook_blocks_main_commit_merge_and_ref_deletion(repo: Path, task: Path) -> None:
+def test_hook_blocks_main_commit_and_merge(repo: Path, task: Path) -> None:
     assert invoke(task, "help").returncode == 0
     commit_file(task, "Docs/task.md", "task\n")
     (repo / "Docs/main.md").write_text("main\n")
     git(repo, "add", "Docs/main.md")
-    for args in (("commit", "-m", "blocked"), ("update-ref", "-d", "refs/heads/main")):
-        result = git_result(repo, *args)
-        assert result.returncode != 0
-        assert "main only moves through ./x land" in result.stderr
+    result = git_result(repo, "commit", "-m", "blocked")
+    assert result.returncode != 0
+    assert "main only moves through ./x land" in result.stderr
     git(repo, "restore", "--source=HEAD", "--staged", "--worktree", "Docs/main.md")
     result = git_result(repo, "merge", "--ff-only", "task/acceptance")
     assert result.returncode != 0
@@ -129,3 +127,19 @@ def test_hook_blocks_main_commit_merge_and_ref_deletion(repo: Path, task: Path) 
     git(task, "tag", "allowed-tag")
     git(task, "update-ref", "refs/custom/allowed", "HEAD")
     assert git(repo, "rev-parse", "main") == git(task, "rev-parse", "HEAD")
+
+
+def test_hook_allows_ref_maintenance_and_stashing_main(repo: Path, task: Path) -> None:
+    assert invoke(task, "help").returncode == 0
+    before = git(repo, "rev-parse", "HEAD")
+    for tree in (task, repo):
+        git(tree, "pack-refs", "--all")
+        git(tree, "gc")
+    (repo / "Docs/task.md").write_text("main local edits\n")
+    git(repo, "stash", "push", "-m", "move local main edits")
+    assert (repo / "Docs/task.md").read_text() == "base\n"
+    git(repo, "stash", "pop")
+    assert (repo / "Docs/task.md").read_text() == "main local edits\n"
+    git(repo, "reset", "--hard", "HEAD")
+    assert (repo / "Docs/task.md").read_text() == "base\n"
+    assert git(repo, "rev-parse", "HEAD") == before

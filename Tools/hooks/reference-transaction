@@ -1,11 +1,19 @@
 #!/bin/sh
-# Reject only main's prepared transaction; other refs and hook phases are free.
+# Reject real moves of main, not packing/creation/deletion or no-op transactions.
 [ "$1" = prepared ] || exit 0
 [ "$X_LAND" = 1 ] && exit 0
 while read -r old new ref; do
-    if [ "$ref" = refs/heads/main ]; then
-        echo "main only moves through ./x land" >&2
-        exit 1
-    fi
+    [ "$ref" = refs/heads/main ] && [ "$old" != "$new" ] || continue
+    case "$new" in *[!0]*) ;; *) continue ;; esac
+    case "$old" in
+        *[!0]*) ;;
+        *)
+            # Git also reports zero when the caller omitted the expected old tip.
+            current=$(git rev-parse --verify "$ref" 2>/dev/null) || continue
+            [ "$current" = "$new" ] && continue
+            ;;
+    esac
+    echo "main only moves through ./x land" >&2
+    exit 1
 done
 exit 0

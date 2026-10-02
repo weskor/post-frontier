@@ -1,6 +1,7 @@
 """Changed-file lint API used by check and land; every finding blocks."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 import time
 
@@ -17,6 +18,13 @@ from x.lint.model import (
     load,
 )
 from x.scopes import load as load_scopes
+
+
+@dataclass(frozen=True)
+class LintResult:
+    ok: bool
+    reformatted: tuple[Path, ...] = ()
+
 
 CONFIG = {
     "Tools/x/lint.toml",
@@ -59,7 +67,6 @@ def check_rule(
     selected: list[str],
     policy: Policy,
     *,
-    fix: bool,
     mypy_changed: bool = False,
 ) -> list[Finding]:
     if rule == "scope-map":
@@ -75,8 +82,6 @@ def check_rule(
             for path in load_scopes(ctx.repo).unmapped(tracked)
         ]
     paths = [p for p in selected if policy.enabled(rule, p)]
-    if rule == "format":
-        return tools.format_files(ctx, paths, fix=fix) if paths else []
     if rule in {"ruff", "mypy"}:
         if rule == "mypy" and (paths or mypy_changed):
             paths = [p for p in repository_files(ctx.repo) if policy.enabled(rule, p)]
@@ -98,7 +103,8 @@ def check_rule(
     return findings
 
 
-def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> bool:
+def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> LintResult:
+    """Return blocking-lint success and paths actually changed by formatting."""
     try:
         policy = load(ctx.repo)
     except PolicyError as error:
@@ -112,27 +118,41 @@ def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> bool:
         for p in paths
     )
     findings: list[Finding] = []
+    reformatted: list[Path] = []
     durations: dict[str, float] = {}
     # Formatting happens before every source rule, so locations describe final bytes.
     for rule in ("format", *(rule for rule in RULES if rule != "format")):
         started = time.monotonic()
         try:
-            findings.extend(
-                check_rule(
-                    ctx, rule, selected, policy, fix=fix, mypy_changed=mypy_changed
+            if rule == "format":
+                format_paths = [p for p in selected if policy.enabled(rule, p)]
+                format_findings, reformatted = tools.format_files(
+                    ctx, format_paths, fix=fix
                 )
-            )
+                findings.extend(format_findings)
+            else:
+                findings.extend(
+                    check_rule(ctx, rule, selected, policy, mypy_changed=mypy_changed)
+                )
         except (OSError, ValueError) as error:
             findings.append(Finding("Tools/x/lint.toml", 1, rule, str(error)))
         durations[rule] = time.monotonic() - started
     return report(
-        ctx, sorted(apply_exceptions(findings, policy)), len(selected), durations
+        ctx,
+        sorted(apply_exceptions(findings, policy)),
+        len(selected),
+        durations,
+        reformatted,
     )
 
 
 def report(
-    ctx: Context, findings: list[Finding], files: int, durations: dict[str, float]
-) -> bool:
+    ctx: Context,
+    findings: list[Finding],
+    files: int,
+    durations: dict[str, float],
+    reformatted: Sequence[Path] = (),
+) -> LintResult:
     for finding in findings:
         print(finding)
     print(f"lint: {len(findings)} findings in {files} files")
@@ -153,4 +173,4 @@ def report(
                 details,
                 durations.get(rule, 0.0),
             )
-    return not findings
+    return LintResult(not findings, tuple(reformatted))

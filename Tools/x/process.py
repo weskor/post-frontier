@@ -9,6 +9,11 @@ from pathlib import Path
 import signal
 import subprocess
 import time
+from typing import IO
+
+
+class ProcessGroupSurvived(RuntimeError):
+    """A terminated child's group still exists after the cleanup bound."""
 
 
 @dataclass(frozen=True)
@@ -51,27 +56,44 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
         except ProcessLookupError:
             return
         if time.monotonic() >= deadline:
-            raise RuntimeError(
+            raise ProcessGroupSurvived(
                 f"process group {child.pid} survived SIGKILL for {timeout:g} seconds"
             )
         time.sleep(0.02)
 
 
 def supervise(
-    child: subprocess.Popen[bytes], watch: Path, stall_seconds: float
-) -> tuple[int, bool]:
-    previous = size(watch)
-    progress = time.monotonic()
-    while child.poll() is None:
-        current = size(watch)
-        if current > previous:
+    child: subprocess.Popen[bytes], watch: Path, stall_seconds: float, log: IO[bytes]
+) -> tuple[int, bool, bool]:
+    stalled = interrupted = False
+    try:
+        try:
+            previous = size(watch)
             progress = time.monotonic()
-        previous = current
-        if time.monotonic() - progress >= stall_seconds:
+            while child.poll() is None:
+                current = size(watch)
+                if current > previous:
+                    progress = time.monotonic()
+                previous = current
+                if time.monotonic() - progress >= stall_seconds:
+                    stalled = True
+                    kill_group(child)
+                    return 1, stalled, interrupted
+                time.sleep(min(0.05, stall_seconds / 4))
+            code = child.wait()
+        except KeyboardInterrupt:
+            interrupted = True
             kill_group(child)
-            return 1, True
-        time.sleep(min(0.05, stall_seconds / 4))
-    return child.wait(), False
+            code = 130
+        except ProcessGroupSurvived:
+            raise
+        except BaseException:
+            kill_group(child)
+            raise
+    except ProcessGroupSurvived as error:
+        log.write(f"process-group cleanup failed: {error}\n".encode())
+        code = 1
+    return code, stalled, interrupted
 
 
 def execute(
@@ -103,14 +125,9 @@ def execute(
             stream.write(f"{error}\n".encode())
             code = 1
         else:
-            try:
-                code, stalled = supervise(child, watch or log, stall_seconds)
-            except KeyboardInterrupt:
-                kill_group(child)
-                code, interrupted = 130, True
-            except BaseException:
-                kill_group(child)
-                raise
+            code, stalled, interrupted = supervise(
+                child, watch or log, stall_seconds, stream
+            )
     duration = time.monotonic() - started
     print(
         f"end exit {code}, {duration:.2f}s, log {log}"

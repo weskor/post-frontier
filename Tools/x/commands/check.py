@@ -2,13 +2,10 @@
 
 import argparse
 from dataclasses import dataclass
-import hashlib
 from pathlib import Path
 
 from x import gitinfo, lint
 from x.context import Context
-from x.lint.model import PolicyError
-from x.lint.model import load as load_policy
 from x.scopes import load
 from x.testing import run_scopes
 
@@ -42,13 +39,7 @@ def check(ctx: Context, *, all_files: bool = False) -> CheckResult:
         if all_files
         else changed
     )
-    before = formatting_stamps(ctx, paths)
-    lint_ok = lint.run(ctx, paths, fix=True)
-    reformatted = tuple(
-        Path(path)
-        for path, stamp in before.items()
-        if hashlib.sha256((ctx.repo / path).read_bytes()).digest() != stamp
-    )
+    result = lint.run(ctx, paths, fix=True)
     mapping = load(ctx.repo)
     scopes = mapping.scopes_for(changed)
     reasons: dict[str, list[str]] = {scope: [] for scope in scopes}
@@ -60,23 +51,10 @@ def check(ctx: Context, *, all_files: bool = False) -> CheckResult:
         print(f"  {scope} selected by: {', '.join(selected)}")
     tests_ok = run_scopes(ctx, scopes)
     print(
-        f"check: {'PASS' if lint_ok and tests_ok else 'FAIL'}; reformatted: "
-        + (", ".join(map(str, reformatted)) or "(none)")
+        f"check: {'PASS' if result.ok and tests_ok else 'FAIL'}; reformatted: "
+        + (", ".join(map(str, result.reformatted)) or "(none)")
     )
-    return CheckResult(lint_ok and tests_ok, reformatted)
-
-
-def formatting_stamps(ctx: Context, paths: list[Path]) -> dict[str, bytes]:
-    try:
-        policy = load_policy(ctx.repo)
-        selected = lint.select(ctx.repo, paths, policy)
-    except PolicyError:
-        return {}
-    return {
-        path: hashlib.sha256((ctx.repo / path).read_bytes()).digest()
-        for path in selected
-        if policy.enabled("format", path)
-    }
+    return CheckResult(result.ok and tests_ok, result.reformatted)
 
 
 def run(args: argparse.Namespace, ctx: Context) -> int:

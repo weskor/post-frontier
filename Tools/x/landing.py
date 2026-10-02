@@ -1,11 +1,8 @@
 """Serialize checked task-branch fast-forwards into the main worktree."""
 
-from collections.abc import Iterator
-from contextlib import contextmanager
 import fcntl
 from pathlib import Path
 import subprocess
-import time
 
 from x import gitinfo
 from x.commands.check import check
@@ -15,6 +12,7 @@ MARKER = "X_LAND"
 
 
 def ensure_hooks(repo: Path) -> None:
+    hooks = str((gitinfo.main_worktree(repo) / "Tools/hooks").resolve())
     current = subprocess.run(
         ["git", "-C", str(repo), "config", "--local", "--get", "core.hooksPath"],
         capture_output=True,
@@ -23,22 +21,8 @@ def ensure_hooks(repo: Path) -> None:
     )
     if current.returncode not in (0, 1):
         raise ValueError(current.stderr.strip())
-    if current.stdout.strip() != "Tools/hooks":
-        gitinfo.query(repo, "config", "--local", "core.hooksPath", "Tools/hooks")
-
-
-@contextmanager
-def land_lock(ctx: Context) -> Iterator[None]:
-    ctx.settings.lock_dir.mkdir(parents=True, exist_ok=True)
-    with (ctx.settings.lock_dir / "land.lock").open("a") as lock:
-        started = time.monotonic()
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
-            if ctx.run is not None:
-                ctx.run.add_lock_wait("land", time.monotonic() - started)
-            yield
-        finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+    if current.stdout.strip() != hooks:
+        gitinfo.query(repo, "config", "--local", "core.hooksPath", hooks)
 
 
 def refuse(ctx: Context, message: str) -> int:
@@ -71,7 +55,7 @@ def rebase(ctx: Context) -> bool:
 def land(ctx: Context) -> int:
     if ctx.run is None:
         raise RuntimeError("landing requires a recorded command")
-    with land_lock(ctx):
+    with ctx.locks.held(["land.lock"], fcntl.LOCK_EX):
         branch = gitinfo.branch(ctx.repo)
         if branch == "main":
             return refuse(ctx, "run ./x land from a task worktree, not main")
