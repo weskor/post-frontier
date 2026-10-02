@@ -62,4 +62,16 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
         return 1
     extra = extra[1:] if extra[:1] == ["--"] else extra
     with ctx.locks.exclusive():
-        return ctx.exec(invocation(entry, ctx, extra), log="generate")
+        code = ctx.exec(invocation(entry, ctx, extra), log="generate")
+        if entry.runtime == "unreal" and ctx.run is not None:
+            text = (ctx.run.dir / "unreal.log").read_text()
+            ok = (
+                code == 0
+                and "LogEditorPythonExecuter: Error:" not in text
+                and "LogPython: Error:" not in text
+            )
+            ctx.run.add_result("generator-script", ok)
+            if not ok:
+                print(f"Generator failed; inspect {ctx.run.dir / 'unreal.log'}")
+                return 1
+        return code
