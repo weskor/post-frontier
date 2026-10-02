@@ -142,7 +142,7 @@ kind = "lint"
 # C++ entries derive from local include closure of each test translation unit.
 # A .cpp is covered whenever it implements a header in that closure.
 # Uncovered runtime surfaces conservatively route to every automation scope.
-"Source/CoopRTS/Commands/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Commands/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy", "simulation-duel"]
 "Source/CoopRTS/ArenaBounds.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/ArenaBounds.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/ArmyCombatTests.cpp" = ["combat"]

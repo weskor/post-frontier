@@ -7,6 +7,7 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Commands/CommandService.h"
 #include "Content/MatchContent.h"
 #include "DepositSite.h"
 #include "EnemyCommander.h"
@@ -310,7 +311,7 @@ bool FSimulationDuelRunner::StartPair()
 			{
 				const FTransform Transform(Spawn);
 				Group = State->GetWorld()->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
-					nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+					Wallets[Side]->GetOwner(), nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 				if (!Group)
 				{
 					Error = TEXT("Could not spawn duel group");
@@ -331,7 +332,7 @@ bool FSimulationDuelRunner::StartPair()
 		}
 	}
 	for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
-		if (!Group->IssueAttack(Center, nullptr))
+		if (!FCommandService::IssueAttack(Group->GetOwningPlayerState(), Group.Get(), Center, nullptr))
 		{
 			Error = TEXT("Duel group rejected its real Attack order");
 			return false;

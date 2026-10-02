@@ -174,7 +174,7 @@ Groundbreaker's 3rd branch comes in the first unlock batch.
 
 ## Acceptance check
 
-[Built] The combat duel harness runs every ordered pair of runtime combat definitions, including mirrors, in verified open ground on the requested map. Fresh squads use real Attack combat, without JEV, production, income, capture, HQ targets or Workshop specializations; each fight ends on a wipe, its game-time cap or an invalid stall. Seeds vary spawn jitter and orientation. [New] Support composition scenarios remain required before support stats are committed.
+[Built] The combat duel harness runs every ordered pair of runtime combat definitions, including mirrors, in verified open ground on the requested map. Fresh squads use real Attack combat through the shared authoritative command service, without JEV, production, income, capture, HQ targets or Workshop specializations; each fight ends on a wipe, its game-time cap or an invalid stall. Seeds vary spawn jitter and orientation. [New] Support composition scenarios remain required before support stats are committed.
 
 - [Change] **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix. [Built] The report combines both ordered sides against the opponent; draws remain in the denominator and are not half-wins.
 - [New] **Support units:** tested in compositions, e.g. Scrambler + Rifle against Lancer at equal cost. Adding the support unit must raise the win rate against its target by ≥20 points.
