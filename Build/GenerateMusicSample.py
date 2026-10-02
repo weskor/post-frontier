@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["numpy", "scipy", "soundfile", "pedalboard", "pyloudnorm"]
+# dependencies = ["numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0", "pedalboard==0.9.25", "pyloudnorm==0.2.0"]
 # ///
 """Render an original 72-BPM dark synth / low-horn listening sketch, not a game import.
 
@@ -15,18 +15,30 @@ all musical notes, synth patches and percussion are original deterministic synth
 The existing source cache is required (Build/FetchAudioSources.py populates it).
 Reruns regenerate stems but preserve an existing session's faders and hand edits.
 """
-from pathlib import Path
+
+from collections.abc import Mapping
 import json
+from pathlib import Path
 import shutil
 import subprocess
+from typing import cast
 
 import numpy as np
-import pyloudnorm as pyln
-import soundfile as sf
-from pedalboard import Pedalboard, Reverb
 from scipy.signal import correlate, find_peaks, resample_poly
-
-from unit_audio.core import SR, dark, event, fades, filt, pitch, seconds
+from unit_audio.core import (
+    SR,
+    Audio,
+    Float32Audio,
+    dark,
+    event,
+    fades,
+    filt,
+    pedalboard,
+    pitch,
+    pyloudnorm,
+    seconds,
+    sf,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 WORK = ROOT / "Saved" / "AudioMusic" / "DarkHorn_v2"
@@ -38,31 +50,39 @@ BAR = 4 * BEAT
 DURATION = 32 * BAR + 6.0
 N = seconds(DURATION)
 RNG = np.random.default_rng(720926)
-HORN = ("Pole Position - Narrowboat Gardner 4LW 1960",
-        "narrowboat_t23_var_sfx_horn_various_XY_RSM191.wav")
+HORN = (
+    "Pole Position - Narrowboat Gardner 4LW 1960",
+    "narrowboat_t23_var_sfx_horn_various_XY_RSM191.wav",
+)
 # Eight-bar harmonic blocks: Dm(add9), Bbmaj7, Gm(add9), A7.
 CHORDS = ((50, 53, 57, 64), (46, 50, 53, 57), (43, 46, 50, 57), (45, 49, 52, 55))
 ROOTS = (38, 34, 31, 33)
-HORN_NOTES = ((8, 29), (16, 38), (24, 28))  # F1, D2, E1; darker fifths beneath the chords.
+HORN_NOTES = (
+    (8, 29),
+    (16, 38),
+    (24, 28),
+)  # F1, D2, E1; darker fifths beneath the chords.
 
 
-def hz(note):
-    return 440.0 * 2.0 ** ((note - 69) / 12.0)
+def hz(note: float) -> float:
+    return cast(float, 440.0 * 2.0 ** ((note - 69) / 12.0))
 
 
-def normalize(x):
+def normalize(x: Audio) -> Audio:
     peak = np.max(np.abs(x))
     if peak <= 1e-10:
         raise RuntimeError("Silent composition layer")
-    return x / peak
+    return cast(Audio, x / peak)
 
 
-def place(stem, x, at, gain=1.0, pan=0.0):
+def place(
+    stem: Float32Audio, x: Audio, at: float, gain: float = 1.0, pan: float = 0.0
+) -> None:
     start = seconds(at)
     end = min(N, start + len(x))
     if end <= start:
         return
-    x = x[:end - start]
+    x = x[: end - start]
     if x.ndim == 1:
         angle = (pan + 1.0) * np.pi / 4
         stem[start:end, 0] += x * (gain * np.cos(angle))
@@ -71,7 +91,9 @@ def place(stem, x, at, gain=1.0, pan=0.0):
         stem[start:end] += x * gain
 
 
-def analog(note, duration, detune=0.0, harmonics=9):
+def analog(
+    note: float, duration: float, detune: float = 0.0, harmonics: int = 9
+) -> Audio:
     t = np.arange(seconds(duration), dtype=np.float64) / SR
     phase = 2 * np.pi * hz(note) * 2 ** (detune / 1200) * t
     out = np.zeros_like(t)
@@ -80,27 +102,32 @@ def analog(note, duration, detune=0.0, harmonics=9):
     return out / 1.75
 
 
-def space(stem, room, wet):
-    return Pedalboard([Reverb(room_size=room, damping=0.66, wet_level=wet,
-                             dry_level=0.85, width=1.0)])(stem.T.copy(), SR).T.copy()
+def space(stem: Float32Audio, room: float, wet: float) -> Float32Audio:
+    return pedalboard.Pedalboard(
+        [
+            pedalboard.Reverb(
+                room_size=room, damping=0.66, wet_level=wet, dry_level=0.85, width=1.0
+            )
+        ]
+    )(stem.T.copy(), SR).T.copy()
 
 
-def fundamental(x):
+def fundamental(x: Audio) -> float:
     # The original horn's stable body, excluding the breathy onset.
-    body = x[seconds(0.35):seconds(0.85)]
+    body = x[seconds(0.35) : seconds(0.85)]
     body = filt(body, "bandpass", (90, 1200), order=2)
-    ac = correlate(body, body, mode="full", method="fft")[len(body) - 1:]
+    ac = correlate(body, body, mode="full", method="fft")[len(body) - 1 :]
     lo, hi = int(SR / 800), int(SR / 90)
     peaks, _ = find_peaks(ac[lo:hi])
     if not len(peaks):
         raise RuntimeError("Could not find a periodic horn body to tune")
     peaks += lo
     strong = peaks[ac[peaks] >= 0.88 * np.max(ac[peaks])]
-    return SR / strong[0]
+    return float(SR / strong[0])
 
 
-def make_stems():
-    stems = {}
+def make_stems() -> dict[str, Float32Audio]:
+    stems: dict[str, Float32Audio] = {}
     # Brief, quiet swells with long gaps instead of a continuous synth bed.
     pad = np.zeros((N, 2), dtype=np.float32)
     for bar in range(0, 32, 4):
@@ -124,8 +151,12 @@ def make_stems():
             duration = length * BEAT
             t = np.arange(seconds(duration)) / SR
             phase = 2 * np.pi * hz(note) * t
-            body = (0.75 * np.sin(phase) + 0.28 * np.sin(2 * phase)
-                    + 0.14 * np.sin(3 * phase) + 0.08 * np.sin(4 * phase))
+            body = (
+                0.75 * np.sin(phase)
+                + 0.28 * np.sin(2 * phase)
+                + 0.14 * np.sin(3 * phase)
+                + 0.08 * np.sin(4 * phase)
+            )
             body += 0.14 * np.sin(phase / 2)
             body = dark(np.tanh(body * 1.5), 340) * np.exp(-t / 0.55)
             place(bass, fades(body, 0.008, 0.10), bar * BAR + step * BEAT, 0.32)
@@ -135,12 +166,14 @@ def make_stems():
     snare_stem = np.zeros((N, 2), dtype=np.float32)
     metal = np.zeros((N, 2), dtype=np.float32)
     for bar in range(2, 32):
-        for beat in (0.0, 2.75 if bar % 2 == 0 else 3.5):
+        for kick_beat in (0.0, 2.75 if bar % 2 == 0 else 3.5):
             t = np.arange(seconds(0.58)) / SR
             phase = 2 * np.pi * (39 * t + 92 * 0.027 * (1 - np.exp(-t / 0.027)))
             kick = np.sin(phase) * np.exp(-t / 0.16)
             kick += dark(RNG.normal(0, 1, len(t)), 4200) * np.exp(-t / 0.004) * 0.20
-            place(kick_stem, fades(kick, 0.002, 0.06), bar * BAR + beat * BEAT, 0.24)
+            place(
+                kick_stem, fades(kick, 0.002, 0.06), bar * BAR + kick_beat * BEAT, 0.24
+            )
         t = np.arange(seconds(0.38)) / SR
         noise = filt(RNG.normal(0, 1, len(t)), "bandpass", (900, 8500), order=2)
         snare = noise * np.exp(-t / 0.075) * 0.62
@@ -152,8 +185,13 @@ def make_stems():
             hiss = filt(RNG.normal(0, 1, len(t)), "highpass", 5200, order=2)
             ring = np.sin(2 * np.pi * 3780 * t) + 0.5 * np.sin(2 * np.pi * 5423 * t)
             hat = (hiss * 0.3 + ring * 0.15) * np.exp(-t / 0.032)
-            place(metal, fades(hat, 0.002, 0.012), bar * BAR + beat * BEAT,
-                  0.027 if beat % 2 else 0.019, -0.27 if beat % 2 else 0.27)
+            place(
+                metal,
+                fades(hat, 0.002, 0.012),
+                bar * BAR + beat * BEAT,
+                0.027 if beat % 2 else 0.019,
+                -0.27 if beat % 2 else 0.27,
+            )
     stems["03 Kick"] = kick_stem
     stems["04 Snare"] = snare_stem
     stems["05 Metal and Air"] = space(metal, 0.55, 0.10)
@@ -162,13 +200,13 @@ def make_stems():
     for bar in range(14, 30, 4):
         root = ROOTS[bar // 8]
         third = 4 if bar // 8 in (1, 3) else 3
-        for step, interval in ((0.0, 19), (2.5, 12 + third)):
+        for motif_step, interval in ((0.0, 19), (2.5, 12 + third)):
             t = np.arange(seconds(1.2)) / SR
             tone = dark(analog(root + interval, 1.2, -3.0, harmonics=3), 900)
             tone *= np.exp(-t / 0.40)
             tone = fades(tone, 0.035, 0.30)
-            at = bar * BAR + step * BEAT
-            pan = -0.19 if step in (0.0, 3.0) else 0.19
+            at = bar * BAR + motif_step * BEAT
+            pan = -0.19 if motif_step in (0.0, 3.0) else 0.19
             place(motif, tone, at, 0.025, pan)
             place(motif, tone, at + 0.75 * BEAT, 0.008, -pan)
     stems["06 Sparse Motif"] = space(motif, 0.70, 0.18)
@@ -179,7 +217,7 @@ def make_stems():
     horn = np.zeros((N, 2), dtype=np.float32)
     for bar, note in HORN_NOTES:
         shifted = pitch(recorded, 12 * np.log2(hz(note) / source_hz))
-        shifted = shifted[:seconds(7.5)]
+        shifted = shifted[: seconds(7.5)]
         shifted = normalize(filt(dark(shifted, 330), "highpass", 28, order=2))
         # A strong low fundamental prevents the recorded horn's upper harmonics
         # from making the lower pitch sound deceptively bright.
@@ -194,34 +232,55 @@ def make_stems():
 
     # One shared arrangement envelope; leave the final reverb to dissolve, not an abrupt cut.
     envelope = np.ones(N, dtype=np.float32)
-    envelope[:seconds(1.5)] = np.linspace(0, 1, seconds(1.5))
+    envelope[: seconds(1.5)] = np.linspace(0, 1, seconds(1.5))
     tail = seconds(8)
     envelope[-tail:] = np.linspace(1, 0, tail) ** 1.3
-    for stem in stems.values():
-        stem *= envelope[:, None]
+    for arranged_stem in stems.values():
+        np.multiply(arranged_stem, envelope[:, None], out=arranged_stem)
     return stems
 
 
-def write_session(stems):
+def write_session(stems: Mapping[str, Float32Audio]) -> Path:
     session = WORK / (SAMPLE_NAME + ".rpp")
     if session.exists():
         return session
-    lines = ['<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0', "  SAMPLERATE 48000 0 0",
-             f"  TEMPO {BPM}", f'  RENDER_FILE "{WORK / "Render"}"',
-             "  RENDER_PATTERN $region", "  RENDER_FMT 0 2 48000", "  RENDER_1X 0",
-             "  RENDER_RANGE 3 0 0 0 1000", "  RENDER_STEMS 0", "  <RENDER_CFG",
-             "    ZXZhdxgAAQ==", "  >", f'  MARKER 1 0 "{SAMPLE_NAME}" 1',
-             f'  MARKER 1 {DURATION:.6f} "" 1']
+    lines = [
+        '<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0',
+        "  SAMPLERATE 48000 0 0",
+        f"  TEMPO {BPM}",
+        f'  RENDER_FILE "{WORK / "Render"}"',
+        "  RENDER_PATTERN $region",
+        "  RENDER_FMT 0 2 48000",
+        "  RENDER_1X 0",
+        "  RENDER_RANGE 3 0 0 0 1000",
+        "  RENDER_STEMS 0",
+        "  <RENDER_CFG",
+        "    ZXZhdxgAAQ==",
+        "  >",
+        f'  MARKER 1 0 "{SAMPLE_NAME}" 1',
+        f'  MARKER 1 {DURATION:.6f} "" 1',
+    ]
     for name in stems:
-        lines += ["  <TRACK", f'    NAME "{name}"', "    VOLPAN 1 0 -1 -1 1", "    <ITEM",
-                  "      POSITION 0", f"      LENGTH {DURATION:.6f}", f'      NAME "{name}"',
-                  "      <SOURCE WAVE", f'        FILE "Stems/{name}.wav"', "      >", "    >", "  >"]
+        lines += [
+            "  <TRACK",
+            f'    NAME "{name}"',
+            "    VOLPAN 1 0 -1 -1 1",
+            "    <ITEM",
+            "      POSITION 0",
+            f"      LENGTH {DURATION:.6f}",
+            f'      NAME "{name}"',
+            "      <SOURCE WAVE",
+            f'        FILE "Stems/{name}.wav"',
+            "      >",
+            "    >",
+            "  >",
+        ]
     lines += [">"]
     session.write_text("\n".join(lines) + "\n")
     return session
 
 
-def main():
+def main() -> None:
     for binary in ("reaper", "ffmpeg"):
         if not shutil.which(binary):
             raise SystemExit(f"Required audio tool unavailable: {binary}")
@@ -233,15 +292,20 @@ def main():
         sf.write(WORK / "Stems" / (name + ".wav"), stem, SR, subtype="PCM_24")
     session = write_session(stems)
     # Use the same headless REAPER path as the existing audio pipeline.
-    result = subprocess.run(["reaper", "-nosplash", "-new", "-renderproject", str(session)],
-                            capture_output=True, text=True, timeout=300)
+    result = subprocess.run(
+        ["reaper", "-nosplash", "-new", "-renderproject", str(session)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
     if result.returncode:
         raise RuntimeError("REAPER render failed: " + result.stderr[-2000:])
     rendered = WORK / "Render" / (SAMPLE_NAME + ".wav")
     audio, rate = sf.read(rendered, dtype="float32", always_2d=True)
     if rate != SR or audio.shape[1] != 2 or not np.isfinite(audio).all():
         raise RuntimeError("Invalid rendered stereo audio")
-    meter = pyln.Meter(SR)
+    meter = pyloudnorm.Meter(SR)
     measured = meter.integrated_loudness(audio)
     true_peak = np.max(np.abs(resample_poly(audio, 4, 1, axis=0)))
     if not np.isfinite(measured) or true_peak <= 0:
@@ -251,22 +315,47 @@ def main():
     wav = PREVIEW / (SAMPLE_NAME + ".wav")
     mp3 = PREVIEW / (SAMPLE_NAME + ".mp3")
     sf.write(wav, audio, SR, subtype="PCM_24")
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav),
-                    "-codec:a", "libmp3lame", "-b:a", "256k", str(mp3)], check=True)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(wav),
+            "-codec:a",
+            "libmp3lame",
+            "-b:a",
+            "256k",
+            str(mp3),
+        ],
+        check=True,
+    )
     # Measure the actual saved PCM, not just the pre-write floating-point buffer.
     saved, rate = sf.read(wav, dtype="float32", always_2d=True)
     actual_peak = float(np.max(np.abs(resample_poly(saved, 4, 1, axis=0))))
-    report = {"file": str(wav.relative_to(ROOT)), "bpm": BPM, "seconds": len(saved) / rate,
-              "sample_rate": rate, "channels": saved.shape[1], "lufs": meter.integrated_loudness(saved),
-              "true_peak_dbfs": float(20 * np.log10(actual_peak)),
-              "horn_entries_seconds": [bar * BAR for bar, _ in HORN_NOTES],
-              "horn_notes": ["F1", "D2", "E1"],
-              "horn_fundamentals_hz": [hz(note) for _, note in HORN_NOTES],
-              "session": str(session.relative_to(ROOT)),
-              "source": "/".join(HORN), "seed": 720926}
+    report = {
+        "file": str(wav.relative_to(ROOT)),
+        "bpm": BPM,
+        "seconds": len(saved) / rate,
+        "sample_rate": rate,
+        "channels": saved.shape[1],
+        "lufs": meter.integrated_loudness(saved),
+        "true_peak_dbfs": float(20 * np.log10(actual_peak)),
+        "horn_entries_seconds": [bar * BAR for bar, _ in HORN_NOTES],
+        "horn_notes": ["F1", "D2", "E1"],
+        "horn_fundamentals_hz": [hz(note) for _, note in HORN_NOTES],
+        "session": str(session.relative_to(ROOT)),
+        "source": "/".join(HORN),
+        "seed": 720926,
+    }
     (PREVIEW / (SAMPLE_NAME + ".json")).write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
-    print(f"MUSIC_SAMPLE_RENDERED {wav.relative_to(ROOT)} {mp3.relative_to(ROOT)}", flush=True)
+    print(
+        f"MUSIC_SAMPLE_RENDERED {wav.relative_to(ROOT)} {mp3.relative_to(ROOT)}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

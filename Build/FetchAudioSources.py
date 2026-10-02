@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["remotezip", "numpy", "scipy", "soundfile", "pedalboard", "pyloudnorm"]
+# dependencies = ["remotezip==0.12.6", "numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0", "pedalboard==0.9.25", "pyloudnorm==0.2.0"]
 # ///
 """Fetch the recorded source layers used by the unit sound recipes (Build/unit_audio/*.py SOURCES).
 
@@ -18,16 +18,26 @@ finished game sounds in Art/Audio are kept. Rerunnable: files already present ar
 `<zip file name>\t<size in bytes>\t<member path>`. Search it to pick recipe SOURCES; the first column
 and the member path are exactly what a SOURCES entry needs.
 """
+
 import argparse
 import concurrent.futures
+from importlib import import_module
 import os
 import re
+from typing import Protocol, cast
 import urllib.request
-
-from remotezip import RemoteZip
+from zipfile import ZipFile
 
 from unit_audio import recipes
 from unit_audio.core import ROOT, source_path
+
+
+class RemoteZipFactory(Protocol):
+    def __call__(self, url: str, *, headers: dict[str, str]) -> ZipFile: ...
+
+
+# RemoteZip subclasses ZipFile; only its HTTP constructor lacks published types.
+RemoteZip = cast(RemoteZipFactory, import_module("remotezip").RemoteZip)
 
 BASE = "https://downloads.sonniss.com/"
 ARCHIVE_PAGES = ["https://sonniss.com/gameaudiogdc", "https://gdc.sonniss.com/"]
@@ -61,27 +71,46 @@ def fetch(units: list[str] | None) -> None:
 def build_index() -> None:
     zips: set[str] = set()
     for page in ARCHIVE_PAGES:
-        with urllib.request.urlopen(urllib.request.Request(page, headers=HEADERS), timeout=60) as response:
+        with urllib.request.urlopen(
+            urllib.request.Request(page, headers=HEADERS), timeout=60
+        ) as response:
             html = response.read().decode("utf-8", "replace")
-        zips |= set(re.findall(r"https://downloads\.sonniss\.com/([^\"'<> ]+\.zip)", html))
+        zips |= set(
+            re.findall(r"https://downloads\.sonniss\.com/([^\"'<> ]+\.zip)", html)
+        )
 
     def members(bundle: str) -> list[str]:
         with RemoteZip(BASE + bundle, headers=HEADERS) as archive:
-            return [f"{bundle}\t{info.file_size}\t{info.filename}" for info in archive.infolist()
-                    if not info.is_dir() and "__MACOSX" not in info.filename]
+            return [
+                f"{bundle}\t{info.file_size}\t{info.filename}"
+                for info in archive.infolist()
+                if not info.is_dir() and "__MACOSX" not in info.filename
+            ]
 
     with concurrent.futures.ThreadPoolExecutor(8) as pool:
         rows = [row for listing in pool.map(members, sorted(zips)) for row in listing]
     INDEX.parent.mkdir(parents=True, exist_ok=True)
     INDEX.write_text("\n".join(rows) + "\n")
-    print(f"SONNISS_INDEX_WRITTEN {len(zips)} bundles, {len(rows)} files -> {INDEX.relative_to(ROOT)}")
+    print(
+        f"SONNISS_INDEX_WRITTEN {len(zips)} bundles, {len(rows)} files -> {INDEX.relative_to(ROOT)}"
+    )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--index", action="store_true", help="rebuild the bundle file index instead of fetching")
-    parser.add_argument("--unit", action="append", metavar="FACTION_ROLE",
-                        help="only this unit's sources, e.g. Human_Ranged (repeatable); default: every recipe")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--index",
+        action="store_true",
+        help="rebuild the bundle file index instead of fetching",
+    )
+    parser.add_argument(
+        "--unit",
+        action="append",
+        metavar="FACTION_ROLE",
+        help="only this unit's sources, e.g. Human_Ranged (repeatable); default: every recipe",
+    )
     args = parser.parse_args()
     if args.index:
         build_index()

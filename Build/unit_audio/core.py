@@ -5,18 +5,79 @@ A recipe module (one per unit, e.g. human_ranged.py) defines:
              Build/FetchAudioSources.py into Saved/AudioSources/Sonniss/<Library>/<File>
     UNIT:    Unit                   tracks (REAPER session layout) and events (one per output sound set)
 """
-import shutil
-import subprocess
+
+from collections.abc import Callable
 from dataclasses import dataclass
+from importlib import import_module
 from os.path import relpath
 from pathlib import Path
-from typing import Callable
+import shutil
+import subprocess
+from typing import Literal, Protocol, cast, overload
 
 import numpy as np
-import pyloudnorm
-import soundfile as sf
-from pedalboard import Limiter, Pedalboard
+from numpy.typing import NDArray
 from scipy.signal import butter, resample_poly, sosfilt
+
+Audio = NDArray[np.float64]
+Float32Audio = NDArray[np.float32]
+FilterKind = Literal["lowpass", "highpass", "bandpass", "bandstop"]
+
+
+class SoundFileModule(Protocol):
+    @overload
+    def read(
+        self, file: str | Path, *, dtype: Literal["float64"], always_2d: bool
+    ) -> tuple[Audio, int]: ...
+
+    @overload
+    def read(
+        self, file: str | Path, *, dtype: Literal["float32"], always_2d: bool
+    ) -> tuple[Float32Audio, int]: ...
+
+    def write(
+        self,
+        file: str | Path,
+        data: Audio | Float32Audio,
+        samplerate: int,
+        *,
+        subtype: str,
+    ) -> None: ...
+
+
+class LoudnessMeter(Protocol):
+    def integrated_loudness(self, data: Audio | Float32Audio) -> float: ...
+
+
+class LoudnessModule(Protocol):
+    def Meter(self, rate: int) -> LoudnessMeter: ...
+
+
+class AudioProcessor(Protocol):
+    def __call__(
+        self, audio: Audio | Float32Audio, sample_rate: int
+    ) -> Float32Audio: ...
+
+
+class PedalboardModule(Protocol):
+    def Limiter(self, *, threshold_db: float, release_ms: float) -> object: ...
+
+    def Reverb(
+        self,
+        *,
+        room_size: float,
+        damping: float,
+        wet_level: float,
+        dry_level: float,
+        width: float,
+    ) -> object: ...
+
+    def Pedalboard(self, plugins: list[object]) -> AudioProcessor: ...
+
+
+sf = cast(SoundFileModule, import_module("soundfile"))
+pyloudnorm = cast(LoudnessModule, import_module("pyloudnorm"))
+pedalboard = cast(PedalboardModule, import_module("pedalboard"))
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES_DIR = ROOT / "Saved" / "AudioSources" / "Sonniss"
@@ -28,24 +89,25 @@ OUT = ROOT / "Art" / "Audio"
 SR = 48_000
 TRUE_PEAK_CEILING_DBFS = -1.0
 REGION_SPACING = 3.0  # minimum seconds between region starts in a session
-REGION_GAP = 1.0      # silence after a region longer than REGION_SPACING - REGION_GAP
+REGION_GAP = 1.0  # silence after a region longer than REGION_SPACING - REGION_GAP
 
 
 # ---------------------------------------------------------------- recipe model
 
+
 @dataclass
 class Layer:
     track: str
-    audio: np.ndarray
+    audio: Audio
     at: float = 0.0  # offset inside the region, seconds
 
 
 @dataclass
 class Event:
-    name: str          # output event, e.g. "Fire"; loops end in "Loop" by convention, e.g. "ConstructLoop"
+    name: str  # output event, e.g. "Fire"; loops end in "Loop" by convention, e.g. "ConstructLoop"
     variants: int
-    length: float      # region length, seconds
-    loudness: float    # integrated loudness target, LUFS
+    length: float  # region length, seconds
+    loudness: float  # integrated loudness target, LUFS
     build: Callable[[int], list[Layer]]
     # Loop events are rendered as seamless loops: the last `crossfade` seconds of the region are
     # crossfaded into its start, so the file is `length - crossfade` long and repeats without a seam.
@@ -68,8 +130,9 @@ class Unit:
 
 # ---------------------------------------------------------------- source handling
 
+
 def seconds(n: float) -> int:
-    return int(round(n * SR))
+    return round(n * SR)
 
 
 def source_path(member: str) -> Path:
@@ -78,32 +141,35 @@ def source_path(member: str) -> Path:
     return SOURCES_DIR / library / name
 
 
-_cache: dict[str, np.ndarray] = {}
+_cache: dict[str, Audio] = {}
 
 
-def load(library: str, name: str) -> np.ndarray:
+def load(library: str, name: str) -> Audio:
     """A cached source as 48 kHz mono float64."""
     key = f"{library}/{name}"
     if key not in _cache:
         path = SOURCES_DIR / library / name
         if not path.exists():
-            raise SystemExit(f"missing {path}; run uv run Build/FetchAudioSources.py first")
+            raise SystemExit(
+                f"missing {path}; run uv run Build/FetchAudioSources.py first"
+            )
         data, rate = sf.read(path, dtype="float64", always_2d=True)
         mono = data.mean(axis=1)
         _cache[key] = resample_poly(mono, SR, rate) if rate != SR else mono
     return _cache[key]
 
 
-def onsets(x: np.ndarray, rise_db: float = -18.0, rearm_db: float = -38.0) -> list[int]:
+def onsets(x: Audio, rise_db: float = -18.0, rearm_db: float = -38.0) -> list[int]:
     """Sample positions of separate events: the envelope rises above rise_db after falling below rearm_db."""
     hop = seconds(0.005)
-    env = np.array([np.max(np.abs(x[i:i + hop])) for i in range(0, len(x), hop)])
+    env = np.array([np.max(np.abs(x[i : i + hop])) for i in range(0, len(x), hop)])
     db = 20 * np.log10(env / (np.max(env) or 1.0) + 1e-9)
-    found, armed = [], True
+    found: list[int] = []
+    armed = True
     for i, level in enumerate(db):
         if armed and level > rise_db:
             # Refine to the first sample reaching a quarter of the local peak so layers align tightly.
-            window = x[i * hop:(i + 2) * hop]
+            window = x[i * hop : (i + 2) * hop]
             peak = np.max(np.abs(window)) or 1.0
             found.append(i * hop + int(np.argmax(np.abs(window) >= 0.25 * peak)))
             armed = False
@@ -112,37 +178,45 @@ def onsets(x: np.ndarray, rise_db: float = -18.0, rearm_db: float = -38.0) -> li
     return found
 
 
-def event(library: str, name: str, index: int = 0, length: float = 1.0, skip: float = 0.0,
-          pre: float = 0.003) -> np.ndarray:
+def event(
+    library: str,
+    name: str,
+    index: int = 0,
+    length: float = 1.0,
+    skip: float = 0.0,
+    pre: float = 0.003,
+) -> Audio:
     """One event from a source: `index`-th onset, starting `skip` after it, `length` seconds long."""
     x = load(library, name)
     start = max(0, onsets(x)[index] + seconds(skip) - seconds(pre))
-    return x[start:start + seconds(length)].copy()
+    return x[start : start + seconds(length)].copy()
 
 
-def pitch(x: np.ndarray, semitones: float) -> np.ndarray:
+def pitch(x: Audio, semitones: float) -> Audio:
     """Varispeed pitch shift: higher is shorter."""
-    return resample_poly(x, 1000, int(round(1000 * 2.0 ** (semitones / 12.0))))
+    return resample_poly(x, 1000, round(1000 * 2.0 ** (semitones / 12.0)))
 
 
-def filt(x: np.ndarray, kind: str, freq, order: int = 4) -> np.ndarray:
+def filt(
+    x: Audio, kind: FilterKind, freq: float | tuple[float, float], order: int = 4
+) -> Audio:
     return sosfilt(butter(order, freq, btype=kind, fs=SR, output="sos"), x)
 
 
-def dark(x: np.ndarray, cutoff: float) -> np.ndarray:
+def dark(x: Audio, cutoff: float) -> Audio:
     """Gentle 12 dB/octave roll-off: removes brightness without the boxy sound of a steep filter."""
     return filt(x, "lowpass", cutoff, order=2)
 
 
-def fades(x: np.ndarray, fade_in: float = 0.001, fade_out: float = 0.03) -> np.ndarray:
+def fades(x: Audio, fade_in: float = 0.001, fade_out: float = 0.03) -> Audio:
     x = x.copy()
     n_in, n_out = min(seconds(fade_in), len(x)), min(seconds(fade_out), len(x))
     x[:n_in] *= np.linspace(0.0, 1.0, n_in)
-    x[len(x) - n_out:] *= np.linspace(1.0, 0.0, n_out)
+    x[len(x) - n_out :] *= np.linspace(1.0, 0.0, n_out)
     return x
 
 
-def clip(x: np.ndarray, fade_in: float = 0.001, fade_out: float = 0.03) -> np.ndarray:
+def clip(x: Audio, fade_in: float = 0.001, fade_out: float = 0.03) -> Audio:
     """Final layer clip: faded and peak-normalized to -1 dBFS, so track faders alone set the balance."""
     x = fades(x, fade_in, fade_out)
     return x / (np.max(np.abs(x)) or 1.0) * 10 ** (-1 / 20)
@@ -150,24 +224,31 @@ def clip(x: np.ndarray, fade_in: float = 0.001, fade_out: float = 0.03) -> np.nd
 
 # ---------------------------------------------------------------- stage 1: prepare layers
 
+
 def region_name(unit: Unit, event_name: str, variant: int) -> str:
     return f"SW_{unit.key}_{event_name}_{variant + 1:02d}"
 
 
-def prepare(unit: Unit) -> list[tuple[str, float, float, Layer, Path]]:
+PlacedLayer = tuple[str, float, float, Layer, Path]
+
+
+def prepare(unit: Unit) -> list[PlacedLayer]:
     """Writes every layer clip; returns (region, region start, region length, layer, clip path)."""
     folder = LAYERS / unit.key
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
     tracks = {name for name, _ in unit.tracks}
-    placed, start = [], 0.0
+    placed: list[PlacedLayer] = []
+    start = 0.0
     for ev in unit.events:
         for v in range(ev.variants):
             region = region_name(unit, ev.name, v)
             occurrences: dict[str, int] = {}
             for layer in ev.build(v):
                 if layer.track not in tracks:
-                    raise SystemExit(f"{unit.key}: layer track {layer.track!r} is not in UNIT.tracks")
+                    raise SystemExit(
+                        f"{unit.key}: layer track {layer.track!r} is not in UNIT.tracks"
+                    )
                 stem = layer.track.replace(" ", "")
                 occurrences[stem] = occurrences.get(stem, 0) + 1
                 suffix = f"_{occurrences[stem]:02d}" if occurrences[stem] > 1 else ""
@@ -181,7 +262,8 @@ def prepare(unit: Unit) -> list[tuple[str, float, float, Layer, Path]]:
 
 # ---------------------------------------------------------------- stage 2: REAPER session
 
-def write_session(unit: Unit, placed, session: Path) -> None:
+
+def write_session(unit: Unit, placed: list[PlacedLayer], session: Path) -> None:
     session.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         '<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0',
@@ -200,9 +282,16 @@ def write_session(unit: Unit, placed, session: Path) -> None:
     for region, start, length, _layer, _path in placed:
         regions[region] = (start, length)
     for index, (region, (start, length)) in enumerate(regions.items(), start=1):
-        lines += [f'  MARKER {index} {start:.6f} "{region}" 1', f'  MARKER {index} {start + length:.6f} "" 1']
+        lines += [
+            f'  MARKER {index} {start:.6f} "{region}" 1',
+            f'  MARKER {index} {start + length:.6f} "" 1',
+        ]
     for track, fader_db in unit.tracks:
-        lines += ["  <TRACK", f'    NAME "{track}"', f"    VOLPAN {10 ** (fader_db / 20):.6f} 0 -1 -1 1"]
+        lines += [
+            "  <TRACK",
+            f'    NAME "{track}"',
+            f"    VOLPAN {10 ** (fader_db / 20):.6f} 0 -1 -1 1",
+        ]
         for region, start, length, layer, path in placed:
             if layer.track != track:
                 continue
@@ -228,29 +317,33 @@ def write_session(unit: Unit, placed, session: Path) -> None:
 LOUDNESS = pyloudnorm.Meter(SR)
 CEILING = 10 ** (TRUE_PEAK_CEILING_DBFS / 20)
 # JUCE's limiter (pedalboard.Limiter) adds make-up gain up to 0 dBFS; finish() rescales after it.
-LIMITER = Pedalboard([Limiter(threshold_db=-6.0, release_ms=60)])
+LIMITER = pedalboard.Pedalboard([pedalboard.Limiter(threshold_db=-6.0, release_ms=60)])
 
 
-def true_peak(y: np.ndarray) -> float:
+def true_peak(y: Audio) -> float:
     return float(np.max(np.abs(resample_poly(y, 4, 1))))
 
 
-def loudness(y: np.ndarray) -> float:
+def loudness(y: Audio) -> float:
     return LOUDNESS.integrated_loudness(np.pad(y, (0, max(0, seconds(0.5) - len(y)))))
 
 
-def make_loop(y: np.ndarray, crossfade: float) -> np.ndarray:
+def make_loop(y: Audio, crossfade: float) -> Audio:
     """Seamless loop: the region's end is equal-power crossfaded into its start and then dropped."""
     n = seconds(crossfade)
     if len(y) <= 2 * n:
-        raise SystemExit(f"loop region of {len(y) / SR:.2f}s is too short for a {crossfade:.2f}s crossfade")
+        raise SystemExit(
+            f"loop region of {len(y) / SR:.2f}s is too short for a {crossfade:.2f}s crossfade"
+        )
     out = y[: len(y) - n].copy()
     ramp = np.linspace(0.0, 1.0, n)
-    out[:n] = y[:n] * np.sqrt(ramp) + y[len(y) - n:] * np.sqrt(1.0 - ramp)
+    out[:n] = y[:n] * np.sqrt(ramp) + y[len(y) - n :] * np.sqrt(1.0 - ramp)
     return out
 
 
-def finish(y: np.ndarray, target_lufs: float, loop_crossfade: float | None = None) -> tuple[np.ndarray, float, float]:
+def finish(
+    y: Audio, target_lufs: float, loop_crossfade: float | None = None
+) -> tuple[Audio, float, float]:
     """Shape the render (trim the silent end, or make a seamless loop), match loudness, limit peaks;
     returns audio, LUFS and true peak dBFS.
 
@@ -261,7 +354,11 @@ def finish(y: np.ndarray, target_lufs: float, loop_crossfade: float | None = Non
         y = make_loop(y, loop_crossfade)
     else:
         loud = np.nonzero(np.abs(y) > 10 ** (-60 / 20) * (np.max(np.abs(y)) or 1.0))[0]
-        y = fades(y[: loud[-1] + seconds(0.01)] if len(loud) else y, fade_in=0.0, fade_out=0.01)
+        y = fades(
+            y[: loud[-1] + seconds(0.01)] if len(loud) else y,
+            fade_in=0.0,
+            fade_out=0.01,
+        )
     for _ in range(4):
         y = y * 10 ** ((target_lufs - loudness(y)) / 20)
         if true_peak(y) <= CEILING:
@@ -276,7 +373,7 @@ def finish(y: np.ndarray, target_lufs: float, loop_crossfade: float | None = Non
     # A constant gain correction uses remaining headroom without another stateful pass.
     gain = min(10 ** ((target_lufs - loudness(y)) / 20), CEILING / true_peak(y))
     y = y * gain
-    return y, loudness(y), 20 * np.log10(true_peak(y))
+    return y, loudness(y), float(20 * np.log10(true_peak(y)))
 
 
 def render(unit: Unit, session: Path) -> int:
@@ -284,27 +381,45 @@ def render(unit: Unit, session: Path) -> int:
     out_dir = RENDERS / unit.key
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True)
-    result = subprocess.run(["reaper", "-nosplash", "-new", "-renderproject", str(session)],
-                            capture_output=True, text=True, timeout=300)
+    result = subprocess.run(
+        ["reaper", "-nosplash", "-new", "-renderproject", str(session)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
     if result.returncode != 0:
-        raise SystemExit(f"REAPER render failed ({result.returncode}): {result.stderr[-2000:]}")
+        raise SystemExit(
+            f"REAPER render failed ({result.returncode}): {result.stderr[-2000:]}"
+        )
     final = OUT / unit.faction / unit.role
     final.mkdir(parents=True, exist_ok=True)
-    reel, written = [], 0
+    reel: list[Audio] = []
+    written = 0
     for ev in unit.events:
         for v in range(ev.variants):
             name = region_name(unit, ev.name, v)
             rendered = out_dir / f"{name}.wav"
             if not rendered.exists():
-                raise SystemExit(f"REAPER did not render region {name}; is it still in {session}?")
+                raise SystemExit(
+                    f"REAPER did not render region {name}; is it still in {session}?"
+                )
             data, _rate = sf.read(rendered, dtype="float64", always_2d=True)
-            audio, lufs, peak = finish(data.mean(axis=1), ev.loudness, ev.crossfade if ev.loop else None)
+            audio, lufs, peak = finish(
+                data.mean(axis=1), ev.loudness, ev.crossfade if ev.loop else None
+            )
             sf.write(final / f"{name}.wav", audio, SR, subtype="PCM_24")
             # Loops play twice in the reel so the seam can be heard.
-            reel += [audio, audio, np.zeros(seconds(0.5))] if ev.loop else [audio, np.zeros(seconds(0.5))]
+            reel += (
+                [audio, audio, np.zeros(seconds(0.5))]
+                if ev.loop
+                else [audio, np.zeros(seconds(0.5))]
+            )
             written += 1
-            print(f"{(final / name).relative_to(ROOT)}.wav  {len(audio) / SR:.2f}s  {lufs:.1f} LUFS  "
-                  f"true peak {peak:.1f} dBFS")
+            print(
+                f"{(final / name).relative_to(ROOT)}.wav  {len(audio) / SR:.2f}s  {lufs:.1f} LUFS  "
+                f"true peak {peak:.1f} dBFS"
+            )
     PREVIEW.mkdir(parents=True, exist_ok=True)
     sf.write(PREVIEW / f"{unit.key}.wav", np.concatenate(reel), SR, subtype="PCM_24")
     return written

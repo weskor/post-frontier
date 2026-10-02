@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["numpy", "scipy", "soundfile", "pedalboard", "pyloudnorm"]
+# dependencies = ["numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0", "pedalboard==0.9.25", "pyloudnorm==0.2.0"]
 # ///
 """Build sound sets from recorded layers, mixed and rendered in REAPER (Docs/Audio.md).
 
@@ -23,19 +23,29 @@ Three stages per unit:
 Deterministic: fixed seeds and fixed source events, so reruns of an unchanged session give identical files.
 Separate units may render concurrently (one process per --unit).
 """
+
 import argparse
 import shutil
 
 from unit_audio import recipes
-from unit_audio.core import SESSIONS, ROOT, prepare, render, write_session
+from unit_audio.core import ROOT, SESSIONS, prepare, render, write_session
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--unit", action="append", metavar="FACTION_ROLE",
-                        help="only this unit, e.g. Human_Ranged (repeatable); default: every recipe")
-    parser.add_argument("--new-session", action="store_true",
-                        help="rewrite the REAPER sessions from the recipes, discarding manual changes")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--unit",
+        action="append",
+        metavar="FACTION_ROLE",
+        help="only this unit, e.g. Human_Ranged (repeatable); default: every recipe",
+    )
+    parser.add_argument(
+        "--new-session",
+        action="store_true",
+        help="rewrite the REAPER sessions from the recipes, discarding manual changes",
+    )
     args = parser.parse_args()
     if not shutil.which("reaper"):
         raise SystemExit("reaper not found on PATH (sudo pacman -S reaper)")

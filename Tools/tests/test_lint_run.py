@@ -202,3 +202,26 @@ def test_format_findings_name_only_the_unformatted_files(
     for filename in ("b.py", "c.py"):
         assert f"{filename}:1: format:" in output
         assert (lint_repo / filename).read_text() == "answer=1\n"
+
+
+@pytest.mark.parametrize("rule", ["ruff", "mypy"])
+def test_embedded_python_rejects_newer_syntax(
+    lint_repo: Path, capsys: pytest.CaptureFixture[str], rule: str
+) -> None:
+    configure(lint_repo, {rule: ["*.py"]})
+    config = lint_repo / "Tools/x/lint.toml"
+    config.write_text(
+        config.read_text() + '\n[python]\nversion = "3.11"\npaths = ["embedded.py"]\n'
+    )
+    (lint_repo / "embedded.py").write_text("type Value = int\n")
+    (lint_repo / "normal.py").write_text("type Value = int\n")
+    assert not lint.run(
+        context(lint_repo), [Path("embedded.py"), Path("normal.py")], fix=False
+    )
+    output = capsys.readouterr().out
+    assert f"embedded.py:1: {rule}:" in output
+    assert f"normal.py:1: {rule}:" not in output
+    (lint_repo / "embedded.py").write_text("value: int = 1\n")
+    assert lint.run(
+        context(lint_repo), [Path("embedded.py"), Path("normal.py")], fix=False
+    )

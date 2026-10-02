@@ -1,13 +1,23 @@
 # Every rule is blocking; scopes grow only when an entire folder is clean.
 # Path globs: * matches one component; ** crosses directories.
-# Build Python lint/types await their own migration slice.
 # Docs/Engineering/Audit is frozen measured evidence: both doc rules stay off.
 [rules]
 suppression = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
 disabled-test = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
 marker = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
 # Build and the legacy verification scripts still name direct engine commands.
-direct-engine = ["Source/**", "Tools/**", "Build/unit_audio/**", "x"]
+direct-engine = [
+    "Source/**", "Tools/**", "Build/unit_audio/**", "x",
+    "Build/ArtMaterials.py", "Build/AvailabilityZoneLayout.py",
+    "Build/DrawAvailabilityZoneV2.py", "Build/DrawMapLayout.py", "Build/EnvKit.py",
+    "Build/ExportUIAssets.py", "Build/FetchAudioSources.py", "Build/FetchTextures.py",
+    "Build/GenerateBuildingMeshes.py", "Build/GenerateEnvironmentKit.py",
+    "Build/GenerateMenuMap.py", "Build/GenerateMusicSample.py",
+    "Build/GenerateOverlayMaterials.py", "Build/GenerateTerrainKit.py",
+    "Build/GenerateUnitAudio.py", "Build/GenerateUnitMeshes.py",
+    "Build/MasterMaterials.py", "Build/MatchLayout.py",
+    "Build/RenderTextureContactSheet.py", "Build/RenderUIIcons.py", "Build/TerrainKit.py",
+]
 # Pipeline/reference docs link to ./x help; MCP agent startup is outside build procedures.
 saved-path = [
     "Docs/Design/**", "Docs/Design.md", "AGENTS.md", "Art/Textures/**", ".agents/skills/orchestrate/**",
@@ -27,6 +37,29 @@ rules-includes = ["Source/CoopRTS/Rules/**"]
 scope-map = ["**"]
 file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
 function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
-format = ["Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]
-ruff = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]
-mypy = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]
+format = [
+    "Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
+    "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
+    "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
+    "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+]
+ruff = [
+    "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
+    "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
+    "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
+    "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+]
+mypy = [
+    "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
+    "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
+    "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
+    "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+]
+
+# These modules are imported by Unreal's embedded Python, not only by ./x.
+[python]
+version = "3.11"
+paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py"]

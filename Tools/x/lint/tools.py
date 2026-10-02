@@ -5,9 +5,10 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tomllib
 
 from x.context import Context
-from x.lint.model import Finding
+from x.lint.model import Finding, matches
 
 
 def execute(
@@ -30,6 +31,32 @@ def binary(name: str) -> str:
     return found
 
 
+def python_groups(ctx: Context, paths: list[str]) -> list[tuple[str | None, list[str]]]:
+    with (ctx.repo / "Tools/x/lint.toml").open("rb") as source:
+        spec: object = tomllib.load(source).get("python")
+    if spec is None:
+        return [(None, paths)] if paths else []
+    if not isinstance(spec, dict) or set(spec) != {"version", "paths"}:
+        raise ValueError("python target requires version and paths")
+    version: object = spec["version"]
+    patterns: object = spec["paths"]
+    if (
+        not isinstance(version, str)
+        or re.fullmatch(r"3\.\d+", version) is None
+        or not isinstance(patterns, list)
+        or any(not isinstance(pattern, str) for pattern in patterns)
+    ):
+        raise ValueError("python target requires a version and path globs")
+    embedded = [p for p in paths if any(matches(p, glob) for glob in patterns)]
+    embedded_set = set(embedded)
+    normal = [p for p in paths if p not in embedded_set]
+    return [
+        (target, files)
+        for target, files in ((None, normal), (version, embedded))
+        if files
+    ]
+
+
 def format_files(
     ctx: Context, paths: list[str], *, fix: bool
 ) -> tuple[list[Finding], list[Path]]:
@@ -38,38 +65,57 @@ def format_files(
     cpp = [p for p in paths if Path(p).suffix in {".h", ".cpp"}]
     findings: list[Finding] = []
     reformatted: list[Path] = []
-    if python:
-        before = {p: (ctx.repo / p).read_bytes() for p in python} if fix else {}
-        if fix:
-            applied = execute(
-                ctx, ["uv", "run", "--locked", "ruff", "format", *python], "format-fix"
-            )
-            if applied.returncode:
-                findings.append(
-                    Finding("Tools/x/lint.toml", 1, "format", applied.stderr.strip())
-                )
-            for path, content in before.items():
-                if (ctx.repo / path).read_bytes() != content:
-                    print(f"reformatted {path}")
-                    reformatted.append(Path(path))
-        checked = execute(
-            ctx,
-            ["uv", "run", "--locked", "ruff", "format", "--check", *python],
-            "format-check",
+    for target, files in python_groups(ctx, python):
+        python_findings, python_reformatted = format_python(
+            ctx, files, fix=fix, target=target
         )
-        if checked.returncode:
-            output = checked.stdout + checked.stderr
-            changed = re.findall(r"^Would reformat: (.+)$", output, re.MULTILINE)
-            findings.extend(
-                Finding(path, 1, "format", "file differs from Ruff formatting")
-                for path in changed
-            )
-            if not changed:
-                findings.extend(diagnostics(checked, "format", python[0]))
+        findings.extend(python_findings)
+        reformatted.extend(python_reformatted)
     if cpp:
         cpp_findings, cpp_reformatted = format_cpp(ctx, cpp, fix=fix)
         findings.extend(cpp_findings)
         reformatted.extend(cpp_reformatted)
+    return findings, reformatted
+
+
+def format_python(
+    ctx: Context, paths: list[str], *, fix: bool, target: str | None
+) -> tuple[list[Finding], list[Path]]:
+    flags = (
+        [] if target is None else ["--target-version", "py" + target.replace(".", "")]
+    )
+    label = "" if target is None else "-py" + target.replace(".", "")
+    findings: list[Finding] = []
+    reformatted: list[Path] = []
+    if fix:
+        before = {p: (ctx.repo / p).read_bytes() for p in paths}
+        applied = execute(
+            ctx,
+            ["uv", "run", "--locked", "ruff", "format", *flags, *paths],
+            "format-fix" + label,
+        )
+        if applied.returncode:
+            findings.append(
+                Finding("Tools/x/lint.toml", 1, "format", applied.stderr.strip())
+            )
+        for path, content in before.items():
+            if (ctx.repo / path).read_bytes() != content:
+                print(f"reformatted {path}")
+                reformatted.append(Path(path))
+    checked = execute(
+        ctx,
+        ["uv", "run", "--locked", "ruff", "format", "--check", *flags, *paths],
+        "format-check" + label,
+    )
+    if checked.returncode:
+        output = checked.stdout + checked.stderr
+        changed = re.findall(r"^Would reformat: (.+)$", output, re.MULTILINE)
+        findings.extend(
+            Finding(path, 1, "format", "file differs from Ruff formatting")
+            for path in changed
+        )
+        if not changed:
+            findings.extend(diagnostics(checked, "format", paths[0]))
     return findings, reformatted
 
 
@@ -129,19 +175,32 @@ def diagnostics(
 
 
 def lint_python(ctx: Context, rule: str, paths: list[str]) -> list[Finding]:
-    if not paths:
-        return []
+    return [
+        finding
+        for target, files in python_groups(ctx, paths)
+        for finding in lint_python_group(ctx, rule, files, target)
+    ]
+
+
+def lint_python_group(
+    ctx: Context, rule: str, paths: list[str], target: str | None
+) -> list[Finding]:
+    label = rule if target is None else rule + "-py" + target.replace(".", "")
     if rule == "mypy":
+        flags = [] if target is None else ["--python-version", target]
         result = execute(
             ctx,
-            ["uv", "run", "--locked", "mypy", "--strict", "--no-error-summary", *paths],
-            "mypy",
+            ["uv", "run", "--locked", "mypy", "--strict", "--no-error-summary", *flags, *paths],
+            label,
         )
         return diagnostics(result, rule, paths[0])
+    flags = (
+        [] if target is None else ["--target-version", "py" + target.replace(".", "")]
+    )
     result = execute(
         ctx,
-        ["uv", "run", "--locked", "ruff", "check", "--output-format=json", *paths],
-        "ruff",
+        ["uv", "run", "--locked", "ruff", "check", "--output-format=json", *flags, *paths],
+        label,
     )
     if result.returncode not in {0, 1}:
         return [Finding(paths[0], 1, rule, result.stderr.strip())]

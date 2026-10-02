@@ -21,14 +21,17 @@ Kept maps (normalised file names, JPG):
     <Id>_Height.jpg     linear, only when the 2K file is <= HEIGHT_MAX_BYTES
 Everything else in the ZIP (GL normal, .blend/.usdc/.mtlx/.tres, preview sphere PNG) is dropped.
 """
+
+from http.client import HTTPResponse
 import io
 import json
+from pathlib import Path
 import shutil
 import sys
+from typing import cast
 import urllib.error
 import urllib.request
 import zipfile
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "Art" / "Textures"
@@ -38,22 +41,70 @@ UA = {"User-Agent": "Mozilla/5.0 (FetchTextures.py; CoopRTS asset pipeline)"}
 
 # (category, ambientCG id, intended use)
 ASSETS = [
-    ("PaintedMetal", "Metal032", "Clean smooth grey-blue painted steel: human shell base, flat armour plates; tint toward pearl for the Machine"),
-    ("PaintedMetal", "PaintedMetal014", "Worn grey-blue painted plate: human shell, repaired/scuffed panels"),
-    ("Metal", "Metal010", "Brushed blue-grey steel: trim, pipes, pistons, barrel bands"),
-    ("Metal", "Metal046A", "Dark gunmetal: Dark slot mechanical parts, joints, engine housings"),
-    ("Panel", "MetalPlates002", "Bolted plate grid with seams and rivets: building walls, roofs, vehicle hulls (normal detail)"),
-    ("Panel", "MetalPlates006", "Dark studded sci-fi plating: Machine-side and heavy-armour surfaces (normal detail)"),
+    (
+        "PaintedMetal",
+        "Metal032",
+        "Clean smooth grey-blue painted steel: human shell base, flat armour plates; tint toward pearl for the Machine",
+    ),
+    (
+        "PaintedMetal",
+        "PaintedMetal014",
+        "Worn grey-blue painted plate: human shell, repaired/scuffed panels",
+    ),
+    (
+        "Metal",
+        "Metal010",
+        "Brushed blue-grey steel: trim, pipes, pistons, barrel bands",
+    ),
+    (
+        "Metal",
+        "Metal046A",
+        "Dark gunmetal: Dark slot mechanical parts, joints, engine housings",
+    ),
+    (
+        "Panel",
+        "MetalPlates002",
+        "Bolted plate grid with seams and rivets: building walls, roofs, vehicle hulls (normal detail)",
+    ),
+    (
+        "Panel",
+        "MetalPlates006",
+        "Dark studded sci-fi plating: Machine-side and heavy-armour surfaces (normal detail)",
+    ),
     ("Tread", "DiamondPlate001", "Diamond tread plate: catwalks, vehicle decks, ramps"),
-    ("Tread", "MetalWalkway006", "Open steel grating: walkways, vents, radiators (use with opacity or as a visual-only albedo)"),
+    (
+        "Tread",
+        "MetalWalkway006",
+        "Open steel grating: walkways, vents, radiators (use with opacity or as a visual-only albedo)",
+    ),
     ("Rubber", "Rubber004", "Dark smooth rubber: tyres, tracks, hoses, seals"),
-    ("Hazard", "PaintedMetal016", "Rusted black/yellow hazard stripes: worn trim only; crisp hazard stripes will be procedural (keep small, see colour language)"),
-    ("Concrete", "Concrete024", "Clean smooth concrete: Campus Zero pads, plazas, building bases"),
-    ("Concrete", "Concrete016", "Weathered stained blue-grey concrete: walls, barriers, old slabs"),
+    (
+        "Hazard",
+        "PaintedMetal016",
+        "Rusted black/yellow hazard stripes: worn trim only; crisp hazard stripes will be procedural (keep small, see colour language)",
+    ),
+    (
+        "Concrete",
+        "Concrete024",
+        "Clean smooth concrete: Campus Zero pads, plazas, building bases",
+    ),
+    (
+        "Concrete",
+        "Concrete016",
+        "Weathered stained blue-grey concrete: walls, barriers, old slabs",
+    ),
     ("Asphalt", "Asphalt026A", "Dark cracked asphalt: Campus Zero roads and parking"),
-    ("Ground", "Gravel004", "Grey chunky gravel: Campus Zero verges, rooftops, rubble ground"),
+    (
+        "Ground",
+        "Gravel004",
+        "Grey chunky gravel: Campus Zero verges, rooftops, rubble ground",
+    ),
     ("Ground", "Gravel006", "Dark compacted dirt/gravel: bare ground and worn paths"),
-    ("SciFiFloor", "Tiles108", "Black gridded tech tiles: data-hall and lab floors (Machine megastructure floors)"),
+    (
+        "SciFiFloor",
+        "Tiles108",
+        "Black gridded tech tiles: data-hall and lab floors (Machine megastructure floors)",
+    ),
 ]
 
 MAP_SUFFIXES = {  # zip suffix -> output name
@@ -68,18 +119,22 @@ MAP_SUFFIXES = {  # zip suffix -> output name
 
 def http_get(url: str) -> bytes:
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with cast(HTTPResponse, urllib.request.urlopen(req, timeout=120)) as r:
         return r.read()
 
 
 def verify_cc0(asset_id: str) -> None:
-    api = json.loads(http_get(f"https://ambientcg.com/api/v2/full_json?type=Material&id={asset_id}"))
+    api = json.loads(
+        http_get(f"https://ambientcg.com/api/v2/full_json?type=Material&id={asset_id}")
+    )
     found = [a for a in api.get("foundAssets", []) if a["assetId"] == asset_id]
     if not found:
         sys.exit(f"{asset_id}: not found as an ambientCG Material")
     page = http_get(f"https://ambientcg.com/a/{asset_id}").decode("utf-8", "replace")
     if "CC0 license" not in page:
-        sys.exit(f"{asset_id}: asset page does not state the CC0 licence; refusing to keep it")
+        sys.exit(
+            f"{asset_id}: asset page does not state the CC0 licence; refusing to keep it"
+        )
 
 
 def fetch(category: str, asset_id: str) -> None:
