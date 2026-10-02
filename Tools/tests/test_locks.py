@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Callable, Iterator
 
 import pytest
-
 from x import jsonio
 
 WORKER = """
@@ -156,7 +155,9 @@ def test_plain_flock_interoperates_both_directions(workers: Workers, mode: str) 
     holder = workers.start("holder", mode)
     workers.await_entry("holder")
     lock = workers.root / "locks/ue.lock"
-    assert subprocess.run(["flock", "-n", str(lock), "true"]).returncode == 1
+    assert (
+        subprocess.run(["flock", "-n", str(lock), "true"], check=False).returncode == 1
+    )
     workers.release("holder", holder)
     with (workers.root / "external.log").open("wb") as log:
         external = subprocess.Popen(
@@ -174,7 +175,7 @@ def test_plain_flock_interoperates_both_directions(workers: Workers, mode: str) 
         )
     workers.children.append(external)
     eventually(
-        lambda: (workers.root / "external.entered").exists(),
+        (workers.root / "external.entered").exists,
         "external flock did not enter",
     )
     blocked = workers.start("blocked", mode)

@@ -1,13 +1,14 @@
 """Flock readers/writer turnstile plus a bounded headless process pool."""
 
+from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import fcntl
 import json
 import os
 from pathlib import Path
 import time
-from typing import IO, Iterator
+from typing import IO
 import uuid
 
 from x import jsonio
@@ -81,7 +82,7 @@ class Locks:
             holder = self.root / f"{name}.{os.getpid()}.{uuid.uuid4().hex}.holder.json"
             jsonio.save(
                 holder,
-                {**self.identity, "since": datetime.now(timezone.utc).isoformat()},
+                {**self.identity, "since": datetime.now(UTC).isoformat()},
             )
             if waiting:
                 self._record_wait(name, started)

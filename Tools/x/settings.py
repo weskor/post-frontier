@@ -1,11 +1,11 @@
 """Canonical settings, with cook maps read directly from Unreal configuration."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 import re
-from types import MappingProxyType
-from typing import Mapping
 import tomllib
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)

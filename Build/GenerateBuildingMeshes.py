@@ -66,7 +66,7 @@ import bpy
 from mathutils import Euler, Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import MasterMaterials  # noqa: E402  (bake_masks writes the SC2Mask colour attribute before export)
+import MasterMaterials  # (bake_masks writes the SC2Mask colour attribute before export)
 
 try:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -19,7 +19,7 @@ import sys
 import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import MatchLayout  # noqa: E402
+import MatchLayout
 
 
 assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)

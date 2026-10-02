@@ -10,7 +10,6 @@ import threading
 import time
 
 import pytest
-
 from x import jsonio
 from x.context import Context
 from x.process import kill_group

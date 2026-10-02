@@ -4,9 +4,8 @@ from dataclasses import FrozenInstanceError, replace
 import os
 from pathlib import Path
 
-import pytest
-
 from conftest import git
+import pytest
 from x import freshness, gitinfo
 from x.context import Context
 from x.settings import load
@@ -23,8 +22,9 @@ def test_settings_and_cook_maps(repo: Path, monkeypatch: pytest.MonkeyPatch) -> 
         "CoopRTS.uproject",
         "Config/**",
     )
+    frozen_field = "headless_pool_size"
     with pytest.raises(FrozenInstanceError):
-        setattr(settings, "headless_pool_size", 2)
+        setattr(settings, frozen_field, 2)
     (repo / "Config/DefaultGame.ini").write_text(
         ';+MapsToCook=(FilePath="/Ignored")\n+MapsToCook=(FilePath="/Game/Maps/One")\n'
         '+MapsToCook=(FilePath="/Game/Maps/Two")\n'

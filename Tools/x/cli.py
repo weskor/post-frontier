@@ -1,11 +1,12 @@
 """Discover command modules and own each invocation's evidence lifecycle."""
 
 import argparse
+from collections.abc import Sequence
 import importlib
 from pathlib import Path
 import pkgutil
 import sys
-from typing import Protocol, Sequence, cast
+from typing import Protocol, cast
 
 from x.context import Context
 from x.runs import Run

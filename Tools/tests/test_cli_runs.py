@@ -8,7 +8,6 @@ from types import ModuleType
 from typing import cast
 
 import pytest
-
 from x import cli, jsonio
 from x.commands import runs
 from x.context import Context
@@ -80,7 +79,7 @@ def test_invocation_lifecycle(
         ctx.run.add_result("observed", mode == "pass", "result detail", 0.1)
         return 0
 
-    setattr(module, "run", execute)
+    monkeypatch.setattr(module, "run", execute, raising=False)
     assert (
         cli.invoke(cast(cli.Command, module), argparse.Namespace(), repo, ["probe"])
         == code

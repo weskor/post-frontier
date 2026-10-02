@@ -8,8 +8,25 @@ dependencies = []
 package = false
 
 [dependency-groups]
-dev = ["pytest==8.4.2"]
+dev = ["pytest==8.4.2", "ruff==0.15.7", "mypy==1.19.1"]
 
 [tool.pytest.ini_options]
 pythonpath = ["Tools"]
 testpaths = ["Tools/tests"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ANN", "RUF", "PLE", "PLW", "PLC0206", "PLC0208", "PLC0414"]
+# Formatter owns wrapping. Pylint error/warning and selected clarity checks
+# complement the explicit file/function limits without argument-count noise.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.mypy]
+strict = true
+mypy_path = ["Tools", "Tools/tests"]
+explicit_package_bases = true

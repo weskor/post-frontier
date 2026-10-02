@@ -36,7 +36,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-import DrawMapLayout  # noqa: E402  (stdlib only: validation, walking distances, the placement rules)
+import DrawMapLayout  # (stdlib only: validation, walking distances, the placement rules)
 
 MAP_JSON = os.path.join(ROOT, "Build", "Maps", "AvailabilityZone.json")
 

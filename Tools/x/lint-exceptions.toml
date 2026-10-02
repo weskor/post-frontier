@@ -1,0 +1,3 @@
+# Entries require an enabled rule, exact repository path and nonempty reason.
+# An entry that matches no finding blocks the check.
+exceptions = []

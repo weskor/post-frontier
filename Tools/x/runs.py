@@ -1,6 +1,6 @@
 """Per-invocation evidence with atomic lifecycle updates."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 import secrets
 import time
@@ -10,14 +10,14 @@ from x import gitinfo, jsonio
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class Run:
     def __init__(
         self, repo: Path, runs_root: Path, command: str, argv: list[str]
     ) -> None:
-        self.id = f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{command}-{secrets.token_hex(2)}"
+        self.id = f"{datetime.now(UTC):%Y%m%d-%H%M%S}-{command}-{secrets.token_hex(2)}"
         self.dir = runs_root / self.id
         self.dir.mkdir(parents=True)
         self._clock = time.monotonic()

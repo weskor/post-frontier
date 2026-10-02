@@ -1,5 +1,6 @@
 """Freshness depends on selected file paths and bytes, never mtimes."""
 
+
 import fnmatch
 import hashlib
 from datetime import UTC, datetime

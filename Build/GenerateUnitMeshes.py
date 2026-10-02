@@ -74,7 +74,7 @@ import bpy
 from mathutils import Euler, Matrix, Vector, kdtree
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import MasterMaterials  # noqa: E402
+import MasterMaterials
 
 try:
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

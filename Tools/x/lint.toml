@@ -1,0 +1,20 @@
+# Every rule is blocking; scopes grow only when an entire folder is clean.
+# Path globs: * matches one component; ** crosses directories.
+# Tools/harness and Build Python lint/types await their own migration slices.
+# Docs/Engineering/Audit is frozen measured evidence: both doc rules stay off.
+[rules]
+suppression = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
+disabled-test = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
+marker = ["**/*.h", "**/*.cpp", "**/*.cs", "**/*.py", "**/*.c", "x"]
+# Build and the legacy verification scripts still name direct engine commands.
+direct-engine = ["Source/**", "Tools/**", "x"]
+# Research/input-audit still cites untracked evidence; Research stays off here.
+saved-path = ["Docs/Design/**", "Art/Textures/**", ".agents/skills/orchestrate/**"]
+# Root Engineering files are clean; Audit is deliberately not included.
+procedure-text = ["Docs/Design/**", "Docs/Research/**", "Docs/Engineering/*.md", "Art/Materials/**"]
+rules-includes = ["Source/CoopRTS/Rules/**"]
+file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
+function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
+format = ["Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]
+ruff = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]
+mypy = ["Tools/x/**/*.py", "Tools/tests/**/*.py", "x"]

@@ -12,7 +12,7 @@ import sys
 import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import MatchLayout  # noqa: E402
+import MatchLayout
 
 MAP_PATH = "/Game/Maps/AvailabilityZoneV2"
 JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Maps", "AvailabilityZoneV2.json")

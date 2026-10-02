@@ -1,13 +1,14 @@
 """Quiet child execution with progress-based stalling and process-group cleanup."""
 
 from collections import deque
+from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 import os
 from pathlib import Path
 import signal
 import subprocess
 import time
-from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -37,10 +38,8 @@ def kill_group(child: subprocess.Popen[bytes]) -> None:
         if child.poll() is not None:
             break
         time.sleep(0.02)
-    try:
+    with suppress(ProcessLookupError):
         os.killpg(child.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
     child.wait()
 
 

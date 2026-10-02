@@ -1,9 +1,9 @@
 """The worktree, evidence and shared facilities passed to every command."""
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Mapping, Sequence
 
 from x.freshness import Freshness
 from x.locks import Locks
