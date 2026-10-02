@@ -37,8 +37,8 @@ procedure-text = [
 ]
 rules-includes = ["Source/CoopRTS/Rules/**"]
 scope-map = ["**"]
-file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
-function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
+file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py", "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py", "Tools/harness/network_probe.py", "Tools/harness/network_production.py", "Tools/harness/network_scenarios.py", "Tools/harness/network_session.py", "x"]
+function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py", "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py", "Tools/harness/network_probe.py", "Tools/harness/network_production.py", "Tools/harness/network_scenarios.py", "Tools/harness/network_session.py", "x"]
 format = [
     "Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
     "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
