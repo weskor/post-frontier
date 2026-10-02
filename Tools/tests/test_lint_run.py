@@ -151,3 +151,53 @@ def test_deleted_strict_module_rechecks_its_consumers(
     assert not lint.run(context(lint_repo), [Path("provider.py")], fix=False)
     output = capsys.readouterr().out
     assert "consumer.py:1: mypy:" in output and "[import-not-found]" in output
+
+
+@pytest.mark.parametrize(
+    ("filename", "contents"),
+    [
+        ("lint.toml", "[rules"),
+        ("lint.toml", ""),
+        ("lint.toml", "rules = 1\n"),
+        ("lint-exceptions.toml", "[[exceptions"),
+        ("lint-exceptions.toml", '[[exceptions]]\nrule="marker"\npath="old.py"\n'),
+        (
+            "lint-exceptions.toml",
+            '[[exceptions]]\nrule="marker"\npath="old.py"\nreason=""\n',
+        ),
+        (
+            "lint-exceptions.toml",
+            '[[exceptions]]\nrule="marker"\npath="old.py"\nreason=1\n',
+        ),
+        ("lint-exceptions.toml", "exceptions = 1\n"),
+    ],
+)
+def test_invalid_configuration_is_a_blocking_finding(
+    lint_repo: Path, capsys: pytest.CaptureFixture[str], filename: str, contents: str
+) -> None:
+    configure(lint_repo, {"marker": ["*.py"]})
+    (lint_repo / "Tools/x" / filename).write_text(contents)
+    ctx = context(lint_repo)
+    assert not lint.run(ctx, [], fix=True)
+    output = capsys.readouterr().out
+    assert f"Tools/x/{filename}:1: configuration:" in output
+    assert "lint: 1 findings" in output and "Traceback" not in output
+    assert ctx.run is not None
+    assert ctx.run.finish(0) == 1
+
+
+def test_format_findings_name_only_the_unformatted_files(
+    lint_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    configure(lint_repo, {"format": ["*.py"]})
+    (lint_repo / "a.py").write_text("answer = 1\n")
+    for filename in ("b.py", "c.py"):
+        (lint_repo / filename).write_text("answer=1\n")
+    assert not lint.run(
+        context(lint_repo), [Path(p) for p in ("a.py", "b.py", "c.py")], fix=False
+    )
+    output = capsys.readouterr().out
+    assert "a.py:1: format:" not in output
+    for filename in ("b.py", "c.py"):
+        assert f"{filename}:1: format:" in output
+        assert (lint_repo / filename).read_text() == "answer=1\n"

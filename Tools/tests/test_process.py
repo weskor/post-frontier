@@ -119,7 +119,7 @@ def test_watch_growth_prevents_stall_and_console_growth_does_not(ctx: Context) -
 def alive(pid: int) -> bool:
     try:
         return Path(f"/proc/{pid}/stat").read_text().split(") ")[1].split()[0] != "Z"
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return False
 
 

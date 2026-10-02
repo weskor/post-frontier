@@ -7,7 +7,15 @@ import time
 from x import gitinfo
 from x.context import Context
 from x.lint import docs, source, tools
-from x.lint.model import CODE, RULES, Finding, Policy, apply_exceptions, load
+from x.lint.model import (
+    CODE,
+    RULES,
+    Finding,
+    Policy,
+    PolicyError,
+    apply_exceptions,
+    load,
+)
 
 CONFIG = {
     "Tools/x/lint.toml",
@@ -78,7 +86,10 @@ def check_rule(
 
 
 def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> bool:
-    policy = load(ctx.repo)
+    try:
+        policy = load(ctx.repo)
+    except PolicyError as error:
+        return report(ctx, [Finding(error.path, 1, "configuration", str(error))], 0, {})
     selected = select(ctx.repo, paths, policy)
     mypy_changed = any(
         policy.enabled(
@@ -101,14 +112,32 @@ def run(ctx: Context, paths: Sequence[Path], *, fix: bool) -> bool:
         except (OSError, ValueError) as error:
             findings.append(Finding("Tools/x/lint.toml", 1, rule, str(error)))
         durations[rule] = time.monotonic() - started
-    findings = sorted(apply_exceptions(findings, policy))
+    return report(
+        ctx, sorted(apply_exceptions(findings, policy)), len(selected), durations
+    )
+
+
+def report(
+    ctx: Context, findings: list[Finding], files: int, durations: dict[str, float]
+) -> bool:
     for finding in findings:
         print(finding)
-    print(f"lint: {len(findings)} findings in {len(selected)} files")
+    print(f"lint: {len(findings)} findings in {files} files")
     if ctx.run is not None:
+        invalid_config = any(item.rule == "configuration" for item in findings)
+        if invalid_config:
+            ctx.run.add_result("lint:configuration", False, str(findings[0]))
         for rule in RULES:
             count = sum(item.rule == rule for item in findings)
+            details = (
+                "blocked by invalid lint configuration"
+                if invalid_config
+                else f"{count} findings"
+            )
             ctx.run.add_result(
-                f"lint:{rule}", count == 0, f"{count} findings", durations[rule]
+                f"lint:{rule}",
+                count == 0 and not invalid_config,
+                details,
+                durations.get(rule, 0.0),
             )
     return not findings

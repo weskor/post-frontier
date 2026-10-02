@@ -1,6 +1,7 @@
 """Blocking diagnostics and the single rollout/exception configuration."""
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from functools import cache
@@ -71,9 +72,25 @@ class Policy:
         return any(matches(path, pattern) for pattern in self.rules.get(rule, []))
 
 
-def load(repo: Path) -> Policy:
+class PolicyError(ValueError):
+    def __init__(self, path: str, error: Exception) -> None:
+        self.path = path
+        super().__init__(str(error))
+
+
+@contextmanager
+def configuration(path: str) -> Iterator[None]:
+    try:
+        yield
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        raise PolicyError(path, error) from error
+
+
+def load_rules(repo: Path) -> dict[str, list[str]]:
     with (repo / "Tools/x/lint.toml").open("rb") as source:
         rules = tomllib.load(source)["rules"]
+    if not isinstance(rules, dict):
+        raise ValueError("rules must be a table")
     if set(rules) != set(RULES):
         raise ValueError("lint.toml must configure every known rule exactly once")
     if any(
@@ -81,8 +98,19 @@ def load(repo: Path) -> Policy:
         for v in rules.values()
     ):
         raise ValueError("rule scopes must be lists of path globs")
+    return rules
+
+
+def load_exceptions(repo: Path, rules: dict[str, list[str]]) -> list[ExceptionEntry]:
     with (repo / "Tools/x/lint-exceptions.toml").open("rb") as source:
         entries = tomllib.load(source).get("exceptions", [])
+    if not isinstance(entries, list) or any(
+        not isinstance(entry, dict)
+        or set(entry) != {"rule", "path", "reason"}
+        or any(not isinstance(value, str) for value in entry.values())
+        for entry in entries
+    ):
+        raise ValueError("exceptions must be entries with string rule, path and reason")
     exceptions = [ExceptionEntry(**entry) for entry in entries]
     seen: set[tuple[str, str]] = set()
     for entry in exceptions:
@@ -96,6 +124,14 @@ def load(repo: Path) -> Policy:
         ):
             raise ValueError(f"invalid or duplicate exception: {entry}")
         seen.add(key)
+    return exceptions
+
+
+def load(repo: Path) -> Policy:
+    with configuration("Tools/x/lint.toml"):
+        rules = load_rules(repo)
+    with configuration("Tools/x/lint-exceptions.toml"):
+        exceptions = load_exceptions(repo, rules)
     return Policy(rules, exceptions)
 
 

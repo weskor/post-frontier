@@ -54,11 +54,14 @@ def format_files(ctx: Context, paths: list[str], *, fix: bool) -> list[Finding]:
             ctx, [binary(ctx, "ruff"), "format", "--check", *python], "format-check"
         )
         if checked.returncode:
-            findings.append(
-                Finding(
-                    python[0], 1, "format", (checked.stdout + checked.stderr).strip()
-                )
+            output = checked.stdout + checked.stderr
+            changed = re.findall(r"^Would reformat: (.+)$", output, re.MULTILINE)
+            findings.extend(
+                Finding(path, 1, "format", "file differs from Ruff formatting")
+                for path in changed
             )
+            if not changed:
+                findings.extend(diagnostics(checked, "format", python[0]))
     if cpp:
         findings.extend(format_cpp(ctx, cpp, fix=fix))
     return findings

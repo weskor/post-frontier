@@ -1,3 +1,41 @@
 # Entries require an enabled rule, exact repository path and nonempty reason.
 # An entry that matches no finding blocks the check.
-exceptions = []
+[[exceptions]]
+rule = "suppression"
+path = "Tools/tests/test_lint_rules.py"
+reason = "Literal suppression tokens are seeded into disposable code files to verify that the suppression detector blocks them; no test or lint is suppressed."
+
+[[exceptions]]
+rule = "disabled-test"
+path = "Tools/tests/test_lint_rules.py"
+reason = "Literal disabled-test tokens are seeded into disposable code files to test detection; the tests themselves are enabled."
+
+[[exceptions]]
+rule = "marker"
+path = "Tools/tests/test_lint_rules.py"
+reason = "Literal marker and stub tokens are inputs for detector and string-boundary tests, not unfinished test implementations."
+
+[[exceptions]]
+rule = "direct-engine"
+path = "Tools/tests/test_lint_rules.py"
+reason = "Literal engine-command tokens are inputs to source and documentation detection tests; these tests never invoke Unreal."
+
+[[exceptions]]
+rule = "marker"
+path = "Tools/tests/test_lint_run.py"
+reason = "A literal marker is written to a disposable file to prove that a used exception passes and becomes blocking when unused."
+
+[[exceptions]]
+rule = "suppression"
+path = "Tools/x/lint/source.py"
+reason = "The detector's regular-expression definitions name suppression tokens so that it can reject them; they do not suppress any lint."
+
+[[exceptions]]
+rule = "disabled-test"
+path = "Tools/x/lint/source.py"
+reason = "The detector's regular-expression definitions name disabled-test tokens; no test is disabled."
+
+[[exceptions]]
+rule = "marker"
+path = "Tools/x/lint/source.py"
+reason = "The detector's regular-expression definitions name marker tokens to reject them; the engine has no stub implementation."

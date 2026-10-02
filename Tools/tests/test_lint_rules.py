@@ -6,6 +6,20 @@ import pytest
 from x.lint import docs, source
 from x.lint.model import ExceptionEntry, Finding, Policy, apply_exceptions, matches
 
+CPP_FIXTURE = """namespace
+{
+int Classify(int value)
+{
+    return value;
+}
+}
+
+int Policy::Evaluate(int value)
+{
+    return Classify(value);
+}
+"""
+
 
 @pytest.mark.parametrize(
     ("rule", "seed"),
@@ -21,26 +35,31 @@ from x.lint.model import ExceptionEntry, Finding, Policy, apply_exceptions, matc
         ("disabled-test", "skipif"),
         ("disabled-test", "pytest.mark.xfail"),
         ("disabled-test", "unittest.skip"),
+        ("disabled-test", 'pytest.skip("not available")'),
+        ("disabled-test", 'pytest.xfail("expected failure")'),
         ("marker", "// TODO"),
         ("marker", "// FIXME"),
         ("marker", "// HACK"),
         ("marker", "// XXX"),
         ("marker", "raise NotImplementedError"),
         ("marker", "unimplemented()"),
-        ("direct-engine", "Unreal" + "Editor"),
-        ("direct-engine", "Unreal" + "Editor-Cmd"),
-        ("direct-engine", "Build" + ".sh"),
-        ("direct-engine", "Run" + "UAT"),
-        ("direct-engine", "Unreal" + "BuildTool"),
-        ("direct-engine", "Generate" + "ProjectFiles"),
+        ("direct-engine", "UnrealEditor"),
+        ("direct-engine", "UnrealEditor-Cmd"),
+        ("direct-engine", "Build.sh"),
+        ("direct-engine", "RunUAT"),
+        ("direct-engine", "UnrealBuildTool"),
+        ("direct-engine", "GenerateProjectFiles"),
     ],
 )
-def test_seeded_workarounds(tmp_path: Path, rule: str, seed: str) -> None:
-    original = Path(__file__).parents[2] / "Source/CoopRTS/Rules/ProductionPolicy.cpp"
-    copy = tmp_path / "policy.cpp"
-    text = original.read_text() + seed + "\n"
+@pytest.mark.parametrize("suffix", [".cpp", ".py"])
+def test_seeded_workarounds(tmp_path: Path, rule: str, seed: str, suffix: str) -> None:
+    original = (
+        CPP_FIXTURE if suffix == ".cpp" else "def policy() -> int:\n    return 1\n"
+    )
+    copy = tmp_path / f"policy{suffix}"
+    text = original + seed + "\n"
     copy.write_text(text)
-    findings = source.scan(rule, "Source/policy.cpp", copy.read_text())
+    findings = source.scan(rule, f"Source/policy{suffix}", copy.read_text())
     assert [(item.rule, item.line) for item in findings] == [
         (rule, len(text.splitlines()))
     ]
@@ -49,11 +68,11 @@ def test_seeded_workarounds(tmp_path: Path, rule: str, seed: str) -> None:
 @pytest.mark.parametrize(
     "command",
     [
-        "Unreal" + "Editor map",
-        "Unreal" + "Editor-Cmd map",
-        "Engine/Build" + ".sh target",
-        "Run" + "UAT BuildCookRun",
-        "Unreal" + "BuildTool target",
+        "UnrealEditor map",
+        "UnrealEditor-Cmd map",
+        "Engine/Build.sh target",
+        "RunUAT BuildCookRun",
+        "UnrealBuildTool target",
         "python3 Build/GenerateMap.py",
         "uv run pytest",
         "blender -b asset",
@@ -138,10 +157,8 @@ def test_size_boundaries_and_cpp_nested_braces(tmp_path: Path) -> None:
     ] == [501]
 
 
-def test_real_source_cpp_and_class_inline_functions() -> None:
-    root = Path(__file__).parents[2]
-    text = (root / "Source/CoopRTS/Rules/ProductionPolicy.cpp").read_text()
-    assert source.cpp_functions(text) == [(5, 28), (31, 41)]
+def test_cpp_namespace_and_class_inline_functions() -> None:
+    assert source.cpp_functions(CPP_FIXTURE) == [(3, 6), (9, 12)]
     text = "class Thing\n{\n int Run()\n {\n  if (true) { return 1; }\n  return 0;\n }\n};\n"
     assert source.cpp_functions(text) == [(3, 7)]
     text = "def run() -> None:\n" + "    pass\n" * 60

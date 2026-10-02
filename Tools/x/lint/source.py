@@ -1,16 +1,14 @@
 """Lexical workaround, include-boundary and source-size checks."""
 
 import ast
-import io
 from pathlib import Path
 import re
-import tokenize
 
 from x.lint.model import CODE, Finding
 
 PATTERNS = {
     "suppression": r"\b(?:NOLINT\w*|noqa|type\s*:\s*ignore|pyright\s*:\s*ignore)\b|#\s*if\s+0\b|clang-format\s+off",
-    "disabled-test": r"EAutomationTestFlags::Disabled|pytest\.mark\.(?:skip\w*|xfail)\b|\bskipif\b|unittest\.skip\w*\b",
+    "disabled-test": r"EAutomationTestFlags::Disabled|pytest\.mark\.(?:skip\w*|xfail)\b|pytest\.(?:skip|xfail)\s*\(|\bskipif\b|unittest\.skip\w*\b",
     "marker": r"\b(?:TODO|FIXME|HACK|XXX)\b|raise\s+NotImplementedError\b|\bunimplemented\s*\(",
     "direct-engine": r"\b(?:UnrealEditor(?:-Cmd)?|Build\.sh|RunUAT\w*|UnrealBuildTool|GenerateProjectFiles\w*)\b",
 }
@@ -23,25 +21,6 @@ LEXEMES = re.compile(
 
 def blank(match: re.Match[str]) -> str:
     return "".join("\n" if char == "\n" else " " for char in match.group())
-
-
-def python_visible(text: str) -> str:
-    lines = text.splitlines(keepends=True)
-    try:
-        tokens = tokenize.generate_tokens(io.StringIO(text).readline)
-        for token in tokens:
-            if token.type != tokenize.STRING:
-                continue
-            (start, col), (end, end_col) = token.start, token.end
-            for line in range(start - 1, end):
-                left = col if line == start - 1 else 0
-                right = end_col if line == end - 1 else len(lines[line].rstrip("\n"))
-                lines[line] = (
-                    lines[line][:left] + " " * (right - left) + lines[line][right:]
-                )
-    except (tokenize.TokenError, IndentationError):
-        pass
-    return "".join(lines)
 
 
 def cpp_functions(text: str) -> list[tuple[int, int]]:
@@ -111,14 +90,12 @@ def scan(rule: str, path: str, text: str) -> list[Finding]:
     if rule == "direct-engine" and path.startswith(("Tools/x/", "Tools/harness/")):
         return []
     if rule in PATTERNS:
-        visible = python_visible(text) if suffix == ".py" or path == "x" else text
+        visible = text
         if suffix != ".py" and path != "x" and rule != "direct-engine":
             visible = LEXEMES.sub(
                 lambda m: m.group() if m.group().startswith(("//", "/*")) else blank(m),
                 text,
             )
-        if rule == "direct-engine":
-            visible = text
         return [
             Finding(
                 path,
