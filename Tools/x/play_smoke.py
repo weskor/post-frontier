@@ -155,7 +155,10 @@ def supervise(
     result = supervisor.result
     child = supervisor.child
     try:
-        if supervisor.await_startup(started + startup, shipping) and supervisor.terminate():
+        if (
+            supervisor.await_startup(started + startup, shipping)
+            and supervisor.terminate()
+        ):
             supervisor.await_shutdown(time.monotonic() + shutdown, shipping)
     except KeyboardInterrupt:
         result.interrupted = True

@@ -89,6 +89,7 @@ EHUDAction ACommandHUD::GetActionAtScreenPosition(const FVector2D& Position) con
 	return Layout.Scale > 0.f ? HitTest(Context, Layout, Position / Layout.Scale) : EHUDAction::None;
 }
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 bool ACommandHUD::FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const
 {
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
@@ -108,6 +109,7 @@ bool ACommandHUD::FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosi
 	});
 	return bFound;
 }
+#endif
 
 bool ACommandHUD::GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) const
 {

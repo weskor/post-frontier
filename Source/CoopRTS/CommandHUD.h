@@ -68,8 +68,10 @@ public:
 	// Drawing and hit testing share one layout computed from the viewport size and local presentation state.
 	bool IsPanelPoint(const FVector2D& Position) const;
 	EHUDAction GetActionAtScreenPosition(const FVector2D& Position) const;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Screen-space centre of a currently clickable action; false when hidden or unavailable.
 	bool FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const;
+#endif
 	bool GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) const;
 	bool GetMinimapWorldPosition(const FVector2D& Position, FVector& OutWorld) const;
 	bool GetAlertWorldPosition(const FVector2D& Position, FVector& OutWorld, int32& OutSequence) const;

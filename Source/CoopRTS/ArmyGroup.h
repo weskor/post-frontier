@@ -52,10 +52,12 @@ public:
 	const FVector& GetHomeLocation() const { return HomeLocation; }
 	bool IsOpposingArmy() const { return bOpposingArmy; }
 	const TArray<TObjectPtr<AArmyUnit>>& GetUnits() const { return Units; }
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	bool SpawnUnits();
 	// Authority-owned encounters may create joined members without a producer.
 	// Paid reinforcement continues to use SpawnReinforcement exclusively.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
+#endif
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	void SettleMatch();
 	FVector GetCenter() const;

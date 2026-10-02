@@ -101,13 +101,13 @@ paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py"]
 
 [test-only-symbol]
 identifiers = [
-    "FSimulationSettings", "FMatchSimulation", "CoopRTSMatchSimulation", "bVerificationIncomePaused",
+    "FSimulationSettings", "FSimulationDuelRunner", "FMatchSimulation", "CoopRTSMatchSimulation", "bVerificationIncomePaused",
     "ArmyTestSetup", "IMPLEMENT_SIMPLE_AUTOMATION_TEST", "IMPLEMENT_COMPLEX_AUTOMATION_TEST",
     "CoopRTSNetworkVerification", "VerifySession", "VerifySteamSession",
-    "bVerifyPendingRejection",
+    "bVerifyPendingRejection", "FindActionScreenPosition", "SpawnUnits", "SpawnMember", "InitialUnitCount",
 ]
 flags = [
-    "autopilot", "SimSeed", "SimBaseline", "SimNormalRate", "SimRichRate",
+    "autopilot", "SimDuel", "SimSeed", "SimBaseline", "SimNormalRate", "SimRichRate",
     "SimNormalAmount", "SimRichAmount", "SimTimeCap", "SimDilation", "SimOutput",
     "CoopRTSNetVerifyDir", "CoopRTSNetVerifyPeer", "CoopRTSNetVerifyAuthority",
     "CoopSteam.Verify", "CoopSteamVerify",

@@ -26,8 +26,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogArmyOrders, Log, All);
 
 namespace
 {
-constexpr int32 InitialUnitCount = 6;
-constexpr int32 MaxUnitCount = InitialUnitCount;
+constexpr int32 MaxUnitCount = 6;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+constexpr int32 InitialUnitCount = MaxUnitCount;
+#endif
 
 struct FPreparedMove
 {
@@ -152,6 +154,7 @@ FVector AArmyGroup::FormationOffset(int32 Index) const
 		(Index % 2 ? 1.f : -1.f) * 140.f, 0.f);
 }
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 bool AArmyGroup::SpawnUnits()
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
@@ -227,6 +230,8 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 	ForceNetUpdate();
 	return Unit;
 }
+#endif
+
 bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
