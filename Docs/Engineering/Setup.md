@@ -56,7 +56,7 @@ The runner owns:
 
 ## Parallel work
 
-- **One branch and one git worktree per task.** Each worktree has its own `Binaries/` and `Intermediate/`; a full module build takes 10–15 s, so that's cheap. The derived-data cache is shared.
+- **One branch per task, one git worktree per worker slot.** A slot's worktree is reused for its next task once the previous one has landed, so its `Binaries/` and `Intermediate/` stay warm; a full module build in a fresh worktree takes 10–15 s. The derived-data cache is shared. Roles, panes and the task loop are in the [orchestrate skill](../../.agents/skills/orchestrate/SKILL.md).
 - **Unity builds are off** for the game module. Today two agents adding same-named helpers in different files can break each other's build ([architecture audit](Audit/architecture.md)).
 - **Generated binaries never conflict:** agents don't commit them, and `land` regenerates them serially under the exclusive lock.
 - **Feature folders:** code, tests and the scope entry for a feature live together, so a task touches one folder plus the shared interfaces.
@@ -98,7 +98,7 @@ Strict in enforcement, careful in which rules it carries: checks that people see
    - edits to generated files outside `land`;
    - `TODO`, `FIXME`, `HACK` and stub markers;
    - docs citing paths under `Saved/`;
-   - procedure text duplicated outside `./x help` and `AGENTS.md`.
+   - procedure text duplicated outside `./x help`, `AGENTS.md` and the orchestrate skill.
 2. **Architecture rules:** which layer may include or call which.
    - Pure rules code includes no actors.
    - Only the command layer calls network commands.
