@@ -159,7 +159,11 @@ def place_barracks(
     run: NetworkRun, s: Session, count: int, description: str
 ) -> tuple[Sequence[float], dict[str, JsonObject]]:
     candidate = run.request("host", "placement", kind=BARRACKS)["placementCandidate"]
-    run.request(s.peer, "build", kind=BARRACKS, x=candidate[0], y=candidate[1])
+    run.request(s.peer, "key", key="B", pressed=True)
+    run.request(s.peer, "key", key="B", pressed=False)
+    run.request(s.peer, "key", key="Q", pressed=True)
+    run.request(s.peer, "key", key="Q", pressed=False)
+    run.request(s.peer, "place", x=candidate[0], y=candidate[1])
     return candidate, converged(
         run,
         s.names,

@@ -42,14 +42,14 @@ Research: [input.md](../Research/input.md).
 - **Order keys** cover the rest, for one order each, then the mode ends: **A** then a region = Attack that region; **R** = Retreat. The same buttons sit on the force card. Esc or right-click cancels a pending order key.
 - **Previews:** the cursor shows which order a right-click will give, and the route preview appears before you confirm. Shift queues up to 3 orders.
 - **No drag-to-order.** It duplicates right-click and doesn't work on a controller.
-- **Feedback rules:** a rejected order keeps the mode open and says why. A greyed-out button explains itself when clicked. Messages fade after a few seconds.
+- **Feedback rules:** a rejected order keeps the mode open and says why **[Change]**; rejected placements already do **[Built]**. A greyed-out gameplay button explains itself when clicked **[Built]**. Messages hold for **3 s**, then fade over **1 s** (starting values) **[Built]**.
 
 **Force bar:** a bottom row of force cards. Each shows the force number, unit type, strength (e.g. 5/6), current order, status with ETA (*Marching to West Cut · 0:20*), retreat or refill state, and whether it's cut off from supply. It also shows **production state**: refill progress, a pause/resume toggle, and an *upgrade available* badge that opens the building's panel.
 
 **Building panel:** the rare decisions stay at the building: tier upgrades, perk slots and the unit lock ([forces.md](forces.md)).
 
 **Building:**
-- An always-visible **build bar** grouped by category ([buildings.md](buildings.md)). Every button has a grid hotkey: **B**, then a letter.
+- **[Built]** An always-visible **build bar** grouped by category ([buildings.md](buildings.md)), replacing the deck's build cards. Every button shows cost, availability and a grid hotkey: **B**, then a letter. Letters follow bar order: **QWERT**, then **ASDFG**, then **ZXCVB**. Today's entries: **B Q** Barracks (Production), **B W** Extractor (Economy), **B E** Workshop (Tech).
 - Shift places several in a row. The new building is selected after placing. Esc or right-click cancels placement.
 
 **On the map:** the selected forces show their path line, a target highlight and their badge. Teammates see your orders as intent arrows.

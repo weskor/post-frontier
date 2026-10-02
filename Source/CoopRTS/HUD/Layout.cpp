@@ -108,13 +108,10 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Pause = { Layout.Menu.Right() - 190.f, Layout.Menu.Bottom() + Gap, 190.f, TopHeight };
 	Layout.Minimap = { Margin, Layout.Height - Margin - MinimapSize, MinimapSize, MinimapSize };
 	const float X = Layout.Minimap.Right() + Gap;
-	Layout.Construction = { X, Layout.Height - Margin - DeckHeight, BuildWidth, 28.f };
-	Layout.Build = { X, Layout.Construction.Bottom() + Gap, BuildWidth, DeckHeight - 28.f - Gap };
-	const float InspectorX = Layout.Build.Right() + Gap;
-	Layout.Inspector = { InspectorX, Layout.Height - Margin - DeckHeight,
-		FMath::Min(InspectorWidth, Layout.Width - InspectorX - Margin), DeckHeight };
+	Layout.Build = { X, Layout.Height - Margin - 88.f, FMath::Min(InspectorWidth, Layout.Width - X - Margin), 88.f };
+	Layout.Inspector = { X, Layout.Build.Y - Gap - DeckHeight, Layout.Build.W, DeckHeight };
 	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
-																		: FRect{ InspectorX, Layout.Height - Margin - ModeHeight, Layout.Inspector.W, ModeHeight };
+																	  : FRect{ X, Layout.Build.Y - Gap - ModeHeight, Layout.Build.W, ModeHeight };
 	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (Announcer && !Announcer->GetEvents().IsEmpty())
@@ -124,10 +121,10 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 			FMath::DivideAndRoundUp(Announcer->GetEvents().Last().Forces.Num(), Columns));
 		Layout.Objectives.H = FMath::Max(ObjectiveHeight, 27.f + Rows * (21.f + RowGap) - RowGap + Pad);
 	}
-	const float AlertBottom = FMath::Min(Layout.Construction.Y, Layout.Bottom.Y) - Gap - FeedbackHeight;
+	const float AlertBottom = FMath::Min(Layout.Build.Y, Layout.Bottom.Y) - Gap - FeedbackHeight;
 	Layout.Alerts = { Layout.Width - Margin - AlertWidth, Layout.Objectives.Bottom() + Gap, AlertWidth,
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
-	Layout.bFeedback = Context.Controller && !Context.Controller->GetOrderFeedback().IsEmpty();
+	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;
 	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
 	return Layout;
 }
@@ -151,8 +148,8 @@ FRect Row(const FRect& ColumnRect, int32 Index, int32 Count)
 
 FRect BuildCard(const FRect& Build, int32 Index, int32 Count)
 {
-	const float Height = FMath::Min(40.f, (Build.H - 2.f * Pad + 2.f - (Count - 1) * 6.f) / FMath::Max(1, Count));
-	return { Build.X + Pad, Build.Y + Pad + Index * (Height + 6.f), Build.W - 2.f * Pad, Height };
+	const float Width = (Build.W - 2.f * Pad - (Count - 1) * Gap) / FMath::Max(1, Count);
+	return { Build.X + Pad + Index * (Width + Gap), Build.Y + 30.f, Width, Build.H - 30.f - Pad };
 }
 
 FRect ResearchCard(const FRect& Inspector, int32 Index)
@@ -210,7 +207,7 @@ EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector
 {
 	EHUDAction Result = EHUDAction::None;
 	ForEachButton(Context, Layout, [&Result, &VirtualPoint](const FButton& Button) {
-		if ((Button.Available() || Button.Action == EHUDAction::ActivePause) && Button.Rect.Contains(VirtualPoint))
+		if (Button.Rect.Contains(VirtualPoint))
 			Result = Button.Action;
 	});
 	return Result;

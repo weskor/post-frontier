@@ -28,7 +28,6 @@ constexpr int32 MaxObjectiveForceRows = 3;
 constexpr float AlertWidth = 390.f;
 constexpr float AlertLineHeight = 17.f;
 constexpr float DeckHeight = 186.f;
-constexpr float BuildWidth = 174.f;
 constexpr float InspectorWidth = 720.f;
 constexpr float MinimapSize = 144.f;
 constexpr float ModeHeight = 62.f;
@@ -106,7 +105,6 @@ struct FLayout
 	FRect Build;
 	FRect Inspector;
 	FRect Minimap;
-	FRect Construction;
 	FRect Feedback;
 	FRect Menu;
 	FRect Pause;

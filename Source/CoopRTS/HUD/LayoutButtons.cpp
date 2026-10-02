@@ -115,7 +115,8 @@ static void BuildButtons(const FContext& Context, const FLayout& Layout, TFuncti
 	{
 		const UBuildingDefinition* Definition = Content->Building(Index);
 		if (Definition)
-			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, EBlock::None, false);
+			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, EBlock::None,
+				Context.Controller->IsPlacingBuilding() && Context.Controller->GetPlacementIndex() == Index);
 	}
 }
 
@@ -181,17 +182,14 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 	const bool bSpent = Context.State && Context.State->IsCoopPauseSpent() && !Context.State->IsActivePaused();
 	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
 		Context.State && Context.State->IsActivePaused(), 0 });
-	Visit(FButton{ EHUDAction::Construction, Layout.Construction, EBlock::None, false, 0 });
+	BuildButtons(Context, Layout, Visit);
 	if (CanPingInspectedForce(Context))
 	{
 		EmitButton(Context, Visit, EHUDAction::PingTeammateForce, Row(Column(Layout.Inspector, 0, 3), 1), 0, EBlock::None, false);
-		if (Context.bExpanded)
-			BuildButtons(Context, Layout, Visit);
 		return;
 	}
 	if (!Context.bExpanded)
 		return;
-	BuildButtons(Context, Layout, Visit);
 	const ACommandBuilding* Building = Context.Building;
 	if (!Building)
 		return;

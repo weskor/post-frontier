@@ -279,6 +279,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		if (It->IsLocalController())
 		{
 			Result->SetStringField(TEXT("orderFeedback"), It->GetOrderFeedback());
+			Number(Result, TEXT("feedbackOpacity"), It->GetFeedbackOpacity());
 			Result->SetBoolField(TEXT("hudExpanded"), It->IsHUDExpanded());
 			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
 			Result->SetBoolField(TEXT("assigningGoal"), It->IsAssigningGoal());
@@ -607,6 +608,14 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		}
 		return FString();
 	}
+	if (Action == TEXT("place"))
+	{
+		if (!PC || !PC->IsPlacingBuilding())
+			return TEXT("placement mode unavailable");
+		PC->PlaceBuildingAt(FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f),
+			PC->IsInputKeyDown(EKeys::LeftShift) || PC->IsInputKeyDown(EKeys::RightShift));
+		return FString();
+	}
 	// Shared controller/HUD path checks, not native OS input. Commands still use the owning-controller RPCs.
 	if (Action == TEXT("select") || Action == TEXT("hud") || Action == TEXT("hudClick") || Action == TEXT("key")
 		|| Action == TEXT("screenshot") || Action == TEXT("resolution") || Action == TEXT("cursor"))
@@ -709,7 +718,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const EHUDAction HUDAction = static_cast<EHUDAction>(Request->GetIntegerField(TEXT("hudAction")));
 			FVector2D Position;
 			if (!HUD || !HUD->FindActionScreenPosition(HUDAction, Position))
-				return TEXT("HUD action not visible and available");
+				return TEXT("HUD action not visible");
 			if (HUD->GetActionAtScreenPosition(Position) != HUDAction)
 				return TEXT("HUD hit test disagrees with drawn geometry");
 			if (!PC->HandleHUDClick(Position))
@@ -732,8 +741,9 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				&& KeyName != TEXT("One") && KeyName != TEXT("Two") && KeyName != TEXT("Three")
 				&& KeyName != TEXT("Four") && KeyName != TEXT("Five")
 				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R")
-				&& KeyName != TEXT("P") && KeyName != TEXT("G"))
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P")
+				&& KeyName != TEXT("G") && KeyName != TEXT("B") && KeyName != TEXT("W") && KeyName != TEXT("E")
+				&& KeyName != TEXT("T") && KeyName != TEXT("A") && KeyName != TEXT("RightMouseButton"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
@@ -979,6 +989,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		if (!Victim)
 			return TEXT("live casualty or hostile shooter unavailable");
 		AArmyUnit* Shooter = nullptr;
+		AArmyGroup* CasualtyFixture = nullptr;
 		for (TActorIterator<AArmyGroup> It(World); It && !Shooter; ++It)
 			if (It->GetTeamIndex() == 5 && It->GetTeamIndex() != Victim->GetTeamIndex())
 				for (AArmyUnit* Candidate : It->GetUnits())
@@ -1000,6 +1011,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				return TEXT("hostile casualty fixture allocation failed");
 			Hostile->Initialize(FArmyGroupSpawn{ 5, State->EnemyCommander, -1, nullptr, Transform.GetLocation() });
 			Hostile->FinishSpawning(Transform);
+			CasualtyFixture = Hostile;
 			if (!Hostile->SpawnUnits())
 			{
 				Hostile->Destroy();
@@ -1015,6 +1027,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			return TEXT("live casualty or hostile shooter unavailable");
 		// Twice the remaining health stays lethal through entrenched-frontline damage reduction.
 		Victim->ReceiveAttack(Victim->GetHealth() * 2, Shooter);
+		if (CasualtyFixture)
+			CasualtyFixture->Destroy();
 		return !Victim->IsAlive() ? FString() : TEXT("hostile damage did not kill casualty");
 	}
 	if (Action == TEXT("finish"))

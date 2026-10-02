@@ -9,6 +9,7 @@
 #include "CommandGameState.h"
 #include "Content/MatchContent.h"
 #include "CommandHUD.h"
+#include "HUD/HUDPanels.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "Components/BoxComponent.h"
@@ -85,7 +86,10 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bAssigningGoal = false;
 	bHUDExpanded = true;
 	bPlacementPending = false;
+	bPlacementCancelled = false;
 	Feedback.Reset();
+	bBuildHotkeyPending = false;
+	bRepeatPlacement = false;
 	bInitialFocusPending = true;
 	FocusedAlertSequence = 0;
 	LatestAlertSequence = 0;
@@ -153,11 +157,57 @@ void ACommandPlayerController::SetupInputComponent()
 	}
 }
 
+bool ACommandPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	if (GetUIScreen() == ECommandScreen::Game && Params.Event == IE_Pressed)
+	{
+		if (Params.Key == EKeys::B)
+		{
+			bBuildHotkeyPending = true;
+			PendingPan = FVector2D::ZeroVector;
+			SetFeedback(TEXT("Build: B then Q Barracks / W Extractor / E Workshop. Esc or right-click cancels."));
+			return true;
+		}
+		if (bBuildHotkeyPending)
+		{
+			if (Params.Key == EKeys::Escape || Params.Key == EKeys::RightMouseButton)
+			{
+				CancelPointerMode();
+				return true;
+			}
+			static const FKey Keys[] = { EKeys::Q, EKeys::W, EKeys::E, EKeys::R, EKeys::T, EKeys::A };
+			constexpr EHUDAction BuildActions[] = { EHUDAction::BuildSlot0, EHUDAction::BuildSlot1, EHUDAction::BuildSlot2,
+				EHUDAction::BuildSlot3, EHUDAction::BuildSlot4, EHUDAction::BuildSlot5 };
+			for (int32 Index = 0; Index < UE_ARRAY_COUNT(Keys); ++Index)
+				if (Params.Key == Keys[Index])
+				{
+					bBuildHotkeyPending = false;
+					HandleHUDAction(BuildActions[Index]);
+					return true;
+				}
+		}
+	}
+	return Super::InputKey(Params);
+}
+
+void ACommandPlayerController::SetFeedback(const FString& Message)
+{
+	Feedback = Message;
+	FeedbackStarted = GetWorld()->GetRealTimeSeconds();
+}
+
+float ACommandPlayerController::GetFeedbackOpacity() const
+{
+	return Feedback.IsEmpty() ? 0.f : FMath::Clamp(static_cast<float>(4. - (GetWorld()->GetRealTimeSeconds() - FeedbackStarted)), 0.f, 1.f);
+}
+
 void ACommandPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 	if (!IsLocalController())
 		return;
+	if (!Feedback.IsEmpty() && GetFeedbackOpacity() <= 0.f)
+		Feedback.Reset();
 	if (GetUIScreen() != ECommandScreen::Game)
 	{
 		PendingPan = FVector2D::ZeroVector;
@@ -314,10 +364,26 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	}
 }
 
-void ACommandPlayerController::PanForward() { PendingPan.X += 1.f; }
-void ACommandPlayerController::PanBackward() { PendingPan.X -= 1.f; }
-void ACommandPlayerController::PanLeft() { PendingPan.Y -= 1.f; }
-void ACommandPlayerController::PanRight() { PendingPan.Y += 1.f; }
+void ACommandPlayerController::PanForward()
+{
+	if (!bBuildHotkeyPending)
+		PendingPan.X += 1.f;
+}
+void ACommandPlayerController::PanBackward()
+{
+	if (!bBuildHotkeyPending)
+		PendingPan.X -= 1.f;
+}
+void ACommandPlayerController::PanLeft()
+{
+	if (!bBuildHotkeyPending)
+		PendingPan.Y -= 1.f;
+}
+void ACommandPlayerController::PanRight()
+{
+	if (!bBuildHotkeyPending)
+		PendingPan.Y += 1.f;
+}
 void ACommandPlayerController::ZoomIn()
 {
 	if (GetUIScreen() != ECommandScreen::Game)
@@ -379,13 +445,13 @@ void ACommandPlayerController::AssignGoalAt(const FVector& Location)
 	const AMapRegion* Region = State ? State->FindRegionAt(Location) : nullptr;
 	if (!Region)
 	{
-		Feedback = TEXT("Choose a region on the ground or minimap.");
+		SetFeedback(TEXT("Choose a region on the ground or minimap."));
 		PlayUISound(TEXT("Reject"));
 		return;
 	}
 	bAssigningGoal = false;
 	bHUDExpanded = true;
-	Feedback = TEXT("Goal sent; awaiting server.");
+	SetFeedback(TEXT("Goal sent; awaiting server."));
 	OrderCommands->ServerAssignGoal(SelectedBuilding, PendingGoal, Region->RegionIndex);
 }
 
@@ -441,7 +507,7 @@ bool ACommandPlayerController::CanIssueGameplayCommand()
 {
 	if (GetUIScreen() == ECommandScreen::Game)
 		return true;
-	Feedback = TEXT("Match over: press Enter to restart.");
+	SetFeedback(TEXT("Match over: press Enter to restart."));
 	return false;
 }
 
@@ -503,9 +569,9 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 
 void ACommandPlayerController::Escape()
 {
-	if (bPlacingBuilding || bAssigningGoal)
+	if (bPlacingBuilding || bAssigningGoal || bBuildHotkeyPending)
 	{
-		CancelMode();
+		CancelPointerMode();
 		return;
 	}
 	const ECommandScreen Current = GetUIScreen();
@@ -642,16 +708,19 @@ bool ACommandPlayerController::IsOwnedBuilding(const ACommandBuilding* Building)
 
 void ACommandPlayerController::CancelMode()
 {
+	if (bPlacementPending)
+		bPlacementCancelled = true;
 	bPlacingBuilding = false;
 	bAssigningGoal = false;
 	bSelectionDragging = false;
-	bPlacementPending = false;
+	bBuildHotkeyPending = false;
+	bRepeatPlacement = false;
 	bHUDExpanded = true;
 }
 
 void ACommandPlayerController::ToggleHUD()
 {
-	if (GetUIScreen() != ECommandScreen::Game)
+	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningGoal)
 		return;
 	bHUDExpanded = !bHUDExpanded;
 }
@@ -898,17 +967,13 @@ void ACommandPlayerController::SelectUnderCursor()
 		if (!CanIssueGameplayCommand() || bPlacementPending)
 			return;
 		FVector Location;
-		FString Reason;
-		bool bCanPlace = false;
-		if (!GetPlacementPreview(Location, Reason, bCanPlace) || !bCanPlace)
+		if (!CursorGround(Location))
 		{
-			Feedback = Reason.IsEmpty() ? TEXT("Point at ground to place.") : Reason;
+			SetFeedback(TEXT("Point at ground to place."));
 			PlayUISound(TEXT("Reject"));
 			return;
 		}
-		bPlacementPending = true;
-		ConstructionCommands->ServerPlaceBuilding(PlacementIndex, Location);
-		Feedback = TEXT("Placement sent; server checks navigation and cost.");
+		PlaceBuildingAt(Location, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
 		return;
 	}
 	if (bAssigningGoal)
@@ -917,13 +982,32 @@ void ACommandPlayerController::SelectUnderCursor()
 		if (CursorGround(Location))
 			AssignGoalAt(Location);
 		else
-			Feedback = TEXT("Choose a region on the ground or minimap.");
+			SetFeedback(TEXT("Choose a region on the ground or minimap."));
 		return;
 	}
 	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
 	FHitResult Hit;
 	AActor* Actor = CursorHit(Hit) ? Hit.GetActor() : nullptr;
 	SelectActor(Actor, bToggle);
+}
+
+void ACommandPlayerController::PlaceBuildingAt(const FVector& Requested, bool bRepeat)
+{
+	if (!bPlacingBuilding || bPlacementPending || !CanIssueGameplayCommand())
+		return;
+	FString Reason;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const FVector Location = State ? State->ResolveBuildingLocation(PlacementIndex, Requested) : Requested;
+	if (!CanPlaceBuildingAt(PlacementIndex, Location, Reason))
+	{
+		SetFeedback(Reason);
+		PlayUISound(TEXT("Reject"));
+		return;
+	}
+	bPlacementPending = true;
+	bRepeatPlacement = bRepeat;
+	SetFeedback(TEXT("Placement sent; server checks navigation and cost."));
+	ConstructionCommands->ServerPlaceBuilding(PlacementIndex, Location);
 }
 
 void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
@@ -945,32 +1029,65 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 			PingCommands->ServerPing(Force->GetCenter(), Force);
 		return;
 	}
+	const CommandHUDPanels::FContext Context = CommandHUDPanels::MakeContext(this);
+	const CommandHUDPanels::FLayout Layout = CommandHUDPanels::MakeLayout(Context, 1280.f, 720.f);
+	bool bBlocked = false;
+	CommandHUDPanels::ForEachButton(Context, Layout, [&](const CommandHUDPanels::FButton& Button) {
+		if (Button.Action == Action && !Button.Available())
+		{
+			bBlocked = true;
+			switch (Button.Block)
+			{
+			case CommandHUDPanels::EBlock::Funds:
+				SetFeedback(FString::Printf(TEXT("Need %d more Power."), Button.Shortfall));
+				break;
+			case CommandHUDPanels::EBlock::ForceLocked:
+				SetFeedback(TEXT("Force type locked after Start."));
+				break;
+			case CommandHUDPanels::EBlock::ForceUnconfigured:
+				SetFeedback(TEXT("Start & Lock this force first."));
+				break;
+			case CommandHUDPanels::EBlock::Chosen:
+				SetFeedback(TEXT("Specialization locked: one per commander."));
+				break;
+			default:
+				SetFeedback(TEXT("Match over."));
+				break;
+			}
+		}
+	});
+	if (bBlocked)
+	{
+		PlayUISound(TEXT("Reject"));
+		return;
+	}
 	const bool bGoalAction = Action == EHUDAction::GoalHold || Action == EHUDAction::GoalExpand
 		|| Action == EHUDAction::GoalAssault || Action == EHUDAction::GoalFallBack;
 	PlayUISound(bGoalAction ? TEXT("Front") : TEXT("Click"));
-	if (Action == EHUDAction::Construction)
-	{
-		CancelMode();
-		return;
-	}
 	if (!CanIssueGameplayCommand())
 		return;
 	const int32 BuildIndex = BuildSlot(Action);
 	if (BuildIndex != INDEX_NONE)
 	{
+		if (bPlacementPending)
+		{
+			SetFeedback(TEXT("Waiting for placement confirmation."));
+			return;
+		}
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 		if (!State || !IsValid(State->Content) || !State->Content->Building(BuildIndex))
 			return;
 		PlacementIndex = BuildIndex;
 		bPlacingBuilding = true;
+		bBuildHotkeyPending = false;
 		bAssigningGoal = false;
 		bHUDExpanded = false;
-		Feedback = TEXT("Left-click valid ground; right-click/Esc cancels.");
+		SetFeedback(TEXT("Left-click valid ground; Shift repeats; right-click/Esc cancels."));
 		return;
 	}
 	if (!IsOwnedBuilding(SelectedBuilding))
 	{
-		Feedback = TEXT("Select your building first.");
+		SetFeedback(TEXT("Select your building first."));
 		return;
 	}
 	if (Action == EHUDAction::SelectForce)
@@ -995,7 +1112,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	{
 		if (!SelectedBuilding->IsComplete() || !SelectedBuilding->bForceConfigured || !IsValid(SelectedBuilding->ForceGroup))
 		{
-			Feedback = TEXT("Complete this barracks and Start & Lock its force before assigning a goal.");
+			SetFeedback(TEXT("Complete this barracks and Start & Lock its force before assigning a goal."));
 			PlayUISound(TEXT("Reject"));
 			return;
 		}
@@ -1013,7 +1130,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		}
 		bAssigningGoal = true;
 		bHUDExpanded = false;
-		Feedback = TEXT("Choose a region on ground or minimap; right-click/Esc cancels.");
+		SetFeedback(TEXT("Choose a region on ground or minimap; right-click/Esc cancels."));
 		return;
 	}
 	if (Action == EHUDAction::ToggleProduction)
@@ -1193,28 +1310,36 @@ void ACommandPlayerController::FocusAlert()
 
 void ACommandPlayerController::CancelPointerMode()
 {
-	if (bPlacingBuilding || bAssigningGoal)
+	if (bPlacingBuilding || bAssigningGoal || bBuildHotkeyPending)
 	{
 		CancelMode();
-		Feedback = TEXT("Mode cancelled.");
+		SetFeedback(TEXT("Mode cancelled."));
 	}
 }
 
 void ACommandPlayerController::SetCommandFeedback(const FString& Message, bool bAccepted)
 {
-	Feedback = Message;
+	SetFeedback(Message);
 	if (!bAccepted)
 		PlayUISound(TEXT("Reject"));
 }
 
 void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool bAccepted)
 {
-	Feedback = Message;
 	bPlacementPending = false;
+	if (bPlacementCancelled)
+	{
+		bPlacementCancelled = false;
+		return;
+	}
+	SetFeedback(Message);
 	if (bAccepted)
 	{
-		bPlacingBuilding = false;
-		bHUDExpanded = true;
+		if (bPlacingBuilding)
+		{
+			bPlacingBuilding = bRepeatPlacement;
+			bHUDExpanded = !bRepeatPlacement;
+		}
 	}
 	else
 		PlayUISound(TEXT("Reject"));

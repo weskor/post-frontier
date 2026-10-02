@@ -8,7 +8,6 @@ from typing import cast
 
 from harness.hud_actions import (
     BUILD_BARRACKS,
-    CONSTRUCTION,
     RECIPE_SIEGE,
     RESEARCH_REPAIRS,
     SELECT_FORCE,
@@ -45,7 +44,7 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     capture.minimap(0.5, 0.5)
     capture.key("F")
 
-    capture.hud(BUILD_BARRACKS, "Build Barracks card enters placement")
+    capture.hud(BUILD_BARRACKS, "Build bar Barracks button enters placement")
     capture.wait(
         lambda s: s["placing"] and not s["hudExpanded"],
         "placement mode with collapsed deck",
@@ -63,15 +62,39 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     capture.shot("deck-hidden")
     capture.minimap(0.5, 0.5)
     capture.key("F")
-    capture.hud(CONSTRUCTION, "Persistent Construction button reopens hidden choices")
+    capture.hud(BUILD_BARRACKS, "Build bar remains clickable with the deck hidden")
+    capture.wait(lambda s: s["placing"], "hidden-deck build bar enters placement")
+    capture.key("RightMouseButton")
+    capture.wait(lambda s: not s["placing"], "right-click cancels placement")
+    capture.key("B")
+    capture.key("Q")
+    capture.wait(lambda s: s["placing"], "B Q starts Barracks placement")
+    capture.key("Escape")
     capture.wait(
-        lambda s: s["hudExpanded"], "Construction reopens deck without a hotkey"
+        lambda s: not s["placing"] and s["hudExpanded"],
+        "Escape cancels hotkey placement",
     )
-    capture.key("F4")
-    capture.wait(lambda s: not s["hudExpanded"], "F4 hides reopened deck")
-    capture.key("F4")
-    capture.wait(lambda s: s["hudExpanded"], "F4 reopens deck")
-    run.phase("Escape/F4 mappings and persistent Construction action")
+    run.phase("B Q, Escape/right-click cancellation and always-visible build bar")
+    owner = capture.state()["localIndex"]
+    run.request("host", "fund", owner=owner, amount=0)
+    capture.hud(BUILD_BARRACKS, "Greyed-out Barracks button explains its shortfall")
+    state = capture.wait(
+        lambda s: not s["placing"] and s["feedbackOpacity"] == 1,
+        "blocked build button feedback visible without entering placement",
+    )
+    require(wallet(state, owner)["wallet"] == 0, "blocked build click spent Power")
+    capture.shot("blocked-build-feedback-full")
+    capture.wait(
+        lambda s: 0.25 < s["feedbackOpacity"] < 0.75,
+        "message fades after its hold",
+    )
+    capture.shot("blocked-build-feedback-fading")
+    capture.wait(
+        lambda s: s["feedbackOpacity"] == 0 and not s["orderFeedback"],
+        "expired message clears",
+    )
+    capture.shot("blocked-build-feedback-expired")
+    run.phase("blocked build click explains itself; feedback fades and expires")
 
 
 def primary_barracks(run: NetworkRun, capture: Capture, owner: int) -> int:

@@ -31,11 +31,6 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 		Paint.TextIn(TEXT("Need help here [G]"), Button.Rect, 11.f,
 			Button.Available() ? Palette::Text : Palette::Muted, true, EAlign::Center);
 		break;
-	case EHUDAction::Construction:
-		Paint.Fill(Button.Rect, bHover ? Palette::CardHover : Palette::Panel);
-		Paint.Outline(Button.Rect, Palette::Friendly);
-		Paint.TextIn(TEXT("CONSTRUCTION"), Button.Rect, 10.f, Palette::Text, true, EAlign::Center);
-		break;
 	case EHUDAction::ResearchSiege:
 	case EHUDAction::ResearchRepairs:
 	case EHUDAction::ResearchEntrenched:

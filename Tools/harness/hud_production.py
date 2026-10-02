@@ -48,7 +48,10 @@ def start_and_starve(
     )
     progress = building(paused, barracks)["productionSeconds"]
     capture.shot("barracks-paused-locked-type")
-    run.request("host", "hud", hudAction=RECIPE_SIEGE, expect_rejection=True)
+    capture.hud(
+        RECIPE_SIEGE,
+        "Blocked locked-type button explains itself without changing production",
+    )
     locked = capture.state()
     require(
         building(locked, barracks)["recipe"] == RANGED

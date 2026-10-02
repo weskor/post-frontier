@@ -95,7 +95,7 @@ bool ACommandHUD::FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosi
 	const FLayout Layout = MakeLayout(Context, Width, Height);
 	bool bFound = false;
 	ForEachButton(Context, Layout, [&](const FButton& Button) {
-		if (Button.Action == Action && Button.Available())
+		if (Button.Action == Action)
 		{
 			OutPosition = Button.Rect.Center() * Layout.Scale;
 			bFound = true;
@@ -246,8 +246,6 @@ static void DrawCommandDeck(const FPainter& Paint, const FContext& Context, cons
 {
 	if (Context.bExpanded || CanPingInspectedForce(Context))
 	{
-		if (Context.bExpanded)
-			DrawBuildPanel(Paint, Layout);
 		Paint.Panel(Layout.Inspector);
 		if (Context.Building)
 			DrawBuildingInspector(Paint, Context, Layout.Inspector);
@@ -298,6 +296,7 @@ void ACommandHUD::DrawHUD()
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
+	DrawBuildPanel(Paint, Layout);
 	DrawCommandDeck(Paint, Context, Forces, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button) {
 		if (Button.Action == EHUDAction::Menu)

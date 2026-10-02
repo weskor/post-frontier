@@ -73,7 +73,7 @@ public:
 	bool IsPanelPoint(const FVector2D& Position) const;
 	EHUDAction GetActionAtScreenPosition(const FVector2D& Position) const;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
-	// Screen-space centre of a currently clickable action; false when hidden or unavailable.
+	// Screen-space centre of a visible action, including blocked buttons that explain clicks.
 	bool FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const;
 #endif
 	// Visible map badges use the same geometry for rendering, clicks, boxes and probes.

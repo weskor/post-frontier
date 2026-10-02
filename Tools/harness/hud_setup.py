@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from harness.hud_actions import BUILD_BARRACKS
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import BARRACKS, NetworkRun, building, owned_buildings, require
 from harness.verify import JsonObject
@@ -45,7 +46,9 @@ def place_barracks(
     run: NetworkRun, capture: Capture, owner: int, count: int, description: str
 ) -> JsonObject:
     candidate = run.request("host", "placement", kind=BARRACKS)["placementCandidate"]
-    run.request("host", "build", kind=BARRACKS, x=candidate[0], y=candidate[1])
+    if not run.observe("host")["placing"]:
+        capture.hud(BUILD_BARRACKS, "Barracks on the always-visible build bar")
+    run.request("host", "place", x=candidate[0], y=candidate[1])
     return capture.wait(
         lambda s: len(owned_buildings(s, owner, BARRACKS)) == count, description
     )

@@ -41,6 +41,7 @@ class COOPRTS_API ACommandPlayerController : public APlayerController
 public:
 	ACommandPlayerController();
 	virtual void PlayerTick(float DeltaTime) override;
+	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
 	ACommandBuilding* GetSelectedBuilding() const { return SelectedBuilding; }
 	const TArray<TObjectPtr<AArmyGroup>>& GetSelectedForces() const { return SelectedForces; }
 	AArmyGroup* GetInspectedForce() const { return InspectedForce; }
@@ -55,12 +56,14 @@ public:
 	void FocusSelection();
 	bool PingAtScreenPosition(const FVector2D& Position);
 	const FString& GetOrderFeedback() const { return Feedback; }
+	float GetFeedbackOpacity() const;
 	bool IsHUDExpanded() const { return bHUDExpanded; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
 	int32 GetPlacementIndex() const { return PlacementIndex; }
 	const UBuildingDefinition* GetPlacementDefinition() const;
 	bool GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const;
 	bool CanPlaceBuildingAt(int32 BuildingIndex, const FVector& Location, FString& Reason) const;
+	void PlaceBuildingAt(const FVector& Location, bool bRepeat);
 	bool IsAssigningGoal() const { return bAssigningGoal; }
 	EForceGoal GetPendingGoal() const { return PendingGoal; }
 	// Left-click entry points shared by real input and the Development verification probe.
@@ -114,11 +117,15 @@ private:
 	TArray<TObjectPtr<UInputAction>> Actions;
 	TWeakObjectPtr<UEnhancedInputLocalPlayerSubsystem> InputSubsystem;
 	FString Feedback;
+	double FeedbackStarted = 0.;
+	bool bBuildHotkeyPending = false;
+	bool bRepeatPlacement = false;
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;
 	bool bAssigningGoal = false;
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;
+	bool bPlacementCancelled = false;
 	EForceGoal PendingGoal = EForceGoal::Hold;
 	bool bInitialFocusPending = true;
 	FVector2D PreviousDragPosition = FVector2D::ZeroVector;
@@ -131,6 +138,7 @@ private:
 	int32 LatestAlertSequence = 0;
 	void Escape();
 	void ShowScreen(ECommandScreen NewScreen);
+	void SetFeedback(const FString& Message);
 	void PlayUISound(FName Event);
 	void PanForward();
 	void PanBackward();
