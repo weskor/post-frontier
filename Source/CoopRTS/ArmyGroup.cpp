@@ -420,13 +420,8 @@ bool AArmyGroup::AssignFront(EFrontOrder InOrder, const FVector& InLocation)
 	return true;
 }
 
-bool AArmyGroup::IssueHold()
+bool AArmyGroup::ApplyHold()
 {
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || Units.IsEmpty() || (State && State->MatchResult != EMatchResult::Ongoing))
-	{
-		return false;
-	}
 	StopAllUnits();
 	AttackTarget = nullptr;
 	Order = EArmyOrder::Hold;
@@ -438,21 +433,11 @@ bool AArmyGroup::IssueHold()
 	return true;
 }
 
-bool AArmyGroup::IssueMove(FVector InDestination)
+bool AArmyGroup::ApplyAttack(FVector InDestination, AActor* InTarget)
 {
-	return IssueTravel(EArmyOrder::Move, InDestination);
-}
-
-bool AArmyGroup::IssueAttack(FVector InDestination, AActor* InTarget)
-{
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!AArenaBounds::IsTravelLocation(GetWorld(), InDestination) || (State && State->MatchResult != EMatchResult::Ongoing))
-		return false;
 	FVector Anchor = InDestination;
 	if (InTarget)
 	{
-		if (!IsValid(InTarget) || InTarget->GetWorld() != GetWorld() || !CombatTarget::IsAliveHostile(InTarget, TeamIndex))
-			return false;
 		// Targeted attacks approach a firing position instead of ordering the
 		// formation into the occupied target.
 		FVector FromTarget = GetCenter() - InTarget->GetActorLocation();
@@ -467,11 +452,6 @@ bool AArmyGroup::IssueAttack(FVector InDestination, AActor* InTarget)
 	AttackTarget = InTarget;
 	ForceNetUpdate();
 	return true;
-}
-
-bool AArmyGroup::IssueRetreat()
-{
-	return IssueTravel(EArmyOrder::Retreat, HomeLocation);
 }
 
 bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)

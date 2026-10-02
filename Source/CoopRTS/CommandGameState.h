@@ -48,8 +48,6 @@ public:
 	FVector ResolveBuildingLocation(int32 BuildingIndex, const FVector& RequestedLocation, int32 Team = 0) const;
 	bool ValidateBuildingPlacement(int32 BuildingIndex, int32 Team, const FVector& Location, FString& OutReason) const;
 	bool IsInBuildTerritory(int32 BuildingIndex, int32 Team, const FVector& Location) const;
-	ACommandBuilding* TryPlaceBuilding(int32 BuildingIndex, const FVector& Location,
-		ACommandPlayerState* Commander, int32 Team, FString& OutReason);
 	static constexpr int32 BaselineIncomePerSecond = 2;
 	int32 GetBaselineIncomePerSecond() const;
 
@@ -84,6 +82,9 @@ public:
 #endif
 
 private:
+	friend class FCommandService;
+	ACommandBuilding* ApplyPlacement(int32 BuildingIndex, const FVector& Location,
+		ACommandPlayerState* Commander, int32 Team, FString& OutReason);
 	float IncomeElapsed = 0.f;
 	// Tenths preserve fractional JEV credits without floating-point drift.
 	int32 EnemyIncomeRemainderTenths = 0;

@@ -8,6 +8,11 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
+#include "Commands/CommandService.h"
+#include "Commands/ConstructionCommandComponent.h"
+#include "Commands/MatchCommandComponent.h"
+#include "Commands/OrderCommandComponent.h"
+#include "Commands/ProductionCommandComponent.h"
 #include "CommandHUD.h"
 #include "ForceGoals.h"
 #include "MapRegion.h"
@@ -364,7 +369,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (Action == TEXT("observe"))
 		return FString();
 	ACommandPlayerController* PC = LocalController(World);
-	const ACommandPlayerState* Own = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
+	ACommandPlayerState* Own = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
 	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
 	const int32 Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
 	ACommandGameState* State = World->GetGameState<ACommandGameState>();
@@ -374,7 +379,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		if (!Own || Own->CommanderIndex < 0 || !State)
 			return TEXT("local owning controller unavailable");
 		if (Action == TEXT("build"))
-			PC->ServerPlaceBuilding(static_cast<int32>(Request->GetIntegerField(TEXT("kind"))),
+			PC->ConstructionCommands->ServerPlaceBuilding(static_cast<int32>(Request->GetIntegerField(TEXT("kind"))),
 				FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f));
 		else
 		{
@@ -383,16 +388,16 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				return TEXT("building not replicated locally");
 			ACommandBuilding* Building = State->Buildings[BuildingIndex];
 			if (Action == TEXT("production"))
-				PC->ServerConfigureProduction(Building,
+				PC->ProductionCommands->ServerConfigureProduction(Building,
 					static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
 			else if (Action == TEXT("goal"))
-				PC->ServerAssignGoal(Building,
+				PC->OrderCommands->ServerAssignGoal(Building,
 					static_cast<EForceGoal>(Request->GetIntegerField(TEXT("goal"))),
 					static_cast<int32>(Request->GetIntegerField(TEXT("region"))));
 			else if (Action == TEXT("cancel"))
-				PC->ServerCancelBuilding(Building);
+				PC->ConstructionCommands->ServerCancelBuilding(Building);
 			else
-				PC->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
+				PC->ProductionCommands->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
 		}
 		return FString();
 	}
@@ -475,23 +480,25 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		if (!Own || Own->CommanderIndex < 0)
 			return TEXT("local owning controller unavailable");
 		if (Action == TEXT("restart"))
-			PC->ServerRequestRestart();
+			PC->MatchCommands->ServerRequestRestart();
 		else
 		{
 			AArmyGroup* Army = FindArmy(World, Owner, Index);
 			if (!Army)
 				return TEXT("target army not replicated locally");
+			FCommandResult Result;
 			if (Action == TEXT("attack"))
 			{
 				if (!State || !IsValid(State->EnemyHeadquarters))
 					return TEXT("enemy HQ not replicated");
-				PC->ServerIssueAttack(Army, State->EnemyHeadquarters->GetActorLocation(), State->EnemyHeadquarters);
+				Result = FCommandService::IssueAttack(Own, Army, State->EnemyHeadquarters->GetActorLocation(), State->EnemyHeadquarters);
 			}
 			else
 			{
 				FVector Destination(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 0.f);
-				PC->ServerIssueOrder(Army, static_cast<EArmyOrder>(Request->GetIntegerField(TEXT("order"))), Destination);
+				Result = FCommandService::IssueOrder(Own, Army, static_cast<EArmyOrder>(Request->GetIntegerField(TEXT("order"))), Destination);
 			}
+			PC->SetCommandFeedback(Result.Message, Result.IsAccepted());
 		}
 		return FString();
 	}
@@ -507,10 +514,10 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			It->Destroy();
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 5)
-				It->IssueHold();
+				FCommandService::IssueOrder(It->GetOwningPlayerState(), *It, EArmyOrder::Hold, FVector::ZeroVector);
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
-				Building->SetProduction(Building->ProductionUnitIndex, false);
+				FCommandService::ConfigureProduction(State->EnemyCommander, Building, Building->ProductionRole, false);
 		return FString();
 	}
 	if (Action == TEXT("placement"))
@@ -575,7 +582,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (!State->ValidateBuildingPlacement(BuildingIndex, 5, Deposit->GetActorLocation(), Reason))
 				continue;
 			State->EnemyCommander->Resources = 160;
-			ACommandBuilding* Extractor = State->TryPlaceBuilding(BuildingIndex, Deposit->GetActorLocation(), State->EnemyCommander, 5, Reason);
+			ACommandBuilding* Extractor = FCommandService::PlaceBuilding(State->EnemyCommander, BuildingIndex, Deposit->GetActorLocation()).Building;
 			if (!Extractor)
 				return TEXT("paid JEV extractor fixture rejected");
 			Extractor->Tick(60.f); // Accelerated construction fixture, not natural completion proof.
@@ -679,7 +686,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		if (!IsValid(State->EnemyHeadquarters) || Army->GetUnits().IsEmpty() || Army->GetTeamIndex() != 0)
 			return TEXT("objective friendly army or enemy HQ unavailable");
-		if (!Army->IssueHold())
+		if (!FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army, EArmyOrder::Hold, FVector::ZeroVector))
 			return TEXT("objective friendly army could not hold");
 		const FVector Anchor = State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 700.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
@@ -728,7 +735,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				Hostile->Destroy();
 				return TEXT("hostile casualty fixture spawn failed");
 			}
-			Hostile->IssueHold();
+			FCommandService::IssueOrder(State->EnemyCommander, Hostile, EArmyOrder::Hold, FVector::ZeroVector);
 			Hostile->SetActorTickEnabled(false);
 			for (AArmyUnit* Unit : Hostile->GetUnits())
 				Unit->SetActorTickEnabled(false);

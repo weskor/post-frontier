@@ -6,54 +6,11 @@
 #include "Content/UnitDefinition.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
+#include "Commands/GoalGraph.h"
 
 namespace
 {
-const AMapRegion* Region(const ACommandGameState& State, int32 Index)
-{
-	for (const AMapRegion* Candidate : State.Regions)
-		if (IsValid(Candidate) && Candidate->RegionIndex == Index)
-			return Candidate;
-	return nullptr;
-}
-
-int32 ReadGraph(const ACommandGameState& State, uint64* Graph)
-{
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
-		Graph[Index] = 0;
-	int32 Count = 0;
-	for (const AMapRegion* Item : State.Regions)
-	{
-		if (!IsValid(Item) || Item->RegionIndex < 0 || Item->RegionIndex >= ForceGoals::MaxRegions)
-			continue;
-		Count = FMath::Max(Count, Item->RegionIndex + 1);
-		for (int32 Next : Item->Neighbours)
-			if (Next >= 0 && Next < ForceGoals::MaxRegions && Region(State, Next))
-				Graph[Item->RegionIndex] |= uint64(1) << Next;
-	}
-	return Count;
-}
-
-int32 SourceRegion(const ACommandBuilding& Building, const ACommandGameState& State)
-{
-	int32 Joined = 0, Travelling = 0;
-	Building.GetForceCounts(Joined, Travelling);
-	const FVector Position = Joined > 0 && IsValid(Building.ForceGroup)
-		? Building.ForceGroup->GetCenter()
-		: Building.GetActorLocation();
-	const AMapRegion* Source = State.FindRegionAt(Position);
-	return Source ? Source->RegionIndex : INDEX_NONE;
-}
-
-int32 EnemyMain(const ACommandGameState& State, int32 Team)
-{
-	int32 Result = INDEX_NONE;
-	for (const AMapRegion* Item : State.Regions)
-		if (IsValid(Item) && Item->RegionRole == ERegionRole::Main && Item->HomeTeam == (Team == 0 ? 5 : 0)
-			&& (Result == INDEX_NONE || Item->RegionIndex < Result))
-			Result = Item->RegionIndex;
-	return Result;
-}
+using namespace CommandGoalGraph;
 
 void BuildPath(FForceGoalDriver& Driver, int32 Source, int32 Target)
 {
@@ -70,40 +27,9 @@ void BuildPath(FForceGoalDriver& Driver, int32 Source, int32 Target)
 }
 }
 
-bool ACommandBuilding::SetGoal(EForceGoal Goal, int32 RegionIndex)
+void ACommandBuilding::CommitGoal(EForceGoal Goal, int32 RegionIndex, int32 Source, const uint64* Graph, int32 Count)
 {
-	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
-		|| !IsAlive() || !IsComplete() || !IsProducer() || !bForceConfigured || !IsValid(ForceGroup)
-		|| ForceGroup->IsActorBeingDestroyed() || !IsValid(OwningPlayerState)
-		|| OwningPlayerState->TeamIndex != TeamIndex
-		|| (Goal != EForceGoal::Hold && Goal != EForceGoal::Expand
-			&& Goal != EForceGoal::Assault && Goal != EForceGoal::FallBack))
-		return false;
-	const int32 Source = SourceRegion(*this, *State);
-	if (Goal == EForceGoal::Assault)
-	{
-		if (RegionIndex != INDEX_NONE)
-			return false;
-		RegionIndex = EnemyMain(*State, TeamIndex);
-	}
-	else if (Goal == EForceGoal::FallBack)
-	{
-		if (RegionIndex != INDEX_NONE)
-			return false;
-		const AMapRegion* Home = State->FindRegionAt(GetActorLocation());
-		RegionIndex = Home ? Home->RegionIndex : INDEX_NONE;
-	}
-	const AMapRegion* Target = Region(*State, RegionIndex);
-	if (!Target || Source == INDEX_NONE || (Goal != EForceGoal::Assault && Target->RegionRole == ERegionRole::Main && Target->HomeTeam != TeamIndex))
-		return false;
-	uint64 Graph[ForceGoals::MaxRegions];
-	const int32 Count = ReadGraph(*State, Graph);
-	if (Goal != EForceGoal::FallBack
-		&& ForceGoals::NextWaypoint(Graph, Count, Source, RegionIndex) == INDEX_NONE)
-		return false;
-
-	// Validation above is read-only: a rejected goal preserves the current goal, waypoint and front.
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	ForceGoal = Goal;
 	GoalRegionIndex = RegionIndex;
 	GoalDriver.bEnabled = true;
@@ -124,7 +50,6 @@ bool ACommandBuilding::SetGoal(EForceGoal Goal, int32 RegionIndex)
 		GoalDriver.Graph[Index] = Graph[Index];
 	TickGoal();
 	ForceNetUpdate();
-	return true;
 }
 
 void ACommandBuilding::TickGoal()
@@ -248,9 +173,9 @@ void ACommandBuilding::TickGoal()
 	if (GoalDriver.AppliedWaypoint == Waypoint && GoalDriver.AppliedOrder == static_cast<uint8>(Order))
 		return;
 	const FVector Location = ForceGoal == EForceGoal::FallBack ? ForceGroup->GetHomeLocation() : State->GetRegionAnchor(Waypoint);
-	if (!SetFront(Order, Location))
+	if (!ApplyFront(Order, Location))
 		return;
-	GoalDriver.bEnabled = true; // SetFront's opt-out belongs only to external internal-front callers.
+	GoalDriver.bEnabled = true; // Internal front application must not disable the goal driver.
 	GoalDriver.AppliedWaypoint = Waypoint;
 	GoalDriver.AppliedOrder = static_cast<uint8>(Order);
 }

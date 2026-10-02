@@ -59,26 +59,6 @@ void ACommandGameMode::Tick(float DeltaSeconds)
 		State->FriendlyHeadquarters->Health, State->EnemyHeadquarters->Health);
 }
 
-void ACommandGameMode::RequestRestart(ACommandPlayerController* Requester)
-{
-	const ACommandGameState* State = GetGameState<ACommandGameState>();
-	const ACommandPlayerState* Commander = IsValid(Requester)
-		? Requester->GetPlayerState<ACommandPlayerState>()
-		: nullptr;
-	if (!HasAuthority() || bRestartRequested || !IsValid(Requester) || Requester->GetWorld() != GetWorld()
-		|| !Commander || Commander->TeamIndex != 0 || Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5
-		|| !State || State->MatchResult == EMatchResult::Ongoing)
-		return;
-	// Seamless travel keeps the net driver and player connections. The new level's GameState
-	// and actors are fresh; carried PlayerStates are reset when their controllers start.
-	// Explicit SeamlessTravel avoids the engine's 48-hour automatic hard-travel fallback.
-	bRestartRequested = true;
-	const FString Map = UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName());
-	const FString Options = GetNetMode() == NM_Standalone ? TEXT("?SeamlessTravel") : TEXT("?listen?SeamlessTravel");
-	if (!GetWorld()->ServerTravel(Map + Options, false))
-		bRestartRequested = false;
-}
-
 void ACommandGameMode::InitGameState()
 {
 	Super::InitGameState();

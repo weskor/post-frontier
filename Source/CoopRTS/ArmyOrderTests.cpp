@@ -70,7 +70,7 @@ public:
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
 			const FVector InitialTarget = Army->GetHomeLocation() + FVector(0.f, 1800.f, 0.f);
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, InitialTarget);
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, InitialTarget);
 			if (Army->OrderSerial == Serial)
 			{
 				RejectedInitialTarget = InitialTarget;
@@ -91,7 +91,7 @@ public:
 			StartCenter = Army->GetCenter();
 			Replacement = Army->GetHomeLocation() + FVector(-1200.f, -1500.f, 0.f);
 			Serial = Army->OrderSerial;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, Replacement);
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, Replacement);
 			Test->TestTrue(TEXT("Replacement receives a new order serial"), Army->OrderSerial > Serial);
 			Test->TestTrue(TEXT("Replacement records the new destination"), FVector::Dist2D(Army->Destination, Replacement) < 100.);
 			NextStage(Now);
@@ -99,7 +99,7 @@ public:
 		else if (Stage == 2 && Now - StageStarted >= 1.5)
 		{
 			Test->TestTrue(TEXT("Units approach the replacement rather than stale intent"), FVector::Dist2D(Army->GetCenter(), Replacement) + 100. < FVector::Dist2D(StartCenter, Replacement));
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			Test->TestTrue(TEXT("Hold replaces movement state"), Army->Order == EArmyOrder::Hold);
 			NextStage(Now);
 		}
@@ -109,7 +109,7 @@ public:
 				HeldPositions.Add(Unit->GetActorLocation());
 			Serial = Army->OrderSerial;
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, ArmyTestSetup::OutsideArena(State));
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, ArmyTestSetup::OutsideArena(State));
 			Test->TestEqual(TEXT("Out-of-bounds request preserves the accepted order"), Army->OrderSerial, Serial);
 			NextStage(Now);
 		}
@@ -117,13 +117,13 @@ public:
 		{
 			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
 				Test->TestTrue(TEXT("Every unit stays stopped after Hold"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
 			Test->TestTrue(TEXT("Retreat replaces Hold"), Army->Order == EArmyOrder::Retreat);
 			NextStage(Now);
 		}
 		else if (Stage == 5 && FVector::Dist2D(Army->GetCenter(), Army->GetHomeLocation()) < 150.)
 		{
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			Test->AddInfo(TEXT("Live navigation passed: initial move, replacement, individual unit Hold, invalid destination, retreat home."));
 			return true;
 		}

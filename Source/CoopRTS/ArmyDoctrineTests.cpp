@@ -89,10 +89,11 @@ struct FDoctrineActors
 			It->Destroy();
 		for (TActorIterator<AArmyGroup> It(World.Get()); It; ++It)
 			if (It->IsOpposingArmy())
-				It->IssueHold();
+				FCommandService::IssueOrder(It->GetOwningPlayerState(), *It, EArmyOrder::Hold, It->GetCenter());
 		for (TActorIterator<ACommandBuilding> It(World.Get()); It; ++It)
 			if (It->TeamIndex == 5 && It->IsProducer())
-				It->SetProduction(It->ProductionUnitIndex, false);
+				FCommandService::ConfigureProduction(State->EnemyCommander, *It,
+					It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
 	}
 };
 
@@ -161,7 +162,7 @@ protected:
 			Cast<ACommandPlayerController>(Source->GetOwner()), Source->GetArmyIndex(), Source->GetHomeLocation());
 		if (!Fixture)
 			return 0;
-		if (Source->bAutomaticFront && !Fixture->AssignFront(Source->FrontOrder, Fixture->GetCenter()))
+		if (Source->bAutomaticFront && !FCommandService::AssignFront(Fixture->GetOwningPlayerState(), Fixture, Source->FrontOrder, Fixture->GetCenter()))
 		{
 			Fixture->Destroy();
 			return 0;
@@ -405,7 +406,7 @@ private:
 			Patient->ReceiveAttack(20, Attacker);
 			Expected = Patient->GetHealth();
 			StartPosition = Patient->GetActorLocation();
-			Actors.Controller->ServerIssueOrder(Actors.Armies[0].Get(), EArmyOrder::Move,
+			FCommandService::IssueOrder(Actors.Wallet.Get(), Actors.Armies[0].Get(), EArmyOrder::Move,
 				Actors.Armies[0]->GetHomeLocation() + FVector(0.f, -1700.f, 0.f));
 			if (!Check(Actors.Armies[0]->Order == EArmyOrder::Move,
 					TEXT("Owned Move begins an actual navigation interruption")))
@@ -422,7 +423,7 @@ private:
 						&& Patient->GetHealth() == Expected,
 					TEXT("Navigating member remains in motion without healing before Hold")))
 				return true;
-			Actors.Controller->ServerIssueOrder(Actors.Armies[0].Get(), EArmyOrder::Hold, FVector::ZeroVector);
+			FCommandService::IssueOrder(Actors.Wallet.Get(), Actors.Armies[0].Get(), EArmyOrder::Hold, FVector::ZeroVector);
 			if (!Check(Actors.Armies[0]->Order == EArmyOrder::Hold,
 					TEXT("Hold stops the real movement before repairs resume")))
 				return true;
@@ -533,7 +534,7 @@ private:
 					TEXT("EntrenchedFrontline is the player's irreversible choice")))
 				return true;
 			for (const TWeakObjectPtr<AArmyGroup>& Group : Actors.Armies)
-				if (!Check(Group->AssignFront(EFrontOrder::Defend, Group->GetCenter()),
+				if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Group.Get(), EFrontOrder::Defend, Group->GetCenter()).IsAccepted(),
 						TEXT("Owned armies can adopt a Defend front at their current position")))
 					return true;
 			const int32 Protected = WeaponHit(Enemy, Held);
@@ -551,8 +552,9 @@ private:
 					TEXT("Stationary Defend ranged units do not inherit frontline-only mitigation")))
 				return true;
 			Start = Moving->GetActorLocation();
-			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::Defend,
-						   Actors.Armies[1]->GetHomeLocation() + FVector(0.f, 650.f, 0.f)),
+			if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Actors.Armies[1].Get(), EFrontOrder::Defend,
+						   Actors.Armies[1]->GetHomeLocation() + FVector(0.f, 650.f, 0.f))
+						   .IsAccepted(),
 					TEXT("Second army can travel to a new Defend front")))
 				return true;
 			BaseDamage = Baseline;
@@ -569,7 +571,7 @@ private:
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 					TEXT("Moving frontline takes full real weapon damage despite chosen doctrine")))
 				return true;
-			if (!Check(Actors.Armies[1]->AssignFront(EFrontOrder::FallBack, Actors.Armies[1]->GetHomeLocation())
+			if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Actors.Armies[1].Get(), EFrontOrder::FallBack, Actors.Armies[1]->GetHomeLocation()).IsAccepted()
 						&& Actors.Armies[1]->Order == EArmyOrder::Retreat,
 					TEXT("Fall Back replaces the traveling Defend front")))
 				return true;
@@ -592,7 +594,7 @@ private:
 			LaterFrontline = Later ? Later->GetUnits()[0].Get() : nullptr;
 			if (!Check(LaterFrontline.IsValid(), TEXT("New frontline exists after research")))
 				return true;
-			if (!Check(Later->AssignFront(EFrontOrder::Defend, Later->GetCenter()),
+			if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Later, EFrontOrder::Defend, Later->GetCenter()).IsAccepted(),
 					TEXT("New squad adopts Defend after research")))
 				return true;
 			Next(3, Now);
@@ -606,7 +608,7 @@ private:
 			if (!Check(Replacement && WeaponHitFresh(Enemy, Replacement) == BaseDamage * 3 / 4,
 					TEXT("New stationary Defend frontline inherits protection against a real shot")))
 				return true;
-			if (!Check(Replacement->GetGroup()->AssignFront(EFrontOrder::Secure, Replacement->GetGroup()->GetCenter())
+			if (!Check(FCommandService::AssignFront(Actors.Wallet.Get(), Replacement->GetGroup(), EFrontOrder::Secure, Replacement->GetGroup()->GetCenter()).IsAccepted()
 						&& WeaponHit(Enemy, Replacement) == BaseDamage,
 					TEXT("Stationary Secure frontline does not receive Defend mitigation")))
 				return true;
@@ -664,7 +666,7 @@ private:
 				return true;
 			OldWorld = Actors.World;
 			OldState = Actors.State;
-			Actors.Controller->ServerRequestRestart();
+			FCommandService::Restart(Actors.Controller.Get());
 			Next(2, Now);
 			return false;
 		}

@@ -58,22 +58,17 @@ public:
 	bool IsAlive() const { return Health > 0; }
 	int32 MaxHealth() const;
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
-	bool CancelConstruction();
 	void NotifyPlacementCommitted();
-	bool TryResearch(EArmyDoctrine Choice);
 	bool TrySpend(int32 Cost);
 	bool HasConfiguredFront() const { return bHasConfiguredFront; }
 
 	// Production implementation lives in CommandBuildingProduction.cpp.
-	bool SetProduction(int32 UnitIndex, bool bEnabled);
-	bool SetFront(EFrontOrder Order, const FVector& Location);
 	int32 GetProductionCost() const;
 	float GetProductionDuration() const;
 	EProductionState GetProductionState() const;
 	void GetForceCounts(int32& OutJoined, int32& OutTravelling) const;
 	void TickProduction(float DeltaSeconds);
-	// Goal implementation lives in ForceGoals.cpp; internal SetFront opts out until the next goal.
-	bool SetGoal(EForceGoal Goal, int32 RegionIndex);
+	// Goal driver implementation lives in ForceGoals.cpp.
 	void TickGoal();
 	int32 GetGoalWaypointRegionIndex() const { return GoalDriver.Waypoint; }
 	bool IsGoalRefilling() const { return GoalDriver.bRefilling; }
@@ -121,6 +116,13 @@ public:
 	int32 GoalRegionIndex = INDEX_NONE;
 
 private:
+	friend class FCommandService;
+	bool ApplyCancellation();
+	bool ApplyResearch(EArmyDoctrine Choice);
+	bool ApplyProduction(int32 UnitIndex, bool bEnabled);
+	bool ApplyFront(EFrontOrder Order, const FVector& Location);
+	void CommitGoal(EForceGoal Goal, int32 RegionIndex, int32 Source, const uint64* Graph, int32 Count);
+	bool FindProductionExit(FVector& OutLocation, int32& Cursor) const;
 	FForceGoalDriver GoalDriver;
 	float ProductionCheckAccumulator = 0.f;
 	UPROPERTY(ReplicatedUsing = OnRep_PlacementCommitted)

@@ -16,6 +16,10 @@ class UInputAction;
 class UInputMappingContext;
 class UEnhancedInputLocalPlayerSubsystem;
 enum class EHUDAction : uint8;
+class UConstructionCommandComponent;
+class UProductionCommandComponent;
+class UOrderCommandComponent;
+class UMatchCommandComponent;
 
 enum class ECommandScreen : uint8
 {
@@ -54,32 +58,16 @@ public:
 	float GetMasterVolume() const;
 	bool IsMenuWorld() const;
 
-	UFUNCTION(Server, Reliable)
-	void ServerPlaceBuilding(int32 BuildingIndex, FVector Location);
-	UFUNCTION(Server, Reliable)
-	void ServerCancelBuilding(ACommandBuilding* Building);
-	UFUNCTION(Server, Reliable)
-	void ServerConfigureProduction(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled);
-	UFUNCTION(Server, Reliable)
-	void ServerAssignGoal(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex);
-	UFUNCTION(Server, Reliable)
-	void ServerAssignFront(ACommandBuilding* Building, EFrontOrder Order, FVector Location);
-	UFUNCTION(Server, Reliable)
-	void ServerResearch(ACommandBuilding* Building, EArmyDoctrine Choice);
-	UFUNCTION(Client, Reliable)
-	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
-	UFUNCTION(Client, Reliable)
-	void ClientPlacementFeedback(const FString& Message, bool bAccepted);
-	UFUNCTION(Server, Reliable)
-	void ServerIssueOrder(AArmyGroup* Army, EArmyOrder Order, FVector Destination);
-	UFUNCTION(Server, Reliable)
-	void ServerIssueAttack(AArmyGroup* Army, FVector Destination, AActor* Target);
-	UFUNCTION(Client, Reliable)
-	void ClientAttackFeedback(bool bAccepted);
-	UFUNCTION(Client, Reliable)
-	void ClientOrderFeedback(bool bAccepted);
-	UFUNCTION(Server, Reliable)
-	void ServerRequestRestart();
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UConstructionCommandComponent> ConstructionCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UProductionCommandComponent> ProductionCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UOrderCommandComponent> OrderCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UMatchCommandComponent> MatchCommands;
+	void SetCommandFeedback(const FString& Message, bool bAccepted);
+	void SetPlacementFeedback(const FString& Message, bool bAccepted);
 
 protected:
 	virtual void BeginPlay() override;
@@ -126,9 +114,7 @@ private:
 	void RequestRestart();
 	void FocusSelection();
 	void HandleHUDAction(EHUDAction Action);
-	bool IsOwnedArmy(const AArmyGroup* Army) const;
 	bool IsOwnedBuilding(const ACommandBuilding* Building) const;
-	bool IsValidBuildingCommand(const ACommandBuilding* Building) const;
 	bool CanIssueGameplayCommand();
 	bool IsMatchTerminal() const;
 	bool CursorHit(FHitResult& Hit) const;

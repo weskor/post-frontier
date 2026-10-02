@@ -169,10 +169,10 @@ public:
 			if (!Replacement.IsValid() || !SurvivorForce.IsValid() || !OwnedUnit.IsValid())
 				return Fail(TEXT("Replacement producer or orphan survivor disappeared"));
 			const int32 Frontline = UnitIndex(State, EUnitRole::Frontline);
-			if (!Check(Replacement->SetProduction(Frontline, true) && IsValid(Replacement->ForceGroup),
+			if (!Check(FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, true).IsAccepted() && IsValid(Replacement->ForceGroup),
 					TEXT("The paid replacement producer can configure its own force")))
 				return true;
-			Replacement->SetProduction(Frontline, false);
+			FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, false);
 			if (!Check(Replacement->ForceGroup != SurvivorForce.Get() && Replacement->ForceGroup->ForceNumber == 2
 						&& Replacement->ForceGroup->GetUnits().IsEmpty() && OwnedUnit->GetGroup() == SurvivorForce.Get()
 						&& SurvivorForce->ForceNumber == 1 && !IsValid(SurvivorForce->GetProductionBuilding())
@@ -227,8 +227,7 @@ private:
 			return nullptr;
 		}
 		const int32 Before = Wallet->Resources;
-		FString Reason;
-		ACommandBuilding* Building = State->TryPlaceBuilding(BuildingIndex, Location, Wallet, Team, Reason);
+		ACommandBuilding* Building = FCommandService::PlaceBuilding(Wallet, BuildingIndex, Location).Building;
 		if (!Check(IsValid(Building) && Wallet->Resources == Before - ACommandBuilding::GetBuildCost(*Definition),
 				TEXT("Force-identity producer or workshop placement pays its actual building cost")))
 			return nullptr;
@@ -241,11 +240,11 @@ private:
 	{
 		const int32 Frontline = UnitIndex(State, EUnitRole::Frontline);
 		const int32 Before = Producer->OwningPlayerState->Resources;
-		if (!Check(Producer->SetProduction(Frontline, true) && IsValid(Producer->ForceGroup),
+		if (!Check(FCommandService::ConfigureProduction(Producer->OwningPlayerState, Producer, State->Content->Unit(Frontline)->Role, true).IsAccepted() && IsValid(Producer->ForceGroup),
 				TEXT("Completed producer configures a real frontline force")))
 			return nullptr;
 		Producer->TickProduction(Producer->GetProductionDuration());
-		Producer->SetProduction(Frontline, false);
+		FCommandService::ConfigureProduction(Producer->OwningPlayerState, Producer, State->Content->Unit(Frontline)->Role, false);
 		if (!Check(Producer->ForceGroup->GetUnits().Num() == 1
 					&& Producer->OwningPlayerState->Resources == Before - Producer->GetProductionCost(),
 				TEXT("One real frontline recruit is deployed and charged exactly once")))

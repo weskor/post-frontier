@@ -168,7 +168,7 @@ public:
 				for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 				{
 					const uint32 Serial = Groups[GroupIndex]->OrderSerial;
-					Controller->ServerIssueOrder(Groups[GroupIndex].Get(), EArmyOrder::Hold, FVector::ZeroVector);
+					FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Groups[GroupIndex].Get(), EArmyOrder::Hold, FVector::ZeroVector);
 					if (!Check(Groups[GroupIndex]->Order == EArmyOrder::Hold && Groups[GroupIndex]->OrderSerial > Serial,
 							TEXT("Immediate Hold replaces travel for every member")))
 						return true;
@@ -433,7 +433,8 @@ private:
 				It->Destroy();
 			for (TActorIterator<ACommandBuilding> It(State->GetWorld()); It; ++It)
 				if (It->TeamIndex == 5 && It->IsProducer())
-					It->SetProduction(It->ProductionUnitIndex, false);
+					FCommandService::ConfigureProduction(State->EnemyCommander, *It,
+						It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
 			for (TActorIterator<AArmyGroup> It(State->GetWorld()); It; ++It)
 				if (It->GetTeamIndex() == 5)
 					It->Destroy();
@@ -445,7 +446,7 @@ private:
 			if (!Check(Groups[0].IsValid() && Groups[1].IsValid() && Enemy.IsValid(),
 					TEXT("Map-derived fixtures spawn two friendly groups and a static opposing group")))
 				return true;
-			Enemy->IssueHold();
+			FCommandService::IssueOrder(State->EnemyCommander, Enemy.Get(), EArmyOrder::Hold, Enemy->GetCenter());
 			bFixturesReady = true;
 			return false; // Let every spawned character settle on navigation ground.
 		}
@@ -481,7 +482,7 @@ private:
 		if (!Check(Groups[0]->GetTeamIndex() == Groups[1]->GetTeamIndex() && Groups[0]->GetOwner() == Groups[1]->GetOwner(), TEXT("Two independent armies belong to the same player")))
 			return true;
 		// A rejected first request is safe to retry while dynamic navmesh starts.
-		Controller->ServerIssueOrder(Groups[0].Get(), EArmyOrder::Move, Groups[1]->GetHomeLocation());
+		FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Groups[0].Get(), EArmyOrder::Move, Groups[1]->GetHomeLocation());
 		if (Groups[0]->OrderSerial == 0)
 			return false;
 		if (!Check(Groups[1]->OrderSerial == 0 && Groups[1]->Order == EArmyOrder::Hold,
@@ -501,7 +502,7 @@ private:
 		const uint32 OtherSerial = Other->OrderSerial;
 		const EArmyOrder OtherOrder = Other->Order;
 		const FVector OtherDestination = Other->Destination;
-		Controller->ServerIssueOrder(Group, EArmyOrder::Move, Target);
+		FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Group, EArmyOrder::Move, Target);
 		return Check(Group->OrderSerial > Serial && Group->Order == EArmyOrder::Move
 					   && FVector::Dist2D(Group->Destination, Target) < 100.,
 				   TEXT("Valid replacement is accepted at the requested destination"))
@@ -550,7 +551,7 @@ private:
 		TArray<FAIRequestID, TInlineAllocator<6>> Requests;
 		for (AArmyUnit* Unit : Group->GetUnits())
 			Requests.Add(GetFollowing(Unit)->GetCurrentRequestId());
-		if (!Check(!Group->IssueMove(Target), FString::Printf(TEXT("%s request is rejected"), Description))
+		if (!Check(!FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Group, EArmyOrder::Move, Target), FString::Printf(TEXT("%s request is rejected"), Description))
 			|| !Check(Group->OrderSerial == Serial && Group->Order == Order && Group->Destination.Equals(Destination), TEXT("Rejected request preserves accepted order state")))
 			return false;
 		for (int32 Index = 0; Index < Group->GetUnits().Num(); ++Index)

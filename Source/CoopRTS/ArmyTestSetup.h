@@ -8,6 +8,7 @@
 #include "CommandPlayerController.h"
 #include "CommandPlayerState.h"
 #include "Content/MatchContent.h"
+#include "Commands/CommandService.h"
 #include "EnemyCommander.h"
 #include "Headquarters.h"
 #include "Engine/Engine.h"
@@ -142,7 +143,7 @@ inline void Research(ACommandPlayerController* Owner, EArmyDoctrine Choice)
 		Workshop->ConstructionProgress = 1.f;
 		Workshop->FinishSpawning(Transform);
 	}
-	Owner->ServerResearch(Workshop, Choice);
+	FCommandService::Research(Wallet, Workshop, Choice);
 }
 }
 #endif

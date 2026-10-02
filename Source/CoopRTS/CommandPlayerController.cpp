@@ -27,12 +27,20 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Rules/PlacementPolicy.h"
+#include "Commands/ConstructionCommandComponent.h"
+#include "Commands/ProductionCommandComponent.h"
+#include "Commands/OrderCommandComponent.h"
+#include "Commands/MatchCommandComponent.h"
 
 ACommandPlayerController::ACommandPlayerController()
 {
 	bShowMouseCursor = true;
 	DefaultMouseCursor = EMouseCursor::Default;
 	bShouldPerformFullTickWhenPaused = true;
+	ConstructionCommands = CreateDefaultSubobject<UConstructionCommandComponent>(TEXT("ConstructionCommands"));
+	ProductionCommands = CreateDefaultSubobject<UProductionCommandComponent>(TEXT("ProductionCommands"));
+	OrderCommands = CreateDefaultSubobject<UOrderCommandComponent>(TEXT("OrderCommands"));
+	MatchCommands = CreateDefaultSubobject<UMatchCommandComponent>(TEXT("MatchCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
@@ -345,7 +353,7 @@ void ACommandPlayerController::AssignGoalAt(const FVector& Location)
 	bAssigningGoal = false;
 	bHUDExpanded = true;
 	Feedback = TEXT("Goal sent; awaiting server.");
-	ServerAssignGoal(SelectedBuilding, PendingGoal, Region->RegionIndex);
+	OrderCommands->ServerAssignGoal(SelectedBuilding, PendingGoal, Region->RegionIndex);
 }
 
 const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
@@ -407,17 +415,9 @@ bool ACommandPlayerController::CanIssueGameplayCommand()
 void ACommandPlayerController::RequestRestart()
 {
 	if (GetUIScreen() == ECommandScreen::Result)
-		ServerRequestRestart();
+		MatchCommands->ServerRequestRestart();
 	else if (GetUIScreen() == ECommandScreen::MainMenu)
 		HandleHUDAction(EHUDAction::PlaySolo);
-}
-
-void ACommandPlayerController::ServerRequestRestart_Implementation()
-{
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (State && State->MatchResult != EMatchResult::Ongoing)
-		if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>())
-			Mode->RequestRestart(this);
 }
 
 bool ACommandPlayerController::IsMenuWorld() const
@@ -586,25 +586,12 @@ bool ACommandPlayerController::HandleScreenAction(EHUDAction Action)
 	return true;
 }
 
-bool ACommandPlayerController::IsOwnedArmy(const AArmyGroup* Army) const
-{
-	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
-	return IsValid(Army) && Army->GetWorld() == GetWorld() && Army->GetTeamIndex() == 0
-		&& IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0 && OwnState->CommanderIndex < 5
-		&& Army->GetOwningPlayerState() == OwnState;
-}
-
 bool ACommandPlayerController::IsOwnedBuilding(const ACommandBuilding* Building) const
 {
 	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
 	return IsValid(Building) && Building->GetWorld() == GetWorld() && Building->IsAlive()
 		&& Building->TeamIndex == 0 && IsValid(OwnState) && OwnState->TeamIndex == 0 && OwnState->CommanderIndex >= 0
 		&& OwnState->CommanderIndex < 5 && Building->OwningPlayerState == OwnState;
-}
-
-bool ACommandPlayerController::IsValidBuildingCommand(const ACommandBuilding* Building) const
-{
-	return !IsMatchTerminal() && IsOwnedBuilding(Building);
 }
 
 void ACommandPlayerController::CancelMode()
@@ -697,7 +684,7 @@ void ACommandPlayerController::SelectUnderCursor()
 			return;
 		}
 		bPlacementPending = true;
-		ServerPlaceBuilding(PlacementIndex, Location);
+		ConstructionCommands->ServerPlaceBuilding(PlacementIndex, Location);
 		Feedback = TEXT("Placement sent; server checks navigation and cost.");
 		return;
 	}
@@ -753,13 +740,13 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	}
 	if (Action == EHUDAction::CancelConstruction)
 	{
-		ServerCancelBuilding(SelectedBuilding);
+		ConstructionCommands->ServerCancelBuilding(SelectedBuilding);
 		return;
 	}
 	if (Action == EHUDAction::ResearchSiege || Action == EHUDAction::ResearchRepairs || Action == EHUDAction::ResearchEntrenched)
 	{
-		ServerResearch(SelectedBuilding, Action == EHUDAction::ResearchSiege ? EArmyDoctrine::SiegeOptics : Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs
-																																				  : EArmyDoctrine::EntrenchedFrontline);
+		ProductionCommands->ServerResearch(SelectedBuilding, Action == EHUDAction::ResearchSiege ? EArmyDoctrine::SiegeOptics : Action == EHUDAction::ResearchRepairs ? EArmyDoctrine::FieldRepairs
+																																									  : EArmyDoctrine::EntrenchedFrontline);
 		return;
 	}
 	if (!SelectedBuilding->IsProducer())
@@ -781,7 +768,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		{
 			bAssigningGoal = false;
 			bHUDExpanded = true;
-			ServerAssignGoal(SelectedBuilding, PendingGoal, INDEX_NONE);
+			OrderCommands->ServerAssignGoal(SelectedBuilding, PendingGoal, INDEX_NONE);
 			return;
 		}
 		bAssigningGoal = true;
@@ -791,7 +778,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	}
 	if (Action == EHUDAction::ToggleProduction)
 	{
-		ServerConfigureProduction(SelectedBuilding, SelectedBuilding->ProductionRole, !SelectedBuilding->bProductionEnabled);
+		ProductionCommands->ServerConfigureProduction(SelectedBuilding, SelectedBuilding->ProductionRole, !SelectedBuilding->bProductionEnabled);
 		return;
 	}
 	const int32 RecipeIndex = RecipeSlot(Action);
@@ -803,7 +790,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	const UArmyUnitDefinition* Definition = State && IsValid(State->Content) ? State->Content->Unit(RecipeIndex) : nullptr;
 	if (!Definition)
 		return;
-	ServerConfigureProduction(SelectedBuilding, Definition->Role, false);
+	ProductionCommands->ServerConfigureProduction(SelectedBuilding, Definition->Role, false);
 }
 
 void ACommandPlayerController::FocusSelection()
@@ -834,103 +821,14 @@ void ACommandPlayerController::CancelPointerMode()
 	}
 }
 
-void ACommandPlayerController::ServerPlaceBuilding_Implementation(int32 BuildingIndex, FVector Location)
-{
-	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
-	FString Reason;
-	bool bAccepted = false;
-	if (!State || State->MatchResult != EMatchResult::Ongoing || !IsValid(Wallet)
-		|| Wallet->GetWorld() != GetWorld() || Wallet->TeamIndex != 0 || Wallet->CommanderIndex < 0 || Wallet->CommanderIndex >= 5)
-		Reason = TEXT("Placement rejected: match or commander unavailable.");
-	else if (!(bAccepted = State->TryPlaceBuilding(BuildingIndex, Location, Wallet, 0, Reason)))
-	{
-		if (Reason.IsEmpty())
-			Reason = TEXT("Placement rejected by server.");
-	}
-	else
-		Reason = TEXT("Building placed; construction started.");
-	ClientPlacementFeedback(Reason, bAccepted);
-}
-
-void ACommandPlayerController::ServerCancelBuilding_Implementation(ACommandBuilding* Building)
-{
-	if (!IsValidBuildingCommand(Building))
-	{
-		ClientConstructionFeedback(TEXT("Cancel rejected: not your living building or match ended."), false);
-		return;
-	}
-	const bool bAccepted = Building->CancelConstruction();
-	ClientConstructionFeedback(bAccepted ? TEXT("Construction cancelled; unbuilt portion refunded.")
-										 : TEXT("Cancel rejected: building is complete."),
-		bAccepted);
-}
-
-void ACommandPlayerController::ServerConfigureProduction_Implementation(ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
-{
-	if (!IsValidBuildingCommand(Building))
-	{
-		ClientConstructionFeedback(TEXT("Production rejected: not your living building or match ended."), false);
-		return;
-	}
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const int32 UnitIndex = State && IsValid(State->Content) ? State->Content->UnitIndexForRole(Recipe) : -1;
-	const bool bAccepted = Building->SetProduction(UnitIndex, bEnabled);
-	const FString StateName = StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState()));
-	ClientConstructionFeedback(bAccepted
-			? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *StateName)
-			: FString::Printf(TEXT("Production rejected: %s"), *StateName),
-		bAccepted);
-}
-
-void ACommandPlayerController::ServerAssignGoal_Implementation(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex)
-{
-	if (!IsValidBuildingCommand(Building) || !Building->IsProducer() || !Building->IsComplete()
-		|| !Building->bForceConfigured || !IsValid(Building->ForceGroup))
-	{
-		ClientConstructionFeedback(TEXT("Goal rejected: requires your completed, locked barracks in an ongoing match."), false);
-		return;
-	}
-	const bool bAccepted = Building->SetGoal(Goal, RegionIndex);
-	ClientConstructionFeedback(bAccepted ? TEXT("Goal assigned to this building's force.")
-										 : TEXT("Goal rejected: invalid or unreachable region, enemy main, or unavailable force."),
-		bAccepted);
-}
-
-void ACommandPlayerController::ServerAssignFront_Implementation(ACommandBuilding* Building, EFrontOrder Order, FVector Location)
-{
-	if (!IsValidBuildingCommand(Building))
-	{
-		ClientConstructionFeedback(TEXT("Front rejected: not your living building or match ended."), false);
-		return;
-	}
-	const bool bAccepted = Building->SetFront(Order, Location);
-	ClientConstructionFeedback(bAccepted ? TEXT("Front assigned to this building's force.")
-										 : TEXT("Front rejected: select a completed barracks and valid ground inside the arena."),
-		bAccepted);
-}
-
-void ACommandPlayerController::ServerResearch_Implementation(ACommandBuilding* Building, EArmyDoctrine Choice)
-{
-	if (!IsValidBuildingCommand(Building))
-	{
-		ClientConstructionFeedback(TEXT("Research rejected: not your living building or match ended."), false);
-		return;
-	}
-	const bool bAccepted = Building->TryResearch(Choice);
-	ClientConstructionFeedback(bAccepted ? TEXT("Workshop specialization purchased for your forces.")
-										 : FString::Printf(TEXT("Research rejected: requires completed workshop, no existing specialization, and %d resources."), ACommandBuilding::ResearchCost),
-		bAccepted);
-}
-
-void ACommandPlayerController::ClientConstructionFeedback_Implementation(const FString& Message, bool bAccepted)
+void ACommandPlayerController::SetCommandFeedback(const FString& Message, bool bAccepted)
 {
 	Feedback = Message;
 	if (!bAccepted)
 		PlayUISound(TEXT("Reject"));
 }
 
-void ACommandPlayerController::ClientPlacementFeedback_Implementation(const FString& Message, bool bAccepted)
+void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool bAccepted)
 {
 	Feedback = Message;
 	bPlacementPending = false;
@@ -941,74 +839,4 @@ void ACommandPlayerController::ClientPlacementFeedback_Implementation(const FStr
 	}
 	else
 		PlayUISound(TEXT("Reject"));
-}
-
-void ACommandPlayerController::ServerIssueAttack_Implementation(AArmyGroup* Army, FVector Destination, AActor* Target)
-{
-	bool bAccepted = false;
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army) && Army->GetOwner() == this)
-	{
-		if (Target)
-		{
-			bool bValidTarget = false;
-			if (IsValid(Target) && Target->GetWorld() == GetWorld())
-			{
-				if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target))
-					bValidTarget = Unit->IsAlive() && IsValid(Unit->GetGroup())
-						&& Unit->GetGroup()->GetWorld() == GetWorld() && Unit->GetGroup()->GetTeamIndex() == Unit->GetTeamIndex()
-						&& Unit->GetTeamIndex() != Army->GetTeamIndex();
-				else if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
-					bValidTarget = HQ->IsAlive() && HQ->TeamIndex != Army->GetTeamIndex();
-				else if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
-					bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->GetTeamIndex();
-			}
-			if (!bValidTarget)
-			{
-				ClientAttackFeedback(false);
-				return;
-			}
-			Destination = Target->GetActorLocation();
-		}
-		if (IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
-			bAccepted = Army->IssueAttack(Destination, Target);
-	}
-	ClientAttackFeedback(bAccepted);
-}
-
-void ACommandPlayerController::ClientAttackFeedback_Implementation(bool bAccepted)
-{
-	Feedback = bAccepted ? TEXT("Attack order accepted; manual order overrides automatic front.")
-						 : TEXT("Attack rejected: choose a live enemy unit, building, HQ or reachable ground.");
-}
-
-void ACommandPlayerController::ServerIssueOrder_Implementation(AArmyGroup* Army, EArmyOrder Order, FVector Destination)
-{
-	bool bAccepted = false;
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (State && State->MatchResult == EMatchResult::Ongoing && IsOwnedArmy(Army)
-		&& Army->GetOwner() == this && IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
-	{
-		switch (Order)
-		{
-		case EArmyOrder::Move:
-			bAccepted = Army->IssueMove(Destination);
-			break;
-		case EArmyOrder::Hold:
-			bAccepted = Army->IssueHold();
-			break;
-		case EArmyOrder::Retreat:
-			bAccepted = Army->IssueRetreat();
-			break;
-		default:
-			break;
-		}
-	}
-	ClientOrderFeedback(bAccepted);
-}
-
-void ACommandPlayerController::ClientOrderFeedback_Implementation(bool bAccepted)
-{
-	Feedback = bAccepted ? TEXT("Manual order accepted; automatic front disabled for this squad.")
-						 : TEXT("Order rejected: choose reachable ground inside the arena.");
 }

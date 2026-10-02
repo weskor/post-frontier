@@ -19,7 +19,6 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void PreLogin(const FString& Options, const FString& Address,
 		const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
-	void RequestRestart(ACommandPlayerController* Requester);
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 	// Carried PlayerStates must not expose old-match economy/research in the fresh world, even for a frame.
 	virtual void HandleSeamlessTravelPlayer(AController*& Controller) override;
@@ -28,6 +27,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Content")
 	TObjectPtr<UMatchContent> DefaultContent;
 private:
+	friend class FCommandService;
 	UPROPERTY()
 	TObjectPtr<AEnemyCommander> EnemyCommander;
 	// False when the level lacks an arena or either headquarters; nobody gets a commander slot.

@@ -239,7 +239,7 @@ public:
 			if (IsValid(Producer) && Producer->TeamIndex == 5 && Producer->IsProducer() && Producer->bProductionEnabled)
 			{
 				EnabledProducers.Add(Producer);
-				Producer->SetProduction(Producer->ProductionUnitIndex, false);
+				FCommandService::ConfigureProduction(State->EnemyCommander, Producer, State->Content->Unit(Producer->ProductionUnitIndex)->Role, false);
 			}
 		ADepositSite* TargetDeposit = CapturedExtractor->Deposit;
 		const int32 RegionIndex = TargetDeposit->RegionIndex;
@@ -285,7 +285,7 @@ public:
 		if (IsValid(TargetDeposit->Extractor) || State->GetRegionController(RegionIndex) != 5)
 			return Fail(TEXT("Destroying enemy extractor must free its deposit without recapturing region"));
 		for (ACommandBuilding* Producer : EnabledProducers)
-			Producer->SetProduction(Producer->ProductionUnitIndex, true);
+			FCommandService::ConfigureProduction(State->EnemyCommander, Producer, State->Content->Unit(Producer->ProductionUnitIndex)->Role, true);
 		const FVector ThreatAnchor = State->GetRegionAnchor(ForwardRegion->RegionIndex);
 		ACommandBuilding* NearestDefender = nullptr;
 		float NearestDistance = TNumericLimits<float>::Max();
@@ -347,12 +347,12 @@ public:
 		const int32 ResearchBefore = State->EnemyCommander->Resources;
 		if (State->EnemyCommander->Doctrine == EArmyDoctrine::None)
 		{
-			if (!Workshop->TryResearch(EArmyDoctrine::FieldRepairs)
+			if (!FCommandService::Research(State->EnemyCommander, Workshop, EArmyDoctrine::FieldRepairs)
 				|| State->EnemyCommander->Resources != ResearchBefore - ACommandBuilding::ResearchCost)
 				return Fail(TEXT("Recovery research must pay exactly once from JEV wallet"));
 		}
 		else if (State->EnemyCommander->Doctrine != EArmyDoctrine::FieldRepairs
-			|| Workshop->TryResearch(EArmyDoctrine::FieldRepairs) || State->EnemyCommander->Resources != ResearchBefore)
+			|| FCommandService::Research(State->EnemyCommander, Workshop, EArmyDoctrine::FieldRepairs).IsAccepted() || State->EnemyCommander->Resources != ResearchBefore)
 			return Fail(TEXT("Naturally purchased repairs must stay locked and reject a second charge"));
 		Planner->EvaluatePlan();
 		if (Production->ForceGoal != EForceGoal::FallBack)
@@ -386,9 +386,9 @@ private:
 				Location = State->ResolveBuildingLocation(State->Content->BuildingIndexOf(Id), Location, 5);
 				if (State->FindRegionAt(Location) != State->FindRegionAt(Center))
 					continue;
-				FString Reason;
-				if (ACommandBuilding* Building = State->TryPlaceBuilding(State->Content->BuildingIndexOf(Id), Location,
-						State->EnemyCommander, 5, Reason))
+				if (ACommandBuilding* Building = FCommandService::PlaceBuilding(State->EnemyCommander,
+						State->Content->BuildingIndexOf(Id), Location)
+						.Building)
 					return Building;
 			}
 		return nullptr;

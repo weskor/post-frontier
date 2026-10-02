@@ -54,11 +54,6 @@ public:
 	const TArray<TObjectPtr<AArmyUnit>>& GetUnits() const { return Units; }
 	bool SpawnUnits();
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
-	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
-	bool IssueMove(FVector InDestination);
-	bool IssueAttack(FVector InDestination, AActor* InTarget);
-	bool IssueHold();
-	bool IssueRetreat();
 	void SettleMatch();
 	FVector GetCenter() const;
 	EArmyDoctrine GetDoctrine() const;
@@ -106,6 +101,11 @@ protected:
 	bool bOpposingArmy = false;
 
 private:
+	friend class FCommandService;
+	friend class ACommandBuilding;
+	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
+	bool ApplyAttack(FVector InDestination, AActor* InTarget);
+	bool ApplyHold();
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination);
 	void UpdateCombat();
 	void UpdateReinforcements();

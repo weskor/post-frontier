@@ -327,47 +327,6 @@ bool ACommandBuilding::TrySpend(int32 Cost)
 		&& OwningPlayerState->TrySpend(Cost);
 }
 
-bool ACommandBuilding::CancelConstruction()
-{
-	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || IsComplete() || !State || State->MatchResult != EMatchResult::Ongoing)
-		return false;
-	const UBuildingDefinition* Definition = GetDefinition();
-	const int32 Refund = Definition ? EconomyPolicy::CancellationRefund(GetBuildCost(*Definition), ConstructionProgress) : 0;
-	if (IsValid(OwningPlayerState))
-		OwningPlayerState->AddResources(Refund);
-	ReleaseDeposit();
-	FCommandBuildingTerminalSnapshot Snapshot;
-	Snapshot.bCancelled = true;
-	Snapshot.ConstructionProgress = ConstructionProgress;
-	Snapshot.TeamIndex = TeamIndex;
-	MulticastTerminalState(Snapshot);
-	Destroy();
-	return true;
-}
-
-bool ACommandBuilding::TryResearch(EArmyDoctrine Choice)
-{
-	const UBuildingDefinition* Definition = GetDefinition();
-	if (!Definition || !Definition->bOffersResearch || !IsComplete()
-		|| (Choice != EArmyDoctrine::SiegeOptics && Choice != EArmyDoctrine::FieldRepairs
-			&& Choice != EArmyDoctrine::EntrenchedFrontline))
-		return false;
-	if (!IsValid(OwningPlayerState) || OwningPlayerState->Doctrine != EArmyDoctrine::None)
-		return false;
-	if (!TrySpend(ResearchCost))
-		return false;
-	if (!OwningPlayerState->TryChooseDoctrine(Choice))
-	{
-		OwningPlayerState->AddResources(ResearchCost);
-		return false;
-	}
-	++ResearchCount;
-	OnRep_ResearchCount();
-	ForceNetUpdate();
-	return true;
-}
-
 void ACommandBuilding::NotifyPlacementCommitted()
 {
 	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || PlacementCommittedServerTime >= 0.)

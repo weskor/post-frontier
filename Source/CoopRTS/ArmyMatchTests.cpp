@@ -80,9 +80,9 @@ public:
 				BeforeShots += Unit->AttackCount;
 			}
 			if (bVictory)
-				PC->ServerIssueAttack(Attacker, Target->GetActorLocation(), Target);
+				FCommandService::IssueAttack(Wallet, Attacker, Target->GetActorLocation(), Target);
 			else
-				Attacker->IssueAttack(Target->GetActorLocation(), Target);
+				FCommandService::IssueAttack(State->EnemyCommander, Attacker, Target->GetActorLocation(), Target);
 			if (Attacker->Order != EArmyOrder::Attack || Attacker->AttackTarget != Target)
 				return Fail(TEXT("A targeted HQ attack must be accepted without a shield prerequisite"));
 			OldState = State;
@@ -120,8 +120,8 @@ public:
 			const uint32 Serial = Friendly->OrderSerial;
 			const int32 Balance = Wallet->Resources;
 			const int32 Buildings = State->Buildings.Num();
-			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, MoveLocation);
-			PC->ServerPlaceBuilding(ArmyTestSetup::BarracksIndex, BuildingLocation);
+			FCommandService::IssueOrder(Wallet, Friendly.Get(), EArmyOrder::Move, MoveLocation);
+			FCommandService::PlaceBuilding(Wallet, ArmyTestSetup::BarracksIndex, BuildingLocation);
 			ArmyTestSetup::Research(PC, EArmyDoctrine::FieldRepairs);
 			State->bVerificationIncomePaused = false; // Terminal state, not the fixture pause, must stop income.
 			State->Tick(2.f);
@@ -129,7 +129,7 @@ public:
 				|| Wallet->Doctrine != EArmyDoctrine::SiegeOptics)
 				return Fail(TEXT("Terminal match must reject orders/construction/research and stop income"));
 			Slot = Wallet->CommanderIndex;
-			PC->ServerRequestRestart();
+			FCommandService::Restart(PC);
 			Stage = 2;
 			StartedAt = FPlatformTime::Seconds();
 			Test->AddInfo(TEXT("Outcome and terminal guards observed; seamless fresh world requested."));

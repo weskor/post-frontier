@@ -50,7 +50,7 @@ public:
 				Test->AddError(TEXT("Encounter disappeared before Attack was accepted"));
 				return true;
 			}
-			if (!Army->IssueAttack(Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()))
+			if (!FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()))
 				return false;
 			if (!Check(Army->Order == EArmyOrder::Attack && Army->AttackTarget == Victim.Get(),
 					TEXT("Accepted Attack records the explicit enemy and location")))
@@ -78,7 +78,7 @@ public:
 			if (!Check(Victim.IsValid() && Victim->IsAlive(), TEXT("Boundary probe has a live hostile")))
 				return true;
 			Victim->SetActorLocation(Army->Destination + FVector(700.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(Army->IssueAttack(Army->Destination, Victim.Get()), TEXT("Boundary probe accepts a targeted Attack")))
+			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->Destination, Victim.Get()).IsAccepted(), TEXT("Boundary probe accepts a targeted Attack")))
 				return true;
 			Victim->SetActorLocation(Army->Destination + FVector(0.f, Army->PursuitRadius + 700.f, 0.f),
 				false, nullptr, ETeleportType::TeleportPhysics);
@@ -97,7 +97,7 @@ public:
 			{
 				const uint32 Serial = Army->OrderSerial;
 				const FVector MoveGoal = Army->GetHomeLocation() + FVector(0.f, -600.f, 0.f);
-				Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Move, MoveGoal);
+				FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, MoveGoal);
 				if (!Check(Army->Order == EArmyOrder::Move && Army->OrderSerial > Serial && !Army->AttackTarget,
 						TEXT("Move replaces Attack and clears the explicit target")))
 					return true;
@@ -123,7 +123,7 @@ public:
 				if (!Check(FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) < 750.f,
 						TEXT("Every Move member stays with its ordered route instead of chasing a nearby enemy")))
 					return true;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			if (!Check(Army->Order == EArmyOrder::Hold, TEXT("Hold replaces Move during the encounter")))
 				return true;
 			HeldPositions.Reset();
@@ -144,7 +144,7 @@ public:
 				return true;
 			Victim = Enemy->GetUnits()[2];
 			Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(Army->IssueAttack(Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()),
+			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()).IsAccepted(),
 					TEXT("Attack can replace Hold with a live hostile target")))
 				return true;
 			SetStage(4, Now);
@@ -154,7 +154,7 @@ public:
 				break;
 			if (!Check(Army->Order == EArmyOrder::Attack, TEXT("Army is engaging before Retreat")))
 				return true;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
+			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
 			if (!Check(Army->Order == EArmyOrder::Retreat && !Army->AttackTarget,
 					TEXT("Retreat replaces combat and clears the group target")))
 				return true;
@@ -178,7 +178,7 @@ public:
 			if (!Check(Victim.IsValid() && Victim->IsAlive(), TEXT("A live opposing unit is available for death check")))
 				return true;
 			Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(Army->IssueAttack(Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get())
+			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()).IsAccepted()
 						&& Army->AttackTarget == Victim.Get(),
 					TEXT("Targeted Attack records a live enemy")))
 				return true;
@@ -199,7 +199,7 @@ public:
 			for (AArmyUnit* Unit : Army->GetUnits())
 				if (!Check(Unit->Target != Victim.Get(), TEXT("No unit retains a dead target")))
 					return true;
-			Army->IssueHold();
+			FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			Test->AddInfo(TEXT("Live combat passed: role-specific effective range, server damage/death, target invalidation, bounded Attack, Move and Hold boundaries, Retreat override and stale-intent replacement."));
 			return true;
 		default:
@@ -253,7 +253,8 @@ private:
 		// fixture spawns; Hold alone would still let nearby members fire.
 		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
 			if (It->TeamIndex == 5 && It->IsProducer())
-				It->SetProduction(It->ProductionUnitIndex, false);
+				FCommandService::ConfigureProduction(State->EnemyCommander, *It,
+					It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 5)
 				It->Destroy();
@@ -295,7 +296,7 @@ private:
 				return true;
 		}
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
-		Army->IssueHold(); // Reset target acquired by the direct range probes.
+		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter()); // Reset target acquired by the direct range probes.
 		Victim = Enemy->GetUnits()[1]; // Fresh defender: range probes do not pre-damage the encounter target.
 		// Bring one frontline defender into the friendly HQ-derived approach,
 		// leaving the other defenders at their enemy HQ-derived fixture spawn.

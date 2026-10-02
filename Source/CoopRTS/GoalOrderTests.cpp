@@ -125,7 +125,7 @@ public:
 			Attacker = SpawnGroup(World, nullptr, -1, State->GetRegionAnchor(EnemyMain) + FVector(0.f, 0.f, 100.f));
 			if (!Attacker.IsValid())
 				return Fail(TEXT("Lethal-damage fixture could not spawn"));
-			Attacker->IssueHold();
+			FCommandService::IssueOrder(State->EnemyCommander, Attacker.Get(), EArmyOrder::Hold, Attacker->GetCenter());
 			Attacker->SetActorTickEnabled(false);
 			for (AArmyUnit* Unit : Attacker->GetUnits())
 			{
@@ -144,15 +144,15 @@ public:
 			return false;
 		if (Stage == 1)
 		{
-			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, true);
+			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, true);
 			if (!Check(Building->bForceConfigured && IsValid(Building->ForceGroup)
 						&& Building->GetProductionDefinition()->Capacity == 6,
 					TEXT("Owning Start configures a real six-slot frontline force")))
 				return true;
-			if (!Check(Foreign->SetProduction(UnitIndex(State, EUnitRole::Frontline), true),
+			if (!Check(FCommandService::ConfigureProduction(ForeignWallet.Get(), Foreign.Get(), EUnitRole::Frontline, true).IsAccepted(),
 					TEXT("Foreign producer configures its independent force")))
 				return true;
-			Foreign->SetProduction(Foreign->ProductionUnitIndex, false);
+			FCommandService::ConfigureProduction(ForeignWallet.Get(), Foreign.Get(), State->Content->Unit(Foreign->ProductionUnitIndex)->Role, false);
 			Building->TickGoal();
 			Foreign->TickGoal();
 			if (!Check(AtFront(State, Building.Get(), Home, EFrontOrder::Defend),
@@ -177,11 +177,11 @@ public:
 		{
 			if (Joined != 6 || Travelling != 0)
 				return false;
-			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, false);
+			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, false);
 			if (!Check(Wallet->Resources == FillBalance - 6 * Building->GetProductionCost(),
 					TEXT("Six naturally deployed and joined members each pay the real unit price")))
 				return true;
-			PC->ServerAssignGoal(Building.Get(), EForceGoal::Expand, Target);
+			FCommandService::AssignGoal(Wallet, Building.Get(), EForceGoal::Expand, Target);
 			Building->TickGoal();
 			if (!Check(Building->ForceGoal == EForceGoal::Expand && Building->GoalRegionIndex == Target
 						&& AtFront(State, Building.Get(), Intermediate, EFrontOrder::Secure),
@@ -236,7 +236,7 @@ public:
 			if (!Check(AssaultWaypoint != INDEX_NONE && AssaultWaypoint != Target,
 					TEXT("Captured region has a nontrivial shortest path to the enemy main")))
 				return true;
-			PC->ServerAssignGoal(Building.Get(), EForceGoal::Assault, INDEX_NONE);
+			FCommandService::AssignGoal(Wallet, Building.Get(), EForceGoal::Assault, INDEX_NONE);
 			Building->TickGoal();
 			if (!Check(Building->ForceGoal == EForceGoal::Assault && Building->GoalRegionIndex == EnemyMain
 						&& AtFront(State, Building.Get(), AssaultWaypoint, EFrontOrder::Secure),
@@ -256,7 +256,7 @@ public:
 					TEXT("Two of six members (below 40 percent) Hold the last controlled path region without losing Assault")))
 				return true;
 			RefillBalance = Wallet->Resources;
-			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, true);
+			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, true);
 			Stage = 6;
 			Test->AddInfo(TEXT("GoalOrders: casualties triggered last-controlled-region Hold; awaiting paid refill."));
 			return false;
@@ -265,27 +265,27 @@ public:
 		{
 			if (Joined + Travelling < 5)
 				return false;
-			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, false);
+			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, false);
 			Building->TickGoal();
 			if (!Check(Joined + Travelling == 5 && Building->IsGoalRefilling()
 						&& AtFront(State, Building.Get(), Target, EFrontOrder::Defend)
 						&& Wallet->Resources == RefillBalance - 3 * Building->GetProductionCost(),
 					TEXT("Five of six paid living members still Hold; recovering above 40 percent is not a full refill")))
 				return true;
-			PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, true);
+			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, true);
 			Stage = 7;
 			return false;
 		}
 		if (Joined + Travelling != 6)
 			return false;
-		PC->ServerConfigureProduction(Building.Get(), EUnitRole::Frontline, false);
+		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Frontline, false);
 		Building->TickGoal();
 		if (!Check(!Building->IsGoalRefilling() && Building->ForceGoal == EForceGoal::Assault
 					&& Building->GoalRegionIndex == EnemyMain && AtFront(State, Building.Get(), AssaultWaypoint, EFrontOrder::Secure)
 					&& Wallet->Resources == RefillBalance - 4 * Building->GetProductionCost(),
 				TEXT("Full paid refill resumes the retained Assault along its next shortest-path waypoint")))
 			return true;
-		PC->ServerAssignGoal(Building.Get(), EForceGoal::FallBack, INDEX_NONE);
+		FCommandService::AssignGoal(Wallet, Building.Get(), EForceGoal::FallBack, INDEX_NONE);
 		Building->TickGoal();
 		if (!Check(Building->ForceGoal == EForceGoal::FallBack && Building->GoalRegionIndex == Home
 					&& Building->FrontOrder == EFrontOrder::FallBack && Building->ForceGroup->FrontOrder == EFrontOrder::FallBack,
@@ -319,7 +319,7 @@ private:
 				if (!State->ValidateBuildingPlacement(BarracksIndex, 0, Point, Reason))
 					continue;
 				const int32 Before = Wallet->Resources;
-				ACommandBuilding* Producer = State->TryPlaceBuilding(BarracksIndex, Point, Wallet, 0, Reason);
+				ACommandBuilding* Producer = FCommandService::PlaceBuilding(Wallet, BarracksIndex, Point).Building;
 				const UBuildingDefinition* Definition = State->Content->Building(BarracksIndex);
 				if (!Check(IsValid(Producer) && Definition && Wallet->Resources == Before - Definition->BuildCost,
 						TEXT("Goal scenario barracks placement pays its real building price")))
@@ -362,7 +362,7 @@ private:
 		const int32 CallerBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
 		const float BeforeProgress = Producer->ProductionProgressSeconds;
 		const bool bBeforeProduction = Producer->bProductionEnabled;
-		PC->ServerAssignGoal(Producer, Goal, Index);
+		FCommandService::AssignGoal(PC->GetPlayerState<ACommandPlayerState>(), Producer, Goal, Index);
 		return Check(Producer->ForceGoal == BeforeGoal && Producer->GoalRegionIndex == BeforeTarget
 				&& Producer->GetGoalWaypointRegionIndex() == BeforeWaypoint && Producer->IsGoalRefilling() == bBeforeRefill
 				&& Producer->FrontOrder == BeforeOrder && Producer->FrontLocation == BeforeFront
