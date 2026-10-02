@@ -28,7 +28,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = Path(__file__).resolve().parent
 BINARY = ROOT / "Saved/Packages/development/latest/CoopRTS/Binaries/Linux/CoopRTS"
 POINTER = ROOT / "Intermediate/x-harness/pointer"
-READY = "Bringing up level for play"
 DEFAULT_MAP = "/Game/Maps/Boot"
 
 

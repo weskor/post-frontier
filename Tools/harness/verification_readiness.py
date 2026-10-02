@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 READY = "Bringing up level for play"
 
 
@@ -21,7 +23,7 @@ def native_log_ready(log: str, map_path: str, selected_map: bool) -> None:
 
 
 def desktop_log_ready(
-    log: str, peer: str, map_path: str, log_path: object, selected_map: bool
+    log: str, peer: str, map_path: str, log_path: Path, selected_map: bool
 ) -> None:
     if "TravelFailure:" in log or "BroadcastTravelFailure" in log:
         raise RuntimeError(f"{peer} map travel failed; inspect {log_path}")

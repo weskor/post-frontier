@@ -62,17 +62,17 @@ def test_native_requires_engine_readiness_before_requested_map() -> None:
 def test_desktop_travel_failure_wins_over_pending_or_wrong_map(failure: str) -> None:
     log = failure + "\nBringing World /Game/Maps/Other.Other up for play"
     with pytest.raises(RuntimeError, match="host map travel failed") as caught:
-        desktop_log_ready(log, "host", "/Game/Maps/Test", "host/game.log", False)
+        desktop_log_ready(log, "host", "/Game/Maps/Test", Path("host/game.log"), False)
     assert not isinstance(caught.value, WindowNotReady)
 
 
 def test_desktop_wrong_host_map_is_terminal_but_remote_travel_is_pending() -> None:
     log = "5.8.3 Bringing up level for play\nBringing World /Game/Maps/Other.Other up for play"
     with pytest.raises(RuntimeError, match="started a different map") as caught:
-        desktop_log_ready(log, "host", "/Game/Maps/Test", "host/game.log", False)
+        desktop_log_ready(log, "host", "/Game/Maps/Test", Path("host/game.log"), False)
     assert not isinstance(caught.value, WindowNotReady)
     with pytest.raises(WindowNotReady, match="readiness for /Game/Maps/Test missing"):
-        desktop_log_ready(log, "c1", "/Game/Maps/Test", "c1/game.log", False)
+        desktop_log_ready(log, "c1", "/Game/Maps/Test", Path("c1/game.log"), False)
     with pytest.raises(WindowNotReady):
-        desktop_log_ready("", "host", "/Game/Maps/Test", "host/game.log", True)
-    desktop_log_ready(log, "c1", "/Game/Maps/Other", "c1/game.log", True)
+        desktop_log_ready("", "host", "/Game/Maps/Test", Path("host/game.log"), True)
+    desktop_log_ready(log, "c1", "/Game/Maps/Other", Path("c1/game.log"), True)
