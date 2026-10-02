@@ -13,8 +13,8 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyCombatTest, "CoopRTS.Combat.Encounter",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-// Run alone in a fresh standalone Boot world. Observe real authoritative actors,
-// order execution, health and motion over time; never share a world with movement tests.
+// Run alone in a fresh standalone world. Explicit mixed-role fixtures exercise
+// authoritative combat and internal orders, not starting forces or paid production.
 class FArmyCombatScenario : public IAutomationLatentCommand
 {
 public:
@@ -31,7 +31,7 @@ public:
 					{
 						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
 							It->Destroy();
-						bIsolated = true; // This one historical encounter deliberately owns the enemy orders.
+						bIsolated = true; // The fixture, not the enemy planner, owns encounter orders.
 						break;
 					}
 		}
@@ -123,7 +123,7 @@ public:
 				if (!Check(FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) < 750.f,
 						TEXT("Every Move member stays with its ordered route instead of chasing a nearby enemy")))
 					return true;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, FVector::ZeroVector);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 			if (!Check(Army->Order == EArmyOrder::Hold, TEXT("Hold replaces Move during the encounter")))
 				return true;
 			HeldPositions.Reset();
@@ -154,7 +154,7 @@ public:
 				break;
 			if (!Check(Army->Order == EArmyOrder::Attack, TEXT("Army is engaging before Retreat")))
 				return true;
-			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, FVector::ZeroVector);
+			Controller->ServerIssueOrder(Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
 			if (!Check(Army->Order == EArmyOrder::Retreat && !Army->AttackTarget,
 					TEXT("Retreat replaces combat and clears the group target")))
 				return true;
@@ -243,24 +243,21 @@ private:
 			}
 		if (!World)
 			return false;
-		if (!ArmyTestSetup::CombatActors(World))
+		const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+		Controller = ArmyTestSetup::Controller(World);
+		if (!ArmyTestSetup::MapReady(State) || !Controller.IsValid()
+			|| !Controller->GetPlayerState<ACommandPlayerState>()
+			|| Controller->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 			return false;
-		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-		{
-			if (It->IsOpposingArmy())
-				Enemy = *It;
-			else if (It->GetArmyIndex() == 0 && It->GetUnits().Num() == 6)
-				if (ACommandPlayerController* Owner = Cast<ACommandPlayerController>(It->GetOwner()))
-					if (Owner->IsLocalController())
-					{
-						Army = *It;
-						Controller = Owner;
-					}
-		}
-		if (!Army.IsValid() || !Enemy.IsValid() || !Controller.IsValid())
-			return false;
-		if (!Check(Army->GetUnits().Num() == 6 && Enemy->GetUnits().Num() == 6 && Army->GetTeamIndex() != Enemy->GetTeamIndex(),
-				TEXT("Fresh Boot has two opposed six-unit armies")))
+		// CombatActors treats any produced hostile force as present. Own both
+		// fixtures explicitly so a partially assembled paid force cannot replace one.
+		Army = ArmyTestSetup::SpawnGroup(World, Controller.Get(), 0,
+			ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
+		Enemy = ArmyTestSetup::SpawnGroup(World, nullptr, -1, ArmyTestSetup::HostileStaging(State));
+		if (!Check(Army.IsValid() && Enemy.IsValid()
+					&& Army->GetUnits().Num() == 6 && Enemy->GetUnits().Num() == 6
+					&& Army->GetTeamIndex() != Enemy->GetTeamIndex(),
+				TEXT("Explicit combat fixtures have two opposed six-unit armies")))
 			return true;
 		AArmyUnit* Front = Army->GetUnits()[0];
 		AArmyUnit* Ranged = Army->GetUnits()[2];
@@ -292,8 +289,8 @@ private:
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
 		Army->IssueHold(); // Reset target acquired by the direct range probes.
 		Victim = Enemy->GetUnits()[1]; // Fresh defender: range probes do not pre-damage the encounter target.
-		// Bring one frontline defender into the army's approach, leaving the other
-		// five defenders at their arena spawn. Both armies still run their real AI.
+		// Bring one frontline defender into the friendly HQ-derived approach,
+		// leaving the other defenders at their enemy HQ-derived fixture spawn.
 		Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		SetStage(7, Now); // A rejected request while dynamic navigation starts is safe to retry.
 		return false;
