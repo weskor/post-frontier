@@ -249,6 +249,14 @@ private:
 			|| !Controller->GetPlayerState<ACommandPlayerState>()
 			|| Controller->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 			return false;
+		// Stop paid reinforcements and remove pre-existing hostiles before the
+		// fixture spawns; Hold alone would still let nearby members fire.
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			if (It->TeamIndex == 5 && It->IsProducer())
+				It->SetProduction(It->ProductionUnitIndex, false);
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+			if (It->GetTeamIndex() == 5)
+				It->Destroy();
 		// CombatActors treats any produced hostile force as present. Own both
 		// fixtures explicitly so a partially assembled paid force cannot replace one.
 		Army = ArmyTestSetup::SpawnGroup(World, Controller.Get(), 0,
