@@ -7,7 +7,6 @@ headless_pool_size = 2
 runs_root = "~/.local/state/cooprts/runs"
 default_map = "/Game/Maps/Boot"
 playtest_map = "/Game/Maps/AvailabilityZoneV2"
-direct_ip_port = 7777
 stall_seconds = 300
 
 [freshness]

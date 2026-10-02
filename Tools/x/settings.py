@@ -19,7 +19,6 @@ class Settings:
     runs_root: Path
     default_map: str
     playtest_map: str
-    direct_ip_port: int
     stall_seconds: float
     freshness: Mapping[str, tuple[str, ...]]
     repo: Path
@@ -46,7 +45,6 @@ def load(repo: Path) -> Settings:
         runs_root=Path(data["runs_root"]).expanduser(),
         default_map=data["default_map"],
         playtest_map=data["playtest_map"],
-        direct_ip_port=data["direct_ip_port"],
         stall_seconds=float(data["stall_seconds"]),
         freshness=MappingProxyType(
             {key: tuple(value) for key, value in data["freshness"].items()}
