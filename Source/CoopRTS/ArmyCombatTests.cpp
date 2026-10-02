@@ -47,16 +47,49 @@ public:
 			return Begin(Now);
 		if (Stage == 7)
 		{
-			if (!Army.IsValid() || !Victim.IsValid())
+			if (!Army.IsValid() || !Enemy.IsValid() || !Victim.IsValid())
 			{
 				Test->AddError(TEXT("Encounter disappeared before Attack was accepted"));
 				return true;
 			}
+			AArmyUnit* Frontline = Army->GetUnits()[0];
+			AArmyUnit* CounterTarget = Enemy->GetUnits()[2];
+			const FVector CounterPosition = CounterTarget->GetActorLocation();
+			CounterTarget->SetActorLocation(Frontline->GetActorLocation() + FVector(100.f, 0.f, 0.f),
+				false, nullptr, ETeleportType::TeleportPhysics);
+			for (AArmyUnit* Unit : Army->GetUnits())
+				Unit->NextAttackTime = TNumericLimits<float>::Max();
+			static_cast<AActor*>(Army.Get())->Tick(.25f);
+			if (!Check(Frontline->Target == CounterTarget,
+					TEXT("Automatic acquisition establishes a living Light counter lock before the targeted order")))
+				return true;
 			if (!FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()))
+			{
+				CounterTarget->SetActorLocation(CounterPosition, false, nullptr, ETeleportType::TeleportPhysics);
 				return false;
+			}
 			if (!Check(Army->Order == EArmyOrder::Attack && Army->AttackTarget == Victim.Get(),
 					TEXT("Accepted Attack records the explicit enemy and location")))
 				return true;
+			static_cast<AActor*>(Army.Get())->Tick(.25f);
+			if (!Check(Frontline->Target == Victim.Get(),
+					TEXT("Real targeted IssueAttack interrupts the prior counter lock and selects explicit Heavy under Attack")))
+				return true;
+			// Remove the explicit hint to probe retained-target eligibility under Attack,
+			// beyond melee range but still inside the real order's pursuit leash.
+			Army->AttackTarget = nullptr;
+			CounterTarget->SetActorLocation(Frontline->GetActorLocation() + FVector(75.f, 0.f, 0.f),
+				false, nullptr, ETeleportType::TeleportPhysics);
+			static_cast<AActor*>(Army.Get())->Tick(.25f);
+			if (!Check(Army->Order == EArmyOrder::Attack && Frontline->Target == Victim.Get()
+						&& FVector::Dist2D(Frontline->GetActorLocation(), Victim->GetActorLocation()) > Frontline->WeaponRange()
+						&& FVector::Dist2D(Victim->GetActorLocation(), Army->Destination) < Army->PursuitRadius,
+					TEXT("Attack retains its eligible non-counter lock inside the leash despite a closer counter in melee range")))
+				return true;
+			Army->AttackTarget = Victim.Get();
+			CounterTarget->SetActorLocation(CounterPosition, false, nullptr, ETeleportType::TeleportPhysics);
+			for (AArmyUnit* Unit : Army->GetUnits())
+				Unit->NextAttackTime = 0.f;
 			EncounterAttacks = TotalAttacks();
 			SetStage(1, Now);
 			return false;
@@ -374,7 +407,7 @@ private:
 		const FVector Anchor = HQ->GetActorLocation() + FVector(900.f, 0.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
 			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
-		Army->IssueHold();
+		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);

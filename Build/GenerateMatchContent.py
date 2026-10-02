@@ -24,6 +24,12 @@ def require(value, message):
     return value
 
 
+def authored_enum(enum_type, name, allowed):
+    if name not in allowed:
+        raise ValueError("Unsupported authored enum %r; expected one of %s" % (name, ", ".join(allowed)))
+    return getattr(enum_type, name)
+
+
 def mesh(path):
     """Soft reference target; a missing mesh leaves the slot empty so the runtime cube fallback applies."""
     if not assets.does_asset_exist(path):
@@ -58,7 +64,16 @@ unit_art = "/Game/Art/Units/"
 units = []
 with (Path(__file__).parent / "Content" / "units.json").open(encoding="utf-8") as source:
     unit_definitions = json.load(source)
-for definition in unit_definitions:
+# Validate the complete source before writing any asset.
+unit_tags = [
+    (
+        authored_enum(role_type, definition["role"], ("FRONTLINE", "RANGED", "SIEGE")),
+        authored_enum(armor_type, definition["armor_class"], ("LIGHT", "HEAVY", "SHIELDED", "STRUCTURE")),
+        authored_enum(damage_type, definition["damage_type"], ("KINETIC", "PIERCING", "DEMOLITION", "EMP")),
+    )
+    for definition in unit_definitions
+]
+for definition, (role, armor, damage) in zip(unit_definitions, unit_tags):
     name = definition["asset_name"]
     unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
     values = [(key, definition[key]) for key in (
@@ -66,9 +81,9 @@ for definition in unit_definitions:
         "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
     )]
     values.extend((
-        ("role", getattr(role_type, definition["role"])),
-        ("armor_class", getattr(armor_type, definition["armor_class"])),
-        ("damage_type", getattr(damage_type, definition["damage_type"])),
+        ("role", role),
+        ("armor_class", armor),
+        ("damage_type", damage),
         ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
         ("human_mesh", mesh(unit_art + "SM_Human_" + name)),
         ("machine_mesh", mesh(unit_art + "SM_Machine_" + name)),

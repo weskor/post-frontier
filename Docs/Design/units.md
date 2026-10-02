@@ -88,6 +88,8 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 
 **Current stats [Built]:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. The retag preserves the serialized HP, damage, range, interval, cost, duration, capacity and configuration fee; only armor, damage type, speed and role display names change. The proposed numbers below are not yet applied.
 
+**Authored tags [Built]:** the generator accepts only the real role, armor and damage-type names. Hidden `Unset` defaults and unknown names are rejected before any asset is written.
+
 **Rules:**
 - **Cost:** a combat squad costs about 120 Power to fill, support squads cost less, and the Juggernaut about 2×.
 - **Range bands:** melee 175, short 300, mid 550, long 1150. Branches move a unit up or down a band.
