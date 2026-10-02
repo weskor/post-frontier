@@ -11,7 +11,8 @@ Where to find things:
 | Map layouts | [Docs/Maps/](Docs/Maps/) |
 | Setting, names, tone | [Docs/World.md](Docs/World.md). Its "Names in code and assets" table maps old display names (Bunker, Cluster, Availability Zone…) that code and map data still use to the current ones. |
 | Build, package, Steam and network setup | [README.md](README.md). Its mechanics sections describe the current build (checked against source on 2026-10-02). |
-| How to verify changes | [.agents/skills/verify-cooprts/SKILL.md](.agents/skills/verify-cooprts/SKILL.md) |
+| How to verify changes | [.agents/skills/verify-cooprts/SKILL.md](.agents/skills/verify-cooprts/SKILL.md), until `./x` replaces it (migration phase 1) |
+| Engineering setup: the single entry point `./x`, test tiers, parallel work, landing, and the migration plan | [Docs/Engineering/Setup.md](Docs/Engineering/Setup.md). Measured current state: [Docs/Engineering/Audit/](Docs/Engineering/Audit/) |
 
 When editing design docs:
 - **Each fact lives in exactly one topic file.** Link to it rather than copying numbers.

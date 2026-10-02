@@ -1,0 +1,109 @@
+# Engineering setup for parallel agents — decided 2026-10-02
+
+Target setup for building Post-Frontier with many agents working in parallel. The repo is optimised for agents, not for human convenience. The current state is measured in [Audit/](Audit/): [architecture](Audit/architecture.md), [tests](Audit/tests.md), [workflow](Audit/workflow.md).
+
+## Principles
+
+1. **Exactly one way from A to B.** Every outcome (build, test, verify, generate, simulate, package, land) has one command. There is no second path to fall back on, so a workaround is impossible rather than discouraged.
+2. **Enforced, not written down.** Rules live in the runner, hooks and lint. A rule that exists only in prose gets broken; today's parallel-agent rules live in `/tmp/cooprts-work` and untracked briefs ([workflow audit](Audit/workflow.md)).
+3. **Scoped proof.** An agent working on an isolated task proves it with the smallest test set that covers the files it changed, and doesn't choose that set itself.
+4. **Parallel by default.** Two agents on different tasks never block each other's build, tests or files.
+5. **No red.** The suite is all green, or the change doesn't land. No quarantine lists, no known failures.
+
+## Decisions
+
+| Area | Decision |
+|---|---|
+| Baseline | The working tree was committed as-is on 2026-10-02 (`3104bdc`). HEAD had been two days behind (125 modified, 289 untracked files). |
+| Entry point | One Python task runner, `./x`, at the repo root. The only documented way to do anything. |
+| Fast tests | Pure logic is tested with **Unreal Low-Level Tests** (Catch2 test programs built by UBT, no editor). One build system. Needs a prototype on UE 5.8/Linux first. |
+| Unreal processes | Headless test processes run in parallel, up to N (set from RAM). Anything using the desktop, Steam, packaging or asset generators takes an exclusive lock. `./x` owns both. |
+| Binary assets | `.uasset`/`.umap` are generated outputs. Tuned values and maps live in text. Agents change text only; `./x land` regenerates and commits binaries. |
+| Command path | One validated command path for humans, JEV, tests and the harness. Test-only RPCs and debug flags leave release builds. |
+| Landing | Only through `./x land`: rebase onto main, run the scoped checks, fast-forward. A hook blocks any other commit to main. |
+| Red tests | The 9 world tests failing since the regions/Extractors cutover are ported if still relevant, otherwise deleted. |
+
+## `./x`, the only entry point
+
+| Command | Does |
+|---|---|
+| `./x build` | Builds the editor target for this worktree. |
+| `./x test <scope>` | Runs one test scope (see tiers below). |
+| `./x check` | Runs exactly the scopes mapped to the files changed against main, plus format and lint. The only proof an agent offers. |
+| `./x verify <feature>` | Runs a feature's slow verification (network, HUD capture, native window). |
+| `./x gen <asset>` | Runs one generator. Takes the exclusive lock. |
+| `./x sim` | Runs the balance harness. |
+| `./x package` | Builds a package into a run-specific folder, never over the friends' playtest build. |
+| `./x land` | Rebases, runs `check`, regenerates binary assets from text if their sources changed, fast-forwards main. |
+| `./x help` | The procedure reference. Docs link here instead of repeating commands. |
+
+The runner owns:
+- **Locks:** the headless process pool and the exclusive desktop lock, queued fairly, with stale-lock cleanup after crashes.
+- **Freshness:** content hashes of sources, not file timestamps. Today `verify.py` refuses to run if any source file is newer than the module, so one agent's edit blocks everyone ([tests audit](Audit/tests.md)).
+- **Evidence:** every run writes a machine-readable record (command, commit, scopes, results, timings, log paths) into a per-run folder. Agents cite run IDs; nobody hand-writes RESULTS.md.
+- **The engine path, maps list and ports,** each defined once.
+
+## Test tiers
+
+| Tier | What | Speed | Lock |
+|---|---|---|---|
+| 0 | Pure logic in Low-Level Tests; Python tool tests (map validators without rendering) | Milliseconds to seconds | None; runs in parallel |
+| 1 | Headless world scenarios, one feature tag per scope | 10–70 s each today | Headless pool |
+| 2 | Network slices, HUD capture, simulation, packaging | Minutes | Exclusive or pool, per command |
+
+- **A path-to-scope map** in the repo lists which scopes cover which paths, e.g. `Source/CoopRTS/Rules/**` → `rules`, `Build/Maps/**` → `maps`. `./x check` reads it, and lint fails if a source file maps to no scope.
+- Every new behaviour lands with a tier-0 test if its logic can be pure, otherwise a tier-1 scenario.
+
+## Parallel work
+
+- **One branch and one git worktree per task.** Each worktree has its own `Binaries/` and `Intermediate/`; a full module build takes 10–15 s, so that's cheap. The derived-data cache is shared.
+- **Unity builds are off** for the game module. Today two agents adding same-named helpers in different files can break each other's build ([architecture audit](Audit/architecture.md)).
+- **Generated binaries never conflict:** agents don't commit them, and `land` regenerates them serially under the exclusive lock.
+- **Feature folders:** code, tests and the scope entry for a feature live together, so a task touches one folder plus the shared interfaces.
+
+## Architecture targets
+
+From the [architecture audit](Audit/architecture.md):
+- **One command path:** a validated command layer that humans (through RPCs), JEV, tests and the harness all call. It replaces the three paths per command and the test-only `ServerIssueOrder`/`ServerIssueAttack`.
+- **Pure decision logic:** the ~850 lines of extractable logic listed in the audit move into world-free functions with tier-0 tests. Today only ~6% of gameplay logic is world-free.
+- **Split the god objects by feature:**
+  - `ACommandGameState` into registry, economy, territory and placement pieces;
+  - the 13 RPCs out of `ACommandPlayerController` into per-feature command components;
+  - `CommandHUD.cpp` into one file per panel;
+  - `AEnemyCommander` into a pure planner plus an executor that uses the command layer.
+- **Content as text:** one text source for unit stats (today two scripts carry the table, and tuned values live only in binary assets) and one source for gameplay constants (the map JSON has drifted from C++: baseline income 10 vs 2).
+- **Release builds contain no test hooks:** the `-autopilot`/`-Sim*` flags, the income-pause test flag and network-probe fixtures sit behind dev-only guards.
+
+## Enforcement
+
+- **Git hooks:** reject commits to main except from `./x land`; reject commits containing generated binaries outside `land`.
+- **Lint in `./x check`:**
+  - direct engine or UBT invocations outside the runner;
+  - test-only symbols outside dev-only guards;
+  - disabled or skipped tests;
+  - docs citing paths under `Saved/`;
+  - procedure text duplicated outside `./x help` and `AGENTS.md`;
+  - source files missing from the path-to-scope map.
+- **Format:** clang-format for C++ and a Python formatter, checked by `./x check`.
+
+## Migration plan
+
+Each phase ends with its exit check passing through `./x check`.
+
+| Phase | Work | Exit check |
+|---|---|---|
+| 0 | Baseline commit | Done: `3104bdc` |
+| 1 | `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; lint; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Every documented procedure is a `./x` command; a direct commit to main is rejected |
+| 2 | Green suite: port or delete the 9 red tests; Low-Level Tests prototype, then move the 18 rules tests; Python tests for map validators | `./x check` is green; rules tests run without starting the editor |
+| 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
+| 4 | Content as text; deterministic generators; `land` regenerates binaries | Changing a unit stat is a text-only diff |
+| 5 | Split the god objects; extract pure decision logic; unity builds off | Hotspots from the audit no longer need edits for unrelated features |
+
+Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md)) can start after phase 1. Each later phase can run alongside gameplay work, as long as the two don't touch the same files.
+
+## Open
+
+- **N for the headless pool:** measure RAM per headless process.
+- **Low-Level Tests on UE 5.8/Linux:** prototype before committing to them.
+- **Asset regeneration at landing:** generators take minutes, so batch them, and decide whether `land` blocks on regeneration or a follow-up commit does it.
+- **Evidence history:** `Saved/Verification` is 3.3 GB and untracked, and tracked docs cite 89 paths in it. Archive or prune it, and replace those citations with run records.
