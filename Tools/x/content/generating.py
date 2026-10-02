@@ -1,14 +1,9 @@
-"""Canonical Unreal generator invocation, including explicit MCP auto-start override."""
+"""Canonical Unreal generator invocation with headless/offscreen modes."""
 
 from pathlib import Path
 
 from x.content.registry import Generator
 from x.context import Context
-
-MCP_DISABLED = (
-    "-ini:EditorPerProjectUserSettings:"
-    "[/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]:bAutoStartServer=False"
-)
 
 
 def unreal_flags(entry: Generator, script: Path, log: Path) -> list[str]:
@@ -21,7 +16,6 @@ def unreal_flags(entry: Generator, script: Path, log: Path) -> list[str]:
         "-nosound",
         "-nosteam",
         "-RenderOffscreen" if entry.offscreen else "-nullrhi",
-        MCP_DISABLED,
         f"-abslog={log}",
     ]
 

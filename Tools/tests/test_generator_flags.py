@@ -3,13 +3,13 @@
 from pathlib import Path
 
 import pytest
-from x.content.generating import MCP_DISABLED, unreal_flags
+from x.content.generating import unreal_flags
 from x.content.registry import Generator
 
 
 @pytest.mark.parametrize("geometry", [False, True])
 @pytest.mark.parametrize("offscreen", [False, True])
-def test_generator_modes_are_exclusive_and_mcp_never_autostarts(
+def test_generator_modes_are_exclusive(
     geometry: bool, offscreen: bool, tmp_path: Path
 ) -> None:
     entry = Generator(
@@ -31,5 +31,4 @@ def test_generator_modes_are_exclusive_and_mcp_never_autostarts(
     )
     assert "PythonScriptPlugin" in plugins
     assert ("GeometryScripting" in plugins) == geometry
-    assert MCP_DISABLED in flags
     assert "-nosteam" in flags and "-unattended" in flags

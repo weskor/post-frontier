@@ -14,7 +14,6 @@ import time
 from harness.simulation_evidence import save_json, stamp
 from harness.simulation_validation import number, validate_report
 from harness.verify import JsonObject
-from x.content.generating import MCP_DISABLED
 from x.content.packages import latest_package
 from x.freshness import is_fresh
 from x.locks import Locks
@@ -63,7 +62,6 @@ def command(args: argparse.Namespace, job: JsonObject, output: Path) -> list[str
             str(ROOT / "CoopRTS.uproject"),
             job["map"],
             "-game",
-            MCP_DISABLED,
         ]
     result += [
         "-nullrhi",

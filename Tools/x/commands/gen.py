@@ -13,9 +13,8 @@ HELP = (
     "./x gen --list lists all executable Build tools (library modules are not entries). "
     "./x gen <name> runs its canonical arguments; optional script arguments follow --. "
     "./x gen <name> --describe shows its runtime, outputs and ordered pipeline. "
-    "Unreal tools hold the exclusive lock, ensure a fresh editor module, disable "
-    "MCP auto-start, and use one headless/offscreen flag builder. Other runtimes "
-    "run without the Unreal lock.\n\n"
+    "Unreal tools hold the exclusive lock, ensure a fresh editor module, and use "
+    "one headless/offscreen flag builder. Other runtimes run without the Unreal lock.\n\n"
     + "\n".join(f"{entry.name}: {entry.HELP or entry.purpose}" for entry in GENERATORS)
 )
 RECORD = True

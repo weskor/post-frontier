@@ -96,7 +96,6 @@ kind = "lint"
 "*.md" = ["lint"]
 ".*" = ["lint"]
 ".agents/**" = ["lint"]
-".omp/**" = ["lint"]
 "Docs/**" = ["lint"]
 "Art/**" = ["lint"]
 "Tools/**" = ["tools"]

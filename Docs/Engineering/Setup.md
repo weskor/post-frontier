@@ -19,6 +19,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | Fast tests | Automation tests in an editor-hosted `-game` process, start-up trimmed; Low-Level Tests need a source engine build (see [Open](#open)). |
 | Unreal processes | Headless test processes run in parallel, up to N (set from RAM). Anything using the desktop, Steam, packaging or asset generators takes an exclusive lock. `./x` owns both. |
 | Binary assets | `.uasset`/`.umap` are generated outputs. Tuned values and maps live in text. Agents change text only; `./x land` regenerates and commits binaries. |
+| Live-editor automation | None. Assets change only through generators from text sources; inspection uses the runner's tests and HUD verification. |
 | Command path | One validated command path for humans, JEV, tests and the harness. Test-only RPCs and debug flags leave release builds. |
 | Landing | Only through `./x land`: rebase onto main, run the scoped checks, fast-forward. A hook blocks any other commit to main. |
 | Red tests | The 9 world tests failing since the regions/Extractors cutover are ported if still relevant, otherwise deleted. |

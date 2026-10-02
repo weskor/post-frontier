@@ -18,11 +18,11 @@ direct-engine = [
     "Build/MasterMaterials.py", "Build/MatchLayout.py",
     "Build/RenderTextureContactSheet.py", "Build/RenderUIIcons.py", "Build/TerrainKit.py",
 ]
-# Pipeline/reference docs link to ./x help; MCP agent startup is outside build procedures.
+# Pipeline/reference docs link to ./x help.
 saved-path = [
     "Docs/Design/**", "Docs/Design.md", "AGENTS.md", "Art/Textures/**", ".agents/skills/orchestrate/**",
     "README.md", "Docs/Engineering/*.md",
-    "Docs/World.md", "Docs/Balance.md", "Docs/Audio.md", "Docs/UnrealMCP.md",
+    "Docs/World.md", "Docs/Balance.md", "Docs/Audio.md",
     "Docs/Maps/AvailabilityZone.md", "Docs/Maps/AvailabilityZone-implementation.md", "Docs/Maps/AvailabilityZoneV2.md",
     "Docs/Research/**", "Art/Audio/SOURCES.md", "Art/Materials/UNREAL.md",
     "Art/UI/IMPLEMENTATION.md", "Art/UI/STYLE.md",
@@ -31,7 +31,7 @@ saved-path = [
 procedure-text = [
     "Docs/Design/**", "Docs/Design.md", "Docs/Research/**", "Docs/Engineering/*.md", "Art/Materials/**",
     "README.md", "AGENTS.md", ".agents/skills/orchestrate/**",
-    "Docs/World.md", "Docs/Balance.md", "Docs/Audio.md", "Docs/UnrealMCP.md",
+    "Docs/World.md", "Docs/Balance.md", "Docs/Audio.md",
     "Docs/Maps/AvailabilityZone.md", "Docs/Maps/AvailabilityZone-implementation.md", "Docs/Maps/AvailabilityZoneV2.md",
     "Art/Audio/SOURCES.md", "Art/Textures/SOURCES.md", "Art/UI/IMPLEMENTATION.md", "Art/UI/STYLE.md",
 ]
