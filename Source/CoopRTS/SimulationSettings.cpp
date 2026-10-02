@@ -1,3 +1,4 @@
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "SimulationSettings.h"
 
 #include "Engine/World.h"
@@ -57,3 +58,4 @@ const FSimulationSettings& FSimulationSettings::ForWorld(const UWorld* World)
 	static const FSimulationSettings Defaults;
 	return World && World->GetNetMode() == NM_Standalone ? Get() : Defaults;
 }
+#endif

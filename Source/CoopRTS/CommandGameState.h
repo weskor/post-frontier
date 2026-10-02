@@ -56,7 +56,6 @@ public:
 	FVector ResolveBuildingLocation(int32 BuildingIndex, const FVector& RequestedLocation, int32 Team = 0) const;
 	bool ValidateBuildingPlacement(int32 BuildingIndex, int32 Team, const FVector& Location, FString& OutReason) const;
 	bool IsInBuildTerritory(int32 BuildingIndex, int32 Team, const FVector& Location) const;
-	static constexpr int32 BaselineIncomePerSecond = 2;
 	int32 GetBaselineIncomePerSecond() const;
 
 	// Single definition catalogue for every peer; indices replicated by actors resolve here.

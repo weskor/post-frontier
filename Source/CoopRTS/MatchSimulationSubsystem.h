@@ -1,8 +1,8 @@
 #pragma once
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "CoreMinimal.h"
-#include "Subsystems/WorldSubsystem.h"
-#include "MatchSimulationSubsystem.generated.h"
+#include "Tickable.h"
 
 class AArmyUnit;
 class ACommandGameState;
@@ -76,19 +76,22 @@ private:
 	FString Error;
 };
 
-// Explicit standalone match/duel opt-in only; absent from ordinary play.
-UCLASS()
-class COOPRTS_API UMatchSimulationSubsystem : public UTickableWorldSubsystem
+class UWorld;
+
+// Non-reflected so the entire runner, not only its hooks, is absent from Shipping.
+class FMatchSimulation final : public FTickableGameObject
 {
-	GENERATED_BODY()
 public:
-	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
-	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
-	virtual void Deinitialize() override;
+	explicit FMatchSimulation(UWorld* InWorld);
+	virtual ~FMatchSimulation() override;
+	virtual bool IsTickable() const override { return !bFinished; }
+	virtual UWorld* GetTickableGameObjectWorld() const override { return World; }
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
 
 private:
+	UWorld* GetWorld() const { return World; }
+	UWorld* World;
 	struct FObservedUnit
 	{
 		int32 TeamSlot = 0;
@@ -123,3 +126,4 @@ private:
 	double NextSnapshot = 30.;
 	float MaxGameDelta = 0.f;
 };
+#endif

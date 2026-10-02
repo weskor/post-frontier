@@ -17,7 +17,9 @@
 #include "Net/UnrealNetwork.h"
 #include "Rules/PlacementPolicy.h"
 #include "Rules/EconomyPolicy.h"
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "SimulationSettings.h"
+#endif
 #include "CommandPlayerController.h"
 #include "CommandGameMode.h"
 #include "GameFramework/WorldSettings.h"
@@ -239,7 +241,11 @@ void ACommandGameState::Tick(float DeltaSeconds)
 
 int32 ACommandGameState::GetBaselineIncomePerSecond() const
 {
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	return FSimulationSettings::ForWorld(GetWorld()).BaselineIncome;
+#else
+	return EconomyPolicy::BaselineIncome;
+#endif
 }
 
 double ACommandGameState::GetEnemyBaselineIncomePerSecond() const

@@ -16,6 +16,12 @@ struct FExtractorPayment
 
 namespace EconomyPolicy
 {
+constexpr int32 BaselineIncome = 2;
+constexpr int32 NormalDepositRate = 4;
+constexpr int32 RichDepositRate = 6;
+constexpr int32 NormalDepositAmount = 2400;
+constexpr int32 RichDepositAmount = 3000;
+
 // Counts below one use solo scaling; each additional human commander adds 30%.
 double JevPlayerCountFactor(int32 HumanCommanders);
 // Extraction consumes only what the living, completed owner's wallet is paid.

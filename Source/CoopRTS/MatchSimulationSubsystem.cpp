@@ -1,3 +1,4 @@
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "MatchSimulationSubsystem.h"
 
 #include "ArenaBounds.h"
@@ -508,16 +509,9 @@ void FSimulationDuelRunner::RestoreHeadquarters()
 	PausedActors.Reset();
 }
 
-bool UMatchSimulationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
+FMatchSimulation::FMatchSimulation(UWorld* InWorld)
+	: World(InWorld)
 {
-	const UWorld* World = Cast<UWorld>(Outer);
-	return Super::ShouldCreateSubsystem(Outer) && World && World->WorldType == EWorldType::Game
-		&& FSimulationSettings::Get().bEnabled;
-}
-
-void UMatchSimulationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
-{
-	Super::Initialize(Collection);
 	const FSimulationSettings& Settings = FSimulationSettings::Get();
 	FMath::RandInit(Settings.Seed);
 	FMath::SRandInit(Settings.Seed);
@@ -547,12 +541,12 @@ void UMatchSimulationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Report->SetObjectField(TEXT("economy"), Economy);
 }
 
-TStatId UMatchSimulationSubsystem::GetStatId() const
+TStatId FMatchSimulation::GetStatId() const
 {
-	RETURN_QUICK_DECLARE_CYCLE_STAT(UMatchSimulationSubsystem, STATGROUP_Tickables);
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FMatchSimulation, STATGROUP_Tickables);
 }
 
-bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
+bool FMatchSimulation::Start(ACommandGameState& State)
 {
 	if (GetWorld()->GetNetMode() != NM_Standalone)
 	{
@@ -734,7 +728,7 @@ bool UMatchSimulationSubsystem::Start(ACommandGameState& State)
 	return !bFinished;
 }
 
-TSharedRef<FJsonObject> UMatchSimulationSubsystem::Event(const TCHAR* Kind, int32 Team)
+TSharedRef<FJsonObject> FMatchSimulation::Event(const TCHAR* Kind, int32 Team)
 {
 	const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 	Row->SetStringField(TEXT("kind"), Kind);
@@ -744,7 +738,7 @@ TSharedRef<FJsonObject> UMatchSimulationSubsystem::Event(const TCHAR* Kind, int3
 	return Row;
 }
 
-void UMatchSimulationSubsystem::Observe(ACommandGameState& State)
+void FMatchSimulation::Observe(ACommandGameState& State)
 {
 	for (auto It = ObservedUnits.CreateIterator(); It; ++It)
 	{
@@ -840,7 +834,7 @@ void UMatchSimulationSubsystem::Observe(ACommandGameState& State)
 	}
 }
 
-void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double ScheduledTime)
+void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 {
 	const double Time = GetWorld()->GetTimeSeconds() - StartWorldTime;
 	const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
@@ -974,7 +968,7 @@ void UMatchSimulationSubsystem::Snapshot(ACommandGameState& State, double Schedu
 	Append(*Report, TEXT("snapshots"), Row);
 }
 
-bool UMatchSimulationSubsystem::Flush()
+bool FMatchSimulation::Flush()
 {
 	const FString& Path = FSimulationSettings::Get().Output;
 	if (Path.IsEmpty() || FPaths::IsRelative(Path))
@@ -995,7 +989,7 @@ bool UMatchSimulationSubsystem::Flush()
 	return IFileManager::Get().Move(*Path, *(Path + TEXT(".tmp")), true, false, false, true);
 }
 
-void UMatchSimulationSubsystem::Finish(const TCHAR* Status, const TCHAR* Outcome, int32 Winner, const FString& Error)
+void FMatchSimulation::Finish(const TCHAR* Status, const TCHAR* Outcome, int32 Winner, const FString& Error)
 {
 	if (bFinished)
 		return;
@@ -1015,7 +1009,7 @@ void UMatchSimulationSubsystem::Finish(const TCHAR* Status, const TCHAR* Outcome
 	FPlatformMisc::RequestExitWithStatus(false, bSuccess ? 0 : 1, TEXT("MatchSimulation"));
 }
 
-void UMatchSimulationSubsystem::Tick(float DeltaTime)
+void FMatchSimulation::Tick(float DeltaTime)
 {
 	if (bFinished || !GetWorld()->HasBegunPlay())
 		return;
@@ -1099,7 +1093,7 @@ void UMatchSimulationSubsystem::Tick(float DeltaTime)
 	}
 }
 
-void UMatchSimulationSubsystem::Deinitialize()
+FMatchSimulation::~FMatchSimulation()
 {
 	if (Report.IsValid() && !bFinished)
 	{
@@ -1108,5 +1102,38 @@ void UMatchSimulationSubsystem::Deinitialize()
 		Flush();
 	}
 	DuelRunner.Reset();
-	Super::Deinitialize();
 }
+
+namespace CoopRTSMatchSimulation
+{
+namespace
+{
+TMap<UWorld*, TUniquePtr<FMatchSimulation>> Matches;
+FDelegateHandle InitializeHandle, CleanupHandle;
+
+void InitializeWorld(UWorld* World, const UWorld::InitializationValues)
+{
+	if (World->WorldType == EWorldType::Game && FSimulationSettings::Get().bEnabled)
+		Matches.Add(World, MakeUnique<FMatchSimulation>(World));
+}
+
+void CleanupWorld(UWorld* World, bool, bool)
+{
+	Matches.Remove(World);
+}
+}
+
+void Start()
+{
+	InitializeHandle = FWorldDelegates::OnPreWorldInitialization.AddStatic(&InitializeWorld);
+	CleanupHandle = FWorldDelegates::OnWorldCleanup.AddStatic(&CleanupWorld);
+}
+
+void Stop()
+{
+	FWorldDelegates::OnPreWorldInitialization.Remove(InitializeHandle);
+	FWorldDelegates::OnWorldCleanup.Remove(CleanupHandle);
+	Matches.Empty();
+}
+}
+#endif

@@ -1,6 +1,6 @@
 #pragma once
 
-#if WITH_DEV_AUTOMATION_TESTS
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "ArenaBounds.h"
 #include "ArmyGroup.h"
 #include "CommandBuilding.h"

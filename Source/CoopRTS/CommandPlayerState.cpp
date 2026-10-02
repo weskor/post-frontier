@@ -53,7 +53,7 @@ int32 ACommandPlayerState::GetIncomePerSecond() const
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	return State ? State->GetIncomePerSecond(this)
-				 : ACommandGameState::BaselineIncomePerSecond;
+				 : EconomyPolicy::BaselineIncome;
 }
 
 bool ACommandPlayerState::TrySpend(int32 Cost)

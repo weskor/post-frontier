@@ -104,6 +104,13 @@ def check_rule(
             )
             findings.extend(source.includes(path, text, headers=headers))
             continue
+        if rule == "test-only-symbol":
+            findings.extend(
+                source.scan(
+                    rule, path, text, test_only_symbols=policy.test_only_symbols
+                )
+            )
+            continue
         scanner = docs.scan if rule in {"saved-path", "procedure-text"} else source.scan
         findings.extend(scanner(rule, path, text))
     return findings

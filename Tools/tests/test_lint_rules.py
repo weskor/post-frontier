@@ -4,7 +4,19 @@ from pathlib import Path
 
 import pytest
 from x.lint import docs, source
-from x.lint.model import ExceptionEntry, Finding, Policy, apply_exceptions, matches
+from x.lint.model import (
+    ExceptionEntry,
+    Finding,
+    Policy,
+    PolicyError,
+    apply_exceptions,
+    load,
+    matches,
+    parse_test_only_symbols,
+)
+from x.lint.model import (
+    TestOnlySymbols as SymbolPolicy,
+)
 
 CPP_FIXTURE = """namespace
 {
@@ -181,3 +193,219 @@ def test_literals_are_markers_but_commented_includes_are_not_dependencies(
         item.line for item in source.scan("marker", "Policy.cpp", path.read_text())
     ] == [1, 2]
     assert source.scan("rules-includes", "Policy.cpp", path.read_text()) == []
+
+
+SYMBOL_POLICY = SymbolPolicy(
+    ("FSimulationSettings", "VerifySession"),
+    ("autopilot", "SimSeed", "CoopSteam.Verify"),
+)
+DEV_GUARD = "WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING"
+
+
+def symbol_lines(text: str) -> list[int]:
+    return [
+        finding.line
+        for finding in source.scan(
+            "test-only-symbol",
+            "Source/Policy.cpp",
+            text,
+            test_only_symbols=SYMBOL_POLICY,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("guard", "unsafe"),
+    [
+        (DEV_GUARD, False),
+        ("(WITH_DEV_AUTOMATION_TESTS) && !(UE_BUILD_SHIPPING)", False),
+        ("!(!WITH_DEV_AUTOMATION_TESTS || UE_BUILD_SHIPPING)", False),
+        (f"({DEV_GUARD}) && PLATFORM_WINDOWS", False),
+        (f"({DEV_GUARD}) || 0", False),
+        ("WITH_DEV_AUTOMATION_TESTS", True),
+        ("!UE_BUILD_SHIPPING", True),
+        ("WITH_DEV_AUTOMATION_TESTS || !UE_BUILD_SHIPPING", True),
+        (f"({DEV_GUARD}) || PLATFORM_WINDOWS", True),
+        ("defined(WITH_DEV_AUTOMATION_TESTS) && !UE_BUILD_SHIPPING", True),
+        ("defined WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING", True),
+        ("WITH_DEV_AUTOMATION_TESTS && !defined(UE_BUILD_SHIPPING)", True),
+        ("WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING == 1", True),
+        ("WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING + 0", True),
+        ("WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING garbage", True),
+        ("WITH_DEV_AUTOMATION_TESTS && (!UE_BUILD_SHIPPING", True),
+        ("", True),
+    ],
+)
+def test_test_only_guard_implication(guard: str, unsafe: bool) -> None:
+    text = f"#if {guard}\nFSimulationSettings Settings;\n#endif\n"
+    assert symbol_lines(text) == ([2] if unsafe else [])
+
+
+def test_nested_branches_and_sibling_guards_do_not_leak() -> None:
+    text = (
+        "#if WITH_DEV_AUTOMATION_TESTS\n"  # 1
+        "#if UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"  # 3: shipping
+        "#elif !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"  # 5: protected
+        "#else\n"
+        "VerifySession();\n"  # 7: unreachable
+        "#endif\n"
+        "VerifySession();\n"  # 9: dev alone
+        "#else\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"  # 12: not dev
+        "#endif\n"
+        "#endif\n"
+        "VerifySession();\n"  # 15: no guard
+        f"#if {DEV_GUARD}\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"  # 20: sibling dev guard is gone
+        "#endif\n"
+    )
+    assert symbol_lines(text) == [3, 9, 12, 15, 20]
+
+
+def test_elif_and_else_use_prior_branch_negations() -> None:
+    text = (
+        "#if UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#elif !WITH_DEV_AUTOMATION_TESTS\n"
+        "VerifySession();\n"
+        "#else\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#if PLATFORM_WINDOWS\n"
+        "VerifySession();\n"
+        f"#elif {DEV_GUARD}\n"
+        "VerifySession();\n"
+        "#else\n"
+        "VerifySession();\n"
+        "#endif\n"
+    )
+    assert symbol_lines(text) == [2, 4, 9, 13]
+
+
+@pytest.mark.parametrize("directive", ["ifdef", "ifndef"])
+def test_macro_definedness_does_not_prove_value(directive: str) -> None:
+    text = (
+        f"#{directive} WITH_DEV_AUTOMATION_TESTS\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#else\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#endif\n"
+    )
+    assert symbol_lines(text) == [3, 7]
+
+
+def test_comments_literals_and_token_boundaries() -> None:
+    text = (
+        f"// #if {DEV_GUARD}\n"
+        "VerifySession();\n"
+        f"/* #if {DEV_GUARD}\n"
+        "VerifySession(); */\n"
+        'const char* label = "FSimulationSettings VerifySession";\n'
+        'const char* raw = u8R"guard(\n'
+        f"#if {DEV_GUARD}\n"
+        'VerifySession();\n)guard";\n'
+        "FSimulationSettingsSuffix Settings;\n"
+        "OtherVerifySession();\n"
+        "VerifySession2();\n"
+        "VerifySession();\n"
+        f'"literal" #if {DEV_GUARD}\n'
+        "VerifySession();\n"
+    )
+    assert symbol_lines(text) == [2, 13, 15]
+
+
+def test_logical_lines_keep_physical_diagnostic_lines() -> None:
+    text = (
+        "#if WITH_DEV_AUTOMATION_TESTS && \\\n"
+        "!UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "// continued comment \\\n"
+        f"#if {DEV_GUARD}\n"
+        "VerifySession();\n"
+        "Verify\\\nSession();\n"
+    )
+    assert symbol_lines(text) == [7, 8]
+
+
+@pytest.mark.parametrize(
+    ("literal", "lines"),
+    [
+        ('TEXT("autopilot")', [1]),
+        ('TEXT("-autopilot")', [1]),
+        ('TEXT("SimSeed=")', [1]),
+        ('TEXT("-SimSeed=123")', [1]),
+        ('TEXT("-CoopSteam.Verify=1")', [1]),
+        ('u8R"key(-SimSeed=1)key"', [1]),
+        ('R"autopilot(ordinary content)autopilot"', []),
+        ('TEXT("autopilotMode")', []),
+        ('TEXT("NotSimSeed=")', []),
+        ('TEXT("Other.CoopSteam.Verify")', []),
+        ('TEXT("CoopSteam.VerifyExtra")', []),
+        ('TEXT("autopilot-extra")', []),
+        ('// TEXT("autopilot")', []),
+        ('/* TEXT("SimSeed=") */', []),
+        ("autopilot;", []),
+    ],
+)
+def test_configured_flag_boundaries(literal: str, lines: list[int]) -> None:
+    assert symbol_lines(literal + "\n") == lines
+    assert symbol_lines(f"#if {DEV_GUARD}\n{literal}\n#endif\n") == []
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        None,
+        [],
+        {},
+        {"identifiers": ["VerifySession"]},
+        {"identifiers": ["VerifySession"], "flags": ["autopilot"], "extra": []},
+        {"identifiers": [], "flags": ["autopilot"]},
+        {"identifiers": "VerifySession", "flags": ["autopilot"]},
+        {"identifiers": [1], "flags": ["autopilot"]},
+        {"identifiers": ["VerifySession()"], "flags": ["autopilot"]},
+        {"identifiers": ["VerifySession", "VerifySession"], "flags": ["autopilot"]},
+        {"identifiers": ["VerifySession"], "flags": []},
+        {"identifiers": ["VerifySession"], "flags": [False]},
+        {"identifiers": ["VerifySession"], "flags": ["-autopilot"]},
+        {"identifiers": ["VerifySession"], "flags": ["SimSeed="]},
+        {"identifiers": ["VerifySession"], "flags": ["autopilot", "autopilot"]},
+    ],
+)
+def test_invalid_test_only_symbol_settings(spec: object) -> None:
+    with pytest.raises(ValueError, match="test-only-symbol"):
+        parse_test_only_symbols(spec)
+
+
+def test_invalid_symbol_settings_surface_as_policy_error(tmp_path: Path) -> None:
+    root = Path(__file__).parents[2]
+    config = (root / "Tools/x/lint.toml").read_text()
+    target = tmp_path / "Tools/x/lint.toml"
+    target.parent.mkdir(parents=True)
+    target.write_text(config.replace('"FSimulationSettings"', '"not an identifier"'))
+    with pytest.raises(PolicyError) as caught:
+        load(tmp_path)
+    assert caught.value.path == "Tools/x/lint.toml"
+
+
+def test_condition_symbols_require_an_enclosing_guard() -> None:
+    assert symbol_lines(f"#if ({DEV_GUARD}) && VerifySession\n#endif\n") == [1]
+    text = (
+        f"#if {DEV_GUARD}\n"
+        "#if VerifySession\n"
+        "FSimulationSettings Settings;\n"
+        "#endif\n"
+        "#endif\n"
+    )
+    assert symbol_lines(text) == []

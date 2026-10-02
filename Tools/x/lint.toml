@@ -44,6 +44,7 @@ procedure-text = [
     "Art/Audio/SOURCES.md", "Art/Textures/SOURCES.md", "Art/UI/IMPLEMENTATION.md", "Art/UI/STYLE.md",
 ]
 rules-includes = ["Source/CoopRTS/Rules/**"]
+test-only-symbol = ["Source/**"]
 scope-map = ["**"]
 file-length = [
     "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
@@ -97,3 +98,17 @@ mypy = [
 [python]
 version = "3.11"
 paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py"]
+
+[test-only-symbol]
+identifiers = [
+    "FSimulationSettings", "FMatchSimulation", "CoopRTSMatchSimulation", "bVerificationIncomePaused",
+    "ArmyTestSetup", "IMPLEMENT_SIMPLE_AUTOMATION_TEST", "IMPLEMENT_COMPLEX_AUTOMATION_TEST",
+    "CoopRTSNetworkVerification", "VerifySession", "VerifySteamSession",
+    "bVerifyPendingRejection",
+]
+flags = [
+    "autopilot", "SimSeed", "SimBaseline", "SimNormalRate", "SimRichRate",
+    "SimNormalAmount", "SimRichAmount", "SimTimeCap", "SimDilation", "SimOutput",
+    "CoopRTSNetVerifyDir", "CoopRTSNetVerifyPeer", "CoopRTSNetVerifyAuthority",
+    "CoopSteam.Verify", "CoopSteamVerify",
+]

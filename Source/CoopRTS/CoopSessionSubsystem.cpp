@@ -13,7 +13,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "OnlineSubsystem.h"
 
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "Containers/Ticker.h"
 #include "GameFramework/PlayerState.h"
 #include "HAL/IConsoleManager.h"
@@ -83,7 +83,7 @@ void UCoopSessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UCoopSessionSubsystem::Deinitialize()
 {
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	bVerifyPendingRejection = false;
 #endif
 	if (GEngine)
@@ -262,7 +262,7 @@ void UCoopSessionSubsystem::OnJoined(FName Name, EOnJoinSessionCompleteResult::T
 		FailToMenu(FString::Printf(TEXT("Steam join failed (%s). Ask for a new invite."), LexToString(Result)));
 		return;
 	}
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Do not connect Steam to its own identity: cancellation races its local listener.
 	// The rejection fixture still joins the real lobby, then uses an unused loopback port.
 	if (bVerifyPendingRejection)
@@ -273,7 +273,7 @@ void UCoopSessionSubsystem::OnJoined(FName Name, EOnJoinSessionCompleteResult::T
 	Controller->SetPause(false);
 	Controller->ClientTravel(Address, TRAVEL_Absolute);
 	Message.Empty();
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	if (bVerifyPendingRejection)
 	{
 		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this](float) {
@@ -350,7 +350,7 @@ void UCoopSessionSubsystem::FinishDeparture()
 
 void UCoopSessionSubsystem::FailToMenu(const FString& Text)
 {
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	bVerifyPendingRejection = false;
 #endif
 	SetMessage(Text);

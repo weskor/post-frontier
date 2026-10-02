@@ -1,6 +1,8 @@
 #pragma once
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "CoreMinimal.h"
+#include "Rules/EconomyPolicy.h"
 
 class UWorld;
 
@@ -10,11 +12,11 @@ struct FSimulationSettings
 	bool bEnabled = false;
 	bool bDuel = false;
 	int32 Seed = 1;
-	int32 BaselineIncome = 2;
-	int32 NormalRate = 4;
-	int32 RichRate = 6;
-	int32 NormalAmount = 2400;
-	int32 RichAmount = 3000;
+	int32 BaselineIncome = EconomyPolicy::BaselineIncome;
+	int32 NormalRate = EconomyPolicy::NormalDepositRate;
+	int32 RichRate = EconomyPolicy::RichDepositRate;
+	int32 NormalAmount = EconomyPolicy::NormalDepositAmount;
+	int32 RichAmount = EconomyPolicy::RichDepositAmount;
 	float TimeCap = 2400.f;
 	float Dilation = 1.f;
 	FString Output;
@@ -23,3 +25,4 @@ struct FSimulationSettings
 	static const FSimulationSettings& Get();
 	static const FSimulationSettings& ForWorld(const UWorld* World);
 };
+#endif

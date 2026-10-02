@@ -4,7 +4,10 @@ import ast
 from pathlib import Path
 import re
 
-from x.lint.model import CODE, Finding
+from x.lint import devguards
+from x.lint.model import CODE, Finding, TestOnlySymbols
+
+EMPTY_TEST_ONLY_SYMBOLS = TestOnlySymbols((), ())
 
 PATTERNS = {
     "suppression": r"\b(?:NOLINT\w*|noqa|type\s*:\s*ignore|pyright\s*:\s*ignore)\b|#\s*if\s+0\b|clang-format\s+off",
@@ -102,12 +105,20 @@ def land_bypass(path: str, text: str) -> list[Finding]:
     ]
 
 
-def scan(rule: str, path: str, text: str) -> list[Finding]:
+def scan(
+    rule: str,
+    path: str,
+    text: str,
+    *,
+    test_only_symbols: TestOnlySymbols = EMPTY_TEST_ONLY_SYMBOLS,
+) -> list[Finding]:
     if rule == "land-bypass":
         return land_bypass(path, text)
     suffix = Path(path).suffix
     if suffix not in CODE and path != "x":
         return []
+    if rule == "test-only-symbol":
+        return devguards.scan(path, text, test_only_symbols)
     if rule == "direct-engine" and path.startswith(("Tools/x/", "Tools/harness/")):
         return []
     if rule in PATTERNS:

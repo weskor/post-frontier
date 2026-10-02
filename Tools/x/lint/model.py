@@ -19,6 +19,7 @@ RULES = (
     "saved-path",
     "procedure-text",
     "rules-includes",
+    "test-only-symbol",
     "scope-map",
     "file-length",
     "function-length",
@@ -74,10 +75,17 @@ class PythonTarget:
 
 
 @dataclass(frozen=True)
+class TestOnlySymbols:
+    identifiers: tuple[str, ...]
+    flags: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Policy:
     rules: dict[str, list[str]]
     exceptions: Sequence[ExceptionEntry]
     python: PythonTarget | None
+    test_only_symbols: TestOnlySymbols = TestOnlySymbols((), ())
 
     def enabled(self, rule: str, path: str) -> bool:
         patterns = self.rules.get(rule, [])
@@ -136,6 +144,31 @@ def parse_python(spec: object) -> PythonTarget | None:
     return PythonTarget(version, cast(list[str], patterns))
 
 
+def parse_test_only_symbols(spec: object) -> TestOnlySymbols:
+    if not isinstance(spec, dict) or set(spec) != {"identifiers", "flags"}:
+        raise ValueError("test-only-symbol requires identifiers and flags")
+    parsed: dict[str, tuple[str, ...]] = {}
+    for key, pattern in (
+        ("identifiers", r"[A-Za-z_][A-Za-z0-9_]*"),
+        ("flags", r"[A-Za-z][A-Za-z0-9_.]*"),
+    ):
+        values: object = spec[key]
+        if (
+            not isinstance(values, list)
+            or not values
+            or any(
+                not isinstance(value, str) or re.fullmatch(pattern, value) is None
+                for value in values
+            )
+        ):
+            raise ValueError(f"test-only-symbol {key} must be a nonempty name list")
+        names = cast(list[str], values)
+        if len(set(names)) != len(names):
+            raise ValueError(f"test-only-symbol {key} contains duplicate names")
+        parsed[key] = tuple(names)
+    return TestOnlySymbols(parsed["identifiers"], parsed["flags"])
+
+
 def load_exceptions(repo: Path, rules: dict[str, list[str]]) -> list[ExceptionEntry]:
     with (repo / "Tools/x/lint-exceptions.toml").open("rb") as source:
         entries = tomllib.load(source).get("exceptions", [])
@@ -168,9 +201,10 @@ def load(repo: Path) -> Policy:
             spec = tomllib.load(source)
         rules = parse_rules(spec["rules"])
         python = parse_python(spec.get("python"))
+        test_only_symbols = parse_test_only_symbols(spec.get("test-only-symbol"))
     with configuration("Tools/x/lint-exceptions.toml"):
         exceptions = load_exceptions(repo, rules)
-    return Policy(rules, exceptions, python)
+    return Policy(rules, exceptions, python, test_only_symbols)
 
 
 def load_path(path: str) -> bool:

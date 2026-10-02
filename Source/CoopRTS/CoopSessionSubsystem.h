@@ -33,7 +33,7 @@ public:
 	void Host();
 	void Invite();
 	void Leave(bool bQuit = false);
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	void VerifySession(const TArray<FString>& Args);
 #endif
 
@@ -62,7 +62,7 @@ private:
 	int32 InviteUser = 0;
 	FDelegateHandle CreateHandle, JoinHandle, DestroyHandle, InviteHandle;
 	FDelegateHandle NetworkFailureHandle, TravelFailureHandle;
-#if !UE_BUILD_SHIPPING
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	bool bVerifyPendingRejection = false;
 #endif
 

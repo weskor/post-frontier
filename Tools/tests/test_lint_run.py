@@ -12,6 +12,7 @@ import pytest
 from x import jsonio, lint
 from x.context import Context
 from x.lint.model import RULES
+from x.lint.model import load as load_policy
 from x.runs import Run
 from x.settings import load
 
@@ -40,6 +41,8 @@ def configure(
     (repo / "Tools/x/lint.toml").write_text(
         "[rules]\n"
         + "".join(f"{rule} = {json.dumps(scopes.get(rule, []))}\n" for rule in RULES)
+        + '\n[test-only-symbol]\nidentifiers = ["VerifySession"]\n'
+        + 'flags = ["autopilot"]\n'
     )
     (repo / "Tools/x/lint-exceptions.toml").write_text(exceptions)
 
@@ -49,6 +52,34 @@ def context(repo: Path) -> Context:
         load(repo), runs_root=repo.parent / "runs", lock_dir=repo.parent / "locks"
     )
     return Context(repo, settings, Run(repo, settings.runs_root, "check", []), "check")
+
+
+def test_test_only_rule_uses_configured_symbols_and_source_scope(
+    lint_repo: Path,
+) -> None:
+    configure(lint_repo, {"test-only-symbol": ["Source/**"]})
+    source = lint_repo / "Source/Policy.cpp"
+    source.write_text(
+        "#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#else\n"
+        "VerifySession();\n"
+        'FParse::Param(CommandLine, TEXT("-autopilot"));\n'
+        "#endif\n"
+        "FSimulationSettings Unconfigured;\n"
+    )
+    outside = lint_repo / "Policy.cpp"
+    outside.write_text("VerifySession();\n")
+    findings = lint.check_rule(
+        context(lint_repo),
+        "test-only-symbol",
+        ["Source/Policy.cpp", "Policy.cpp"],
+        load_policy(lint_repo),
+    )
+    assert [(item.path, item.line, item.rule) for item in findings] == [
+        ("Source/Policy.cpp", 4, "test-only-symbol"),
+        ("Source/Policy.cpp", 5, "test-only-symbol"),
+    ]
 
 
 def test_actual_check_formats_and_records_every_rule(lint_repo: Path) -> None:
