@@ -128,13 +128,11 @@ public:
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::Q);
 			Check(!PC->IsPlacingBuilding() && PC->GetFeedbackOpacity() == 1.f, TEXT("Unaffordable build hotkey explains rejection without entering mode"));
-			FVector2D Button;
-			ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
-			if (!Check(HUD && HUD->FindActionScreenPosition(EHUDAction::BuildSlot0, Button), TEXT("Greyed-out build button remains reachable")))
-				return true;
-			PC->HandleHUDClick(Button);
-			Check(!PC->IsPlacingBuilding() && Wallet->Resources == 0 && PC->GetFeedbackOpacity() == 1.f,
-				TEXT("Clicking unaffordable button explains rejection without spending or placement"));
+			const auto Context = CommandHUDPanels::MakeContext(PC);
+			const auto Layout = CommandHUDPanels::MakeLayout(Context, 1280.f, 720.f);
+			Check(CommandHUDPanels::HitTest(Context, Layout, CommandHUDPanels::BuildCard(Layout.Build, 0, 3).Center())
+					== EHUDAction::BuildSlot0,
+				TEXT("Unaffordable build button remains a hit target for explanation"));
 			FeedbackTime = World->GetRealTimeSeconds();
 			Stage = 3;
 			return false;

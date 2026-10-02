@@ -75,8 +75,16 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
         "Escape cancels hotkey placement",
     )
     run.phase("B Q, Escape/right-click cancellation and always-visible build bar")
+    blocked_build_feedback(run, capture)
+
+
+def blocked_build_feedback(run: NetworkRun, capture: Capture) -> None:
     owner = capture.state()["localIndex"]
     run.request("host", "fund", owner=owner, amount=0)
+    capture.wait(
+        lambda s: s["feedbackOpacity"] == 0 and not s["orderFeedback"],
+        "previous message expires before checking blocked-click feedback",
+    )
     capture.hud(BUILD_BARRACKS, "Greyed-out Barracks button explains its shortfall")
     state = capture.wait(
         lambda s: not s["placing"] and s["feedbackOpacity"] == 1,
