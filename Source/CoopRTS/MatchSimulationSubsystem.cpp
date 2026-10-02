@@ -54,8 +54,8 @@ namespace
 {
 constexpr int32 DuelBudget = 120;
 constexpr float DuelClearance = 1200.f;
-constexpr float DuelSpacing = 80.f;
-constexpr float DuelJitter = 5.f;
+constexpr float DuelSpacing = 160.f;
+constexpr float DuelJitter = 40.f;
 
 // Json's number storage is protected; expose mutation for encounter-owned values
 // so live telemetry observations do not allocate replacement fields each frame.
@@ -163,6 +163,7 @@ bool FSimulationDuelRunner::Start(ACommandGameState& InState, int32 Seed)
 	}
 	bStarted = true;
 	Random.Initialize(Seed);
+	SpawnFirstSide = Seed % 2 == 0 ? 1 : 0;
 	Report->SetNumberField(TEXT("seed"), Seed);
 	Report->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(World->GetOutermost()->GetName()));
 	Report->SetArrayField(TEXT("unit_definitions"), MoveTemp(Rows));
@@ -257,6 +258,8 @@ bool FSimulationDuelRunner::FindGround()
 		Geometry->SetNumberField(TEXT("navigation_sample_spacing"), 100.f);
 		Geometry->SetNumberField(TEXT("spawn_spacing"), DuelSpacing);
 		Geometry->SetNumberField(TEXT("spawn_jitter"), DuelJitter);
+		Geometry->SetNumberField(TEXT("minimum_member_separation"), DuelSpacing - 2.f * DuelJitter);
+		Geometry->SetNumberField(TEXT("spawn_first_team"), SpawnFirstSide == 0 ? 0 : 5);
 		Geometry->SetNumberField(TEXT("squad_center_separation"), 1000.f);
 		Geometry->SetNumberField(TEXT("pursuit_radius"), AArmyGroup::PursuitRadius);
 		Geometry->SetStringField(TEXT("verification"), TEXT("whole-area pawn collision; dense nav projection and center rays"));
@@ -270,16 +273,22 @@ bool FSimulationDuelRunner::FindGround()
 bool FSimulationDuelRunner::StartPair()
 {
 	Elapsed = 0.;
+	LastDamageElapsed = 0.;
 	Current = MakeShared<FJsonObject>();
 	const int32 Count = Definitions.Num();
 	const int32 Indices[2] = { Definitions[PairIndex / Count], Definitions[PairIndex % Count] };
+	StallTimeout = FMath::Max(30., 10. * FMath::Max(State->Content->Unit(Indices[0])->Interval, State->Content->Unit(Indices[1])->Interval));
+	Current->SetNumberField(TEXT("stall_timeout_seconds"), StallTimeout);
+	Current->SetField(TEXT("no_damage_seconds"), MakeShared<FDuelNumber>(0.));
+	Current->SetNumberField(TEXT("spawn_first_team"), SpawnFirstSide == 0 ? 0 : 5);
 	TArray<TSharedPtr<FJsonValue>> Spawns[2];
 	const float Angle = Random.FRandRange(0.f, 2.f * PI);
 	const FVector Forward(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
 	const FVector Across(-Forward.Y, Forward.X, 0.f);
 	Current->SetNumberField(TEXT("spawn_angle_radians"), Angle);
-	for (int32 Side = 0; Side < 2; ++Side)
+	for (int32 Order = 0; Order < 2; ++Order)
 	{
+		const int32 Side = (SpawnFirstSide + Order) % 2;
 		const UArmyUnitDefinition* Definition = State->Content->Unit(Indices[Side]);
 		Initial[Side] = DuelBudget / Definition->UnitCost;
 		Spent[Side] = Initial[Side] * Definition->UnitCost;
@@ -350,7 +359,10 @@ void FSimulationDuelRunner::Observe()
 		if (AArmyUnit* Unit = Member.Unit.Get())
 		{
 			const int32 Health = Unit->GetHealth();
-			Damage[1 - Member.Side] += FMath::Max(0, Member.Health - Health);
+			const int32 RemovedHealth = FMath::Max(0, Member.Health - Health);
+			Damage[1 - Member.Side] += RemovedHealth;
+			if (RemovedHealth > 0)
+				LastDamageElapsed = Elapsed;
 			Attacks[Member.Side] += Unit->AttackCount - Member.Attacks;
 			Member.Health = Health;
 			Member.Attacks = Unit->AttackCount;
@@ -370,12 +382,14 @@ void FSimulationDuelRunner::UpdateRow() const
 	static const FString DamageField(TEXT("damage_dealt"));
 	static const FString AttacksField(TEXT("attacks"));
 	static const FString DurationField(TEXT("duration"));
+	static const FString NoDamageField(TEXT("no_damage_seconds"));
 	UpdateNumbers(*Current, SurvivorsField, Survivors[0], Survivors[1]);
 	UpdateNumbers(*Current, PowerField,
 		Survivors[0] * (Spent[0] / Initial[0]), Survivors[1] * (Spent[1] / Initial[1]));
 	UpdateNumbers(*Current, DamageField, Damage[0], Damage[1]);
 	UpdateNumbers(*Current, AttacksField, Attacks[0], Attacks[1]);
 	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(DurationField))->Set(Elapsed);
+	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(NoDamageField))->Set(Elapsed - LastDamageElapsed);
 	StaticCastSharedPtr<FDuelNumber>(Report->GetField<EJson::Number>(DurationField))->Set(TotalElapsed);
 }
 
@@ -406,9 +420,25 @@ void FSimulationDuelRunner::Tick(float DeltaTime, float TimeCap)
 	if (!Error.IsEmpty())
 		return;
 	const bool bWiped = Survivors[0] == 0 || Survivors[1] == 0;
-	if (!bWiped && Elapsed < TimeCap)
+	const bool bStalled = !bWiped && Elapsed - LastDamageElapsed >= StallTimeout;
+	if (!bWiped && !bStalled && Elapsed < TimeCap)
 		return;
 	UpdateRow();
+	if (bStalled)
+	{
+		Current->SetStringField(TEXT("outcome"), TEXT("stalled"));
+		Report->SetObjectField(TEXT("invalid_duel"), Current.ToSharedRef());
+		Report->RemoveField(TEXT("current_duel"));
+		Report->SetStringField(TEXT("status"), TEXT("failed"));
+		Report->SetStringField(TEXT("outcome"), TEXT("stalled"));
+		Error = FString::Printf(TEXT("Invalid stalled duel %s vs %s: no effective HP removed for %.3f game seconds (timeout %.3f) while both sides live"),
+			*Current->GetStringField(TEXT("left")), *Current->GetStringField(TEXT("right")),
+			Elapsed - LastDamageElapsed, StallTimeout);
+		Report->SetStringField(TEXT("error"), Error);
+		ClearPair();
+		RestoreHeadquarters();
+		return;
+	}
 	Current->SetStringField(TEXT("outcome"), bWiped ? TEXT("wiped") : TEXT("time_cap"));
 	const int32 Winner = bWiped && (Survivors[0] > 0 || Survivors[1] > 0)
 		? (Survivors[0] > 0 ? 0 : 5)
@@ -1008,7 +1038,8 @@ void UMatchSimulationSubsystem::Tick(float DeltaTime)
 		DuelRunner->Tick(DeltaTime, FSimulationSettings::Get().TimeCap);
 		if (!DuelRunner->GetError().IsEmpty())
 		{
-			Finish(TEXT("failed"), TEXT("none"), -1, DuelRunner->GetError());
+			const FString Outcome = Report->GetStringField(TEXT("outcome"));
+			Finish(TEXT("failed"), *Outcome, -1, DuelRunner->GetError());
 			return;
 		}
 		if (DuelRunner->IsComplete())

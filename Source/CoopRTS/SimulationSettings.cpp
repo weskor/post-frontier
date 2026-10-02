@@ -34,6 +34,8 @@ const FSimulationSettings& FSimulationSettings::Get()
 		Result.bEnabled = Result.bDuel || FParse::Param(FCommandLine::Get(), TEXT("autopilot"));
 		if (!Result.bEnabled)
 			return Result;
+		if (Result.bDuel)
+			Result.TimeCap = 300.f;
 		ReadNumber(TEXT("SimSeed="), Result.Seed, 0, MAX_int32, Result.Error);
 		ReadNumber(TEXT("SimBaseline="), Result.BaselineIncome, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimNormalRate="), Result.NormalRate, 0, 10000, Result.Error);

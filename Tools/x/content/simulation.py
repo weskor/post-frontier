@@ -34,8 +34,8 @@ def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--time-cap",
         type=float,
-        default=2400,
-        help="game-second cap per match (duel: per ordered pair, not entire matrix)",
+        default=None,
+        help="game-second cap (default match: 2400; duel: 300 per ordered pair, not entire matrix)",
     )
     parser.add_argument("--dilation", type=float, default=1)
     parser.add_argument("--compare-dilation", type=float)

@@ -54,6 +54,31 @@ def definitions(report: JsonObject) -> dict[str, JsonObject]:
     return roster
 
 
+def is_stalled(report: JsonObject) -> bool:
+    invalid = report.get("invalid_duel")
+    rows = report.get("duels")
+    return (
+        report.get("outcome") == "stalled"
+        or (isinstance(invalid, dict) and invalid.get("outcome") == "stalled")
+        or (
+            isinstance(rows, list)
+            and any(
+                isinstance(row, dict) and row.get("outcome") == "stalled"
+                for row in rows
+            )
+        )
+    )
+
+
+def validate_spawn_order(row: JsonObject, seed: int) -> None:
+    expected = 0 if seed % 2 else 5
+    if (
+        type(row.get("spawn_first_team")) is not int
+        or row["spawn_first_team"] != expected
+    ):
+        raise ValueError("Duel creation order does not match seed parity")
+
+
 def validate_sides(
     row: JsonObject,
     roster: dict[str, JsonObject],
@@ -127,6 +152,10 @@ def validate_pair(row: JsonObject, roster: dict[str, JsonObject], cap: float) ->
 def validate_duel_report(report: JsonObject, job: JsonObject) -> None:
     if not isinstance(report, dict):
         raise ValueError("Duel telemetry must be an object")
+    if is_stalled(report):
+        raise ValueError("Stalled duel is invalid, not a draw or complete matrix")
+    if "invalid_duel" in report:
+        raise ValueError("Invalid duel cannot belong to a complete matrix")
     if (
         type(report.get("schema_version")) is not int
         or report.get("schema_version") != 1
@@ -143,7 +172,10 @@ def validate_duel_report(report: JsonObject, job: JsonObject) -> None:
     for field in ("map", "seed"):
         if report.get(field) != job[field]:
             raise ValueError(f"Telemetry {field} does not match launched job")
-    count(report.get("seed"), "seed")
+    seed = count(report.get("seed"), "seed")
+    geometry = report.get("geometry")
+    if isinstance(geometry, dict) and "spawn_first_team" in geometry:
+        validate_spawn_order(geometry, seed)
     for field, expected in (
         ("time_cap_seconds", job["time_cap"]),
         ("requested_dilation", job["dilation"]),
@@ -162,6 +194,7 @@ def validate_duel_report(report: JsonObject, job: JsonObject) -> None:
     seen = set()
     for row in rows:
         validate_pair(row, roster, job["time_cap"])
+        validate_spawn_order(row, seed)
         key = (row["left"], row["right"])
         if key in seen:
             raise ValueError("Duplicate ordered duel pair")

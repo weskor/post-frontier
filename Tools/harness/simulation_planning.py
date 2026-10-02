@@ -52,7 +52,14 @@ def parse_variant(text: str) -> tuple[str, dict[str, int]]:
     return name, values
 
 
+def resolved_time_cap(args: argparse.Namespace) -> float:
+    if args.time_cap is not None:
+        return float(args.time_cap)
+    return 300 if args.duel else 2400
+
+
 def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    time_cap = resolved_time_cap(args)
     if args.duel and (args.variant or args.matrix or args.compare_dilation is not None):
         parser.error(
             "--duel cannot use economy --variant, --matrix or --compare-dilation"
@@ -62,7 +69,7 @@ def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) 
     if any(
         not math.isfinite(value)
         for value in (
-            args.time_cap,
+            time_cap,
             args.sample_seconds,
             args.dilation,
             args.stall_seconds,
@@ -71,7 +78,7 @@ def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) 
     ):
         parser.error("Numeric parameters must be finite")
     if (
-        not 1 <= args.time_cap <= 86400
+        not 1 <= time_cap <= 86400
         or not 1 <= args.sample_seconds <= 86400
         or not 1 <= args.dilation <= 32
     ):
@@ -89,6 +96,7 @@ def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) 
 def plan_jobs(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> list[JsonObject]:
+    time_cap = resolved_time_cap(args)
     maps = args.maps or ([MAP_V2] if args.duel else [MAP_V2, MAP_V1])
     if len(set(maps)) != len(maps) or any(
         not re.fullmatch(r"/Game/[A-Za-z0-9_/]+", name) for name in maps
@@ -104,7 +112,7 @@ def plan_jobs(
                 variant="duel",
                 seed=seed,
                 dilation=args.dilation,
-                time_cap=args.time_cap,
+                time_cap=time_cap,
             )
             for map_name in maps
             for seed in range(args.seed, args.seed + args.matches)
@@ -124,7 +132,7 @@ def plan_jobs(
     dilation_values = (
         [1.0, args.compare_dilation] if args.compare_dilation else [args.dilation]
     )
-    cap = args.sample_seconds if args.compare_dilation else args.time_cap
+    cap = args.sample_seconds if args.compare_dilation else time_cap
     return [
         dict(
             map=map_name,

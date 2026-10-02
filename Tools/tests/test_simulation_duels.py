@@ -6,98 +6,19 @@ import json
 from pathlib import Path
 
 from harness.simulation_duel_rules import COUNTERS, evaluate_group
-from harness.simulation_evidence import save_json
 from harness.simulation_planning import MAP_V1, MAP_V2, plan_jobs, validate_options
 from harness.simulation_report import summarize
 from harness.simulation_validation import validate_report
 from harness.verify import JsonObject
 import pytest
+from simulation_duel_support import (
+    persist,
+    refresh_duration,
+    set_outcome,
+    stalled_telemetry,
+    telemetry,
+)
 from x.content.simulation import configure
-
-
-def telemetry(seed: int = 1, map_name: str = MAP_V2) -> tuple[JsonObject, JsonObject]:
-    job: JsonObject = dict(
-        mode="duel",
-        map=map_name,
-        variant="duel",
-        seed=seed,
-        dilation=1,
-        time_cap=60,
-    )
-    units: list[JsonObject] = [
-        dict(
-            id=unit,
-            cost=cost,
-            capacity=120 // cost,
-            health=cost * 5,
-            damage=cost / 2,
-            attack_interval=1,
-            range=175,
-        )
-        for unit, cost in (("frontline", 20), ("ranged", 30), ("siege", 40))
-    ]
-    report: JsonObject = dict(
-        schema_version=1,
-        status="complete",
-        mode="duel",
-        map=map_name,
-        seed=seed,
-        duration=0,
-        wall_duration=3,
-        time_cap_seconds=60,
-        requested_dilation=1,
-        effective_dilation=1,
-        max_game_delta_seconds=1 / 60,
-        outcome="matrix_complete",
-        winner=None,
-        unit_definitions=units,
-        duels=[],
-    )
-    for left in units:
-        for right in units:
-            row: JsonObject = dict(
-                left=left["id"],
-                right=right["id"],
-                spent=[120, 120],
-                initial_units=[120 // left["cost"], 120 // right["cost"]],
-                survivors=[0, 0],
-                survivor_power=[0, 0],
-                damage_dealt=[0, 0],
-                attacks=[20, 20],
-                duration=5,
-                outcome="wiped",
-                winner=None,
-            )
-            report["duels"].append(row)
-            winner = 0 if COUNTERS[left["id"]]["prey"] == right["id"] else 5
-            set_outcome(report, row, winner)
-    refresh_duration(report)
-    return job, report
-
-
-def set_outcome(report: JsonObject, row: JsonObject, winner: int | None) -> None:
-    roster = {unit["id"]: unit for unit in report["unit_definitions"]}
-    initial = row["initial_units"]
-    row["winner"] = winner
-    row["survivors"] = (
-        initial.copy()
-        if winner is None
-        else [1 if winner == 0 else 0, 1 if winner == 5 else 0]
-    )
-    row["survivor_power"] = [
-        row["survivors"][side] * roster[unit]["cost"]
-        for side, unit in enumerate((row["left"], row["right"]))
-    ]
-    row["damage_dealt"] = [
-        (initial[1 - side] - row["survivors"][1 - side]) * roster[unit]["health"]
-        for side, unit in enumerate((row["right"], row["left"]))
-    ]
-    row["outcome"] = "time_cap" if winner is None else "wiped"
-    row["duration"] = 60 if winner is None else 5
-
-
-def refresh_duration(report: JsonObject) -> None:
-    report["duration"] = sum(row["duration"] for row in report["duels"])
 
 
 def rule_rows(group: JsonObject) -> dict[str, JsonObject]:
@@ -293,6 +214,9 @@ def test_dominance_requires_strictly_greater_hp_and_dps_per_power() -> None:
         ("duel", "attacks", [0, 0]),
         ("duel", "winner", 0),
         ("duel", "survivors", [1]),
+        ("duel", "spawn_first_team", 5),
+        ("duel", "spawn_first_team", True),
+        ("duel", "spawn_first_team", None),
     ],
 )
 def test_malformed_telemetry_is_not_a_result(
@@ -305,6 +229,43 @@ def test_malformed_telemetry_is_not_a_result(
     targets[scope][field] = value
     with pytest.raises(ValueError):
         validate_report(report, job)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+@pytest.mark.parametrize("scope", ["pair", "geometry"])
+def test_creation_order_must_follow_seed_parity(seed: int, scope: str) -> None:
+    job, report = telemetry(seed)
+    validate_report(report, job)
+    target = report["duels"][0] if scope == "pair" else report["geometry"]
+    target["spawn_first_team"] = 5 if seed % 2 else 0
+    with pytest.raises(ValueError):
+        validate_report(report, job)
+
+
+def test_missing_pair_creation_order_is_invalid() -> None:
+    job, report = telemetry()
+    del report["duels"][0]["spawn_first_team"]
+    with pytest.raises(ValueError):
+        validate_report(report, job)
+
+
+@pytest.mark.parametrize("location", ["matrix", "invalid_duel", "completed_pair"])
+def test_stalls_cannot_masquerade_as_complete_matrices(location: str) -> None:
+    job, report = telemetry()
+    _, stalled = stalled_telemetry()
+    if location == "matrix":
+        report["outcome"] = "stalled"
+    elif location == "invalid_duel":
+        report["invalid_duel"] = stalled["invalid_duel"]
+    else:
+        report["duels"][2] = stalled["invalid_duel"]
+    with pytest.raises(ValueError):
+        validate_report(report, job)
+    group = evaluate_group([report])
+    assert group["telemetry"] == []
+    assert group["matrix"] == []
+    assert all(row["status"] == "fail" for row in group["rules"])
+    assert all(not row["evidence_complete"] for row in group["rules"])
 
 
 @pytest.mark.parametrize(
@@ -327,33 +288,6 @@ def test_incomplete_matrix_or_premature_draw_is_not_a_result(fault: str) -> None
         validate_report(report, job)
 
 
-def persist(tmp_path: Path, reports: list[JsonObject]) -> JsonObject:
-    records = []
-    jobs = []
-    for index, report in enumerate(reports):
-        job = dict(
-            mode="duel",
-            map=report["map"],
-            variant="duel",
-            seed=report["seed"],
-            dilation=1,
-            time_cap=60,
-        )
-        folder = tmp_path / f"duel-{index}"
-        folder.mkdir()
-        save_json(folder / "match.json", report)
-        jobs.append(job)
-        records.append(
-            dict(
-                job=job,
-                directory=f"/moved/original/{folder.name}",
-                status="complete",
-                returncode=0,
-            )
-        )
-    return dict(mode="duel", matches=records, planned_jobs=jobs)
-
-
 def test_report_artifact_exposes_runtime_costs_and_rules_without_balance_exit_failure(
     tmp_path: Path,
 ) -> None:
@@ -367,11 +301,10 @@ def test_report_artifact_exposes_runtime_costs_and_rules_without_balance_exit_fa
     assert len(group["matrix"]) == 9
     assert group["telemetry"][0]["spent"] == [120, 120]
     assert group["unit_definitions"][0]["cost"] == 20
-    text = (tmp_path / "Report.md").read_text()
-    assert "Docs/Design/units.md" in text
+    assert group["telemetry"][0]["spawn_first_team"] == 0
+    assert all(row["spawn_first_counts"] == [1, 0] for row in group["matrix"])
+    assert all(not row["spawn_order_balanced"] for row in group["matrix"])
     assert summary["support_compositions"] == "out_of_scope"
-    assert "frontline / Brawler" in text
-    assert "frontline_mirror" in text and "FAIL" in text
 
 
 @pytest.mark.parametrize("unattempted", [False, True])
@@ -386,10 +319,56 @@ def test_missing_requested_seed_never_produces_rule_passes(
     assert summary["missing_seed_processes"] == 1
     assert summary["groups"][0]["balance_status"] == "fail"
     assert all(row["status"] == "fail" for row in summary["groups"][0]["rules"])
-    assert (
-        "1 planned seed processes have no valid complete matrix"
-        in (tmp_path / "Report.md").read_text()
-    )
+    assert all(not row["evidence_complete"] for row in summary["groups"][0]["rules"])
+
+
+@pytest.mark.parametrize(
+    ("status", "returncode"), [("failed", 1), ("complete", 1), ("complete", 0)]
+)
+def test_stalled_runtime_is_preserved_as_invalid_and_invalidates_all_rules(
+    tmp_path: Path, status: str, returncode: int
+) -> None:
+    reports = threshold_reports()
+    _, reports[0] = stalled_telemetry(0)
+    manifest = persist(tmp_path, reports)
+    manifest["matches"][0].update(status=status, returncode=returncode)
+    assert summarize(tmp_path, manifest) is False
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["runtime_status"] == "fail"
+    assert summary["missing_seed_processes"] == 1
+    failure = summary["failures"][0]
+    assert failure["outcome"] == "stalled"
+    assert failure["invalid_duel"]["winner"] is None
+    assert failure["invalid_duel"]["survivors"] == [6, 3]
+    assert failure["invalid_duel"]["no_damage_seconds"] == 30
+    assert failure["invalid_duel"]["stall_timeout_seconds"] == 30
+    group = summary["groups"][0]
+    assert group["complete_seeds"] == list(range(1, 20))
+    assert all(row["seed"] != 0 for row in group["telemetry"])
+    assert all(row["duels"] == 19 for row in group["matrix"])
+    assert all(row["draws"] == 0 for row in group["matrix"])
+    assert group["balance_status"] == "fail"
+    assert all(row["status"] == "fail" for row in group["rules"])
+    assert all(not row["evidence_complete"] for row in group["rules"])
+
+
+@pytest.mark.parametrize(
+    ("seeds", "counts", "balanced"),
+    [([1, 2], [1, 1], True), ([1, 2, 3], [2, 1], False), ([1, 3], [2, 0], False)],
+)
+def test_report_creation_order_balance_uses_observed_parities_not_seed_count(
+    tmp_path: Path, seeds: list[int], counts: list[int], balanced: bool
+) -> None:
+    reports = [telemetry(seed)[1] for seed in seeds]
+    manifest = persist(tmp_path, reports)
+    assert summarize(tmp_path, manifest) is True
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    group = summary["groups"][0]
+    assert all(row["spawn_first_counts"] == counts for row in group["matrix"])
+    assert all(row["spawn_order_balanced"] is balanced for row in group["matrix"])
+    mirrors = [row for row in group["rules"] if row["rule"].endswith("_mirror")]
+    assert all(row["spawn_first_counts"] == counts for row in mirrors)
+    assert all(row["spawn_order_balanced"] is balanced for row in mirrors)
 
 
 @pytest.mark.parametrize(
@@ -447,6 +426,26 @@ def test_duel_seed_jobs_use_v2_only_but_preserve_legacy_map_defaults() -> None:
         (MAP_V1, 1),
         (MAP_V1, 2),
     ]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected"),
+    [
+        ((), 2400),
+        (("--duel",), 300),
+        (("--time-cap", "17"), 17),
+        (("--duel", "--time-cap", "17"), 17),
+        (("--duel", "--time-cap", "2400"), 2400),
+        (("--compare-dilation", "2"), 600),
+    ],
+)
+def test_cap_defaults_and_explicit_overrides_reach_planned_jobs(
+    arguments: tuple[str, ...], expected: float
+) -> None:
+    parser, args = options(*arguments)
+    assert all(job["time_cap"] == expected for job in plan_jobs(parser, args))
+    validate_options(parser, args)
+    assert all(job["time_cap"] == expected for job in plan_jobs(parser, args))
 
 
 @pytest.mark.parametrize(

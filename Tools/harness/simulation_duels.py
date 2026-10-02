@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from harness.simulation_duel_rules import COUNTERS, DESIGN_SOURCE, evaluate_group
-from harness.simulation_duel_validation import DUEL_BUDGET, definitions
+from harness.simulation_duel_validation import DUEL_BUDGET, definitions, is_stalled
 from harness.simulation_evidence import save_json
 from harness.simulation_report import load_results
 from harness.verify import JsonObject
@@ -40,6 +40,9 @@ def report_group(lines: list[str], group: JsonObject) -> None:
             f"| {row['id']} / {name} | {row['cost']:g} | {row['capacity']:g} | "
             f"{row['health']:g} | {row['damage']:g} | {row['attack_interval']:g} | {row['range']:g} |"
         )
+    lines += ["", "### Runtime geometry", ""]
+    for geometry in group["geometry"]:
+        lines.append(f"- `{json.dumps(geometry, sort_keys=True)}`")
     report_matrix(lines, group)
     report_rules(lines, group)
     report_combat(lines, group)
@@ -51,9 +54,11 @@ def report_matrix(lines: list[str], group: JsonObject) -> None:
         "### Ordered win-rate matrix",
         "",
         "Each cell reports left/team 0 and right/team 5 separately; wins only, draws in denominator.",
+        "Creation order alternates by seed parity (odd: team 0 first; even: team 5 first). "
+        "Only equal measured first-spawn counts balance creation order; an odd seed budget remains unbalanced.",
         "",
-        "| Left | Right | Duels | Team 0 wins | Team 5 wins | Draws | Team 0 - team 5 |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Left | Right | Duels | Team 0 wins | Team 5 wins | Draws | Team 0 - team 5 | First-spawn counts [0, 5] | Order balanced |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for row in group["matrix"]:
         rates = [
@@ -65,7 +70,8 @@ def report_matrix(lines: list[str], group: JsonObject) -> None:
         )
         lines.append(
             f"| {row['left']} | {row['right']} | {row['duels']} | "
-            f"{row['wins'][0]} ({rates[0]}) | {row['wins'][1]} ({rates[1]}) | {row['draws']} | {bias} |"
+            f"{row['wins'][0]} ({rates[0]}) | {row['wins'][1]} ({rates[1]}) | {row['draws']} | {bias} | "
+            f"{row['spawn_first_counts']} | {'yes' if row['spawn_order_balanced'] else 'no'} |"
         )
 
 
@@ -95,12 +101,12 @@ def report_combat(lines: list[str], group: JsonObject) -> None:
         "",
         "Pairs list [team 0, team 5]. Spent excludes configuration fees; damage is effective HP removed.",
         "",
-        "| Seed | Left / right | Spent | Initial units | Survivors | Survivor Power | Damage | Attacks | Seconds | Outcome / winner |",
-        "| ---: | --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
+        "| Seed | Left / right | Spawn first team | Spent | Initial units | Survivors | Survivor Power | Damage | Attacks | Seconds | Outcome / winner |",
+        "| ---: | --- | ---: | --- | --- | --- | --- | --- | --- | ---: | --- |",
     ]
     for row in group["telemetry"]:
         lines.append(
-            f"| {row['seed']} | {row['left']} / {row['right']} | {row['spent']} | "
+            f"| {row['seed']} | {row['left']} / {row['right']} | {row['spawn_first_team']} | {row['spent']} | "
             f"{row['initial_units']} | {row['survivors']} | {row['survivor_power']} | "
             f"{row['damage_dealt']} | {row['attacks']} | {row['duration']:g} | {row['outcome']} / {row['winner']} |"
         )
@@ -111,6 +117,20 @@ def collect_results(
     manifest: JsonObject,
 ) -> tuple[dict[tuple[str, float, float], list[JsonObject]], list[JsonObject], int]:
     valid, failed = load_results(run, manifest)
+    for index, record in enumerate(failed):
+        try:
+            directory = Path(record["directory"])
+            report = json.loads((run / directory.name / "match.json").read_text())
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if isinstance(report, dict) and is_stalled(report):
+            failed[index] = dict(
+                record,
+                status="failed",
+                outcome="stalled",
+                error=f"Stalled duel is invalid, not a draw: {report.get('error', 'no effective damage')}",
+                invalid_duel=report.get("invalid_duel"),
+            )
     planned = manifest["planned_jobs"]
     expected = Counter(job_identity(job) for job in planned)
     accepted: Counter[str] = Counter()
@@ -155,7 +175,8 @@ def report_header(complete: int, failed: int, missing: int) -> list[str]:
         "unit worth is the mean across nonmirror opponents, ordered sides and seeds. Maximum/minimum must be ≤1.25.",
         "Maps are summarized separately, never pooled. Seed variation is not proof of independent statistical samples.",
         "Balance failures are measurements and do not invalidate successful engine runs. "
-        "Failed/nonzero-exit/incomplete telemetry never counts as a draw.",
+        "Failed/nonzero-exit/incomplete telemetry never counts as a draw. "
+        "Stalled fights invalidate the matrix and are excluded from all completed-duel denominators.",
         "",
         f"Complete seed processes: **{complete}**; failed/interrupted: **{failed}**; "
         f"missing requested seed processes: **{missing}**.",
@@ -193,6 +214,10 @@ def summarize_duels(run: Path, manifest: JsonObject) -> bool:
             lines.append(
                 f"- {row.get('directory', 'run')}: {row.get('error', row['status'])}"
             )
+            if row.get("outcome") == "stalled":
+                lines.append(
+                    f"  - Invalid stalled combat evidence: `{json.dumps(row.get('invalid_duel'), sort_keys=True)}`"
+                )
         if missing:
             lines.append(
                 f"- {missing} planned seed processes have no valid complete matrix."

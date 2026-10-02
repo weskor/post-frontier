@@ -6,7 +6,7 @@ from collections import defaultdict
 import math
 import statistics
 
-from harness.simulation_duel_validation import definitions
+from harness.simulation_duel_validation import definitions, is_stalled
 from harness.verify import JsonObject
 
 DESIGN_SOURCE = "Docs/Design/units.md"
@@ -30,6 +30,9 @@ def rule(name: str, passed: bool, complete: bool, **evidence: object) -> JsonObj
 def pair_summary(left: str, right: str, rows: list[JsonObject]) -> JsonObject:
     wins = [sum(row["winner"] == team for row in rows) for team in (0, 5)]
     total = len(rows)
+    spawn_first_counts = [
+        sum(row.get("spawn_first_team") == team for row in rows) for team in (0, 5)
+    ]
     return dict(
         left=left,
         right=right,
@@ -38,6 +41,9 @@ def pair_summary(left: str, right: str, rows: list[JsonObject]) -> JsonObject:
         draws=sum(row["winner"] is None for row in rows),
         win_rates=[win / total if total else None for win in wins],
         side_bias=(wins[0] - wins[1]) / total if total else None,
+        spawn_first_counts=spawn_first_counts,
+        spawn_order_balanced=bool(rows)
+        and spawn_first_counts == [total / 2, total / 2],
         mean_duration=statistics.mean(row["duration"] for row in rows)
         if rows
         else None,
@@ -163,6 +169,16 @@ def mirror_rules(
 
 
 def evaluate_group(reports: list[JsonObject], complete: bool = True) -> JsonObject:
+    admitted = [
+        report
+        for report in reports
+        if report.get("status") == "complete"
+        and report.get("outcome") == "matrix_complete"
+        and "invalid_duel" not in report
+        and not is_stalled(report)
+    ]
+    complete = complete and len(admitted) == len(reports)
+    reports = admitted
     roster = definitions(reports[0]) if reports else {}
     by_pair: dict[tuple[str, str], list[JsonObject]] = defaultdict(list)
     telemetry: list[JsonObject] = []
@@ -196,6 +212,11 @@ def evaluate_group(reports: list[JsonObject], complete: bool = True) -> JsonObje
         worth=worth["worth"],
         rules=rules,
         telemetry=telemetry,
+        geometry=[
+            dict(seed=report["seed"], **report["geometry"])
+            for report in reports
+            if isinstance(report.get("geometry"), dict)
+        ],
         balance_status="pass"
         if all(row["status"] == "pass" for row in rules)
         else "fail",

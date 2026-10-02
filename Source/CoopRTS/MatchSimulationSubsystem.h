@@ -61,12 +61,15 @@ private:
 	FRandomStream Random;
 	FVector Center = FVector::ZeroVector;
 	int32 PairIndex = 0;
+	int32 SpawnFirstSide = 0;
 	int32 Initial[2] = {};
 	int32 Spent[2] = {};
 	int32 Survivors[2] = {};
 	int64 Damage[2] = {};
 	int64 Attacks[2] = {};
 	double Elapsed = 0.;
+	double LastDamageElapsed = 0.;
+	double StallTimeout = 30.;
 	double TotalElapsed = 0.;
 	bool bStarted = false;
 	bool bComplete = false;
