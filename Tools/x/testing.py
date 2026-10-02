@@ -1,0 +1,140 @@
+"""Run every selected scope and require explicit automation evidence."""
+
+import re
+import time
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+from x.building import editor_module, ensure_editor
+from x.context import Context
+from x.scopes import Scope, load
+
+COMPLETE = "**** TEST COMPLETE. EXIT CODE: 0 ****"
+
+
+@dataclass(frozen=True)
+class AutomationResult:
+    ok: bool
+    completed: tuple[str, ...]
+    failed: tuple[str, ...]
+    details: str
+
+
+def parse_automation(
+    text: str, test: str, map_path: str, exit_code: int
+) -> AutomationResult:
+    results = [
+        (outcome, path)
+        for outcome, path in re.findall(
+            r"Test Completed\. Result=\{(\w+)\}[^\n]*?Path=\{([^}]*)\}", text
+        )
+        if path == test or path.startswith(test + ".")
+    ]
+    completed = tuple(sorted({path for _, path in results}))
+    failed = tuple(sorted({path for outcome, path in results if outcome != "Success"}))
+    problems = []
+    if exit_code != 0:
+        problems.append(f"process exit {exit_code}")
+    world = f"{map_path}.{map_path.rsplit('/', 1)[1]}"
+    if f"Bringing World {world} up for play" not in text:
+        problems.append(f"requested map {map_path} did not start")
+    if not results:
+        problems.append(f"zero tests completed under {test}")
+    if failed:
+        problems.append(f"non-Success results: {', '.join(failed)}")
+    if COMPLETE not in text:
+        problems.append("missing zero-exit completion marker")
+    details = (
+        "; ".join(problems) if problems else f"{test}: {len(completed)} tests Success"
+    )
+    return AutomationResult(not problems, completed, failed, details)
+
+
+def _automation(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
+    if ctx.run is None:
+        raise RuntimeError("automation requires a recorded command")
+    map_path = ctx.settings.default_map if scope.map == "default" else scope.map
+    log = ctx.run.dir / f"{name}-unreal.log"
+    with ctx.locks.headless():
+        before = editor_module(ctx).stat()
+        inputs = ctx.freshness.current_hash("editor")
+        if not ctx.freshness.is_fresh("editor"):
+            return False, "editor inputs changed after build; rerun tests"
+        code = ctx.exec(
+            [
+                ctx.settings.engine_root / "Engine/Binaries/Linux/UnrealEditor",
+                ctx.repo / ctx.settings.project,
+                map_path,
+                "-game",
+                "-nullrhi",
+                "-nosound",
+                "-unattended",
+                f"-ExecCmds=Automation RunTests {scope.filter}; SoftQuit",
+                f"-abslog={log}",
+                "-stdout",
+            ],
+            log=f"{name}-stdout",
+            watch=log,
+        )
+        text = log.read_text(errors="replace") if log.exists() else ""
+        result = parse_automation(text, scope.filter, map_path, code)
+        ctx.run.add_artifact(log, f"{name} automation log")
+        after = editor_module(ctx).stat()
+        if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+            return False, "editor module changed during automation"
+        if inputs != ctx.freshness.current_hash("editor"):
+            return False, "editor inputs changed during automation"
+        return result.ok, result.details
+
+
+def _scripts(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
+    if ctx.run is None:
+        raise RuntimeError("validators require a recorded command")
+    failures = []
+    for index, command in enumerate(scope.commands):
+        argv = [argument.format(run=ctx.run.dir) for argument in command]
+        label = f"{name}-{index}-{Path(argv[1]).stem}"
+        code = ctx.exec(argv, log=label, env={"PYTHONDONTWRITEBYTECODE": "1"})
+        if code:
+            failures.append(
+                f"{argv[1]}: exit {code}; inspect {ctx.run.dir / (label + '.log')}"
+            )
+    for artifact in sorted(ctx.run.dir.iterdir()):
+        if artifact.suffix in (".png", ".svg"):
+            ctx.run.add_artifact(artifact, f"{name} validator output")
+    return not failures, "; ".join(failures) or "all map validators passed"
+
+
+def run_scopes(ctx: Context, scopes: Sequence[str]) -> bool:
+    if ctx.run is None:
+        raise RuntimeError("tests require a recorded command")
+    mapping = load(ctx.repo)
+    names = list(dict.fromkeys(scopes))
+    unknown = sorted(set(names) - set(mapping.names()))
+    if unknown:
+        raise ValueError(f"unknown scopes: {', '.join(unknown)}; use ./x test --list")
+    editor_ok = True
+    if any(mapping.definitions[name].kind == "automation" for name in names):
+        editor_ok = ensure_editor(ctx)
+    passed = True
+    for name in names:
+        started = time.monotonic()
+        scope = mapping.definitions[name]
+        if scope.kind == "automation":
+            ok, details = (
+                _automation(ctx, name, scope)
+                if editor_ok
+                else (False, "editor build failed")
+            )
+        elif scope.kind == "pytest":
+            code = ctx.exec(["uv", "run", "--locked", "pytest", *scope.paths], log=name)
+            ok, details = code == 0, f"pytest exit {code}"
+        elif scope.kind == "script":
+            ok, details = _scripts(ctx, name, scope)
+        else:
+            ok, details = True, "no tests; lint is enforced by ./x check"
+        ctx.run.add_result(name, ok, details, time.monotonic() - started)
+        print(f"{'PASS' if ok else 'FAIL'} {name}: {details}", flush=True)
+        passed = passed and ok
+    return passed

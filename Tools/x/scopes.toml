@@ -1,0 +1,192 @@
+# Automation maps use the canonical default_map setting when map = "default".
+# No legacy scenario is skipped or quarantined.
+
+[scopes.combat]
+kind = "automation"
+filter = "CoopRTS.Combat.Encounter"
+map = "default"
+
+[scopes.construction]
+kind = "automation"
+filter = "CoopRTS.Construction.Lifecycle"
+map = "default"
+
+[scopes.doctrine-frontline]
+kind = "automation"
+filter = "CoopRTS.Doctrine.EntrenchedFrontline"
+map = "default"
+
+[scopes.doctrine-repairs]
+kind = "automation"
+filter = "CoopRTS.Doctrine.FieldRepairs"
+map = "default"
+
+[scopes.doctrine-restart]
+kind = "automation"
+filter = "CoopRTS.Doctrine.Restart"
+map = "default"
+
+[scopes.doctrine-siege]
+kind = "automation"
+filter = "CoopRTS.Doctrine.SiegeOptics"
+map = "default"
+
+[scopes.force-identity]
+kind = "automation"
+filter = "CoopRTS.Construction.ForceIdentity"
+map = "default"
+
+[scopes.goal-orders]
+kind = "automation"
+filter = "CoopRTS.Construction.GoalOrders"
+map = "default"
+
+[scopes.match-loss]
+kind = "automation"
+filter = "CoopRTS.Match.DefeatRestart"
+map = "default"
+
+[scopes.match-win]
+kind = "automation"
+filter = "CoopRTS.Match.VictoryRestart"
+map = "default"
+
+[scopes.movement]
+kind = "automation"
+filter = "CoopRTS.Movement.TwoGroups"
+map = "default"
+
+[scopes.orders]
+kind = "automation"
+filter = "CoopRTS.Orders.ReplaceHoldRetreat"
+map = "default"
+
+[scopes.production]
+kind = "automation"
+filter = "CoopRTS.Construction.Production"
+map = "default"
+
+[scopes.rules]
+kind = "automation"
+filter = "CoopRTS.Rules"
+map = "default"
+
+[scopes.strategy]
+kind = "automation"
+filter = "CoopRTS.Enemy.ConstructionEconomy"
+map = "default"
+
+[scopes.tools]
+kind = "pytest"
+paths = ["Tools/tests"]
+
+[scopes.maps]
+kind = "script"
+commands = [
+  ["python3", "Build/DrawMapLayout.py", "--report", "--out", "{run}/AvailabilityZone-layout.png"],
+  ["python3", "Build/DrawAvailabilityZoneV2.py", "--out", "{run}/AvailabilityZoneV2-layout.png"],
+  ["python3", "Build/AvailabilityZoneLayout.py", "--svg", "{run}/AvailabilityZone-geometry.svg"],
+]
+
+[scopes.lint]
+kind = "lint"
+
+[paths]
+# Root patterns are anchored; * never crosses a directory separator.
+"*.md" = ["lint"]
+".*" = ["lint"]
+".agents/**" = ["lint"]
+".omp/**" = ["lint"]
+"Docs/**" = ["lint"]
+"Art/**" = ["lint"]
+"Tools/**" = ["tools"]
+"x" = ["tools"]
+"pyproject.toml" = ["tools"]
+"uv.lock" = ["tools"]
+"Build/**" = ["maps"]
+"Config/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"CoopRTS.uproject" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/**/*.cs" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+
+# C++ entries derive from local include closure of each test translation unit.
+# A .cpp is covered whenever it implements a header in that closure.
+# Uncovered runtime surfaces conservatively route to every automation scope.
+"Source/CoopRTS/ArenaBounds.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArenaBounds.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyCombatTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyDoctrineTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArmyGroup.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArmyGroup.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyMatchTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyMovementTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArmyNetworkVerification.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArmyOrderTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyStrategyTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyTestSetup.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ArmyUnit.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ArmyUnit.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CapturePoint.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CapturePoint.h" = ["construction", "goal-orders", "match-loss", "match-win", "production", "strategy"]
+"Source/CoopRTS/CombatTarget.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CombatTarget.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandBuilding.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandBuilding.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CommandBuildingProduction.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandCamera.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CommandCamera.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandGameMode.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandGameMode.h" = ["construction", "production"]
+"Source/CoopRTS/CommandGameState.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandGameState.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandHUD.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandHUD.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandMenuGameMode.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CommandMenuGameMode.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandMinimap.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandMinimap.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandPlayerController.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandPlayerController.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CommandPlayerState.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CommandPlayerState.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ConstructionTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ConstructionTypes.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Content/BuildingDefinition.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Content/BuildingDefinition.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Content/MatchContent.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Content/MatchContent.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Content/UnitDefinition.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/CoopAudioSubsystem.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CoopAudioSubsystem.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CoopRTS.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CoopSessionSubsystem.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/CoopSessionSubsystem.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/DepositSite.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/DepositSite.h" = ["construction", "match-loss", "match-win", "production", "strategy"]
+"Source/CoopRTS/EnemyCommander.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/EnemyCommander.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ForceGoals.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/ForceGoals.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/ForceIdentityTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/GoalOrderTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/Headquarters.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Headquarters.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
+"Source/CoopRTS/MapRegion.cpp" = ["construction", "goal-orders", "match-loss", "match-win", "production", "rules", "strategy"]
+"Source/CoopRTS/MapRegion.h" = ["construction", "goal-orders", "production", "strategy"]
+"Source/CoopRTS/MatchSimulationSubsystem.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/MatchSimulationSubsystem.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Rules/EconomyPolicy.cpp" = ["rules"]
+"Source/CoopRTS/Rules/EconomyPolicy.h" = ["rules"]
+"Source/CoopRTS/Rules/GoalPath.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Rules/GoalPath.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Rules/OutcomePolicy.cpp" = ["rules"]
+"Source/CoopRTS/Rules/OutcomePolicy.h" = ["rules"]
+"Source/CoopRTS/Rules/PlacementPolicy.cpp" = ["construction", "production", "rules"]
+"Source/CoopRTS/Rules/PlacementPolicy.h" = ["construction", "production", "rules"]
+"Source/CoopRTS/Rules/ProductionPolicy.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/Rules/ProductionPolicy.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/RulesTests.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/SimulationSettings.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/SimulationSettings.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/WorldOverlay.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+"Source/CoopRTS/WorldOverlay.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
