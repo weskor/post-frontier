@@ -56,19 +56,28 @@ struct FDoctrineActors
 			}
 		if (!Controller.IsValid())
 			return false;
-		if (!ArmyTestSetup::CombatActors(InWorld))
+		State = InWorld->GetGameState<ACommandGameState>();
+		Wallet = Controller->GetPlayerState<ACommandPlayerState>();
+		if (!Wallet.IsValid() || Wallet->CommanderIndex < 0 || !ArmyTestSetup::MapReady(State.Get()))
 			return false;
-		// Paid enemy production is homogeneous, not the mixed-role effect fixture.
-		if (!Enemy.IsValid())
-			Enemy = ArmyTestSetup::SpawnGroup(InWorld, nullptr, -1,
-				ArmyTestSetup::HostileStaging(InWorld->GetGameState<ACommandGameState>()));
+		// Arrange combat actors locally: CombatActors also destroys the planner,
+		// but Restart must exercise travel from a world with live enemy planning.
 		for (TActorIterator<AArmyGroup> It(InWorld); It; ++It)
 		{
+			// A produced force keeps its positive number even after producer death.
+			if (It->IsOpposingArmy() && It->ForceNumber == 0 && !It->GetProductionBuilding())
+				Enemy = *It;
 			if (It->GetOwner() == Controller.Get() && It->GetArmyIndex() >= 0 && It->GetArmyIndex() < 2)
 				Armies[It->GetArmyIndex()] = *It;
 		}
-		State = InWorld->GetGameState<ACommandGameState>();
-		Wallet = Controller->GetPlayerState<ACommandPlayerState>();
+		for (int32 Index = 0; Index < 2; ++Index)
+			if (!Armies[Index].IsValid())
+				Armies[Index] = ArmyTestSetup::SpawnGroup(InWorld, Controller.Get(), Index,
+					ArmyTestSetup::FromFriendlyHQ(State.Get(), 1700.f - Index * 1000.f, 600.f, 100.f));
+		// Paid enemy production is homogeneous, not the mixed-role effect fixture.
+		if (!Enemy.IsValid())
+			Enemy = ArmyTestSetup::SpawnGroup(InWorld, nullptr, -1,
+				ArmyTestSetup::HostileStaging(State.Get()));
 		return State.IsValid() && Wallet.IsValid() && Enemy.IsValid()
 			&& Armies[0].IsValid() && Armies[1].IsValid()
 			&& Armies[0]->GetUnits().Num() == 6 && Armies[1]->GetUnits().Num() == 6 && Enemy->GetUnits().Num() == 6;
@@ -97,8 +106,8 @@ public:
 		UWorld* World = StandaloneWorld();
 		if (!World)
 			return false;
-		// Repair timers and navigation advance in game time, not wall time. Headless
-		// automation can simulate many game seconds during one real second.
+		// Repair timers and navigation advance in game time, not wall time.
+		// Game time diverges from wall time in headless runs.
 		const double Now = World->GetTimeSeconds();
 		if (!bReady)
 		{
@@ -108,7 +117,8 @@ public:
 						&& Actors.Wallet->Doctrine == EArmyDoctrine::None,
 					TEXT("Fresh authoritative Boot begins ongoing with no selected doctrine")))
 				return true;
-			Actors.IsolatePlanner();
+			if (!RestartCase())
+				Actors.IsolatePlanner();
 			bReady = true;
 			StageStarted = Now;
 		}
@@ -117,6 +127,7 @@ public:
 
 protected:
 	virtual bool Step(double Now) = 0;
+	virtual bool RestartCase() const { return false; }
 	bool Check(bool Condition, const TCHAR* Message) const
 	{
 		if (!Condition)
@@ -614,6 +625,7 @@ class FRestartScenario final : public FDoctrineScenario
 public:
 	using FDoctrineScenario::FDoctrineScenario;
 private:
+	bool RestartCase() const override { return true; }
 	bool Step(double Now) override
 	{
 		if (Stage == 0)
