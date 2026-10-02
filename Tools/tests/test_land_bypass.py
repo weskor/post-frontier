@@ -23,7 +23,7 @@ from x.lint.model import load
         'echo "$tip" > .git/refs/heads/main',
         'Path("x-land-grant.json").write_text(data)',
         'Path("x-land-ledger.jsonl").unlink()',
-        'git update-ref -d refs/x/land-ledger',
+        "git update-ref -d refs/x/land-ledger",
     ],
 )
 def test_bypass_snippets_block(path: str, snippet: str) -> None:

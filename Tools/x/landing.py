@@ -72,7 +72,9 @@ def first_parent_range(repo: Path, old: str, new: str) -> list[str]:
 def ledger_anchor(repo: Path) -> tuple[str, int, str] | None:
     result = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", LEDGER_REF],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode == 1:
         return None
@@ -81,8 +83,10 @@ def ledger_anchor(repo: Path) -> tuple[str, int, str] | None:
     oid = result.stdout.strip()
     value = json.loads(gitinfo.query(repo, "cat-file", "blob", oid))
     if (
-        not isinstance(value, dict) or set(value) != {"entries", "new"}
-        or type(value["entries"]) is not int or value["entries"] < 1
+        not isinstance(value, dict)
+        or set(value) != {"entries", "new"}
+        or type(value["entries"]) is not int
+        or value["entries"] < 1
         or not isinstance(value["new"], str)
     ):
         raise ValueError("invalid ledger anchor")
@@ -91,33 +95,50 @@ def ledger_anchor(repo: Path) -> tuple[str, int, str] | None:
 
 def seed_anchor(repo: Path, tip: str) -> None:
     data = json.dumps({"entries": 1, "new": tip}).encode()
-    oid = subprocess.check_output(
-        ["git", "-C", str(repo), "hash-object", "-w", "--stdin"], input=data
-    ).decode().strip()
+    oid = (
+        subprocess.check_output(
+            ["git", "-C", str(repo), "hash-object", "-w", "--stdin"], input=data
+        )
+        .decode()
+        .strip()
+    )
     gitinfo.query(repo, "update-ref", LEDGER_REF, oid, "")
 
 
-def ledger_entries(repo: Path, tip: str, initialize: bool) -> list[dict[str, str]]:
+def ledger_entries(
+    repo: Path, tip: str, initialize: bool
+) -> list[dict[str, str]] | None:
     path = common_dir(repo) / LEDGER
     anchor = ledger_anchor(repo)
     if not path.exists():
         if anchor is not None:
             raise ValueError("ledger missing while its anchor exists")
+        entries = None
+    else:
+        entries = [json.loads(line) for line in path.read_text().splitlines()]
+    if anchor is None and (
+        entries is None
+        or (
+            len(entries) == 1
+            and isinstance(entries[0], dict)
+            and set(entries[0]) == {"seed"}
+        )
+    ):
+        # Check never writes evidence. Only a checked landing gives a seed authority.
         if not initialize:
-            raise ValueError("landing history is not seeded")
-        with path.open("x") as stream:
-            stream.write(json.dumps({"seed": tip}) + "\n")
+            return None
+        entries = [{"seed": tip}]
+        with path.open("w") as stream:
+            stream.write(json.dumps(entries[0]) + "\n")
             stream.flush()
             os.fsync(stream.fileno())
-    entries = [json.loads(line) for line in path.read_text().splitlines()]
-    if anchor is None:
-        # Upgrade the pre-cutover seed only; never bless missing anchored ranges.
-        if not initialize or entries != [{"seed": tip}]:
-            raise ValueError("ledger anchor missing")
         seed_anchor(repo, tip)
         anchor = ledger_anchor(repo)
+    if anchor is None:
+        raise ValueError("ledger anchor missing")
     if (
-        not entries or anchor is None or len(entries) != anchor[1]
+        not entries
+        or len(entries) != anchor[1]
         or entries[-1].get("new", entries[-1].get("seed")) != anchor[2]
     ):
         raise ValueError("ledger entry count or endpoint disagrees with its anchor")
@@ -131,39 +152,50 @@ def audit_check(ctx: Context) -> None:
     except (ValueError, OSError, subprocess.CalledProcessError):
         # A landing may be between its ref write, ledger append and anchor update.
         with ctx.locks.held(["land.lock"], fcntl.LOCK_EX):
-            audit_main(ctx.repo, initialize=True)
+            audit_main(ctx.repo)
 
 
 def audit_main(repo: Path, *, initialize: bool = False) -> None:
     """Read without locking; initialization requires the caller to hold land.lock."""
     tip = gitinfo.query(repo, "rev-parse", "--verify", "refs/heads/main").strip()
-    expected: list[str] = []
-    seed = ""
+    history: list[str] = []
+    positions: dict[str, int] = {}
     endpoint = ""
     try:
         entries = ledger_entries(repo, tip, initialize)
-        seed = endpoint = entries[0]["seed"]
+        if entries is None:
+            return
+        history = gitinfo.query(repo, "rev-list", "--first-parent", tip).splitlines()
+        positions = {commit: index for index, commit in enumerate(history)}
+        endpoint = entries[0]["seed"]
+        frontier = positions[endpoint]
         for entry in entries[1:]:
             if entry["old"] != endpoint or not entry["run_id"] or not entry["time"]:
                 raise ValueError("discontinuous landing ledger")
-            expected.extend(first_parent_range(repo, endpoint, entry["new"]))
+            new_index = positions[entry["new"]]
+            if new_index > frontier:
+                raise ValueError(
+                    "landing range runs backwards on main's first-parent history"
+                )
+            frontier = new_index
             endpoint = entry["new"]
-        actual = first_parent_range(repo, seed, tip)
-        if actual == expected and endpoint == tip:
+        if frontier == 0 and endpoint == tip:
             return
-        expected_set = set(expected)
-        unlanded = [commit for commit in actual if commit not in expected_set]
-        detail = "unlanded commits: " + (", ".join(unlanded) or "(none; main rewound)")
-    except (ValueError, KeyError, IndexError, TypeError, AttributeError, OSError) as error:
+        unlanded = list(reversed(history[:frontier]))
+        detail = "unlanded commits: " + ", ".join(unlanded)
+    except (
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
+        AttributeError,
+        OSError,
+    ) as error:
         detail = f"invalid landing history: {error}"
-        if seed:
-            history = gitinfo.query(
-                repo, "rev-list", "--first-parent", tip
-            ).splitlines()
-            detail += "; unlanded commits: " + ", ".join(
-                commit
-                for commit in history
-                if commit != seed and commit not in expected
+        if history:
+            frontier = positions.get(endpoint, len(history))
+            detail += "; unlanded commits: " + (
+                ", ".join(reversed(history[:frontier])) or "(none; main rewound)"
             )
     raise ValueError(f"main audit failed: {detail}; stop and ask the owner")
 
@@ -203,9 +235,9 @@ def merge_checked(ctx: Context, main: Path, branch: str) -> int:
         return refuse(
             ctx, "main worktree is dirty; commit or move every local change first"
         )
-    audit_main(ctx.repo)
     after = gitinfo.commit(ctx.repo)
     first_parent_range(ctx.repo, before, after)
+    audit_main(ctx.repo, initialize=True)
     grant = common_dir(ctx.repo) / GRANT
     jsonio.save(
         grant, {"old": before, "new": after, "run_id": ctx.run.id, "pid": os.getpid()}
@@ -220,11 +252,16 @@ def merge_checked(ctx: Context, main: Path, branch: str) -> int:
         grant.with_suffix(".json.prepared").unlink(missing_ok=True)
     if not merged:
         if gitinfo.commit(main) == before:
-            if ctx.exec(["git", "reset", "--hard", before], cwd=main, log="land-restore"):
+            if ctx.exec(
+                ["git", "reset", "--hard", before], cwd=main, log="land-restore"
+            ):
                 return refuse(ctx, "main restoration failed; stop and ask the owner")
         else:
             return refuse(ctx, "failed merge changed main; stop and ask the owner")
-        return refuse(ctx, "main fast-forward refused; restored clean main; inspect land-merge.log")
+        return refuse(
+            ctx,
+            "main fast-forward refused; restored clean main; inspect land-merge.log",
+        )
     if gitinfo.commit(main) != after:
         return refuse(ctx, "main changed unexpectedly; stop and ask the owner")
     audit_main(ctx.repo)
@@ -238,7 +275,7 @@ def land(ctx: Context) -> int:
     if ctx.run is None:
         raise RuntimeError("landing requires a recorded command")
     with ctx.locks.held(["land.lock"], fcntl.LOCK_EX):
-        audit_main(ctx.repo, initialize=True)
+        audit_main(ctx.repo)
         branch = gitinfo.branch(ctx.repo)
         if branch == "main":
             return refuse(ctx, "run ./x land from a task worktree, not main")

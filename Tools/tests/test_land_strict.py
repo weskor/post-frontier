@@ -8,7 +8,13 @@ from pathlib import Path
 import signal
 
 from conftest import git
-from landing_support import commit_file, git_result, install_runner, invoke
+from landing_support import (
+    commit_file,
+    git_result,
+    install_runner,
+    invoke,
+    seed_evidence,
+)
 import pytest
 from x.landing import GRANT, LEDGER
 from x.settings import load
@@ -17,6 +23,7 @@ from x.settings import load
 @pytest.fixture
 def task(repo: Path) -> Path:
     task = install_runner(repo)
+    seed_evidence(repo)
     result = invoke(task, "check")
     assert result.returncode == 0, result.stdout + result.stderr
     return task
@@ -45,6 +52,7 @@ def test_forged_grants_rejected(repo: Path, task: Path, mode: str) -> None:
         grant["pid"] = 2147483647
     (repo / ".git" / GRANT).write_text(json.dumps(grant))
     lock = load(task).lock_dir / "land.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
     with lock.open("a+b") as stream:
         if mode != "unlocked":
             fcntl.flock(stream, fcntl.LOCK_EX)
@@ -223,9 +231,10 @@ def test_rejected_checkout_restores_main_and_its_hooks(repo: Path, task: Path) -
     pending.write_text(json.dumps({"transaction_pid": os.getpid()}))
     rejected = invoke(task, "land")
     assert rejected.returncode == 1, rejected.stdout + rejected.stderr
-    assert "main only moves through ./x land" in next(
-        (repo.parent / "runs").glob("*/land-merge.log")
-    ).read_text()
+    assert (
+        "main only moves through ./x land"
+        in next((repo.parent / "runs").glob("*/land-merge.log")).read_text()
+    )
     assert git(repo, "rev-parse", "main") == before
     assert git(repo, "status", "--porcelain") == ""
     assert (repo / hook).read_bytes() == original

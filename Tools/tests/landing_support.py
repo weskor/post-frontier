@@ -81,6 +81,22 @@ def install_runner(repo: Path) -> Path:
     return task
 
 
+def seed_evidence(repo: Path) -> None:
+    """Arrange an already-cut-over disposable repository without invoking check."""
+    from x.landing import LEDGER, LEDGER_REF
+
+    tip = git(repo, "rev-parse", "main")
+    (repo / ".git" / LEDGER).write_text(json.dumps({"seed": tip}) + "\n")
+    result = subprocess.run(
+        ["git", "-C", str(repo), "hash-object", "-w", "--stdin"],
+        input=json.dumps({"entries": 1, "new": tip}),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    git(repo, "update-ref", LEDGER_REF, result.stdout.strip())
+
+
 def invoke(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     environment = {key: value for key, value in os.environ.items() if key != "X_LAND"}
     return subprocess.run(
