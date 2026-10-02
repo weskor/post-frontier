@@ -72,9 +72,14 @@ def _automation(
                 map_path,
                 "-game",
                 "-nullrhi",
+                # Null RHI assertions need neither shader compilation nor loading.
+                "-NoShaderCompile",
+                # Editor Python start-up scripts are outside C++ automation.
+                "-DisablePython",
                 "-nosound",
                 "-unattended",
-                f"-ExecCmds=Automation RunTests {scope.filter}; SoftQuit",
+                # UE's Now command clears the 5 s discovery delay, not readiness.
+                f"-ExecCmds=Automation Now; RunTests {scope.filter}; SoftQuit",
                 f"-abslog={log}",
                 "-stdout",
             ],

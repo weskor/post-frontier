@@ -16,7 +16,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 |---|---|
 | Baseline | The working tree was committed as-is on 2026-10-02 (`3104bdc`). HEAD had been two days behind (125 modified, 289 untracked files). |
 | Entry point | One Python task runner, `./x`, at the repo root. The only documented way to do anything. |
-| Fast tests | Pure logic is tested with **Unreal Low-Level Tests** (Catch2 test programs built by UBT, no editor). One build system. Needs a prototype on UE 5.8/Linux first. |
+| Fast tests | Automation tests in an editor-hosted `-game` process, start-up trimmed; Low-Level Tests need a source engine build (see [Open](#open)). |
 | Unreal processes | Headless test processes run in parallel, up to N (set from RAM). Anything using the desktop, Steam, packaging or asset generators takes an exclusive lock. `./x` owns both. |
 | Binary assets | `.uasset`/`.umap` are generated outputs. Tuned values and maps live in text. Agents change text only; `./x land` regenerates and commits binaries. |
 | Command path | One validated command path for humans, JEV, tests and the harness. Test-only RPCs and debug flags leave release builds. |
@@ -121,7 +121,7 @@ Each phase ends with its exit check passing through `./x check`.
 |---|---|---|
 | 0 | Baseline commit | Done: `3104bdc` |
 | 1 | Unity builds off for the game module (done); `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; the lint policy with workaround detectors, architecture rules, formatting and Python lint and types; size limits for `Rules/` and `Content/`; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Done: `a9c8669`. Every documented procedure is a `./x` command; a direct commit to main is rejected; lint is green |
-| 2 | Green suite: port or delete the 9 red tests; Low-Level Tests prototype, then move the 18 rules tests; Python tests for map validators | `./x check` is green; rules tests run without starting the editor |
+| 2 | Green suite: port or delete the 9 red tests; trim editor-hosted automation start-up; Python tests for map validators | `./x check` is green; a warm rules process takes under 5 s (five-run median, excluding build and lock wait) |
 | 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
 | 4 | Content as text; deterministic generators, split to the size limits; `land` regenerates binaries; size limits switch on for `Build/` | Changing a unit stat is a text-only diff |
 | 5 | Split the god objects; extract pure decision logic; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
