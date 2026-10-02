@@ -27,7 +27,7 @@ Check `test "$HERDR_ENV" = 1` first; outside herdr, say so and stop.
 
 ### 1. Split
 
-- **Slices touch disjoint implementation files.** List each slice's files. Shared configuration entries may overlap only when the briefs explicitly describe independent edits and their landing conflict resolution.
+- **Slices touch disjoint files, except shared configuration files with disjoint entries.** Files such as `Tools/x/scopes.toml` and `Tools/x/lint.toml` may appear in two in-flight slices only when their entries are disjoint and both briefs describe ownership and landing conflict resolution. All other files remain disjoint.
 - **A shared interface change is its own slice.** It lands first; slices that depend on it start after, branching from the new main.
 - **One slice is one session's work,** with one observable acceptance check and the smallest verification that proves it.
 - Name each slice with a short slug, e.g. `hold-region-alarm`. The branch is `task/<slug>`.
@@ -49,13 +49,13 @@ Worktree: /home/wes/workspace/game-wt/<worker-n>   Branch: task/<slug>
 
 List **every file the slice may need**, including shared files such as `Tools/x/scopes.toml` and `Tools/x/lint.toml` when its checks or lint policy need changes. Narrow file lists caused most blocked rounds; do not leave predictable dependencies for the worker to discover after dispatch.
 
-For each shared file, state the exact entries the slice owns and how to resolve rebase conflicts at landing: preserve already-landed independent entries and apply the slice's entries, never take an entire side blindly. If edits compete for the same entry, serialize those slices instead. `./x land` aborts conflicting rebases and prints the paths; resolve them on the task branch with a rebase onto main, rerun `./x check`, and commit any fixes before retrying `./x land`. Changed semantics need another review before retrying.
+For each shared file, state the exact entries the slice owns and how to resolve rebase conflicts at landing: preserve already-landed independent entries and apply the slice's entries, never take an entire side blindly. If edits compete for the same entry, serialize those slices instead.
 
-### 3. Prepare a worker slot
+### 3. Prepare slots
 
 A slot is one pane, one agent and one worktree. The worktree outlives the pane so its build stays warm. Create the two agent tabs once per orchestration session; reuse their panes for later slices.
 
-Read tab IDs from `.result.tab.tab_id`, root pane IDs from `.result.root_pane.pane_id`, and split pane IDs from `.result.pane.pane_id`. The commands below use `jq` to retain those IDs; never infer them from tab or pane numbers.
+Read tab IDs from `.result.tab.tab_id`, root pane IDs from `.result.root_pane.pane_id`, and split pane IDs from `.result.pane.pane_id`. The commands below use `jq` to retain those IDs and record them in Bash-sourceable files under `/tmp/cooprts-work/tasks/`; never infer IDs from tab or pane numbers.
 
 ```bash
 # workers: three columns, then three rows in each column
@@ -70,6 +70,7 @@ w5=$(herdr pane split --pane "$w4" --direction down --ratio 0.333333 --cwd /home
 w6=$(herdr pane split --pane "$w5" --direction down --ratio 0.5 --cwd /home/wes/workspace/game --no-focus | jq -r '.result.pane.pane_id')
 w8=$(herdr pane split --pane "$w7" --direction down --ratio 0.333333 --cwd /home/wes/workspace/game --no-focus | jq -r '.result.pane.pane_id')
 w9=$(herdr pane split --pane "$w8" --direction down --ratio 0.5 --cwd /home/wes/workspace/game --no-focus | jq -r '.result.pane.pane_id')
+declare -p workers_tab w1 w2 w3 w4 w5 w6 w7 w8 w9 > /tmp/cooprts-work/tasks/worker-panes.txt
 
 # reviewers: three columns
 reviewers_json=$(herdr tab create --workspace "$HERDR_WORKSPACE_ID" --label reviewers --no-focus)
@@ -77,6 +78,14 @@ reviewers_tab=$(printf '%s\n' "$reviewers_json" | jq -r '.result.tab.tab_id')
 r1=$(printf '%s\n' "$reviewers_json" | jq -r '.result.root_pane.pane_id')
 r2=$(herdr pane split --pane "$r1" --direction right --ratio 0.333333 --cwd /home/wes/workspace/game --no-focus | jq -r '.result.pane.pane_id')
 r3=$(herdr pane split --pane "$r2" --direction right --ratio 0.5 --cwd /home/wes/workspace/game --no-focus | jq -r '.result.pane.pane_id')
+declare -p reviewers_tab r1 r2 r3 > /tmp/cooprts-work/tasks/reviewer-panes.txt
+```
+
+Record each tab and its pane IDs before dispatch. If the orchestrator's shell restarts or a later call uses a fresh Bash shell, restore the variables instead of creating duplicate tabs:
+
+```bash
+source /tmp/cooprts-work/tasks/worker-panes.txt
+source /tmp/cooprts-work/tasks/reviewer-panes.txt
 ```
 
 `--ratio` is the fraction retained by the original pane (left for `right`, top for `down`), not the new pane's fraction. First retain one third, then split the remaining two thirds in half. This was verified in a throwaway tab with `herdr pane layout`: a 273-column area became three 91-column panes, and 70 rows became 23/24/23; the throwaway tab was closed. Thus `w1` … `w9` map to workers in column-major order, and `r1` … `r3` map to reviewers. Inspect both layouts with `herdr pane layout --pane "$w1"` and `herdr pane layout --pane "$r1"`.
@@ -141,8 +150,9 @@ herdr agent prompt reviewer-<n> "Review task <slug>: brief, report and review fi
 
 Land one slice at a time.
 
-Prompt the worker: "Run `./x land`, reply DONE." If landing fails, the worker fixes
-the failure, commits and reruns `./x land`. The hook rejects other updates to main.
+Prompt the worker: "Run `./x land`, reply DONE." The hook rejects other updates to main.
+
+If landing fails, the worker follows the landing-failure rule in [Worker rules](#worker-rules). `./x land` aborts conflicting rebases and prints their paths; the worker resolves them by rebasing its task branch onto main using the brief's entry-ownership instructions. If resolving a conflict changes behaviour, the worker updates its report and replies `BLOCKED` without retrying `./x land`; send the slice for re-review through an idle reviewer cleared with `/new`, then explicitly authorize another landing attempt after review passes. Otherwise the worker reruns `./x check`, commits any fixes and retries `./x land`.
 
 Then free the slot:
 
@@ -179,12 +189,13 @@ Workers have no fallback: stop and tell the user.
 5. **Unreal only through `./x` commands, which take their own locks and stop stalled runs,** and only if the brief allows it. Never wrap `./x` (or anything else) in `flock`: an outer lock deadlocks against the runner's lock. Never kill a process you didn't start. Never write into `Builds/`.
 6. **`./x check` enforces the [lint policy](../../../Docs/Engineering/Setup.md):** inline suppressions, `TODO`/`FIXME`/`HACK`, stubs and disabled tests fail `./x check`. Exceptions only through `Tools/x/lint-exceptions.toml` with a reason.
 7. **Verify with `./x check`; the command chooses the scopes.** Run `./x verify` only when the brief names it. Never weaken a test to make it pass.
-8. **Write `/tmp/cooprts-work/tasks/<slug>/report.md`,** at most 45 lines:
+8. **Land only after review and explicit instruction.** If `./x land` aborts a conflicting rebase, resolve it by rebasing your task branch onto main using the brief's entry-ownership instructions. If resolving a conflict changes behaviour, update the report and reply `BLOCKED`; do not retry `./x land` until re-review passes and the orchestrator explicitly authorizes it. Otherwise fix the landing failure, rerun `./x check`, commit any fixes and retry `./x land`.
+9. **Write `/tmp/cooprts-work/tasks/<slug>/report.md`,** at most 45 lines:
    1. Files and functions changed.
    2. Behaviour now, with exact constants.
    3. Verification run: commands and results, and what wasn't run.
    4. Risks, and what the orchestrator must check.
-9. **Reply with one line:** `DONE` or `BLOCKED`.
+10. **Reply with one line:** `DONE` or `BLOCKED`.
 
 ## Reviewer rules
 
