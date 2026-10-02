@@ -38,7 +38,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | `./x help` | The procedure reference. Docs link here instead of repeating commands. |
 
 The runner owns:
-- **Locks:** the headless process pool and the exclusive desktop lock, queued fairly, with stale-lock cleanup after crashes.
+- **Locks:** the two-slot headless process pool and the exclusive desktop lock, queued fairly, with stale-lock cleanup after crashes. Editor builds also take a global one-at-a-time build lock inside the pool; every worktree reads its pool size from [settings.toml](../../Tools/x/settings.toml).
 - **Freshness:** content hashes of sources, not file timestamps. Today `verify.py` refuses to run if any source file is newer than the module, so one agent's edit blocks everyone ([tests audit](Audit/tests.md)).
 - **Evidence:** every run writes a machine-readable record (command, commit, scopes, results, timings, log paths) into a per-run folder. Agents cite run IDs; nobody hand-writes RESULTS.md.
 - **The engine path, maps list and ports,** each defined once.
@@ -132,6 +132,10 @@ Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md
 
 ## Open
 
-- **N for the headless pool:** measure RAM per headless process.
+- **N for the headless pool (resolved 2026-10-02):** N = 2 on this 30.40 GiB host. Five world scopes peaked at 2.186 GiB per editor; a fresh build's UBT/compiler tree peaked at 5.435 GiB.
+  Cross-worktree N = 2/3/4 trials passed, with minimum `MemAvailable` 12.00/9.99/8.57 GiB and queued wall times 543.26/139.38/81.88 s; competing agents/builds/network verification make these timings non-isolated. Observed total concurrent editors were 2/3/4 (owned trial editors 2/2/3; other workers occupied remaining slots). Two subsequent N = 2 batches passed all five scopes with two owned worlds overlapping in each.
+  Fifteen agents plus helpers peaked at 11.236 GiB (12-agent projection 8.989 GiB); desktop/other processes peaked at 2.541 GiB. Budget 9.5 GiB for twelve agents/helpers, 2.75 GiB for the desktop, 4 GiB for the owner's editor (not running during measurement; HUD's editor measured 2.576 GiB), and 6 GiB free.
+  With a 5.75 GiB build slot and 2.25 GiB world slots, `N = 1 + floor((30.40 - 9.5 - 2.75 - 4 - 6 - 5.75) / 2.25) = 2`; N = 3 would exceed that mixed-build budget. Concurrent unguarded UBT failed in shared `Trace.uba` log rotation, so builds serialize.
+  Exec records sample process-group RSS every 250 ms as `peak_rss_mb` (MiB); UBT/HUD launch descendants in other groups, so their sizing above uses separately sampled process-tree/editor RSS, not the small launcher-group RSS.
 - **Low-Level Tests on UE 5.8/Linux:** prototype before committing to them.
 - **Asset regeneration at landing:** generators take minutes, so batch them, and decide whether `land` blocks on regeneration or a follow-up commit does it.

@@ -72,7 +72,9 @@ def group_rss_bytes(pgid: int) -> int:
                 continue
             try:
                 # comm may contain spaces or ')'; fields after its final ')' are fixed.
-                fields = (Path(entry.path) / "stat").read_text().rsplit(")", 1)[1].split()
+                fields = (
+                    (Path(entry.path) / "stat").read_text().rsplit(")", 1)[1].split()
+                )
                 if int(fields[2]) == pgid:
                     pages += int(fields[21])
             except (FileNotFoundError, ProcessLookupError, PermissionError):

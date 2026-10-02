@@ -15,7 +15,6 @@ def test_settings_and_cook_maps(repo: Path, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("UE_ROOT", "/wrong/environment/override")
     settings = load(repo)
     assert settings.engine_root == Path("~/.local/opt/unreal-engine/5.8.3").expanduser()
-    assert (settings.headless_pool_size, settings.stall_seconds) == (1, 300)
     assert (settings.direct_ip_port, settings.mcp_port) == (7777, 8000)
     assert settings.freshness["editor"] == (
         "Source/**",

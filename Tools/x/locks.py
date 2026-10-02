@@ -105,6 +105,12 @@ class Locks:
                 yield
 
     @contextmanager
+    def build(self) -> Iterator[None]:
+        """Serialize UBT's shared state while retaining headless pool admission."""
+        with self.headless(), self.held(["build.lock"], fcntl.LOCK_EX):
+            yield
+
+    @contextmanager
     def exclusive(self) -> Iterator[None]:
         with ExitStack() as held:
             with self.held(["turnstile.lock"], fcntl.LOCK_EX):

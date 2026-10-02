@@ -16,7 +16,7 @@ def editor_module(ctx: Context) -> Path:
 def ensure_editor(ctx: Context) -> bool:
     if ctx.run is None:
         raise RuntimeError("editor builds require a recorded command")
-    with ctx.locks.headless():
+    with ctx.locks.build():
         if editor_module(ctx).is_file() and ctx.freshness.is_fresh("editor"):
             print("editor up to date", flush=True)
             return True
