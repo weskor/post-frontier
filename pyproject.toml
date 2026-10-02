@@ -17,7 +17,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["Tools"]
+pythonpath = ["Tools", "Build"]
 testpaths = ["Tools/tests"]
 
 [tool.ruff]

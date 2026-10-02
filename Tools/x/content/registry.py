@@ -280,6 +280,16 @@ GENERATORS = (
         HELP=AUDIO_PIPELINE,
     ),
     Generator(
+        "render-announcer-voice",
+        "uv",
+        "RenderAnnouncerVoice.py",
+        "Art/Audio/Announcer; /Game/Audio/Announcer; Saved/AudioPreview/Announcer.wav",
+        "Render the scripted human dispatcher with pinned offline CPU TTS, then import.",
+        HELP="Downloads and verifies the pinned voice once; synthesis is offline. "
+        "Add {id, text} to Build/Audio/announcer_lines.json and regenerate. "
+        "Pass -- --render-only to skip Unreal import. The saved reel follows script order.",
+    ),
+    Generator(
         "generate-music-sample",
         "uv",
         "GenerateMusicSample.py",

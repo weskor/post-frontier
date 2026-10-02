@@ -1,0 +1,13 @@
+[
+  {"id": "own_hq_under_attack", "text": "Hardline is taking fire."},
+  {"id": "own_hq_half", "text": "Hardline at half strength."},
+  {"id": "own_hq_critical", "text": "Hardline critical. Twenty-five percent remaining."},
+  {"id": "own_hq_offline", "text": "Hardline is offline."},
+  {"id": "enemy_hq_under_attack", "text": "The Lattice is taking fire."},
+  {"id": "enemy_hq_half", "text": "The Lattice at half strength."},
+  {"id": "enemy_hq_critical", "text": "The Lattice critical. Twenty-five percent remaining."},
+  {"id": "enemy_hq_offline", "text": "The Lattice is offline."},
+  {"id": "region_captured", "text": "Region secured."},
+  {"id": "region_lost", "text": "Region lost."},
+  {"id": "drill_rig_lost", "text": "Drill Rig lost."}
+]

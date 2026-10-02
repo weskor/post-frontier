@@ -22,6 +22,7 @@ direct-engine = [
     "Build/GenerateMenuMap.py", "Build/GenerateMusicSample.py",
     "Build/GenerateOverlayMaterials.py", "Build/GenerateTerrainKit.py",
     "Build/GenerateUnitAudio.py", "Build/GenerateUnitMeshes.py",
+    "Build/RenderAnnouncerVoice.py",
     "Build/MasterMaterials.py", "Build/MatchLayout.py",
     "Build/RenderTextureContactSheet.py", "Build/RenderUIIcons.py", "Build/TerrainKit.py",
 ]
@@ -71,6 +72,7 @@ format = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+    "Build/RenderAnnouncerVoice.py",
 ]
 ruff = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -78,6 +80,7 @@ ruff = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+    "Build/RenderAnnouncerVoice.py",
 ]
 mypy = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -85,6 +88,7 @@ mypy = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
+    "Build/RenderAnnouncerVoice.py",
 ]
 
 # These modules are imported by Unreal's embedded Python, not only by ./x.

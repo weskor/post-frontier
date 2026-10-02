@@ -2,7 +2,7 @@
 
 Sound design for **Post-Frontier** (CoopRTS). Tone, names and factions come from [World.md](World.md); rules and triggers come from `README.md` and source. StarCraft 2 is a **listening reference only**: no SC2 audio is extracted, sampled or imitated line-for-line.
 
-Status: **115 rendered WAVs** from recorded/designed library layers: 60 attack/impact/death sounds for six combat units, 18 Unindexed structure/HQ sounds, 18 Machine structure/HQ/notification sounds, 18 player UI/sector sounds, and one Unindexed industrial-night ambience loop. Files are in `Art/Audio/<Faction>/<Role>/`, with editable REAPER sessions in `Art/Audio/Sessions/`. Unit movement/idle loops, voice, announcer and music remain planned. The importer and runtime integration below include the ambience bed, distance filtering and shared reverb; their fresh Unreal import/build/runtime verification is scheduled separately.
+Status: **115 rendered WAVs** from recorded/designed library layers: 60 attack/impact/death sounds for six combat units, 18 Unindexed structure/HQ sounds, 18 Machine structure/HQ/notification sounds, 18 player UI/sector sounds, and one Unindexed industrial-night ambience loop. Files are in `Art/Audio/<Faction>/<Role>/`, with editable REAPER sessions in `Art/Audio/Sessions/`. The additional scripted objective voice set is described under "Announcer"; unit movement/idle loops, unit voices, Machine voice and game music remain planned. The importer and runtime integration below include the ambience bed, distance filtering and shared reverb; their fresh Unreal import/build/runtime verification is scheduled separately.
 
 ## What we take from SC2
 
@@ -106,6 +106,18 @@ Listen to the feedback reel that `./x gen generate-unit-audio` writes before imp
 ## Announcer
 
 Two voices. The **player announcer** is an Unindexed dispatcher on a radio. The **Machine commander** speaks the intercepted `Thinking…` lines from World.md ("Enemy commander voice", "Enemy lines for construction") in the corporate-assistant voice, with a soft notification chime before each. The function must stay clear: per World.md tone rule 2, readability beats jokes.
+
+### Scripted objective voice [Built]
+
+The player's first objective set is authored in [announcer_lines.json](../Build/Audio/announcer_lines.json): eleven generic lines for friendly/enemy HQ damage tiers and offline transitions, region capture/loss and Drill Rig loss. Names follow [World.md](World.md). Feed attribution, event triggers and playback belong to the announcer UI, not the asset generator.
+
+`./x gen render-announcer-voice` renders the entire script on a Linux CPU with Piper, then uses the existing Unreal audio importer to create `/Game/Audio/Announcer/VO_<id>` sound waves from `Art/Audio/Announcer/VO_<id>.wav`. Adding a line needs only one `{id, text}` entry and regeneration. Model URLs, SHA-256 pins and commercial-use terms live in [SOURCES.md](../Art/Audio/SOURCES.md); package versions are pinned in [RenderAnnouncerVoice.py](../Build/RenderAnnouncerVoice.py). Generation and audition options live only in [`./x help gen`](../x).
+
+The selected voice is **en_US-ljspeech-high**, a single US-English female narrator. The choice favours a measured human dispatcher over JEV's synthetic corporate persona; this is a tone decision, not human listening approval. Synthesis uses length scale 1.05, generator noise 0, duration noise 0 and 0.12-second sentence gaps. Both stochastic inputs are disabled. A 300–3500 Hz fourth-order radio filter precedes the shared audio finishing stage: -18 LUFS, at most -1 dBTP, 48-kHz/24-bit mono. Waves route directly to the existing master class at gain 1 and priority 4; they do not add mix assets, spatial attenuation or a playback queue.
+
+The model and its phoneme config download once into verified local storage; inference is offline thereafter. Corrupt cached/downloaded files fail closed. The command writes a script-order audition reel with half-second gaps. Unreal import asserts and logs each actual loaded `SoundWave` path before reporting `ANNOUNCER_IMPORTED waves=11`. Rendering/import proof does not establish event playback or human mix approval.
+
+### Future announcer lines [New]
 
 | Event | Player announcer line (draft) | Cooldown |
 | --- | --- | --- |
@@ -213,7 +225,7 @@ One `MS_` per event with a random wave player: 3–5 variants, no immediate repe
 ### Source format and loudness
 
 - 48 kHz, 24-bit WAV; world one-shots and UI mono (UI plays 2D), music stereo. Loops (`*Loop` events, e.g. `ConstructLoop`) are rendered seamless: the session region's last `crossfade` seconds are equal-power crossfaded into its start, with no limiter, so the file repeats without a seam; set the Unreal sound wave to looping.
-- Variants are matched to their event's integrated loudness. Combat: attack/fire -20 LUFS (siege fire -19), impact -22, death -21. Structures: place/cancel/research/notify -22, construction loops -27, complete/alarms -20, deploy -23, destroyed -18, HQ destruction -17. UI: click/select/capture tick -24, front/reject -23, hover -32, sector captured/lost -21. True peak stays at or below -1 dBFS; limiting is followed by a constant-gain correction, and loops use only constant gain if peak headroom constrains their target. Planned voice is about -18 LUFS, music -20. Final in-game balance belongs in Sound Class volumes.
+- Variants are matched to their event's integrated loudness. Combat: attack/fire -20 LUFS (siege fire -19), impact -22, death -21. Structures: place/cancel/research/notify -22, construction loops -27, complete/alarms -20, deploy -23, destroyed -18, HQ destruction -17. UI: click/select/capture tick -24, front/reject -23, hover -32, sector captured/lost -21. True peak stays at or below -1 dBFS; limiting is followed by a constant-gain correction, and loops use only constant gain if peak headroom constrains their target. The objective voice settings are specified under "Scripted objective voice"; planned unit voice is about -18 LUFS and music -20. Final in-game balance belongs in Sound Class volumes.
 
 ## Asset budget (first pass)
 
@@ -229,15 +241,15 @@ One `MS_` per event with a random wave player: 3–5 variants, no immediate repe
 | Player UI and Machine notification (rendered) | 13 |
 | Music (menu, match bed + intensity layer, 4 stings) | 7 |
 
-About 210 files in the planned first pass; 115 are rendered. Voices, music and unit movement/idle remain outstanding; the match ambience bed is implemented separately from music.
+About 210 files in the planned first pass; 115 recorded/designed sounds plus the objective voice set above are rendered. Other voices, game music and unit movement/idle remain outstanding; the match ambience bed is implemented separately from music.
 
 ## Sourcing and production pipeline
 
 1. **Raw material:** `./x gen fetch-audio-sources` ([`./x help gen`](../x)) fetches recipe-selected recordings from Sonniss #GameAudioGDC bundle ZIPs by HTTP range request and can produce the licensed-source index for choosing layers. Each recipe's `SOURCES` list is authoritative. Libraries and licence limits are in [SOURCES.md](../Art/Audio/SOURCES.md); raw and re-designed sounds must not be passed on as sound effects. Pure synthesis sounded thin and "blippy"; recorded material is the baseline.
 2. **Layering and rendering:** `./x gen generate-unit-audio` ([`./x help gen`](../x)) prepares numbered clips from recipe modules in `Build/unit_audio/`, preserves editable sessions in `Art/Audio/Sessions/`, renders their regions through REAPER and finishes `Art/Audio/<Faction>/<Role>/SW_<Faction>_<Role>_<Event>_NN.wav`. Tracks hold mix balance; region names determine output filenames. One-shots have silent tails trimmed; loops retain duration with a crossfaded wrap. Unchanged recipes/sessions render identical files. Session replacement and sound-set selection are described only in command help.
 3. **Human listening:** listen to the generated per-set reels before import; their loops repeat twice and the run record lists their outputs. The automatically discovered ambience recipe is `Build/unit_audio/human_ambience.py`; its licensed layers, loop construction and measured output are recorded once in [SOURCES.md](../Art/Audio/SOURCES.md).
-4. **Voice:** local TTS (e.g. Piper) for drafts; a real voice actor for the final Unindexed crew is recommended. The Machine voice can stay synthesized; that fits the faction.
-5. **Import:** `./x gen import-audio` ([`./x help gen`](../x)) imports 115 WAVs into `/Game/Audio/<Faction>/<Role>` and creates 25 native mix assets in `/Game/Audio/Mix`. Reruns replace waves and reset mix settings without touching source WAVs or REAPER sessions. Success is `AUDIO_IMPORTED waves=115 support=25 total=140`. Playback uses native SoundWaves, not MetaSounds; the expanded mix/voice/music targets above are not imported assets.
+4. **Voice:** the objective dispatcher uses the built scripted pipeline under "Announcer". Other unit/Machine lines remain planned. A real actor for the final Unindexed crew is recommended; the Machine voice can stay synthesized.
+5. **Import:** `./x gen import-audio` ([`./x help gen`](../x)) imports the recorded/designed library into `/Game/Audio/<Faction>/<Role>` and creates native mix assets in `/Game/Audio/Mix`. Reruns replace waves and reset mix settings without touching source WAVs or REAPER sessions. Success is `AUDIO_IMPORTED waves=115 support=25 total=140`. The voice generator invokes an isolated announcer-only mode of the same importer; it changes only `/Game/Audio/Announcer`. Playback uses native SoundWaves, not MetaSounds; the expanded mix/voice/music targets above are not imported assets.
 6. **Never** use extracted or re-recorded SC2 audio, or real product sounds (World.md tone rule 4 applies to audio too).
 
 ## Implemented runtime integration
@@ -268,7 +280,7 @@ The ambience render's analytical measurements and their listening limits are rec
 
 Historical import counts (2026-09-30) were 114 waves and 20 support assets. Counts alone do not prove runtime playback.
 
-Each runtime subsystem initialization logs loaded-object counts once. The updated complete library must report `CoopAudio library initialized: cues=44/44 waves=115/115 master_class=1 master_mix=1 world_attenuation=1 ambience=1 world_reverb=1`. Counts include the separate ambience wave plus the unchanged 44 event cues, and valid runtime references, not source/import counts. Incomplete initialization emits an error; per-shot missing-cue errors remain enabled, including under `-nosound`. This diagnostic is a runtime library-loading proof, not an audible-playback proof. The following historical evidence covers the earlier 114-wave dry library, not the new bed/filter/reverb; fresh Unreal import, C++ build and packaged start/mute/end/leave/restart/travel audition remain unverified here (shared runtime window reserved by the orchestrator).
+Each runtime subsystem initialization logs loaded-object counts once. After the announcer UI cutover, the complete library diagnostic must report `cues=42/42 waves=111/111` plus `announcer=11/11`, with `master_class=1 master_mix=1 world_attenuation=1 ambience=1 world_reverb=1`. The base count includes the separate ambience wave; the obsolete HQAlarm runtime cues and their four wave references are removed, while the announcer count is separate. These are valid runtime references, not source/import counts. Incomplete initialization emits an error; per-shot missing-cue errors remain enabled, including under `-nosound`. This diagnostic is a runtime library-loading proof, not an audible-playback proof. The following historical evidence covers the earlier 114-wave dry library, not the new bed/filter/reverb or announcer playback; fresh C++ build and packaged start/mute/end/leave/restart/travel audition remain unverified here (shared runtime window reserved by the orchestrator).
 
 After the explicit CDO-to-instance initialization correction, the final-verification owner reported `construction-b`, `win-a` and `loss-a` regressions PASS, with runtime library counts `44/44` cues and `114/114` waves.
 

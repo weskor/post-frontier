@@ -12,6 +12,17 @@ https://sonniss.com/gdc-bundle-license/ (version 2.0 when fetched, 2026-09-30). 
 
 No StarCraft or other game audio is used.
 
+## Objective dispatcher: Piper / LJ Speech
+
+The announcer WAVs are synthesized from the project's own [line script](../../Build/Audio/announcer_lines.json), not sampled game dialogue. The selected voice is **en_US-ljspeech-high** (single US-English female speaker, 22,050 Hz native), trained from scratch on **LJ Speech**, read by Linda Johnson and annotated by Keith Ito. Its measured delivery is the intended human-operator contrast to JEV, with light radio filtering; subjective listening and in-game balance need owner approval.
+
+- Model repository declares **MIT**: [repository metadata](https://huggingface.co/rhasspy/piper-voices/blob/c10ece1aade47bb51c153c893d14e5bf8e5b7117/README.md).
+- The selected voice's [model card](https://huggingface.co/rhasspy/piper-voices/blob/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/ljspeech/high/MODEL_CARD) declares the training data **public domain**. [LJ Speech licence](https://keithito.com/LJ-Speech-Dataset/): text, audio and annotations are public domain in the US; no restrictions on use or required attribution. These terms permit commercial game use. The dataset publisher qualifies non-US public-domain status; check distribution jurisdictions before release.
+- Model and phoneme config use the immutable revision `c10ece1aade47bb51c153c893d14e5bf8e5b7117`; their exact download URLs and SHA-256 digests are authoritative in [announcer_voice.json](../../Build/Audio/announcer_voice.json). Both are verified on every cache use and download. Model files stay in ignored local storage and are not shipped in the game.
+- Build-time **piper-tts 1.3.0** is [GPL-3.0](https://github.com/OHF-Voice/piper1-gpl/blob/v1.3.0/COPYING), separate from the voice/data licence. It runs offline as a subprocess; neither Piper nor its dependencies are linked into or shipped with the game. [GPL section 2](https://www.gnu.org/licenses/gpl-3.0.html) covers output only if the output itself constitutes a covered work; these WAVs contain synthesized project-authored dialogue, not Piper code. Distributing the build tool/runtime still requires its GPL compliance.
+
+The model, native config and synthesis settings are pinned; package versions live in [RenderAnnouncerVoice.py](../../Build/RenderAnnouncerVoice.py). Target format and radio/loudness settings live in [Audio.md](../../Docs/Audio.md). Generation, isolated import and audition options: [`./x help gen`](../../x).
+
 ## Libraries used
 
 146 libraries across 10 sound sets (six combat units, two structure sets, player UI/sectors and one Offline ambience bed), derived from the recipes' `SOURCES`. The per-layer purpose of each file is in the recipe code and its comments. "GDC bundle" is the year of the bundle ZIP the file is fetched from.
