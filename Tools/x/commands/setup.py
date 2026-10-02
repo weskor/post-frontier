@@ -8,10 +8,14 @@ import subprocess
 from x.context import Context
 
 NAME = "setup"
-SUMMARY = "Check the engine and tools; apply the required ShaderPrint patch."
+SUMMARY = "Bootstrap Git LFS, check tools and apply the required ShaderPrint patch."
 HELP = (
     "Checks the configured engine's UnrealEditor, UnrealEditor-Cmd, Linux Build.sh "
-    "and RunUAT.sh, plus uv and clang-format on PATH. Under the exclusive lock, "
+    "and RunUAT.sh, plus git, uv, clang-format and patch on PATH. Under the exclusive "
+    "lock, configures local LFS filters with git lfs install --local --skip-repo "
+    "(no hook installation; Tools/hooks already chains to Git LFS), then runs "
+    "git lfs pull to fetch this checkout's binary content. Repeated setup is safe. "
+    "It preserves core.hooksPath and the existing hooks. Next, "
     "checks whether Build/UnrealEngine-5.8.3-ShaderPrint.patch is already applied "
     "with a reverse dry run; otherwise applies it with patch --forward. "
     "This intentionally changes the shared engine shader, never Builds/."
@@ -33,13 +37,23 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     ):
         if not (engine / relative).is_file():
             raise ValueError(f"missing engine component: {engine / relative}")
-    for tool in ("uv", "clang-format", "patch"):
+    for tool in ("git", "uv", "clang-format", "patch"):
         if shutil.which(tool) is None:
             raise ValueError(f"missing tool on PATH: {tool}")
     print(f"Engine: {engine}; uv and clang-format available")
     patch = ctx.repo / "Build/UnrealEngine-5.8.3-ShaderPrint.patch"
     arguments = ["patch", "--batch", "-d", str(engine), "-p1", "-i", str(patch)]
     with ctx.locks.exclusive():
+        code = ctx.exec(
+            ["git", "lfs", "install", "--local", "--skip-repo"], log="lfs-install"
+        )
+        if code != 0:
+            return code
+        print("Git LFS local filters configured; existing hooks preserved", flush=True)
+        code = ctx.exec(["git", "lfs", "pull"], log="lfs-pull")
+        if code != 0:
+            return code
+        print("Git LFS content fetched", flush=True)
         probe = subprocess.run(
             [*arguments, "--reverse", "--dry-run"],
             capture_output=True,

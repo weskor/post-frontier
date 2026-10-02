@@ -108,6 +108,8 @@ Do not add elapsed-time success criteria, longer travel waits or unchanged retri
 Resume only with a diagnosis and a targeted next check; partial chains are not PASS.
 Cleanup uses recorded identities/pidfds, not process names, and retains evidence.
 Every invocation has a run record; session actions append to the launch evidence.
+Full-output captures may include unrelated desktop content. Keep them local,
+crop copies for sharing and preserve the original evidence.
 Use ./x runs <id> to inspect results/logs/artifacts. Cite exact asserted/inspected
 contracts and exclusions; old evidence cannot prove changed gameplay. For Steam
 acceptance and Development session-failure maintenance use ./x help play.
