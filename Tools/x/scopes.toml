@@ -291,3 +291,5 @@ kind = "lint"
 "Source/CoopRTS/CapturePoint.*" = ["objective-events"]
 "Source/CoopRTS/CommandBuilding.*" = ["objective-events"]
 "Source/CoopRTS/CoopAudioSubsystem.*" = ["objective-events", "objective-assets"]
+"Content/Audio/Announcer/**" = ["objective-assets"]
+"Build/Audio/announcer_lines.json" = ["objective-assets"]
