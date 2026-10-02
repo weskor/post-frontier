@@ -16,3 +16,4 @@
 __pycache__/
 *.blend1
 *.rpp-bak
+/.venv/

@@ -1,0 +1,16 @@
+engine_root = "~/.local/opt/unreal-engine/5.8.3"
+project = "CoopRTS.uproject"
+editor_target = "CoopRTSEditor"
+game_target = "CoopRTS"
+lock_dir = "/tmp/cooprts-work"
+headless_pool_size = 1
+runs_root = "~/.local/state/cooprts/runs"
+default_map = "/Game/Maps/Boot"
+playtest_map = "/Game/Maps/AvailabilityZoneV2"
+direct_ip_port = 7777
+mcp_port = 8000
+stall_seconds = 300
+
+[freshness]
+editor = ["Source/**", "CoopRTS.uproject", "Config/**"]
+package = ["Source/**", "CoopRTS.uproject", "Config/**", "Content/**"]

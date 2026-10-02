@@ -1,0 +1,67 @@
+"""Freshness depends on selected file paths and bytes, never mtimes."""
+
+from datetime import datetime, timezone
+import fnmatch
+import hashlib
+from pathlib import Path
+
+from x import gitinfo, jsonio
+from x.settings import Settings, load
+
+
+def current_hash(repo: Path, kind: str) -> str:
+    patterns = load(repo).freshness[kind]
+    paths = set(
+        gitinfo.query(repo, "ls-files", "-co", "--exclude-standard", "-z").split("\0")
+    )
+    digest = hashlib.sha256()
+    for relative in sorted(path for path in paths if path):
+        path = repo / relative
+        if (
+            not any(fnmatch.fnmatchcase(relative, pattern) for pattern in patterns)
+            or not path.is_file()
+        ):
+            continue
+        name = relative.encode("utf-8", "surrogateescape")
+        content = path.read_bytes()
+        digest.update(len(name).to_bytes(8, "big"))
+        digest.update(name)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def stamp(repo: Path, kind: str, run_id: str) -> None:
+    jsonio.save(
+        repo / "Intermediate/x-stamps" / f"{kind}.json",
+        {
+            "hash": current_hash(repo, kind),
+            "commit": gitinfo.commit(repo),
+            "run_id": run_id,
+            "time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+
+def is_fresh(repo: Path, kind: str) -> bool:
+    path = repo / "Intermediate/x-stamps" / f"{kind}.json"
+    if not path.exists():
+        return False
+    return bool(jsonio.load(path).get("hash") == current_hash(repo, kind))
+
+
+class Freshness:
+    """Worktree-bound version of the public module functions."""
+
+    def __init__(self, repo: Path, settings: Settings) -> None:
+        self.repo = repo
+        self.settings = settings
+
+    def current_hash(self, kind: str) -> str:
+        return current_hash(self.repo, kind)
+
+    def stamp(self, kind: str, run_id: str) -> None:
+        stamp(self.repo, kind, run_id)
+
+    def is_fresh(self, kind: str) -> bool:
+        return is_fresh(self.repo, kind)
