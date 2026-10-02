@@ -5,6 +5,7 @@
 #include "CapturePoint.h"
 #include "DepositSite.h"
 #include "Headquarters.h"
+#include "SimulationSettings.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyMatchVictoryTest, "CoopRTS.Match.VictoryRestart",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -17,43 +18,57 @@ public:
 	FArmyMatchScenario(FAutomationTestBase* InTest, bool bInVictory) : Test(InTest), bVictory(bInVictory) {}
 	bool Update() override
 	{
-		UWorld* World = nullptr;
-		for (const FWorldContext& Context : GEngine->GetWorldContexts())
-			if (Context.World() && Context.World()->IsGameWorld() && Context.World()->GetNetMode() != NM_Client)
-			{
-				World = Context.World();
-				break;
-			}
+		if (FPlatformTime::Seconds() - StartedAt > 60.)
+			return Fail(*FString::Printf(TEXT("Match scenario timed out in stage %d (victory=%d)"), Stage, bVictory));
+		UWorld* World = ArmyTestSetup::World();
 		if (!World)
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		ACommandPlayerState* Wallet = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
-		if (!State || !PC || !Wallet || !State->FriendlyHeadquarters || !State->EnemyHeadquarters)
+		if (!State || !PC || !Wallet || Wallet->CommanderIndex < 0 || !ArmyTestSetup::MapReady(State))
 			return false;
 		if (Stage == 0)
 		{
-			if (World->GetTimeSeconds() < 3.f || !ArmyTestSetup::CombatActors(World))
-				return false;
 			State->bVerificationIncomePaused = true;
+			// Paid production may already have created an empty force before automation starts.
+			// Arrange our own opponents rather than mistaking that force for a combat fixture.
+			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+				It->Destroy();
+			for (ACommandBuilding* Building : State->Buildings)
+				if (IsValid(Building) && Building->TeamIndex == 5)
+					Building->bProductionEnabled = false;
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			{
-				if (It->GetTeamIndex() == 5)
-					Enemy = *It;
-				else if (It->GetOwningPlayerState() == Wallet && It->GetArmyIndex() == 0)
-					Friendly = *It;
-			}
+				It->Destroy();
+			Friendly = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
+			Enemy = ArmyTestSetup::SpawnGroup(World, nullptr, -1, ArmyTestSetup::HostileStaging(State));
 			if (!Friendly.IsValid() || !Enemy.IsValid())
 				return Fail(TEXT("Live outcome fixture armies missing"));
+			const int32 BeforeResearch = Wallet->Resources;
 			ArmyTestSetup::Research(PC, EArmyDoctrine::SiegeOptics);
-			if (Wallet->Doctrine != EArmyDoctrine::SiegeOptics)
+			if (Wallet->Doctrine != EArmyDoctrine::SiegeOptics
+				|| Wallet->Resources != BeforeResearch - ACommandBuilding::ResearchCost)
 				return Fail(TEXT("Old match must own a paid specialization"));
+			if (!FindBuildingLocation(State))
+				return Fail(TEXT("Terminal placement requires a previously valid HQ-region footprint"));
+			for (ACapturePoint* Site : State->CaptureSites)
+			{
+				Site->ControllingTeam = 0;
+				Site->CaptureProgress = 1.f;
+			}
+			for (ADepositSite* Deposit : State->Deposits)
+				Deposit->Remaining = 1;
 			AHeadquarters* Target = bVictory ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
 			AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
 			Target->Health = 80; // Short encounter fixture; real weapons deliver every subsequent hit.
+			FVector Approach = (bVictory ? State->FriendlyHeadquarters : State->EnemyHeadquarters)->GetActorLocation()
+				- Target->GetActorLocation();
+			Approach.Z = 0.f;
+			Approach.Normalize();
 			for (AArmyUnit* Unit : Attacker->GetUnits())
 			{
-				Unit->SetActorLocation(Target->GetActorLocation() + FVector(-650.f, Unit->GetCompositionSlot() * 100.f, 0.f),
+				Unit->SetActorLocation(Target->GetActorLocation() + Approach * 650.f
+						+ FVector(-Approach.Y, Approach.X, 0.f) * ((Unit->GetCompositionSlot() - 2.5f) * 100.f),
 					false, nullptr, ETeleportType::TeleportPhysics);
 				BeforeShots += Unit->AttackCount;
 			}
@@ -66,6 +81,7 @@ public:
 			OldState = State;
 			OldWorld = World;
 			Stage = 1;
+			StartedAt = FPlatformTime::Seconds();
 			Test->AddInfo(TEXT("Real HQ attack in progress; waiting for weapon-caused outcome."));
 			return false;
 		}
@@ -86,8 +102,9 @@ public:
 			const int32 Balance = Wallet->Resources;
 			const int32 Buildings = State->Buildings.Num();
 			PC->ServerIssueOrder(Friendly.Get(), EArmyOrder::Move, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 2300.f, 5.f));
-			PC->ServerPlaceBuilding(ArmyTestSetup::BarracksIndex, ArmyTestSetup::FromFriendlyHQ(State, 400.f, 0.f, 5.f));
+			PC->ServerPlaceBuilding(ArmyTestSetup::BarracksIndex, BuildingLocation);
 			ArmyTestSetup::Research(PC, EArmyDoctrine::FieldRepairs);
+			State->bVerificationIncomePaused = false; // Terminal state, not the fixture pause, must stop income.
 			State->Tick(2.f);
 			if (Friendly->OrderSerial != Serial || Wallet->Resources != Balance || State->Buildings.Num() != Buildings
 				|| Wallet->Doctrine != EArmyDoctrine::SiegeOptics)
@@ -95,6 +112,7 @@ public:
 			Slot = Wallet->CommanderIndex;
 			PC->ServerRequestRestart();
 			Stage = 2;
+			StartedAt = FPlatformTime::Seconds();
 			Test->AddInfo(TEXT("Outcome and terminal guards observed; seamless fresh world requested."));
 			return false;
 		}
@@ -106,7 +124,7 @@ public:
 			|| Wallet->Resources > ACommandPlayerState::InitialResources + 2 * State->GetIncomePerSecond(Wallet)
 			|| State->FriendlyHeadquarters->Health != State->FriendlyHeadquarters->MaxHealth()
 			|| State->EnemyHeadquarters->Health != State->EnemyHeadquarters->MaxHealth()
-			|| State->GetIncomePerSecond(Wallet) != ACommandGameState::BaselineIncomePerSecond)
+			|| State->GetIncomePerSecond(Wallet) != State->GetBaselineIncomePerSecond())
 			return Fail(TEXT("Restart must preserve commander identity but reset economy/research/HQs/territory"));
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 0)
@@ -119,12 +137,32 @@ public:
 				return Fail(TEXT("New sectors must start neutral"));
 		for (const ADepositSite* Deposit : State->Deposits)
 			if (!IsValid(Deposit) || IsValid(Deposit->Extractor)
-				|| Deposit->Remaining != (Deposit->bRich ? 3000 : 2400))
+				|| Deposit->Remaining != (Deposit->bRich ? FSimulationSettings::ForWorld(World).RichAmount : FSimulationSettings::ForWorld(World).NormalAmount))
 				return Fail(TEXT("Fresh deposits must reset occupancy and finite reserves"));
 		Test->AddInfo(TEXT("Real weapon outcome, terminal command/economy guards and fresh construction match restart passed."));
 		return true;
 	}
 private:
+	bool FindBuildingLocation(ACommandGameState* State)
+	{
+		const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
+		for (int32 Ring = 0; Ring < 9; ++Ring)
+			for (int32 Direction = 0; Direction < 32; ++Direction)
+			{
+				const float Angle = Direction * PI / 16.f;
+				const FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
+				const FVector Point = State->ResolveBuildingLocation(ArmyTestSetup::BarracksIndex, Candidate);
+				if (State->FindRegionAt(Point) != State->FindRegionAt(Center))
+					continue;
+				FString Reason;
+				if (State->ValidateBuildingPlacement(ArmyTestSetup::BarracksIndex, 0, Point, Reason))
+				{
+					BuildingLocation = Point;
+					return true;
+				}
+			}
+		return false;
+	}
 	bool Fail(const TCHAR* Message)
 	{
 		Test->AddError(Message);
@@ -135,6 +173,8 @@ private:
 	int32 Stage = 0;
 	int32 Slot = -1;
 	uint32 BeforeShots = 0;
+	double StartedAt = FPlatformTime::Seconds();
+	FVector BuildingLocation = FVector::ZeroVector;
 	TWeakObjectPtr<UWorld> OldWorld;
 	TWeakObjectPtr<ACommandGameState> OldState;
 	TWeakObjectPtr<AArmyGroup> Friendly;
