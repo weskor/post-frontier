@@ -90,25 +90,19 @@ def scan(rule: str, path: str, text: str) -> list[Finding]:
     if rule == "direct-engine" and path.startswith(("Tools/x/", "Tools/harness/")):
         return []
     if rule in PATTERNS:
-        visible = text
-        if suffix != ".py" and path != "x" and rule != "direct-engine":
-            visible = LEXEMES.sub(
-                lambda m: m.group() if m.group().startswith(("//", "/*")) else blank(m),
-                text,
-            )
         return [
             Finding(
                 path,
-                visible.count("\n", 0, match.start()) + 1,
+                text.count("\n", 0, match.start()) + 1,
                 rule,
                 f"forbidden {match.group()}",
             )
-            for match in re.finditer(PATTERNS[rule], visible)
+            for match in re.finditer(PATTERNS[rule], text)
             if not (
                 rule == "direct-engine"
                 and re.search(
                     r"\busing\s+$",
-                    visible[visible.rfind("\n", 0, match.start()) + 1 : match.start()],
+                    text[text.rfind("\n", 0, match.start()) + 1 : match.start()],
                 )
             )
         ]

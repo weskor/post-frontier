@@ -167,7 +167,7 @@ def test_cpp_namespace_and_class_inline_functions() -> None:
     ] == [1]
 
 
-def test_literals_and_comment_include_examples_are_not_workarounds(
+def test_literals_are_markers_but_commented_includes_are_not_dependencies(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "Policy.cpp"
@@ -177,5 +177,5 @@ def test_literals_and_comment_include_examples_are_not_workarounds(
     )
     assert [
         item.line for item in source.scan("marker", "Policy.cpp", path.read_text())
-    ] == [2]
+    ] == [1, 2]
     assert source.scan("rules-includes", "Policy.cpp", path.read_text()) == []
