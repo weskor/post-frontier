@@ -7,7 +7,6 @@ from zipfile import ZipFile
 
 from conftest import git
 from landing_support import install_runner, invoke
-import pytest
 
 
 def uv(repo: Path, *args: str) -> None:
@@ -37,10 +36,7 @@ def dependency_wheel(repo: Path) -> Path:
     return wheel
 
 
-def test_check_syncs_new_locked_dependency_before_mypy(
-    repo: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("UV_OFFLINE", "1")
+def test_check_syncs_new_locked_dependency_before_mypy(repo: Path) -> None:
     task = install_runner(repo)
     uv(task, "sync", "--locked", "--python", sys.executable)
     wheel = dependency_wheel(task)

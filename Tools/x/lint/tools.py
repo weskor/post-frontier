@@ -23,13 +23,10 @@ def execute(
     return result
 
 
-def binary(ctx: Context, name: str) -> str:
-    local = ctx.repo / ".venv/bin" / name
-    if local.is_file():
-        return str(local)
+def binary(name: str) -> str:
     found = shutil.which(name)
     if found is None:
-        raise ValueError(f"missing {name}; install the locked dev dependencies")
+        raise ValueError(f"missing {name} on PATH")
     return found
 
 
@@ -83,7 +80,7 @@ def format_cpp(
     expected = re.search(
         r"clang-format (\d+\.\d+\.\d+)", config.read_text().splitlines()[0]
     )
-    tool = binary(ctx, "clang-format")
+    tool = binary("clang-format")
     version = execute(ctx, [tool, "--version"], "clang-version")
     actual = re.search(r"version (\d+\.\d+\.\d+)", version.stdout)
     if (
