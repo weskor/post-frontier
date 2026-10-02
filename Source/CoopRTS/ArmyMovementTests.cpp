@@ -5,6 +5,7 @@
 #include "AIController.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
+#include "CommandBuilding.h"
 #include "CommandPlayerController.h"
 #include "EnemyCommander.h"
 #include "CommandPlayerState.h"
@@ -31,18 +32,6 @@ public:
 
 	virtual bool Update() override
 	{
-		if (!bIsolated)
-		{
-			for (const FWorldContext& Context : GEngine->GetWorldContexts())
-				if (UWorld* World = Context.World())
-					if (World->IsGameWorld() && World->GetNetMode() == NM_Standalone)
-					{
-						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-							It->Destroy();
-						bIsolated = true;
-						break;
-					}
-		}
 		const double Now = FPlatformTime::Seconds();
 		if (bFailed)
 			return true;
@@ -438,6 +427,16 @@ private:
 		{
 			if (!FindCircuit(State))
 				return bFailed;
+			// Stop planning and paid reinforcements, then remove hostiles accumulated
+			// before setup. Hold alone still lets nearby members fire on the fixtures.
+			for (TActorIterator<AEnemyCommander> It(State->GetWorld()); It; ++It)
+				It->Destroy();
+			for (TActorIterator<ACommandBuilding> It(State->GetWorld()); It; ++It)
+				if (It->TeamIndex == 5 && It->IsProducer())
+					It->SetProduction(It->ProductionUnitIndex, false);
+			for (TActorIterator<AArmyGroup> It(State->GetWorld()); It; ++It)
+				if (It->GetTeamIndex() == 5)
+					It->Destroy();
 			Groups[0] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 0,
 				CircuitPoint(-TravelExtent - 1200., 0.) + FVector(0., 0., 100.));
 			Groups[1] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 1,
@@ -596,7 +595,6 @@ private:
 	EStage Stage = EStage::FindGroups;
 	int32 ReplacementCount = 0;
 	bool bFailed = false;
-	bool bIsolated = false;
 	double Started;
 	double StageStarted = 0.;
 };
