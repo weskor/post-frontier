@@ -475,31 +475,11 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		PC->ConsoleCommand(FString::Printf(TEXT("r.SetRes %dx%dw"), Width, Height));
 		return FString();
 	}
-	if (Action == TEXT("restart") || Action == TEXT("order") || Action == TEXT("attack"))
+	if (Action == TEXT("restart"))
 	{
 		if (!Own || Own->CommanderIndex < 0)
 			return TEXT("local owning controller unavailable");
-		if (Action == TEXT("restart"))
-			PC->MatchCommands->ServerRequestRestart();
-		else
-		{
-			AArmyGroup* Army = FindArmy(World, Owner, Index);
-			if (!Army)
-				return TEXT("target army not replicated locally");
-			FCommandResult Result;
-			if (Action == TEXT("attack"))
-			{
-				if (!State || !IsValid(State->EnemyHeadquarters))
-					return TEXT("enemy HQ not replicated");
-				Result = FCommandService::IssueAttack(Own, Army, State->EnemyHeadquarters->GetActorLocation(), State->EnemyHeadquarters);
-			}
-			else
-			{
-				FVector Destination(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 0.f);
-				Result = FCommandService::IssueOrder(Own, Army, static_cast<EArmyOrder>(Request->GetIntegerField(TEXT("order"))), Destination);
-			}
-			PC->SetCommandFeedback(Result.Message, Result.IsAccepted());
-		}
+		PC->MatchCommands->ServerRequestRestart();
 		return FString();
 	}
 	// No fixture execution on clients, even if a malicious client sends fixture commands.
@@ -517,7 +497,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				FCommandService::IssueOrder(It->GetOwningPlayerState(), *It, EArmyOrder::Hold, FVector::ZeroVector);
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
-				FCommandService::ConfigureProduction(State->EnemyCommander, Building, Building->ProductionRole, false);
+				FCommandService::ConfigureProduction(State->EnemyCommander, Building,
+					Building->bForceConfigured ? Building->ProductionRole : static_cast<EUnitRole>(255), false);
 		return FString();
 	}
 	if (Action == TEXT("placement"))

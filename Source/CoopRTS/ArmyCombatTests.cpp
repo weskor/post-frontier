@@ -200,6 +200,8 @@ public:
 				if (!Check(Unit->Target != Victim.Get(), TEXT("No unit retains a dead target")))
 					return true;
 			FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			if (!RejectUnregisteredTargets())
+				return true;
 			Test->AddInfo(TEXT("Live combat passed: role-specific effective range, server damage/death, target invalidation, bounded Attack, Move and Hold boundaries, Retreat override and stale-intent replacement."));
 			return true;
 		default:
@@ -228,6 +230,50 @@ private:
 		for (const AArmyUnit* Unit : Army->GetUnits())
 			Count += Unit->AttackCount;
 		return Count;
+	}
+	bool RejectUnregisteredTargets()
+	{
+		ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+		const uint32 Serial = Army->OrderSerial;
+		const FVector Destination = Army->Destination;
+		const auto Rejected = [&](AActor* Target) {
+			const FCommandResult Result = FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Target->GetActorLocation(), Target);
+			return !Result.IsAccepted() && Army->OrderSerial == Serial && Army->Order == EArmyOrder::Hold
+				&& Army->Destination == Destination && !Army->AttackTarget;
+		};
+		AArmyUnit* Detached = nullptr;
+		for (AArmyUnit* Unit : Enemy->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive())
+			{
+				Detached = Unit;
+				break;
+			}
+		if (!Check(Detached != nullptr, TEXT("A living hostile is available for membership validation")))
+			return false;
+		Enemy->OnMemberDied(Detached); // Membership fixture: health and the back-pointer remain live.
+		const bool bUnitRejected = Rejected(Detached);
+		Detached->Destroy();
+		if (!Check(bUnitRejected, TEXT("A live unit absent from its group rejects Attack without changing Hold")))
+			return false;
+		AHeadquarters* HQ = State->EnemyHeadquarters;
+		State->EnemyHeadquarters = nullptr;
+		const bool bHQRejected = Rejected(HQ);
+		State->EnemyHeadquarters = HQ;
+		if (!Check(bHQRejected, TEXT("An unregistered live hostile HQ rejects Attack without changing Hold")))
+			return false;
+		const FTransform Transform(State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 0.f, 65.f));
+		ACommandBuilding* Building = Army->GetWorld()->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(),
+			Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Check(Building != nullptr, TEXT("A hostile building registration fixture spawns")))
+			return false;
+		Building->BuildingIndex = ArmyTestSetup::WorkshopIndex;
+		Building->TeamIndex = 5;
+		Building->OwningPlayerState = State->EnemyCommander;
+		Building->FinishSpawning(Transform);
+		State->Buildings.Remove(Building);
+		const bool bBuildingRejected = Building->IsAlive() && Rejected(Building);
+		Building->Destroy();
+		return Check(bBuildingRejected, TEXT("An unregistered live hostile building rejects Attack without changing Hold"));
 	}
 
 	bool Begin(double Now)

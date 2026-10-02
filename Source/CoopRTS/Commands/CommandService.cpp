@@ -4,9 +4,9 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "ArenaBounds.h"
+#include "CombatTarget.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
-#include "Headquarters.h"
 #include "MapRegion.h"
 #include "GoalGraph.h"
 
@@ -78,9 +78,10 @@ FCommandResult FCommandService::ConfigureProduction(ACommandPlayerState* Command
 
 FCommandResult FCommandService::AssignGoal(ACommandPlayerState* Commander, ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex)
 {
-	if (!OwnsBuilding(Commander, Building) || !Building->IsProducer() || !Building->IsComplete()
-		|| !Building->bForceConfigured || !IsValid(Building->ForceGroup))
+	if (!OwnsBuilding(Commander, Building))
 		return Verdict(false, TEXT("Goal rejected: requires your completed, locked barracks in an ongoing match."), ECommandRejection::InvalidOwner);
+	if (!Building->IsProducer() || !Building->IsComplete() || !Building->bForceConfigured || !IsValid(Building->ForceGroup))
+		return Verdict(false, TEXT("Goal rejected: requires your completed, locked barracks in an ongoing match."), ECommandRejection::InvalidRequest);
 	const ACommandGameState* State = CommandState(Commander);
 	const auto Reject = [] { return Verdict(false, TEXT("Goal rejected: invalid or unreachable region, enemy main, or unavailable force.")); };
 	if (Building->ForceGroup->IsActorBeingDestroyed()
@@ -142,6 +143,7 @@ FCommandResult FCommandService::Restart(ACommandPlayerController* Controller)
 		|| Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5)
 		return Verdict(false, TEXT("Restart rejected: match or commander unavailable."), ECommandRejection::Unavailable);
 	// Seamless travel retains the net driver and player connections; the new world's actors are fresh.
+	// Explicit ?SeamlessTravel avoids the engine's automatic hard-travel fallback after 48 hours.
 	Mode->bRestartRequested = true;
 	UWorld* World = Controller->GetWorld();
 	const FString Map = UWorld::RemovePIEPrefix(World->GetOutermost()->GetName());
@@ -187,14 +189,9 @@ FCommandResult FCommandService::IssueAttack(ACommandPlayerState* Commander, AArm
 		bool bValidTarget = !Target;
 		if (Target && IsValid(Target) && Target->GetWorld() == Commander->GetWorld())
 		{
-			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target))
-				bValidTarget = Unit->IsAlive() && IsValid(Unit->GetGroup())
-					&& Unit->GetGroup()->GetWorld() == Commander->GetWorld() && Unit->GetGroup()->GetTeamIndex() == Unit->GetTeamIndex()
-					&& Unit->GetTeamIndex() != Army->GetTeamIndex();
-			else if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
-				bValidTarget = HQ->IsAlive() && HQ->TeamIndex != Army->GetTeamIndex();
-			else if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
-				bValidTarget = Building->IsAlive() && Building->TeamIndex != Army->GetTeamIndex();
+			bValidTarget = CombatTarget::IsAliveHostile(Target, Army->GetTeamIndex());
+			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target); bValidTarget && Unit)
+				bValidTarget = Unit->GetGroup()->GetWorld() == Commander->GetWorld();
 			if (bValidTarget)
 				Destination = Target->GetActorLocation();
 		}

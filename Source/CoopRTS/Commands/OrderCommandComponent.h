@@ -13,8 +13,6 @@ public:
 	UOrderCommandComponent();
 	UFUNCTION(Server, Reliable)
 	void ServerAssignGoal(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex);
-	UFUNCTION(Server, Reliable)
-	void ServerAssignFront(ACommandBuilding* Building, EFrontOrder Order, FVector Location);
 	UFUNCTION(Client, Reliable)
 	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
 };

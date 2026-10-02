@@ -28,11 +28,11 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
-	const int32 Balance = OwningPlayerState->Resources;
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsProducer() || !IsAlive() || !IsComplete() || !Definition || GetForceCapacity(*Definition) == 0
-		|| (bForceConfigured && ProductionUnitIndex != UnitIndex))
+		|| !IsValid(OwningPlayerState) || (bForceConfigured && ProductionUnitIndex != UnitIndex))
 		return false;
+	const int32 Balance = OwningPlayerState->Resources;
 	if (bEnabled && !bForceConfigured)
 	{
 		const int32 ConfigurationCost = GetConfigurationCost(*Definition);
