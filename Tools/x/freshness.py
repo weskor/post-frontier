@@ -1,9 +1,8 @@
 """Freshness depends on selected file paths and bytes, never mtimes."""
 
-
+from datetime import UTC, datetime
 import fnmatch
 import hashlib
-from datetime import UTC, datetime
 from pathlib import Path
 
 from x import gitinfo, jsonio

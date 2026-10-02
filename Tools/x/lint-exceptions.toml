@@ -39,3 +39,8 @@ reason = "The detector's regular-expression definitions name disabled-test token
 rule = "marker"
 path = "Tools/x/lint/source.py"
 reason = "The detector's regular-expression definitions name marker tokens to reject them; the engine has no stub implementation."
+
+[[exceptions]]
+rule = "direct-engine"
+path = "Tools/tests/test_building.py"
+reason = "A disposable fake engine Build.sh exercises build freshness and failure handling; the fixture runs Python, not Unreal, and the test preserves the adapter's real path contract."

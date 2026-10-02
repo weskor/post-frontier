@@ -1,8 +1,8 @@
 """Freshness stamps track successful, stable builds and surviving artifacts."""
 
-import sys
 from dataclasses import replace
 from pathlib import Path
+import sys
 
 import pytest
 from x.building import editor_module, ensure_editor

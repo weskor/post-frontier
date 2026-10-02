@@ -1,8 +1,8 @@
 """A validator scope must not claim images left by preceding scopes."""
 
-import sys
 from dataclasses import replace
 from pathlib import Path
+import sys
 
 from x.context import Context
 from x.runs import Run

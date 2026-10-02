@@ -1,10 +1,10 @@
 """Run every selected scope and require explicit automation evidence."""
 
-import re
-import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+import re
+import time
 
 from x.building import editor_module, ensure_editor
 from x.context import Context
