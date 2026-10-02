@@ -1,5 +1,6 @@
 """Repository-relative glob routing, including paths deleted from disk."""
 
+import re
 import tomllib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -66,6 +67,47 @@ def load(repo: Path) -> ScopeMap:
         kind = spec["kind"]
         if kind not in ("automation", "pytest", "script", "lint"):
             raise ValueError(f"scope {name}: unsupported kind {kind}")
+        if kind == "automation":
+            test_filter = spec.get("filter")
+            if not isinstance(test_filter, str) or not test_filter.strip():
+                raise ValueError(
+                    f"scope {name}: automation requires a non-empty filter"
+                )
+            map_path = spec.get("map")
+            if not isinstance(map_path, str) or (
+                map_path != "default"
+                and not re.fullmatch(
+                    r"/Game/(?:[A-Za-z0-9_]+/)*[A-Za-z0-9_]+", map_path
+                )
+            ):
+                raise ValueError(
+                    f"scope {name}: automation requires default or a /Game/... map"
+                )
+        if kind == "script":
+            commands = spec.get("commands")
+            if (
+                not isinstance(commands, list)
+                or not commands
+                or any(
+                    not isinstance(command, list)
+                    or len(command) < 2
+                    or any(
+                        not isinstance(arg, str) or not arg.strip() for arg in command
+                    )
+                    for command in commands
+                )
+            ):
+                raise ValueError(
+                    f"scope {name}: script requires non-empty validator commands"
+                )
+        if kind == "pytest":
+            paths = spec.get("paths")
+            if (
+                not isinstance(paths, list)
+                or not paths
+                or any(not isinstance(path, str) or not path.strip() for path in paths)
+            ):
+                raise ValueError(f"scope {name}: pytest requires non-empty paths")
         definitions[name] = Scope(
             kind=kind,
             filter=spec.get("filter", ""),

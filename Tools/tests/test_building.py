@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from x.building import editor_module, ensure_editor
 from x.context import Context
+from x.freshness import Freshness
 from x.runs import Run
 from x.settings import load
 
@@ -61,3 +62,20 @@ def test_unsuccessful_or_mutating_build_does_not_stamp(repo: Path, mode: str) ->
     assert not ensure_editor(ctx)
     assert not ctx.freshness.is_fresh("editor")
     assert not (repo / "Intermediate/x-stamps/editor.json").exists()
+
+
+def test_edit_between_build_comparison_and_stamp_stays_stale(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx = context(repo)
+    original_stamp = Freshness.stamp
+
+    def edit_then_stamp(
+        self: Freshness, kind: str, run_id: str, input_hash: str | None = None
+    ) -> None:
+        (repo / "Source/rules.cpp").write_text("edit immediately before stamp\n")
+        original_stamp(self, kind, run_id, input_hash)
+
+    monkeypatch.setattr(Freshness, "stamp", edit_then_stamp)
+    assert ensure_editor(ctx)
+    assert not ctx.freshness.is_fresh("editor")

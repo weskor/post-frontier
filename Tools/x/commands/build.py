@@ -12,7 +12,7 @@ RECORD = True
 
 
 def configure(parser: argparse.ArgumentParser) -> None:
-    parser.set_defaults()
+    pass
 
 
 def run(args: argparse.Namespace, ctx: Context) -> int:

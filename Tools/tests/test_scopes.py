@@ -9,8 +9,8 @@ from x.scopes import ScopeMap, load
 @pytest.fixture
 def mapping(repo: Path) -> ScopeMap:
     (repo / "Tools/x/scopes.toml").write_text(
-        '[scopes.rules]\nkind = "automation"\n'
-        '[scopes.tools]\nkind = "pytest"\n'
+        '[scopes.rules]\nkind = "automation"\nfilter = "CoopRTS.Rules"\nmap = "default"\n'
+        '[scopes.tools]\nkind = "pytest"\npaths = ["Tools/tests"]\n'
         '[scopes.lint]\nkind = "lint"\n'
         "[paths]\n"
         '"Source/**/*.h" = ["rules"]\n'

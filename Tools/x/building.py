@@ -37,8 +37,8 @@ def ensure_editor(ctx: Context) -> bool:
             ok = False
             print("editor inputs changed during build; no freshness stamp written")
         if ok:
-            ctx.freshness.stamp("editor", ctx.run.id)
-        else:
+            ctx.freshness.stamp("editor", ctx.run.id, before)
+        elif code != 0 or not editor_module(ctx).is_file():
             print(f"editor build failed; inspect {ctx.run.dir / 'build-editor.log'}")
         ctx.run.add_result("build-editor", ok)
         return ok

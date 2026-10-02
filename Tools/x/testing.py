@@ -88,9 +88,19 @@ def _automation(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
         return result.ok, result.details
 
 
+def _image_stamps(directory: Path) -> dict[Path, tuple[int, int, int]]:
+    stamps = {}
+    for path in directory.rglob("*"):
+        if path.suffix in (".png", ".svg") and path.is_file():
+            stat = path.stat()
+            stamps[path] = (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+    return stamps
+
+
 def _scripts(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
     if ctx.run is None:
         raise RuntimeError("validators require a recorded command")
+    before = _image_stamps(ctx.run.dir)
     failures = []
     for index, command in enumerate(scope.commands):
         argv = [argument.format(run=ctx.run.dir) for argument in command]
@@ -100,8 +110,8 @@ def _scripts(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
             failures.append(
                 f"{argv[1]}: exit {code}; inspect {ctx.run.dir / (label + '.log')}"
             )
-    for artifact in sorted(ctx.run.dir.iterdir()):
-        if artifact.suffix in (".png", ".svg"):
+    for artifact, stamp in sorted(_image_stamps(ctx.run.dir).items()):
+        if before.get(artifact) != stamp:
             ctx.run.add_artifact(artifact, f"{name} validator output")
     return not failures, "; ".join(failures) or "all map validators passed"
 

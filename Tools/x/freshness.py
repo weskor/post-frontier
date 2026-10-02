@@ -1,8 +1,8 @@
 """Freshness depends on selected file paths and bytes, never mtimes."""
 
-from datetime import datetime, timezone
 import fnmatch
 import hashlib
+from datetime import UTC, datetime
 from pathlib import Path
 
 from x import gitinfo, jsonio
@@ -39,14 +39,15 @@ class Freshness:
             digest.update(content)
         return digest.hexdigest()
 
-    def stamp(self, kind: str, run_id: str) -> None:
+    def stamp(self, kind: str, run_id: str, input_hash: str | None = None) -> None:
+        """Stamp the inputs actually built, or snapshot current inputs if omitted."""
         jsonio.save(
             self.repo / "Intermediate/x-stamps" / f"{kind}.json",
             {
-                "hash": self.current_hash(kind),
+                "hash": self.current_hash(kind) if input_hash is None else input_hash,
                 "commit": gitinfo.commit(self.repo),
                 "run_id": run_id,
-                "time": datetime.now(timezone.utc).isoformat(),
+                "time": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -61,8 +62,8 @@ def current_hash(repo: Path, kind: str) -> str:
     return Freshness(repo, load(repo)).current_hash(kind)
 
 
-def stamp(repo: Path, kind: str, run_id: str) -> None:
-    Freshness(repo, load(repo)).stamp(kind, run_id)
+def stamp(repo: Path, kind: str, run_id: str, input_hash: str | None = None) -> None:
+    Freshness(repo, load(repo)).stamp(kind, run_id, input_hash)
 
 
 def is_fresh(repo: Path, kind: str) -> bool:
