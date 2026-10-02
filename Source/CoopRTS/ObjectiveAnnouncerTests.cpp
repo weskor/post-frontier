@@ -254,6 +254,36 @@ private:
 				TEXT("Attack event carries the real map-derived region and position"));
 	}
 
+	bool Hit(AHeadquarters* HQ, AArmyUnit* Attacker, int32 Damage, FName Id = NAME_None, int32 Tier = 0)
+	{
+		const int32 Before = Announcer->GetEvents().Num();
+		const int32 Health = HQ->Health;
+		HQ->ReceiveAttack(Damage, Attacker);
+		if (!Check(HQ->Health == FMath::Max(0, Health - Damage)
+				&& Announcer->GetEvents().Num() == Before + (Id.IsNone() ? 0 : 1),
+				TEXT("A valid HQ hit applies damage and emits only its most urgent event, or suppresses the known force")))
+			return false;
+		if (Id.IsNone())
+			return true;
+		const FObjectiveEvent& Event = Announcer->GetEvents().Last();
+		return Check(Event.Id == Id && Event.DamageTier == Tier && Event.AffectedTeam == HQ->TeamIndex,
+				   TEXT("HQ event preserves resulting damage tier and affected team with the expected priority"))
+			&& Attribution(Event, Attacker, HQ->GetActorLocation());
+	}
+	bool SequentialHQ(AHeadquarters* HQ, AArmyUnit* Attacker)
+	{
+		const bool bOwn = HQ->TeamIndex == 0;
+		return Hit(HQ, Attacker, 1, bOwn ? TEXT("own_hq_under_attack") : TEXT("enemy_hq_under_attack"))
+			&& Hit(HQ, Attacker, 1)
+			&& Hit(HQ, Attacker, HQ->Health - HQ->MaxHealth() / 2 - 1)
+			&& Hit(HQ, Attacker, 1, bOwn ? TEXT("own_hq_half") : TEXT("enemy_hq_half"), 1)
+			&& Hit(HQ, Attacker, 1)
+			&& Hit(HQ, Attacker, HQ->Health - HQ->MaxHealth() / 4 - 1)
+			&& Hit(HQ, Attacker, 1, bOwn ? TEXT("own_hq_critical") : TEXT("enemy_hq_critical"), 2)
+			&& Hit(HQ, Attacker, 1)
+			&& Hit(HQ, Attacker, HQ->Health, bOwn ? TEXT("own_hq_offline") : TEXT("enemy_hq_offline"), 2)
+			&& Hit(HQ, Attacker, 1);
+	}
 	bool Produce(UWorld* World)
 	{
 		ACommandPlayerState* Owner = Controller->GetPlayerState<ACommandPlayerState>();
@@ -319,61 +349,47 @@ private:
 		State->MatchResult = EMatchResult::Ongoing;
 		if (!Check(Announcer->GetEvents().Num() == Initial && OwnHQ->Health == OwnHQ->MaxHealth(), TEXT("Invalid HQ attacks change neither health nor events")))
 			return false;
-		OwnHQ->ReceiveAttack(1, EnemyHit);
-		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_under_attack")) == 1 && Announcer->GetEvents().Last().DamageTier == 0, TEXT("Repeated same-force attack emits one initial tier alert")))
+		if (!SequentialHQ(OwnHQ, EnemyHit) || !SequentialHQ(EnemyHQ, HumanHit))
 			return false;
-		OwnHQ->ReceiveAttack(OwnHQ->Health - OwnHQ->MaxHealth() / 2 - 1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_half")) == 0 && Count(TEXT("own_hq_under_attack")) == 1, TEXT("HQ just above half neither crosses threshold nor repeats its current tier")))
-			return false;
-		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_half")) == 1 && Count(TEXT("own_hq_under_attack")) == 2
-					&& Announcer->GetEvents().Last().DamageTier == 1,
-				TEXT("Exact half-health crossing emits its transition and a new attack tier")))
-			return false;
-		OwnHQ->ReceiveAttack(OwnHQ->Health - OwnHQ->MaxHealth() / 4 - 1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_critical")) == 0 && Count(TEXT("own_hq_under_attack")) == 2, TEXT("HQ just above quarter neither crosses threshold nor repeats its current tier")))
-			return false;
-		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Count(TEXT("own_hq_critical")) == 1 && Count(TEXT("own_hq_under_attack")) == 3
-					&& Announcer->GetEvents().Last().DamageTier == 2,
-				TEXT("Exact quarter-health crossing emits its transition and a new attack tier")))
-			return false;
-		OwnHQ->ReceiveAttack(OwnHQ->Health, EnemyHit);
-		const int32 AfterLethal = Announcer->GetEvents().Num();
-		OwnHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Announcer->GetEvents().Num() == AfterLethal, TEXT("Offline HQ cannot repeat its terminal transition")))
-			return false;
-		EnemyHQ->ReceiveAttack(EnemyHQ->MaxHealth() + 1, HumanHit);
 		const TCHAR* HQIds[] = { TEXT("own_hq_under_attack"), TEXT("own_hq_half"), TEXT("own_hq_critical"), TEXT("own_hq_offline"),
 			TEXT("enemy_hq_under_attack"), TEXT("enemy_hq_half"), TEXT("enemy_hq_critical"), TEXT("enemy_hq_offline") };
 		for (const TCHAR* Id : HQIds)
-			if (!Check(Count(Id) == (FName(Id) == TEXT("own_hq_under_attack") ? 3 : 1),
-					TEXT("Each sequential HQ attack tier fires once; transitions and the enemy multi-threshold lethal attack fire once")))
+			if (!Check(Count(Id) == 1, TEXT("Sequential HQ damage covers every own/enemy ID exactly once without tier-driven attack repeats")))
 				return false;
-		for (const FObjectiveEvent& Event : Announcer->GetEvents())
+		for (const int32 FirstTier : { 1, 2, 3 })
 		{
-			const bool bOwn = Event.Id.ToString().StartsWith(TEXT("own_hq"));
-			if (!Check(Event.AffectedTeam == (bOwn ? 0 : 5), TEXT("HQ event affects the damaged team"))
-				|| !Attribution(Event, bOwn ? EnemyHit : HumanHit, bOwn ? OwnHQ->GetActorLocation() : EnemyHQ->GetActorLocation()))
+			AHeadquarters* FreshHQ = World->SpawnActor<AHeadquarters>(OwnHQ->GetActorLocation(), FRotator::ZeroRotator);
+			if (!Check(FreshHQ != nullptr, TEXT("First-hit priority fixture is a distinct HQ at the original location")))
 				return false;
+			const int32 Remaining = FirstTier == 1 ? FreshHQ->MaxHealth() / 2 : FirstTier == 2 ? FreshHQ->MaxHealth() / 4 : 0;
+			const FName Id = FirstTier == 1 ? TEXT("own_hq_half") : FirstTier == 2 ? TEXT("own_hq_critical") : TEXT("own_hq_offline");
+			const int32 Damage = FreshHQ->Health - Remaining + (FirstTier == 3 ? 1 : 0);
+			if (!Hit(FreshHQ, EnemyHit, Damage, Id, FMath::Min(FirstTier, 2))
+				|| !Hit(FreshHQ, EnemyHit, 1))
+				return false; // A threshold-only first hit records its force; lethal remains terminal.
+			FreshHQ->Destroy();
 		}
-		AHeadquarters* OtherHQ = World->SpawnActor<AHeadquarters>(OwnHQ->GetActorLocation(), FRotator::ZeroRotator);
-		if (!Check(OtherHQ != nullptr, TEXT("Distinct same-team HQ fixture shares the original event location")))
+		AHeadquarters* OtherHQ = World->SpawnActorDeferred<AHeadquarters>(AHeadquarters::StaticClass(),
+			FTransform(EnemyHQ->GetActorLocation()), nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Check(OtherHQ != nullptr, TEXT("Interleaved-force fixture is a distinct enemy HQ at the original location")))
 			return false;
-		const int32 BeforeOtherHQ = Announcer->GetEvents().Num();
-		OtherHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Announcer->GetEvents().Num() == BeforeOtherHQ + 1 && Count(TEXT("own_hq_under_attack")) == 4
-					&& Announcer->GetEvents().Last().Id == TEXT("own_hq_under_attack")
-					&& Announcer->GetEvents().Last().AffectedTeam == 0 && Announcer->GetEvents().Last().DamageTier == 0,
-				TEXT("A distinct same-team structure independently announces the same force and tier, even at the same location"))
-			|| !Attribution(Announcer->GetEvents().Last(), EnemyHit, OtherHQ->GetActorLocation()))
+		OtherHQ->TeamIndex = 5;
+		OtherHQ->FinishSpawning(FTransform(EnemyHQ->GetActorLocation()));
+		AArmyUnit* TeammateHit = Teammate->GetUnits()[4];
+		if (!Hit(OtherHQ, HumanHit, 1, TEXT("enemy_hq_under_attack"))
+			|| !Hit(OtherHQ, TeammateHit, 1, TEXT("enemy_hq_under_attack"))
+			|| !Hit(OtherHQ, HumanHit, 1) || !Hit(OtherHQ, TeammateHit, 1))
 			return false;
-		OtherHQ->ReceiveAttack(1, EnemyHit);
-		if (!Check(Announcer->GetEvents().Num() == BeforeOtherHQ + 1 && OtherHQ->Health == OtherHQ->MaxHealth() - 2,
-				TEXT("The second structure applies repeated damage while suppressing its own announced force and tier")))
+		++Teammate->ForceNumber; // A genuinely new force lands the threshold instead of an extra under_attack.
+		if (!Hit(OtherHQ, TeammateHit, OtherHQ->Health - OtherHQ->MaxHealth() / 2, TEXT("enemy_hq_half"), 1)
+			|| !Hit(OtherHQ, TeammateHit, 1) || !Hit(OtherHQ, HumanHit, 1))
 			return false;
+		++Friendly->ForceNumber;
+		if (!Hit(OtherHQ, HumanHit, 1, TEXT("enemy_hq_under_attack"), 1) || !Hit(OtherHQ, HumanHit, 1))
+			return false;
+		Friendly->ForceNumber = OrphanNumber;
 		OtherHQ->Destroy();
+		Teammate->ForceNumber = OrphanNumber;
 		ACapturePoint* Site = State->CaptureSites[0];
 		const FVector FriendlyHQ = State->FriendlyHeadquarters->GetActorLocation();
 		const FVector HostileHQ = State->EnemyHeadquarters->GetActorLocation();

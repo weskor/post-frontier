@@ -381,7 +381,6 @@ def assault_and_finish(
         s.owner,
         force_number,
         after,
-        damage_tier=0,
     )
     converged(
         run,
@@ -390,18 +389,7 @@ def assault_and_finish(
         "Assault crosses both HQ damage tiers through actual weapon damage",
     )
     for event_id in ("enemy_hq_half", "enemy_hq_critical"):
-        objective_event(run, s, event_id, enemy_main, s.owner, force_number)
-    for damage_tier in (1, 2):
-        objective_event(
-            run,
-            s,
-            "enemy_hq_under_attack",
-            enemy_main,
-            s.owner,
-            force_number,
-            after,
-            damage_tier=damage_tier,
-        )
+        objective_event(run, s, event_id, enemy_main, s.owner, force_number, after)
     return finish_assault(run, s, squad, enemy_main, force_number, after)
 
 
@@ -414,7 +402,7 @@ def finish_assault(
     after: int,
 ) -> dict[str, JsonObject]:
     finish(run, s, squad, "weapon-caused victory replicates")
-    states = objective_event(
+    objective_event(
         run,
         s,
         "enemy_hq_offline",
@@ -423,19 +411,14 @@ def finish_assault(
         force_number,
         after,
     )
-    require(
-        all(
-            sorted(
-                event["damageTier"]
-                for event in state["objectiveEvents"]
-                if event["id"] == "enemy_hq_under_attack"
-                and event["region"] == enemy_main
-                and event["sequence"] > after
-            )
-            == [0, 1, 2]
-            for state in states.values()
-        ),
-        "Assault must announce each enemy HQ damage tier exactly once on every peer",
+    states = objective_event(
+        run,
+        s,
+        "enemy_hq_under_attack",
+        enemy_main,
+        s.owner,
+        force_number,
+        after,
     )
     require(
         all(

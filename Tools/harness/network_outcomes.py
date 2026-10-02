@@ -104,7 +104,6 @@ def objective_event(
     owner: int,
     force_number: int,
     after: int = 0,
-    damage_tier: int | None = None,
 ) -> dict[str, JsonObject]:
     def matching(state: JsonObject) -> list[JsonObject]:
         return [
@@ -113,17 +112,22 @@ def objective_event(
             if event["id"] == event_id
             and event["region"] == target
             and event["sequence"] > after
-            and (damage_tier is None or event["damageTier"] == damage_tier)
         ]
 
-    states = converged(
-        run,
+    states = run.await_states(
         s.names,
-        lambda st: bool(matching(st)),
-        f"{event_id} reaches every peer with region {target}",
+        lambda values: (
+            bool(matching(values["host"]))
+            and all(
+                matching(state) == matching(values["host"])
+                for state in values.values()
+            )
+        ),
+        f"{event_id} converges on every peer with region {target}",
     )
     expected = matching(states["host"])
-    require(len(expected) == 1, f"{event_id}: duplicate transition")
+    if not event_id.endswith("_under_attack"):
+        require(len(expected) == 1, f"{event_id}: duplicate transition")
     if event_id == "drill_rig_lost":
         require(
             expected[0]["affectedTeam"] == 0
@@ -133,11 +137,14 @@ def objective_event(
             "Drill Rig loss must affect the friendly team and attribute the lethal JEV force",
         )
     require(
-        any(
-            contributor["owner"] == owner
-            and contributor["forceNumber"] == force_number
-            and contributor["playerName"]
-            for contributor in expected[0]["forces"]
+        all(
+            any(
+                contributor["owner"] == owner
+                and contributor["forceNumber"] == force_number
+                and contributor["playerName"]
+                for contributor in event["forces"]
+            )
+            for event in expected
         ),
         f"{event_id}: wrong causing player or force",
     )

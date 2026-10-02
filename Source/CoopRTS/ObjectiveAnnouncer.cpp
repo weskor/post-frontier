@@ -62,7 +62,7 @@ void UObjectiveAnnouncer::RaiseFromUnit(FName Id, const AActor* AffectedStructur
 	const AArmyGroup* Group = Unit->GetGroup();
 	const int32 ForceNumber = Group ? Group->ForceNumber : 0;
 	const double Now = State->GetServerWorldTimeSeconds();
-	if (!Throttle.Accept(Id, AffectedStructure->GetUniqueID(), Unit->GetCommanderIndex(), ForceNumber, DamageTier, Now))
+	if (!Throttle.Accept(Id, AffectedStructure->GetUniqueID(), Unit->GetCommanderIndex(), ForceNumber, Now))
 		return;
 	const FObjectiveForce Force = DescribeForce(Unit);
 	AppendEvent(*State, Id, AffectedTeam, Location, MakeArrayView(&Force, 1), DamageTier, Now);

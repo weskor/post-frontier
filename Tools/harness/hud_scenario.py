@@ -216,11 +216,12 @@ def at_alert(state: JsonObject, alert: JsonObject) -> bool:
     )
 
 
-def awareness(
-    run: NetworkRun, capture: Capture, owner: int, squad: int, barracks: int
-) -> None:
+def damage_alert(
+    run: NetworkRun, capture: Capture, owner: int, squad: int
+) -> JsonObject:
     state = capture.state()
     initial_camera = state["cameraPosition"]
+    history = state["objectiveEvents"]
     run.request(
         "host",
         "hqDamage",
@@ -229,8 +230,8 @@ def awareness(
         damage=state["enemyHQ"] - 450,
     )
     state = capture.wait(
-        lambda s: any(e["id"] == "enemy_hq_half" for e in s["objectiveEvents"]),
-        "real HQ damage raises attributed threshold alert",
+        lambda s: len(s["objectiveEvents"]) > len(history),
+        "single HQ hit raises an attributed threshold alert",
     )
     require(
         state["cameraPosition"] == initial_camera, "receiving an alert moved the camera"
@@ -240,9 +241,20 @@ def awareness(
         latest["id"] == "enemy_hq_half", "HQ half-health transition is not latest alert"
     )
     require(
+        state["objectiveEvents"] == history + [latest],
+        "single HQ hit must add exactly one half-health event",
+    )
+    require(
         any(f["owner"] == owner for f in latest["forces"]),
         "HQ alert omitted the attacking player's force",
     )
+    return latest
+
+
+def awareness(
+    run: NetworkRun, capture: Capture, owner: int, squad: int, barracks: int
+) -> None:
+    latest = damage_alert(run, capture, owner, squad)
     capture.shot("objective-strip-and-alert-feed")
     capture.minimap(0.25, 0.25)
     before = capture.state()["cameraPosition"]

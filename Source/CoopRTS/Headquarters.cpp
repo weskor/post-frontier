@@ -69,13 +69,10 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		const FName* Ids = TeamIndex == 0 ? OwnIds : EnemyIds;
 		const int32 Tier = Health * 4 <= MaxHealth() ? 2 : Health * 2 <= MaxHealth() ? 1
 																					 : 0;
-		Announcer->RaiseFromUnit(Ids[0], this, TeamIndex, GetActorLocation(), Attacker, Tier);
-		if (PreviousHealth * 2 > MaxHealth() && Health * 2 <= MaxHealth())
-			Announcer->RaiseFromUnit(Ids[1], this, TeamIndex, GetActorLocation(), Attacker, 1);
-		if (PreviousHealth * 4 > MaxHealth() && Health * 4 <= MaxHealth())
-			Announcer->RaiseFromUnit(Ids[2], this, TeamIndex, GetActorLocation(), Attacker, 2);
-		if (Health == 0)
-			Announcer->RaiseFromUnit(Ids[3], this, TeamIndex, GetActorLocation(), Attacker, 2);
+		const int32 Announcement = Health == 0 ? 3
+			: PreviousHealth * 4 > MaxHealth() && Health * 4 <= MaxHealth() ? 2
+			: PreviousHealth * 2 > MaxHealth() && Health * 2 <= MaxHealth() ? 1 : 0;
+		Announcer->RaiseFromUnit(Ids[Announcement], this, TeamIndex, GetActorLocation(), Attacker, Tier);
 	}
 	if (!Health)
 	{

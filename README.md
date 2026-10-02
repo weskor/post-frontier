@@ -65,7 +65,8 @@ Bindings live in `CommandPlayerController` and click actions in `CommandHUD`.
 | Input | Action |
 | --- | --- |
 | WASD / middle mouse drag / wheel | Pan / drag camera / zoom |
-| Space | Focus selected owned building; otherwise friendly HQ |
+| Space | Jump to latest objective alert; press again to step backward through retained alerts |
+| F | Focus selection; otherwise friendly HQ |
 | F4 / persistent Construction button | Hide/show contextual deck / cancel targeting and reopen building choices |
 | HUD Build Barracks / Extractor / Workshop, then left-click ground | Enter grid placement mode (Extractor: near a free deposit); request a building at snapped XY after preview and server checks |
 | HUD Hold / Expand goal button, then left-click a region on the ground or minimap | Assign that goal and target region to the selected owned barracks; the hovered region is outlined. Assault and Fall Back apply on click, without a target |
