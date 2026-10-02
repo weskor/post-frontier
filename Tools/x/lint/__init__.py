@@ -16,6 +16,7 @@ from x.lint.model import (
     apply_exceptions,
     load,
 )
+from x.scopes import load as load_scopes
 
 CONFIG = {
     "Tools/x/lint.toml",
@@ -61,6 +62,18 @@ def check_rule(
     fix: bool,
     mypy_changed: bool = False,
 ) -> list[Finding]:
+    if rule == "scope-map":
+        tracked = [
+            Path(path)
+            for path in gitinfo.query(ctx.repo, "ls-files", "-z").split("\0")
+            if path and policy.enabled(rule, path)
+        ]
+        if not tracked:
+            return []
+        return [
+            Finding(str(path), 1, rule, "tracked path has no scope-map entry")
+            for path in load_scopes(ctx.repo).unmapped(tracked)
+        ]
     paths = [p for p in selected if policy.enabled(rule, p)]
     if rule == "format":
         return tools.format_files(ctx, paths, fix=fix) if paths else []

@@ -76,7 +76,7 @@ From the [architecture audit](Audit/architecture.md):
 
 ## Enforcement — decided 2026-10-02
 
-**Git hooks:** reject commits to main except from `./x land`; reject commits containing generated binaries outside `land`.
+**Git hooks:** reject updates to main except from `./x land`; the rule rejecting commits containing generated binaries outside `land` switches on in phase 4 together with binary regeneration at landing.
 
 ### Lint policy
 

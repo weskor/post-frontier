@@ -9,6 +9,7 @@ import sys
 from typing import Protocol, cast
 
 from x.context import Context
+from x.landing import ensure_hooks
 from x.runs import Run
 from x.settings import load
 
@@ -70,6 +71,7 @@ def main(argv: Sequence[str]) -> int:
     repo = Path(__file__).resolve().parents[2]
     arguments = list(argv) or ["help"]
     try:
+        ensure_hooks(repo)
         commands = discover()
         name = arguments[0]
         if name in ("-h", "--help"):

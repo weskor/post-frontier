@@ -102,10 +102,8 @@ herdr agent prompt reviewer "Review task <slug>: brief, report and review file i
 
 Land one slice at a time.
 
-- **Today:**
-  1. Prompt the worker: "Rebase onto main, re-run your verification, commit, reply DONE."
-  2. Then run `git -C /home/wes/workspace/game merge --ff-only task/<slug>`.
-- **Once phase 1 delivers `./x land`** ([Setup.md](../../../Docs/Engineering/Setup.md)): prompt the worker to run `./x land` instead. The hook rejects any other commit to main.
+Prompt the worker: "Run `./x land`, reply DONE." If landing fails, the worker fixes
+the failure, commits and reruns `./x land`. The hook rejects other updates to main.
 
 Then free the slot:
 

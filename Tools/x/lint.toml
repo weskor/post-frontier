@@ -13,6 +13,7 @@ saved-path = ["Docs/Design/**", "Docs/Design.md", "AGENTS.md", "Art/Textures/**"
 # Root Engineering files are clean; Audit is deliberately not included.
 procedure-text = ["Docs/Design/**", "Docs/Design.md", "Docs/Research/**", "Docs/Engineering/*.md", "Art/Materials/**"]
 rules-includes = ["Source/CoopRTS/Rules/**"]
+scope-map = ["**"]
 file-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
 function-length = ["Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x"]
 format = ["Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x"]

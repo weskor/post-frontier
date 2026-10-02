@@ -16,6 +16,7 @@ RULES = (
     "saved-path",
     "procedure-text",
     "rules-includes",
+    "scope-map",
     "file-length",
     "function-length",
     "format",

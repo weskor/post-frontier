@@ -1,0 +1,11 @@
+#!/bin/sh
+# Reject only main's prepared transaction; other refs and hook phases are free.
+[ "$1" = prepared ] || exit 0
+[ "$X_LAND" = 1 ] && exit 0
+while read -r old new ref; do
+    if [ "$ref" = refs/heads/main ]; then
+        echo "main only moves through ./x land" >&2
+        exit 1
+    fi
+done
+exit 0
