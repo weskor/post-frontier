@@ -757,18 +757,10 @@ void AArmyGroup::UpdateCombat()
 							break;
 						}
 					}
-					if (bWithinBounds)
+					if (bWithinBounds && StartPreparedMove(Pursuit))
 					{
-						// Arrival tolerance must fit inside the 18% weapon-range margin.
-						FAIMoveRequest Request(Pursuit.Goal);
-						Request.SetAcceptanceRadius(FMath::Min(35.f, Unit->WeaponRange() * .09f));
-						Request.SetReachTestIncludesAgentRadius(false);
-						Request.SetAllowPartialPath(false);
-						if (AI->RequestMove(Request, Pursuit.Path).IsValid())
-						{
-							Unit->bPursuing = true;
-							Unit->PursuitGoal = Pursuit.Goal;
-						}
+						Unit->bPursuing = true;
+						Unit->PursuitGoal = Pursuit.Goal;
 					}
 				}
 			}

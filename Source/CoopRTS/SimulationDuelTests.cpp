@@ -114,17 +114,8 @@ public:
 			return CheckPausedEncounter(*World, Report, Delta);
 		if (!Runner->GetError().IsEmpty())
 		{
-			if (Phase != EPhase::FullMatrix || Report->GetStringField(TEXT("outcome")) != TEXT("stalled"))
-			{
-				Test->AddError(Runner->GetError());
-				return true;
-			}
-			// The known pursuit bug may stall the long matrix. Its future fix
-			// may instead complete it; neither path permits a stalled draw.
-			CheckInvalidStall(Report);
-			CheckCompletedRows(Report, Cap, 1);
-			AdvancePhase();
-			return false;
+			Test->AddError(Runner->GetError());
+			return true;
 		}
 		if (!Runner->IsComplete())
 			return false;

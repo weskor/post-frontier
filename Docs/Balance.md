@@ -112,7 +112,7 @@ These concentrated survivors preserved the HQ but did **not** win: neither side 
 The design target remains unmet. Further tuning should distinguish goal/front commitment, independent-force attrition and uncommandable orphan defensive accumulation from economic scarcity. This is a recommendation from this bounded run, not a claim that co-op or human strategy is balanced.
 
 
-## Duel report — baseline pending the pursuit-stall fix
+## Duel report — pursuit-fixed baseline published 2026-10-03
 
 [Built] Duel mode is a separate, explicitly opted-in standalone encounter runner. It reads the selected map's live combat definitions and runs an entire ordered matrix in each fresh seed process. Operational budgets, win denominators, worth and definition-rule semantics live in [units.md](Design/units.md); launch and regeneration procedures live only in [`./x help sim`](../x).
 
@@ -122,19 +122,40 @@ The design target remains unmet. Further tuning should distinguish goal/front co
 
 The per-seed table records actual spent Power, initial members, survivors, survivor Power, effective HP removed, weapon attacks, game seconds and wipe/cap outcome. Cap durations are censored, not kill times. A fight that stops landing damage while both sides survive is `stalled`, an invalid runtime result rather than a draw. `summary.json` retains accepted rows and rule evidence; `run.json`, per-seed launch records, logs and atomic `match.json` checkpoints retain process identity and failures. A valid run may exit successfully with failed balance rules; invalid or missing matrices cannot pass rules or enter denominators.
 
-### Matrix status
+### Measured matrix
 
-**The three-unit baseline is pending the separate pursuit-stall fix and a fresh matrix run after unit-counters lands.** The earlier run `20261002-174444-sim-57a0` is invalidated: `ArmyGroup::UpdateCombat` can retain its stopped pursuit state after a target switch and fail to move a unit whose next target is just outside weapon range. The old harness counted those stalled fights as cap draws, so the published win rates, worth comparison and gameplay conclusions have been removed. Its raw artifacts remain for diagnosis, not balance tuning.
+Evidence run **`20261002-224929-sim-8c14`** (2026-10-02 UTC), published **2026-10-03** after unit-counters and duel-matrix landed: V2, seeds **1–10**, fixed-step **1×**, **300 game seconds per ordered pair**. **10/10 seed processes validated; 90/90 fights ended on a wipe, zero stalled fights, zero cap draws, zero failed or missing processes.** Each pair has five team-0-first and five team-5-first creations. Brawler and Rifle squads spent **120 Power**; Artillery squads spent **100 Power**, because the equal budget admits only two whole Artillery. Configuration fees are excluded.
 
-This slice detects and rejects stalls; it does not repair pursuit, reissue orders to conceal it, tune stats or claim new mirror/counter results. Side creation order is alternated by seed, and seeded member offsets are widened. These changes reduce ordering bias and near-replication but do not establish independent random samples or statistical reproducibility. The operational definitions and failure semantics are in [units.md](Design/units.md).
+Each row reports the left/team-0 and right/team-5 result separately, with ten fights per row:
+
+| Left | Right | Team 0 wins | Team 5 wins | Draws | Mean duration (game s) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Brawler | Brawler | 5/10 (50%) | 5/10 (50%) | 0 | 14.65 |
+| Brawler | Rifle | 10/10 (100%) | 0/10 (0%) | 0 | 7.78 |
+| Brawler | Artillery | 10/10 (100%) | 0/10 (0%) | 0 | 6.26 |
+| Rifle | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 7.41 |
+| Rifle | Rifle | 3/10 (30%) | 7/10 (70%) | 0 | 8.91 |
+| Rifle | Artillery | 10/10 (100%) | 0/10 (0%) | 0 | 5.93 |
+| Artillery | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 6.28 |
+| Artillery | Rifle | 0/10 (0%) | 10/10 (100%) | 0 | 5.86 |
+| Artillery | Artillery | 7/10 (70%) | 3/10 (30%) | 0 | 8.48 |
+
+**Runtime validity passes; balance acceptance fails: 4 rules pass, 8 fail, all with complete evidence.** Passed: Brawler prey, Artillery predator, Brawler mirror, runtime counter-table coverage. Failed: Brawler predator, Rifle prey/predator, Artillery prey, Rifle/Artillery mirrors, roster worth ratio, and HP/DPS-per-Power dominance. Combined ordered-side wins are Brawler over Artillery **20/20**, Brawler over Rifle **20/20**, and Rifle over Artillery **20/20**; the intended cyclic counters are not balanced.
+
+Measured worth is **0.86875 Brawler**, **0.534375 Rifle**, **0.096875 Artillery**; maximum/minimum is **8.96774**, failing the design's worth check. Base HP/DPS per Power is **7 / 1.00000**, **3 / 0.52174**, and **2.2 / 0.32308**, respectively: Brawler dominates both other units on both metrics, and Rifle dominates Artillery. These are measured failures, not permission to tune stats in the pursuit fix. Rule definitions remain in [units.md](Design/units.md).
+
+[Built] Pursuit now compares hysteresis against the last accepted move endpoint, clears firing/switch/completed-path state, and retains the **130 cm** reissue threshold while a pursuit is active. Desired standoff is `max(0, min(0.82 × range, range − 70 cm))`, reserving short-range arrival clearance: the former melee endpoint could leave two idle capsules **177.5 cm** apart despite a **175 cm** weapon range. The failed intermediate run `20261002-223534-sim-10fc` retained that residual stall; it is not the baseline.
+
+The earlier run `20261002-174444-sim-57a0` remains invalidated: the old harness counted pursuit stalls as cap draws. Its raw artifacts remain diagnostic only. Alternated creation order and seeded offsets reduce ordering bias and near-replication; ten seeds do not establish independent random samples or statistical reproducibility.
 
 ### Runtime verification
 
 - Earlier pre-detector V2 world-scenario runs passed their then-current assertions, but those assertions tolerated pursuit stalls. They do not validate a combat baseline.
 - Legacy whole-match smoke `20261002-174444-sim-3bfd` validated **4/4 matches**: two per default map, all natural cap draws at **300 game seconds**, process exit zero.
 - Fixed-telemetry acceptance tests cover rule thresholds, draw denominators, spending normalization, malformed/incomplete evidence and per-map reporting; they are not proof of healthy combat.
-- The revised world scenario covers invalid stall detection and successful wipe/cap reporting, but does not yet assert zero stalls on a cap long enough to detect them: its successful matrices use shorter caps, and its 60-second matrix verifies invalidation if the known pursuit bug stalls combat. A stall never enters win/draw denominators.
-- No package, network, rendered presentation, friend playtest, support composition or post-pursuit-fix baseline is claimed for this slice.
+- [Built] The revised world scenario fails on any stalled fight in its natural **60-second-per-pair** full matrix. A separate deliberately paused encounter still proves invalid stall detection; successful wipe/cap reporting never admits a stall into denominators.
+- [Built] The separate pursuit world scenario exercises two hostile melee units leaving firing range to **200 cm**, both closing and fighting to a death within **20 game seconds**, and two Brawlers killing the first then reaching and killing the second Artillery within **25 game seconds**.
+- No package, network, rendered presentation, friend playtest or support-composition result is claimed for this baseline.
 
 ## Verification and failure history
 

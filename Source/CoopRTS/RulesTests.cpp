@@ -736,6 +736,8 @@ bool FPursuitTransitionsTest::RunTest(const FString& Parameters)
 			TestTrue(TEXT("Leaving firing range always starts pursuit"), Leaving.bIssueMove);
 			TestTrue(TEXT("Pursuit endpoint is inside weapon range"),
 				FVector::Dist2D(Leaving.Goal, FVector(Distance, 0.f, 0.f)) < Range);
+			TestTrue(TEXT("Endpoint reserves arrival tolerance inside weapon range"),
+				FVector::Dist2D(Leaving.Goal, FVector(Distance, 0.f, 0.f)) + 35.f < Range);
 			TestFalse(TEXT("Stationary target does not reissue an accepted move"),
 				Decide(Distance, true, false, Leaving.Goal).bIssueMove);
 			TestTrue(TEXT("A finished path outside range must resume even with an unchanged endpoint"),

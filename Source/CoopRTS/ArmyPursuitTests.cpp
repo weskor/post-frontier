@@ -91,10 +91,8 @@ public:
 				RemoveGroup(Hostile.Get());
 				if (!Spawn(World, ArmyTestSetup::Controller(World), true))
 					return Finish();
-				// Keep the two approach lanes more than one capsule diameter apart
-				// at their pursuit endpoints; this fixture isolates pursuit from congestion.
-				Place(Friendly->GetUnits()[0], Anchor + FVector(0.f, -110.f, 0.f));
-				Place(Friendly->GetUnits()[1], Anchor + FVector(0.f, 110.f, 0.f));
+				Place(Friendly->GetUnits()[0], Anchor + FVector(0.f, -45.f, 0.f));
+				Place(Friendly->GetUnits()[1], Anchor + FVector(0.f, 45.f, 0.f));
 				FirstArtillery = Hostile->GetUnits()[0];
 				SecondArtillery = Hostile->GetUnits()[1];
 				Place(FirstArtillery.Get(), Anchor + FVector(125.f, 0.f, 0.f));
