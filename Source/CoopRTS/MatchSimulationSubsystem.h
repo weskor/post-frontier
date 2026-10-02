@@ -68,7 +68,7 @@ private:
 	int64 Damage[2] = {};
 	int64 Attacks[2] = {};
 	double Elapsed = 0.;
-	double LastDamageElapsed = 0.;
+	double LastDamageElapsed = -1.; // Unarmed until the first attack or HP loss.
 	double StallTimeout = 30.;
 	double TotalElapsed = 0.;
 	bool bStarted = false;

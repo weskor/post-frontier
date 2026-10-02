@@ -273,7 +273,7 @@ bool FSimulationDuelRunner::FindGround()
 bool FSimulationDuelRunner::StartPair()
 {
 	Elapsed = 0.;
-	LastDamageElapsed = 0.;
+	LastDamageElapsed = -1.;
 	Current = MakeShared<FJsonObject>();
 	const int32 Count = Definitions.Num();
 	const int32 Indices[2] = { Definitions[PairIndex / Count], Definitions[PairIndex % Count] };
@@ -371,6 +371,8 @@ void FSimulationDuelRunner::Observe()
 		else if (Member.Health > 0)
 			Error = TEXT("Live duel member disappeared without an observed combat death");
 	}
+	if (LastDamageElapsed < 0. && (Attacks[0] > 0 || Attacks[1] > 0))
+		LastDamageElapsed = Elapsed;
 }
 
 void FSimulationDuelRunner::UpdateRow() const
@@ -389,7 +391,7 @@ void FSimulationDuelRunner::UpdateRow() const
 	UpdateNumbers(*Current, DamageField, Damage[0], Damage[1]);
 	UpdateNumbers(*Current, AttacksField, Attacks[0], Attacks[1]);
 	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(DurationField))->Set(Elapsed);
-	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(NoDamageField))->Set(Elapsed - LastDamageElapsed);
+	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(NoDamageField))->Set(LastDamageElapsed < 0. ? 0. : Elapsed - LastDamageElapsed);
 	StaticCastSharedPtr<FDuelNumber>(Report->GetField<EJson::Number>(DurationField))->Set(TotalElapsed);
 }
 
@@ -420,7 +422,7 @@ void FSimulationDuelRunner::Tick(float DeltaTime, float TimeCap)
 	if (!Error.IsEmpty())
 		return;
 	const bool bWiped = Survivors[0] == 0 || Survivors[1] == 0;
-	const bool bStalled = !bWiped && Elapsed - LastDamageElapsed >= StallTimeout;
+	const bool bStalled = !bWiped && LastDamageElapsed >= 0. && Elapsed - LastDamageElapsed >= StallTimeout;
 	if (!bWiped && !bStalled && Elapsed < TimeCap)
 		return;
 	UpdateRow();

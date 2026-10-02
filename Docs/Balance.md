@@ -133,7 +133,7 @@ This slice detects and rejects stalls; it does not repair pursuit, reissue order
 - Earlier pre-detector V2 world-scenario runs passed their then-current assertions, but those assertions tolerated pursuit stalls. They do not validate a combat baseline.
 - Legacy whole-match smoke `20261002-174444-sim-3bfd` validated **4/4 matches**: two per default map, all natural cap draws at **300 game seconds**, process exit zero.
 - Fixed-telemetry acceptance tests cover rule thresholds, draw denominators, spending normalization, malformed/incomplete evidence and per-map reporting; they are not proof of healthy combat.
-- The revised world scenario covers invalid stall detection as well as successful wipe/cap reporting. Successful matrices must contain zero stalled fights; a detected stall must invalidate the matrix rather than enter win/draw denominators.
+- The revised world scenario covers invalid stall detection and successful wipe/cap reporting, but does not yet assert zero stalls on a cap long enough to detect them: its successful matrices use shorter caps, and its 60-second matrix verifies invalidation if the known pursuit bug stalls combat. A stall never enters win/draw denominators.
 - No package, network, rendered presentation, friend playtest, support composition or post-pursuit-fix baseline is claimed for this slice.
 
 ## Verification and failure history

@@ -86,12 +86,8 @@ public:
 				Test->TestTrue(TEXT("Both squads engage on Attack"), It->Order == EArmyOrder::Attack);
 			if (Phase == EPhase::PausedEncounter)
 			{
-				// Start real groups with real Attack orders, then prevent combat.
-				// The runner still observes living actors as real world time ticks.
-				for (TActorIterator<AArmyGroup> It(World); It; ++It)
-					It->SetActorTickEnabled(false);
-				for (TActorIterator<AArmyUnit> It(World); It; ++It)
-					It->SetActorTickEnabled(false);
+				// Hold approach longer than the stall timeout, then allow real contact.
+				SetCombatTicks(*World, false);
 				const TSharedPtr<FJsonObject> First = Runner->GetReport()->GetObjectField(TEXT("current_duel"));
 				const TArray<TSharedPtr<FJsonValue>>& Definitions = Runner->GetReport()->GetArrayField(TEXT("unit_definitions"));
 				ExpectedStallTimeout = FMath::Max(30., 10. * Definitions[0]->AsObject()->GetNumberField(TEXT("attack_interval")));
@@ -109,41 +105,13 @@ public:
 			return false;
 		}
 		const float Cap = Phase == EPhase::ShortCap ? 1.f / 60.f : Phase == EPhase::NaturalMatrix ? 25.f
+			: Phase == EPhase::PausedEncounter                                                    ? 3.f * ExpectedStallTimeout + 60.f
 																								  : 60.f;
 		const float Delta = World->GetDeltaSeconds();
 		Runner->Tick(Delta, Cap);
 		const TSharedRef<FJsonObject> Report = Runner->GetReport();
 		if (Phase == EPhase::PausedEncounter)
-		{
-			PausedElapsed += Delta;
-			if (PausedElapsed < ExpectedStallTimeout)
-			{
-				Test->TestTrue(TEXT("No-damage encounter remains valid strictly before the stall threshold"), Runner->GetError().IsEmpty());
-				Test->TestFalse(TEXT("No-damage encounter cannot complete before the threshold"), Runner->IsComplete());
-				return false;
-			}
-			if (Runner->GetError().IsEmpty())
-			{
-				Test->AddError(TEXT("Paused combat was not rejected on the first tick reaching the threshold"));
-				return true;
-			}
-			CheckInvalidStall(Report);
-			const TSharedPtr<FJsonObject> Invalid = Report->GetObjectField(TEXT("invalid_duel"));
-			Test->TestTrue(TEXT("Stall threshold is neither early nor delayed by another tick"),
-				Invalid->GetNumberField(TEXT("duration")) >= ExpectedStallTimeout
-					&& Invalid->GetNumberField(TEXT("duration")) < ExpectedStallTimeout + Delta);
-			Test->TestEqual(TEXT("No-damage fixture measures actual elapsed silence"),
-				Invalid->GetNumberField(TEXT("no_damage_seconds")), Invalid->GetNumberField(TEXT("duration")));
-			for (const TSharedPtr<FJsonValue>& Damage : Invalid->GetArrayField(TEXT("damage_dealt")))
-				Test->TestEqual(TEXT("Paused real combat removes no HP"), Damage->AsNumber(), 0.);
-			for (int32 Side = 0; Side < 2; ++Side)
-				Test->TestEqual(TEXT("Paused sides retain every spawned member"),
-					Invalid->GetArrayField(TEXT("survivors"))[Side]->AsNumber(),
-					Invalid->GetArrayField(TEXT("initial_units"))[Side]->AsNumber());
-			Test->TestEqual(TEXT("Invalid encounter is never appended as a completed duel"),
-				Report->GetArrayField(TEXT("duels")).Num(), 0);
-			return true;
-		}
+			return CheckPausedEncounter(*World, Report, Delta);
 		if (!Runner->GetError().IsEmpty())
 		{
 			if (Phase != EPhase::FullMatrix || Report->GetStringField(TEXT("outcome")) != TEXT("stalled"))
@@ -185,6 +153,81 @@ private:
 		Phase = Phase == EPhase::FullMatrix  ? EPhase::NaturalMatrix
 			: Phase == EPhase::NaturalMatrix ? EPhase::ShortCap
 											 : EPhase::PausedEncounter;
+	}
+
+	static void SetCombatTicks(UWorld& World, bool bEnabled)
+	{
+		for (TActorIterator<AArmyGroup> It(&World); It; ++It)
+			It->SetActorTickEnabled(bEnabled);
+		for (TActorIterator<AArmyUnit> It(&World); It; ++It)
+			It->SetActorTickEnabled(bEnabled);
+	}
+
+	bool CheckPausedEncounter(UWorld& World, const TSharedRef<FJsonObject>& Report, float Delta)
+	{
+		if (!bContactPaused)
+		{
+			if (!Runner->GetError().IsEmpty() || Runner->IsComplete())
+			{
+				Test->AddError(TEXT("Encounter terminated before the post-contact stall fixture"));
+				return true;
+			}
+			const TSharedPtr<FJsonObject> Current = Report->GetObjectField(TEXT("current_duel"));
+			if (!bCombatResumed)
+			{
+				PausedElapsed += Delta;
+				Test->TestEqual(TEXT("Approach time does not start the no-damage clock"),
+					Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
+				if (PausedElapsed >= ExpectedStallTimeout + 1.)
+				{
+					SetCombatTicks(World, true);
+					bCombatResumed = true;
+				}
+				return false;
+			}
+			const TArray<TSharedPtr<FJsonValue>>& Attacks = Current->GetArrayField(TEXT("attacks"));
+			if (Attacks[0]->AsNumber() + Attacks[1]->AsNumber() == 0.)
+				return false;
+			ContactElapsed = Current->GetNumberField(TEXT("duration"));
+			for (int32 Side = 0; Side < 2; ++Side)
+				ContactDamage[Side] = Current->GetArrayField(TEXT("damage_dealt"))[Side]->AsNumber();
+			Test->TestEqual(TEXT("First attack arms the clock without charging approach time"),
+				Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
+			SetCombatTicks(World, false);
+			bContactPaused = true;
+			PausedElapsed = 0.;
+			return false;
+		}
+		PausedElapsed += Delta;
+		if (PausedElapsed < ExpectedStallTimeout)
+		{
+			Test->TestTrue(TEXT("Contacted encounter remains valid strictly before the stall threshold"), Runner->GetError().IsEmpty());
+			Test->TestFalse(TEXT("Contacted encounter cannot complete before the threshold"), Runner->IsComplete());
+			return false;
+		}
+		if (Runner->GetError().IsEmpty())
+		{
+			Test->AddError(TEXT("Paused combat was not rejected on the first tick reaching the threshold"));
+			return true;
+		}
+		CheckInvalidStall(Report);
+		const TSharedPtr<FJsonObject> Invalid = Report->GetObjectField(TEXT("invalid_duel"));
+		Test->TestTrue(TEXT("Stall threshold is neither early nor delayed by another tick"),
+			Invalid->GetNumberField(TEXT("no_damage_seconds")) >= ExpectedStallTimeout
+				&& Invalid->GetNumberField(TEXT("no_damage_seconds")) < ExpectedStallTimeout + Delta);
+		Test->TestEqual(TEXT("Silence excludes time before first contact"),
+			Invalid->GetNumberField(TEXT("no_damage_seconds")), Invalid->GetNumberField(TEXT("duration")) - ContactElapsed);
+		for (int32 Side = 0; Side < 2; ++Side)
+		{
+			Test->TestEqual(TEXT("Paused combat removes no further HP"),
+				Invalid->GetArrayField(TEXT("damage_dealt"))[Side]->AsNumber(), ContactDamage[Side]);
+			Test->TestEqual(TEXT("Paused sides retain every spawned member"),
+				Invalid->GetArrayField(TEXT("survivors"))[Side]->AsNumber(),
+				Invalid->GetArrayField(TEXT("initial_units"))[Side]->AsNumber());
+		}
+		Test->TestEqual(TEXT("Invalid encounter is never appended as a completed duel"),
+			Report->GetArrayField(TEXT("duels")).Num(), 0);
+		return true;
 	}
 
 	void CheckInvalidStall(const TSharedRef<FJsonObject>& Report)
@@ -263,6 +306,10 @@ private:
 	EPhase Phase = EPhase::FullMatrix;
 	double PausedElapsed = 0.;
 	double ExpectedStallTimeout = 0.;
+	double ContactElapsed = 0.;
+	double ContactDamage[2] = {};
+	bool bCombatResumed = false;
+	bool bContactPaused = false;
 	const bool bOriginalFixedStep = FApp::UseFixedTimeStep();
 	const double OriginalDelta = FApp::GetFixedDeltaTime();
 	IConsoleVariable* MaxFPS = nullptr;
