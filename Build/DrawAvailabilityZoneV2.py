@@ -9,11 +9,15 @@ cell) reconciles the independently sampled, slightly overlapping country paths;
 shared cell edges become IDENTICAL polygon edges, not approximate near-matches.
 The nearest adjacent country owns the narrow unpainted gaps and the square arena
 margin. Default validation uses only the resulting JSON (no sketch dependency).
+
+Import region_errors, site_errors, topology, symmetry_errors and
+tiling_mismatches for non-rendering rule checks. audit retains exhaustive
+quarter-cell sampling and the original CLI report; walking never draws.
 """
 
 import argparse
 from collections import Counter, defaultdict, deque
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 import heapq
 from itertools import chain
 import json
@@ -490,7 +494,8 @@ def derive() -> None:
     )
 
 
-def audit(data: MapData) -> None:
+def region_errors(data: MapData) -> list[str]:
+    """Check authored region identities, roles, winding, bounds and anchors."""
     errors: list[str] = []
     regions = data["regions"]
     if len(regions) != 15 or [r["index"] for r in regions] != list(range(15)):
@@ -518,6 +523,13 @@ def audit(data: MapData) -> None:
                 errors.append(f"{r['index']} missing anchor")
         elif r["role"] == "main" or not inside(r["anchor"], p):
             errors.append(f"{r['index']} invalid/outside anchor")
+    return errors
+
+
+def site_errors(data: MapData) -> list[str]:
+    """Check HQs and buildable deposit footprints against countries and rocks."""
+    errors: list[str] = []
+    regions = data["regions"]
     for h in data["headquarters"]:
         main = regions[0 if h["team"] == 0 else 14]
         if not inside(h["pos"], main["poly"]):
@@ -564,6 +576,14 @@ def audit(data: MapData) -> None:
         for b in data["blockers"]:
             if inside(pos, b["poly"]) or clearance(pos, b["poly"]) < 90:
                 errors.append(f"{name} within 90 cm of {b['id']}")
+    return errors
+
+
+def topology(data: MapData) -> tuple[int, float, list[str]]:
+    """Check exact opposing shared edges, neighbour metadata and arena coverage."""
+    errors: list[str] = []
+    regions = data["regions"]
+    hx, hy = data["arena"]["half_extent"]
     # EXACT topology: every internal edge has exactly two opposing users. Counts
     # are computed from polygon edges, not from the stated neighbour metadata.
     incidence: defaultdict[
@@ -609,21 +629,47 @@ def audit(data: MapData) -> None:
         errors.append(
             f"Not a perfect arena tiling: area {total_area}, boundary {boundary_length}"
         )
-    # Independent 100cm grid raster: catch possible interior overlaps even when
-    # aggregate area is correct; sample 4 offsets/cell to avoid border-only ties.
-    mismatches = 0
+    return len(incidence), boundary_length, errors
+
+
+def tiling_mismatches(
+    regions: Sequence[Region], points: Iterable[Sequence[float]]
+) -> int:
+    """Count samples not owned by exactly one country."""
+    return sum(sum(inside(point, r["poly"]) for r in regions) != 1 for point in points)
+
+
+def quarter_cells(data: MapData) -> Iterator[tuple[float, float]]:
+    """Independent 100cm raster; four offsets avoid border-only ties."""
+    hx, hy = data["arena"]["half_extent"]
     for ix in range(-hx // WALK_CELL, hx // WALK_CELL):
         for iy in range(-hy // WALK_CELL, hy // WALK_CELL):
             for dx, dy in ((0.25, 0.25), (0.25, 0.75), (0.75, 0.25), (0.75, 0.75)):
-                x, y = (ix + dx) * WALK_CELL, (iy + dy) * WALK_CELL
-                count = sum(inside((x, y), r["poly"]) for r in regions)
-                mismatches += count != 1
+                yield (ix + dx) * WALK_CELL, (iy + dy) * WALK_CELL
+
+
+def symmetry_errors(data: MapData) -> list[str]:
+    hq_h, hq_j = (h["pos"] for h in data["headquarters"])
+    if math.dist(hq_h, [-hq_j[0], -hq_j[1]]) < 1:
+        return [
+            "HQ sites unexpectedly mirror despite asymmetric sketch; review symmetry claim"
+        ]
+    return []
+
+
+def audit(data: MapData) -> None:
+    errors = region_errors(data) + site_errors(data)
+    regions = data["regions"]
+    edge_count, boundary_length, edge_errors = topology(data)
+    errors.extend(edge_errors)
+    total_area = sum(area(r["poly"]) for r in regions)
+    mismatches = tiling_mismatches(regions, quarter_cells(data))
     if mismatches:
         errors.append(
             f"100cm quarter-cell samples with gaps/overlap: {mismatches} / 160000"
         )
     print(
-        f"Exact shared-edge topology: {len(incidence)} unique edges; {boundary_length:.2f} cm perimeter"
+        f"Exact shared-edge topology: {edge_count} unique edges; {boundary_length:.2f} cm perimeter"
     )
     print(
         f"100cm quarter-cell tiling: {160000 - mismatches}/160000 singly owned; area {total_area / 1e10:.6f} km²"
@@ -636,10 +682,7 @@ def audit(data: MapData) -> None:
     print("Deposits by region:", dict(sorted(counts.items())))
     hq_h, hq_j = (h["pos"] for h in data["headquarters"])
     miss = math.dist(hq_h, [-hq_j[0], -hq_j[1]])
-    if miss < 1:
-        errors.append(
-            "HQ sites unexpectedly mirror despite asymmetric sketch; review symmetry claim"
-        )
+    errors.extend(symmetry_errors(data))
     print(
         f"Sketch symmetry: NOT rot180; HQ mirror offset {miss:.1f} cm; main areas {area(regions[0]['poly']) / 1e4:.1f}/{area(regions[14]['poly']) / 1e4:.1f} m²"
     )
