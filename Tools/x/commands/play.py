@@ -1,14 +1,17 @@
 """Launch a content-hash-verified package while holding the exclusive lock."""
 
 import argparse
+import os
 from pathlib import Path
+import sys
 
+from x import jsonio
 from x.content.packages import latest_package
 from x.context import Context
 
 NAME = "play"
 SUMMARY = "Launch the latest fresh package, offline by default."
-HELP = """./x play [--shipping] [--map /Game/Maps/Boot] [--steam] [-- extra]
+HELP = """./x play [--shipping] [--smoke] [--map /Game/Maps/Boot] [--steam] [-- extra]
 
 Launch the latest content-hash-fresh package while holding the exclusive lock
 until the game exits. Missing/stale packages refuse with run ./x package;
@@ -25,6 +28,25 @@ Each command holds its local exclusive lock, so direct-IP remote play needs a
 separate workstation/lock domain; use ./x verify network|desktop for local peers.
 IP proof does not prove Steam. A successful launch or clean exit is not an
 automatic gameplay/input/visual acceptance result.
+
+Smoke tiers (same command for Development and Shipping):
+./x play --smoke --map /Game/Maps/Boot -- -nullrhi
+./x play --smoke --shipping --map /Game/Maps/Boot -- -nullrhi
+--smoke explicitly launches --map (or settings.default_map when omitted) under
+the same exclusive lock and retains game.log, engine stdout and smoke.json.
+Development waits at most 60 seconds for the engine's exact requested LoadMap
+completion log, sends owned SIGTERM, then waits at most 15 seconds for exit 0
+or Linux 143 plus the normal engine LogExit: Exiting. shutdown log.
+Unrelated log growth does not extend the deadline; missing logs fail closed.
+Shipping ordinary logs are compiled out, so its distinct tier requires the
+process to stay alive 20 seconds without a crash report or crash-handler output,
+then sends owned SIGTERM and requires exactly exit 143 within 15 seconds.
+Exit 143 is accepted only after this runner actually sends SIGTERM; any early
+exit, other Shipping exit, crash signature/report or timeout fails. Crash
+evidence is checked through shutdown, not just before the signal.
+Shipping proves bounded liveness/no observed crash, NOT map-loaded readiness,
+gameplay, input or rendering. Development logs do not prove those surfaces either.
+Smoke never uses ExecCmds or engine test hooks, and never targets another game.
 
 Steam setup and manual acceptance (only when requested):
 ./x play --steam -- -windowed -ResX=1280 -ResY=720 -log
@@ -88,6 +110,7 @@ RECORD = True
 
 def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--shipping", action="store_true")
+    parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--map", dest="map")
     parser.add_argument("--steam", action="store_true")
     parser.add_argument("extra", nargs=argparse.REMAINDER)
@@ -111,9 +134,83 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     with ctx.locks.exclusive():
         executable = latest_package(ctx.repo, config, ctx.settings.game_target)
         argv: list[str | Path] = [executable]
-        if args.map:
-            argv.append(args.map)
+        if args.map or args.smoke:
+            argv.append(args.map or ctx.settings.default_map)
         if not args.steam:
             argv.append("-nosteam")
         argv.extend([*extra, f"-abslog={ctx.run.dir / 'game.log'}"])
+        if args.smoke:
+            return smoke(
+                ctx, argv, executable, args.map or ctx.settings.default_map, config, env
+            )
         return ctx.exec(argv, log="play", env=env, cwd=executable.parent)
+
+
+def smoke(
+    ctx: Context,
+    argv: list[str | Path],
+    executable: Path,
+    requested_map: str,
+    config: str,
+    env: dict[str, str],
+) -> int:
+    if ctx.run is None:
+        raise RuntimeError("smoke requires a recorded run")
+    folder = ctx.run.dir.resolve()
+    report = folder / "smoke.json"
+    game_log = folder / "game.log"
+    argv[-1] = f"-abslog={game_log}"
+    user_config = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+    crash_roots = [
+        executable.parents[2] / "Saved/Crashes",
+        user_config / "Epic" / ctx.settings.game_target / "Saved/Crashes",
+    ]
+    helper: list[str | Path] = [
+        sys.executable,
+        "-m",
+        "x.play_smoke",
+        "--map",
+        requested_map,
+        "--game-log",
+        game_log,
+        "--stdout-log",
+        folder / "engine.log",
+        "--report",
+        report,
+    ]
+    if config == "shipping":
+        helper.append("--shipping")
+    for root in crash_roots:
+        helper.extend(["--crash-dir", root])
+    helper.extend(["--", *argv])
+    code = 1
+    try:
+        code = ctx.exec(
+            helper,
+            log="play",
+            cwd=executable.parent,
+            env={**env, "PYTHONPATH": str(ctx.repo / "Tools")},
+            stall_seconds=max(ctx.settings.stall_seconds, 90),
+        )
+    finally:
+        record_smoke(ctx, folder, code)
+    return code
+
+
+def record_smoke(ctx: Context, folder: Path, code: int) -> None:
+    if ctx.run is None:
+        raise RuntimeError("smoke requires a recorded run")
+    report = folder / "smoke.json"
+    details = jsonio.load(report) if report.exists() else {}
+    for path, label in [
+        (report, "smoke lifecycle and raw engine exit"),
+        (folder / "game.log", "engine game log"),
+        (folder / "engine.log", "engine stdout/stderr"),
+    ]:
+        ctx.run.add_artifact(path, label)
+    ctx.run.add_result(
+        "play-smoke",
+        code == 0 and bool(details.get("ok")),
+        str(details.get("failure") or details),
+        details.get("duration_s"),
+    )
