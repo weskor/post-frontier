@@ -2,6 +2,7 @@
 
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
+#include "Commands/ConstructionCommandComponent.h"
 #include "HUD/HUDPanels.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "InputKeyEventArgs.h"
@@ -97,7 +98,9 @@ public:
 				return true;
 			}
 			PC->PlaceBuildingAt(Point, false);
-			Check(!PC->IsPlacingBuilding() && PC->GetSelectedBuilding() != First.Get(), TEXT("Next unshifted placement selects the second building and ends mode"));
+			const ACommandBuilding* Second = PC->GetSelectedBuilding();
+			Check(!PC->IsPlacingBuilding() && IsValid(Second) && Second != First.Get() && Second->OwningPlayerState == Wallet,
+				TEXT("Next unshifted placement selects the second owned building and ends mode"));
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::W);
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 1, TEXT("B W enters Extractor placement"));
@@ -109,8 +112,21 @@ public:
 		{
 			if (PC->IsPlacingBuilding())
 				return false;
+			UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+			if (!Navigation || Navigation->IsNavigationBuildInProgress())
+				return false;
 			Key(PC, EKeys::RightMouseButton, IE_Released);
 			Check(!PC->IsPlacingBuilding(), TEXT("Right-click cancels Extractor placement"));
+			FVector Point;
+			if (!Check(FindPlacement(State, Point), TEXT("A third footprint exists for the late placement result")))
+				return true;
+			const ACommandBuilding* Selection = PC->GetSelectedBuilding();
+			const FCommandResult LateResult = FCommandService::PlaceBuilding(Wallet, 0, Point);
+			if (!Check(LateResult.IsAccepted() && IsValid(LateResult.Building), TEXT("Late acceptance contains a real paid building")))
+				return true;
+			PC->ConstructionCommands->ClientPlacementFeedback(LateResult.Message, LateResult.IsAccepted(), LateResult.Building, 0);
+			Check(!PC->IsPlacingBuilding() && PC->GetSelectedBuilding() == Selection,
+				TEXT("Late acceptance after cancellation neither selects its building nor reopens placement"));
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::E);
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 2, TEXT("B E enters Workshop placement"));
@@ -122,8 +138,28 @@ public:
 		{
 			if (PC->IsPlacingBuilding())
 				return false;
+			UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+			if (!Navigation || Navigation->IsNavigationBuildInProgress())
+				return false;
 			Key(PC, EKeys::Escape, IE_Released);
 			Check(!PC->IsPlacingBuilding() && PC->GetUIScreen() == ECommandScreen::Game, TEXT("Escape cancels without opening pause"));
+			FVector Point;
+			if (!Check(FindPlacement(State, Point), TEXT("An ownership-arrival footprint exists")))
+				return true;
+			Key(PC, EKeys::B);
+			Key(PC, EKeys::Q);
+			const ACommandBuilding* Selection = PC->GetSelectedBuilding();
+			const FCommandResult Deferred = FCommandService::PlaceBuilding(Wallet, 0, Point);
+			if (!Check(Deferred.IsAccepted() && IsValid(Deferred.Building), TEXT("Ownership-arrival result contains a real paid building")))
+				return true;
+			Deferred.Building->OwningPlayerState = nullptr;
+			PC->ConstructionCommands->ClientPlacementFeedback(Deferred.Message, Deferred.IsAccepted(), Deferred.Building, 0);
+			Check(!PC->IsPlacingBuilding() && PC->GetSelectedBuilding() == Selection,
+				TEXT("Acceptance ends placement without selecting an actor before ownership arrives"));
+			Deferred.Building->OwningPlayerState = Wallet;
+			PC->PlayerTick(0.f);
+			Check(PC->GetSelectedBuilding() == Deferred.Building,
+				TEXT("Replicated ownership arrival selects the actual accepted building"));
 			Wallet->Resources = 0;
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::Q);

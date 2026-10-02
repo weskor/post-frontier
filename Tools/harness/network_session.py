@@ -178,6 +178,12 @@ def build_barracks(run: NetworkRun, s: Session) -> int:
     candidate, states = place_barracks(
         run, s, 1, "remote-owned barracks construction replicates"
     )
+    converged(
+        run,
+        [s.peer],
+        lambda st: st["buildingSelected"] and not st["placing"] and st["hudExpanded"],
+        "remote placement result selects its building and ends placement",
+    )
     index = owned_buildings(states["host"], s.owner, BARRACKS)[0]["index"]
     balance = wallet(states["host"], s.owner)["wallet"]
     require(balance == 780, "barracks placement did not charge exactly 220")

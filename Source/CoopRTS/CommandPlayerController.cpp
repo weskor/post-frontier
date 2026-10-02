@@ -15,6 +15,8 @@
 #include "Components/BoxComponent.h"
 #include "WorldOverlay.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/NetDriver.h"
+#include "Engine/PackageMapClient.h"
 #include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -87,6 +89,8 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bHUDExpanded = true;
 	bPlacementPending = false;
 	bPlacementCancelled = false;
+	PendingPlacedBuilding.Reset();
+	PendingPlacedBuildingNetGUID = 0;
 	Feedback.Reset();
 	bBuildHotkeyPending = false;
 	bRepeatPlacement = false;
@@ -215,6 +219,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		bSelectionDragging = false;
 		return;
 	}
+	SelectPlacedBuilding();
 	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding))
 	{
 		SelectedBuilding = nullptr;
@@ -716,6 +721,8 @@ void ACommandPlayerController::CancelMode()
 	bBuildHotkeyPending = false;
 	bRepeatPlacement = false;
 	bHUDExpanded = true;
+	PendingPlacedBuilding.Reset();
+	PendingPlacedBuildingNetGUID = 0;
 }
 
 void ACommandPlayerController::ToggleHUD()
@@ -894,6 +901,8 @@ void ACommandPlayerController::SelectActor(AActor* Actor, bool bToggle)
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return;
+	PendingPlacedBuilding.Reset();
+	PendingPlacedBuildingNetGUID = 0;
 	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
 	const double Now = GetWorld()->GetRealTimeSeconds();
 	const bool bDoubleClick = Building && LastClickedBuilding == Building && Now - LastBuildingClickTime <= .3;
@@ -1324,7 +1333,7 @@ void ACommandPlayerController::SetCommandFeedback(const FString& Message, bool b
 		PlayUISound(TEXT("Reject"));
 }
 
-void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool bAccepted)
+void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID)
 {
 	bPlacementPending = false;
 	if (bPlacementCancelled)
@@ -1337,10 +1346,36 @@ void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool
 	{
 		if (bPlacingBuilding)
 		{
+			PendingPlacedBuilding = Building;
+			PendingPlacedBuildingNetGUID = BuildingNetGUID;
+			SelectPlacedBuilding();
 			bPlacingBuilding = bRepeatPlacement;
 			bHUDExpanded = !bRepeatPlacement;
 		}
 	}
 	else
 		PlayUISound(TEXT("Reject"));
+}
+
+void ACommandPlayerController::SelectPlacedBuilding()
+{
+	ACommandBuilding* Building = PendingPlacedBuilding.Get();
+	if (!Building && PendingPlacedBuildingNetGUID == 0)
+		return;
+	if (!Building)
+	{
+		UNetDriver* Driver = GetWorld()->GetNetDriver();
+		FNetworkGUID Guid;
+		Guid.ObjectId = PendingPlacedBuildingNetGUID;
+		if (Driver && Driver->GetNetGuidCache())
+		{
+			Building = Cast<ACommandBuilding>(Driver->GetNetGuidCache()->GetObjectFromNetGUID(Guid, false));
+			PendingPlacedBuilding = Building;
+		}
+	}
+	// The reply may arrive before the new actor or its replicated ownership.
+	if (!IsOwnedBuilding(Building))
+		return;
+	SelectActor(Building);
+	bHUDExpanded = !bPlacingBuilding;
 }

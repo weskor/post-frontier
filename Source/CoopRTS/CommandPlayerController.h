@@ -88,7 +88,7 @@ public:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPingCommandComponent> PingCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
-	void SetPlacementFeedback(const FString& Message, bool bAccepted);
+	void SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
 
 protected:
 	virtual void BeginPlay() override;
@@ -126,6 +126,8 @@ private:
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;
 	bool bPlacementCancelled = false;
+	TWeakObjectPtr<ACommandBuilding> PendingPlacedBuilding;
+	uint64 PendingPlacedBuildingNetGUID = 0;
 	EForceGoal PendingGoal = EForceGoal::Hold;
 	bool bInitialFocusPending = true;
 	FVector2D PreviousDragPosition = FVector2D::ZeroVector;
@@ -170,4 +172,5 @@ private:
 	const AMapRegion* CursorGoalRegion() const;
 	void AssignGoalAt(const FVector& Location);
 	void ResetLocalMatchView();
+	void SelectPlacedBuilding();
 };

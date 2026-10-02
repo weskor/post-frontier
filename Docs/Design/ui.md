@@ -50,7 +50,7 @@ Research: [input.md](../Research/input.md).
 
 **Building:**
 - **[Built]** An always-visible **build bar** grouped by category ([buildings.md](buildings.md)), replacing the deck's build cards. Every button shows cost, availability and a grid hotkey: **B**, then a letter. Letters follow bar order: **QWERT**, then **ASDFG**, then **ZXCVB**. Today's entries: **B Q** Barracks (Production), **B W** Extractor (Economy), **B E** Workshop (Tech).
-- Shift places several in a row **[Built]**. The new building is selected after placing **[Change]**. Esc or right-click cancels placement **[Built]**.
+- **[Built]** Shift places several in a row. The new building is selected after placing. Esc or right-click cancels placement.
 
 **On the map:** the selected forces show their path line, a target highlight and their badge. Teammates see your orders as intent arrows.
 

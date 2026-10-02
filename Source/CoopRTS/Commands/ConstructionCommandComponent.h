@@ -16,7 +16,7 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerCancelBuilding(ACommandBuilding* Building);
 	UFUNCTION(Client, Reliable)
-	void ClientPlacementFeedback(const FString& Message, bool bAccepted);
+	void ClientPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
 	UFUNCTION(Client, Reliable)
 	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
 };

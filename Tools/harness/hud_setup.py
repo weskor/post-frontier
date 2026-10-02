@@ -68,7 +68,6 @@ def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
     run.request("host", "fund", owner=owner, amount=1000)
     state = place_barracks(run, capture, owner, 1, "owned barracks placed")
     barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
-    run.request("host", "select", target="building", building=barracks)
     state = capture.wait(
         lambda s: (
             s["buildingSelected"] and building(s, barracks)["constructionProgress"] == 1

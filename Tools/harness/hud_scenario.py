@@ -79,7 +79,10 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
 
 
 def blocked_build_feedback(run: NetworkRun, capture: Capture) -> None:
-    owner = capture.state()["localIndex"]
+    state = capture.state()
+    owner = state["localIndex"]
+    income_paused = state["incomePaused"]
+    run.request("host", "income", paused=True)
     run.request("host", "fund", owner=owner, amount=0)
     capture.wait(
         lambda s: s["feedbackOpacity"] == 0 and not s["orderFeedback"],
@@ -103,14 +106,15 @@ def blocked_build_feedback(run: NetworkRun, capture: Capture) -> None:
     )
     capture.shot("blocked-build-feedback-expired")
     run.phase("blocked build click explains itself; feedback fades and expires")
+    run.request("host", "income", paused=income_paused)
 
 
 def primary_barracks(run: NetworkRun, capture: Capture, owner: int) -> int:
     run.request("host", "fund", owner=owner, amount=1000)
     state = place_barracks(run, capture, owner, 1, "owned barracks placed")
     require(
-        state["hudExpanded"] and not state["placing"],
-        "successful placement did not restore construction choices",
+        state["buildingSelected"] and state["hudExpanded"] and not state["placing"],
+        "successful placement did not select its building and restore construction choices",
     )
     capture.hud(
         BUILD_BARRACKS, "Build choices remain available immediately after placement"
@@ -123,7 +127,6 @@ def primary_barracks(run: NetworkRun, capture: Capture, owner: int) -> int:
         "accepted placement reopens build choices; a second placement needs no discovery hotkey"
     )
     barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
-    run.request("host", "select", target="building", building=barracks)
     capture.wait(
         lambda s: (
             s["buildingSelected"]
