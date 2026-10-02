@@ -1,12 +1,21 @@
 #pragma once
 
 #include "HUDTypes.h"
+#include "InputCoreTypes.h"
 
 struct FObjectiveEvent;
 struct FObjectiveForce;
 
 namespace CommandHUDPanels
 {
+struct FBuildHotkey
+{
+	const FKey& Key;
+	const TCHAR* Letter;
+	EHUDAction Action;
+};
+extern const FBuildHotkey BuildHotkeys[6];
+
 FContext MakeContext(const ACommandPlayerController* Controller);
 bool CanPingInspectedForce(const FContext& Context);
 FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight);
@@ -33,6 +42,7 @@ FLinearColor Tint(const FLinearColor& Accent, float Amount, float Alpha);
 bool ProjectOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position, FVector2D& Screen);
 bool OverlayFits(const FPainter& Paint, const FRect& Rect);
 FForces CountForces(const FContext& Context);
+void BlockReason(const FButton& Button, FStringBuilderBase& Reason);
 float DrawBlockReason(const FPainter& Paint, const FButton& Button, float X, float Y, float Size, float MaxWidth,
 	EAlign Align = EAlign::Left);
 void DrawUnitHealthBars(const FPainter& Paint, const FContext& Context);
@@ -56,7 +66,7 @@ void DrawBuildCard(const FPainter& Paint, const FContext& Context, const FButton
 void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover);
 void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
-void DrawBuildPanel(const FPainter& Paint, const FLayout& Layout);
+void DrawBuildPanel(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
 void DrawInspectorHeader(const FPainter& Paint, const FRect& Inspector, const FLinearColor& Accent, FStringView Title,
 	FStringView Subtitle, int32 Owner, int32 Health, int32 MaxHealth, FStringView Status, const FLinearColor& StatusColor);
 void ColumnLabel(const FPainter& Paint, const FRect& ColumnRect, FStringView Label, FStringView Detail = FStringView(),

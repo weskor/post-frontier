@@ -296,7 +296,7 @@ void ACommandHUD::DrawHUD()
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
-	DrawBuildPanel(Paint, Layout);
+	DrawBuildPanel(Paint, Context, Layout);
 	DrawCommandDeck(Paint, Context, Forces, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button) {
 		if (Button.Action == EHUDAction::Menu)

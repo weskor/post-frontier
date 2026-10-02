@@ -36,8 +36,9 @@ static void DrawPlacementMode(const FPainter& Paint, const FContext& Context, co
 	Paint.Fill({ X, Row2 + 4.f, 9.f, 9.f }, Color);
 	Paint.Text(bGround ? FStringView(Reason) : FStringView(TEXT("Point at ground to place.")), X + 16.f, Row2, 10.5f, Color,
 		false, EAlign::Left, TextWidth - 16.f);
-	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB / Shift"), TEXT("Place / Repeat"));
-	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
+	const float PlaceWidth = Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Place"));
+	Paint.DrawKey(KeysRight - KeysWidth + PlaceWidth + 12.f, Row1, TEXT("RMB / Esc"), TEXT("Cancel"));
+	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("Shift+LMB"), TEXT("places another"));
 }
 
 static void DrawGoalMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
@@ -93,7 +94,14 @@ void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& 
 	const float Row1 = Mode.Y + 10.f;
 	const float Row2 = Mode.Y + 36.f;
 	const float KeysRight = Mode.Right() - Pad;
-	const float KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB / Shift"), TEXT("Place / Repeat")), Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")));
+	float KeysWidth;
+	if (Controller->IsPlacingBuilding())
+		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Place")) + 12.f + Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")),
+			Paint.KeyWidth(TEXT("Shift+LMB"), TEXT("places another")));
+	else if (Controller->IsAssigningGoal())
+		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Assign")), Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")));
+	else
+		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("F4"), TEXT("Show deck")), Paint.TextWidth(TEXT("Build bar always visible"), 8.f));
 	const float TextWidth = KeysRight - KeysWidth - 16.f - X;
 	const FModeGeometry Geometry{ X, Row1, Row2, KeysRight, KeysWidth, TextWidth };
 	if (Controller->IsPlacingBuilding())

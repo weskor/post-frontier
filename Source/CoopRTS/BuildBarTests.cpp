@@ -44,6 +44,7 @@ bool FindPlacement(ACommandGameState* State, FVector& Result)
 		}
 	return false;
 }
+}
 
 class FBuildBarScenario : public IAutomationLatentCommand
 {
@@ -75,6 +76,16 @@ public:
 			if (!FindPlacement(State, Point))
 				return false;
 			Key(PC, EKeys::B);
+			Check(PC->IsBuildHotkeyPending(), TEXT("B exposes the pending build prefix"));
+			Key(PC, EKeys::F1);
+			Check(!PC->IsBuildHotkeyPending(), TEXT("Any non-grid key ends the build prefix"));
+			Key(PC, EKeys::W);
+			Check(!PC->IsPlacingBuilding(), TEXT("W after a non-grid key remains a camera key"));
+			Key(PC, EKeys::W, IE_Released);
+			Key(PC, EKeys::B);
+			Key(PC, EKeys::B);
+			Check(!PC->IsBuildHotkeyPending(), TEXT("A second B ends the pending prefix"));
+			Key(PC, EKeys::B);
 			Key(PC, EKeys::Q);
 			if (!Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 0, TEXT("B Q enters Barracks placement")))
 				return true;
@@ -104,6 +115,8 @@ public:
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::W);
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 1, TEXT("B W enters Extractor placement"));
+			// Arrange a network request still in flight when the user cancels.
+			PC->bPlacementPending = true;
 			Key(PC, EKeys::RightMouseButton);
 			Stage = 1;
 			return false;
@@ -121,12 +134,16 @@ public:
 			if (!Check(FindPlacement(State, Point), TEXT("A third footprint exists for the late placement result")))
 				return true;
 			const ACommandBuilding* Selection = PC->GetSelectedBuilding();
+			const int32 Balance = Wallet->Resources;
 			const FCommandResult LateResult = FCommandService::PlaceBuilding(Wallet, 0, Point);
 			if (!Check(LateResult.IsAccepted() && IsValid(LateResult.Building), TEXT("Late acceptance contains a real paid building")))
 				return true;
 			PC->ConstructionCommands->ClientPlacementFeedback(LateResult.Message, LateResult.IsAccepted(), LateResult.Building, 0);
 			Check(!PC->IsPlacingBuilding() && PC->GetSelectedBuilding() == Selection,
 				TEXT("Late acceptance after cancellation neither selects its building nor reopens placement"));
+			Check(Wallet->Resources == Balance - State->Content->Building(0)->BuildCost
+					&& PC->GetOrderFeedback() == LateResult.Message && PC->GetFeedbackOpacity() == 1.f,
+				TEXT("Cancelled paid placement still reports the authoritative result"));
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::E);
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 2, TEXT("B E enters Workshop placement"));
@@ -160,6 +177,28 @@ public:
 			PC->PlayerTick(0.f);
 			Check(PC->GetSelectedBuilding() == Deferred.Building,
 				TEXT("Replicated ownership arrival selects the actual accepted building"));
+			PC->SelectActor(First.Get());
+			PC->PendingPlacedBuilding = Deferred.Building;
+			Deferred.Building->OwningPlayerState = nullptr;
+			PC->HandleHUDAction(EHUDAction::BuildSlot1);
+			Deferred.Building->OwningPlayerState = Wallet;
+			PC->PlayerTick(0.f);
+			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 1,
+				TEXT("A new build mode discards deferred selection from the previous placement"));
+			PC->CancelMode();
+			First->ConstructionProgress = 1.f;
+			First->bForceConfigured = true;
+			First->ForceGroup = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
+			if (!Check(IsValid(First->ForceGroup), TEXT("Goal-mode fixture has a live force")))
+				return true;
+			PC->PendingPlacedBuilding = Deferred.Building;
+			Deferred.Building->OwningPlayerState = nullptr;
+			PC->HandleHUDAction(EHUDAction::GoalHold);
+			Deferred.Building->OwningPlayerState = Wallet;
+			PC->PlayerTick(0.f);
+			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsAssigningGoal() && !PC->IsHUDExpanded(),
+				TEXT("Ownership arrival cannot retarget an active goal mode or reopen the deck"));
+			PC->CancelMode();
 			Wallet->Resources = 0;
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::Q);
@@ -173,22 +212,38 @@ public:
 			Stage = 3;
 			return false;
 		}
+		if (Stage == 6)
+		{
+			if (PC->IsBuildHotkeyPending())
+				return false;
+			Check(World->GetRealTimeSeconds() - PrefixTime >= 2., TEXT("Build prefix expires after two seconds"));
+			Key(PC, EKeys::W);
+			Check(!PC->IsPlacingBuilding(), TEXT("W after prefix expiry remains a camera key"));
+			Key(PC, EKeys::W, IE_Released);
+			return true;
+		}
 		const double Age = World->GetRealTimeSeconds() - FeedbackTime;
 		if (Stage == 3 && Age >= 2.5)
 		{
-			Check(Age < 3. && PC->GetFeedbackOpacity() == 1.f, TEXT("Feedback stays opaque during three-second hold"));
+			Check(FMath::IsNearlyEqual(PC->GetFeedbackOpacity(), FMath::Clamp(static_cast<float>(4. - Age), 0.f, 1.f)),
+				TEXT("Feedback opacity matches the sampled real-time age during the hold"));
 			Stage = 4;
 		}
 		if (Stage == 4 && Age >= 3.25)
 		{
-			Check(Age < 4. && PC->GetFeedbackOpacity() > 0.f && PC->GetFeedbackOpacity() < 1.f,
-				TEXT("Feedback fades between three and four seconds"));
+			Check(FMath::IsNearlyEqual(PC->GetFeedbackOpacity(), FMath::Clamp(static_cast<float>(4. - Age), 0.f, 1.f)),
+				TEXT("Feedback opacity matches the sampled real-time age during the fade"));
 			Stage = 5;
 		}
 		if (Age >= 4.1)
 		{
 			Check(PC->GetFeedbackOpacity() == 0.f && PC->GetOrderFeedback().IsEmpty(), TEXT("Expired feedback clears after four seconds"));
-			return true;
+			Wallet->Resources = 4000;
+			Key(PC, EKeys::B);
+			Check(PC->IsBuildHotkeyPending(), TEXT("Build prefix starts a fresh two-second window"));
+			PrefixTime = World->GetRealTimeSeconds();
+			Stage = 6;
+			return false;
 		}
 		return false;
 	}
@@ -197,10 +252,10 @@ private:
 	FAutomationTestBase* Test;
 	double Started;
 	double FeedbackTime = 0.;
+	double PrefixTime = 0.;
 	int32 Stage = 0;
 	TWeakObjectPtr<ACommandBuilding> First;
 };
-}
 
 bool FBuildBarTest::RunTest(const FString& Parameters)
 {

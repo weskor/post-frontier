@@ -57,6 +57,7 @@ public:
 	bool PingAtScreenPosition(const FVector2D& Position);
 	const FString& GetOrderFeedback() const { return Feedback; }
 	float GetFeedbackOpacity() const;
+	bool IsBuildHotkeyPending() const;
 	bool IsHUDExpanded() const { return bHUDExpanded; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
 	int32 GetPlacementIndex() const { return PlacementIndex; }
@@ -98,6 +99,9 @@ protected:
 	virtual void PostSeamlessTravel() override;
 
 private:
+#if WITH_DEV_AUTOMATION_TESTS
+	friend class FBuildBarScenario;
+#endif
 	UPROPERTY(Transient)
 	TObjectPtr<ACommandBuilding> SelectedBuilding;
 	UPROPERTY(Transient)
@@ -119,6 +123,7 @@ private:
 	FString Feedback;
 	double FeedbackStarted = 0.;
 	bool bBuildHotkeyPending = false;
+	double BuildHotkeyStarted = 0.;
 	bool bRepeatPlacement = false;
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;

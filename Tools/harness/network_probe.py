@@ -100,7 +100,6 @@ class NetworkProbe(NetworkPeers):
         action: str = "observe",
         *,
         allow_unavailable: bool = False,
-        expect_rejection: bool = False,
         **fields: object,
     ) -> JsonObject:
         entry = self.peers[name]
@@ -131,19 +130,13 @@ class NetworkProbe(NetworkPeers):
         require(
             response["peer"] == name, f"{name} {action} returned wrong peer identity"
         )
-        if expect_rejection:
-            require(
-                bool(response["error"]),
-                f"{name} {action}: unavailable action unexpectedly accepted",
-            )
-        else:
-            require(
-                not response["error"]
-                or (
-                    allow_unavailable and response["error"] == "game world unavailable"
-                ),
-                f"{name} {action}: {response['error']}",
-            )
+        require(
+            not response["error"]
+            or (
+                allow_unavailable and response["error"] == "game world unavailable"
+            ),
+            f"{name} {action}: {response['error']}",
+        )
         return cast(JsonObject, response["state"])
 
     def get_response(self, name: str, expected: int) -> JsonObject | None:

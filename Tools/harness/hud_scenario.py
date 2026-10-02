@@ -67,6 +67,10 @@ def deck_controls(run: NetworkRun, capture: Capture) -> None:
     capture.key("RightMouseButton")
     capture.wait(lambda s: not s["placing"], "right-click cancels placement")
     capture.key("B")
+    capture.shot("build-hotkey-pending")
+    # Clear before re-arming: another B cancels an unexpired pending sequence.
+    capture.key("RightMouseButton")
+    capture.key("B")
     capture.key("Q")
     capture.wait(lambda s: s["placing"], "B Q starts Barracks placement")
     capture.key("Escape")

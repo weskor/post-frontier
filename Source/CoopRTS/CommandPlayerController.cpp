@@ -165,30 +165,46 @@ bool ACommandPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
 	if (GetUIScreen() == ECommandScreen::Game && Params.Event == IE_Pressed)
 	{
-		if (Params.Key == EKeys::B)
-		{
-			bBuildHotkeyPending = true;
-			PendingPan = FVector2D::ZeroVector;
-			SetFeedback(TEXT("Build: B then Q Barracks / W Extractor / E Workshop. Esc or right-click cancels."));
-			return true;
-		}
-		if (bBuildHotkeyPending)
+		if (IsBuildHotkeyPending())
 		{
 			if (Params.Key == EKeys::Escape || Params.Key == EKeys::RightMouseButton)
 			{
 				CancelPointerMode();
 				return true;
 			}
-			static const FKey Keys[] = { EKeys::Q, EKeys::W, EKeys::E, EKeys::R, EKeys::T, EKeys::A };
-			constexpr EHUDAction BuildActions[] = { EHUDAction::BuildSlot0, EHUDAction::BuildSlot1, EHUDAction::BuildSlot2,
-				EHUDAction::BuildSlot3, EHUDAction::BuildSlot4, EHUDAction::BuildSlot5 };
-			for (int32 Index = 0; Index < UE_ARRAY_COUNT(Keys); ++Index)
-				if (Params.Key == Keys[Index])
+			bBuildHotkeyPending = false;
+			const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+			for (const auto& Hotkey : CommandHUDPanels::BuildHotkeys)
+				if (Params.Key == Hotkey.Key && State && IsValid(State->Content) && State->Content->Building(BuildSlot(Hotkey.Action)))
 				{
-					bBuildHotkeyPending = false;
-					HandleHUDAction(BuildActions[Index]);
+					HandleHUDAction(Hotkey.Action);
 					return true;
 				}
+		}
+		else
+		{
+			bBuildHotkeyPending = false;
+			if (Params.Key == EKeys::B)
+			{
+				bBuildHotkeyPending = true;
+				BuildHotkeyStarted = GetWorld()->GetRealTimeSeconds();
+				PendingPan = FVector2D::ZeroVector;
+				TStringBuilder<256> Hint;
+				Hint << TEXT("Build: ");
+				const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+				bool bFirst = true;
+				for (const auto& Hotkey : CommandHUDPanels::BuildHotkeys)
+					if (const UBuildingDefinition* Definition = State && IsValid(State->Content) ? State->Content->Building(BuildSlot(Hotkey.Action)) : nullptr)
+					{
+						if (!bFirst)
+							Hint << TEXT(" / ");
+						Hint << Hotkey.Letter << TEXT(" ") << Definition->DisplayName.ToString();
+						bFirst = false;
+					}
+				Hint << TEXT(". Choose within 2 s; any other key cancels.");
+				SetFeedback(Hint.ToString());
+				return true;
+			}
 		}
 	}
 	return Super::InputKey(Params);
@@ -205,6 +221,11 @@ float ACommandPlayerController::GetFeedbackOpacity() const
 	return Feedback.IsEmpty() ? 0.f : FMath::Clamp(static_cast<float>(4. - (GetWorld()->GetRealTimeSeconds() - FeedbackStarted)), 0.f, 1.f);
 }
 
+bool ACommandPlayerController::IsBuildHotkeyPending() const
+{
+	return bBuildHotkeyPending && GetWorld()->GetRealTimeSeconds() - BuildHotkeyStarted < 2.;
+}
+
 void ACommandPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
@@ -212,6 +233,8 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		return;
 	if (!Feedback.IsEmpty() && GetFeedbackOpacity() <= 0.f)
 		Feedback.Reset();
+	if (bBuildHotkeyPending && !IsBuildHotkeyPending())
+		bBuildHotkeyPending = false;
 	if (GetUIScreen() != ECommandScreen::Game)
 	{
 		PendingPan = FVector2D::ZeroVector;
@@ -371,22 +394,22 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 
 void ACommandPlayerController::PanForward()
 {
-	if (!bBuildHotkeyPending)
+	if (!IsBuildHotkeyPending())
 		PendingPan.X += 1.f;
 }
 void ACommandPlayerController::PanBackward()
 {
-	if (!bBuildHotkeyPending)
+	if (!IsBuildHotkeyPending())
 		PendingPan.X -= 1.f;
 }
 void ACommandPlayerController::PanLeft()
 {
-	if (!bBuildHotkeyPending)
+	if (!IsBuildHotkeyPending())
 		PendingPan.Y -= 1.f;
 }
 void ACommandPlayerController::PanRight()
 {
-	if (!bBuildHotkeyPending)
+	if (!IsBuildHotkeyPending())
 		PendingPan.Y += 1.f;
 }
 void ACommandPlayerController::ZoomIn()
@@ -1045,24 +1068,9 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		if (Button.Action == Action && !Button.Available())
 		{
 			bBlocked = true;
-			switch (Button.Block)
-			{
-			case CommandHUDPanels::EBlock::Funds:
-				SetFeedback(FString::Printf(TEXT("Need %d more Power."), Button.Shortfall));
-				break;
-			case CommandHUDPanels::EBlock::ForceLocked:
-				SetFeedback(TEXT("Force type locked after Start."));
-				break;
-			case CommandHUDPanels::EBlock::ForceUnconfigured:
-				SetFeedback(TEXT("Start & Lock this force first."));
-				break;
-			case CommandHUDPanels::EBlock::Chosen:
-				SetFeedback(TEXT("Specialization locked: one per commander."));
-				break;
-			default:
-				SetFeedback(TEXT("Match over."));
-				break;
-			}
+			TStringBuilder<64> Reason;
+			CommandHUDPanels::BlockReason(Button, Reason);
+			SetFeedback(Reason.ToString());
 		}
 	});
 	if (bBlocked)
@@ -1086,12 +1094,14 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 		if (!State || !IsValid(State->Content) || !State->Content->Building(BuildIndex))
 			return;
+		PendingPlacedBuilding.Reset();
+		PendingPlacedBuildingNetGUID = 0;
 		PlacementIndex = BuildIndex;
 		bPlacingBuilding = true;
 		bBuildHotkeyPending = false;
 		bAssigningGoal = false;
 		bHUDExpanded = false;
-		SetFeedback(TEXT("Left-click valid ground; Shift repeats; right-click/Esc cancels."));
+		SetFeedback(TEXT("Left-click valid ground; Shift+LMB places another; right-click/Esc cancels."));
 		return;
 	}
 	if (!IsOwnedBuilding(SelectedBuilding))
@@ -1125,6 +1135,8 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 			PlayUISound(TEXT("Reject"));
 			return;
 		}
+		PendingPlacedBuilding.Reset();
+		PendingPlacedBuildingNetGUID = 0;
 		PendingGoal = Action == EHUDAction::GoalHold ? EForceGoal::Hold
 			: Action == EHUDAction::GoalExpand       ? EForceGoal::Expand
 			: Action == EHUDAction::GoalAssault      ? EForceGoal::Assault
@@ -1336,12 +1348,12 @@ void ACommandPlayerController::SetCommandFeedback(const FString& Message, bool b
 void ACommandPlayerController::SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID)
 {
 	bPlacementPending = false;
+	SetFeedback(Message);
 	if (bPlacementCancelled)
 	{
 		bPlacementCancelled = false;
 		return;
 	}
-	SetFeedback(Message);
 	if (bAccepted)
 	{
 		if (bPlacingBuilding)

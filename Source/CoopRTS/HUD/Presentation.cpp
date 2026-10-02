@@ -117,30 +117,35 @@ bool OverlayFits(const FPainter& Paint, const FRect& Rect)
 		&& Rect.Right() <= Paint.Canvas->ClipX / Paint.Scale
 		&& Rect.Bottom() <= Paint.Canvas->ClipY / Paint.Scale;
 }
-float DrawBlockReason(const FPainter& Paint, const FButton& Button, float X, float Y, float Size, float MaxWidth,
-	EAlign Align)
+void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 {
-	TStringBuilder<48> Reason;
 	switch (Button.Block)
 	{
 	case EBlock::Terminal:
-		Reason << TEXT("Match over");
+		Reason << TEXT("Match over.");
 		break;
 	case EBlock::Funds:
-		Reason.Appendf(TEXT("Need %d more"), Button.Shortfall);
+		Reason.Appendf(TEXT("Need %d more Power."), Button.Shortfall);
 		break;
 	case EBlock::ForceLocked:
-		Reason << TEXT("Type locked");
+		Reason << TEXT("Force type locked after Start.");
 		break;
 	case EBlock::ForceUnconfigured:
-		Reason << TEXT("Start & Lock first");
+		Reason << TEXT("Start & Lock this force first.");
 		break;
 	case EBlock::Chosen:
-		Reason << TEXT("Locked: one per commander");
+		Reason << TEXT("Specialization locked: one per commander.");
 		break;
 	default:
-		return 0.f;
+		break;
 	}
+}
+
+float DrawBlockReason(const FPainter& Paint, const FButton& Button, float X, float Y, float Size, float MaxWidth,
+	EAlign Align)
+{
+	TStringBuilder<64> Reason;
+	BlockReason(Button, Reason);
 	return Paint.Text(Reason.ToView(), X, Y, Size, Button.Block == EBlock::Funds ? Palette::Warn : Palette::Faint, false, Align, MaxWidth);
 }
 void DrawInspectorHeader(const FPainter& Paint, const FRect& Inspector, const FLinearColor& Accent, FStringView Title,

@@ -60,6 +60,11 @@ def start_and_starve(
         and wallet(locked, owner)["wallet"] == wallet(paused, owner)["wallet"],
         "paused configured force exposed a type-changing action or mutated work/wallet",
     )
+    require(
+        locked["orderFeedback"] == "Force type locked after Start."
+        and locked["feedbackOpacity"] > 0,
+        "locked-type click did not visibly explain why the force type cannot change",
+    )
     capture.hud(TOGGLE_PRODUCTION, "Resume locked ranged force")
     run.request("host", "fund", owner=owner, amount=0)
     capture.wait(
