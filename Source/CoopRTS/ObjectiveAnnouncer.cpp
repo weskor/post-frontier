@@ -105,24 +105,13 @@ void UObjectiveAnnouncer::AppendEvent(const ACommandGameState& State, FName Id, 
 		Events.RemoveAt(0, 1, EAllowShrinking::No);
 	Events.Add(MoveTemp(Event));
 	GetOwner()->ForceNetUpdate();
-	OnRep_Events();
+	MulticastAnnounce(Id);
 }
 
-void UObjectiveAnnouncer::OnRep_Events()
+void UObjectiveAnnouncer::MulticastAnnounce_Implementation(FName Id)
 {
-	const ACommandGameState* State = Cast<ACommandGameState>(GetOwner());
-	if (!State)
-		return;
-	const float Now = State->GetServerWorldTimeSeconds();
-	UCoopAudioSubsystem* Audio = GetOwner()->GetNetMode() != NM_DedicatedServer ? UCoopAudioSubsystem::Get(this) : nullptr;
-	for (const FObjectiveEvent& Event : Events)
-	{
-		if (Event.Sequence <= LastObservedSequence)
-			continue;
-		LastObservedSequence = Event.Sequence;
-		if (Audio && Now - Event.ServerTime <= FeedLifetime)
-			Audio->PlayAnnouncer(Event.Id);
-	}
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		Audio->PlayAnnouncer(Id);
 }
 
 void UObjectiveAnnouncer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

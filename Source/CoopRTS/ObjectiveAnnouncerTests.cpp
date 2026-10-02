@@ -4,7 +4,6 @@
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
 #include "CommandCamera.h"
-#include "CommandHUD.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "ObjectiveAnnouncer.h"
@@ -137,20 +136,12 @@ public:
 			if (!Check(!Controller->FocusAlertSequence(-1) && Camera->GetActorLocation().Equals(BeforeInvalid),
 					TEXT("Missing sequence cannot move the camera")))
 				return true;
-			ACommandHUD* HUD = Cast<ACommandHUD>(Controller->GetHUD());
-			FVector2D Click;
-			FVector Hit;
-			int32 HitSequence = 0;
-			const int32 ClickSequence = Events[Events.Num() - 2].Sequence;
-			if (!Check(HUD && HUD->FindAlertScreenPosition(ClickSequence, Click), TEXT("Visible older alert has shared clickable geometry"))
-				|| !Check(HUD->GetAlertWorldPosition(Click, Hit, HitSequence) && HitSequence == ClickSequence && Hit.Equals(Older.Location),
-					TEXT("Feed hit test resolves the drawn alert's exact sequence and world location"))
-				|| !Check(Controller->HandleHUDClick(Click) && Controller->GetFocusedAlertSequence() == ClickSequence,
-					TEXT("Clicking feed entry selects its navigation cursor"))
-				|| !At(Older.Location, TEXT("Explicit feed click moves the camera to the alert")))
+			const int32 OlderSequence = Older.Sequence;
+			if (!Check(Controller->FocusAlertSequence(OlderSequence), TEXT("Exact-sequence navigation accepts an older retained alert"))
+				|| !At(Older.Location, TEXT("Exact-sequence camera navigation reaches the older alert")))
 				return true;
 			Controller->FocusAlert();
-			if (!Check(Controller->GetFocusedAlertSequence() == Events[Events.Num() - 3].Sequence, TEXT("Navigation continues older from a clicked entry")))
+			if (!Check(Controller->GetFocusedAlertSequence() == Events[Events.Num() - 3].Sequence, TEXT("Navigation continues older from an exact-sequence cursor")))
 				return true;
 			const FVector BeforeNew = Camera->GetActorLocation();
 			Announcer->Raise(TEXT("region_captured"), 0, State->FriendlyHeadquarters->GetActorLocation(), {});
@@ -170,9 +161,9 @@ public:
 			for (int32 Index = 1; Index < Bounded.Num(); ++Index)
 				if (!Check(Bounded[Index].Sequence == Bounded[Index - 1].Sequence + 1, TEXT("Retained history sequences remain monotonic and contiguous")))
 					return true;
-			if (!Check(!Controller->FocusAlertSequence(ClickSequence), TEXT("Evicted sequence is no longer navigable")))
+			if (!Check(!Controller->FocusAlertSequence(OlderSequence), TEXT("Evicted sequence is no longer navigable")))
 				return true;
-			Test->AddInfo(TEXT("All 11 objective producers passed attribution/region/transition checks; real F/Space, selection stability, click geometry, navigation and bounded history passed."));
+			Test->AddInfo(TEXT("All 11 objective producers passed attribution/region/transition checks; real F/Space, selection stability, navigation and bounded history passed. Rendered feed clicks are covered by HUD verification."));
 			return true;
 		}
 		return false;

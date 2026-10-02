@@ -64,13 +64,14 @@ public:
 	void Raise(FName Id, int32 AffectedTeam, const FVector& Location, const TArray<FObjectiveForce>& Forces, int32 DamageTier = 0);
 	void RaiseFromUnit(FName Id, int32 AffectedTeam, const FVector& Location, const AArmyUnit* Unit, int32 DamageTier = 0);
 private:
-	UPROPERTY(ReplicatedUsing = OnRep_Events)
+	UPROPERTY(Replicated)
 	TArray<FObjectiveEvent> Events;
 	AnnouncerPolicy::FThrottle Throttle;
 	int32 NextSequence = 1;
-	int32 LastObservedSequence = 0;
 	void AppendEvent(const ACommandGameState& State, FName Id, int32 AffectedTeam, const FVector& Location,
 		TConstArrayView<FObjectiveForce> Forces, int32 DamageTier, float ServerTime);
-	UFUNCTION()
-	void OnRep_Events();
+	// Reliable live delivery never drops state-change speech when the feed fades;
+	// replicated history lets late joiners see state without replaying old voice.
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastAnnounce(FName Id);
 };

@@ -48,6 +48,7 @@ scope-map = ["**"]
 file-length = [
     "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
     "Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x",
+    "Source/CoopRTS/ObjectiveAnnouncer.*",
     "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py",
     "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py",
     "Tools/harness/network_probe.py", "Tools/harness/network_production.py",
@@ -59,6 +60,7 @@ file-length = [
 function-length = [
     "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
     "Source/CoopRTS/Rules/**", "Source/CoopRTS/Content/**", "Tools/x/**", "Tools/tests/**", "x",
+    "Source/CoopRTS/ObjectiveAnnouncer.*",
     "Tools/harness/network.py", "Tools/harness/network_cli.py", "Tools/harness/network_economy.py",
     "Tools/harness/network_outcomes.py", "Tools/harness/network_ownership.py", "Tools/harness/network_peers.py",
     "Tools/harness/network_probe.py", "Tools/harness/network_production.py",

@@ -63,15 +63,18 @@ Research: [input.md](../Research/input.md).
 
 **Today [Built]:** you click a production building, choose a goal in its inspector, and pick a region. That flow goes away.
 
-## Awareness [New] — decided
+## Awareness [Built] / [New] — decided
 
 Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the only signs of a winning push were a small enemy-HQ bar and JEV's alarm, which plays at its HQ out of earshot.
 
-- **Team announcer:** a voiced line plus a feed entry for everyone, saying whose force did it, for objective events, including the team's own successes: *Failover Node down*, *Lattice exposed*, *Lattice under attack*, *uplink 50%*, *Hardline offline*.
-  - Throttled: one line per event type per ~20 s.
-  - State changes always speak; "under attack" repeats only for a new attacker or a new damage tier.
-- **Objective strip:** always on at the top of the screen. It shows the battle's progress: nodes left, HQ health, hold timer, relays or regions held, and the icons of the forces involved.
-- **Space jumps to the latest alert;** pressing it again steps back through older ones. Optional; the strip and the announcer carry the state, so you never need to jump.
+- [Built] **Team announcer:** a global voiced line plus a feed entry for every player, including the team's own successes. Today's objective events are either HQ under attack, at half health, at quarter health or offline; a region captured or lost; and a Drill Rig lost. Entries identify the causing player's force and region; captures include every participating force.
+  - One "under attack" line per event type and affected team per 20 s; it repeats only for a different attacking force or a new damage tier, never merely because the cooldown expired.
+  - State transitions always speak, including multiple health thresholds crossed by one hit. Cancellation and cleanup are not combat losses.
+  - Voice and feed definitions share an event-id table; [the voice pipeline](../Audio.md) supplies each line's asset.
+- [Built] **Objective strip:** always on above the battlefield, showing both HQs' health, regions held by each side, and commander-coloured role/force badges for the latest objective event. Economy remains visible above it.
+- [Built] **Alert feed:** newest first; entries last 8 s and fade over their final 2 s. Clicking a visible entry focuses its event location without changing selection.
+- [Built] **Space jumps to the latest alert;** pressing it again steps back through retained history, clamped at the oldest entry. A new event resets the next jump to the newest. The latest 64 events remain navigable after their feed entries fade. Selecting never moves the camera; F focuses the selection. Jumping is optional: the strip and announcer carry the state.
+- [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist.
 
 ## JEV intent display
 
@@ -85,7 +88,7 @@ Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the onl
 |---|---|
 | Counters | Hit flashes coloured by effectiveness: bonus hits flash bright, normal hits plain. Every force badge, including JEV's, shows its armor and damage icons. No floating numbers. |
 | Supply chain | **Always-visible cables** across region borders between connected regions, in team colours. A cut snaps the cable, flashes the region and greys its Drill Rigs. |
-| Alerts | An alert feed; click a line to jump there, or press Space for the latest. **Voice for the top events:** HQ under attack, supply cut, JEV release or calldown, and the objective events from the team announcer (see "Awareness"). |
+| Alerts | [Built] Objective feed, global announcer and explicit camera jumps described above. [New] Voiced supply cuts, JEV releases and calldowns follow their mechanics in [economy.md](economy.md) and [jev.md](jev.md). |
 | Incident report (after each battle) | A timeline graph of income, forces and regions with key events; **3 "why" callouts**, e.g. *Line cut at 4:12 cost 600 Power*; plus a Machine memo for the joke |
 | Contribution card | **1–2 positive highlights per player**, e.g. *Saved West Cut at 6:40* or *Gifted 800 Power*, plus personal stats. It never ranks players. |
 | Music | **Adaptive layers tied to JEV releases:** calm, then build-up, then a peak around each release and wave, with today's ambience underneath |
