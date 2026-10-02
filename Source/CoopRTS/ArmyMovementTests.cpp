@@ -11,6 +11,8 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
 #include "HAL/PlatformTime.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationData.h"
@@ -19,8 +21,8 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyTwoGroupsTest, "CoopRTS.Movement.TwoGroups",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-// Run alone in a fresh Boot standalone game. All observations are of real AI paths
-// and character locations; every arrival includes every member, not just the center.
+// Run alone in a fresh standalone game. The placed map supplies the obstacle and
+// fixture positions; arrivals observe real AI paths and every character.
 class FArmyTwoGroupsScenario : public IAutomationLatentCommand
 {
 public:
@@ -37,7 +39,7 @@ public:
 					{
 						for (TActorIterator<AEnemyCommander> It(World); It; ++It)
 							It->Destroy();
-						bIsolated = true; // Crossing retains its original static defender.
+						bIsolated = true;
 						break;
 					}
 		}
@@ -47,6 +49,15 @@ public:
 		if (Now - Started > 90.)
 		{
 			Test->AddError(FString::Printf(TEXT("TwoGroups exceeded 90 seconds in stage %d"), static_cast<int32>(Stage)));
+			if (Stage == EStage::FindGroups && Controller.IsValid())
+			{
+				UWorld* World = Controller->GetWorld();
+				const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+				UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+				Test->AddInfo(FString::Printf(TEXT("Circuit setup mapReady=%d navigation=%d building=%d eligible=%d clear=%d"),
+					ArmyTestSetup::MapReady(State), Navigation != nullptr,
+					Navigation && Navigation->IsNavigationBuildInProgress(), EligibleObstacles, ClearCircuits));
+			}
 			for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 			{
 				if (!Groups[GroupIndex].IsValid())
@@ -83,9 +94,11 @@ public:
 				if (Stage >= EStage::Crossing)
 				{
 					const FVector Location = Unit->GetActorLocation();
-					// CentralObstacle occupies X +/-600, Y +/-1000. Crossing this
-					// strip outside its footprint proves each character went around it.
-					if (FMath::Abs(Location.X) < 550. && FMath::Abs(Location.Y) > 1000.)
+					// Observe each character inside the obstacle's longitudinal strip
+					// but outside its lateral footprint, not merely a bent AI path.
+					const FVector Relative = Location - Obstacle.GetCenter();
+					if (FMath::Abs(FVector::DotProduct(Relative, TravelAxis)) < TravelExtent - 50.
+						&& FMath::Abs(FVector::DotProduct(Relative, SideAxis)) > SideExtent)
 						WentAroundObstacle.Add(Unit);
 				}
 			}
@@ -104,7 +117,8 @@ public:
 			if (Now - StageStarted >= .12)
 			{
 				const double Offset = (ReplacementCount % 2 == 0) ? 250. : -250.;
-				if (!Move(0, FVector(-2800. + Offset, 1900., 0.)) || !Move(1, FVector(-1800. - Offset, -1900., 0.)))
+				if (!Move(0, CircuitPoint(-TravelExtent - 2200. + Offset, SideExtent + 900.))
+					|| !Move(1, CircuitPoint(-TravelExtent - 1200. - Offset, -SideExtent - 900.)))
 					return true;
 				StageStarted = Now;
 				if (++ReplacementCount == 8)
@@ -117,7 +131,7 @@ public:
 				UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Controller->GetWorld());
 				FNavLocation Projected;
 				const FNavAgentProperties& Agent = Groups[0]->GetUnits()[0]->GetNavAgentPropertiesRef();
-				if (!Check(Navigation && Navigation->ProjectPointToNavigation(FVector(0., 4370., 0.), Projected, FVector(75., 75., 200.), &Agent),
+				if (!Check(Navigation && Navigation->ProjectPointToNavigation(WallProbe, Projected, FVector(75., 75., 200.), &Agent),
 						TEXT("Near-wall rejection probe has a navigable center")))
 					return true;
 				for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
@@ -125,11 +139,14 @@ public:
 					for (AArmyUnit* Unit : Groups[GroupIndex]->GetUnits())
 						if (!Check(Unit->GetVelocity().Size2D() > 25., TEXT("Every unit is moving before rejected requests")))
 							return true;
-					// A click on the obstacle's top is not a reachable ground order;
-					// north-wall center is on the floor but its +180 Y slots cannot fit.
-					if (!RejectMove(GroupIndex, FVector(100000., 0., 0.), TEXT("Out-of-bounds"))
-						|| !RejectMove(GroupIndex, FVector(0., 0., 600.), TEXT("Unreachable obstacle top"))
-						|| !RejectMove(GroupIndex, FVector(0., 4370., 0.), TEXT("Near-wall formation")))
+					// The raised obstacle has no complete ground route to its top;
+					// the wall probe fits a center but not all six formation slots.
+					const ACommandGameState* State = Controller->GetWorld()->GetGameState<ACommandGameState>();
+					FVector Top = Obstacle.GetCenter();
+					Top.Z = Obstacle.Max.Z;
+					if (!RejectMove(GroupIndex, ArmyTestSetup::OutsideArena(State), TEXT("Out-of-bounds"))
+						|| !RejectMove(GroupIndex, Top, TEXT("Unreachable obstacle top"))
+						|| !RejectMove(GroupIndex, WallProbe, TEXT("Near-wall formation")))
 						return true;
 					RememberPositions(GroupIndex);
 				}
@@ -148,7 +165,8 @@ public:
 								TEXT("Every unit continues toward its accepted replacement")))
 							return true;
 					}
-				if (!Move(0, FVector(2200., 400., 0.)) || !Move(1, FVector(2200., -400., 0.)))
+				if (!Move(0, CircuitPoint(TravelExtent + 1600., 400.))
+					|| !Move(1, CircuitPoint(TravelExtent + 1600., -400.)))
 					return true;
 				SetStage(EStage::Crossing, Now);
 			}
@@ -156,7 +174,7 @@ public:
 		case EStage::Crossing:
 			if (Now - StageStarted >= 2.)
 			{
-				if (!Move(0, FVector(2800., 650., 0.)))
+				if (!Move(0, CircuitPoint(TravelExtent + 2200., 650.)))
 					return true;
 				for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
 				{
@@ -183,7 +201,8 @@ public:
 				}
 			if (Now - StageStarted >= 1.)
 			{
-				if (!Move(0, FVector(2300., 400., 0.)) || !Move(1, FVector(2300., -400., 0.)))
+				if (!Move(0, CircuitPoint(TravelExtent + 1700., 400.))
+					|| !Move(1, CircuitPoint(TravelExtent + 1700., -400.)))
 					return true;
 				SetStage(EStage::FinalArrival, Now);
 			}
@@ -199,7 +218,7 @@ public:
 			{
 				for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
 					for (AArmyUnit* Unit : Group->GetUnits())
-						if (!Check(WentAroundObstacle.Contains(Unit), FString::Printf(TEXT("%s crossed around the central obstacle"), *Unit->GetName())))
+						if (!Check(WentAroundObstacle.Contains(Unit), FString::Printf(TEXT("%s crossed around the map obstacle"), *Unit->GetName())))
 							return true;
 				Test->AddInfo(TEXT("TwoGroups passed: independent armies, every-unit exchange and obstacle crossing, eight rapid replacements, atomic invalid orders with continued motion, immediate per-unit Hold, and all twelve units at their latest goals."));
 				return true;
@@ -241,7 +260,142 @@ private:
 		return AI ? AI->GetPathFollowingComponent() : nullptr;
 	}
 
-	bool bEnemyPositioned = false;
+	FVector CircuitPoint(double Along, double Across) const
+	{
+		FVector Point = Obstacle.GetCenter() + TravelAxis * Along + SideAxis * Across;
+		Point.Z = GroundHeight;
+		return Point;
+	}
+
+	bool ClearFormation(UNavigationSystemV1& Navigation, const FVector& Center, const FVector& Start) const
+	{
+		const FNavAgentProperties& Agent = GetDefault<AArmyUnit>()->GetNavAgentPropertiesRef();
+		const ANavigationData* NavData = Navigation.GetNavDataForProps(Agent, Start);
+		if (!NavData)
+			return false;
+		for (int32 Slot = -1; Slot < 6; ++Slot)
+		{
+			const FVector Offset = Slot < 0 ? FVector::ZeroVector
+											: FVector((1 - Slot / 2) * 220., (Slot % 2 ? 1. : -1.) * 140., 0.);
+			const FVector Target = Center + Offset;
+			FNavLocation Ground;
+			if (!AArenaBounds::IsTravelLocation(Navigation.GetWorld(), Target)
+				|| !Navigation.ProjectPointToNavigation(Target, Ground, FVector(35., 35., 200.), NavData)
+				|| FVector::Dist2D(Target, Ground.Location) > 35.)
+				return false;
+			FPathFindingQuery Query(nullptr, *NavData, Start, Ground.Location);
+			Query.SetAllowPartialPaths(false);
+			const FPathFindingResult Path = Navigation.FindPathSync(Agent, Query);
+			if (!Path.IsSuccessful() || !Path.Path.IsValid() || Path.Path->IsPartial())
+				return false;
+		}
+		return true;
+	}
+
+	bool FindCircuit(ACommandGameState* State)
+	{
+		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(State->GetWorld());
+		if (!Navigation || Navigation->IsNavigationBuildInProgress())
+			return false;
+		const FVector Midpoint = (State->FriendlyHeadquarters->GetActorLocation()
+									 + State->EnemyHeadquarters->GetActorLocation())
+			* .5;
+		double BestDistance = TNumericLimits<double>::Max();
+		FBox BestObstacle(ForceInit);
+		FVector BestAxis = FVector::ZeroVector;
+		FVector BestWall = FVector::ZeroVector;
+		EligibleObstacles = 0;
+		ClearCircuits = 0;
+		for (TActorIterator<AStaticMeshActor> It(State->GetWorld()); It; ++It)
+		{
+			const UStaticMeshComponent* Mesh = It->GetStaticMeshComponent();
+			if (!Mesh || Mesh->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block
+				|| Mesh->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+				continue;
+			Obstacle = Mesh->Bounds.GetBox();
+			const FVector Extent = Obstacle.GetExtent();
+			FVector Top = Obstacle.GetCenter();
+			Top.Z = Obstacle.Max.Z;
+			if (Extent.X < 200. || Extent.Y < 200. || Extent.X > 2000. || Extent.Y > 2000. || Extent.Z < 150.
+				|| !AArenaBounds::IsTravelLocation(State->GetWorld(), Top))
+				continue;
+			++EligibleObstacles;
+			const double Distance = FVector::DistSquared2D(Obstacle.GetCenter(), Midpoint);
+			if (Distance >= BestDistance)
+				continue;
+			GroundHeight = Obstacle.Min.Z;
+			for (int32 Axis = 0; Axis < 2; ++Axis)
+			{
+				TravelAxis = Axis == 0 ? FVector::ForwardVector : FVector::RightVector;
+				SideAxis = Axis == 0 ? FVector::RightVector : FVector::ForwardVector;
+				TravelExtent = Axis == 0 ? Extent.X : Extent.Y;
+				SideExtent = Axis == 0 ? Extent.Y : Extent.X;
+				const FVector Home = CircuitPoint(-TravelExtent - 1200., 0.);
+				const FVector Targets[] = {
+					Home, CircuitPoint(-TravelExtent - 2200., 0.),
+					CircuitPoint(-TravelExtent - 2450., SideExtent + 900.),
+					CircuitPoint(-TravelExtent - 1950., SideExtent + 900.),
+					CircuitPoint(-TravelExtent - 1450., -SideExtent - 900.),
+					CircuitPoint(-TravelExtent - 950., -SideExtent - 900.),
+					CircuitPoint(TravelExtent + 1600., 400.), CircuitPoint(TravelExtent + 1600., -400.),
+					CircuitPoint(TravelExtent + 2200., 650.),
+					CircuitPoint(TravelExtent + 1700., 400.), CircuitPoint(TravelExtent + 1700., -400.)
+				};
+				bool bClear = true;
+				for (const FVector& Target : Targets)
+					if (!ClearFormation(*Navigation, Target, Home))
+					{
+						bClear = false;
+						break;
+					}
+				if (!bClear)
+					continue;
+				++ClearCircuits;
+				const FNavAgentProperties& Agent = GetDefault<AArmyUnit>()->GetNavAgentPropertiesRef();
+				const ANavigationData* NavData = Navigation->GetNavDataForProps(Agent, Home);
+				FNavLocation Probe;
+				bool bFoundWall = false;
+				// Rotated mesh bounds are not their collision face. Search inward
+				// for a reachable ground center whose formation cannot fit.
+				for (double Along = -TravelExtent - 100.; Along < 0.; Along += 50.)
+				{
+					const FVector Wall = CircuitPoint(Along, 0.);
+					if (!Navigation->ProjectPointToNavigation(Wall, Probe, FVector(35., 35., 200.), NavData)
+						|| FVector::Dist2D(Wall, Probe.Location) > 35.
+						|| ClearFormation(*Navigation, Probe.Location, Home))
+						continue;
+					FPathFindingQuery Query(nullptr, *NavData, Home, Probe.Location);
+					Query.SetAllowPartialPaths(false);
+					const FPathFindingResult CenterPath = Navigation->FindPathSync(Agent, Query);
+					if (!CenterPath.IsSuccessful() || !CenterPath.Path.IsValid() || CenterPath.Path->IsPartial())
+						continue;
+					bFoundWall = true;
+					break;
+				}
+				if (!bFoundWall)
+					continue;
+				BestDistance = Distance;
+				BestObstacle = Obstacle;
+				BestAxis = TravelAxis;
+				BestWall = Probe.Location;
+				break;
+			}
+		}
+		if (!BestObstacle.IsValid)
+			return false;
+		Obstacle = BestObstacle;
+		TravelAxis = BestAxis;
+		SideAxis = FVector(TravelAxis.Y, TravelAxis.X, 0.);
+		TravelExtent = FVector::DotProduct(Obstacle.GetExtent(), TravelAxis);
+		SideExtent = FVector::DotProduct(Obstacle.GetExtent(), SideAxis);
+		GroundHeight = Obstacle.Min.Z;
+		WallProbe = BestWall;
+		Test->AddInfo(FString::Printf(TEXT("Map circuit obstacle=%s axis=%s wall=%s"),
+			*Obstacle.ToString(), *TravelAxis.ToCompactString(), *WallProbe.ToCompactString()));
+		return true;
+	}
+
+	bool bFixturesReady = false;
 	bool Start(double Now)
 	{
 		if (Now - Started < 3.)
@@ -265,8 +419,25 @@ private:
 		}
 		if (!Controller.IsValid())
 			return false;
-		if (!ArmyTestSetup::CombatActors(Controller->GetWorld()))
+		ACommandGameState* State = Controller->GetWorld()->GetGameState<ACommandGameState>();
+		if (!ArmyTestSetup::MapReady(State))
 			return false;
+		if (!bFixturesReady)
+		{
+			if (!FindCircuit(State))
+				return false;
+			Groups[0] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 0,
+				CircuitPoint(-TravelExtent - 1200., 0.) + FVector(0., 0., 100.));
+			Groups[1] = ArmyTestSetup::SpawnGroup(State->GetWorld(), Controller.Get(), 1,
+				CircuitPoint(-TravelExtent - 2200., 0.) + FVector(0., 0., 100.));
+			Enemy = ArmyTestSetup::SpawnGroup(State->GetWorld(), nullptr, -1, ArmyTestSetup::HostileStaging(State));
+			if (!Check(Groups[0].IsValid() && Groups[1].IsValid() && Enemy.IsValid(),
+					TEXT("Map-derived fixtures spawn two friendly groups and a static opposing group")))
+				return true;
+			Enemy->IssueHold();
+			bFixturesReady = true;
+			return false; // Let every spawned character settle on navigation ground.
+		}
 		for (TActorIterator<AArmyGroup> It(Controller->GetWorld()); It; ++It)
 		{
 			if (It->IsOpposingArmy())
@@ -280,26 +451,11 @@ private:
 		}
 		if (!Groups[0].IsValid() || !Groups[1].IsValid() || !Enemy.IsValid() || Enemy->GetUnits().IsEmpty())
 			return false;
-		if (!bEnemyPositioned)
-		{
-			// The strategic actor may have travelled before automation attaches.
-			// Restore this historical movement-only encounter's static defender.
-			for (AArmyUnit* Unit : Enemy->GetUnits())
-			{
-				const int32 Slot = Unit->GetCompositionSlot();
-				FVector Position = Unit->GetActorLocation();
-				Position.X = Enemy->GetHomeLocation().X - (1 - Slot / 2) * 220.f;
-				Position.Y = Enemy->GetHomeLocation().Y + (Slot % 2 ? 1.f : -1.f) * 140.f;
-				Unit->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
-			}
-			Enemy->IssueHold();
-			bEnemyPositioned = true;
-		}
 		TSet<AArmyUnit*> UniqueUnits;
 		for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
 		{
 			if (!Check(Group->OrderSerial == 0 && Group->Order == EArmyOrder::Hold && Group->GetUnits().Num() == 6,
-					TEXT("TwoGroups requires fresh Boot groups: six units and no earlier orders")))
+					TEXT("TwoGroups requires fresh fixture groups: six units and no earlier orders")))
 				return true;
 			for (AArmyUnit* Unit : Group->GetUnits())
 			{
@@ -314,7 +470,7 @@ private:
 		if (!Check(Groups[0]->GetTeamIndex() == Groups[1]->GetTeamIndex() && Groups[0]->GetOwner() == Groups[1]->GetOwner(), TEXT("Two independent armies belong to the same player")))
 			return true;
 		// A rejected first request is safe to retry while dynamic navmesh starts.
-		Controller->ServerIssueOrder(Groups[0].Get(), EArmyOrder::Move, Groups[0]->GetHomeLocation() + FVector(0., 650., 0.));
+		Controller->ServerIssueOrder(Groups[0].Get(), EArmyOrder::Move, Groups[1]->GetHomeLocation());
 		if (Groups[0]->OrderSerial == 0)
 			return false;
 		if (!Check(Groups[1]->OrderSerial == 0 && Groups[1]->Order == EArmyOrder::Hold,
@@ -416,6 +572,15 @@ private:
 	TArray<FVector> Goals[2];
 	TArray<FVector> Positions[2];
 	TSet<AArmyUnit*> WentAroundObstacle;
+	FBox Obstacle = FBox(ForceInit);
+	FVector TravelAxis = FVector::ForwardVector;
+	FVector SideAxis = FVector::RightVector;
+	FVector WallProbe = FVector::ZeroVector;
+	double TravelExtent = 0.;
+	double SideExtent = 0.;
+	double GroundHeight = 0.;
+	int32 EligibleObstacles = 0;
+	int32 ClearCircuits = 0;
 	EStage Stage = EStage::FindGroups;
 	int32 ReplacementCount = 0;
 	bool bFailed = false;
