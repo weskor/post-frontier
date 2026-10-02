@@ -15,7 +15,7 @@ assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 role_type = getattr(unreal, "UnitRole", None) or getattr(unreal, "EUnitRole")
 armor_type = getattr(unreal, "ArmorClass", None) or getattr(unreal, "EArmorClass")
-damage_type = getattr(unreal, "DamageType", None) or getattr(unreal, "EDamageType")
+damage_type = unreal.WeaponDamageType
 
 
 def require(value, message):

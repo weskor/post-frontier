@@ -374,6 +374,7 @@ private:
 		const FVector Anchor = HQ->GetActorLocation() + FVector(900.f, 0.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
 			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
+		Army->IssueHold();
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -383,11 +384,23 @@ private:
 				&& Army->GetUnits()[4]->Target
 				&& CombatTarget::ArmorClass(Army->GetUnits()[4]->Target) == EArmorClass::Structure,
 			TEXT("Live acquisition prefers nearest Light for Kinetic, Heavy for Piercing, and Structure for Demolition"));
-		// The old target must not hide a newly closer matching-class enemy.
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(75.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[2],
+			TEXT("A live in-range target stays selected when a nearer matching-class enemy appears"));
+		// Explicit player intent overrides a retained automatic counter target.
+		Army->AttackTarget = Enemy->GetUnits()[0];
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[0],
+			TEXT("Explicit AttackTarget outranks a retained target and automatic counter preference"));
+		Army->AttackTarget = nullptr;
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[0],
+			TEXT("An eligible non-counter target is retained even when a counter target is available"));
+		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(400.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[4],
-			TEXT("Acquisition replaces a live target when a nearer matching-class enemy appears"));
+			TEXT("A target leaving weapon range triggers fresh nearest-counter acquisition"));
 		for (int32 Index = 0; Index < 6; ++Index)
 		{
 			Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);

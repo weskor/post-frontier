@@ -13,7 +13,8 @@ enum class EUnitRole : uint8
 {
 	Frontline,
 	Ranged,
-	Siege
+	Siege,
+	Unset UMETA(Hidden)
 };
 
 UCLASS(BlueprintType)
@@ -45,8 +46,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance")
 	TSoftObjectPtr<UStaticMesh> MachineMesh;
 
+	// No authored enum equals its CDO default, so all three serialize explicitly.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	EUnitRole Role = EUnitRole::Frontline;
+	EUnitRole Role = EUnitRole::Unset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	int32 MaxHealth = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
@@ -56,9 +58,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	float Interval = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	EArmorClass ArmorClass = EArmorClass::Light;
+	EArmorClass ArmorClass = EArmorClass::Unset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	EDamageType DamageType = EDamageType::Kinetic;
+	EDamageType DamageType = EDamageType::Unset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement")
 	float MoveSpeed = 0.f;
 };

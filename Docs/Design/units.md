@@ -27,7 +27,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 | Structure | Buildings and HQs | Demolition |
 
 - **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the class bonus applies before the outgoing Siege Optics and incoming Entrenched Frontline modifiers. EMP currently has no HP bonus; its shield rule comes with Shielded units.
-- **Targeting [Built]:** the automatic rule in [forces.md](forces.md) is implemented. Eligibility still respects weapon range and the existing pursuit leash; current intent only breaks exact ties. Force-card presentation remains [New].
+- **Targeting [Built]:** follows the rule in [forces.md](forces.md). That topic owns explicit-target priority, retained-target lifetime, automatic acquisition and the pending force-card presentation.
 - **Shields [New] — decided:**
   - Shield points absorb damage before HP.
   - They regenerate at 10% per second after 4 s without taking damage.

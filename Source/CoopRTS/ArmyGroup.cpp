@@ -642,27 +642,29 @@ void AArmyGroup::UpdateCombat()
 					<= FVector::Dist2D(Unit->GetActorLocation(), Destination) + 250.f;
 			return (bNearAnchor && Distance <= FMath::Square(1450.f)) || bEnRoute;
 		};
-		AActor* Chosen = nullptr;
-		FTargetSelection Selection;
-		int32 CandidateIndex = 0;
-		auto Consider = [&](AActor* Candidate) {
-			if (!Permitted(Candidate))
-				return;
-			const int32 IndexInSelection = CandidateIndex++;
-			Selection.Consider(Unit->GetDamageType(), IndexInSelection, CombatTarget::ArmorClass(Candidate),
-				FVector::DistSquared2D(Unit->GetActorLocation(), Candidate->GetActorLocation()));
-			if (Selection.Index == IndexInSelection)
-				Chosen = Candidate;
-		};
-		// Existing intent breaks exact ties only; it cannot mask a counter or a nearer enemy.
-		Consider(Unit->Target.Get());
-		Consider(AttackTarget.Get());
-		for (AArmyUnit* Enemy : Enemies)
-			Consider(Enemy);
-		Consider(HostileHQ);
-		if (HostileBuildings)
-			for (ACommandBuilding* Building : *HostileBuildings)
-				Consider(Building);
+		AActor* Chosen = Permitted(AttackTarget.Get()) ? AttackTarget.Get()
+			: Permitted(Unit->Target.Get())            ? Unit->Target.Get()
+													   : nullptr;
+		if (!Chosen)
+		{
+			FTargetSelection Selection;
+			int32 CandidateIndex = 0;
+			auto Consider = [&](AActor* Candidate) {
+				if (!Permitted(Candidate))
+					return;
+				const int32 IndexInSelection = CandidateIndex++;
+				Selection.Consider(Unit->GetDamageType(), IndexInSelection, CombatTarget::ArmorClass(Candidate),
+					FVector::DistSquared2D(Unit->GetActorLocation(), Candidate->GetActorLocation()));
+				if (Selection.Index == IndexInSelection)
+					Chosen = Candidate;
+			};
+			for (AArmyUnit* Enemy : Enemies)
+				Consider(Enemy);
+			Consider(HostileHQ);
+			if (HostileBuildings)
+				for (ACommandBuilding* Building : *HostileBuildings)
+					Consider(Building);
+		}
 		if (Unit->Target != Chosen)
 		{
 			Unit->Target = Chosen;

@@ -93,10 +93,12 @@ Each force has **one setting**, shown and changed on its force card:
 | Retreat threshold | Never / 25% / 40% / 60% of capacity alive | 40% (today's value) | Attack only |
 
 - **Never** allows suicide pushes and last stands, which suits a Juggernaut breaking an HQ.
-- **The targeting rule replaces the target-priority setting:**
-  - Units automatically prefer enemies of the armor class they deal bonus damage against, then the nearest enemy.
-  - Demolition units prefer structures.
-  - The rule is readable from the two icons and shown on the force card.
+- **The targeting rule replaces the target-priority setting [Built]:**
+  - An eligible explicit AttackTarget keeps priority over automatic targeting.
+  - A unit keeps its current target until it dies or leaves weapon range/the pursuit leash. A newly available counter-class or nearer enemy does not interrupt that lock.
+  - The counter preference applies only when a unit acquires a new automatic target: prefer enemies of the armor class it deals bonus damage against, then the nearest eligible enemy.
+  - Demolition units prefer structures on new automatic acquisition.
+  - The rule is readable from the two icons and shown on the force card [New].
   - A per-force priority setting is **[Later]**.
 
 ## Barracks upgrades [New] — decided

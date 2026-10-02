@@ -9,16 +9,18 @@ enum class EArmorClass : uint8
 	Light,
 	Heavy,
 	Shielded,
-	Structure
+	Structure,
+	Unset UMETA(Hidden)
 };
 
-UENUM(BlueprintType)
+UENUM(BlueprintType, meta = (ScriptName = "WeaponDamageType"))
 enum class EDamageType : uint8
 {
 	Kinetic,
 	Piercing,
 	Demolition,
-	EMP
+	EMP,
+	Unset UMETA(Hidden)
 };
 
 namespace CombatPolicy
