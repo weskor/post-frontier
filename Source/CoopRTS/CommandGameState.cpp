@@ -145,7 +145,12 @@ void ACommandGameState::Tick(float DeltaSeconds)
 				if (Wallet->TeamIndex == 0 && Wallet->CommanderIndex >= 0 && Wallet->CommanderIndex < 5)
 					Wallet->AddResources(GetBaselineIncomePerSecond() * 2);
 		if (IsValid(EnemyCommander))
-			EnemyCommander->AddResources(GetBaselineIncomePerSecond() * 2);
+		{
+			const int32 PaymentTenths = FMath::RoundToInt(GetEnemyBaselineIncomePerSecond() * 20.)
+				+ EnemyIncomeRemainderTenths;
+			EnemyCommander->AddResources(PaymentTenths / 10);
+			EnemyIncomeRemainderTenths = PaymentTenths % 10;
+		}
 		for (ADepositSite* Deposit : Deposits)
 		{
 			if (!IsValid(Deposit))
@@ -175,11 +180,25 @@ int32 ACommandGameState::GetBaselineIncomePerSecond() const
 	return FSimulationSettings::ForWorld(GetWorld()).BaselineIncome;
 }
 
+double ACommandGameState::GetEnemyBaselineIncomePerSecond() const
+{
+	int32 HumanCommanders = 0;
+	for (const APlayerState* Player : PlayerArray)
+		if (const ACommandPlayerState* Commander = Cast<ACommandPlayerState>(Player))
+			if (IsValid(Commander) && Commander->TeamIndex == 0
+				&& Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5)
+				++HumanCommanders;
+	return GetBaselineIncomePerSecond() * EconomyPolicy::JevPlayerCountFactor(HumanCommanders);
+}
+
 int32 ACommandGameState::GetIncomePerSecond(const ACommandPlayerState* Commander) const
 {
 	int32 Income = GetBaselineIncomePerSecond();
 	if (!IsValid(Commander))
 		return Income;
+	// Existing integer estimates floor only JEV's fractional baseline; extractor rates remain unscaled.
+	if (Commander == EnemyCommander)
+		Income = FMath::FloorToInt(GetEnemyBaselineIncomePerSecond());
 	for (const ADepositSite* Deposit : Deposits)
 		if (IsValid(Deposit) && Deposit->Remaining > 0 && IsPayingExtractor(Deposit->Extractor, Deposit)
 			&& Deposit->Extractor->OwningPlayerState == Commander

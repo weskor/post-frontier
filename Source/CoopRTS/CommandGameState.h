@@ -40,6 +40,7 @@ public:
 	}
 	int32 GetIncomePerSecond(const ACommandPlayerState* Commander) const;
 	int32 GetEnemyIncomePerSecond() const;
+	double GetEnemyBaselineIncomePerSecond() const;
 	const AMapRegion* FindRegionAt(const FVector& Location) const;
 	int32 GetRegionController(int32 RegionIndex) const;
 	bool IsRegionContested(int32 RegionIndex, int32 ForTeam) const;
@@ -84,6 +85,8 @@ public:
 
 private:
 	float IncomeElapsed = 0.f;
+	// Tenths preserve fractional JEV credits without floating-point drift.
+	int32 EnemyIncomeRemainderTenths = 0;
 	float AudioLiveStartServerTime = 0.f;
 	EMatchResult LastAudioMatchResult = EMatchResult::Ongoing;
 	bool bMatchAudioInitialized = false;

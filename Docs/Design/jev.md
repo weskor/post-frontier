@@ -61,9 +61,11 @@ The visible version schedule described in [battle.md](battle.md). Each release a
 
 ## Scaling with player count [Change]
 
-- The factor ×(1 + 0.3 × (N − 1)) for N players applies to **both** JEV's baseline income and its wave budget. Node depth multiplies on top.
-- **Today:** JEV earns a flat 2/s however many players there are, so more players make it *easier*.
-- **Solo** uses the same formula with N = 1. Solo relief comes from the secondary commander ([commanders.md](commanders.md)) and active pause ([ui.md](ui.md)). A separate solo factor is added only if playtests show it's needed.
+- **[Built] Baseline income:** JEV's baseline is multiplied by ×(1 + 0.3 × (N − 1)). N counts human player states with a valid commander slot in the current match roster, read at each payment, so joining or leaving changes the rate. Counts below one use N = 1. Fractional credits carry between integer-wallet payments, including across roster changes; extraction income is not multiplied.
+- **[New] Wave budget:** uses the same player-count factor. Node depth multiplies on top.
+- **[Built] Solo:** uses the same formula with N = 1, including single-commander simulation matches.
+- **[New] Solo relief:** comes from the secondary commander ([commanders.md](commanders.md)) and active pause ([ui.md](ui.md)).
+- **[Candidate] Separate solo factor:** added only if playtests show it's needed.
 
 ## Personalities [New] — decided
 

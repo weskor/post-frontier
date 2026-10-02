@@ -1,5 +1,10 @@
 #include "EconomyPolicy.h"
 
+double EconomyPolicy::JevPlayerCountFactor(int32 HumanCommanders)
+{
+	return 1. + 0.3 * (FMath::Max(1, HumanCommanders) - 1);
+}
+
 FExtractorPayment EconomyPolicy::ExtractorPayment(const FExtractorPaymentInput& In)
 {
 	if (!In.bAlive || !In.bComplete || In.OwnerTeam != In.RecipientTeam

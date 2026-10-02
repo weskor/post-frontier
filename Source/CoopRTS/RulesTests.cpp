@@ -212,6 +212,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlacementProximityTest, "CoopRTS.Rules.Placeme
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyIncomeTest, "CoopRTS.Rules.Economy.IncomeAndSaturation",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyJevScalingTest, "CoopRTS.Rules.Economy.JevPlayerCount",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyExtractorTest, "CoopRTS.Rules.Economy.ExtractorDepletionAndOwner",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEconomyRefundTest, "CoopRTS.Rules.Economy.Refund",
@@ -474,6 +476,17 @@ bool FPlacementProximityTest::RunTest(const FString& Parameters)
 	ExpectPlacement(*this, TEXT("Troop boundary inclusive and ignores height"), In, EPlacementVerdict::EnemyTroopsTooClose);
 	Troops[0].X += 1.f;
 	ExpectPlacement(*this, TEXT("Beyond troop boundary allowed"), In, EPlacementVerdict::Valid);
+	return true;
+}
+
+bool FEconomyJevScalingTest::RunTest(const FString& Parameters)
+{
+	const double Expected[] = { 1., 1.3, 1.6, 1.9, 2.2 };
+	for (int32 Count = 1; Count <= 5; ++Count)
+		TestTrue(FString::Printf(TEXT("%d human commanders use the specified JEV factor"), Count),
+			FMath::IsNearlyEqual(EconomyPolicy::JevPlayerCountFactor(Count), Expected[Count - 1], 1.e-12));
+	for (const int32 Count : { MIN_int32, -1, 0 })
+		TestEqual(TEXT("Invalid counts use the solo factor"), EconomyPolicy::JevPlayerCountFactor(Count), 1.);
 	return true;
 }
 

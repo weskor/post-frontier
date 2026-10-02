@@ -16,6 +16,8 @@ struct FExtractorPayment
 
 namespace EconomyPolicy
 {
+// Counts below one use solo scaling; each additional human commander adds 30%.
+double JevPlayerCountFactor(int32 HumanCommanders);
 // Extraction consumes only what the living, completed owner's wallet is paid.
 FExtractorPayment ExtractorPayment(const FExtractorPaymentInput& In);
 // Positive credits saturate at MAX_int32; non-positive credits leave the wallet unchanged.

@@ -22,7 +22,7 @@ Current-build values come from a source audit on 2026-10-01. README.md and World
 | Force settings | Fixed 40% retreat on Assault; nearest target | Retreat threshold per force, Attack only; targeting rule prefers the bonus class ([forces.md](forces.md)) |
 | Buildings | Barracks, Extractor, Workshop; no building cap; no recycling | 10 buildings in 7 categories at launch, recycle for 50%; production buildings capped at 4 per commander (solo 5); Overclocker and Barricade later ([buildings.md](buildings.md), [forces.md](forces.md)) |
 | HQ | Passive, 900 HP | Passive, 1800 HP; tiers and calldowns later ([buildings.md](buildings.md)) |
-| Enemy scaling | Flat 2/s regardless of player count | ×(1 + 0.3(N − 1)) on income and wave budget, × depth; solo uses N = 1 ([jev.md](jev.md)) |
+| Enemy scaling | Baseline income scales with the live human commander roster; fractional credits carry between payments ([jev.md](jev.md)) | Player-count scaling on wave budgets and node-depth scaling ([jev.md](jev.md)); solo relief from a secondary commander and active pause |
 | Counters | Only the three specializations modify damage; nearest-target; Frontline dominates | Armor classes, bonus damage, a who-beats-whom matrix validated in the harness, branches, perks ([units.md](units.md)) |
 | JEV | One deterministic planner, debug plan text, no difficulty settings | Committed per-force plans; the planner proposes legal plans and a deterministic chooser picks; memos from templates, no runtime LLM; hybrid economy plus free-spawn waves, 2 calldowns, personalities, bosses ([jev.md](jev.md)) |
 | Commanders | None | 4 commanders, all available from run 1: passive, region ability, ultimate, kit, card pool ([commanders.md](commanders.md)) |
