@@ -74,17 +74,43 @@ From the [architecture audit](Audit/architecture.md):
 - **Content as text:** one text source for unit stats (today two scripts carry the table, and tuned values live only in binary assets) and one source for gameplay constants (the map JSON has drifted from C++: baseline income 10 vs 2).
 - **Release builds contain no test hooks:** the `-autopilot`/`-Sim*` flags, the income-pause test flag and network-probe fixtures sit behind dev-only guards.
 
-## Enforcement
+## Enforcement — decided 2026-10-02
 
-- **Git hooks:** reject commits to main except from `./x land`; reject commits containing generated binaries outside `land`.
-- **Lint in `./x check`:**
-  - direct engine or UBT invocations outside the runner;
-  - test-only symbols outside dev-only guards;
-  - disabled or skipped tests;
-  - docs citing paths under `Saved/`;
-  - procedure text duplicated outside `./x help` and `AGENTS.md`;
-  - source files missing from the path-to-scope map.
-- **Format:** clang-format for C++ and a Python formatter, checked by `./x check`.
+**Git hooks:** reject commits to main except from `./x land`; reject commits containing generated binaries outside `land`.
+
+### Lint policy
+
+Strict in enforcement, careful in which rules it carries: checks that people see as noisy get ignored (Google's Tricorder work kept effective false positives under about 10%), and agents go further and work around them.
+
+- **Every finding blocks.** There is no warning level and no "fix later".
+- **No inline suppressions.** `NOLINT`, `noqa`, `type: ignore`, `#if 0` and disabled or skipped tests are themselves lint errors.
+- **One central exceptions file.** When a rule is genuinely wrong somewhere, the exception is listed there with the file, the rule and a reason. Every exception is visible in one place.
+- **No grandfathered violations.** A rule is switched on only where the code already passes. Turning a rule on fixes every existing violation in the same change, or covers one folder at a time with each folder fully clean.
+- **Fast and on changed files only,** inside `./x check`.
+- **Auto-fix where possible:** formatting is applied, never argued about.
+
+### Rules, most valuable first
+
+1. **Workaround detectors:**
+   - inline suppressions, disabled or skipped tests;
+   - test-only symbols outside dev-only guards;
+   - direct engine or UBT invocations outside the runner;
+   - edits to generated files outside `land`;
+   - `TODO`, `FIXME`, `HACK` and stub markers;
+   - docs citing paths under `Saved/`;
+   - procedure text duplicated outside `./x help` and `AGENTS.md`.
+2. **Architecture rules:** which layer may include or call which.
+   - Pure rules code includes no actors.
+   - Only the command layer calls network commands.
+   - The HUD reads game state but never changes it.
+   - Every source file sits in the path-to-scope map.
+3. **Size limits:** files at most **500 lines**, functions at most **60 lines**, to stop new god objects. They switch on folder by folder as each folder becomes clean. Measured 2026-10-02 for files:
+   - `Source/CoopRTS/Rules/` and `Source/CoopRTS/Content/` already pass; they switch on in phase 1, once function lengths are checked.
+   - `Build/` has 10 files over 500 lines (mostly art and map generators); it switches on in phase 4.
+   - The rest of `Source/CoopRTS/` has 8 files over 500 lines, including `CommandHUD.cpp` at 1,575; it switches on in phase 5, after the splits.
+4. **Formatting:** clang-format for C++ and a Python formatter, applied automatically. Uniform formatting also cuts merge conflicts between agents.
+5. **C++ static analysis:** a curated set of clang-tidy bug and performance checks, only ones that fire correctly on Unreal code (its macros make a full run noisy). Runs on changed files using UBT's compile database and grows one check at a time.
+6. **Python:** a strict linter with auto-fix and strict type checking, switched on by the same folder-by-folder rule. `./x` and the plain-Python tools (map validators, the harness) start strict in phase 1. Generators that import Unreal's or Blender's Python modules follow in phase 4, once type stubs for those modules are set up.
 
 ## Migration plan
 
@@ -93,11 +119,11 @@ Each phase ends with its exit check passing through `./x check`.
 | Phase | Work | Exit check |
 |---|---|---|
 | 0 | Baseline commit | Done: `3104bdc` |
-| 1 | `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; lint; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Every documented procedure is a `./x` command; a direct commit to main is rejected |
+| 1 | `./x` wrapping today's scripts; locks, evidence records and hash freshness; hooks; the lint policy with workaround detectors, architecture rules, formatting and Python lint and types; size limits for `Rules/` and `Content/`; the path-to-scope map; delete duplicate procedure text from README, the skill and feature docs; move still-valid rules from `/tmp/cooprts-work` into the repo | Every documented procedure is a `./x` command; a direct commit to main is rejected; lint is green |
 | 2 | Green suite: port or delete the 9 red tests; Low-Level Tests prototype, then move the 18 rules tests; Python tests for map validators | `./x check` is green; rules tests run without starting the editor |
 | 3 | One command path; JEV through it; test hooks out of release builds | No test-only RPC or flag in a release build; tests drive the real path |
-| 4 | Content as text; deterministic generators; `land` regenerates binaries | Changing a unit stat is a text-only diff |
-| 5 | Split the god objects; extract pure decision logic; unity builds off | Hotspots from the audit no longer need edits for unrelated features |
+| 4 | Content as text; deterministic generators, split to the size limits; `land` regenerates binaries; size limits switch on for `Build/` | Changing a unit stat is a text-only diff |
+| 5 | Split the god objects; extract pure decision logic; unity builds off; size limits switch on for the rest of `Source/CoopRTS/`; clang-tidy check set grows with each split | Hotspots from the audit no longer need edits for unrelated features |
 
 Gameplay work (build step 1a in [Design/build-order.md](../Design/build-order.md)) can start after phase 1. Each later phase can run alongside gameplay work, as long as the two don't touch the same files.
 
