@@ -43,16 +43,6 @@ public:
 			UE_LOG(LogTemp, Display, TEXT("Strategy progress stage=%d wallet=%d income=%d joined=%d travelling=%d forward=%d"),
 				Stage, State->EnemyCommander ? State->EnemyCommander->Resources : -1, State->GetEnemyIncomePerSecond(),
 				Joined, Travelling, ForwardProduction.IsValid());
-			if (Stage == 4 && Recovery.IsValid())
-			{
-				UE_LOG(LogTemp, Display, TEXT("Recovery progress: verb=%d status=%d center=%s destination=%s"),
-					static_cast<int32>(Recovery->Verb), static_cast<int32>(Recovery->Status),
-					*Recovery->GetCenter().ToString(), *Recovery->Destination.ToString());
-				for (const TWeakObjectPtr<AArmyUnit>& Member : DamagedUnits)
-					if (const AArmyUnit* Unit = Member.Get())
-						UE_LOG(LogTemp, Display, TEXT("Recovery progress slot=%d position=%s velocity=%s health=%d"),
-							Unit->GetCompositionSlot(), *Unit->GetActorLocation().ToString(), *Unit->GetVelocity().ToString(), Unit->GetHealth());
-			}
 			NextProgress = World->GetTimeSeconds() + 10.f;
 		}
 		AEnemyCommander* Planner = nullptr;
@@ -103,17 +93,6 @@ public:
 			if (Recovery->Verb == EForceVerb::MoveHold && Recovery->Status == EForceStatus::Holding
 				&& InSafeRecovery(State))
 				bObservedSafeHold = true;
-			if (!bObservedSafeHold && Joined && Health / Joined >= .8f)
-			{
-				UE_LOG(LogTemp, Display, TEXT("Recovery observation missing: verb=%d status=%d order=%d waypoint=%d target=%d hold=%d safe=%d center=%s destination=%s"),
-					static_cast<int32>(Recovery->Verb), static_cast<int32>(Recovery->Status), static_cast<int32>(Recovery->Order),
-					Recovery->WaypointRegionIndex, Recovery->TargetRegionIndex, Recovery->HoldRegionIndex, SafeRecoveryRegion,
-					*Recovery->GetCenter().ToString(), *Recovery->Destination.ToString());
-				for (const TWeakObjectPtr<AArmyUnit>& Member : DamagedUnits)
-					if (const AArmyUnit* Unit = Member.Get())
-						UE_LOG(LogTemp, Display, TEXT("Recovery member slot=%d position=%s velocity=%s pursuing=%d"),
-							Unit->GetCompositionSlot(), *Unit->GetActorLocation().ToString(), *Unit->GetVelocity().ToString(), Unit->bPursuing);
-			}
 			Planner->EvaluatePlan();
 			if (!OtherProduction.IsValid() || !OtherForce.IsValid() || OtherProduction->ForceGroup != OtherForce.Get()
 				|| OtherForce->GetProductionBuilding() != OtherProduction.Get())

@@ -18,21 +18,26 @@
 bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
 {
 	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);
-	if (!Region || !Region->Contains(GetCenter()))
+	if (!Region)
 		return false;
-	bool bJoined = false;
+	FVector Center = FVector::ZeroVector;
+	FVector Offsets = FVector::ZeroVector;
+	int32 Joined = 0;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing())
 			continue;
-		bJoined = true;
-		// Sparse formations have a biased member centre. Arrival belongs to
-		// the occupied slots of the accepted formation, not that biased mean.
-		if (FVector::DistSquared2D(Unit->GetActorLocation(), Destination + FormationOffset(Unit->GetCompositionSlot()))
-			> FMath::Square(170.f))
-			return false;
+		Center += Unit->GetActorLocation();
+		Offsets += FormationOffset(Unit->GetCompositionSlot());
+		++Joined;
 	}
-	return bJoined;
+	if (!Joined)
+		return false;
+	Center /= Joined;
+	// Correct a sparse formation's biased member centre without requiring
+	// crowd-steered members to occupy a rigid slot before regional holding.
+	return Region->Contains(Center)
+		&& FVector::DistSquared2D(Center - Offsets / Joined, Destination) <= FMath::Square(170.f);
 }
 
 int32 AArmyGroup::GetCapacity() const
@@ -131,7 +136,7 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 		return false;
 	if (AppliedWaypoint == RegionIndex && AppliedPhase == Phase && AppliedStructure.Get() == Structure)
 	{
-		// A nearby centre cannot hide an idle member short of its accepted slot.
+		// Reuse a settled regional waypoint using the same corrected centre.
 		if (Structure ? FVector::DistSquared2D(GetCenter(), Destination) <= FMath::Square(170.f)
 					  : HasArrivedAtRegion(*State, RegionIndex))
 			return true;
