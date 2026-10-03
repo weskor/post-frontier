@@ -6,6 +6,18 @@
 #include "AIController.h"
 #include "HAL/PlatformTime.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "NavigationSystem.h"
+#include "NavigationData.h"
+
+struct FArmyMovementTestAccess
+{
+	static bool Travel(AArmyGroup& Force, const FVector& Destination, bool bApply = true)
+	{
+		return Force.IssueTravel(EArmyOrder::Move, Destination, bApply);
+	}
+};
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyTwoGroupsTest, "CoopRTS.Movement.TwoGroups",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -55,6 +67,11 @@ public:
 		ACommandPlayerState* Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 		if (Stage == 0)
 		{
+			if (Now - StageStarted < .5)
+				return false; // Spawned AI controllers and dynamic navigation must settle.
+			const ACommandGameState* State = Groups[0]->GetWorld()->GetGameState<ACommandGameState>();
+			if (!FindObstacleCircuit(*State))
+				return false; // The bounded deadline reports unavailable map/navigation fixtures.
 			const EForceVerb OtherVerb = Groups[1]->Verb;
 			const int32 OtherTarget = Groups[1]->TargetRegionIndex;
 			if (!FCommandService::IssueForceOrder(Wallet, Groups[0].Get(), EForceVerb::MoveHold, Target))
@@ -94,6 +111,8 @@ public:
 				if (FCommandService::IssueForceOrder(Wallet, Force, EForceVerb::MoveHold, ForceOrders::MaxRegions + 1)
 					|| Force->OrderSerial != Serial || Force->TargetRegionIndex != Target || Force->Destination != Destination)
 					return Fail(TEXT("Invalid region rejects atomically without replacing accepted travel"));
+				if (!RejectObstacleDestinations(*Force))
+					return true;
 				for (int32 Index = 0; Index < Force->GetUnits().Num(); ++Index)
 					if (Following(Force->GetUnits()[Index])->GetCurrentRequestId() != Requests[GroupIndex][Index])
 						return Fail(TEXT("Rejected order must preserve every active character path request"));
@@ -126,7 +145,45 @@ public:
 						return false;
 				}
 			}
-			Test->AddInfo(TEXT("TwoGroups: independent region orders, eight rapid replacements, atomic rejection with uninterrupted paths, and twelve physical arrivals."));
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
+			{
+				for (AArmyUnit* Unit : Force->GetUnits())
+					Unit->SetActorLocation(State->GetRegionAnchor(CrossingHome)
+							+ FVector((1 - Unit->GetCompositionSlot() / 2) * 220.f,
+								(Unit->GetCompositionSlot() % 2 ? 1.f : -1.f) * 140.f, 100.f),
+						false, nullptr, ETeleportType::TeleportPhysics);
+				if (!FCommandService::IssueForceOrder(Wallet, Force.Get(), EForceVerb::MoveHold, CrossingTarget))
+					return Fail(TEXT("Obstacle crossing accepts a real region verb for each independent force"));
+			}
+			Stage = 5;
+			StageStarted = Now;
+		}
+		else if (Stage == 5)
+		{
+			const ACommandGameState* State = Groups[0]->GetWorld()->GetGameState<ACommandGameState>();
+			bool bArrived = true;
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
+			{
+				bArrived &= Force->Status == EForceStatus::Holding && Force->TargetRegionIndex == CrossingTarget;
+				for (AArmyUnit* Unit : Force->GetUnits())
+				{
+					const FVector Relative = Unit->GetActorLocation() - Obstacle.GetCenter();
+					if (FMath::Abs(FVector::DotProduct(Relative, TravelAxis)) < TravelExtent - 50.f
+						&& FMath::Abs(FVector::DotProduct(Relative, SideAxis)) > SideExtent)
+						WentAroundObstacle.Add(Unit);
+					const UPathFollowingComponent* Path = Following(Unit);
+					bArrived &= Path && Path->GetStatus() == EPathFollowingStatus::Idle
+						&& Unit->GetVelocity().Size2D() < 5.f
+						&& FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(CrossingTarget)) < 450.f;
+				}
+			}
+			if (!bArrived)
+				return false;
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
+				for (AArmyUnit* Unit : Force->GetUnits())
+					if (!WentAroundObstacle.Contains(Unit))
+						return Fail(TEXT("Every real character must physically cross around the map obstacle, not only record a curved path"));
+			Test->AddInfo(TEXT("TwoGroups: independent verbs, rapid replacement, near-wall/top rejection with uninterrupted paths, twelve region arrivals and physical obstacle crossings."));
 			return true;
 		}
 		return false;
@@ -136,6 +193,112 @@ private:
 	{
 		const AAIController* AI = Cast<AAIController>(Unit->GetController());
 		return AI ? AI->GetPathFollowingComponent() : nullptr;
+	}
+	bool FindObstacleCircuit(const ACommandGameState& State)
+	{
+		for (TActorIterator<AStaticMeshActor> It(State.GetWorld()); It; ++It)
+		{
+			const UStaticMeshComponent* Mesh = It->GetStaticMeshComponent();
+			if (!Mesh || Mesh->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block
+				|| Mesh->GetCollisionEnabled() == ECollisionEnabled::NoCollision)
+				continue;
+			const FBox Box = Mesh->Bounds.GetBox();
+			const FVector Extent = Box.GetExtent();
+			if (Extent.X < 200.f || Extent.Y < 200.f || Extent.X > 2000.f || Extent.Y > 2000.f || Extent.Z < 150.f)
+				continue;
+			for (const AMapRegion* Source : State.Regions)
+				for (const AMapRegion* End : State.Regions)
+				{
+					if (!IsValid(Source) || !IsValid(End) || !Source->Neighbours.Contains(End->RegionIndex)
+						|| (Source->RegionRole == ERegionRole::Main && Source->HomeTeam != 0)
+						|| (End->RegionRole == ERegionRole::Main && End->HomeTeam != 0))
+						continue;
+					const FVector Start = State.GetRegionAnchor(Source->RegionIndex) - Box.GetCenter();
+					const FVector Finish = State.GetRegionAnchor(End->RegionIndex) - Box.GetCenter();
+					for (int32 Axis = 0; Axis < 2; ++Axis)
+					{
+						const double From = Axis == 0 ? Start.X : Start.Y;
+						const double To = Axis == 0 ? Finish.X : Finish.Y;
+						const double AlongExtent = Axis == 0 ? Extent.X : Extent.Y;
+						const double AcrossExtent = Axis == 0 ? Extent.Y : Extent.X;
+						if (From >= -AlongExtent - 450.f || To <= AlongExtent + 450.f)
+							continue;
+						const FVector Intersection = FMath::Lerp(Start, Finish, -From / (To - From));
+						const double Across = Axis == 0 ? Intersection.Y : Intersection.X;
+						if (FMath::Abs(Across) > AcrossExtent - 150.f
+							|| !FArmyMovementTestAccess::Travel(*Groups[0].Get(), State.GetRegionAnchor(Source->RegionIndex), false)
+							|| !FArmyMovementTestAccess::Travel(*Groups[0].Get(), State.GetRegionAnchor(End->RegionIndex), false))
+							continue;
+						Obstacle = Box;
+						TravelAxis = Axis == 0 ? FVector::ForwardVector : FVector::RightVector;
+						SideAxis = Axis == 0 ? FVector::RightVector : FVector::ForwardVector;
+						TravelExtent = AlongExtent;
+						SideExtent = AcrossExtent;
+						CrossingHome = Source->RegionIndex;
+						CrossingTarget = End->RegionIndex;
+						if (FindWallProbe(State))
+							return true;
+					}
+				}
+		}
+		return false;
+	}
+	bool FindWallProbe(const ACommandGameState& State)
+	{
+		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(State.GetWorld());
+		const AArmyUnit* Unit = Groups[0]->GetUnits()[0];
+		const FNavAgentProperties& Agent = Unit->GetNavAgentPropertiesRef();
+		const ANavigationData* Data = Navigation ? Navigation->GetNavDataForProps(Agent, Unit->GetNavAgentLocation()) : nullptr;
+		if (!Data)
+			return false;
+		for (double Along = -TravelExtent - 100.f; Along < 0.f; Along += 50.f)
+		{
+			FVector Candidate = Obstacle.GetCenter() + TravelAxis * Along;
+			Candidate.Z = State.GetRegionAnchor(CrossingHome).Z;
+			FNavLocation Ground;
+			if (!Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(35.f, 35.f, 200.f), Data)
+				|| FVector::Dist2D(Candidate, Ground.Location) > 35.f)
+				continue;
+			FPathFindingQuery Query(nullptr, *Data, Unit->GetNavAgentLocation(), Ground.Location);
+			Query.SetAllowPartialPaths(false);
+			const FPathFindingResult CenterPath = Navigation->FindPathSync(Agent, Query);
+			if (!CenterPath.IsSuccessful() || !CenterPath.Path.IsValid() || CenterPath.Path->IsPartial()
+				|| FArmyMovementTestAccess::Travel(*Groups[0].Get(), Ground.Location, false))
+				continue;
+			WallProbe = Ground.Location;
+			return true;
+		}
+		return false;
+	}
+	bool RejectObstacleDestinations(AArmyGroup& Force)
+	{
+		FVector Top = Obstacle.GetCenter();
+		Top.Z = Obstacle.Max.Z;
+		for (const FVector Destination : { WallProbe, Top })
+		{
+			const uint32 Serial = Force.OrderSerial;
+			const FVector Accepted = Force.Destination;
+			const EArmyOrder Phase = Force.Order;
+			TArray<FAIRequestID, TInlineAllocator<6>> Active;
+			for (const AArmyUnit* Unit : Force.GetUnits())
+				Active.Add(Following(Unit)->GetCurrentRequestId());
+			if (FArmyMovementTestAccess::Travel(Force, Destination)
+				|| Force.OrderSerial != Serial || Force.Destination != Accepted || Force.Order != Phase)
+			{
+				Fail(TEXT("Reachable-center near-wall and unreachable-top formations reject without mutating accepted travel"));
+				return false;
+			}
+			for (int32 Index = 0; Index < Force.GetUnits().Num(); ++Index)
+			{
+				const UPathFollowingComponent* Path = Following(Force.GetUnits()[Index]);
+				if (!Path || Path->GetCurrentRequestId() != Active[Index] || Path->GetStatus() != EPathFollowingStatus::Moving)
+				{
+					Fail(TEXT("Near-wall/top rejection preserves every active character path"));
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 	bool Fail(const TCHAR* Message)
 	{
@@ -147,6 +310,11 @@ private:
 	TWeakObjectPtr<AArmyGroup> Groups[2];
 	TArray<FVector> Positions[2];
 	TArray<FAIRequestID> Requests[2];
+	TSet<AArmyUnit*> WentAroundObstacle;
+	FBox Obstacle = FBox(ForceInit);
+	FVector TravelAxis = FVector::ForwardVector, SideAxis = FVector::RightVector, WallProbe = FVector::ZeroVector;
+	double TravelExtent = 0., SideExtent = 0.;
+	int32 CrossingHome = INDEX_NONE, CrossingTarget = INDEX_NONE;
 	int32 Home = INDEX_NONE, Target = INDEX_NONE, Stage = 0, Replacements = 0;
 	double Started, StageStarted = 0.;
 };

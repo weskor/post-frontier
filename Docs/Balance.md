@@ -6,17 +6,17 @@ The default whole-match mode of `./x sim` ([`./x help sim`](../x)) runs one fres
 
 The runner owns process launch, headless scheduling, freshness and cleanup. Editor standalone and packaged Development matches both require the requested map to start; a wrong/unstarted map is a failure, not a result. Runtime artifact mutation is rejected.
 
-### Planner under measurement
+### Current planner [Built]
 
-Both sides evaluate every **2 game seconds**, pay through the same placement/production APIs, and use `SetGoal`, never planner-supplied location fronts. Composition starts Frontline, then Ranged, then Siege; the planner maintains at most **3 barracks**. Optional buildings, extractors and research retain **120 Power** (one complete infantry force) as a replacement reserve.
+Both sides evaluate every **2 game seconds**, pay through the same placement/production APIs, and use `FCommandService::IssueForceOrder`, never planner-supplied location fronts. Composition starts Frontline, then Ranged, then Siege; the planner maintains at most **3 barracks**. Optional buildings, extractors and research retain **120 Power** (one complete infantry force) as a replacement reserve. The dated whole-match results below predate this verb cutover and measured the former goal driver; they have not been re-measured under the current executor.
 
-Expansion excludes unreachable regions and enemy mains, splits forces across distinct targets, and scores each candidate as `8 + 2 × free deposit rate − 5 × graph hops − 4 × hostile units − distance² / 4000² − 3 if enemy-controlled + 4 if already targeted`. Distance is force-center to region-anchor in centimetres. Nearest available forces Hold threatened controlled regions. Assault requires at least **6 allied living units**, at least **1.25×** opposing living strength, and income no lower than the opposing team's total; exhaustion of expansion targets also leads to Assault. The goal driver retains its own casualty-refill behavior without identical Assault goals resetting it.
+Expansion excludes unreachable regions and enemy mains, splits forces across distinct targets, and scores each candidate as `8 + 2 × free deposit rate − 5 × graph hops − 4 × hostile units − distance² / 4000² − 3 if enemy-controlled + 4 if already targeted`. Distance is force-center to region-anchor in centimetres. Nearest available forces Move & Hold threatened controlled regions. An offensive Attack on the enemy-main region requires at least **6 allied living units**, at least **1.25×** opposing living strength, and income no lower than the opposing team's total; exhaustion of expansion targets also leads to Attack. Identical Attack orders are not reissued, preserving the executor's casualty-withdrawal/refill state. Current verb completion and orphan rules live in [forces.md](Design/forces.md#steering-forces-change--decided).
 
 Forward barracks require a controlled, uncontested non-main region without an owned producer; the nearest eligible anchor to the opposing HQ is preferred. Additional barracks wait for forward territory and at least one paying extractor. Extractors prefer rate and proximity, require a free nonempty deposit in safe controlled territory, and wait for the first allied recruit. Construction searches mirrored **32 directions × 9 rings**, with radii **380 + 160 × ring cm**, through normal grid, collision, navigation and footprint validation.
 
 Construction preserves free-deposit space and existing full-force rally footprints: candidate centres must remain at least **`sqrt(2) × building footprint radius + 200 cm`** away. The 200 cm covers the six-unit formation extent and navigation-agent margin. A rejected preferred extractor placement does not deadlock investment; other eligible deposits are attempted through the normal placement API.
 
-Average joined-unit health below **35%** requests only that producer's Fall Back goal; recovery persists until average joined health reaches **80%**. Fall Back targets the force's validated assembly point through the goal driver, not a fixed HQ offset.
+Average joined-unit health below **35%** requests only that producer's Retreat; planner recovery persists until average joined health reaches **80%**. This health-based planner state is distinct from Attack's alive-capacity threshold and joined-capacity resume. The Retreat executor chooses safety and handles sprint, refill and completion under [forces.md](Design/forces.md#steering-forces-change--decided), rather than a planner-supplied assembly-point goal.
 
 
 ### Simulation and tuning
@@ -41,16 +41,18 @@ Seeds initialize UE's global `Rand/FRand` and `SRand` streams before gameplay. E
 
 ### Telemetry API and artifacts
 
-`FMatchSimulation` observes existing real-game APIs: `ACommandGameState::GetIncomePerSecond`, region/controller queries, `ACommandBuilding` production/goal state, living `AArmyUnit` health/role/attack counters and `AArmyGroup` centers. `FSimulationSettings::ForWorld` supplies the actual baseline payments and deposit rate/reserve initialization; it is not a reporting-only override. Economy still pays through the existing two-second finite-extraction policy.
+`FMatchSimulation` observes existing real-game APIs: `ACommandGameState::GetIncomePerSecond`, region/controller queries, `ACommandBuilding` production state, living `AArmyUnit` health/role/attack counters and `AArmyGroup` centers and replicated verb/status/target/waypoint state. `FSimulationSettings::ForWorld` supplies the actual baseline payments and deposit rate/reserve initialization; it is not a reporting-only override. Economy still pays through the existing two-second finite-extraction policy.
 
 Each match has `launch.json` (job, command, artifact identity, return code and harness status), `stdout.log`, `game.log`, and atomically replaced `match.json` checkpoints. Schema version **1** includes:
 
 - Map, seed, engine version/command line, requested/effective dilation, fixed-step metadata, cap, actual duration, wall duration, outcome and winning team (`0`, `5`, or null).
 - Snapshots at game-time zero, every **30 s**, and termination. `time` is the actual observation time; `scheduled_time` is the sampling boundary. Past states are never manufactured for skipped frames.
-- Per team: `wallet`, `income_per_second`, all living `extractors`/`barracks` (including construction), `completed_extractors`, `deposits_remaining` in currently controlled regions, `units_alive`, `units_reinforcing`, `units_by_role` (Frontline/Ranged/Siege), controlled region count/indices, HQ health, cumulative observed births/casualties/attacks/unit health loss, units per region, largest-region unit share, building production/goal details, and force identities/strength/centers/regions.
+- Per team: `wallet`, `income_per_second`, all living `extractors`/`barracks` (including construction), `completed_extractors`, `deposits_remaining` in currently controlled regions, `units_alive`, `units_reinforcing`, `units_by_role` (Frontline/Ranged/Siege), controlled region count/indices, HQ health, cumulative observed births/casualties/attacks/unit health loss, units per region, largest-region unit share, building production/order details, and force identities/strength/centers/regions.
 - Individual deposit reserves, controlling region team and occupying extractor team at each snapshot. Occupancy is not the same as regional ownership.
 - First placed/completed extractor and barracks, first capture, every region-control transition, observed HQ damage, deposit depletion, and start/finish events. Placement and completion are distinct timings.
 - Static HQ locations, region polygons/roles/neighbour graph, deposit positions/rates/initial amounts, unit production and combat definitions, initial wallets, planner class and spawn ordering.
+- **[Built] Current order telemetry:** building rows use `verb`, `status`, `target_region` and `waypoint_region`, replacing the former goal keys. A building without a force reports `-1` for absent verb/status/region state, not an invented holding order. Every force with living members, including every orphan, keeps its existing `id`, `number`, `alive`, `center` and `region` fields and adds `orphan`, `verb`, `status`, `target_region`, `target_structure` (actor name or null), `waypoint_region` and `resume_count`. These fields are direct observations; orphan state is not inferred from missing building rows. Schema remains version **1**, with additive force/status fields and unchanged aggregate consumers. Historical artifacts are not backfilled.
+- Numeric enums follow [ForceOrders.h](../Source/CoopRTS/ForceOrders.h): verbs **0 MoveHold, 1 Attack, 2 Retreat**; statuses **0 Marching, 1 Holding, 2 Withdrawing, 3 Retreating, 4 Refilling**. Attack + Refilling + `resume_count` identifies automatic withdrawal recovery ([UI interpretation](Design/ui.md#selecting-and-giving-orders-change--decided)).
 
 The batch writes `run.json`, `summary.json`, `Report.md`, and four PNGs: income, living units, concentration and duration. Only successful, validated, natural-exit matches enter aggregation. Win percentages use all complete matches as denominator, with draws reported separately. Duration includes censored draws; compare decisive-match distributions separately when recommending the **12–18 minute** pacing target. Curves average only matches still alive at a scheduled sample, so later points have survivorship bias.
 
@@ -66,7 +68,7 @@ V2 is **explicitly asymmetric** in `Build/Maps/AvailabilityZoneV2.json`: the dra
 
 Use `deposit_depleted` times and individual reserve histories to identify exhaustion. Summed controlled-region reserves can rise/fall on capture even without extraction. Report the fraction of matches reaching depletion alongside conditional timing; absence of depletion is not a zero-minute measurement.
 
-Largest-region unit share is summarized only for snapshots with **at least 12 living units**. Force centers, goals, roles, production and regional counts support inspection of concentrated advances versus split pressure. A high share is a **proxy**, not proof that deathballs dominate strategically; region sizes differ, travellers count as living, and automated one-commander matches do not prove human five-player readability. Unit health-loss observations are a lower bound (same-tick repairs/fatal removal can hide damage); attack counts measure shots, not damage landed. Recommendations require actual match outcomes and those evidence limits, not a synthetic harness smoke or successful compilation.
+Largest-region unit share is summarized only for snapshots with **at least 12 living units**. Force centers, `verb`/`status`, `target_region`/`target_structure`/`waypoint_region`, roles, production and regional counts support inspection of concentrated advances versus split pressure, including surviving orphan orders. A high share is a **proxy**, not proof that deathballs dominate strategically; region sizes differ, travellers count as living, and automated one-commander matches do not prove human five-player readability. Unit health-loss observations are a lower bound (same-tick repairs/fatal removal can hide damage); attack counts measure shots, not damage landed. Recommendations require actual match outcomes and those evidence limits, not a synthetic harness smoke or successful compilation.
 
 ## Results: V2 lean run — 2026-10-01
 
@@ -116,6 +118,8 @@ The design target remains unmet. Further tuning should distinguish goal/front co
 
 [Built] Evidence run **`20261003-034351-sim-0afb`**, measured on clean committed HEAD **`be17c3b`** (`dirty: False`) after rebasing onto main: V2, seeds **1–40**, fixed-step **1×**, **300 game seconds per ordered pair**. All **40/40 seed processes** validated, with **360/360 wipes**, no cap draws, stalled fights, failed or missing processes. Every pair has **20 team-0-first and 20 team-5-first** creations. Each squad spends the full **120 Power**, excluding the Artillery configuration fee.
 
+**Provenance limit [Change]:** this is acceptance of the recorded `be17c3b` geometry and executor, not a new forty-seed measurement of the verb cutover. Current duel placement selects non-main region anchors rather than the former arena-grid candidates; the current geometry and evidence boundary are recorded [below](#current-duel-geometry-built--measurement-limit).
+
 ### Accepted runtime definitions
 
 [Built] The authored source and profile semantics live in [units.md](Design/units.md); production durations and the unchanged configuration fee live in [forces.md](Design/forces.md).
@@ -157,6 +161,12 @@ The selected candidate kept the original one-second Rifle cadence and passed eve
 ## Duel report — pursuit-fixed baseline published 2026-10-03
 
 [Built] Duel mode is a separate, explicitly opted-in standalone encounter runner. It reads the selected map's live combat definitions and runs an entire ordered matrix in each fresh seed process. Operational budgets, win denominators, worth and definition-rule semantics live in [units.md](Design/units.md); launch and regeneration procedures live only in [`./x help sim`](../x).
+
+### Current duel geometry [Built] — measurement limit
+
+`FSimulationDuelRunner::FindGround` now tries **non-main region anchors, ordered by distance from the world origin**, so region Attack has a real destination. It no longer searches the former arena grid. Candidates still require a whole-area pawn collision check, dense **100 cm** navigation samples and unobstructed center rays; the accepted centre, clearance, member spacing/jitter, team creation order, **1000 cm** squad separation and **1050 cm** pursuit radius are recorded in each current report's `geometry`. `site_selection` identifies the anchor-based candidate rule.
+
+**[Change] Evidence boundary:** changing the site changes duel geometry and movement relative to anchors. Neither the historical ten-seed matrix below nor the accepted forty-seed `be17c3b` matrix above has been re-measured with this site-selection/verb executor. Their counts and balance conclusions remain attributed to their recorded commits; they are not current-branch acceptance. Runtime smoke/scoped checks do not replace a fresh balance matrix, and no old samples are relabelled as new measurements.
 
 ### Reading the report
 

@@ -15,6 +15,7 @@ from harness.network import (
     force,
     force_counts_match,
     order_matches,
+    order_destination_matches,
     owned_buildings,
     require,
     select_order_region,
@@ -74,6 +75,7 @@ def hold_at(
         s.names,
         lambda st: (
             order_matches(st, index, MOVE_HOLD, target)
+            and order_destination_matches(st, s.owner, index, target)
             and force_counts_match(st, s.owner, index)
             and force(st, s.owner, index)["forceVerb"] == MOVE_HOLD
             and force(st, s.owner, index)["targetRegionIndex"] == target
@@ -239,12 +241,28 @@ def configure_siege(run: NetworkRun, s: Session, index: int) -> int:
         "configuration pause",
     )
     target = select_order_region(states["host"], index)["index"]
-    hold_at(
+    # An empty force cannot physically arrive until a paid recruit joins it.
+    run.request(
+        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
+    )
+    converged(
         run,
-        s,
-        index,
-        target,
-        "owned Move + Hold order and target replicate after configuration",
+        s.names,
+        lambda st: (
+            order_matches(st, index, MOVE_HOLD, target)
+            and force_counts_match(st, s.owner, index)
+            and force(st, s.owner, index)["forceVerb"] == MOVE_HOLD
+            and force(st, s.owner, index)["targetRegionIndex"] == target
+            and force(st, s.owner, index)["orders"]
+            == [
+                {
+                    "forceVerb": MOVE_HOLD,
+                    "targetRegionIndex": target,
+                    "targetStructureId": -1,
+                }
+            ]
+        ),
+        "empty configured force receives its remote Move & Hold target",
     )
     return cast(int, producer["forceID"])
 

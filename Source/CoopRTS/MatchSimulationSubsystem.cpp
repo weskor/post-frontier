@@ -255,6 +255,7 @@ bool FSimulationDuelRunner::FindGround()
 		Center = Ground.Location;
 		const TSharedRef<FJsonObject> Geometry = MakeShared<FJsonObject>();
 		Geometry->SetArrayField(TEXT("center"), Position(Center));
+		Geometry->SetStringField(TEXT("site_selection"), TEXT("non-main region anchors ordered by distance from world origin"));
 		Geometry->SetNumberField(TEXT("open_half_extent"), DuelClearance);
 		Geometry->SetNumberField(TEXT("navigation_sample_spacing"), 100.f);
 		Geometry->SetNumberField(TEXT("spawn_spacing"), DuelSpacing);
@@ -885,6 +886,7 @@ void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 			Detail->SetNumberField(TEXT("unit_index"), Building->ProductionUnitIndex);
 			const AArmyGroup* Force = Building->ForceGroup;
 			Detail->SetNumberField(TEXT("verb"), IsValid(Force) ? static_cast<uint8>(Force->Verb) : -1);
+			Detail->SetNumberField(TEXT("status"), IsValid(Force) ? static_cast<uint8>(Force->Status) : -1);
 			Detail->SetNumberField(TEXT("target_region"), IsValid(Force) ? Force->TargetRegionIndex : INDEX_NONE);
 			Detail->SetNumberField(TEXT("waypoint_region"), IsValid(Force) ? Force->WaypointRegionIndex : INDEX_NONE);
 			Buildings.Add(MakeShared<FJsonValueObject>(Detail));
@@ -928,6 +930,17 @@ void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 			Detail->SetArrayField(TEXT("center"), Position(It->GetCenter()));
 			const AMapRegion* Region = State.FindRegionAt(It->GetCenter());
 			Detail->SetNumberField(TEXT("region"), Region ? Region->RegionIndex : INDEX_NONE);
+			const ACommandBuilding* Producer = It->GetProductionBuilding();
+			Detail->SetBoolField(TEXT("orphan"), !IsValid(Producer) || !Producer->IsAlive());
+			Detail->SetNumberField(TEXT("verb"), static_cast<uint8>(It->Verb));
+			Detail->SetNumberField(TEXT("status"), static_cast<uint8>(It->Status));
+			Detail->SetNumberField(TEXT("target_region"), It->TargetRegionIndex);
+			if (IsValid(It->TargetStructure))
+				Detail->SetStringField(TEXT("target_structure"), It->TargetStructure->GetName());
+			else
+				Detail->SetField(TEXT("target_structure"), MakeShared<FJsonValueNull>());
+			Detail->SetNumberField(TEXT("waypoint_region"), It->WaypointRegionIndex);
+			Detail->SetNumberField(TEXT("resume_count"), It->ResumeCount);
 			Forces.Add(MakeShared<FJsonValueObject>(Detail));
 		}
 		const TSharedRef<FJsonObject> Concentration = MakeShared<FJsonObject>();

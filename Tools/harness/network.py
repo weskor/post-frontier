@@ -31,6 +31,7 @@ __all__ = [
     "force",
     "force_counts_match",
     "order_matches",
+    "order_destination_matches",
     "owned_buildings",
     "region",
     "require",
@@ -269,12 +270,27 @@ def order_matches(state: JsonObject, index: int, verb: int, target: int) -> bool
     )
 
 
+def order_destination_matches(state: JsonObject, owner: int, index: int, target: int) -> bool:
+    if not force_counts_match(state, owner, index):
+        return False
+    group = force(state, owner, index)
+    # The complete formation may resolve an obstructed region anchor by up to 75 cm.
+    # Check the actual destination, not an acceptance message or intent-only marker.
+    return (
+        order_matches(state, index, MOVE_HOLD, target)
+        and group["forceVerb"] == MOVE_HOLD
+        and group["targetRegionIndex"] == target
+        and group["waypointRegionIndex"] == target
+        and distance2(group["destination"], region(state, target)["anchor"]) <= 75**2
+    )
+
+
 # Building definition indices (DA_MatchContent order) and EUnitRole recipes used by the probe.
 BARRACKS, EXTRACTOR, WORKSHOP = 0, 1, 2
 FRONTLINE, RANGED, SIEGE = 0, 1, 2
 MOVE_HOLD, ATTACK, RETREAT = 0, 1, 2
 # EForceStatus ordinals used for physical order-completion assertions.
-HOLDING = 1
+MARCHING, HOLDING, WITHDRAWING, RETREATING, REFILLING = 0, 1, 2, 3, 4
 
 
 def configure(parser: argparse.ArgumentParser) -> None:

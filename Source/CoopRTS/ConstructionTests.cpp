@@ -667,14 +667,31 @@ private:
 		FCommandService::ConfigureProduction(OtherWallet, Building.Get(), EUnitRole::Ranged, true);
 		FCommandService::CancelBuilding(OtherWallet, Building.Get());
 		const int32 Rally = Building->RallyRegionIndex;
-		FCommandService::SetRallyPoint(OtherWallet, Building.Get(), ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation()));
-		if (!Check(Building.IsValid() && !Building->bForceConfigured && !Building->bProductionEnabled
+		const AMapRegion* Home = State->FindRegionAt(Building->GetActorLocation());
+		int32 ForeignRally = INDEX_NONE;
+		if (Home)
+			for (const int32 Neighbour : Home->Neighbours)
+				if (Neighbour != Rally)
+				{
+					ForeignRally = Neighbour;
+					break;
+				}
+		if (!Check(ForeignRally != INDEX_NONE && ForeignRally != Rally,
+				TEXT("Foreign rally fixture targets a different reachable neighbouring region")))
+			return true;
+		const FCommandResult ForeignResult = FCommandService::SetRallyPoint(OtherWallet, Building.Get(), ForeignRally);
+		if (!Check(!ForeignResult.IsAccepted() && Building.IsValid() && !Building->bForceConfigured && !Building->bProductionEnabled
 					&& Building->RallyRegionIndex == Rally && Wallet->Resources == Before && OtherWallet->Resources == 777,
 				TEXT("Same-team foreign role/rally/cancel commands change neither building nor either wallet")))
 			return true;
 		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
 		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 		AArmyGroup* ConfiguredForce = Building->ForceGroup;
+		if (!Check(FCommandService::SetRallyPoint(Wallet, Building.Get(), ForeignRally).IsAccepted()
+					&& Building->RallyRegionIndex == ForeignRally
+					&& FCommandService::SetRallyPoint(Wallet, Building.Get(), Rally).IsAccepted(),
+				TEXT("The same alternate rally is reachable and accepted for its actual owner")))
+			return true;
 		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Siege, true);
 		if (!Check(Building->bForceConfigured && Building->ProductionRole == EUnitRole::Ranged
 					&& !Building->bProductionEnabled && Building->ForceGroup == ConfiguredForce && Wallet->Resources == Before,

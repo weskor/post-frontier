@@ -36,7 +36,7 @@ public:
 					}
 		}
 		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 90.)
+		if (Now - Started > 35.)
 		{
 			if (RejectedInitialTarget.IsSet())
 				Test->AddError(FString::Printf(TEXT("Timed out waiting for live army navigation: initial Move rejected at %s"),
@@ -73,9 +73,9 @@ public:
 			Serial = Army->OrderSerial;
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
 			HomeRegion = ArmyTestSetup::CurrentRegion(Army.Get());
-			const int32 InitialRegion = ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation());
-			const FVector InitialTarget = State->GetRegionAnchor(InitialRegion);
-			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, InitialRegion);
+			AwayRegion = ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation());
+			const FVector InitialTarget = State->GetRegionAnchor(AwayRegion);
+			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, AwayRegion);
 			if (Army->OrderSerial == Serial)
 			{
 				RejectedInitialTarget = InitialTarget;
@@ -131,15 +131,38 @@ public:
 					&& Army->TargetRegionIndex == HomeRegion && HoldingSettled());
 			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
 				Test->TestTrue(TEXT("Every unit stays stopped after Hold assembly settles"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
-			Test->TestTrue(TEXT("Retreat is accepted from a held region"), FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::Retreat).IsAccepted());
+			if (!Test->TestTrue(TEXT("Producerless fixture accepts real outward travel before Retreat"),
+					!IsValid(Army->ProductionBuilding)
+						&& FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, AwayRegion).IsAccepted()))
+				return true;
 			NextStage(Now);
 		}
-		else if (Stage == 5 && Army->Status == EForceStatus::Holding && HoldingSettled())
+		else if (Stage == 5)
 		{
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
-			Test->TestTrue(TEXT("Orphan retreat finishes as MoveHold physically at its safe region"),
-				Army->Verb == EForceVerb::MoveHold
-					&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(Army->TargetRegionIndex)) < 500.f);
+			if (ArmyTestSetup::CurrentRegion(Army.Get()) == HomeRegion
+				|| FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(HomeRegion)) < 650.f)
+				return false;
+			RetreatStart = Army->GetCenter();
+			if (!Test->TestTrue(TEXT("Retreat starts outside its remembered safe region and is accepted"),
+					FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::Retreat).IsAccepted()
+						&& Army->Status == EForceStatus::Retreating && Army->WithdrawalRegionIndex == HomeRegion))
+				return true;
+			NextStage(Now);
+		}
+		else if (Stage == 6)
+		{
+			bRetreatMoved |= FVector::Dist2D(Army->GetCenter(), RetreatStart) > 300.f;
+			if (Army->Status != EForceStatus::Holding || !HoldingSettled())
+				return false;
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			Test->TestTrue(TEXT("Producerless Retreat physically returns to the remembered safe region"),
+				bRetreatMoved && Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == HomeRegion
+					&& ArmyTestSetup::CurrentRegion(Army.Get()) == HomeRegion
+					&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(HomeRegion)) < 150.f);
+			for (const AArmyUnit* Unit : Army->GetUnits())
+				Test->TestTrue(TEXT("Every retreating member physically arrives in its home formation"),
+					FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(HomeRegion)) < 450.f);
 			Test->AddInfo(TEXT("Live navigation passed: region travel, replacement, physical Hold arrival, atomic invalid region and safe Retreat completion."));
 			return true;
 		}
@@ -170,10 +193,13 @@ private:
 	TArray<FVector> HeldPositions;
 	FVector StartCenter = FVector::ZeroVector;
 	FVector Replacement = FVector::ZeroVector;
+	FVector RetreatStart = FVector::ZeroVector;
 	TOptional<FVector> RejectedInitialTarget;
 	uint32 Serial = 0;
 	int32 Stage = 0;
 	int32 HomeRegion = INDEX_NONE;
+	int32 AwayRegion = INDEX_NONE;
+	bool bRetreatMoved = false;
 	bool bIsolated = false;
 	double Started;
 	double StageStarted = 0;

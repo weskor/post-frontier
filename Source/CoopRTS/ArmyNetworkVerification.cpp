@@ -363,7 +363,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		}
 		Entry->SetArrayField(TEXT("orders"), Orders);
 		Number(Entry, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
-		Vector(Entry, TEXT("front"), Group->FrontLocation);
+		Vector(Entry, TEXT("front"), Group->Destination);
 		Vector(Entry, TEXT("center"), Group->GetCenter());
 		Vector(Entry, TEXT("destination"), Group->Destination);
 		Vector(Entry, TEXT("home"), Group->GetHomeLocation());
@@ -435,7 +435,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Entry->SetStringField(TEXT("productionState"),
 			StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState())));
 		Vector(Entry, TEXT("position"), Building->GetActorLocation());
-		Vector(Entry, TEXT("front"), IsValid(Force) ? Force->FrontLocation : Building->GetActorLocation());
+		Vector(Entry, TEXT("front"), IsValid(Force) ? Force->Destination : Building->GetActorLocation());
 		Buildings.Add(MakeShared<FJsonValueObject>(Entry));
 	}
 	Result->SetArrayField(TEXT("buildings"), Buildings);
@@ -808,7 +808,11 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			It->SetActorTickEnabled(false);
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 5)
-				FCommandService::IssueForceOrder(It->GetOwningPlayerState(), *It, EForceVerb::MoveHold, ForceOrderGraph::TeamMain(*State, 5));
+			{
+				const AMapRegion* PhysicalRegion = State->FindRegionAt(It->GetCenter());
+				if (PhysicalRegion)
+					FCommandService::IssueForceOrder(It->GetOwningPlayerState(), *It, EForceVerb::MoveHold, PhysicalRegion->RegionIndex);
+			}
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
 				FCommandService::ConfigureProduction(State->EnemyCommander, Building,

@@ -23,6 +23,7 @@ enum class EScenario : uint8
 	Withdrawal,
 	StructureDeath,
 	Retreat,
+	StructureWithdrawal,
 	Orphan,
 	Queue,
 	MixedSpeed,
@@ -136,6 +137,8 @@ public:
 			return Withdrawal();
 		case EScenario::StructureDeath:
 			return StructureDeath();
+		case EScenario::StructureWithdrawal:
+			return StructureWithdrawal();
 		case EScenario::Retreat:
 			return Retreat();
 		case EScenario::Orphan:
@@ -343,7 +346,8 @@ private:
 		}
 		ParkHostile();
 		bPaid = Scenario == EScenario::Withdrawal || Scenario == EScenario::Retreat
-			|| Scenario == EScenario::Orphan || Scenario == EScenario::Rally;
+			|| Scenario == EScenario::Orphan || Scenario == EScenario::Rally
+			|| Scenario == EScenario::NoSafeRegion || Scenario == EScenario::StructureWithdrawal;
 		if (bPaid)
 		{
 			Producer = Place();
@@ -369,6 +373,24 @@ private:
 	{
 		if (Stage == 0)
 		{
+			const uint32 Serial = Force->OrderSerial;
+			const EForceVerb BeforeVerb = Force->Verb;
+			const int32 BeforeTarget = Force->TargetRegionIndex;
+			const auto Unchanged = [&] { return Force->OrderSerial == Serial && Force->Verb == BeforeVerb
+				&& Force->TargetRegionIndex == BeforeTarget; };
+			AArmyGroup* const MixedOwnership[] = { Force.Get(), Hostile.Get() };
+			AArmyGroup* const Duplicate[] = { Force.Get(), Force.Get() };
+			if (!Check(!FCommandService::IssueForceOrder(Wallet, MixedOwnership, EForceVerb::MoveHold, Target).IsAccepted()
+						&& Unchanged(), TEXT("Mixed owned/foreign selection rejects atomically before touching owned travel"))
+				|| !Check(!FCommandService::IssueForceOrder(Wallet, Duplicate, EForceVerb::MoveHold, Target).IsAccepted()
+						&& Unchanged(), TEXT("Duplicate selected force rejects without replacing its order")))
+				return true;
+			const ERetreatThreshold Threshold = Force->RetreatThreshold;
+			if (!Check(!FCommandService::SetRetreatThreshold(EnemyWallet.Get(), Force.Get(), ERetreatThreshold::Never).IsAccepted()
+						&& Force->RetreatThreshold == Threshold, TEXT("Foreign threshold command preserves owned setting"))
+				|| !Check(!FCommandService::SetRetreatThreshold(Wallet, Force.Get(), static_cast<ERetreatThreshold>(41)).IsAccepted()
+						&& Force->RetreatThreshold == Threshold, TEXT("Invalid threshold rejects without changing setting")))
+				return true;
 			if (!Issue(EForceVerb::MoveHold, Target))
 				return true;
 			if (!Check(Force->WaypointRegionIndex == Intermediate, TEXT("Two-step MoveHold begins at the adjacent neutral waypoint")))
@@ -438,7 +460,21 @@ private:
 			}
 		}
 		if (Stage == 3 && Holding(Target))
-			return Check(Force->Orders.Num() == 1, TEXT("Third and last order settles as persistent MoveHold"));
+		{
+			if (!Check(Force->Orders.Num() == 1, TEXT("Third and last order settles as persistent MoveHold"))
+				|| !Issue(EForceVerb::Attack, Home))
+				return true;
+			if (!Check(Force->Verb == EForceVerb::Attack && Force->TargetRegionIndex == Home
+						&& Force->Status == EForceStatus::Marching,
+					TEXT("Attack on an already controlled clear region still begins physical travel")))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(4);
+		}
+		if (Stage == 4 && Holding(Home))
+			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f
+					&& Force->MarchSpeed == 0.f,
+				TEXT("Controlled-region Attack completes only after arrival and releases its speed cap"));
 		return false;
 	}
 	bool MixedSpeed()
@@ -476,20 +512,39 @@ private:
 			SecondStart = Second->GetCenter();
 			SetStage(1);
 		}
+		if (Stage == 2)
+			return At(Second.Get(), Home) && Second->Status == EForceStatus::Holding
+				&& Check(FVector::Dist2D(StartPosition, Second->GetCenter()) > 500.f,
+					TEXT("The formerly capped fast force physically completes its next authored-speed march"));
 		for (const AArmyGroup* Group : { Force.Get(), Second.Get() })
 		{
-			if (!Check(FMath::IsNearlyEqual(Group->MarchSpeed, ExpectedSpeed) && FMath::IsNearlyEqual(Group->GetMarchSpeed(), ExpectedSpeed),
-					TEXT("Both selected forces march at the slowest actual selected member speed")))
+			const bool bHolding = Group->Status == EForceStatus::Holding;
+			const float Speed = bHolding ? Group->GetBaseMarchSpeed() : ExpectedSpeed;
+			if (!Check(FMath::IsNearlyEqual(Group->MarchSpeed, bHolding ? 0.f : ExpectedSpeed)
+						&& FMath::IsNearlyEqual(Group->GetMarchSpeed(), Speed),
+					TEXT("Selection cap applies while marching and ends at completed MoveHold arrival")))
 				return true;
 			for (const AArmyUnit* Unit : Group->GetUnits())
-				if (!Check(FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, ExpectedSpeed),
-						TEXT("Selection speed reaches every moving character, including faster frontline members")))
+				if (!Check(FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, Speed),
+						TEXT("Moving characters share cap; completed orders restore authored formation speed")))
 					return true;
 		}
 		if (Holding(Target) && Second->Status == EForceStatus::Holding && At(Second.Get(), Target))
-			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f
-					&& FVector::Dist2D(SecondStart, Second->GetCenter()) > 500.f,
-				TEXT("Both selected formations physically traverse the route at their common speed"));
+		{
+			if (!Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f
+						&& FVector::Dist2D(SecondStart, Second->GetCenter()) > 500.f,
+					TEXT("Both selected formations physically traverse the route at their common speed")))
+				return true;
+			Empty = EmptyGroup(Wallet, 0, FromFriendlyHQ(State, 900.f, -600.f, 100.f));
+			AArmyGroup* const Selection[] = { Second.Get(), Empty.Get() };
+			if (!Check(Empty.IsValid() && Empty->GetBaseMarchSpeed() == 0.f
+						&& FCommandService::IssueForceOrder(Wallet, Selection, EForceVerb::MoveHold, Home).IsAccepted()
+						&& FMath::IsNearlyEqual(Second->GetMarchSpeed(), Second->GetBaseMarchSpeed()),
+					TEXT("A memberless orphan does not erase the authored cap of a real selected force")))
+				return true;
+			StartPosition = Second->GetCenter();
+			SetStage(2);
+		}
 		return false;
 	}
 	bool StructureDeath()
@@ -531,6 +586,54 @@ private:
 			return true;
 		return false;
 	}
+	bool StructureWithdrawal()
+	{
+		if (Stage == 0)
+		{
+			if (!Issue(EForceVerb::MoveHold, Intermediate))
+				return true;
+			SetStage(1);
+		}
+		if (Stage == 1 && Holding(Intermediate))
+		{
+			const FTransform Transform(State->GetRegionAnchor(Target) + FVector(600.f, 0.f, 5.f));
+			Structure = GameWorld->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(), Transform,
+				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+			if (!Check(Structure.IsValid(), TEXT("Withdrawal target structure spawns")))
+				return true;
+			Structure->BuildingIndex = BarracksIndex;
+			Structure->TeamIndex = 5;
+			Structure->OwningPlayerState = EnemyWallet.Get();
+			Structure->ConstructionProgress = 1.f;
+			Structure->FinishSpawning(Transform);
+			if (!Issue(EForceVerb::Attack, Target, Structure.Get()))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(2);
+		}
+		if (Stage == 2 && FVector::Dist2D(StartPosition, Force->GetCenter()) >= 700.f)
+		{
+			if (!KillTo(2))
+				return true;
+			TickForce();
+			SafeRegion = Force->WaypointRegionIndex;
+			if (!Check(Force->Status == EForceStatus::Withdrawing, TEXT("Structure attacker begins actual casualty withdrawal")))
+				return true;
+			Structure->ReceiveAttack(Structure->Health, Force->GetUnits()[0]);
+			TickForce();
+			if (!Check(Force->Verb == EForceVerb::Attack && Force->Status == EForceStatus::Withdrawing
+						&& Force->WaypointRegionIndex == SafeRegion,
+					TEXT("Destroyed structure does not abandon the withdrawal in unsafe ground")))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(3);
+		}
+		if (Stage == 3 && Holding(SafeRegion))
+			return Check(IsValid(Force->GetProductionBuilding()) && Force->GetJoinedCount() == 2
+					&& FVector::Dist2D(StartPosition, Force->GetCenter()) > 100.f,
+				TEXT("Completed target ends at safe arrival without waiting for paused refill"));
+		return false;
+	}
 	bool Orphan()
 	{
 		if (Stage == 0)
@@ -546,19 +649,60 @@ private:
 			StartPosition = Force->GetCenter();
 			SetStage(1);
 		}
-		if (Holding(Target))
-			return Check(Force->GetAliveCount() == 6 && FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
-				TEXT("Orphan accepts and physically executes its new order without producer replacement"));
+		if (Stage == 1 && Holding(Target))
+		{
+			if (!Check(Force->GetAliveCount() == 6 && FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
+					TEXT("Orphan accepts and physically executes its new order without producer replacement"))
+				|| !Issue(EForceVerb::Attack, EnemyHome))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(2);
+		}
+		if (Stage == 2 && FVector::Dist2D(StartPosition, Force->GetCenter()) >= 700.f)
+		{
+			if (!KillTo(2))
+				return true;
+			TickForce();
+			if (!Check(Force->Status == EForceStatus::Withdrawing,
+					TEXT("Two-of-six orphan starts automatic Attack withdrawal")))
+				return true;
+			SafeRegion = Force->WaypointRegionIndex;
+			StartPosition = Force->GetCenter();
+			SetStage(3);
+		}
+		if (Stage == 3 && Holding(SafeRegion))
+			return Check(!Force->GetProductionBuilding() && Force->GetJoinedCount() == 2
+					&& FVector::Dist2D(StartPosition, Force->GetCenter()) > 100.f,
+				TEXT("Orphan Attack withdrawal physically arrives and becomes MoveHold instead of impossible refill"));
 		return false;
 	}
 	bool Rally()
 	{
 		bVisitedIntermediate |= Occupies(Intermediate);
-		if (!Holding(Target))
-			return false;
-		return Check(bVisitedIntermediate && Force->GetJoinedCount() == 6 && Force->GetAliveCount() == 6
-				&& Producer->RallyRegionIndex == Target && State->GetRegionController(Intermediate) == 0,
-			TEXT("Six real paid recruits route to the non-home rally, join there and secure their route"));
+		if (Stage == 0 && Holding(Target))
+		{
+			if (!Check(bVisitedIntermediate && Force->GetJoinedCount() == 6 && Force->GetAliveCount() == 6
+						&& Producer->RallyRegionIndex == Target && State->GetRegionController(Intermediate) == 0,
+					TEXT("Six paid recruits route to non-home rally, join there and secure the route")))
+				return true;
+			TArray<int32> Saved = MoveTemp(Region(State, Home)->Neighbours);
+			const int32 Rally = Producer->RallyRegionIndex;
+			const bool bRejected = !FCommandService::SetRallyPoint(Wallet, Producer.Get(), Target).IsAccepted();
+			Region(State, Home)->Neighbours = MoveTemp(Saved);
+			if (!Check(bRejected && Producer->RallyRegionIndex == Rally,
+					TEXT("Unreachable but valid rally region rejects without mutating producer")))
+				return true;
+			if (!Check(FCommandService::SetRallyPoint(Wallet, Producer.Get(), Home).IsAccepted()
+						&& Force->Verb == EForceVerb::MoveHold && Force->TargetRegionIndex == Home,
+					TEXT("Rally change retargets an existing idle force")))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(1);
+		}
+		if (Stage == 1 && Holding(Home))
+			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
+				TEXT("Idle force physically follows its changed producer rally"));
+		return false;
 	}
 	bool BeginCombatTrip()
 	{
@@ -719,6 +863,17 @@ private:
 					TEXT("Retreat physically reaches its safe region before refill")))
 				return true;
 			RefillBalance = Wallet->Resources;
+			// Sprint is over. Refilling may fight even with production paused.
+			AArmyUnit* Shooter = Force->GetUnits()[0];
+			AArmyUnit* Victim = Hostile->GetUnits()[0];
+			PutHostile(Shooter->GetActorLocation() + FVector(70.f, 0.f, 0.f));
+			const int32 BeforeHealth = Victim->GetHealth();
+			Shooter->NextAttackTime = 0.f;
+			Shooter->FireAt(Victim);
+			if (!Check(Victim->GetHealth() < BeforeHealth && Force->Status == EForceStatus::Refilling,
+					TEXT("Retreat refilling permits actual in-range damage after weapon-silent sprint")))
+				return true;
+			ParkHostile();
 			if (!Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, true).IsAccepted(), TEXT("Owner starts paid Retreat refill")))
 				return true;
 			SetStage(4);
@@ -752,10 +907,16 @@ private:
 			if (!Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, false).IsAccepted(), TEXT("Owner pauses completed Retreat refill")))
 				return true;
 			Force->TickOrders();
-			return Check(Holding(SafeRegion) && Force->GetJoinedCount() == 6
-					&& Wallet->Resources == RefillBalance - 3 * Producer->GetProductionCost(),
-				TEXT("Full paid joined refill completes Retreat as MoveHold at safety"));
+			if (!Check(Force->Verb == EForceVerb::MoveHold && Force->TargetRegionIndex == Producer->RallyRegionIndex
+						&& Force->GetJoinedCount() == 6 && Wallet->Resources == RefillBalance - 3 * Producer->GetProductionCost(),
+					TEXT("Full paid joined refill completes Retreat into idle MoveHold at the producer rally")))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(7);
 		}
+		if (Stage == 7 && Holding(Producer->RallyRegionIndex))
+			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 100.f,
+				TEXT("Completed Retreat physically returns from safety to its distinct default rally"));
 		return false;
 	}
 	bool Never()
@@ -783,19 +944,34 @@ private:
 	}
 	bool NoSafeRegion()
 	{
-		// Fresh map has only the team's HQ-controlled component. A real hostile
-		// member contests its HQ region; there must be no eligible safe region.
-		for (const AMapRegion* Candidate : State->Regions)
-			if (!Check(State->GetRegionController(Candidate->RegionIndex) != 0 || Candidate->RegionIndex == Home,
-					TEXT("No-safe fixture starts with only its HQ controlled")))
+		if (Stage == 0)
+		{
+			for (const AMapRegion* Candidate : State->Regions)
+				if (!Check(State->GetRegionController(Candidate->RegionIndex) != 0 || Candidate->RegionIndex == Home,
+						TEXT("No-safe fixture has only its HQ controlled")))
+					return true;
+			if (!KillTo(3))
 				return true;
-		PutHostile(State->GetRegionAnchor(Home) + FVector(0.f, 0.f, 100.f));
-		if (!Check(Region(State, Home)->Contains(Hostile->GetUnits()[0]->GetActorLocation()), TEXT("Real hostile physically contests the only connected owned region")))
-			return true;
-		if (!Issue(EForceVerb::Retreat))
-			return true;
-		return Check(Force->Verb == EForceVerb::Retreat && Force->WaypointRegionIndex == Home,
-			TEXT("No-safe Retreat uses the team's HQ fallback rather than an invalid destination"));
+			PutHostile(State->GetRegionAnchor(Home) + FVector(0.f, 0.f, 100.f));
+			if (!Issue(EForceVerb::Retreat))
+				return true;
+			if (!Check(Force->Verb == EForceVerb::Retreat && Force->WaypointRegionIndex == Home,
+					TEXT("No-safe Retreat chooses the hostile HQ fallback")))
+				return true;
+			SetStage(1);
+		}
+		if (Force->Status != EForceStatus::Refilling)
+			return false;
+		AArmyUnit* Shooter = Force->GetUnits()[0];
+		AArmyUnit* Victim = Hostile->GetUnits()[0];
+		PutHostile(Shooter->GetActorLocation() + FVector(70.f, 0.f, 0.f));
+		const int32 Before = Victim->GetHealth();
+		Shooter->NextAttackTime = 0.f;
+		TickForce();
+		Shooter->Tick(.25f);
+		return Check(Force->GetJoinedCount() == 3 && !Producer->bProductionEnabled
+				&& Victim->GetHealth() < Before && Force->Verb == EForceVerb::Retreat,
+			TEXT("Paused Retreat refill at unsafe HQ fallback actually acquires and fires on hostiles"));
 	}
 
 	FAutomationTestBase* Test;
@@ -814,7 +990,7 @@ private:
 	ACommandPlayerState* Wallet = nullptr;
 	TWeakObjectPtr<ACommandPlayerState> EnemyWallet;
 	TWeakObjectPtr<ACommandBuilding> Producer, Structure;
-	TWeakObjectPtr<AArmyGroup> Force, Hostile, Second;
+	TWeakObjectPtr<AArmyGroup> Force, Hostile, Second, Empty;
 };
 }
 
@@ -830,6 +1006,7 @@ private:
 VERB_WORLD_TEST(FVerbMoveHoldTest, "MoveHold", MoveHold)
 VERB_WORLD_TEST(FVerbWithdrawalTest, "AttackWithdrawal", Withdrawal)
 VERB_WORLD_TEST(FVerbStructureDeathTest, "StructureDeath", StructureDeath)
+VERB_WORLD_TEST(FVerbStructureWithdrawalTest, "StructureDeath.Withdrawal", StructureWithdrawal)
 VERB_WORLD_TEST(FVerbRetreatTest, "Retreat", Retreat)
 VERB_WORLD_TEST(FVerbOrphanTest, "Orphan", Orphan)
 VERB_WORLD_TEST(FVerbQueueTest, "Queue", Queue)

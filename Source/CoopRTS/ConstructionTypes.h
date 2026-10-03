@@ -11,10 +11,3 @@ enum class EBuildingKind : uint8
 	Workshop
 };
 
-UENUM(BlueprintType)
-enum class EFrontOrder : uint8
-{
-	Secure,
-	Defend,
-	FallBack
-};

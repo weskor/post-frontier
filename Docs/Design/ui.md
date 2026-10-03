@@ -44,13 +44,15 @@ Research: [input.md](../Research/input.md).
 - **No drag-to-order.** It duplicates right-click and doesn't work on a controller.
 - **Feedback rules:** a rejected order keeps the mode open and says why **[Change]**; rejected placements already do **[Built]**. A greyed-out gameplay button explains itself when clicked **[Built]**. Messages hold for **3 s**, then fade over **1 s** (starting values) **[Built]**.
 
-**Force bar:** a bottom row of force cards. Each shows the force number, unit type, strength (e.g. 5/6), current order, status with ETA (*Marching to West Cut · 0:20*), retreat or refill state, and whether it's cut off from supply. It also shows **production state**: refill progress, a pause/resume toggle, and an *upgrade available* badge that opens the building's panel.
+**Force bar [New]:** a bottom row of force cards. Each shows the force number, unit type, strength (e.g. 5/6), current order, status with ETA (*Marching to West Cut · 0:20*), retreat or refill state, and whether it's cut off from supply. It also shows **production state**: refill progress, a pause/resume toggle, and an *upgrade available* badge that opens the building's panel.
+
+**Order-state inputs [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: presentation can keep *Withdrawing · 3/6 → resumes at 5/6* while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md#steering-forces-change--decided); force-card presentation remains **[New]**.
 
 **Building panel:** the rare decisions stay at the building: tier upgrades, perk slots and the unit lock ([forces.md](forces.md)).
 
 **Building:**
 - **[Built]** An always-visible **build bar** grouped by category ([buildings.md](buildings.md)), replacing the deck's build cards. Every button shows cost, availability and a grid hotkey: **B**, then a letter. Letters follow bar order: **QWERT**, then **ASDFG**, then **ZXCVB**. Today's entries: **B Q** Barracks (Production), **B W** Extractor (Economy), **B E** Workshop (Tech). Pending **B** shows on the bar and ends on any non-grid key or after **2 s**.
-- **[Built]** **Shift+LMB places another**; LMB without Shift ends placement after success. The new building is selected after placing. Esc or right-click cancels placement and any selection drag; another placement waits for an outstanding server result. A late result still reports whether the building was placed, including over the pause menu, without reopening placement or changing selection. Starting another build or goal mode, or selecting a force by unit, badge, number or box, discards any deferred selection from the previous placement.
+- **[Built]** **Shift+LMB places another**; LMB without Shift ends placement after success. The new building is selected after placing. Esc or right-click cancels placement and any selection drag; another placement waits for an outstanding server result. A late result still reports whether the building was placed, including over the pause menu, without reopening placement or changing selection. Starting another build or order mode, or selecting a force by unit, badge, number or box, discards any deferred selection from the previous placement.
 
 **On the map:** the selected forces show their path line, a target highlight and their badge. Teammates see your orders as intent arrows.
 
@@ -61,7 +63,7 @@ Research: [input.md](../Research/input.md).
 - The cursor snaps to regions, structures and badges.
 - **Target-first menu:** select a region or structure and get *Hold here with…* / *Attack with…*, listing your forces with arrival times. It comes with controller support and also works on the war table.
 
-**Today [Built]:** forces are selected independently of buildings, including survivors without a producer. Orders still use the production-building inspector: select it, choose a goal and pick a region. That order flow remains until force verbs replace it.
+**Today [Built]:** forces are selected independently of buildings, including survivors without a producer. Orders still use the production-building inspector: select it, choose Move & Hold or Attack and pick a region, or apply Retreat immediately. The verbs and commandable-orphan APIs are built; selected-force order input, force-bar cards, smart right-click and A/R order keys remain **[New]**.
 
 ## Awareness [Built] / [New] — decided
 

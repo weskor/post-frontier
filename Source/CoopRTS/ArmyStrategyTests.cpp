@@ -111,7 +111,7 @@ public:
 				|| Recovery->Orders.IsEmpty() || Recovery->WaypointRegionIndex == INDEX_NONE
 				|| Recovery->TargetRegionIndex == SafeRecoveryRegion)
 				return Fail(TEXT("Naturally healed joined recruits must resume accepted strategic travel beyond their recovery region"));
-			Test->AddInfo(TEXT("Enemy proof: exact per-unit paid economy, real polygon capture/extractor, paid forward barracks construction, region expansion/nearest defense goals, JEV-only finite payments/depletion/freeing and producer-scoped natural repair recovery."));
+			Test->AddInfo(TEXT("Enemy proof: exact per-unit paid economy, real polygon capture/extractor, paid forward barracks construction, region expansion/nearest defense orders, JEV-only finite payments/depletion/freeing and producer-scoped natural repair recovery."));
 			return true;
 		}
 		if (Stage == 0)
@@ -174,7 +174,7 @@ public:
 			if (Produced->Verb != EForceVerb::MoveHold
 				|| Produced->WaypointRegionIndex == INDEX_NONE
 				|| State->GetRegionController(Produced->TargetRegionIndex) == 5)
-				return Fail(TEXT("First paid force must expand toward an uncontrolled region through an anchor goal waypoint"));
+				return Fail(TEXT("First paid force must expand toward an uncontrolled region through an anchor order waypoint"));
 			Recovery = Produced;
 			Stage = 2;
 			EnemyBudget = 2000 + State->Content->FindBuilding(TEXT("barracks"))->BuildCost + 20;

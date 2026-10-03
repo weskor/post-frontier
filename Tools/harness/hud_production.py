@@ -15,6 +15,7 @@ from harness.network import (
     force,
     force_counts_match,
     order_matches,
+    order_destination_matches,
     require,
     select_order_region,
     wallet,
@@ -207,7 +208,7 @@ def retarget_replacement(
         targetRegionIndex=moved_target,
     )
     capture.wait(
-        lambda s: order_matches(s, barracks, MOVE_HOLD, moved_target),
+        lambda s: order_destination_matches(s, owner, barracks, moved_target),
         "replacement force retargets to the new held region",
     )
     capture.wait(
@@ -224,6 +225,7 @@ def retarget_replacement(
             and force_counts_match(s, owner, barracks)
             and building(s, barracks)["status"] == HOLDING
             and order_matches(s, barracks, MOVE_HOLD, moved_target)
+            and order_destination_matches(s, owner, barracks, moved_target)
         ),
         "replacement physically arrives",
     )

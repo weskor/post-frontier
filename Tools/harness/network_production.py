@@ -18,6 +18,7 @@ from harness.network import (
     force,
     force_counts_match,
     order_matches,
+    order_destination_matches,
     owned_buildings,
     require,
     select_order_region,
@@ -286,6 +287,7 @@ def replace_vacancy(
             and force_counts_match(st, s.owner, index)
             and building(st, index)["status"] == HOLDING
             and order_matches(st, index, MOVE_HOLD, original_target)
+            and order_destination_matches(st, s.owner, index, original_target)
         ),
         "replacement physically arrives and joins moving force",
     )

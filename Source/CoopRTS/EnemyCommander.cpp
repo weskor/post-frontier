@@ -336,9 +336,10 @@ void AEnemyCommander::EvaluatePlan()
 			Verb = EForceVerb::Retreat;
 			Target = INDEX_NONE;
 			const AArmyGroup* Force = Building->ForceGroup;
-			const int32 Held = Force->TargetRegionIndex;
-			// Retreat completion seeds MoveHold before its next tick marks Holding.
-			// Preserve the physically reached safe intent through that transition.
+			const AMapRegion* At = State->FindRegionAt(Force->GetCenter());
+			const int32 Held = At ? At->RegionIndex : INDEX_NONE;
+			// Completed Retreat may default to the producer rally. JEV's private
+			// health recovery explicitly holds the physically reached safe region.
 			if (bWasRecovering && Force->Verb == EForceVerb::MoveHold
 				&& ValidRegion(Held) && Regions[Held] && (ConnectedRecovery & (uint64(1) << Held))
 				&& !Hostiles[Held] && Regions[Held]->Contains(Force->GetCenter())
@@ -437,7 +438,7 @@ void AEnemyCommander::EvaluatePlan()
 	{
 		State->EnemyPlan = bThreatened ? TEXT("DEFEND REGIONS") : bAdvantage ? TEXT("ASSAULT HQ")
 																			 : TEXT("EXPAND TERRITORY");
-		State->EnemyPlanRationale = TEXT("Region goals, private paid production, forward construction and producer-scoped recovery");
+		State->EnemyPlanRationale = TEXT("Region orders, private paid production, forward construction and producer-scoped recovery");
 		State->ForceNetUpdate();
 	}
 }

@@ -82,7 +82,7 @@ for each instance and after surprises. Inputs/captures recheck ownership and foc
 explicitly focus the verified window, never bypass the guard or adopt another game.
 Use inspected HUD/ground targets and current logical-window fractions (.05..95),
 not copied screen coordinates. Correlate input with actual resulting state, not
-just key delivery or accepted-order logs. For affected placement/production/goals,
+just key delivery or accepted-order logs. For affected placement/production/orders,
 selection, research, combat or restart, inspect the relevant before/after transition;
 numeric invariants stay in assertions. Do not replay unrelated feature recipes.
 For camera/cursor changes, native provides drag, scroll, move and --here actions:

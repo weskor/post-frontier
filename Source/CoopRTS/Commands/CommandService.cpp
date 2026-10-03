@@ -123,11 +123,13 @@ FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, 
 		if (ForceOrders::NextWaypoint(Graph, Count, Source, Target) == INDEX_NONE)
 			return Verdict(false, TEXT("Order rejected: region is unreachable."));
 		const float BaseSpeed = Force->GetBaseMarchSpeed();
-		const float Speeds[] = { Index == 0 ? BaseSpeed : Speed, BaseSpeed };
-		Speed = ForceOrders::SlowestSpeed(Speeds);
+		// A memberless orphan has no authored speed to constrain other forces.
+		if (BaseSpeed > 0.f)
+			Speed = FMath::Min(Speed, BaseSpeed);
 	}
 	for (AArmyGroup* Force : Forces)
-		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue, Speed);
+		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue,
+			Speed == TNumericLimits<float>::Max() ? 0.f : Speed);
 	return Verdict(true, TEXT("Force order accepted."));
 }
 
@@ -165,6 +167,11 @@ FCommandResult FCommandService::SetRallyPoint(ACommandPlayerState* Commander, AC
 		return Verdict(false, TEXT("Rally rejected: invalid or unreachable region."));
 	Building->RallyRegionIndex = RegionIndex;
 	Building->ForceNetUpdate();
+	if (AArmyGroup* Force = Building->ForceGroup; IsValid(Force) && Force->bIdleRally && Force->Orders.Num() <= 1)
+	{
+		Force->CommitOrder(FForceOrder(EForceVerb::MoveHold, RegionIndex), false, 0.f);
+		Force->bIdleRally = true;
+	}
 	return Verdict(true, TEXT("Production rally point set."));
 }
 

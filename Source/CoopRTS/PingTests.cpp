@@ -186,7 +186,9 @@ private:
 		TeammateForce->ForceNumber = 7;
 		for (AArmyGroup* Group : { TeammateForce.Get(), OwnForce.Get(), EnemyForce.Get() })
 		{
-			FCommandService::IssueOrder(Group->GetOwningPlayerState(), Group, EArmyOrder::Hold, Group->GetCenter());
+			if (!Check(FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group, EForceVerb::MoveHold,
+					ArmyTestSetup::CurrentRegion(Group)).IsAccepted(), TEXT("Ping fixture accepts a real held-region verb")))
+				return false;
 			Group->SetActorTickEnabled(false);
 			for (AArmyUnit* Unit : Group->GetUnits())
 				Unit->SetActorTickEnabled(false);

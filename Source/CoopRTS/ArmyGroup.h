@@ -70,8 +70,7 @@ public:
 	// Authority-owned encounters may create joined members without a producer.
 	// Paid reinforcement continues to use SpawnReinforcement exclusively.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
-	// Isolated combat worlds drive real target acquisition/pathing without region orders.
-	void TickCombatForTest() { UpdateCombat(); }
+	friend struct FArmyMovementTestAccess;
 #endif
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	void SettleMatch();
@@ -115,12 +114,6 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	TObjectPtr<AActor> AttackTarget;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	EFrontOrder FrontOrder = EFrontOrder::Defend;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	FVector FrontLocation = FVector::ZeroVector;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
-	bool bAutomaticFront = false;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
 	int32 HoldRegionIndex = INDEX_NONE;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
@@ -185,6 +178,9 @@ private:
 	int32 WithdrawalRegionIndex = INDEX_NONE;
 	bool bWithdrawing = false;
 	bool bStructureAttack = false;
+	bool bIdleRally = false;
+	float NextWaypointAttempt = 0.f;
+	float NextHoldingMaintenance = 0.f;
 	int32 AppliedWaypoint = INDEX_NONE;
 	EArmyOrder AppliedPhase = EArmyOrder::Hold;
 	TWeakObjectPtr<AActor> AppliedStructure;

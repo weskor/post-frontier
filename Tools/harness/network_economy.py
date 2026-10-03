@@ -8,7 +8,10 @@ from harness.network import (
     ATTACK,
     EXTRACTOR,
     HOLDING,
+    MARCHING,
     MOVE_HOLD,
+    RETREAT,
+    RETREATING,
     NetworkRun,
     alive_units,
     building,
@@ -16,13 +19,14 @@ from harness.network import (
     force,
     near,
     order_matches,
+    order_destination_matches,
     region,
     require,
     select_order_region,
     wallet,
 )
 from harness.network_outcomes import finish, objective_event, research
-from harness.network_session import Session, converged
+from harness.network_session import Session, converged, hold_at, latched
 from harness.verify import JsonObject
 
 
@@ -62,7 +66,7 @@ def capture_region(
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
     run.request(
-        s.peer, "order", building=index, forceVerb=ATTACK, targetRegionIndex=target
+        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
     )
     states = converged(
         run,
@@ -71,10 +75,9 @@ def capture_region(
             region(st, target)["controller"] == 0
             and order_matches(st, index, MOVE_HOLD, target)
             and building(st, index)["status"] == HOLDING
-            and distance2(building(st, index)["front"], region(st, target)["anchor"])
-            < 1
+            and order_destination_matches(st, s.owner, index, target)
         ),
-        "produced force completes Attack by securing and holding the target region",
+        "produced force captures and holds the target region with Move & Hold",
     )
     require(
         all(all(p["income"] == 2 for p in st["players"]) for st in states.values()),
@@ -107,8 +110,51 @@ def clear_deposit(
         "deposit kind has incorrect rate or finite reserve",
     )
     home = next(r["index"] for r in states["host"]["regions"] if r["homeTeam"] == 0)
+    hold_at(run, s, index, home, "establish home as the force's last held safe region")
+    converged(
+        run,
+        s.names,
+        lambda st: (
+            order_destination_matches(st, s.owner, index, home)
+            and force(st, s.owner, index)["status"] == HOLDING
+            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"])
+            < 150**2
+        ),
+        "same force physically holds home before its Retreat departure",
+    )
+    outbound = next(r["index"] for r in states["host"]["regions"] if r["homeTeam"] == 5)
     run.request(
-        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=home
+        s.peer, "order", building=index, forceVerb=ATTACK, targetRegionIndex=outbound
+    )
+    departed = converged(
+        run,
+        s.names,
+        lambda st: (
+            force_counts_match(st, s.owner, index)
+            and order_matches(st, index, ATTACK, outbound)
+            and force(st, s.owner, index)["status"] == MARCHING
+            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"])
+            > 1000**2
+        ),
+        "same force physically departs its safe home before Retreat",
+    )
+    origin = force(departed["host"], s.owner, index)["center"]
+    run.request(s.peer, "order", building=index, forceVerb=RETREAT, targetRegionIndex=-1)
+    latched(
+        run,
+        s.names,
+        lambda st: (
+            force_counts_match(st, s.owner, index)
+            and order_matches(st, index, RETREAT, -1)
+            and force(st, s.owner, index)["status"] == RETREATING
+            and force(st, s.owner, index)["waypointRegionIndex"] == home
+            and distance2(force(st, s.owner, index)["destination"], region(st, home)["anchor"])
+            <= 75**2
+            and distance2(force(st, s.owner, index)["center"], origin) > 200**2
+            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"]) ** 0.5
+            < distance2(origin, region(st, home)["anchor"]) ** 0.5 - 200
+        ),
+        "actual Retreat moves the same force toward its safe home on every peer",
     )
     states = converged(
         run,
@@ -118,15 +164,25 @@ def clear_deposit(
             and not next(site for site in st["sites"] if site["index"] == target)[
                 "friendlyPresent"
             ]
-            and order_matches(st, index, MOVE_HOLD, home)
-            and building(st, index)["status"] == HOLDING
+            and force_counts_match(st, s.owner, index)
+            and (
+                order_matches(st, index, RETREAT, -1)
+                or order_destination_matches(st, s.owner, index, home)
+            )
+            and force(st, s.owner, index)["status"] != RETREATING
+            and force(st, s.owner, index)["waypointRegionIndex"] == home
+            and distance2(force(st, s.owner, index)["destination"], region(st, home)["anchor"])
+            <= 75**2
+            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"])
+            < 150**2
             and all(
                 distance2(u["position"], free["position"]) > 500**2
                 for u in alive_units(force(st, s.owner, index))
             )
         ),
-        "capturing force physically clears deposit footprint while retaining controlled region",
+        "Retreat physically arrives home and clears the deposit without losing control",
     )
+    run.phase("positive network Retreat departure, safe destination, return movement and physical arrival")
     return cast(JsonObject, free)
 
 

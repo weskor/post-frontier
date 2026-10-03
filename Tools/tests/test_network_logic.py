@@ -6,6 +6,7 @@ from pathlib import Path
 from harness.network import (
     army,
     force_counts_match,
+    order_destination_matches,
     reachable_regions,
     select_order_region,
     wallet,
@@ -152,6 +153,51 @@ def test_order_selection_rejects_boundary_home_excluded_and_unreachable_regions(
     assert select_order_region(state, 8, min_distance=1499)["index"] == 10
     with pytest.raises(AssertionError, match="no reachable, non-main region"):
         select_order_region(state, 8, exclude=(20,))
+
+
+
+def held_snapshot() -> JsonObject:
+    state = force_snapshot()
+    state["buildings"][0].update(forceVerb=0, targetRegionIndex=20)
+    state["armies"][0].update(
+        forceVerb=0,
+        targetRegionIndex=20,
+        waypointRegionIndex=20,
+        status=1,
+        destination=[2045, 60, 999],
+    )
+    state["regions"] = [{"index": 20, "anchor": [2000, 0, 0]}]
+    return state
+
+
+def test_holding_destination_accepts_complete_formation_resolution_boundary() -> None:
+    state = held_snapshot()
+    assert order_destination_matches(state, 3, 8, 20)
+    state["armies"][0]["destination"][0] += 0.01
+    assert not order_destination_matches(state, 3, 8, 20)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("forceVerb", 1),
+        ("targetRegionIndex", 10),
+        ("waypointRegionIndex", 10),
+        ("destination", [0, 0, 0]),
+    ],
+)
+def test_holding_intent_never_substitutes_for_physical_destination(
+    field: str, value: object
+) -> None:
+    state = held_snapshot()
+    state["armies"][0][field] = value
+    assert not order_destination_matches(state, 3, 8, 20)
+
+
+def test_partial_force_replication_cannot_prove_holding_destination() -> None:
+    state = held_snapshot()
+    state["armies"].clear()
+    assert not order_destination_matches(state, 3, 8, 20)
 
 
 def test_reply_reader_waits_for_complete_current_request(tmp_path: Path) -> None:

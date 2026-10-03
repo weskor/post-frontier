@@ -675,7 +675,7 @@ private:
 			if (FVector::Dist2D(Moving->GetActorLocation(), Start) <= 30.f)
 				return false;
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
-					TEXT("Fall Back cannot obtain stationary Defend protection")))
+					TEXT("Retreat cannot obtain stationary MoveHold protection")))
 				return true;
 			int32 LaterRegion = INDEX_NONE;
 			float Closest = TNumericLimits<float>::Max();

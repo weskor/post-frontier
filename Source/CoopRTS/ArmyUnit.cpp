@@ -240,7 +240,7 @@ void AArmyUnit::FireAt(AActor* Victim)
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || bReinforcing || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
-		|| (IsValid(Group) && Group->Verb == EForceVerb::Retreat)
+		|| (IsValid(Group) && Group->Status == EForceStatus::Retreating)
 		|| !CombatTarget::IsAliveHostile(Victim, TeamIndex)
 		|| FVector::Dist2D(GetActorLocation(), Victim->GetActorLocation()) > WeaponRange())
 		return;
@@ -297,7 +297,7 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 	ResetRepairTimer();
 	const int32 AppliedDamage = !bReinforcing && UnitRole == EUnitRole::Frontline
 			&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
-			&& IsValid(Group) && Group->bAutomaticFront && Group->FrontOrder == EFrontOrder::Defend
+			&& IsValid(Group) && Group->Verb == EForceVerb::MoveHold && Group->Status == EForceStatus::Holding
 			&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
 		? Damage * 3 / 4
 		: Damage;

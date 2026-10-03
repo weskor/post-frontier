@@ -11,6 +11,8 @@
 #include "EngineUtils.h"
 #include "HAL/PlatformTime.h"
 #include "Headquarters.h"
+#include "AIController.h"
+#include "Navigation/PathFollowingComponent.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyCombatTest, "CoopRTS.Combat.Encounter",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -47,6 +49,36 @@ public:
 			return Begin(Now);
 		if (!Check(Army.IsValid() && Enemy.IsValid() && Controller.IsValid(), TEXT("Encounter groups and owner remain valid")))
 			return true;
+		if (Stage == 3)
+		{
+			for (const AArmyUnit* Unit : Army->GetUnits())
+			{
+				const AAIController* AI = Cast<AAIController>(Unit->GetController());
+				const UPathFollowingComponent* Path = AI ? AI->GetPathFollowingComponent() : nullptr;
+				if (!Check(!Unit->bPursuing && Path && Path->GetPath().IsValid()
+							&& FVector::Dist2D(Path->GetPath()->GetEndLocation(), Army->Destination) < 450.f,
+						TEXT("Travelling MoveHold members keep their formation route instead of chasing an off-route hostile")))
+					return true;
+			}
+			if (Now - StageStarted < 1.)
+				return false;
+			if (!Check(FVector::Dist2D(MoveStart, Army->GetCenter()) > 100.f
+						&& TotalAttacks() > MoveAttacks,
+					TEXT("MoveHold physically travels and fires on an off-route hostile without pursuing it")))
+				return true;
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack,
+						ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation())).IsAccepted(),
+					TEXT("An owned region Attack replaces the travelling MoveHold")))
+				return true;
+			const FVector Approach = (Army->Destination - Army->GetCenter()).GetSafeNormal2D();
+			for (AArmyUnit* Unit : Enemy->GetUnits())
+				Unit->SetActorLocation(Army->GetUnits()[0]->GetActorLocation() + Approach * 100.f,
+					false, nullptr, ETeleportType::TeleportPhysics);
+			EncounterAttacks = TotalAttacks();
+			SetStage(1, Now);
+			return false;
+		}
 		if (Stage == 1)
 		{
 			if (Now - StageStarted < 1.)
@@ -315,15 +347,23 @@ private:
 			return true;
 		Victim = Enemy->GetUnits()[1];
 		const int32 Region = ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation());
-		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack, Region).IsAccepted(),
-				TEXT("An owned region attack is accepted")))
+		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::MoveHold, Region).IsAccepted()
+					&& Army->Status == EForceStatus::Marching,
+				TEXT("No-chase fixture accepts a real travelling MoveHold")))
 			return true;
 		const FVector Approach = (Army->Destination - Army->GetCenter()).GetSafeNormal2D();
+		const FVector Side(-Approach.Y, Approach.X, 0.f);
 		for (AArmyUnit* Unit : Enemy->GetUnits())
-			Unit->SetActorLocation(Army->GetUnits()[0]->GetActorLocation() + Approach * 100.f,
+		{
+			Unit->NextAttackTime = TNumericLimits<float>::Max();
+			Unit->SetActorLocation(Army->GetUnits()[4]->GetActorLocation() + Side * 600.f,
 				false, nullptr, ETeleportType::TeleportPhysics);
-		EncounterAttacks = TotalAttacks();
-		SetStage(1, Now);
+		}
+		MoveStart = Army->GetCenter();
+		MoveAttacks = TotalAttacks();
+		for (AArmyUnit* Unit : Army->GetUnits())
+			Unit->NextAttackTime = 0.f;
+		SetStage(3, Now);
 		return false;
 	}
 
@@ -343,7 +383,11 @@ private:
 		const FVector Anchor = HQ->GetActorLocation() + FVector(900.f, 0.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
 			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
-		FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack, ArmyTestSetup::RegionAt(State, Anchor));
+		if (!Check(FCommandService::SetRetreatThreshold(Army->GetOwningPlayerState(), Army.Get(), ERetreatThreshold::Never).IsAccepted()
+					&& FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack,
+						ArmyTestSetup::RegionAt(State, Anchor)).IsAccepted(),
+				TEXT("Targeting fixture accepts a real region Attack without casualty withdrawal")))
+			return false;
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -357,10 +401,43 @@ private:
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[2],
 			TEXT("A live in-range target stays selected when a nearer matching-class enemy appears"));
-		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(400.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		// A registered structure command must outrank unit counter preference.
+		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(),
+					EForceVerb::Attack, INDEX_NONE, HQ).IsAccepted(), TEXT("Explicit hostile HQ Attack is accepted")))
+			return false;
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
-		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[4],
-			TEXT("A target leaving weapon range triggers fresh nearest-counter acquisition"));
+		bOk &= Check(Army->TargetStructure == HQ && Army->GetUnits()[0]->Target == HQ,
+			TEXT("Explicit structure Attack outranks an automatic unit counter lock"));
+		// Establish a non-counter lock through normal acquisition, not a seeded Target.
+		// All Light candidates are outside the leash until the Heavy lock is real.
+		const int32 Region = ArmyTestSetup::RegionAt(State, Anchor);
+		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(),
+					EForceVerb::Attack, Region).IsAccepted(), TEXT("Region Attack can replace the structure command")))
+			return false;
+		AArmyUnit* Frontline = Army->GetUnits()[0];
+		AArmyUnit* Heavy = Enemy->GetUnits()[0];
+		AArmyUnit* Light = Enemy->GetUnits()[2];
+		for (AArmyUnit* Unit : Enemy->GetUnits())
+			Unit->SetActorLocation(Army->Destination + FVector(0.f, Army->PursuitRadius + 700.f, 0.f),
+				false, nullptr, ETeleportType::TeleportPhysics);
+		Heavy->SetActorLocation(Frontline->GetActorLocation() + FVector(50.f, 0.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Frontline->Target == Heavy, TEXT("Normal Attack acquisition establishes an eligible non-counter Heavy lock"));
+		Light->SetActorLocation(Frontline->GetActorLocation() + FVector(75.f, 0.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Frontline->Target == Heavy,
+			TEXT("An eligible non-counter lock persists when a counter becomes available"));
+		Heavy->SetActorLocation(Army->Destination + FVector(0.f, Army->PursuitRadius + 700.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
+		static_cast<AActor*>(Army.Get())->Tick(.25f);
+		bOk &= Check(Frontline->Target == Light, TEXT("A lock leaving the Attack leash triggers fresh counter acquisition"));
+		for (const AArmyUnit* Unit : Army->GetUnits())
+			bOk &= Check(Unit->Target != Heavy
+					&& (!Unit->bPursuing || FVector::Dist2D(Unit->PursuitGoal, Army->Destination) <= Army->PursuitRadius)
+					&& FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) <= Army->PursuitRadius + 200.f,
+				TEXT("Attack invalidates a target leaving the pursuit area and never sends members beyond its boundary"));
 		for (int32 Index = 0; Index < 6; ++Index)
 		{
 			Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
@@ -379,6 +456,8 @@ private:
 	uint32 EncounterAttacks = 0;
 	uint32 RetreatAttacks = 0;
 	FVector RetreatCenter = FVector::ZeroVector;
+	FVector MoveStart = FVector::ZeroVector;
+	uint32 MoveAttacks = 0;
 	bool bObservedRetreatMotion = false;
 	int32 Stage = 0;
 	bool bIsolated = false;

@@ -742,7 +742,7 @@ void ACommandPlayerController::CancelMode()
 
 void ACommandPlayerController::ToggleHUD()
 {
-	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningGoal)
+	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningOrder)
 		return;
 	bHUDExpanded = !bHUDExpanded;
 }
@@ -1148,7 +1148,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		{
 			bAssigningOrder = false;
 			bHUDExpanded = true;
-			Feedback = TEXT("Retreat sent; awaiting server.");
+			SetFeedback(TEXT("Retreat sent; awaiting server."));
 			OrderCommands->ServerIssueForceOrder({ SelectedBuilding->ForceGroup.Get() }, PendingVerb, INDEX_NONE, nullptr, false);
 			return;
 		}

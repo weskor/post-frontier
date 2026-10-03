@@ -8,6 +8,9 @@ from typing import cast
 
 from harness.hud_actions import (
     BUILD_BARRACKS,
+    ORDER_ATTACK,
+    ORDER_MOVE_HOLD,
+    ORDER_RETREAT,
     RECIPE_SIEGE,
     RESEARCH_REPAIRS,
     SELECT_FORCE,
@@ -25,11 +28,21 @@ from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
     BARRACKS,
+    ATTACK,
+    MARCHING,
+    HOLDING,
     MOVE_HOLD,
+    RETREAT,
+    RETREATING,
     SIEGE,
     WORKSHOP,
     NetworkRun,
     building,
+    distance2,
+    force,
+    force_counts_match,
+    order_destination_matches,
+    order_matches,
     owned_buildings,
     require,
     wallet,
@@ -338,13 +351,10 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         if a["owner"] == owner and any(u["health"] > 0 for u in a["units"])
     )
     home = next(r for r in capture.state()["regions"] if r["homeTeam"] == 0)
-    run.request(
-        "host",
-        "order",
-        building=army["producer"],
-        forceVerb=MOVE_HOLD,
-        targetRegionIndex=home["index"],
-    )
+    index = army["producer"]
+    run.request("host", "select", target="building", building=index)
+    capture.hud(ORDER_MOVE_HOLD, "Establish the box fixture's last held safe region")
+    capture.pick_region(index, MOVE_HOLD, home["index"])
     deadline = time.monotonic() + 90
 
     def at_home(state: JsonObject) -> bool:
@@ -362,9 +372,58 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         )
 
     capture.wait(
-        at_home,
-        "ranged force physically returns to its home region for nearby box targets",
+        lambda s: (
+            order_destination_matches(s, owner, index, home["index"])
+            and force(s, owner, index)["status"] == HOLDING
+            and at_home(s)
+        ),
+        "force holds home before the positive Retreat fixture",
     )
+    enemy_main = next(r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5)
+    capture.hud(ORDER_ATTACK, "Send the fixture force physically away from safe home")
+    capture.pick_region(index, ATTACK, enemy_main)
+    departed = capture.wait(
+        lambda s: (
+            force_counts_match(s, owner, index)
+            and order_matches(s, index, ATTACK, enemy_main)
+            and force(s, owner, index)["status"] == MARCHING
+            and distance2(force(s, owner, index)["center"], home["anchor"]) > 1000**2
+        ),
+        "same force physically departs home before rendered Retreat",
+    )
+    origin = force(departed, owner, index)["center"]
+    capture.hud(ORDER_RETREAT, "Retreat immediately returns the marching force to safety")
+    capture.wait(
+        lambda s: (
+            not s["assigningOrder"]
+            and order_matches(s, index, RETREAT, -1)
+            and force(s, owner, index)["status"] == RETREATING
+            and force(s, owner, index)["waypointRegionIndex"] == home["index"]
+            and distance2(force(s, owner, index)["destination"], home["anchor"]) <= 75**2
+            and distance2(force(s, owner, index)["center"], origin) > 200**2
+            and distance2(force(s, owner, index)["center"], home["anchor"]) ** 0.5
+            < distance2(origin, home["anchor"]) ** 0.5 - 200
+        ),
+        "rendered Retreat drives real movement to the safe home destination",
+    )
+    capture.shot("retreat-return-marching")
+    deadline = time.monotonic() + 90
+    capture.wait(
+        lambda s: (
+            force_counts_match(s, owner, index)
+            and force(s, owner, index)["status"] != RETREATING
+            and (
+                order_matches(s, index, RETREAT, -1)
+                or order_destination_matches(s, owner, index, home["index"])
+            )
+            and force(s, owner, index)["waypointRegionIndex"] == home["index"]
+            and distance2(force(s, owner, index)["destination"], home["anchor"]) <= 75**2
+            and at_home(s)
+        ),
+        "Retreat physically arrives home without an intervening replacement order",
+    )
+    capture.shot("retreat-arrived-safe")
+    run.phase("rendered Retreat button, safe destination, same-force return movement and arrival")
 
 
 def focus_box_badges(run: NetworkRun, capture: Capture, owner: int) -> JsonObject:

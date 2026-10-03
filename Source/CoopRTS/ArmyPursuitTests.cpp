@@ -34,10 +34,6 @@ public:
 				It->Destroy();
 			bIsolated = true;
 		}
-		if (Friendly.IsValid())
-			Friendly->TickCombatForTest();
-		if (Hostile.IsValid())
-			Hostile->TickCombatForTest();
 		if (Stage == 0)
 		{
 			const ACommandGameState* State = World->GetGameState<ACommandGameState>();
@@ -52,23 +48,33 @@ public:
 						It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
 			for (TActorIterator<AArmyGroup> It(World); It; ++It)
 				RemoveGroup(*It);
-			Anchor = ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f);
+			const AMapRegion* Home = State->FindRegionAt(State->FriendlyHeadquarters->GetActorLocation());
+			int32 FightRegion = INDEX_NONE;
+			for (const AMapRegion* Region : State->Regions)
+				if (IsValid(Region) && IsValid(Region->Anchor) && Home->Neighbours.Contains(Region->RegionIndex))
+				{
+					FightRegion = Region->RegionIndex;
+					break;
+				}
+			if (!Test->TestTrue(TEXT("Pursuit fixture has a real non-main region anchor"), FightRegion != INDEX_NONE))
+				return Finish();
+			Anchor = State->GetRegionAnchor(FightRegion);
 			if (!Spawn(World, Owner, false))
 				return Finish();
 			Left = Friendly->GetUnits()[0];
 			Right = Hostile->GetUnits()[0];
 			const int32 Damage = CombatPolicy::Damage(Left->GetDefinition()->AttackDamage, Left->GetDamageType(), Right->GetArmorClass());
 			MeleeTimeLimit = 5.f + FMath::DivideAndRoundUp(Right->GetHealth(), Damage) * Left->AttackInterval();
-			Place(Left.Get(), Anchor);
-			Place(Right.Get(), Anchor + FVector(125.f, 0.f, 0.f));
-			Arm(Friendly.Get());
-			Arm(Hostile.Get());
+			Place(Left.Get(), Anchor + FVector(400.f, 0.f, 0.f));
+			Place(Right.Get(), Anchor + FVector(525.f, 0.f, 0.f));
+			if (!Arm(Friendly.Get(), EForceVerb::Attack) || !Arm(Hostile.Get(), EForceVerb::Attack))
+				return Finish();
 			// Establish an in-range lock without doing damage, then leave range
 			// without issuing another order: this is the original dead-band transition.
 			Left->NextAttackTime = Right->NextAttackTime = TNumericLimits<float>::Max();
-			Friendly->TickCombatForTest();
-			Hostile->TickCombatForTest();
-			Place(Right.Get(), Anchor + FVector(200.f, 0.f, 0.f));
+			static_cast<AActor*>(Friendly.Get())->Tick(.25f);
+			static_cast<AActor*>(Hostile.Get())->Tick(.25f);
+			Place(Right.Get(), Anchor + FVector(600.f, 0.f, 0.f));
 			Left->NextAttackTime = Right->NextAttackTime = 0.f;
 			Test->TestTrue(TEXT("Melee fixture starts 200 cm apart"),
 				FMath::IsNearlyEqual(FVector::Dist2D(Left->GetActorLocation(), Right->GetActorLocation()), 200.));
@@ -100,8 +106,8 @@ public:
 			}
 			if (Left.IsValid() && Right.IsValid())
 			{
-				bBothClosed |= FVector::Dist2D(Left->GetActorLocation(), Anchor) > 5.f
-					&& FVector::Dist2D(Right->GetActorLocation(), Anchor + FVector(200.f, 0.f, 0.f)) > 5.f;
+				bBothClosed |= FVector::Dist2D(Left->GetActorLocation(), Anchor + FVector(400.f, 0.f, 0.f)) > 5.f
+					&& FVector::Dist2D(Right->GetActorLocation(), Anchor + FVector(600.f, 0.f, 0.f)) > 5.f;
 				bBothFired |= Left->AttackCount > 0 && Right->AttackCount > 0;
 			}
 			if (Friendly->GetUnits().IsEmpty() || Hostile->GetUnits().IsEmpty())
@@ -113,14 +119,13 @@ public:
 				if (!Spawn(World, ArmyTestSetup::Controller(World), true))
 					return Finish();
 				for (int32 Index = 0; Index < Friendly->GetUnits().Num(); ++Index)
-					Place(Friendly->GetUnits()[Index], Anchor + FVector(-90.f * (Index / 2), Index % 2 == 0 ? -45.f : 45.f, 0.f));
+					Place(Friendly->GetUnits()[Index], Anchor + FVector(400.f - 90.f * (Index / 2), Index % 2 == 0 ? -45.f : 45.f, 0.f));
 				FirstArtillery = Hostile->GetUnits()[0];
 				SecondArtillery = Hostile->GetUnits()[1];
-				Place(FirstArtillery.Get(), Anchor + FVector(125.f, 0.f, 0.f));
-				Place(SecondArtillery.Get(), Anchor + FVector(325.f, 0.f, 0.f));
-				Arm(Friendly.Get());
-				Hostile->Order = EArmyOrder::Hold;
-				Hostile->Destination = Hostile->GetCenter();
+				Place(FirstArtillery.Get(), Anchor + FVector(525.f, 0.f, 0.f));
+				Place(SecondArtillery.Get(), Anchor + FVector(725.f, 0.f, 0.f));
+				if (!Arm(Friendly.Get(), EForceVerb::Attack) || !Arm(Hostile.Get(), EForceVerb::MoveHold))
+					return Finish();
 				Stage = 2;
 				StageStarted = World->GetTimeSeconds();
 			}
@@ -137,7 +142,7 @@ public:
 				FightEndPositions.Add(Unit->GetActorLocation());
 			// No replacement order: the engaged flag must send standing survivors
 			// back to their formation once the last hostile has died.
-			Friendly->TickCombatForTest();
+			static_cast<AActor*>(Friendly.Get())->Tick(.25f);
 			for (AArmyUnit* Unit : Friendly->GetUnits())
 			{
 				const AAIController* AI = Cast<AAIController>(Unit->GetController());
@@ -162,12 +167,14 @@ private:
 		Unit->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 
-	void Arm(AArmyGroup* Group)
+	bool Arm(AArmyGroup* Group, EForceVerb Verb)
 	{
-		Group->Order = EArmyOrder::Attack;
-		// Every surviving slot must have real formation travel after contact;
-		// no replacement order is issued when the last target dies.
-		Group->Destination = Anchor + FVector(-400.f, 0.f, 0.f);
+		// Commands own phase, waypoint and formation destination. Reduced melee
+		// fixtures must not withdraw at their production capacity threshold.
+		const bool bAccepted = FCommandService::SetRetreatThreshold(Group->GetOwningPlayerState(), Group, ERetreatThreshold::Never).IsAccepted()
+			&& FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group, Verb,
+				ArmyTestSetup::RegionAt(Group->GetWorld()->GetGameState<ACommandGameState>(), Anchor)).IsAccepted();
+		return Test->TestTrue(TEXT("Pursuit fixture accepts real threshold and region verb commands"), bAccepted);
 	}
 
 	static void RemoveGroup(AArmyGroup* Group)
@@ -208,8 +215,6 @@ private:
 			Test->AddError(TEXT("Pursuit groups failed to spawn"));
 			return false;
 		}
-		Friendly->SetActorTickEnabled(false);
-		Hostile->SetActorTickEnabled(false);
 		KeepRole(Friendly.Get(), EUnitRole::Frontline, bArtillery ? 2 : 1);
 		KeepRole(Hostile.Get(), bArtillery ? EUnitRole::Siege : EUnitRole::Frontline, bArtillery ? 2 : 1);
 		// The target-switch probe needs surviving pursuers, not the old balance's
