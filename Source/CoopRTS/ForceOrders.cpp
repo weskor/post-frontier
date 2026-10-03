@@ -139,6 +139,14 @@ bool AArmyGroup::CommitOrder(const FForceOrder& InOrder, bool bQueue, float Sele
 	return true;
 }
 
+void AArmyGroup::RetargetIdleRally(int32 RegionIndex)
+{
+	if (!bIdleRally || Orders.Num() > 1)
+		return;
+	CommitOrder(FForceOrder(EForceVerb::MoveHold, RegionIndex), false, 0.f);
+	bIdleRally = true;
+}
+
 bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();

@@ -68,6 +68,7 @@ From the [architecture audit](Audit/architecture.md):
 - **One command path:** a validated command layer that humans (through RPCs), JEV, tests and the harness all call. It replaces the three paths per command and the test-only `ServerIssueOrder`/`ServerIssueAttack`.
 - **Pure decision logic:** the ~850 lines of extractable logic listed in the audit move into world-free functions with tier-0 tests. Today only ~6% of gameplay logic is world-free.
 - **Roster-derived force ceiling:** `ForceCap::Limit` is shared by production admission and force-number selection. World readers supply the filtered human commander count; occupancy, number reservation and camera behaviour keep their existing owners. Mechanics: [forces.md](../Design/forces.md).
+- **Idle-rally transition ownership:** the command layer validates producer ownership and destination reachability; `AArmyGroup::RetargetIdleRally` owns eligibility and the order transition. Command callers do not inspect or restore the force's idle-rally flag. Mechanics: [forces.md](../Design/forces.md).
 - **Split the god objects by feature:**
   - `ACommandGameState` into registry, economy, territory and placement pieces;
   - the 13 RPCs out of `ACommandPlayerController` into per-feature command components;

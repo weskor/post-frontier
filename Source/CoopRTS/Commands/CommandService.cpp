@@ -167,11 +167,8 @@ FCommandResult FCommandService::SetRallyPoint(ACommandPlayerState* Commander, AC
 		return Verdict(false, TEXT("Rally rejected: invalid or unreachable region."));
 	Building->RallyRegionIndex = RegionIndex;
 	Building->ForceNetUpdate();
-	if (AArmyGroup* Force = Building->ForceGroup; IsValid(Force) && Force->bIdleRally && Force->Orders.Num() <= 1)
-	{
-		Force->CommitOrder(FForceOrder(EForceVerb::MoveHold, RegionIndex), false, 0.f);
-		Force->bIdleRally = true;
-	}
+	if (AArmyGroup* Force = Building->ForceGroup; IsValid(Force))
+		Force->RetargetIdleRally(RegionIndex);
 	return Verdict(true, TEXT("Production rally point set."));
 }
 

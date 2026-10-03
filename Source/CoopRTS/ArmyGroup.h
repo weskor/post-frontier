@@ -176,6 +176,7 @@ private:
 		const FVector& Goal, float Now);
 	void UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation, float Now);
 	bool CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed);
+	void RetargetIdleRally(int32 RegionIndex);
 	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
 	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
 	void CompleteOrder(int32 EndRegion);
