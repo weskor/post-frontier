@@ -825,7 +825,9 @@ bool FForceSpeedTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Single member retains its base speed"), ForceOrders::SlowestSpeed(MakeArrayView(Single)), 320.f);
 	TestEqual(TEXT("No members have no travel speed"), ForceOrders::SlowestSpeed(TConstArrayView<float>()), 0.f);
 	const float Stopped[] = { 420.f, 0.f };
-	TestEqual(TEXT("A stationary member limits the selection to zero"), ForceOrders::SlowestSpeed(MakeArrayView(Stopped)), 0.f);
+	TestEqual(TEXT("A zero-speed empty orphan does not constrain a moving selection"), ForceOrders::SlowestSpeed(MakeArrayView(Stopped)), 420.f);
+	const float OnlyStopped[] = { 0.f, 0.f };
+	TestEqual(TEXT("Only zero-speed empty orphans have no travel speed"), ForceOrders::SlowestSpeed(MakeArrayView(OnlyStopped)), 0.f);
 	const float Negative[] = { 420.f, -1.f };
 	TestEqual(TEXT("Negative member speed rejects"), ForceOrders::SlowestSpeed(MakeArrayView(Negative)), 0.f);
 	const float Infinite[] = { 420.f, std::numeric_limits<float>::infinity() };

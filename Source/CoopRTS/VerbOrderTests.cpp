@@ -739,8 +739,31 @@ private:
 			SetStage(1);
 		}
 		if (Stage == 1 && Holding(Home))
-			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
-				TEXT("Idle force physically follows its changed producer rally"));
+		{
+			if (!Check(FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
+					TEXT("Idle force physically follows its changed producer rally"))
+				|| !Check(FCommandService::SetRallyPoint(Wallet, Producer.Get(), Target).IsAccepted(),
+					TEXT("Idle producer starts another rally trip before its destruction")))
+				return true;
+			StartPosition = Force->GetCenter();
+			SetStage(2);
+		}
+		if (Stage == 2 && FVector::Dist2D(StartPosition, Force->GetCenter()) > 100.f)
+		{
+			Producer->ReceiveAttack(Producer->Health, Hostile->GetUnits()[0]);
+			StartPosition = Force->GetCenter();
+			TickForce();
+			if (!Check(!Force->GetProductionBuilding() && Force->Status == EForceStatus::Holding
+						&& Force->Verb == EForceVerb::MoveHold && Force->TargetRegionIndex == CurrentRegion(Force.Get())
+						&& Force->HoldRegionIndex == INDEX_NONE && Force->HoldPostIndex == INDEX_NONE,
+					TEXT("Producer death stops an idle rally trip in place without implicit posts")))
+				return true;
+			SetStage(3);
+		}
+		if (Stage == 3 && FPlatformTime::Seconds() - StageStarted > 1.)
+			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) < 5.f
+					&& Force->Status == EForceStatus::Holding,
+				TEXT("New idle orphan remains physically stopped instead of following the dead producer rally"));
 		return false;
 	}
 	bool BeginCombatTrip()

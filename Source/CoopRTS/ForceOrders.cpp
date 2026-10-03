@@ -273,16 +273,20 @@ void AArmyGroup::TickOrders()
 		Verb = EForceVerb::MoveHold;
 		TargetRegionIndex = Orders[0].RegionIndex;
 		Status = EForceStatus::Marching;
-		if (!IsValid(ProductionBuilding))
-		{
-			// An idle orphan holds its physical position, not a producer's rally.
-			StopAllUnits();
-			Destination = GetCenter();
-			Order = EArmyOrder::Attack;
-			WaypointRegionIndex = AppliedWaypoint = Source;
-			AppliedPhase = EArmyOrder::Attack;
-			Status = EForceStatus::Holding;
-		}
+	}
+	if (bIdleRally && !IsValid(ProductionBuilding)
+		&& (Status != EForceStatus::Holding || IsHoldingRegion()))
+	{
+		// Losing the producer cancels only implicit rally travel, not explicit orders.
+		StopAllUnits();
+		ResetHoldState();
+		Destination = GetCenter();
+		TargetRegionIndex = Orders[0].RegionIndex = Source;
+		MarchSpeed = Orders[0].SelectionSpeed = 0.f;
+		Order = AppliedPhase = EArmyOrder::Attack;
+		WaypointRegionIndex = AppliedWaypoint = Source;
+		Status = EForceStatus::Holding;
+		ForceNetUpdate();
 	}
 	uint64 Graph[ForceOrders::MaxRegions];
 	const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);

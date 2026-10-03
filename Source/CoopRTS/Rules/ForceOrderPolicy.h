@@ -23,7 +23,8 @@ bool ShouldResume(int32 Joined, int32 Capacity);
 // A queued order needs a vacant slot among three total orders, active order included.
 // Replacement ignores the current nonnegative count.
 bool CanQueue(int32 OrderCount, bool bQueue);
-// Empty views and invalid speeds (negative or nonfinite) return zero.
+// Zero-speed empty orphans do not constrain the selection.
+// Empty/all-zero views and invalid speeds (negative or nonfinite) return zero.
 float SlowestSpeed(TConstArrayView<float> Speeds);
 // Retreat adds 25%; invalid base speeds (negative or nonfinite) return zero.
 float TravelSpeed(float Base, bool bRetreat);

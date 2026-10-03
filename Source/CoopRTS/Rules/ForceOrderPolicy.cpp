@@ -134,12 +134,13 @@ float ForceOrders::SlowestSpeed(TConstArrayView<float> Speeds)
 {
 	if (Speeds.IsEmpty())
 		return 0.f;
-	float Slowest = Speeds[0];
+	float Slowest = 0.f;
 	for (const float Speed : Speeds)
 	{
 		if (!FMath::IsFinite(Speed) || Speed < 0.f)
 			return 0.f;
-		Slowest = FMath::Min(Slowest, Speed);
+		if (Speed > 0.f)
+			Slowest = Slowest > 0.f ? FMath::Min(Slowest, Speed) : Speed;
 	}
 	return Slowest;
 }

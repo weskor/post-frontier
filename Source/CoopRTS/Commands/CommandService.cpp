@@ -107,7 +107,7 @@ FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, 
 		return Verdict(false, TEXT("Order rejected: choose a valid region."));
 	uint64 Graph[ForceOrders::MaxRegions];
 	const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
-	float Speed = TNumericLimits<float>::Max();
+	float Speed = 0.f;
 	for (int32 Index = 0; Index < Forces.Num(); ++Index)
 	{
 		AArmyGroup* Force = Forces[Index];
@@ -122,14 +122,11 @@ FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, 
 		const int32 Target = Verb == EForceVerb::Retreat ? ForceOrderGraph::TeamMain(*State, Commander->TeamIndex) : RegionIndex;
 		if (ForceOrders::NextWaypoint(Graph, Count, Source, Target) == INDEX_NONE)
 			return Verdict(false, TEXT("Order rejected: region is unreachable."));
-		const float BaseSpeed = Force->GetBaseMarchSpeed();
-		// A memberless orphan has no authored speed to constrain other forces.
-		if (BaseSpeed > 0.f)
-			Speed = FMath::Min(Speed, BaseSpeed);
+		const float Speeds[] = { Speed, Force->GetBaseMarchSpeed() };
+		Speed = ForceOrders::SlowestSpeed(MakeArrayView(Speeds));
 	}
 	for (AArmyGroup* Force : Forces)
-		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue,
-			Speed == TNumericLimits<float>::Max() ? 0.f : Speed);
+		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue, Speed);
 	return Verdict(true, TEXT("Force order accepted."));
 }
 

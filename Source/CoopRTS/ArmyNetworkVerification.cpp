@@ -1004,23 +1004,6 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		Unit->ForceNetUpdate();
 		return FString();
 	}
-	if (Action == TEXT("attackSetup"))
-	{
-		if (!IsValid(State->EnemyHeadquarters) || Army->GetUnits().IsEmpty() || Army->GetTeamIndex() != 0)
-			return TEXT("objective friendly army or enemy HQ unavailable");
-		if (!FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army, EForceVerb::MoveHold, ForceOrderGraph::SourceRegion(*Army, *State)))
-			return TEXT("objective friendly army could not hold");
-		const FVector Anchor = State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 700.f, 0.f);
-		for (AArmyUnit* Unit : Army->GetUnits())
-		{
-			if (!IsValid(Unit) || !Unit->IsAlive())
-				continue;
-			const FVector Offset(0.f, Unit->GetCompositionSlot() % 2 ? 110.f : -110.f, 0.f);
-			Unit->SetActorLocation(Anchor + Offset, false, nullptr, ETeleportType::TeleportPhysics);
-			Unit->ForceNetUpdate();
-		}
-		return FString();
-	}
 	if (Action == TEXT("kill"))
 	{
 		const int32 Slot = static_cast<int32>(Request->GetIntegerField(TEXT("slot")));
