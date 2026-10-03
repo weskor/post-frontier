@@ -81,7 +81,8 @@ def report_rules(lines: list[str], group: JsonObject) -> None:
         "### Acceptance rules",
         "",
         "Prey/predator rates combine the unit's two ordered sides against that opponent. "
-        "Mirror rules require both side win rates in 45..55%; the matrix shows mirror side bias. "
+        "Mirror rules require at least 40 fights and a two-sided exact binomial p-value "
+        "of at least 0.05 for each side against 50%; the matrix shows mirror side bias. "
         "Missing requested seeds invalidate all rule passes.",
         "",
     ]

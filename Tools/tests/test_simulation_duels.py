@@ -41,16 +41,15 @@ def threshold_reports() -> list[JsonObject]:
     return reports
 
 
-def test_counter_and_mirror_inclusive_thresholds() -> None:
+def test_counter_inclusive_thresholds() -> None:
     reports = threshold_reports()
     rules = rule_rows(evaluate_group(reports))
     for unit in COUNTERS:
         assert rules[f"{unit}_prey"]["win_rate"] == pytest.approx(0.65)
         assert rules[f"{unit}_predator"]["win_rate"] == pytest.approx(0.35)
-        assert rules[f"{unit}_mirror"]["win_rates"] == [0.45, 0.55]
         assert all(
             rules[f"{unit}_{name}"]["status"] == "pass"
-            for name in ("prey", "predator", "mirror")
+            for name in ("prey", "predator")
         )
     changed = deepcopy(reports)
     row = next(
@@ -62,6 +61,52 @@ def test_counter_and_mirror_inclusive_thresholds() -> None:
     rules = rule_rows(evaluate_group(changed))
     assert rules["frontline_prey"]["status"] == "fail"
     assert rules["siege_predator"]["status"] == "fail"
+
+
+def mirror_reports(total: int, left_wins: int, draws: int = 0) -> list[JsonObject]:
+    reports = []
+    for seed in range(total):
+        _, report = telemetry(seed)
+        winner = 0 if seed < left_wins else 5 if seed < total - draws else None
+        for row in report["duels"]:
+            if row["left"] == row["right"]:
+                set_outcome(report, row, winner)
+        refresh_duration(report)
+        reports.append(report)
+    return reports
+
+
+@pytest.mark.parametrize(
+    ("total", "wins", "expected", "p_value"),
+    [
+        (39, 19, "fail", 1.0),
+        (40, 13, "fail", 0.03847730828420026),
+        (40, 14, "pass", 0.0806904677519924),
+        (40, 20, "pass", 1.0),
+        (40, 26, "pass", 0.0806904677519924),
+        (40, 27, "fail", 0.03847730828420026),
+    ],
+)
+def test_mirror_sample_size_and_exact_two_sided_boundary(
+    total: int, wins: int, expected: str, p_value: float
+) -> None:
+    rules = rule_rows(evaluate_group(mirror_reports(total, wins)))
+    for unit in COUNTERS:
+        mirror = rules[f"{unit}_mirror"]
+        assert mirror["status"] == expected
+        assert mirror["duels"] == total
+        assert mirror["p_values"] == pytest.approx([p_value, p_value])
+
+
+def test_mirror_draws_count_against_each_side_and_incomplete_evidence_fails() -> None:
+    reports = mirror_reports(40, 20, draws=7)
+    mirror = rule_rows(evaluate_group(reports))["frontline_mirror"]
+    assert mirror["win_rates"] == [0.5, 0.325]
+    assert mirror["draws"] == 7
+    assert mirror["p_values"] == pytest.approx([1.0, 0.03847730828420026])
+    assert mirror["status"] == "fail"
+    incomplete = rule_rows(evaluate_group(mirror_reports(40, 20), complete=False))
+    assert incomplete["frontline_mirror"]["status"] == "fail"
 
 
 def test_draws_are_never_half_wins_or_removed_from_denominators() -> None:

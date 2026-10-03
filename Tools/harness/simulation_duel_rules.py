@@ -16,6 +16,8 @@ COUNTERS = {
     "ranged": dict(name="Rifle", prey="frontline", predator="siege"),
     "siege": dict(name="Artillery", prey="ranged", predator="frontline"),
 }
+MIRROR_MIN_DUELS = 40
+MIRROR_SIGNIFICANCE = 0.05
 
 
 def rule(name: str, passed: bool, complete: bool, **evidence: object) -> JsonObject:
@@ -145,6 +147,13 @@ def dominance_rule(roster: dict[str, JsonObject], complete: bool) -> JsonObject:
     )
 
 
+def mirror_pvalue(wins: int, total: int) -> float:
+    """Exact two-sided binomial p-value under a fair coin, including both tails."""
+    tail = min(wins, total - wins)
+    extreme_outcomes = 2 * sum(math.comb(total, count) for count in range(tail + 1))
+    return min(1.0, extreme_outcomes / (1 << total))
+
+
 def mirror_rules(
     roster: dict[str, JsonObject],
     by_pair: dict[tuple[str, str], list[JsonObject]],
@@ -153,15 +162,20 @@ def mirror_rules(
     rules = []
     for unit in roster:
         mirror = pair_summary(unit, unit, by_pair[unit, unit])
-        passed = all(
-            rate is not None and 0.45 <= rate <= 0.55 for rate in mirror["win_rates"]
+        p_values = [mirror_pvalue(wins, mirror["duels"]) for wins in mirror["wins"]]
+        passed = mirror["duels"] >= MIRROR_MIN_DUELS and all(
+            p_value >= MIRROR_SIGNIFICANCE for p_value in p_values
         )
         rules.append(
             rule(
                 f"{unit}_mirror",
                 passed,
                 complete,
-                requirement="each side wins 45..55%, draws remain in denominator",
+                requirement="at least 40 fights; neither side rejects 50% at 95% with a two-sided exact binomial test; draws remain in denominator",
+                minimum_duels=MIRROR_MIN_DUELS,
+                null_win_probability=0.5,
+                significance=MIRROR_SIGNIFICANCE,
+                p_values=p_values,
                 **mirror,
             )
         )
