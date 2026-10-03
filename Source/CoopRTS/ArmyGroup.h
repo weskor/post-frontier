@@ -70,6 +70,8 @@ public:
 	// Authority-owned encounters may create joined members without a producer.
 	// Paid reinforcement continues to use SpawnReinforcement exclusively.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
+	// Isolated combat worlds drive real target acquisition/pathing without region orders.
+	void TickCombatForTest() { UpdateCombat(); }
 #endif
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	void SettleMatch();

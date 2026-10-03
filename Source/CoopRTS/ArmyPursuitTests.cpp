@@ -34,6 +34,10 @@ public:
 				It->Destroy();
 			bIsolated = true;
 		}
+		if (Friendly.IsValid())
+			Friendly->TickCombatForTest();
+		if (Hostile.IsValid())
+			Hostile->TickCombatForTest();
 		if (Stage == 0)
 		{
 			const ACommandGameState* State = World->GetGameState<ACommandGameState>();
@@ -62,8 +66,8 @@ public:
 			// Establish an in-range lock without doing damage, then leave range
 			// without issuing another order: this is the original dead-band transition.
 			Left->NextAttackTime = Right->NextAttackTime = TNumericLimits<float>::Max();
-			static_cast<AActor*>(Friendly.Get())->Tick(.25f);
-			static_cast<AActor*>(Hostile.Get())->Tick(.25f);
+			Friendly->TickCombatForTest();
+			Hostile->TickCombatForTest();
 			Place(Right.Get(), Anchor + FVector(200.f, 0.f, 0.f));
 			Left->NextAttackTime = Right->NextAttackTime = 0.f;
 			Test->TestTrue(TEXT("Melee fixture starts 200 cm apart"),
@@ -133,7 +137,7 @@ public:
 				FightEndPositions.Add(Unit->GetActorLocation());
 			// No replacement order: the engaged flag must send standing survivors
 			// back to their formation once the last hostile has died.
-			static_cast<AActor*>(Friendly.Get())->Tick(.25f);
+			Friendly->TickCombatForTest();
 			for (AArmyUnit* Unit : Friendly->GetUnits())
 			{
 				const AAIController* AI = Cast<AAIController>(Unit->GetController());
@@ -204,6 +208,8 @@ private:
 			Test->AddError(TEXT("Pursuit groups failed to spawn"));
 			return false;
 		}
+		Friendly->SetActorTickEnabled(false);
+		Hostile->SetActorTickEnabled(false);
 		KeepRole(Friendly.Get(), EUnitRole::Frontline, bArtillery ? 2 : 1);
 		KeepRole(Hostile.Get(), bArtillery ? EUnitRole::Siege : EUnitRole::Frontline, bArtillery ? 2 : 1);
 		// The target-switch probe needs surviving pursuers, not the old balance's

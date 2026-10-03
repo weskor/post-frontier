@@ -137,7 +137,27 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 		Anchor.Z = State->GetRegionAnchor(RegionIndex).Z;
 	}
 	if (!IssueTravel(Phase, Anchor))
-		return false;
+	{
+		// Region intent does not prescribe an exact formation centre. A legal
+		// extractor can cover an anchor slot; keep the centre within its normal
+		// projection margin while still requiring complete, distinct slot paths.
+		static const FVector Adjustments[] = {
+			{ 75.f, 0.f, 0.f }, { 0.f, 75.f, 0.f }, { -75.f, 0.f, 0.f }, { 0.f, -75.f, 0.f }
+		};
+		bool bAccepted = false;
+		if (!Structure)
+			for (const FVector& Adjustment : Adjustments)
+			{
+				const FVector Candidate = Anchor + Adjustment;
+				if (ForceOrderGraph::Region(*State, RegionIndex)->Contains(Candidate) && IssueTravel(Phase, Candidate))
+				{
+					bAccepted = true;
+					break;
+				}
+			}
+		if (!bAccepted)
+			return false;
+	}
 	WaypointRegionIndex = AppliedWaypoint = RegionIndex;
 	AppliedPhase = Phase;
 	AppliedStructure = Structure;
@@ -153,6 +173,7 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 
 void AArmyGroup::CompleteOrder(int32 EndRegion)
 {
+	const bool bCompletedRetreat = Verb == EForceVerb::Retreat;
 	if (Orders.Num() > 1)
 		Orders.RemoveAt(0, 1, EAllowShrinking::No);
 	else
@@ -169,7 +190,10 @@ void AArmyGroup::CompleteOrder(int32 EndRegion)
 	MarchSpeed = Next.SelectionSpeed;
 	bWithdrawing = false;
 	WithdrawalRegionIndex = INDEX_NONE;
-	AppliedWaypoint = INDEX_NONE;
+	// The completed Retreat is already at this validated waypoint. Preserve it
+	// so the immediate MoveHold tick enters Holding without a false march phase.
+	if (!bCompletedRetreat || Next.Verb != EForceVerb::MoveHold || Next.RegionIndex != EndRegion)
+		AppliedWaypoint = INDEX_NONE;
 	Status = Verb == EForceVerb::Retreat ? EForceStatus::Retreating : EForceStatus::Marching;
 	ForceNetUpdate();
 }

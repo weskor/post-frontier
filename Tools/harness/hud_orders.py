@@ -65,9 +65,7 @@ def assign_orders(capture: Capture, barracks: int) -> int:
     capture.shot("attack-order")
     capture.hud(ORDER_RETREAT, "Retreat applies immediately")
     capture.wait(
-        lambda s: (
-            not s["assigningOrder"] and order_matches(s, barracks, RETREAT, -1)
-        ),
+        lambda s: not s["assigningOrder"] and order_matches(s, barracks, RETREAT, -1),
         "Retreat order without targeting",
     )
     capture.shot("retreat-order")

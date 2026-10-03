@@ -362,7 +362,8 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         )
 
     capture.wait(
-        at_home, "ranged force physically returns to its home region for nearby box targets"
+        at_home,
+        "ranged force physically returns to its home region for nearby box targets",
     )
 
 

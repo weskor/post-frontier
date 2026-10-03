@@ -363,13 +363,13 @@ private:
 				TEXT("Building panel Select force button switches to its force")))
 			return false;
 		PC->SelectActorWithModifiers(Buildings[0].Get(), false, false);
-		if (!Check(HUD->FindActionScreenPosition(EHUDAction::GoalExpand, Action) && PC->HandleHUDClick(Action) && PC->IsAssigningGoal(),
-				TEXT("Existing building goal flow still opens region targeting")))
+		if (!Check(HUD->FindActionScreenPosition(EHUDAction::OrderMoveHold, Action) && PC->HandleHUDClick(Action) && PC->IsAssigningOrder(),
+				TEXT("Existing building order flow opens region targeting")))
 			return false;
 		PC->SelectActor(Foreign->GetUnits()[0]);
-		if (!Check(!PC->IsAssigningGoal() && !PC->IsPlacingBuilding() && PC->GetSelectedForces().IsEmpty(),
-				TEXT("Read-only teammate inspection cancels pending building goal"))
-			|| !Check(!HUD->FindActionScreenPosition(EHUDAction::GoalExpand, Action)
+		if (!Check(!PC->IsAssigningOrder() && !PC->IsPlacingBuilding() && PC->GetSelectedForces().IsEmpty(),
+				TEXT("Read-only teammate inspection cancels pending building order"))
+			|| !Check(!HUD->FindActionScreenPosition(EHUDAction::OrderMoveHold, Action)
 					&& !HUD->FindActionScreenPosition(EHUDAction::ToggleProduction, Action),
 				TEXT("Read-only teammate exposes no building commands")))
 			return false;
@@ -377,7 +377,7 @@ private:
 				TEXT("Existing construction bar can enter placement mode")))
 			return false;
 		PC->SelectActor(Owned[0]->GetUnits()[0]);
-		return Check(!PC->IsPlacingBuilding() && !PC->IsAssigningGoal() && Only(Owned[0].Get()), TEXT("Own force selection cancels building placement"))
+		return Check(!PC->IsPlacingBuilding() && !PC->IsAssigningOrder() && Only(Owned[0].Get()), TEXT("Own force selection cancels building placement"))
 			&& Check(Camera->GetActorLocation().Equals(CameraBefore, .01), TEXT("Badge, box and panel selection never move camera"));
 	}
 	bool ExerciseOrphan()

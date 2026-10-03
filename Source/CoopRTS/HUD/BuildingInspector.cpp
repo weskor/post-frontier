@@ -194,7 +194,6 @@ void DrawBuildingInspector(const FPainter& Paint, const FContext& Context, const
 			Building->Health, Building->MaxHealth(), FStringView(), Palette::Muted);
 }
 
-
 static void DrawForceSelection(const FPainter& Paint, const FContext& Context, const FRect& Selection, bool bOwned, int32 Owner)
 {
 	ColumnLabel(Paint, Selection, bOwned ? TEXT("SELECTION") : TEXT("OWNER"));

@@ -337,11 +337,12 @@ void AEnemyCommander::EvaluatePlan()
 			Target = INDEX_NONE;
 			const AArmyGroup* Force = Building->ForceGroup;
 			const int32 Held = Force->TargetRegionIndex;
-			// Retreat refills capacity, not health. Keep its completed safe hold
-			// until the existing planner's 80-percent health recovery is satisfied.
-			if (bWasRecovering && Force->Verb == EForceVerb::MoveHold && Force->Status == EForceStatus::Holding
+			// Retreat completion seeds MoveHold before its next tick marks Holding.
+			// Preserve the physically reached safe intent through that transition.
+			if (bWasRecovering && Force->Verb == EForceVerb::MoveHold
 				&& ValidRegion(Held) && Regions[Held] && (ConnectedRecovery & (uint64(1) << Held))
-				&& !Hostiles[Held] && Regions[Held]->Contains(Force->GetCenter()))
+				&& !Hostiles[Held] && Regions[Held]->Contains(Force->GetCenter())
+				&& FVector::DistSquared2D(Force->GetCenter(), State->GetRegionAnchor(Held)) <= FMath::Square(170.f))
 			{
 				Verb = EForceVerb::MoveHold;
 				Target = Held;
