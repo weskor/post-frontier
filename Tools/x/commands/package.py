@@ -19,13 +19,16 @@ HELP = (
     "last successful package. package.json records run_id, config, commit and "
     "the input content hash. Only the two newest successful packages per variant "
     "are kept; unsuccessful archives are removed. Builds/ is untouched. "
-    "--playtest always selects Development, requires a clean Git tree, cooks "
+    "--playtest uses Development, rejects an explicit shipping combination, "
+    "requires a clean Git tree, and cooks "
     "Menu, AvailabilityZoneV2 and the classic AvailabilityZone menu option, and "
     "writes a commit-named tar.gz under Saved/Packages/playtest/<run-id>/ with "
     "PLAYTEST.txt controls generated from README.md and PLAYTEST.sh for test "
-    "Steam App 480. The staged steam_appid.txt and launcher environment supply "
-    "the test identity; this is not a release identity or Steam acceptance "
-    "proof. Ordinary Development/Shipping latest pointers are unchanged. "
+    "Steam App 480. Development initializes the test identity from the project "
+    "configuration; its engine creates and removes steam_appid.txt at runtime. "
+    "The launcher sets the test Steam environment. This is not a release identity "
+    "or Steam acceptance proof. Ordinary Development/Shipping latest pointers "
+    "are unchanged. "
     "./x play selects the newest fresh Development/playtest variant; --shipping "
     "selects ordinary Shipping only. A playtest's default smoke map is "
     "AvailabilityZoneV2."
@@ -77,7 +80,7 @@ def prepare_playtest(
         "default_map": playtest.DEFAULT_MAP,
         "archive": archive.name,
         "steam_app_id": 480,
-        "steam_identity": "staged-appid-and-launcher-env",
+        "steam_identity": "development-engine-and-launcher-env",
     }
 
 
@@ -108,7 +111,9 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     if ctx.run is None:
         raise RuntimeError("packaging requires a recorded run")
     is_playtest = getattr(args, "playtest", False)
-    config = "development" if is_playtest else args.config
+    if is_playtest and args.config == "shipping":
+        raise ValueError("--playtest requires Development; omit shipping")
+    config = args.config
     variant = "playtest" if is_playtest else config
     directory = ctx.repo / "Saved/Packages" / variant / ctx.run.id
     maps = list(playtest.MAPS) if is_playtest else ctx.settings.maps()

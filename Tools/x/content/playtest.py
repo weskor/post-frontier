@@ -59,10 +59,9 @@ def controls(repo: Path) -> str:
 def prepare(
     repo: Path, directory: Path, executable: Path, target: str, commit: str
 ) -> Path:
-    """Stage test identity/instructions and return the intended archive path."""
+    """Stage launcher/instructions and return the intended archive path."""
     table = controls(repo)
     relative = executable.relative_to(directory)
-    (executable.parent / "steam_appid.txt").write_text("480\n")
     launcher = directory / "PLAYTEST.sh"
     launcher.write_text(
         "#!/bin/sh\nset -eu\n"

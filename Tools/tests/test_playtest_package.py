@@ -29,8 +29,7 @@ import time
 if "--receipt" in sys.argv:
     path = Path(sys.argv[sys.argv.index("--receipt") + 1])
     path.write_text(json.dumps({"cwd": os.getcwd(), "appid": os.environ.get("SteamAppId"),
-        "gameid": os.environ.get("SteamGameId"), "args": sys.argv[1:],
-        "staged_id": Path("steam_appid.txt").read_text().strip()}))
+        "gameid": os.environ.get("SteamGameId"), "args": sys.argv[1:]}))
     raise SystemExit(0)
 if len(sys.argv) < 2:
     raise SystemExit(2)
@@ -153,21 +152,19 @@ def archive_bytes(bundle: tarfile.TarFile, name: str) -> bytes:
     return stream.read()
 
 
-@pytest.mark.parametrize("requested_config", ["development", "shipping"])
 def test_distributable_contains_full_development_payload_controls_identity_and_metadata(
-    playtest_repo: Path, tmp_path: Path, requested_config: str
+    playtest_repo: Path, tmp_path: Path
 ) -> None:
     repo = playtest_repo
     previous = ordinary_shipping(repo)
     development = ordinary_development(repo)
-    directory = run_package(context(repo, tmp_path), config=requested_config)
+    directory = run_package(context(repo, tmp_path))
     metadata = jsonio.load(directory / "package.json")
     commit = gitinfo.commit(repo)
     assert metadata["config"] == "development"
     assert metadata["variant"] == "playtest"
     assert metadata["commit"] == commit
     assert metadata["steam_app_id"] == 480
-    assert metadata["steam_identity"] == "staged-appid-and-launcher-env"
     assert metadata["maps"] == list(playtest.MAPS)
     assert metadata["default_map"] == playtest.DEFAULT_MAP
     assert metadata["package_hash"] == playtest.input_hash(repo)
@@ -185,12 +182,7 @@ def test_distributable_contains_full_development_payload_controls_identity_and_m
         names = set(bundle.getnames())
         assert f"{prefix}/Linux/CoopRTS/payload.pak" in names
         assert f"{prefix}/Linux/CoopRTS/Binaries/Linux/CoopRTS" in names
-        assert (
-            archive_bytes(
-                bundle, f"{prefix}/Linux/CoopRTS/Binaries/Linux/steam_appid.txt"
-            )
-            == b"480\n"
-        )
+        assert not any(name.endswith("/steam_appid.txt") for name in names)
         instructions = archive_bytes(bundle, f"{prefix}/PLAYTEST.txt").decode()
         assert "| WASD | Pan |" in instructions
         assert "Ping (Ping rules)" in instructions
@@ -200,6 +192,29 @@ def test_distributable_contains_full_development_payload_controls_identity_and_m
         cooked = {Path(name).stem for name in names if name.endswith(".umap")}
         assert cooked == {"Menu", "AvailabilityZoneV2", "AvailabilityZone"}
         assert not any(name.endswith(".tar.gz") for name in names)
+
+
+def test_shipping_playtest_refuses_before_cook_and_preserves_all_publications(
+    playtest_repo: Path, tmp_path: Path
+) -> None:
+    repo = playtest_repo
+    successful = run_package(context(repo, tmp_path))
+    development = ordinary_development(repo)
+    shipping = ordinary_shipping(repo)
+    archive = next(successful.glob("*.tar.gz"))
+    previous_archive = archive.read_bytes()
+    pointers = {
+        path.parent / "latest": (path.parent / "latest").readlink()
+        for path in (successful, development, shipping)
+    }
+    ctx = context(repo, tmp_path)
+    assert ctx.run is not None
+    with pytest.raises(ValueError):
+        package.run(argparse.Namespace(config="shipping", playtest=True), ctx)
+    assert ctx.run.record["execs"] == []
+    assert not (successful.parent / ctx.run.id).exists()
+    assert archive.read_bytes() == previous_archive
+    assert all(path.readlink() == target for path, target in pointers.items())
 
 
 @pytest.mark.parametrize("change", ["tracked", "staged", "untracked"])
@@ -273,7 +288,7 @@ def test_launcher_runs_from_other_directory_with_test_identity_and_intact_argume
         check=True,
     )
     result = jsonio.load(receipt)
-    assert result["appid"] == result["gameid"] == result["staged_id"] == "480"
+    assert result["appid"] == result["gameid"] == "480"
     assert Path(result["cwd"]) == extracted / "Linux/CoopRTS/Binaries/Linux"
     assert result["args"] == ["--receipt", str(receipt), "argument with spaces"]
 

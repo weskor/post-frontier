@@ -2,6 +2,8 @@
 
 The host writes one JSON per match in the game's saved folder, under `Telemetry/match-<match_id>.json`. Standalone games count as host authority. Clients do not write match telemetry; nothing is uploaded. A terminal result writes immediately; leaving, travel or shutdown while still ongoing writes an abandoned record from EndPlay. Seamless restart creates a new match identity and retains earlier files.
 
+Authority automation, PIE and `./x verify` worlds also produce terminal or `Abandoned` records in the developer's `Saved/Telemetry`; these files accumulate. The telemetry world test deletes only its own records.
+
 ## Schema [Built]
 
 `schema_version` is **2**. Root fields: `match_id`, `map`, `battle_seconds`, `result`, `players`, `ending`. `map` is the original map identity, captured at BeginPlay before seamless travel can rename the old world.
