@@ -10,11 +10,13 @@ class ACommandPlayerState;
 class ADepositSite;
 class AEnemyCommander;
 class FJsonObject;
+class FJsonValue;
 class AArmyGroup;
 class AHeadquarters;
 class AActor;
 
 // Shared authoritative encounter runner for standalone measurement and worlds.
+// Setup lives in MatchSimulationDuelRunner.cpp, per-tick stepping in MatchSimulationDuelRunnerStep.cpp.
 class COOPRTS_API FSimulationDuelRunner
 {
 public:
@@ -41,10 +43,20 @@ private:
 		TWeakObjectPtr<AActor> Actor;
 		bool bTickEnabled = false;
 	};
+	bool FindWallets(ACommandGameState& InState);
+	bool CollectDefinitions(ACommandGameState& InState, TArray<TSharedPtr<FJsonValue>>& Rows);
+	void IsolateWorld(ACommandGameState& InState);
 	bool FindGround();
+	void RecordGeometry();
 	bool StartPair();
+	bool SpawnSide(int32 Side, int32 DefinitionIndex, const FVector& Forward, const FVector& Across,
+		TArray<TSharedPtr<FJsonValue>>& Spawns);
+	bool IssueAttackOrders();
+	void PublishPair(TArray<TSharedPtr<FJsonValue>> Spawns[2]);
 	void Observe();
 	void UpdateRow() const;
+	void FailStalled();
+	void CompletePair(bool bWiped);
 	void ClearPair();
 	void PauseActor(AActor& Actor);
 	void RestoreHeadquarters();
@@ -79,6 +91,9 @@ private:
 class UWorld;
 
 // Non-reflected so the entire runner, not only its hooks, is absent from Shipping.
+// Lifecycle: MatchSimulationSubsystem.cpp; match mode: MatchSimulationMatch.cpp;
+// duel mode: MatchSimulationDuel.cpp; observation: MatchSimulationObserve.cpp;
+// report rows and persistence: MatchSimulationTelemetry.cpp.
 class FMatchSimulation final : public FTickableGameObject
 {
 public:
@@ -99,8 +114,24 @@ private:
 		uint32 Attacks = 0;
 	};
 	bool Start(ACommandGameState& State);
+	bool StartDuel(ACommandGameState& State);
+	bool StartMatch(ACommandGameState& State);
+	bool FindMatchActors(ACommandGameState& State);
+	bool SpawnAutopilot();
+	void ConfigureTime();
+	void TickDuel(float DeltaTime);
+	void TickMatch(float DeltaTime, ACommandGameState& State);
+	void DescribeMatch(ACommandGameState& State);
+	void DescribeRegions(ACommandGameState& State);
 	void Observe(ACommandGameState& State);
+	void ObservePlans(ACommandGameState& State);
+	void ObserveUnits();
+	void ObserveBuildings(ACommandGameState& State);
+	void ObserveRegions(ACommandGameState& State);
+	void ObserveDeposits(ACommandGameState& State);
+	void ObserveHeadquarters(ACommandGameState& State);
 	void Snapshot(ACommandGameState& State, double ScheduledTime);
+	TSharedRef<FJsonObject> SnapshotTeam(ACommandGameState& State, int32 Slot) const;
 	TSharedRef<FJsonObject> Event(const TCHAR* Kind, int32 Team = -1);
 	bool Flush();
 	void Finish(const TCHAR* Status, const TCHAR* Outcome, int32 Winner, const FString& Error = FString());

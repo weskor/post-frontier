@@ -10,7 +10,22 @@ class ACommandBuilding;
 class AArmyGroup;
 class ACommandGameState;
 class ACommandPlayerState;
+struct FJevTurn;
+struct FJevForceStep;
 
+// The ticket the executor holds for one force between evaluations.
+struct FJevCommittedForce
+{
+	TWeakObjectPtr<AArmyGroup> Force;
+	JevPlanner::FPlan Plan;
+	int32 TicketNumber = 0;
+	bool bRecovering = false;
+	bool bCommandsRejected = false;
+};
+
+// Executor for JEV: EvaluatePlan summarises the match for the pure planner
+// (Rules/JevPlanner), turns its choices into commands and publishes them.
+// The steps live in EnemyCommanderWorld/Economy/Execute/Publish.cpp.
 UCLASS()
 class COOPRTS_API AEnemyCommander : public AActor
 {
@@ -25,16 +40,12 @@ public:
 	UPROPERTY()
 	TObjectPtr<ACommandPlayerState> Commander;
 private:
-	ACommandBuilding* BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center);
-	struct FCommittedForce
-	{
-		TWeakObjectPtr<AArmyGroup> Force;
-		JevPlanner::FPlan Plan;
-		int32 TicketNumber = 0;
-		bool bRecovering = false;
-		bool bCommandsRejected = false;
-	};
-	TArray<FCommittedForce, TInlineAllocator<8>> CommittedForces;
+	bool BeginTurn(FJevTurn& Turn);
+	void ExecuteForces(FJevTurn& Turn);
+	void ExecuteForce(FJevTurn& Turn, AArmyGroup* Force);
+	void Commit(FJevTurn& Turn, FJevForceStep& Step);
+	void Publish(FJevTurn& Turn, const FJevForceStep& Step);
+	TArray<FJevCommittedForce, TInlineAllocator<8>> CommittedForces;
 	FJevMemoTemplates MemoTemplates;
 	bool bMemoLoadAttempted = false;
 	bool bMemosLoaded = false;
