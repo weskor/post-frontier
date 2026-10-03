@@ -12,7 +12,8 @@ bool ACommandPlayerController::GetHoveredForceOrder(FForceOrder& OutOrder, bool&
 			&& Preview.Resolution != ForceOrderInput::EResolution::Attack))
 		return false;
 	OutOrder = FForceOrder(Preview.Resolution == ForceOrderInput::EResolution::Attack
-			? EForceVerb::Attack : EForceVerb::MoveHold,
+			? EForceVerb::Attack
+			: EForceVerb::MoveHold,
 		Preview.RegionIndex, Preview.Structure);
 	return true;
 }

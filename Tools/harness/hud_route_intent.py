@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from harness.hud_surface import Capture, minimap_region_point
+from harness.hud_surface import Capture
 from harness.network import (
     ATTACK,
     MOVE_HOLD,
     NetworkRun,
     force,
     issue_force_order,
+    minimap_region_point,
     minimap_world_point,
     region_contains,
     require,
