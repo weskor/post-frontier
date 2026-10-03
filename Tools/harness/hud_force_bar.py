@@ -43,7 +43,10 @@ def capture_states(
 ) -> None:
     for width, height in resolutions:
         run.request("host", "resolution", width=width, height=height)
-        def viewport_matches(state: JsonObject, width: int = width, height: int = height) -> bool:
+
+        def viewport_matches(
+            state: JsonObject, width: int = width, height: int = height
+        ) -> bool:
             return (state["viewportWidth"], state["viewportHeight"]) == (width, height)
 
         state = capture.wait(

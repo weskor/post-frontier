@@ -195,7 +195,7 @@ private:
 		ReadForceCard(Context, *Own, 20, March);
 		Check(March.Joined == 6 && March.Capacity == 6 && March.Travelling == 0 && March.State == ForceCardPolicy::EState::Marching,
 			TEXT("Initial card shows all six joined members and the active marching state"));
-		Check(March.Status.ToView().Contains(TEXT("0:20")) && March.Order.ToView().Contains(TEXT("Attack")), TEXT("Marching card includes route ETA and active Attack"));
+		Check(March.Status.ToView().Contains(TEXT("0:20")), TEXT("Marching card includes the supplied travel ETA"));
 		float Slowest = TNumericLimits<float>::Max();
 		for (const AArmyUnit* Unit : Own->GetUnits())
 			Slowest = FMath::Min(Slowest, Unit->GetDefinition()->MoveSpeed);

@@ -122,7 +122,10 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 				break;
 			}
 	Card.Title.Appendf(TEXT("%d  "), Force.ForceNumber);
-	Card.Title << (Card.Definition ? Card.Definition->DisplayName.ToString() : FString(TEXT("Force")));
+	if (Card.Definition)
+		Card.Title << Card.Definition->DisplayName.ToString();
+	else
+		Card.Title << TEXT("Force");
 	if (!Card.bOwned && IsValid(Force.GetOwningPlayerState()))
 		Card.Title.Appendf(TEXT(" \u00B7 C%d (read only)"), Force.GetOwningPlayerState()->CommanderIndex + 1);
 	OrderName(Context, Force.Verb, Force.TargetRegionIndex, Force.TargetStructure, Card.Order);
