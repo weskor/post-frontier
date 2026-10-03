@@ -243,6 +243,7 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 
 void DrawForceBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
+	Paint.Fill(ForceBarRect(Layout), Palette::Card);
 	FVector2D Mouse(-1.f, -1.f);
 	float X, Y;
 	if (Context.Controller && Context.Controller->GetMousePosition(X, Y))
