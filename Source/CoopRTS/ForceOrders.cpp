@@ -131,15 +131,22 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 		return false;
 	if (AppliedWaypoint == RegionIndex && AppliedPhase == Phase && AppliedStructure.Get() == Structure)
 	{
-		if (FVector::DistSquared2D(GetCenter(), Destination) <= FMath::Square(170.f))
+		// A nearby centre cannot hide an idle member short of its accepted slot.
+		if (Structure ? FVector::DistSquared2D(GetCenter(), Destination) <= FMath::Square(170.f)
+					  : HasArrivedAtRegion(*State, RegionIndex))
 			return true;
+		bool bHasJoinedMember = false;
 		for (const AArmyUnit* Unit : Units)
 			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
 			{
+				bHasJoinedMember = true;
 				const AAIController* AI = Cast<AAIController>(Unit->GetController());
 				if (Unit->bPursuing || (AI && AI->GetMoveStatus() != EPathFollowingStatus::Idle))
 					return true;
 			}
+		// An assembling force keeps its accepted route; recruits drive themselves.
+		if (!bHasJoinedMember)
+			return true;
 	}
 	// Blocked formations retry at the old front-maintenance cadence, not five
 	// complete synchronous slot-path solves every combat tick.

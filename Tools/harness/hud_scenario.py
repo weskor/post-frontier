@@ -366,10 +366,14 @@ def settle_box_members(capture: Capture, owner: int) -> None:
             for actor, position in current.items()
         )
         previous = current
-        return bool(current) and stable and all(
-            army["status"] == HOLDING and not army["bHoldResponding"]
-            for army in armies
-            if any(u["health"] > 0 for u in army["units"])
+        return (
+            bool(current)
+            and stable
+            and all(
+                army["status"] == HOLDING and not army["bHoldResponding"]
+                for army in armies
+                if any(u["health"] > 0 for u in army["units"])
+            )
         )
 
     capture.wait(
