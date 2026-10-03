@@ -84,6 +84,8 @@ public:
 	int32 GetJoinedCount() const;
 	float GetBaseMarchSpeed() const;
 	float GetMarchSpeed() const;
+	// Executor-selected safe endpoint; Retreat commands intentionally have no regional target.
+	int32 GetRetreatRegion() const { return WithdrawalRegionIndex; }
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
 	EForceVerb Verb = EForceVerb::MoveHold;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")

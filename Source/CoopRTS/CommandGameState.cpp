@@ -3,6 +3,7 @@
 #include "ArenaBounds.h"
 #include "CapturePoint.h"
 #include "ArmyUnit.h"
+#include "ArmyGroup.h"
 #include "CommandBuilding.h"
 #include "CommandPlayerState.h"
 #include "CoopAudioSubsystem.h"
@@ -196,6 +197,10 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		return;
 	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing)
 		return;
+	if (EnemyPlans.RemoveAll([](const FJevPublishedPlan& Plan) {
+			return !IsValid(Plan.Force) || Plan.Force->GetAliveCount() == 0;
+		}))
+		ForceNetUpdate();
 	if ((HoldAlarmElapsed += DeltaSeconds) >= .25f)
 	{
 		HoldAlarmElapsed = 0.f;
@@ -517,8 +522,7 @@ void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ACommandGameState, FriendlyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, EnemyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, Arena);
-	DOREPLIFETIME(ACommandGameState, EnemyPlan);
-	DOREPLIFETIME(ACommandGameState, EnemyPlanRationale);
+	DOREPLIFETIME(ACommandGameState, EnemyPlans);
 	DOREPLIFETIME(ACommandGameState, EnemyCommander);
 	DOREPLIFETIME(ACommandGameState, bActivePaused);
 	DOREPLIFETIME(ACommandGameState, bCoopPauseSpent);

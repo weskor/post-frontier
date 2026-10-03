@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GoalPath.h"
+#include "ForceOrderPolicy.h"
 
 namespace JevPlanner
 {
@@ -39,7 +39,7 @@ struct FTarget
 
 struct FWorld
 {
-	FRegion Regions[ForceGoals::MaxRegions];
+	FRegion Regions[ForceOrders::MaxRegions];
 	TConstArrayView<FTarget> Targets;
 	int32 Team = 5;
 	int32 EnemyHome = INDEX_NONE;
@@ -54,6 +54,7 @@ struct FForce
 	int32 UnitCount = 0;
 	float HealthFraction = 1.f;
 	bool bRecovering = false;
+	bool bAtRecovery = false;
 	FVector Position = FVector::ZeroVector;
 	TConstArrayView<float> ClassSpeeds;
 };

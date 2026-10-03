@@ -258,18 +258,19 @@ def summarize(run: Path, manifest: JsonObject) -> bool:
     return _summarize_matches(run, manifest)
 
 
-def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
-    valid, failed = load_results(run, manifest)
+def group_matches(valid: list[tuple[JsonObject, JsonObject]]) -> Groups:
     groups: collections.defaultdict[GroupKey, list[JsonObject]] = (
         collections.defaultdict(list)
     )
     for record, report in valid:
-        key = (
-            record["job"]["map"],
-            record["job"]["variant"],
-            record["job"]["dilation"],
-        )
-        groups[key].append(report)
+        job = record["job"]
+        groups[(job["map"], job["variant"], job["dilation"])].append(report)
+    return groups
+
+
+def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
+    valid, failed = load_results(run, manifest)
+    groups = group_matches(valid)
     lines = [
         "# AI-vs-AI simulation report",
         "",

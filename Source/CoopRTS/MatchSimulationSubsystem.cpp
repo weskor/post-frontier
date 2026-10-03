@@ -50,6 +50,26 @@ void Append(FJsonObject& Object, const TCHAR* Field, const TSharedRef<FJsonObjec
 	check(Array);
 	Array->Add(MakeShared<FJsonValueObject>(Item));
 }
+
+void PlanFields(FJsonObject& Row, const FJevPublishedPlan& Plan, int32 ForceNumber,
+	const FString& TargetStructureName, double StartWorldTime, float RemainingCommitment)
+{
+	Row.SetNumberField(TEXT("ticket"), Plan.TicketNumber);
+	Row.SetNumberField(TEXT("force"), ForceNumber);
+	Row.SetNumberField(TEXT("verb"), static_cast<uint8>(Plan.Verb));
+	Row.SetNumberField(TEXT("source_region"), Plan.SourceRegionIndex);
+	Row.SetNumberField(TEXT("target_region"), Plan.TargetRegionIndex);
+	if (TargetStructureName.IsEmpty())
+		Row.SetField(TEXT("target_structure"), MakeShared<FJsonValueNull>());
+	else
+		Row.SetStringField(TEXT("target_structure"), TargetStructureName);
+	Row.SetNumberField(TEXT("size_band"), Plan.SizeBand);
+	Row.SetNumberField(TEXT("eta_seconds"), Plan.EtaSeconds);
+	Row.SetNumberField(TEXT("committed_until_seconds"), Plan.CommittedUntil - StartWorldTime);
+	Row.SetNumberField(TEXT("remaining_commitment_seconds"), RemainingCommitment);
+	Row.SetBoolField(TEXT("escalated"), Plan.bEscalated);
+	Row.SetStringField(TEXT("memo"), Plan.Memo);
+}
 }
 
 namespace
@@ -743,6 +763,15 @@ TSharedRef<FJsonObject> FMatchSimulation::Event(const TCHAR* Kind, int32 Team)
 
 void FMatchSimulation::Observe(ACommandGameState& State)
 {
+	// Retained accepted transitions include tickets created and released between
+	// snapshots, and retain creation verbs even if a ticket has already escalated.
+	while (ObservedPlanHistory < State.EnemyPlanHistory.Num())
+	{
+		const auto& Entry = State.EnemyPlanHistory[ObservedPlanHistory++];
+		const TSharedRef<FJsonObject> Row = Event(Entry.bEscalation ? TEXT("plan_escalated") : TEXT("plan_created"), 5);
+		Row->SetNumberField(TEXT("time"), FMath::Max(0., Entry.TimeSeconds - StartWorldTime));
+		PlanFields(*Row, Entry.Plan, Entry.ForceNumber, Entry.TargetStructureName, StartWorldTime, Entry.Plan.RemainingCommitment);
+	}
 	for (auto It = ObservedUnits.CreateIterator(); It; ++It)
 	{
 		AArmyUnit* Unit = It.Key().Get();
@@ -839,7 +868,8 @@ void FMatchSimulation::Observe(ACommandGameState& State)
 
 void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 {
-	const double Time = GetWorld()->GetTimeSeconds() - StartWorldTime;
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	const double Time = WorldTime - StartWorldTime;
 	const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 	Row->SetNumberField(TEXT("time"), Time);
 	Row->SetNumberField(TEXT("scheduled_time"), ScheduledTime);
@@ -981,6 +1011,17 @@ void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 		Deposits.Add(MakeShared<FJsonValueObject>(Detail));
 	}
 	Row->SetArrayField(TEXT("deposits"), MoveTemp(Deposits));
+	TArray<TSharedPtr<FJsonValue>> Plans;
+	Plans.Reserve(State.EnemyPlans.Num());
+	for (const FJevPublishedPlan& Plan : State.EnemyPlans)
+	{
+		const TSharedRef<FJsonObject> Detail = MakeShared<FJsonObject>();
+		PlanFields(*Detail, Plan, Plan.ForceNumber,
+			IsValid(Plan.TargetStructure) ? Plan.TargetStructure->GetName() : FString(), StartWorldTime,
+			FMath::Max(0.f, Plan.CommittedUntil - WorldTime));
+		Plans.Add(MakeShared<FJsonValueObject>(Detail));
+	}
+	Row->SetArrayField(TEXT("enemy_plans"), MoveTemp(Plans));
 	Append(*Report, TEXT("snapshots"), Row);
 }
 

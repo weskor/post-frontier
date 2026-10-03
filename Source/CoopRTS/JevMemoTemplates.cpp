@@ -13,10 +13,10 @@ struct FTemplateDefinition
 };
 
 constexpr FTemplateDefinition Definitions[] = {
-	{TEXT("MoveAndHold"), TEXT("Move & Hold:")},
-	{TEXT("Attack"), TEXT("Attack:")},
-	{TEXT("Retreat"), TEXT("Retreat:")},
-	{TEXT("Escalated"), TEXT("Escalated: defending {Region}")}
+	{ TEXT("MoveAndHold"), TEXT("Move & Hold:") },
+	{ TEXT("Attack"), TEXT("Attack:") },
+	{ TEXT("Retreat"), TEXT("Retreat:") },
+	{ TEXT("Escalated"), TEXT("Escalated: defending {Region}") }
 };
 
 struct FToken
@@ -26,10 +26,10 @@ struct FToken
 };
 
 constexpr FToken Tokens[] = {
-	{TEXT("{Ticket}"), 8},
-	{TEXT("{Size}"), 6},
-	{TEXT("{Region}"), 8},
-	{TEXT("{ETA}"), 5}
+	{ TEXT("{Ticket}"), 8 },
+	{ TEXT("{Size}"), 6 },
+	{ TEXT("{Region}"), 8 },
+	{ TEXT("{ETA}"), 5 }
 };
 
 bool ValidateTemplate(const FString& Template, int32 Index)
@@ -111,9 +111,15 @@ FString FJevMemoTemplates::Format(const JevPlanner::FPlan& Plan, int32 TicketNum
 	int32 Index = INDEX_NONE;
 	switch (Plan.Verb)
 	{
-	case JevPlanner::EVerb::MoveAndHold: Index = 0; break;
-	case JevPlanner::EVerb::Attack: Index = 1; break;
-	case JevPlanner::EVerb::Retreat: Index = 2; break;
+	case JevPlanner::EVerb::MoveAndHold:
+		Index = 0;
+		break;
+	case JevPlanner::EVerb::Attack:
+		Index = 1;
+		break;
+	case JevPlanner::EVerb::Retreat:
+		Index = 2;
+		break;
 	}
 	if (Index == INDEX_NONE || (Plan.bEscalated && (Plan.Verb != JevPlanner::EVerb::MoveAndHold || Plan.Target != Plan.Source))
 		|| !FMath::IsFinite(Plan.EtaSeconds) || Plan.EtaSeconds < 0.f || Plan.EtaSeconds >= static_cast<float>(MAX_int32))

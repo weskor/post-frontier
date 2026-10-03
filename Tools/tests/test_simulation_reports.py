@@ -6,7 +6,7 @@ from pathlib import Path
 
 from harness.simulation_charts import sample_buckets
 from harness.simulation_comparison import compare_pair, symmetry_metadata
-from harness.simulation_evidence import save_json
+from harness.simulation_evidence import committed_plan_evidence, save_json
 from harness.simulation_report import group_summary, load_results, summarize
 from harness.simulation_validation import TEAM_FIELDS, validate_report
 from harness.verify import JsonObject
@@ -167,11 +167,20 @@ def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
         validate_report(report, job)
 
 
+@pytest.mark.parametrize("missing", ["snapshot", "creation", "escalation"])
 def test_missing_plans_are_excluded_instead_of_crashing_aggregation(
     tmp_path: Path,
+    missing: str,
 ) -> None:
     job, report = telemetry()
-    del report["snapshots"][-1]["enemy_plans"]
+    plan = telemetry_plan()
+    if missing == "snapshot":
+        del report["snapshots"][-1]["enemy_plans"]
+    elif missing == "creation":
+        report["snapshots"][-1]["enemy_plans"] = [plan]
+    else:
+        report["events"].append(dict(plan, time=2, kind="plan_created", team=5))
+        report["snapshots"][-1]["enemy_plans"] = [dict(plan, escalated=True)]
     folder = tmp_path / "match"
     folder.mkdir()
     save_json(folder / "match.json", report)
@@ -222,6 +231,55 @@ def test_layout_uses_planar_distance_and_unreachable_reward() -> None:
     assert result["5"]["nearest_natural_cm"] == pytest.approx((70**2 + 40**2) ** 0.5)
 
 
+def telemetry_plan() -> JsonObject:
+    return dict(
+        ticket=1,
+        force=10,
+        verb=1,
+        source_region=0,
+        target_region=1,
+        target_structure="EnemyHQ",
+        size_band=8,
+        eta_seconds=10,
+        committed_until_seconds=27,
+        remaining_commitment_seconds=25,
+        escalated=False,
+        memo="Ticket #1 · Attacking with ~8 units",
+    )
+
+
+def test_short_lived_plans_count_without_any_active_snapshot() -> None:
+    job, report = telemetry()
+    plan = telemetry_plan()
+    report["events"] += [
+        dict(plan, time=2, kind="plan_created", team=5),
+        dict(plan, time=4, kind="plan_escalated", team=5, verb=0, escalated=True),
+        dict(plan, time=6, kind="plan_created", team=5, ticket=2, verb=2),
+    ]
+    validate_report(report, job)
+    evidence = committed_plan_evidence(report)
+    assert evidence["counts"] == dict(
+        move_and_hold=0, attack=1, retreat=1, total=2, escalated=1
+    )
+    assert evidence["active_plans"] == []
+
+
+def test_reused_ticket_is_excluded_from_report_counts(tmp_path: Path) -> None:
+    job, report = telemetry()
+    plan = telemetry_plan()
+    report["events"] += [
+        dict(plan, time=2, kind="plan_created", team=5),
+        dict(plan, time=4, kind="plan_created", team=5, force=11),
+    ]
+    folder = tmp_path / "match"
+    folder.mkdir()
+    save_json(folder / "match.json", report)
+    record = dict(job=job, directory=str(folder), status="complete", returncode=0)
+    valid, failed = load_results(tmp_path, dict(matches=[record]))
+    assert valid == []
+    assert failed[0]["error"] == "JEV ticket reused by another force"
+
+
 def test_four_match_plan_counts_ignore_republication_and_autopilot(
     tmp_path: Path,
 ) -> None:
@@ -230,39 +288,27 @@ def test_four_match_plan_counts_ignore_republication_and_autopilot(
         job, report = telemetry()
         job.update(seed=seed, variant="baseline2")
         report["seed"] = seed
-        plan = dict(
-            ticket=1,
-            force=10,
-            verb=0,
-            source_region=0,
-            target_region=1,
-            size_band=8,
-            eta_seconds=10,
-            remaining_commitment_seconds=25,
-            escalated=False,
-            memo="Ticket #1 · Reallocating ~8 units",
-        )
+        plan = telemetry_plan()
         # One ticket persists across evaluation publications and changes verb
         # during escalation. Its creation verb still counts only once.
         report["events"] += [
-            dict(plan, time=time, kind="plan_created", team=5)
-            for time in (2, 4, 6)
+            dict(plan, time=time, kind="plan_created", team=5) for time in (2, 4, 6)
         ]
         report["events"] += [
-            dict(plan, time=time, kind="plan_escalated", team=5, verb=1, escalated=True)
+            dict(plan, time=time, kind="plan_escalated", team=5, verb=0, escalated=True)
             for time in (8, 10)
         ]
         report["events"] += [
-            dict(plan, time=12, kind="plan_created", team=5, verb=1, escalated=True),
+            dict(plan, time=12, kind="plan_created", team=5, verb=0, escalated=True),
             dict(plan, time=14, kind="plan_created", team=5, ticket=2, verb=2),
-            dict(plan, time=16, kind="plan_created", team=5, ticket=3, verb=1),
+            dict(plan, time=16, kind="plan_created", team=5, ticket=3, verb=0),
             dict(plan, time=18, kind="plan_created", team=0, ticket=4),
             dict(plan, time=20, kind="plan_escalated", team=0, ticket=4),
             dict(time=22, kind="region_control", team=5, region=1, previous_team=0),
         ]
         report["events"].sort(key=lambda event: event["time"])
         for snapshot in report["snapshots"][1:]:
-            snapshot["enemy_plans"] = [dict(plan, verb=1, escalated=True)]
+            snapshot["enemy_plans"] = [dict(plan, verb=0, escalated=True)]
         directory = tmp_path / f"match-{seed}"
         directory.mkdir()
         save_json(directory / "match.json", report)

@@ -6,13 +6,13 @@ namespace
 {
 bool Exists(const FWorld& World, int32 Index)
 {
-	return Index >= 0 && Index < ForceGoals::MaxRegions && World.Regions[Index].bExists;
+	return Index >= 0 && Index < ForceOrders::MaxRegions && World.Regions[Index].bExists;
 }
 
 struct FPaths
 {
-	int32 Hops[ForceGoals::MaxRegions];
-	float Length[ForceGoals::MaxRegions] = {};
+	int32 Hops[ForceOrders::MaxRegions];
+	float Length[ForceOrders::MaxRegions] = {};
 };
 
 FPaths Paths(const FWorld& World, const FForce& Force)
@@ -22,7 +22,7 @@ FPaths Paths(const FWorld& World, const FForce& Force)
 		Hop = INDEX_NONE;
 	if (!Exists(World, Force.Source))
 		return Out;
-	int32 Queue[ForceGoals::MaxRegions];
+	int32 Queue[ForceOrders::MaxRegions];
 	int32 Read = 0, Write = 0;
 	Queue[Write++] = Force.Source;
 	Out.Hops[Force.Source] = 0;
@@ -30,7 +30,7 @@ FPaths Paths(const FWorld& World, const FForce& Force)
 	while (Read < Write)
 	{
 		const int32 Current = Queue[Read++];
-		for (int32 Next = 0; Next < ForceGoals::MaxRegions; ++Next)
+		for (int32 Next = 0; Next < ForceOrders::MaxRegions; ++Next)
 			if (Exists(World, Next) && Out.Hops[Next] == INDEX_NONE && (World.Regions[Current].Neighbours & (uint64(1) << Next)))
 			{
 				Out.Hops[Next] = Out.Hops[Current] + 1;
@@ -95,7 +95,7 @@ float RegionScore(const FWorld& World, const FForce& Force, const FPaths& Route,
 {
 	const FRegion& Region = World.Regions[Index];
 	return Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
-		: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
+									: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
 			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
 			- (Region.Controller != INDEX_NONE ? 3.f : 0.f);
 }
@@ -138,11 +138,14 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		return Out;
 	const FPaths Route = Paths(World, Force);
 	const bool bRecover = Force.HealthFraction < .35f || (Force.bRecovering && Force.HealthFraction < .8f);
+	if (bRecover && Force.bAtRecovery && Exists(World, Force.Source)
+		&& World.Regions[Force.Source].Controller == World.Team && !World.Regions[Force.Source].Hostiles)
+		Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Force.Source, Route.Length[Force.Source]), 1001.f);
 	if (Exists(World, Force.Home) && World.Regions[Force.Home].bTargetAlive
 		&& World.Regions[Force.Home].Controller == World.Team && World.Regions[Force.Home].Hostiles == 0
 		&& Route.Hops[Force.Home] != INDEX_NONE)
 		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), bRecover ? 1000.f : -1000.f);
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 	{
 		const FRegion& Region = World.Regions[Index];
 		if (!Region.bExists || !Region.bTargetAlive || Route.Hops[Index] == INDEX_NONE || Region.bClaimed)

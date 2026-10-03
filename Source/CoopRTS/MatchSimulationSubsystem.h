@@ -111,6 +111,7 @@ private:
 	TMap<TWeakObjectPtr<AArmyUnit>, FObservedUnit> ObservedUnits;
 	TMap<int32, int32> RegionOwners;
 	TSet<TWeakObjectPtr<ADepositSite>> Depleted;
+	int32 ObservedPlanHistory = 0;
 	int32 Produced[2] = {};
 	int32 Casualties[2] = {};
 	int64 ObservedHealthLoss[2] = {};

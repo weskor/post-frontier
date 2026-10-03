@@ -5,6 +5,7 @@
 #include "ConstructionTypes.h"
 #include "GameFramework/GameStateBase.h"
 #include "Rules/PauseBudget.h"
+#include "ForceOrders.h"
 #include "CommandGameState.generated.h"
 
 class AArenaBounds;
@@ -18,6 +19,49 @@ class ADepositSite;
 class UMatchContent;
 class UObjectiveAnnouncer;
 class AArmyUnit;
+class AArmyGroup;
+
+USTRUCT(BlueprintType)
+struct FJevPublishedPlan
+{
+	GENERATED_BODY()
+	UPROPERTY(BlueprintReadOnly)
+	int32 TicketNumber = 0;
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<AArmyGroup> Force;
+	UPROPERTY(BlueprintReadOnly)
+	int32 ForceNumber = 0;
+	UPROPERTY(BlueprintReadOnly)
+	EForceVerb Verb = EForceVerb::MoveHold;
+	UPROPERTY(BlueprintReadOnly)
+	int32 SourceRegionIndex = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly)
+	int32 TargetRegionIndex = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<AActor> TargetStructure;
+	UPROPERTY(BlueprintReadOnly)
+	int32 SizeBand = 2;
+	UPROPERTY(BlueprintReadOnly)
+	float EtaSeconds = 0.f;
+	UPROPERTY(BlueprintReadOnly)
+	float CommittedUntil = 0.f;
+	UPROPERTY(BlueprintReadOnly)
+	float RemainingCommitment = 0.f;
+	UPROPERTY(BlueprintReadOnly)
+	bool bEscalated = false;
+	UPROPERTY(BlueprintReadOnly)
+	FString Memo;
+};
+#if !UE_BUILD_SHIPPING
+struct FJevPlanHistoryEntry
+{
+	FJevPublishedPlan Plan;
+	float TimeSeconds = 0.f;
+	bool bEscalation = false;
+	int32 ForceNumber = 0;
+	FString TargetStructureName;
+};
+#endif
 
 struct FHoldDamageSource
 {
@@ -92,9 +136,10 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match")
 	TObjectPtr<AArenaBounds> Arena;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
-	FString EnemyPlan;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
-	FString EnemyPlanRationale;
+	TArray<FJevPublishedPlan> EnemyPlans;
+#if !UE_BUILD_SHIPPING
+	TArray<FJevPlanHistoryEntry> EnemyPlanHistory;
+#endif
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
 	TObjectPtr<ACommandPlayerState> EnemyCommander;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING

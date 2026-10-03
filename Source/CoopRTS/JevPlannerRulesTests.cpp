@@ -56,6 +56,14 @@ bool FJevCandidatesTest::RunTest(const FString&)
 	Returning.Home = 2;
 	Returning.HealthFraction = .1f;
 	TestEqual(TEXT("Retreat ETA includes its sprint speed"), Choose(Propose(Safe, Returning))->Plan.EtaSeconds, 16.f);
+	Force.HealthFraction = .5f;
+	Force.bRecovering = Force.bAtRecovery = true;
+	const FPlan RecoveryHold = Choose(Propose(World, Force))->Plan;
+	TestEqual(TEXT("An arrived injured roster holds safety rather than restarting Retreat"), RecoveryHold.Verb, EVerb::MoveAndHold);
+	TestEqual(TEXT("Recovery holds the force's safe source"), RecoveryHold.Target, Force.Source);
+	Force.HealthFraction = .8f;
+	TestEqual(TEXT("Eighty-percent health releases recovery to strategic expansion"), Choose(Propose(World, Force))->Plan.Target, 1);
+	Force.bRecovering = Force.bAtRecovery = false;
 	World.Regions[0].Neighbours = uint64(1) << 1;
 	World.Regions[1].Position = FVector(0.f, 1000.f, 0.f);
 	TestTrue(TEXT("ETA uses the region path, not the endpoint distance"), TravelSeconds(World, Force, 2) > 30.f);

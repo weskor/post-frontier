@@ -76,6 +76,7 @@ def validate_report(report: JsonObject, job: JsonObject) -> None:
         raise ValueError("Game delta exceeded fixed 60 Hz contract")
     validate_snapshots(report, duration)
     validate_outcome(report, job, duration)
+    validate_plans(report)
 
 
 def validate_snapshots(report: JsonObject, duration: float) -> None:
@@ -124,6 +125,72 @@ def validate_snapshots(report: JsonObject, duration: float) -> None:
     for event in report["events"]:
         if not 0 <= number(event.get("time"), "event time") <= duration + 0.001:
             raise ValueError("Event time outside match")
+
+
+def validate_plan(plan: JsonObject) -> None:
+    for field in (
+        "ticket",
+        "force",
+        "verb",
+        "source_region",
+        "target_region",
+        "size_band",
+    ):
+        value = number(plan.get(field), f"plan {field}")
+        if not value.is_integer():
+            raise ValueError(f"Plan {field} must be an integer")
+    if plan["ticket"] <= 0 or plan["force"] < 0:
+        raise ValueError("Plan must identify a ticket and force")
+    if plan["verb"] not in (0, 1, 2):
+        raise ValueError("Unknown plan verb")
+    if plan["size_band"] < 2 or plan["size_band"] % 2:
+        raise ValueError("Invalid plan size band")
+    for field in ("eta_seconds", "remaining_commitment_seconds"):
+        if number(plan.get(field), f"plan {field}") < 0:
+            raise ValueError(f"Negative plan {field}")
+    if not isinstance(plan.get("escalated"), bool) or not isinstance(
+        plan.get("memo"), str
+    ):
+        raise ValueError("Missing plan escalation or memo")
+
+
+def validate_plans(report: JsonObject) -> None:
+    created: dict[int, JsonObject] = {}
+    escalated: dict[int, float] = {}
+    for event in report["events"]:
+        if event.get("team") != 5 or event["kind"] not in (
+            "plan_created",
+            "plan_escalated",
+        ):
+            continue
+        validate_plan(event)
+        ticket = event["ticket"]
+        if event["kind"] == "plan_created":
+            if ticket in created and created[ticket]["force"] != event["force"]:
+                raise ValueError("JEV ticket reused by another force")
+            created.setdefault(ticket, event)
+        else:
+            if ticket not in created:
+                raise ValueError("Missing JEV plan creation before escalation")
+            if created[ticket]["force"] != event["force"]:
+                raise ValueError("Escalated ticket changed force")
+            escalated.setdefault(ticket, event["time"])
+    for snapshot in report["snapshots"]:
+        tickets: set[int] = set()
+        for plan in snapshot["enemy_plans"]:
+            validate_plan(plan)
+            ticket = plan["ticket"]
+            if ticket in tickets:
+                raise ValueError("Duplicate active JEV ticket")
+            tickets.add(ticket)
+            if ticket not in created or created[ticket]["time"] > snapshot["time"]:
+                raise ValueError("Missing JEV plan creation history")
+            if created[ticket]["force"] != plan["force"]:
+                raise ValueError("Published ticket changed force")
+            if plan["escalated"] and (
+                ticket not in escalated or escalated[ticket] > snapshot["time"]
+            ):
+                raise ValueError("Missing JEV plan escalation history")
 
 
 def validate_teams(snapshot: JsonObject) -> None:

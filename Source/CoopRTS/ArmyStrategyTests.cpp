@@ -55,11 +55,22 @@ public:
 			|| State->EnemyCommander->TeamIndex != 5 || State->EnemyCommander->GetOwner()
 			|| State->PlayerArray.Contains(State->EnemyCommander))
 			return Fail(TEXT("Enemy wallet must be a controllerless team-5 commander outside the human roster"));
+		if (Stage == 5)
+		{
+			if (World->GetTimeSeconds() < DefenseReadyAt)
+				return false; // A remote region threat does not override another force's active commitment.
+			return PrepareRecovery(Planner, State, PC, World);
+		}
 		if (Stage == 3)
 		{
 			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 			if (!Nav || Nav->IsNavigationBuildInProgress())
 				return false;
+			if (World->GetTimeSeconds() < RecoveryReadyAt)
+				return false; // Joined-health scoring cannot replace a still-valid committed order.
+			for (const TWeakObjectPtr<AArmyUnit>& Unit : DamagedUnits)
+				if (Unit.IsValid())
+					Unit->SetActorTickEnabled(true);
 			Planner->EvaluatePlan();
 			const bool bSafe = InSafeRecovery(State);
 			if (!bSafe && Recovery->Verb != EForceVerb::Retreat)
@@ -110,6 +121,19 @@ public:
 			}
 			if (!bObservedSafeHold || Health / Joined <= InitialDamagedHealth)
 				return Fail(TEXT("Recovery must physically reach safe MoveHold and heal the same injured joined roster before resuming"));
+			const FJevPublishedPlan* HeldPlan = PublishedRecovery(State);
+			if (Recovery->TargetRegionIndex == SafeRecoveryRegion && HeldPlan
+				&& World->GetTimeSeconds() < HeldPlan->CommittedUntil)
+			{
+				if (HealedTicket == 0)
+				{
+					HealedTicket = HeldPlan->TicketNumber;
+					HealedDeadline = HeldPlan->CommittedUntil;
+				}
+				if (HeldPlan->TicketNumber != HealedTicket || HeldPlan->CommittedUntil != HealedDeadline)
+					return Fail(TEXT("Healing above 80 percent cannot replace the still-committed safe recovery ticket"));
+				return false;
+			}
 			if ((Recovery->Verb != EForceVerb::MoveHold && Recovery->Verb != EForceVerb::Attack)
 				|| Recovery->Orders.IsEmpty() || Recovery->WaypointRegionIndex == INDEX_NONE
 				|| Recovery->TargetRegionIndex == SafeRecoveryRegion)
@@ -317,6 +341,26 @@ public:
 			return Fail(TEXT("Destroying enemy extractor must free its deposit without recapturing region"));
 		for (ACommandBuilding* Producer : EnabledProducers)
 			FCommandService::ConfigureProduction(State->EnemyCommander, Producer, State->Content->Unit(Producer->ProductionUnitIndex)->Role, true);
+		DefenseReadyAt = World->GetTimeSeconds();
+		for (const FJevPublishedPlan& Plan : State->EnemyPlans)
+			DefenseReadyAt = FMath::Max(DefenseReadyAt, Plan.CommittedUntil);
+		Stage = 5;
+		return false;
+	}
+private:
+	const FJevPublishedPlan* PublishedRecovery(const ACommandGameState* State) const
+	{
+		return State->EnemyPlans.FindByPredicate(
+			[&](const FJevPublishedPlan& Plan) { return Plan.Force == Recovery.Get(); });
+	}
+	bool PrepareRecovery(AEnemyCommander* Planner, ACommandGameState* State,
+		ACommandPlayerController* PC, UWorld* World)
+	{
+		const AMapRegion* ForwardRegion = ForwardProduction.IsValid()
+			? State->FindRegionAt(ForwardProduction->GetActorLocation())
+			: nullptr;
+		if (!ForwardRegion || State->GetRegionController(ForwardRegion->RegionIndex) != 5)
+			return Fail(TEXT("Forward defense fixture must retain its naturally captured controlled region"));
 		const FVector ThreatAnchor = State->GetRegionAnchor(ForwardRegion->RegionIndex);
 		ACommandBuilding* NearestDefender = nullptr;
 		float NearestDistance = TNumericLimits<float>::Max();
@@ -357,11 +401,18 @@ public:
 				Unit->ReceiveAttack(Unit->GetHealth() - FMath::Max(1, Unit->MaxHealth() / 4), Threat->GetUnits()[0]);
 				DamagedHealth += float(Unit->GetHealth()) / Unit->MaxHealth();
 				DamagedUnits.Add(Unit);
+				// Keep the below-threshold roster intact while its previous order is
+				// committed; natural FieldRepairs starts when Retreat may be chosen.
+				Unit->SetActorTickEnabled(false);
 			}
 		if (DamagedUnits.Num() != DamageJoined || DamagedHealth / DamageJoined >= .35f)
 			return Fail(TEXT("Real hostile damage must reduce the observed joined roster below the 35 percent recovery threshold"));
 		InitialDamagedHealth = DamagedHealth / DamageJoined;
 		Threat->Destroy();
+		const FJevPublishedPlan* RecoveryPlan = PublishedRecovery(State);
+		if (!RecoveryPlan)
+			return Fail(TEXT("Damaged producer must retain its published accepted commitment before recovery"));
+		RecoveryReadyAt = RecoveryPlan->CommittedUntil;
 		State->EnemyCommander->Resources = 2000; // Paid repairs setup, not asserted income.
 		OtherProduction = ForwardProduction;
 		OtherForce = OtherProduction->ForceGroup;
@@ -387,7 +438,6 @@ public:
 		Stage = 3;
 		return false;
 	}
-private:
 	bool ObserveResumedTravel(const ACommandGameState* State, const UWorld* World)
 	{
 		const int32 Waypoint = Recovery->WaypointRegionIndex;
@@ -472,6 +522,10 @@ private:
 	bool bObservedSafeHold = false;
 	int32 SafeRecoveryRegion = INDEX_NONE;
 	float InitialDamagedHealth = 0.f;
+	float DefenseReadyAt = 0.f;
+	float RecoveryReadyAt = 0.f;
+	int32 HealedTicket = 0;
+	float HealedDeadline = 0.f;
 	int32 Stage = 0;
 	int32 HumanBalance = 0;
 	int32 EnemyBudget = 600;

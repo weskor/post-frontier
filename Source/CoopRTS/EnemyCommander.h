@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Rules/JevPlanner.h"
+#include "JevMemoTemplates.h"
 #include "EnemyCommander.generated.h"
 
 class ACommandBuilding;
@@ -24,7 +26,17 @@ public:
 	TObjectPtr<ACommandPlayerState> Commander;
 private:
 	ACommandBuilding* BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center);
-	// Retreat execution can finish before Field Repairs reaches the planner's 80% health release.
-	TArray<TWeakObjectPtr<AArmyGroup>, TInlineAllocator<8>> RecoveringForces;
+	struct FCommittedForce
+	{
+		TWeakObjectPtr<AArmyGroup> Force;
+		JevPlanner::FPlan Plan;
+		int32 TicketNumber = 0;
+		bool bRecovering = false;
+	};
+	TArray<FCommittedForce, TInlineAllocator<8>> CommittedForces;
+	FJevMemoTemplates MemoTemplates;
+	bool bMemoLoadAttempted = false;
+	bool bMemosLoaded = false;
+	int32 NextTicketNumber = 1;
 	float EvaluateElapsed = 0.f;
 };

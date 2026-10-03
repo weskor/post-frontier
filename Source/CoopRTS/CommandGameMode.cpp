@@ -83,9 +83,7 @@ void ACommandGameMode::Tick(float DeltaSeconds)
 		return;
 	const bool bFriendlyLost = Result == EMatchResult::Defeat;
 	State->SetMatchResult(Result);
-	State->EnemyPlan = TEXT("MATCH COMPLETE");
-	State->EnemyPlanRationale = bFriendlyLost ? TEXT("Friendly HQ destroyed (ties are defeat)")
-											  : TEXT("Enemy HQ destroyed");
+	State->EnemyPlans.Reset();
 	State->ForceNetUpdate();
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		It->SettleMatch();

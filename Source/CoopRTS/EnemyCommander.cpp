@@ -32,29 +32,13 @@ bool HasCapability(const ACommandBuilding& Building, bool UBuildingDefinition::*
 }
 
 bool ValidRegion(int32 Index) { return Index >= 0 && Index < ForceOrders::MaxRegions; }
-
-// Graph distances also exclude unreachable expansion targets.
-void Distances(const AMapRegion* const* Regions, int32 Source, int32* Distance)
+EForceVerb OrderVerb(JevPlanner::EVerb Verb)
 {
-	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
-		Distance[Index] = INDEX_NONE;
-	if (!ValidRegion(Source) || !Regions[Source])
-		return;
-	int32 Queue[ForceOrders::MaxRegions];
-	int32 Read = 0, Write = 0;
-	Queue[Write++] = Source;
-	Distance[Source] = 0;
-	while (Read < Write)
-	{
-		const int32 Current = Queue[Read++];
-		for (int32 Next = 0; Next < ForceOrders::MaxRegions; ++Next)
-			if (Regions[Next] && Distance[Next] == INDEX_NONE && Regions[Current]->Neighbours.Contains(Next))
-			{
-				Distance[Next] = Distance[Current] + 1;
-				Queue[Write++] = Next;
-			}
-	}
+	return Verb == JevPlanner::EVerb::Attack ? EForceVerb::Attack
+		: Verb == JevPlanner::EVerb::Retreat ? EForceVerb::Retreat
+											 : EForceVerb::MoveHold;
 }
+
 }
 
 AEnemyCommander::AEnemyCommander()
@@ -136,6 +120,20 @@ void AEnemyCommander::EvaluatePlan()
 		Commander = State->EnemyCommander;
 	if (!IsValid(Commander) || Commander->TeamIndex != TeamIndex)
 		return;
+	if (!bMemoLoadAttempted)
+	{
+		bMemoLoadAttempted = true;
+		bMemosLoaded = MemoTemplates.Load();
+	}
+	if (!bMemosLoaded)
+		return;
+	const float Now = GetWorld()->GetTimeSeconds();
+	CommittedForces.RemoveAllSwap([&](const FCommittedForce& Entry) {
+		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander
+			|| Entry.Force->GetAliveCount() == 0;
+	});
+	if (TeamIndex == 5)
+		State->EnemyPlans.Reset();
 	const UMatchContent& Content = *State->Content;
 	const int32 ProducerIndex = FirstBuildingWith(Content, &UBuildingDefinition::bProducesForces);
 	const int32 ExtractorIndex = FirstBuildingWith(Content, &UBuildingDefinition::bRequiresDeposit);
@@ -152,7 +150,8 @@ void AEnemyCommander::EvaluatePlan()
 	int32 Controllers[ForceOrders::MaxRegions];
 	int32 Hostiles[ForceOrders::MaxRegions] = {};
 	int32 DepositValue[ForceOrders::MaxRegions] = {};
-	bool Claimed[ForceOrders::MaxRegions] = {};
+	JevPlanner::FWorld Summary;
+	Summary.Team = TeamIndex;
 	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 		Controllers[Index] = -1;
 	for (const AMapRegion* Region : State->Regions)
@@ -160,24 +159,20 @@ void AEnemyCommander::EvaluatePlan()
 		{
 			Regions[Region->RegionIndex] = Region;
 			Controllers[Region->RegionIndex] = State->GetRegionController(Region->RegionIndex);
+			JevPlanner::FRegion& Out = Summary.Regions[Region->RegionIndex];
+			Out.bExists = true;
+			Out.bMain = Region->RegionRole == ERegionRole::Main;
+			Out.Controller = Controllers[Region->RegionIndex];
+			Out.Position = State->GetRegionAnchor(Region->RegionIndex);
+			for (int32 Neighbour : Region->Neighbours)
+				if (ValidRegion(Neighbour))
+					Out.Neighbours |= uint64(1) << Neighbour;
 		}
 	const AMapRegion* HomeRegion = State->FindRegionAt(Home);
 	if (!HomeRegion || !ValidRegion(HomeRegion->RegionIndex))
 		return;
-	RecoveringForces.RemoveAllSwap([](const TWeakObjectPtr<AArmyGroup>& Force) {
-		return !Force.IsValid() || !IsValid(Force->GetProductionBuilding());
-	});
-	uint64 ConnectedRecovery = 0;
-	if (!RecoveringForces.IsEmpty())
-	{
-		uint64 Graph[ForceOrders::MaxRegions];
-		const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
-		uint64 Controlled = 0;
-		for (int32 Index = 0; Index < Count; ++Index)
-			if (Controllers[Index] == TeamIndex)
-				Controlled |= uint64(1) << Index;
-		ConnectedRecovery = ForceOrders::ConnectedMask(Graph, Count, HomeRegion->RegionIndex, Controlled);
-	}
+	const AMapRegion* EnemyMain = State->FindRegionAt(EnemyHome);
+	Summary.EnemyHome = EnemyMain ? EnemyMain->RegionIndex : INDEX_NONE;
 	TArray<ACommandBuilding*, TInlineAllocator<8>> Barracks;
 	ACommandBuilding* Workshop = nullptr;
 	int32 Roles[3] = {};
@@ -200,12 +195,19 @@ void AEnemyCommander::EvaluatePlan()
 	{
 		BuildNear(State, ProducerIndex, Home);
 		if (TeamIndex == 5)
-		{
-			State->EnemyPlan = TEXT("ESTABLISH BASE");
-			State->EnemyPlanRationale = TEXT("Paid production before economy investment");
 			State->ForceNetUpdate();
-		}
-		return;
+	}
+	TArray<AArmyGroup*, TInlineAllocator<8>> Forces;
+	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		if (It->GetOwningPlayerState() == Commander && It->GetAliveCount() > 0)
+			Forces.Add(*It);
+	Forces.Sort([](const AArmyGroup& A, const AArmyGroup& B) { return A.ForceNumber < B.ForceNumber; });
+	uint64 ForceRegions = 0;
+	for (const AArmyGroup* Force : Forces)
+	{
+		const int32 Source = ForceOrderGraph::SourceRegion(*Force, *State);
+		if (ValidRegion(Source))
+			ForceRegions |= uint64(1) << Source;
 	}
 	int32 FriendlyStrength = 0, EnemyStrength = 0;
 	for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
@@ -220,6 +222,9 @@ void AEnemyCommander::EvaluatePlan()
 			const AMapRegion* Region = State->FindRegionAt(It->GetActorLocation());
 			if (Region && ValidRegion(Region->RegionIndex))
 				++Hostiles[Region->RegionIndex];
+			for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
+				if ((ForceRegions & (uint64(1) << Index)) && State->IsDamagingRegion(**It, Index, TeamIndex))
+					Summary.Regions[Index].bAttacked = true;
 		}
 	}
 	int32 Established = 0;
@@ -257,35 +262,29 @@ void AEnemyCommander::EvaluatePlan()
 				break;
 	}
 
-	ACommandBuilding* Defenders[ForceOrders::MaxRegions] = {};
-	bool bThreatened = false;
 	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 	{
-		if (!Regions[Index] || Controllers[Index] != TeamIndex || !Hostiles[Index])
-			continue;
-		bThreatened = true;
-		float Nearest = TNumericLimits<float>::Max();
-		for (ACommandBuilding* Building : Barracks)
-		{
-			if (!Building->IsComplete() || !IsValid(Building->ForceGroup) || RecoveringForces.Contains(Building->ForceGroup.Get()))
-				continue;
-			bool bAssigned = false;
-			for (const ACommandBuilding* Defender : Defenders)
-				if (Defender == Building)
-				{
-					bAssigned = true;
-					break;
-				}
-			if (bAssigned)
-				continue;
-			const float Distance = FVector::DistSquared2D(Building->ForceGroup->GetCenter(), State->GetRegionAnchor(Index));
-			if (Distance < Nearest)
-			{
-				Nearest = Distance;
-				Defenders[Index] = Building;
-			}
-		}
+		Summary.Regions[Index].Hostiles = Hostiles[Index];
+		Summary.Regions[Index].DepositValue = DepositValue[Index];
+		if (Controllers[Index] == TeamIndex && (Hostiles[Index] || Summary.Regions[Index].bAttacked))
+			Summary.bThreatened = true;
 	}
+	const bool bThreatened = Summary.bThreatened;
+	TArray<JevPlanner::FTarget, TInlineAllocator<32>> Targets;
+	TArray<AActor*, TInlineAllocator<32>> TargetActors;
+	const auto AddTarget = [&](AActor* Actor) {
+		const AMapRegion* Region = State->FindRegionAt(Actor->GetActorLocation());
+		if (Region && ValidRegion(Region->RegionIndex))
+		{
+			Targets.Add({ Actor->GetUniqueID(), Region->RegionIndex, true });
+			TargetActors.Add(Actor);
+		}
+	};
+	for (ACommandBuilding* Building : State->Buildings)
+		if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex != TeamIndex)
+			AddTarget(Building);
+	AddTarget(TeamIndex == 5 ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get());
+	Summary.Targets = Targets;
 	const int32 EnemyTeam = TeamIndex == 5 ? 0 : 5;
 	int32 EnemyIncome = 0;
 	if (EnemyTeam == 5)
@@ -296,6 +295,7 @@ void AEnemyCommander::EvaluatePlan()
 				EnemyIncome += State->GetIncomePerSecond(Human);
 	const bool bAdvantage = FriendlyStrength >= Infantry.Capacity && FriendlyStrength * 4 >= FMath::Max(1, EnemyStrength) * 5
 		&& State->GetIncomePerSecond(Commander) >= EnemyIncome;
+	Summary.bAdvantage = bAdvantage;
 	for (ACommandBuilding* Building : Barracks)
 	{
 		if (!Building->IsComplete())
@@ -312,104 +312,112 @@ void AEnemyCommander::EvaluatePlan()
 		if (!bWasConfigured && Building->bForceConfigured)
 			++Roles[Role == EUnitRole::Frontline ? 0 : Role == EUnitRole::Ranged ? 1
 																				 : 2];
-		if (!IsValid(Building->ForceGroup))
-			continue;
+	}
+	for (AArmyGroup* Force : Forces)
+	{
+		FCommittedForce* Current = CommittedForces.FindByPredicate(
+			[&](const FCommittedForce& Entry) { return Entry.Force == Force; });
+		JevPlanner::FForce Snapshot;
+		Snapshot.Source = ForceOrderGraph::SourceRegion(*Force, *State);
+		Snapshot.Home = HomeRegion->RegionIndex;
+		Snapshot.Position = Force->GetCenter();
+		Snapshot.UnitCount = Force->GetAliveCount();
+		Snapshot.bRecovering = Current && Current->bRecovering;
 		float Health = 0.f;
-		int32 Living = 0;
-		for (const AArmyUnit* Unit : Building->ForceGroup->GetUnits())
+		int32 Joined = 0;
+		for (const AArmyUnit* Unit : Force->GetUnits())
 			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
 			{
 				Health += float(Unit->GetHealth()) / Unit->MaxHealth();
-				++Living;
+				++Joined;
 			}
-		const bool bWasRecovering = RecoveringForces.Contains(Building->ForceGroup.Get());
-		const bool bRecover = (Living > 0 && Health / Living < .35f)
-			|| (bWasRecovering && (!Living || Health / Living < .8f));
-		if (bRecover)
-			RecoveringForces.AddUnique(Building->ForceGroup.Get());
-		else
-			RecoveringForces.RemoveSwap(Building->ForceGroup.Get());
-		EForceVerb Verb = EForceVerb::MoveHold;
-		int32 Target = HomeRegion->RegionIndex;
-		if (bRecover)
+		Snapshot.HealthFraction = Joined ? Health / Joined : 1.f;
+		const bool bRecovering = Snapshot.HealthFraction < .35f
+			|| (Snapshot.bRecovering && Snapshot.HealthFraction < .8f);
+		Snapshot.bAtRecovery = Snapshot.bRecovering && Force->Verb == EForceVerb::MoveHold
+			&& Force->IsHoldingRegion() && Force->HoldRegionIndex == Snapshot.Source;
+		const float Speed[] = { Force->GetBaseMarchSpeed() };
+		Snapshot.ClassSpeeds = Speed;
+		JevPlanner::FPlan Next;
+		if (!JevPlanner::Decide(Summary, Snapshot, Now, Current ? &Current->Plan : nullptr, Next))
+			continue;
+		AActor* Structure = nullptr;
+		for (int32 Index = 0; Index < Targets.Num(); ++Index)
+			if (Targets[Index].Identity == Next.TargetIdentity)
+				Structure = TargetActors[Index];
+#if !UE_BUILD_SHIPPING
+		const bool bEscalation = Current && !Current->Plan.bEscalated && Next.bEscalated;
+#endif
+		const bool bNewCommitment = !Current || Next.CommittedUntil != Current->Plan.CommittedUntil;
+		const bool bDecisionChanged = !Current || Next.Verb != Current->Plan.Verb
+			|| Next.Target != Current->Plan.Target || Next.TargetIdentity != Current->Plan.TargetIdentity;
+		const bool bActualChanged = Force->Verb != OrderVerb(Next.Verb)
+			|| (Next.Verb != JevPlanner::EVerb::Retreat && Force->TargetRegionIndex != Next.Target)
+			|| Force->TargetStructure != Structure || Force->Orders.IsEmpty();
+		const bool bChanged = bDecisionChanged || (bNewCommitment && bActualChanged);
+		if (bChanged && !FCommandService::IssueForceOrder(Commander, Force, OrderVerb(Next.Verb), Next.Verb == JevPlanner::EVerb::Retreat ? INDEX_NONE : Next.Target, Structure))
+			continue;
+		if (bChanged && Next.Verb == JevPlanner::EVerb::Retreat && ValidRegion(Force->GetRetreatRegion()))
 		{
-			Verb = EForceVerb::Retreat;
-			Target = INDEX_NONE;
-			const AArmyGroup* Force = Building->ForceGroup;
-			const FVector Center = Force->GetCenter();
-			const AMapRegion* At = State->FindRegionAt(Center);
-			const int32 Held = At ? At->RegionIndex : INDEX_NONE;
-			if (bWasRecovering && ValidRegion(Held) && Regions[Held]
-				&& (ConnectedRecovery & (uint64(1) << Held)) && !Hostiles[Held]
-				&& Regions[Held]->Contains(Center))
+			Next.Target = Force->GetRetreatRegion();
+			Next.EtaSeconds = JevPlanner::TravelSeconds(Summary, Snapshot, Next.Target) / 1.25f;
+		}
+		if (!Current)
+		{
+			Current = &CommittedForces.AddDefaulted_GetRef();
+			Current->Force = Force;
+		}
+		if (bNewCommitment)
+			Current->TicketNumber = NextTicketNumber++;
+		Current->Plan = Next;
+		Current->bRecovering = bRecovering;
+		if (ValidRegion(Next.Target) && Next.bRequiresUnownedTarget)
+			Summary.Regions[Next.Target].bClaimed = true;
+		JevPlanner::FPlan DisplayPlan = Next;
+		if (Next.Verb == JevPlanner::EVerb::Retreat)
+		{
+			// Execution can finish before the next strategic decision; completion does not reset commitment.
+			if (Force->Verb == EForceVerb::MoveHold)
 			{
-				// Hold an arrived recovery waypoint before Retreat's full-roster completion,
-				// or reclaim it if completion already selected the producer rally.
-				// Arrival is measured against the projected destination, not the map anchor.
-				const FVector Anchor = State->GetRegionAnchor(Held);
-				const bool bAtRecoveryWaypoint = Force->WaypointRegionIndex == Held
-					&& FVector::DistSquared2D(Center, Force->Destination) <= FMath::Square(170.f)
-					&& FVector::DistSquared2D(Force->Destination, Anchor) <= FMath::Square(75.f);
-				const bool bAtCompletedRecovery = Force->Verb == EForceVerb::MoveHold
-					&& FVector::DistSquared2D(Center, Anchor) <= FMath::Square(170.f + 75.f);
-				const bool bHoldingRecovery = Force->IsHoldingRegion() && Force->HoldRegionIndex == Held
-					&& Force->TargetRegionIndex == Held;
-				if (bAtRecoveryWaypoint || bAtCompletedRecovery || bHoldingRecovery)
-				{
-					Verb = EForceVerb::MoveHold;
-					Target = Held;
-				}
+				DisplayPlan.Verb = JevPlanner::EVerb::MoveAndHold;
+				DisplayPlan.Target = Force->TargetRegionIndex;
+				DisplayPlan.EtaSeconds = 0.f;
+			}
+			else if (ValidRegion(Force->GetRetreatRegion()) && Force->GetRetreatRegion() != Next.Target)
+			{
+				DisplayPlan.Target = Force->GetRetreatRegion();
+				DisplayPlan.EtaSeconds = JevPlanner::TravelSeconds(Summary, Snapshot, DisplayPlan.Target) / 1.25f;
 			}
 		}
-		else
+		if (TeamIndex == 5)
 		{
-			bool bDefend = false;
-			for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
-				if (Defenders[Index] == Building)
-				{
-					Target = Index;
-					bDefend = true;
-					break;
-				}
-			if (!bDefend)
+			FJevPublishedPlan& Published = State->EnemyPlans.AddDefaulted_GetRef();
+			Published.TicketNumber = Current->TicketNumber;
+			Published.Force = Force;
+			Published.ForceNumber = Force->ForceNumber;
+			Published.Verb = OrderVerb(DisplayPlan.Verb);
+			Published.SourceRegionIndex = DisplayPlan.Source;
+			Published.TargetRegionIndex = DisplayPlan.Target;
+			Published.TargetStructure = Structure;
+			Published.SizeBand = DisplayPlan.SizeBand;
+			Published.EtaSeconds = DisplayPlan.EtaSeconds;
+			Published.CommittedUntil = Next.CommittedUntil;
+			Published.RemainingCommitment = JevPlanner::Remaining(Next, Now);
+			Published.bEscalated = Next.bEscalated;
+			Published.Memo = MemoTemplates.Format(DisplayPlan, Published.TicketNumber,
+				Regions[DisplayPlan.Target]->DisplayName.ToString());
+#if !UE_BUILD_SHIPPING
+			if (bNewCommitment || bEscalation)
 			{
-				const AMapRegion* Source = State->FindRegionAt(Building->ForceGroup->GetCenter());
-				if (!Source)
-					Source = State->FindRegionAt(Building->GetActorLocation());
-				int32 Distance[ForceOrders::MaxRegions];
-				Distances(Regions, Source ? Source->RegionIndex : INDEX_NONE, Distance);
-				const FVector Center = Building->ForceGroup->GetCenter();
-				float Best = -TNumericLimits<float>::Max();
-				for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
-				{
-					if (!Regions[Index] || Regions[Index]->RegionRole == ERegionRole::Main || Controllers[Index] == TeamIndex
-						|| Distance[Index] == INDEX_NONE || Claimed[Index])
-						continue;
-					const float Score = 8.f + DepositValue[Index] * 2.f - Distance[Index] * 5.f - Hostiles[Index] * 4.f
-						- FVector::DistSquared2D(Center, State->GetRegionAnchor(Index)) / FMath::Square(4000.f)
-						- (Controllers[Index] == EnemyTeam ? 3.f : 0.f)
-						+ (Building->ForceGroup->Verb == EForceVerb::MoveHold && Building->ForceGroup->TargetRegionIndex == Index ? 4.f : 0.f);
-					if (Score > Best)
-					{
-						Best = Score;
-						Target = Index;
-					}
-				}
-				// Do not replace an identical Attack: its casualty-refill state belongs to the force.
-				if ((!bThreatened && bAdvantage) || Best == -TNumericLimits<float>::Max())
-				{
-					Verb = EForceVerb::Attack;
-					const AMapRegion* EnemyMain = State->FindRegionAt(EnemyHome);
-					Target = EnemyMain ? EnemyMain->RegionIndex : INDEX_NONE;
-				}
-				else
-					Claimed[Target] = true;
+				FJevPlanHistoryEntry& History = State->EnemyPlanHistory.AddDefaulted_GetRef();
+				History.Plan = Published;
+				History.TimeSeconds = Now;
+				History.bEscalation = bEscalation && !bNewCommitment;
+				History.ForceNumber = Force->ForceNumber;
+				History.TargetStructureName = Structure ? Structure->GetName() : FString();
 			}
+#endif
 		}
-		AArmyGroup* Force = Building->ForceGroup;
-		if (Force->Verb != Verb || (Target != INDEX_NONE && Force->TargetRegionIndex != Target)
-			|| Force->Orders.IsEmpty())
-			FCommandService::IssueForceOrder(Commander, Force, Verb, Target);
 	}
 
 	// Prefer the safest controlled forward anchor. Never construct on a contested region.
@@ -447,10 +455,5 @@ void AEnemyCommander::EvaluatePlan()
 		&& Commander->Resources >= ACommandBuilding::ResearchCost + Reserve)
 		FCommandService::Research(Commander, Workshop, EArmyDoctrine::FieldRepairs);
 	if (TeamIndex == 5)
-	{
-		State->EnemyPlan = bThreatened ? TEXT("DEFEND REGIONS") : bAdvantage ? TEXT("ASSAULT HQ")
-																			 : TEXT("EXPAND TERRITORY");
-		State->EnemyPlanRationale = TEXT("Region orders, private paid production, forward construction and producer-scoped recovery");
 		State->ForceNetUpdate();
-	}
 }

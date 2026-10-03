@@ -1,6 +1,21 @@
 # Automation maps use the canonical default_map setting when map = "default".
 # No legacy scenario is skipped or quarantined.
 
+[scopes.jev-commitment]
+kind = "automation"
+filter = "CoopRTS.Enemy.Planner.Commitment"
+map = "default"
+
+[scopes.jev-escalation]
+kind = "automation"
+filter = "CoopRTS.Enemy.Planner.Escalation"
+map = "default"
+
+[scopes.jev-target-destroyed]
+kind = "automation"
+filter = "CoopRTS.Enemy.Planner.TargetDestroyed"
+map = "default"
+
 [scopes.combat]
 kind = "automation"
 filter = "CoopRTS.Combat.Encounter"
@@ -377,7 +392,7 @@ kind = "lint"
 "Source/CoopRTS/Content/*" = ["force-selection"]
 "Source/CoopRTS/Commands/*" = ["force-selection", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/DepositSite.*" = ["force-selection"]
-"Source/CoopRTS/EnemyCommander.*" = ["force-selection"]
+"Source/CoopRTS/EnemyCommander.*" = ["force-selection", "jev-commitment", "jev-escalation", "jev-target-destroyed"]
 "Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/MapRegion.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/SimulationSettings.*" = ["force-selection"]
@@ -407,9 +422,9 @@ kind = "lint"
 "Source/CoopRTS/Rules/ProductionPolicy.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/RulesTests.cpp" = ["rules"]
 "Source/CoopRTS/JevPlannerRulesTests.cpp" = ["rules"]
-"Source/CoopRTS/Rules/JevPlanner.*" = ["rules"]
+"Source/CoopRTS/Rules/JevPlanner.*" = ["rules", "jev-commitment", "jev-escalation", "jev-target-destroyed", "strategy"]
 "Source/CoopRTS/JevMemoTests.cpp" = ["jev-memos"]
-"Source/CoopRTS/JevMemoTemplates.*" = ["jev-memos"]
+"Source/CoopRTS/JevMemoTemplates.*" = ["jev-memos", "jev-commitment", "jev-escalation", "jev-target-destroyed"]
 "Config/DefaultGame.ini" = ["jev-memos"]
 "Source/CoopRTS/SimulationSettings.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
 "Source/CoopRTS/SimulationSettings.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel"]
@@ -423,7 +438,7 @@ kind = "lint"
 "Tools/harness/network_pause.py" = ["pause-network", "tools"]
 # Pause contracts supplement, never replace, the existing include-closure scopes.
 "Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network", "pings", "pings-network"]
-"Source/CoopRTS/CommandGameState.*" = ["force-selection", "pause", "pause-network", "objective-events", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/CommandGameState.*" = ["force-selection", "pause", "pause-network", "objective-events", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "jev-commitment", "jev-escalation", "jev-target-destroyed"]
 "Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network"]
 "Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events", "pings", "pings-network"]
 "Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings"]
@@ -469,3 +484,4 @@ kind = "lint"
 "Source/CoopRTS/Commands/CommandService.cpp" = ["force-cap"]
 "Source/CoopRTS/HUD/*" = ["force-cap"]
 "Source/CoopRTS/CommandPlayerController*" = ["force-cap"]
+"Source/CoopRTS/JevPlannerWorldTests.cpp" = ["jev-commitment", "jev-escalation", "jev-target-destroyed"]
