@@ -148,11 +148,15 @@ def create_second_force(run: NetworkRun, s: Session, index: int, squad: int) -> 
     )
     run.request(s.peer, "production", building=second, recipe=RANGED, enabled=False)
     recipes = converged(
-        run, s.names, lambda st: building(st, second)["recipe"] == RANGED,
+        run,
+        s.names,
+        lambda st: building(st, second)["recipe"] == RANGED,
         "second producer selects ranged recipe before funding",
     )
     recipe = building(recipes["host"], second)
-    run.request("host", "fund", owner=s.owner, amount=recipe["capacity"] * recipe["unitCost"])
+    run.request(
+        "host", "fund", owner=s.owner, amount=recipe["capacity"] * recipe["unitCost"]
+    )
     run.request(s.peer, "production", building=second, recipe=RANGED, enabled=True)
     states = converged(
         run,
@@ -218,7 +222,8 @@ def retarget_and_open_vacancy(
         run,
         s.names,
         lambda st: (
-            building(st, index)["joined"] + building(st, index)["travelling"] == capacity - 1
+            building(st, index)["joined"] + building(st, index)["travelling"]
+            == capacity - 1
             and force_counts_match(st, s.owner, index)
         ),
         "real hostile damage opens one replicated vacancy",
