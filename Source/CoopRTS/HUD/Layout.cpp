@@ -111,7 +111,7 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Build = { X, Layout.Height - Margin - 88.f, FMath::Min(InspectorWidth, Layout.Width - X - Margin), 88.f };
 	Layout.Inspector = { X, Layout.Build.Y - Gap - DeckHeight, Layout.Build.W, DeckHeight };
 	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
-																	  : FRect{ X, Layout.Build.Y - Gap - ModeHeight, Layout.Build.W, ModeHeight };
+																		: FRect{ X, Layout.Build.Y - Gap - ModeHeight, Layout.Build.W, ModeHeight };
 	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (Announcer && !Announcer->GetEvents().IsEmpty())
