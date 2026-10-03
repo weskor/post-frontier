@@ -97,8 +97,7 @@ public:
 			break;
 		case EStage::CheckNumber:
 			Key(NumberKeys[NumberIndex], IE_Released);
-			if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("%s key %d selects force number %d, not army array index"),
-					bSoloNumberPass ? TEXT("Solo") : TEXT("Co-op"), NumberIndex + 1, NumberIndex + 1))
+			if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("%s key %d selects force number %d, not army array index"), bSoloNumberPass ? TEXT("Solo") : TEXT("Co-op"), NumberIndex + 1, NumberIndex + 1))
 				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Single number key does not move camera")))
 				return true;
 			if (++NumberIndex < (bSoloNumberPass ? 5 : 4))
