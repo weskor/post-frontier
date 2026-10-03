@@ -140,10 +140,7 @@ def check_queue_rejection(
     capture.run.request("host", "key", key="LeftShift", pressed=False)
 
 
-def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -> None:
-    original, home, destination = frame_route(run, capture, owner, barracks)
-    state = publish_queue(run, capture, owner, barracks, home, destination)
-    orders = force(state, owner, barracks)["orders"]
+def capture_committed_path(run: NetworkRun, capture: Capture, state: JsonObject) -> None:
     # Park the cursor on the top bar so no order preview overlays the committed path.
     run.request(
         "host",
@@ -151,11 +148,18 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
         x=state["viewportWidth"] * 0.3,
         y=state["viewportHeight"] * 0.03,
     )
-    state = capture.wait(
+    capture.wait(
         lambda s: not s["routePreview"] and not s["orderPreview"]["allowed"],
         "committed path capture has no route preview",
     )
     capture.shot("route-selected-path-queue")
+
+
+def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -> None:
+    original, home, destination = frame_route(run, capture, owner, barracks)
+    state = publish_queue(run, capture, owner, barracks, home, destination)
+    orders = force(state, owner, barracks)["orders"]
+    capture_committed_path(run, capture, state)
     preview_target = home
     require(
         preview_target != destination, "preview target duplicates the active target"
