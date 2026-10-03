@@ -10,6 +10,8 @@ class AArmyUnit;
 class ACommandBuilding;
 enum class EArmyDoctrine : uint8;
 class ACommandPlayerState;
+class AMapRegion;
+class UNavigationSystemV1;
 
 struct FArmyGroupSpawn
 {
@@ -105,7 +107,7 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
 	EHoldThreatKind HoldThreatKind = EHoldThreatKind::Intrusion;
 	bool IsHoldingRegion() const;
-	bool IsHoldTargetPermitted(const AArmyUnit& Target) const;
+	bool IsHoldTargetPermitted(const AArmyUnit& Target, const AMapRegion& Region, float MaximumWeaponRange) const;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	double GetHoldResponseStarted() const { return HoldClock.Started; }
 	double GetHoldQuietSince() const { return HoldClock.QuietSince; }
@@ -143,7 +145,9 @@ private:
 	int32 HoldPostSlot = INDEX_NONE;
 	void ResetHoldState();
 	void UpdateHoldCombat();
-	void UpdateHoldMovement(AArmyUnit& Unit, const FVector& Goal);
+	void UpdateHoldMovement(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation,
+		const FVector& Goal, float Now);
+	void UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation, float Now);
 	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
 	bool ApplyAttack(FVector InDestination, AActor* InTarget);
 	bool ApplyHold();

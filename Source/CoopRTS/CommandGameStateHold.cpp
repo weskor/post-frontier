@@ -174,11 +174,15 @@ void ACommandGameState::UpdateRegionAlarms()
 				const AActor* PreviousAsset = Holder->HoldThreatenedAsset;
 				Holder->bHoldResponding = HoldPolicy::UpdateClock(Holder->HoldClock, Now, bAlarm, Candidates[Index].bSelected);
 				RespondingCount += Holder->bHoldResponding ? 1 : 0;
+				float MaximumWeaponRange = 0.f;
+				for (const AArmyUnit* Unit : Holder->GetUnits())
+					if (IsValid(Unit) && Unit->IsAlive())
+						MaximumWeaponRange = FMath::Max(MaximumWeaponRange, Unit->WeaponRange());
 				TArray<bool, TInlineAllocator<128>> Permitted;
 				int32 Current = INDEX_NONE;
 				for (int32 ThreatIndex = 0; ThreatIndex < Threats.Num(); ++ThreatIndex)
 				{
-					Permitted.Add(Holder->IsHoldTargetPermitted(*Threats[ThreatIndex]));
+					Permitted.Add(Holder->IsHoldTargetPermitted(*Threats[ThreatIndex], *Region, MaximumWeaponRange));
 					if (Holder->HoldThreat == Threats[ThreatIndex])
 						Current = ThreatIndex;
 				}
@@ -209,7 +213,7 @@ void ACommandGameState::UpdateRegionAlarms()
 				if (bWasResponding != Holder->bHoldResponding || PreviousThreat != Holder->HoldThreat || PreviousAsset != Holder->HoldThreatenedAsset)
 					Holder->ForceNetUpdate();
 			}
-			if (!bRegionWasResponding && RespondingCount > 0)
+			if (Team == 0 && !bRegionWasResponding && RespondingCount > 0)
 				if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
 				{
 					TArray<FObjectiveForce> Responders;

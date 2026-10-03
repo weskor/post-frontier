@@ -321,7 +321,9 @@ FVector HoldPolicy::ChoosePostLocation(TConstArrayView<FVector2D> Polygon, const
 		Origin = ClosestInteriorSeed(Polygon, FVector2D(Post), MinimumRoomSquared);
 		ClearanceSquared = (ClosestBoundary(Polygon, Origin) - Origin).SizeSquared();
 	}
-	check(ClearanceSquared >= MinimumRoomSquared);
+	// Degenerate/sliver geometry may have no room for distinct points.
+	if (ClearanceSquared < MinimumRoomSquared)
+		return FVector(Clipped.X, Clipped.Y, Post.Z);
 	const FVector2D Direction = Offset.IsZero() ? FVector2D(1., 0.) : FVector2D(Offset).GetSafeNormal();
 	const FVector2D Step = Direction * (.5 * FMath::Sqrt(ClearanceSquared) / (OccupiedLocations.Num() + 2.));
 	// N occupants cannot cover N+1 points separated by at least two tolerances.

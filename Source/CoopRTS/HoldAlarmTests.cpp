@@ -113,6 +113,12 @@ public:
 				break;
 			if (!CheckPosts())
 				return true;
+			if (Case == ECase::BuildingEdge
+				&& (!Check(Region->Contains(Holders[0]->GetCenter())
+							&& FVector::Dist2D(Holders[0]->GetCenter(), OutsideEntryStart) > 500.,
+						TEXT("A holder starting outside the region physically enters and reaches its assigned post"))
+					|| !CheckRegionlessDefend()))
+				return true;
 			InitialCenters.Reset();
 			for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
 				InitialCenters.Add(Holder->GetCenter());
@@ -120,6 +126,8 @@ public:
 				return true;
 			ExpectedResponseEvents = ResponseEventCount();
 			if (!Check(ExpectedResponseEvents >= 0, TEXT("The authoritative objective history is available")))
+				return true;
+			if (Case == ECase::Jev && !Check(ExpectedResponseEvents == 0, TEXT("The isolated JEV fixture starts without a player response announcement")))
 				return true;
 			BeginAlarm(Now);
 			break;
@@ -146,6 +154,13 @@ public:
 			}
 			else
 			{
+				if (Case == ECase::BuildingEdge)
+					for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
+						if (!Check(Holder->GetUnits()[0]->GetUnitRole() == EUnitRole::Frontline
+									&& FVector::Dist2D(Holder->GetCenter(), Threats[0]->GetActorLocation())
+										> Holder->GetUnits()[0]->WeaponRange() + 100.,
+								TEXT("Live Frontline responders begin their approach outside melee weapon range")))
+							return true;
 				EnableWeapons();
 				SetStage(EStage::Combat, Now);
 			}
@@ -203,7 +218,8 @@ public:
 			if (Case == ECase::Border)
 			{
 				for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
-					if (!Check(!Holder->IsHoldTargetPermitted(*Threats[1]), TEXT("Outside non-damaging hostile is not eligible for retaliation")))
+					if (!Check(!Holder->IsHoldTargetPermitted(*Threats[1], *Region, Holder->GetUnits()[0]->WeaponRange()),
+							TEXT("Outside non-damaging hostile is not eligible for retaliation")))
 						return true;
 				if (!Check(Threats[1]->GetHealth() == OutsideHealth, TEXT("No responder damages the outside non-attacker")))
 					return true;
@@ -253,6 +269,17 @@ public:
 							< FVector::Dist2D(FirstTarget->GetActorLocation(), StickyHolder->GetCenter()),
 						TEXT("New challenger is materially closer than the retained threat")))
 					return true;
+				AArmyUnit* Unit = StickyHolder->GetUnits()[0];
+				if (!Check(Unit->GetDamageType() == EDamageType::Piercing && Threats[1]->GetArmorClass() == EArmorClass::Heavy
+							&& FVector::Dist2D(Unit->GetActorLocation(), Threats[1]->GetActorLocation()) < Unit->WeaponRange()
+							&& FVector::Dist2D(Unit->GetActorLocation(), FirstTarget->GetActorLocation()) > Unit->WeaponRange() + 100.
+							&& StickyHolder->IsHoldTargetPermitted(*Threats[1], *Region, Unit->WeaponRange()),
+						TEXT("A permitted Heavy counter is in range while the sticky movement threat remains out of range")))
+					return true;
+				CounterLocation = Closer;
+				CounterInitialHealth = Threats[1]->GetHealth();
+				CounterInitialAttacks = Unit->AttackCount;
+				Unit->NextAttackTime = 0.f;
 			}
 			SetStage(EStage::Sticky, Now);
 			break;
@@ -261,10 +288,27 @@ public:
 				return true;
 			if (!Check(StickyHolder->HoldThreat == FirstTarget.Get(), TEXT("Live target stays sticky when a closer eligible hostile enters")))
 				return true;
+			if (!bObservedCounterDamage)
+			{
+				AArmyUnit* Unit = StickyHolder->GetUnits()[0];
+				if (Unit->AttackCount == CounterInitialAttacks || Threats[1]->GetHealth() == CounterInitialHealth)
+					break;
+				if (!Check(Unit->Target == Threats[1].Get() && Threats[1]->IsAlive()
+							&& Threats[1]->GetHealth() < CounterInitialHealth
+							&& FVector::Dist2D(Unit->GetActorLocation(), FirstTarget->GetActorLocation()) > Unit->WeaponRange()
+							&& FVector::Dist2D(Unit->GetActorLocation(), Threats[1]->GetActorLocation()) <= Unit->WeaponRange(),
+						TEXT("The unit selects and damages its local counter independently of the farther sticky movement/overlay threat")))
+					return true;
+				bObservedCounterDamage = true;
+				Unit->NextAttackTime = TNumericLimits<float>::Max();
+			}
 			if (Now - StageStarted < 2.)
 				break;
+			// Clear the local counter from weapon range for the original target's
+			// natural death; restore it afterward to observe death-driven retargeting.
+			Teleport(Threats[1].Get(), FarOutside);
 			EnableWeapons();
-			// Keep the challenger alive while the original target is killed naturally.
+			// Only this holder fires, isolating the original target's natural death.
 			for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
 				if (Holder != StickyHolder)
 					for (AArmyUnit* Unit : Holder->GetUnits())
@@ -274,6 +318,13 @@ public:
 		case EStage::StickyDeath:
 			if (FirstTarget.IsValid() && FirstTarget->IsAlive())
 				break;
+			for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
+				for (AArmyUnit* Unit : Holder->GetUnits())
+					Unit->NextAttackTime = TNumericLimits<float>::Max();
+			Teleport(Threats[1].Get(), CounterLocation);
+			SetStage(EStage::StickyReacquire, Now);
+			break;
+		case EStage::StickyReacquire:
 			if (StickyHolder->HoldThreat != Threats[1].Get())
 				break;
 			if (!Check(Threats[1]->IsAlive() && TotalAttacks() > 0, TEXT("Death releases the old lock and selects the remaining living nearest threat")))
@@ -339,6 +390,7 @@ private:
 		StickyAcquire,
 		Sticky,
 		StickyDeath,
+		StickyReacquire,
 		LateQuiet,
 		FrontAcquire,
 		FrontEngaged
@@ -441,7 +493,8 @@ private:
 						|| !Project(EdgePoint - Inward * Range * .3, EdgeOutside)
 						|| !Project(EdgePoint - Inward * (Range * 2. + 350.), Remote)
 						|| !Candidate->Contains(Inside) || Candidate->Contains(EdgeOutside) || Candidate->Contains(Remote)
-						|| FVector::Dist2D(Inside, Anchor) <= 1400. || !Reachable(Anchor, Inside))
+						|| FVector::Dist2D(Inside, Anchor) <= 1400. || !Reachable(Anchor, Inside)
+						|| (Case == ECase::BuildingEdge && !Reachable(Remote, Anchor)))
 						continue;
 					FVector ThreatPoint;
 					const FVector Tangent = FVector(B.X - A.X, B.Y - A.Y, 0.).GetSafeNormal();
@@ -503,6 +556,11 @@ private:
 		if (!Check(UnitIndex >= 0 && State->Content->Unit(UnitIndex)->UnitCost > 0,
 				TEXT("The map catalogue supplies positive-Power ranged fixtures")))
 			return true;
+		FrontlineIndex = ArmyTestSetup::UnitIndex(State.Get(), EUnitRole::Frontline);
+		if ((Case == ECase::BuildingEdge || Case == ECase::Timers)
+			&& !Check(FrontlineIndex >= 0 && State->Content->Unit(FrontlineIndex)->UnitCost > 0,
+				TEXT("The map catalogue supplies positive-Power Frontline fixtures")))
+			return true;
 		if (!FindGeometry())
 			return false;
 		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
@@ -531,14 +589,24 @@ private:
 			AArmyGroup* Holder = Spawn(Wallet, Index, Anchor);
 			Holders.Add(Holder);
 			FVector Ground;
-			if (!Check(Holder && Project(Anchor + Side * (Index * 130. - Count * 65.), Ground)
-						&& Holder->SpawnMember(UnitIndex, Ground, 2),
+			const FVector SpawnLocation = Case == ECase::BuildingEdge && Index == 0
+				? FarOutside
+				: Anchor + Side * (Index * 130. - Count * 65.);
+			const int32 HolderUnit = Case == ECase::BuildingEdge ? FrontlineIndex : UnitIndex;
+			if (!Check(Holder && Project(SpawnLocation, Ground)
+						&& Holder->SpawnMember(HolderUnit, Ground, 2),
 					TEXT("A real living holder spawns on map navigation")))
 				return true;
 			Holder->ForceNumber = Index + 1;
 			Holder->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
 			if (!Check(FCommandService::AssignFront(Wallet, Holder, EFrontOrder::Defend, Anchor).IsAccepted(),
 					TEXT("Real Defend front accepts the complete region hold")))
+				return true;
+		}
+		if (Case == ECase::BuildingEdge)
+		{
+			OutsideEntryStart = Holders[0]->GetCenter();
+			if (!Check(!Region->Contains(OutsideEntryStart), TEXT("The incoming holder starts outside its assigned region")))
 				return true;
 		}
 		FVector Staging;
@@ -555,7 +623,7 @@ private:
 			FVector Ground;
 			AArmyUnit* Unit = nullptr;
 			if (Project(Staging + FVector(0., Index * 130., 0.), Ground))
-				Unit = Enemy->SpawnMember(UnitIndex, Ground, Index);
+				Unit = Enemy->SpawnMember(Case == ECase::Timers && Index == 1 ? FrontlineIndex : UnitIndex, Ground, Index);
 			if (!Check(Unit != nullptr, TEXT("Hostile fixture member spawns on real navigation")))
 				return true;
 			Unit->NextAttackTime = TNumericLimits<float>::Max();
@@ -594,6 +662,43 @@ private:
 				|| Holder->GetUnits()[0]->GetVelocity().SizeSquared2D() > 1.)
 				return false;
 		return true;
+	}
+	bool CheckRegionlessDefend()
+	{
+		AArmyGroup& Holder = *Holders[0];
+		const EArmyOrder AcceptedOrder = Holder.Order;
+		const FVector AcceptedDestination = Holder.Destination;
+		const uint32 AcceptedSerial = Holder.OrderSerial;
+		const EFrontOrder AcceptedFront = Holder.FrontOrder;
+		const FVector AcceptedFrontLocation = Holder.FrontLocation;
+		const bool bAcceptedAutomatic = Holder.bAutomaticFront;
+		const int32 AcceptedRegion = Holder.HoldRegionIndex, AcceptedPost = Holder.HoldPostIndex;
+		const FVector AcceptedPostLocation = Holder.HoldPostLocation;
+		const bool bAcceptedResponding = Holder.bHoldResponding;
+		const AArmyUnit* AcceptedThreat = Holder.HoldThreat;
+		const AActor* AcceptedAsset = Holder.HoldThreatenedAsset;
+		const EHoldThreatKind AcceptedKind = Holder.HoldThreatKind;
+		const double AcceptedStarted = Holder.GetHoldResponseStarted(), AcceptedQuiet = Holder.GetHoldQuietSince();
+		const FVector Ground = State->GetRegionAnchor(Region->RegionIndex);
+		// Keep real navigable ground and the live accepted command. Temporarily
+		// omit its region from discovery, without allowing a world tick in between.
+		const int32 RegionSlot = State->Regions.IndexOfByKey(Region.Get());
+		if (!Check(RegionSlot != INDEX_NONE && State->FindRegionAt(Ground) == Region.Get(),
+				TEXT("The rejection fixture begins with a mapped, accepted Defend front")))
+			return false;
+		State->Regions.RemoveAt(RegionSlot);
+		const bool bRegionless = State->FindRegionAt(Ground) == nullptr;
+		const FCommandResult Result = FCommandService::AssignFront(Holder.GetOwningPlayerState(), &Holder, EFrontOrder::Defend, Ground);
+		State->Regions.Insert(Region.Get(), RegionSlot);
+		return Check(bRegionless && !Result.IsAccepted(), TEXT("A real automatic Defend rejects navigable ground with no mapped region"))
+			&& Check(Holder.Order == AcceptedOrder && Holder.Destination.Equals(AcceptedDestination, 1.)
+					&& Holder.OrderSerial == AcceptedSerial && Holder.FrontOrder == AcceptedFront
+					&& Holder.FrontLocation.Equals(AcceptedFrontLocation, 1.) && Holder.bAutomaticFront == bAcceptedAutomatic
+					&& Holder.HoldRegionIndex == AcceptedRegion && Holder.HoldPostIndex == AcceptedPost
+					&& Holder.HoldPostLocation.Equals(AcceptedPostLocation, 1.) && Holder.bHoldResponding == bAcceptedResponding
+					&& Holder.HoldThreat == AcceptedThreat && Holder.HoldThreatenedAsset == AcceptedAsset && Holder.HoldThreatKind == AcceptedKind
+					&& Holder.GetHoldResponseStarted() == AcceptedStarted && Holder.GetHoldQuietSince() == AcceptedQuiet,
+				TEXT("Rejected regionless Defend preserves the prior accepted movement, front, serial and complete Hold intent"));
 	}
 	bool CheckPosts()
 	{
@@ -647,7 +752,8 @@ private:
 	}
 	void BeginAlarm(double Now)
 	{
-		++ExpectedResponseEvents;
+		if (Case != ECase::Jev)
+			++ExpectedResponseEvents;
 		Teleport(Threats[0].Get(), Case == ECase::Border ? Outside : Intrusion);
 		ThreatInitialHealth = Threats[0]->GetHealth();
 		bShootBuilding = Building.IsValid();
@@ -699,7 +805,11 @@ private:
 			if (!Check(Holders[Index]->HoldPostLocation.Equals(Posts[Index], 1.), TEXT("An active alarm never reassigns a holder's post")))
 				return false;
 			const AArmyUnit* Target = Holders[Index]->HoldThreat;
-			if (Holders[Index]->bHoldResponding && !Check(IsValid(Target) && Target->IsAlive() && Threats.ContainsByPredicate([Target](const TWeakObjectPtr<AArmyUnit>& Threat) { return Threat.Get() == Target; }) && Holders[Index]->IsHoldTargetPermitted(*Target), TEXT("Responders expose an actual eligible living threat")))
+			if (Holders[Index]->bHoldResponding
+				&& !Check(IsValid(Target) && Target->IsAlive()
+						&& Threats.ContainsByPredicate([Target](const TWeakObjectPtr<AArmyUnit>& Threat) { return Threat.Get() == Target; })
+						&& Holders[Index]->IsHoldTargetPermitted(*Target, *Region, Holders[Index]->GetUnits()[0]->WeaponRange()),
+					TEXT("Responders expose an actual eligible living threat")))
 				return false;
 			if (Case == ECase::Border && Holders[Index]->bHoldResponding
 				&& !Check(Holders[Index]->HoldThreatenedAsset == Building.Get() && Holders[Index]->HoldThreatKind == EHoldThreatKind::Building,
@@ -780,16 +890,18 @@ private:
 		int32 Count = 0;
 		for (const FObjectiveEvent& Event : Announcer->GetEvents())
 			if (Event.Id == TEXT("region_defenders_responding") && Event.RegionIndex == Region->RegionIndex
-				&& Event.AffectedTeam == Holders[0]->GetTeamIndex())
+				&& (Case == ECase::Jev || Event.AffectedTeam == Holders[0]->GetTeamIndex()))
 				++Count;
 		return Count;
 	}
 	bool CheckResponseFeed(bool bCheckInitialForces = false)
 	{
 		if (!Check(ResponseEventCount() == ExpectedResponseEvents,
-				TEXT("Each response episode produces one region alert; polling, growth and target changes do not spam it")))
+				Case == ECase::Jev
+					? TEXT("JEV responses produce no player-feed/voice event, including across combat and return")
+					: TEXT("Each response episode produces one region alert; polling, growth and target changes do not spam it")))
 			return false;
-		if (!bCheckInitialForces)
+		if (Case == ECase::Jev || !bCheckInitialForces)
 			return true;
 		const FObjectiveEvent* Latest = nullptr;
 		for (const FObjectiveEvent& Event : UObjectiveAnnouncer::Get(State.Get())->GetEvents())
@@ -822,7 +934,8 @@ private:
 		if (!Check(Home && Home != Region.Get() && Threats[1].IsValid() && Threats[1]->IsAlive(),
 				TEXT("A separate enemy home supplies the engaged-front fixture")))
 			return false;
-		const double Range = Threats[1]->WeaponRange();
+		// The ranged probe's engagement radius, not the melee challenger's.
+		const double Range = Holders[0]->GetUnits()[0]->WeaponRange();
 		FVector Start, Target;
 		bool bFound = false;
 		const FVector Directions[] = { FVector::ForwardVector, -FVector::ForwardVector, FVector::RightVector, -FVector::RightVector };
@@ -886,8 +999,10 @@ private:
 	double Started;
 	double StageStarted = 0., ResponseStarted = 0., QuietStarted = -1.;
 	bool bFailed = false, bShootBuilding = false, bObservedBuildingDamage = false, bObservedThreatDamage = false;
-	bool bCommitObserved = false, bQuietObserved = false, bObservedBorderShot = false;
-	int32 UnitIndex = INDEX_NONE, BuildingInitialHealth = 0, ThreatInitialHealth = 0, OutsideHealth = 0;
+	bool bCommitObserved = false, bQuietObserved = false, bObservedBorderShot = false, bObservedCounterDamage = false;
+	int32 UnitIndex = INDEX_NONE, FrontlineIndex = INDEX_NONE;
+	int32 BuildingInitialHealth = 0, ThreatInitialHealth = 0, OutsideHealth = 0, CounterInitialHealth = 0;
+	uint32 CounterInitialAttacks = 0;
 	int32 EngagedOrderSerial = 0;
 	int32 ExpectedResponseEvents = 0;
 	TWeakObjectPtr<ACommandGameState> State;
@@ -904,6 +1019,7 @@ private:
 	TSet<AArmyGroup*> MovedHolders;
 	FVector Intrusion = FVector::ZeroVector, BuildingLocation = FVector::ZeroVector;
 	FVector Outside = FVector::ZeroVector, FarOutside = FVector::ZeroVector, Side = FVector::RightVector;
+	FVector OutsideEntryStart = FVector::ZeroVector, CounterLocation = FVector::ZeroVector;
 };
 }
 

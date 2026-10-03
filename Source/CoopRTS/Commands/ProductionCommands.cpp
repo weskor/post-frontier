@@ -86,14 +86,16 @@ bool ACommandBuilding::ApplyFront(EFrontOrder Order, const FVector& Location)
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsProducer() || !IsAlive() || !IsComplete()
 		|| (Order != EFrontOrder::Secure && Order != EFrontOrder::Defend && Order != EFrontOrder::FallBack)
-		|| !AArenaBounds::IsTravelLocation(GetWorld(), Location))
+		|| !AArenaBounds::IsTravelLocation(GetWorld(), Location)
+		|| (Order == EFrontOrder::Defend && !State->FindRegionAt(Location)))
 		return false;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	FNavLocation Projected;
 	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Projected, FVector(75.f, 75.f, 200.f))
 		|| !AArenaBounds::IsTravelLocation(GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(Location, Projected.Location) > FMath::Square(75.f)
-		|| FMath::Abs(Location.Z - Projected.Location.Z) > 110.f)
+		|| FMath::Abs(Location.Z - Projected.Location.Z) > 110.f
+		|| (Order == EFrontOrder::Defend && !State->FindRegionAt(Projected.Location)))
 		return false;
 	if (IsValid(ForceGroup) && !ForceGroup->AssignFront(Order, Projected.Location))
 		return false;

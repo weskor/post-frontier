@@ -18,6 +18,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldThreatTest, "CoopRTS.Rules.Hold.StickyThre
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldClippedPostsTest, "CoopRTS.Rules.Hold.ClippedPostOverflow",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldUnusableInteriorTest, "CoopRTS.Rules.Hold.UnusablePostInterior",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -286,6 +288,20 @@ bool FHoldClippedPostsTest::RunTest(const FString& Parameters)
 				Location.X != Earlier.X || Location.Y != Earlier.Y);
 		Placed.Add(Location);
 	}
+	return true;
+}
+
+bool FHoldUnusableInteriorTest::RunTest(const FString& Parameters)
+{
+	const FVector Post(0., 0., 73.);
+	const FVector Occupied[] = { { 400., 0., 73. } };
+	const FVector2D Line[] = { { -400., 0. }, { 400., 0. } };
+	const FVector2D Sliver[] = { { -400., -1.e-8 }, { 400., -1.e-8 }, { 400., 1.e-8 }, { -400., 1.e-8 } };
+	TestEqual(TEXT("Degenerate shared post retains the nearest legal boundary and terrain height"),
+		HoldPolicy::ChoosePostLocation(Line, Post, 1, Occupied), FVector(400., 0., 73.));
+	const FVector Thin = HoldPolicy::ChoosePostLocation(Sliver, Post, 1, Occupied);
+	TestEqual(TEXT("A sliver without usable clearance stays on its clipped boundary"), Thin, FVector(400., 0., 73.));
+	TestTrue(TEXT("Thin-region fallback does not put the holder outside the polygon"), HoldPolicy::Contains(Sliver, FVector2D(Thin)));
 	return true;
 }
 
