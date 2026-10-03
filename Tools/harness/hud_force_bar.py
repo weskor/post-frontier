@@ -83,6 +83,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     number = building(state, barracks)["forceNumber"]
     refill_states(run, capture, resolutions, owner, barracks, number)
     order_states(run, capture, resolutions, owner, barracks, number)
+    teammate_states(run, capture, resolutions)
     no_compositor_windows(run, pid)
     run.event(
         "PASS", captures=capture.count, resolutions=resolutions, scenario="force-bar"
@@ -179,3 +180,38 @@ def order_states(
         "card Retreat replaces retained Attack",
     )
     capture_states(run, capture, resolutions, "manual-retreat", owner, barracks)
+
+
+def inspected_teammate(state: JsonObject) -> JsonObject:
+    return cast(
+        JsonObject,
+        next(
+            group
+            for group in state["armies"]
+            if "forceCard" in group and not group["forceCard"]["owned"]
+        ),
+    )
+
+
+def teammate_states(
+    run: NetworkRun, capture: Capture, resolutions: Sequence[tuple[int, int]]
+) -> None:
+    state = run.request("host", "forceCardTeammate")
+    run.phase("teammate card inspection using real fixture player/force actors")
+    require(not state["selectedForces"], "inspection selected a teammate for commands")
+    group = inspected_teammate(state)
+    before = len(state["pingEvents"])
+    click(run, group["owner"], group["forceNumber"], "ping")
+    state = capture.state()
+    require(len(state["pingEvents"]) == before + 1, "teammate card did not emit a ping")
+    for width, height in resolutions:
+        run.request("host", "resolution", width=width, height=height)
+
+        def viewport_matches(state: JsonObject, width: int = width, height: int = height) -> bool:
+            return (state["viewportWidth"], state["viewportHeight"]) == (width, height)
+
+        state = capture.wait(viewport_matches, f"teammate card viewport {width}x{height}")
+        view = inspected_teammate(state)["forceCard"]
+        require(not view["owned"] and not state["selectedForces"], "teammate card became commandable")
+        require(view["clearsPanels"], "teammate card overlaps build bar/minimap")
+        capture.shot(f"force-bar-teammate-read-only-{width}x{height}")

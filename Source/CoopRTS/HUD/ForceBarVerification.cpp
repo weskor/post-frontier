@@ -3,6 +3,11 @@
 #include "ForceBar.h"
 #include "HUDPanels.h"
 #include "ArmyGroup.h"
+#include "ArmyTestSetup.h"
+#include "CommandGameState.h"
+#include "CommandBuilding.h"
+#include "CommandPlayerState.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "CommandPlayerController.h"
 #include "EngineUtils.h"
 #include "Json.h"
@@ -71,11 +76,59 @@ static bool ControlAction(FStringView Control, EHUDAction& Action)
 	return false;
 }
 
+static FString InspectTeammateFixture(UWorld& World, ACommandPlayerController& Controller)
+{
+	ACommandGameState* State = World.GetGameState<ACommandGameState>();
+	ACommandPlayerState* Own = Controller.GetPlayerState<ACommandPlayerState>();
+	if (!State || !Own || World.GetNetMode() == NM_Client)
+		return TEXT("teammate fixture requires an authoritative game");
+	ACommandPlayerState* Teammate = World.SpawnActor<ACommandPlayerState>();
+	if (!Teammate)
+		return TEXT("teammate fixture player spawn failed");
+	Teammate->CommanderIndex = Own->CommanderIndex == 0 ? 1 : 0;
+	Teammate->TeamIndex = Own->TeamIndex;
+	State->AddPlayerState(Teammate);
+	const FVector Location = ArmyTestSetup::FromFriendlyHQ(State, 900.f, -900.f, 100.f);
+	const FTransform ProducerTransform(Location + FVector(0.f, -450.f, -95.f));
+	ACommandBuilding* Producer = World.SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(), ProducerTransform,
+		nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Producer)
+		return TEXT("teammate fixture producer spawn failed");
+	Producer->BuildingIndex = ArmyTestSetup::BarracksIndex;
+	Producer->OwningPlayerState = Teammate;
+	Producer->ConstructionProgress = 1.f;
+	Producer->bForceConfigured = true;
+	Producer->ProductionUnitIndex = ArmyTestSetup::UnitIndex(State, EUnitRole::Frontline);
+	Producer->ForceNumber = 1;
+	Producer->FinishSpawning(ProducerTransform);
+	Producer->SetActorTickEnabled(false);
+	const FTransform Transform(Location);
+	AArmyGroup* Force = World.SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
+		nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Force)
+		return TEXT("teammate fixture force spawn failed");
+	Force->Initialize({ Teammate->TeamIndex, Teammate, 21, Producer, Location });
+	Force->ForceNumber = 1;
+	Force->FinishSpawning(Transform);
+	if (!Force->SpawnUnits())
+		return TEXT("teammate fixture member spawn failed");
+	Producer->ForceGroup = Force;
+	Force->Status = EForceStatus::Holding;
+	Force->SetActorTickEnabled(false);
+	for (AArmyUnit* Unit : Force->GetUnits())
+	{
+		Unit->SetActorTickEnabled(false);
+		Unit->GetCharacterMovement()->DisableMovement();
+	}
+	Controller.SelectForce(Force);
+	return FString();
+}
+
 bool Apply(UWorld& World, const TSharedPtr<FJsonObject>& Request, FString& Error)
 {
 	FString Action;
 	Request->TryGetStringField(TEXT("action"), Action);
-	if (Action != TEXT("forceCard"))
+	if (Action != TEXT("forceCard") && Action != TEXT("forceCardTeammate"))
 		return false;
 	ACommandPlayerController* Controller = nullptr;
 	for (TActorIterator<ACommandPlayerController> It(&World); It; ++It)
@@ -88,6 +141,11 @@ bool Apply(UWorld& World, const TSharedPtr<FJsonObject>& Request, FString& Error
 	if (!HUD)
 	{
 		Error = TEXT("local force card HUD unavailable");
+		return true;
+	}
+	if (Action == TEXT("forceCardTeammate"))
+	{
+		Error = InspectTeammateFixture(World, *Controller);
 		return true;
 	}
 	const int32 Owner = Request->GetIntegerField(TEXT("owner"));

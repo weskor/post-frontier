@@ -175,7 +175,22 @@ private:
 		ForeignWallet->CommanderIndex = Wallet->CommanderIndex == 0 ? 1 : 0;
 		ForeignWallet->TeamIndex = 0;
 		State->AddPlayerState(ForeignWallet.Get());
-		Foreign = MakeForce(World, ForeignWallet.Get(), 1, Home + FVector(0.f, 800.f, 0.f));
+		const FVector ForeignHome = Home + FVector(0.f, 800.f, 0.f);
+		const FTransform ForeignTransform(ForeignHome + FVector(0.f, -450.f, -95.f));
+		ForeignProducer = World->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(), ForeignTransform,
+			nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Check(ForeignProducer.IsValid(), TEXT("Teammate producer fixture exists")))
+			return false;
+		ForeignProducer->BuildingIndex = BarracksIndex;
+		ForeignProducer->OwningPlayerState = ForeignWallet.Get();
+		ForeignProducer->ConstructionProgress = 1.f;
+		ForeignProducer->bForceConfigured = true;
+		ForeignProducer->ProductionUnitIndex = UnitIndex(State, EUnitRole::Frontline);
+		ForeignProducer->ForceNumber = 1;
+		ForeignProducer->FinishSpawning(ForeignTransform);
+		ForeignProducer->SetActorTickEnabled(false);
+		Foreign = MakeForce(World, ForeignWallet.Get(), 1, ForeignHome, ForeignProducer.Get());
+		ForeignProducer->ForceGroup = Foreign.Get();
 		Hostile = MakeForce(World, State->EnemyCommander, 1, HostileStaging(State));
 		if (!Check(Own.IsValid() && Second.IsValid() && Foreign.IsValid() && Hostile.IsValid(), TEXT("Isolated force card fixtures exist")))
 			return false;
@@ -299,10 +314,13 @@ private:
 		});
 		Check(Controls == 1, TEXT("Read-only teammate card exposes exactly one ping control"));
 		const uint32 Serial = Foreign->OrderSerial;
+		const ERetreatThreshold Threshold = Foreign->RetreatThreshold;
+		const bool bProducing = ForeignProducer->bProductionEnabled;
 		PC->HandleForceCardClick(Foreign.Get(), EHUDAction::ForceCardRetreat, false);
 		PC->HandleForceCardClick(Foreign.Get(), EHUDAction::ForceCardNever, false);
-		Check(Foreign->OrderSerial == Serial && Foreign->RetreatThreshold == ERetreatThreshold::Percent40,
-			TEXT("Forged teammate card control cannot retreat or change its threshold"));
+		PC->HandleForceCardClick(Foreign.Get(), EHUDAction::ForceCardProduction, false);
+		Check(Foreign->OrderSerial == Serial && Foreign->RetreatThreshold == Threshold && ForeignProducer->bProductionEnabled == bProducing,
+			TEXT("Forged teammate controls cannot retreat, change threshold or toggle its actual producer"));
 		const int32 Pings = PC->PingCommands->GetEvents().Num();
 		Click(Foreign.Get(), EHUDAction::PingTeammateForce);
 		Check(PC->PingCommands->GetEvents().Num() == Pings + 1, TEXT("Teammate card ping creates a real team event"));
@@ -313,7 +331,7 @@ private:
 	int32 Target = INDEX_NONE;
 	uint32 AttackSerial = 0;
 	TWeakObjectPtr<ACommandPlayerController> PC;
-	TWeakObjectPtr<ACommandBuilding> Producer;
+	TWeakObjectPtr<ACommandBuilding> Producer, ForeignProducer;
 	TWeakObjectPtr<AArmyGroup> Own, Second, Foreign, Hostile;
 	TWeakObjectPtr<ACommandPlayerState> ForeignWallet;
 };

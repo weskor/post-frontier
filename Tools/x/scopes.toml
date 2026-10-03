@@ -309,6 +309,7 @@ kind = "lint"
 kind = "automation"
 filter = "CoopRTS.HUD.ForceBar"
 map = "default"
+rendered = true
 
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
