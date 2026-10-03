@@ -6,6 +6,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "Rules/PauseBudget.h"
 #include "ForceOrders.h"
+#include "GameState/GameStateEconomy.h"
+#include "GameState/HoldDamageLedger.h"
 #include "CommandGameState.generated.h"
 
 class AArenaBounds;
@@ -68,15 +70,6 @@ struct FJevPlanHistoryEntry
 	FString TargetStructureName;
 };
 #endif
-
-struct FHoldDamageSource
-{
-	TWeakObjectPtr<AArmyUnit> Attacker;
-	TWeakObjectPtr<AActor> Victim;
-	int32 Team = INDEX_NONE;
-	int32 Region = INDEX_NONE;
-	double Expires = 0.;
-};
 
 UENUM(BlueprintType)
 enum class EMatchResult : uint8
@@ -169,12 +162,12 @@ private:
 	bool bSoloMenuPaused = false;
 	ACommandBuilding* ApplyPlacement(int32 BuildingIndex, const FVector& Location,
 		ACommandPlayerState* Commander, int32 Team, FString& OutReason);
-	float IncomeElapsed = 0.f;
+	FGameStateEconomy Economy;
 	void UpdateRegionAlarms();
-	TArray<FHoldDamageSource> HoldDamageSources;
+	// Hold-alarm pass over regions, defined in GameState/GameStateHold.cpp.
+	struct FHoldAlarmPass;
+	FHoldDamageLedger HoldDamage;
 	float HoldAlarmElapsed = 0.f;
-	// Tenths preserve fractional JEV credits without floating-point drift.
-	int32 EnemyIncomeRemainderTenths = 0;
 	float AudioLiveStartServerTime = 0.f;
 	EMatchResult LastAudioMatchResult = EMatchResult::Ongoing;
 	bool bMatchAudioInitialized = false;
