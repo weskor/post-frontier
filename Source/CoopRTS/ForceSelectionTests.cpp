@@ -44,14 +44,51 @@ public:
 				return true;
 			if (!ExerciseActorSelection())
 				return true;
-			NumberIndex = 0;
-			Stage = EStage::PressNumber;
+			Stage = EStage::BuildingClicks;
 			return false;
 		}
 		if (!Check(PC.IsValid() && Camera.IsValid() && State, TEXT("Selection controller, camera and match survive")))
 			return true;
 		switch (Stage)
 		{
+		case EStage::BuildingClicks:
+			BeforeCamera = Camera->GetActorLocation();
+			PC->SelectActor(Buildings[0].Get());
+			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty()
+						&& PC->IsForceHighlighted(Owned[0].Get()) && !PC->IsForceSelected(Owned[0].Get()),
+					TEXT("First building click opens only its panel and highlights its force")))
+				return true;
+			// Both clicks use the cursor's world-hit entry in the same world frame.
+			PC->SelectActor(Buildings[0].Get());
+			if (!Check(Only(Owned[0].Get()), TEXT("Immediate second click on the same producer selects its force and closes its panel")))
+				return true;
+			PC->SelectActor(Buildings[0].Get());
+			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+					TEXT("A third building click starts a fresh single-click window")))
+				return true;
+			BuildingClickStarted = World->GetRealTimeSeconds();
+			Stage = EStage::ExpiredBuildingClick;
+			break;
+		case EStage::ExpiredBuildingClick:
+			if (World->GetRealTimeSeconds() - BuildingClickStarted <= .35)
+				return false;
+			PC->SelectActor(Buildings[0].Get());
+			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+					TEXT("Same-building click after the 0.3-second real-time window opens its panel instead of selecting its force")))
+				return true;
+			PC->SelectActor(Buildings[1].Get());
+			if (!Check(PC->GetSelectedBuilding() == Buildings[1].Get() && PC->GetSelectedForces().IsEmpty(),
+					TEXT("Clicking a distinct producer opens that building's panel")))
+				return true;
+			PC->SelectActor(Buildings[0].Get());
+			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+					TEXT("Intervening distinct-building click prevents a double-click on the original producer"))
+				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01),
+					TEXT("Short, expired and interrupted building click windows never move the camera")))
+				return true;
+			NumberIndex = 0;
+			Stage = EStage::PressNumber;
+			break;
 		case EStage::PressNumber:
 			PC->SelectActor(nullptr);
 			BeforeCamera = Camera->GetActorLocation();
@@ -98,7 +135,7 @@ public:
 			if (!ExerciseOrphan())
 				return true;
 			PC->SelectActor(nullptr);
-			Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, solo keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, separate building panel/highlight and double-click, enemy/dead exclusions and teammate read-only inspection."));
+			Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, solo keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, building panel/highlight and real-time short/expired/interrupted double-click windows, enemy/dead exclusions and teammate read-only inspection."));
 			return true;
 		default:
 			break;
@@ -110,6 +147,8 @@ private:
 	enum class EStage : uint8
 	{
 		Setup,
+		BuildingClicks,
+		ExpiredBuildingClick,
 		PressNumber,
 		CheckNumber,
 		CheckFocus,
@@ -231,25 +270,18 @@ private:
 		PC->SelectActor(Owned[0]->GetUnits()[0]);
 		if (!Check(Only(Owned[0].Get()), TEXT("Clicking own unit selects its force, not its producer")))
 			return false;
-		PC->SelectActorWithModifiers(Owned[1]->GetUnits()[0], true, false);
+		PC->SelectActor(Owned[1]->GetUnits()[0], true);
 		if (!Check(PC->GetSelectedForces().Num() == 2 && PC->IsForceSelected(Owned[0].Get()) && PC->IsForceSelected(Owned[1].Get()),
 				TEXT("Shift-click adds another force without removing the first")))
 			return false;
-		PC->SelectActorWithModifiers(Owned[0]->GetUnits()[1], true, false);
+		PC->SelectActor(Owned[0]->GetUnits()[1], true);
 		if (!Check(Only(Owned[1].Get()), TEXT("Shift-clicking another unit of a selected force removes that force")))
 			return false;
-		PC->SelectActorWithModifiers(Owned[1]->GetUnits()[1], true, false);
+		PC->SelectActor(Owned[1]->GetUnits()[1], true);
 		if (!Check(PC->GetSelectedForces().IsEmpty() && !PC->GetInspectedForce(), TEXT("Removing the last selected force leaves no stale inspection")))
 			return false;
-		PC->SelectActor(Buildings[0].Get());
-		if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty()
-					&& PC->IsForceHighlighted(Owned[0].Get()) && !PC->IsForceSelected(Owned[0].Get()),
-				TEXT("Single building click opens only its panel and highlights its force")))
-			return false;
-		PC->SelectActorWithModifiers(Buildings[0].Get(), false, true);
-		if (!Check(Only(Owned[0].Get()), TEXT("Double-clicking production building selects its force and closes building selection")))
-			return false;
-		PC->SelectActorWithModifiers(Foreign->GetUnits()[0], true, false);
+		PC->SelectForce(Owned[0].Get());
+		PC->SelectActor(Foreign->GetUnits()[0], true);
 		if (!Check(PC->GetSelectedForces().Num() == 1 && PC->IsForceSelected(Owned[0].Get()) && !PC->IsForceSelected(Foreign.Get())
 					&& PC->GetInspectedForce() == Foreign.Get(),
 				TEXT("Shift-clicking teammate inspects read-only without adding it to command selection")))
@@ -266,7 +298,7 @@ private:
 		Dead->ReceiveAttack(Dead->MaxHealth(), Enemy->GetUnits()[0]);
 		PC->SelectActor(Dead);
 		return Check(!Dead->IsAlive() && PC->GetSelectedForces().IsEmpty(), TEXT("Dead own unit cannot select its living force"))
-			&& Check(Camera->GetActorLocation().Equals(CameraBefore, .01), TEXT("Unit, Shift, building, double-click and teammate selection never move camera"));
+			&& Check(Camera->GetActorLocation().Equals(CameraBefore, .01), TEXT("Unit, Shift and teammate selection never move camera"));
 	}
 	bool ExerciseHUD()
 	{
@@ -306,12 +338,12 @@ private:
 		PC->SelectForceBox(FVector2D::ZeroVector, FVector2D(Width, Height));
 		if (!Check(!PC->IsForceSelected(Foreign.Get()) && !PC->IsForceSelected(Enemy.Get()), TEXT("Viewport box never adds teammate or enemy forces")))
 			return false;
-		PC->SelectActor(Buildings[0].Get());
+		PC->SelectActorWithModifiers(Buildings[0].Get(), false, false);
 		FVector2D Action;
 		if (!Check(HUD->FindActionScreenPosition(EHUDAction::SelectForce, Action) && PC->HandleHUDClick(Action) && Only(Owned[0].Get()),
 				TEXT("Building panel Select force button switches to its force")))
 			return false;
-		PC->SelectActor(Buildings[0].Get());
+		PC->SelectActorWithModifiers(Buildings[0].Get(), false, false);
 		if (!Check(HUD->FindActionScreenPosition(EHUDAction::GoalExpand, Action) && PC->HandleHUDClick(Action) && PC->IsAssigningGoal(),
 				TEXT("Existing building goal flow still opens region targeting")))
 			return false;
@@ -349,6 +381,7 @@ private:
 
 	FAutomationTestBase* Test;
 	double Started;
+	double BuildingClickStarted = 0.;
 	EStage Stage = EStage::Setup;
 	int32 NumberIndex = 0;
 	const FKey NumberKeys[5] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five };

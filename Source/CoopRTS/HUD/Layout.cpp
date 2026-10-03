@@ -161,7 +161,9 @@ FRect CancelButton(const FRect& Inspector)
 static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FRect&)> Visit)
 {
 	Visit(Layout.Top);
+	Visit(Layout.Objectives);
 	Visit(Layout.Menu);
+	Visit(Layout.Pause);
 	Visit(Layout.Minimap);
 	Visit(Layout.Construction);
 	if (Context.bExpanded)
@@ -169,6 +171,9 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Bottom);
 	if (Layout.bFeedback)
 		Visit(Layout.Feedback);
+	ForEachAlert(Context, Layout, [&](const FObjectiveEvent&, const FRect& Alert, float) {
+		Visit(Alert);
+	});
 }
 
 bool IsPanelPoint(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint)

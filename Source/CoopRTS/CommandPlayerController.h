@@ -45,6 +45,7 @@ public:
 	AArmyGroup* GetInspectedForce() const { return InspectedForce; }
 	bool IsForceSelected(const AArmyGroup* Force) const;
 	bool IsForceHighlighted(const AArmyGroup* Force) const;
+	bool IsSelectableForce(const AArmyGroup* Force) const;
 	void SelectForce(AArmyGroup* Force, bool bToggle = false);
 	void SelectForceNumber(int32 Number);
 	void SelectForceBox(const FVector2D& Start, const FVector2D& End, bool bAdd = false);
@@ -63,7 +64,7 @@ public:
 	// Left-click entry points shared by real input and the Development verification probe.
 	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
-	void SelectActor(AActor* Actor);
+	void SelectActor(AActor* Actor, bool bToggle = false);
 	ECommandScreen GetUIScreen() const;
 	float GetMasterVolume() const;
 	bool IsMenuWorld() const;
@@ -140,7 +141,6 @@ private:
 	void SelectForce3() { SelectForceNumber(3); }
 	void SelectForce4() { SelectForceNumber(4); }
 	void SelectForce5() { SelectForceNumber(5); }
-	bool IsSelectableForce(const AArmyGroup* Force) const;
 	bool IsOwnedForce(const AArmyGroup* Force) const;
 	void CancelPointerMode();
 	void CancelMode();

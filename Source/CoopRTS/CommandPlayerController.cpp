@@ -817,9 +817,16 @@ bool ACommandPlayerController::GetSelectionDrag(FVector2D& Start, FVector2D& End
 	return FVector2D::DistSquared(Start, End) > FMath::Square(6.f);
 }
 
-void ACommandPlayerController::SelectActor(AActor* Actor)
+void ACommandPlayerController::SelectActor(AActor* Actor, bool bToggle)
 {
-	SelectActorWithModifiers(Actor, false, false);
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
+	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	const bool bDoubleClick = Building && LastClickedBuilding == Building && Now - LastBuildingClickTime <= .3;
+	LastClickedBuilding = bDoubleClick ? nullptr : Building;
+	LastBuildingClickTime = Now;
+	SelectActorWithModifiers(Actor, bToggle, bDoubleClick);
 }
 
 void ACommandPlayerController::SelectActorWithModifiers(AActor* Actor, bool bToggle, bool bDoubleClick)
@@ -906,12 +913,7 @@ void ACommandPlayerController::SelectUnderCursor()
 	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
 	FHitResult Hit;
 	AActor* Actor = CursorHit(Hit) ? Hit.GetActor() : nullptr;
-	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
-	const double Now = GetWorld()->GetRealTimeSeconds();
-	const bool bDoubleClick = Building && LastClickedBuilding == Building && Now - LastBuildingClickTime <= .3;
-	LastClickedBuilding = bDoubleClick ? nullptr : Building;
-	LastBuildingClickTime = Now;
-	SelectActorWithModifiers(Actor, bToggle, bDoubleClick);
+	SelectActor(Actor, bToggle);
 }
 
 void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
