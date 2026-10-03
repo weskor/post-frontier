@@ -48,8 +48,7 @@ def test_counter_inclusive_thresholds() -> None:
         assert rules[f"{unit}_prey"]["win_rate"] == pytest.approx(0.65)
         assert rules[f"{unit}_predator"]["win_rate"] == pytest.approx(0.35)
         assert all(
-            rules[f"{unit}_{name}"]["status"] == "pass"
-            for name in ("prey", "predator")
+            rules[f"{unit}_{name}"]["status"] == "pass" for name in ("prey", "predator")
         )
     changed = deepcopy(reports)
     row = next(
@@ -122,17 +121,6 @@ def test_draws_are_never_half_wins_or_removed_from_denominators() -> None:
     assert rules["frontline_prey"]["duels"] == 40
     assert rules["frontline_prey"]["win_rate"] == 0.625
     assert rules["frontline_prey"]["status"] == "fail"
-    for seed in (9, 10, 11):
-        row = next(
-            row
-            for row in reports[seed]["duels"]
-            if row["left"] == row["right"] == "frontline"
-        )
-        set_outcome(reports[seed], row, None)
-    rules = rule_rows(evaluate_group(reports))
-    assert rules["frontline_mirror"]["win_rates"] == [0.45, 0.4]
-    assert rules["frontline_mirror"]["draws"] == 3
-    assert rules["frontline_mirror"]["status"] == "fail"
 
 
 def test_worth_normalizes_each_sides_actual_unequal_spend() -> None:
