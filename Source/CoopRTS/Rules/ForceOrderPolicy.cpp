@@ -13,7 +13,6 @@ bool ValidRegion(int32 Region, int32 RegionCount)
 }
 }
 
-
 uint64 ForceOrders::ConnectedMask(const uint64* Neighbours, int32 RegionCount, int32 Home, uint64 ControlledMask)
 {
 	if (!ValidGraph(Neighbours, RegionCount) || !ValidRegion(Home, RegionCount))

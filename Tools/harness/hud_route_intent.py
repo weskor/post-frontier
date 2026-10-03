@@ -99,7 +99,9 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
     orders = force(state, owner, barracks)["orders"]
     capture.shot("route-selected-path-queue")
     preview_target = home
-    require(preview_target != destination, "preview target duplicates the active target")
+    require(
+        preview_target != destination, "preview target duplicates the active target"
+    )
     x, y = minimap_region_point(state, preview_target)
     run.request("host", "cursor", x=x, y=y)
     preview = capture.wait(
