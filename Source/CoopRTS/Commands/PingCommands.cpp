@@ -23,7 +23,7 @@ FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const
 		return { ECommandRejection::InvalidRequest, TEXT("Ping rejected: force unavailable.") };
 	const FVector Spot = bTeammate ? Force->GetCenter() : Location;
 	if (Spot.ContainsNaN() || !AArenaBounds::IsTravelLocation(World, Spot))
-		return { ECommandRejection::InvalidRequest, TEXT("Ping rejected: point inside the arena.") };
+		return { ECommandRejection::InvalidRequest, TEXT("Ping rejected: pick a point inside the arena.") };
 	if (!Controller->PingCommands->Throttle.Accept(FPlatformTime::Seconds()))
 		return { ECommandRejection::InvalidRequest, TEXT("Ping throttled: one ping every 2 seconds.") };
 
@@ -43,6 +43,7 @@ FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const
 	Attribution.PlayerName = Sender->GetPlayerName();
 	if (bTeammate)
 	{
+		Event.TargetForceOwnerName = Force->GetOwningPlayerState()->GetPlayerName();
 		Attribution.ForceNumber = Force->ForceNumber;
 		if (!Force->GetUnits().IsEmpty() && IsValid(Force->GetUnits()[0]))
 			Attribution.UnitIndex = Force->GetUnits()[0]->GetUnitIndex();

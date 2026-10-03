@@ -1,8 +1,9 @@
 """Import the world audio library, or only scripted announcer WAVs with -AnnouncerOnly.
 
 Run through ./x gen import-audio; announcer generation invokes the isolated mode.
-Reruns replace sound waves without changing source WAVs.
+Announcer reruns preserve waves whose persisted source-content digest is unchanged.
 """
+import hashlib
 import json
 from pathlib import Path
 import wave
@@ -32,18 +33,57 @@ def save(obj):
     require(editor.save_loaded_asset(obj, only_if_is_dirty=False), "Failed to save " + obj.get_path_name())
 
 
+def announcer_source_matches(source, import_metadata):
+    """Compare a WAV against Unreal's persisted AssetImportData registry tag.
+
+    SoundFactory stores the complete source file's MD5 on import; SoundWave
+    exposes it as a one-entry JSON array with FileMD5. Paths and timestamps are
+    deliberately ignored. Missing, corrupt or ambiguous metadata must reimport.
+    """
+    if not isinstance(import_metadata, str):
+        return False
+    try:
+        entries = json.loads(import_metadata)
+    except (ValueError, TypeError):
+        return False
+    if not isinstance(entries, list) or len(entries) != 1 or not isinstance(entries[0], dict):
+        return False
+    digest = entries[0].get("FileMD5")
+    if not isinstance(digest, str) or len(digest) != 32 or any(c not in "0123456789abcdefABCDEF" for c in digest):
+        return False
+    # This is Unreal's import fingerprint, not a cryptographic trust check.
+    current = hashlib.md5()
+    with source.open("rb") as data:
+        for block in iter(lambda: data.read(1024 * 1024), b""):
+            current.update(block)
+    return current.hexdigest() == digest.lower()
+
+
 def import_announcer():
     lines = json.loads((ROOT / "Build/Audio/announcer_lines.json").read_text())
     destination = DEST + "/Announcer"
     master = editor.load_asset(MIX + "/SC_Master")
     require(isinstance(master, unreal.SoundClass), "Import the world audio mix first: missing SC_Master")
     tasks = []
+    imported_lines = []
+    skipped = 0
     for line in lines:
         name = "VO_" + line["id"]
         source = ROOT / "Art/Audio/Announcer" / (name + ".wav")
         with wave.open(str(source), "rb") as data:
             require(data.getframerate() == 48000 and data.getnchannels() == 1 and data.getsampwidth() == 3,
                     "Expected 48-kHz/24-bit mono: " + str(source))
+        expected = destination + "/" + name
+        if editor.does_asset_exist(expected):
+            sound = editor.load_asset(expected)
+            require(isinstance(sound, unreal.SoundWave), "Not a SoundWave: " + expected)
+            # UE's SourceFileTagName() is AssetImportData, not object metadata.
+            tags = editor.get_tag_values(expected)
+            metadata = next((value for key, value in tags.items() if str(key) == "AssetImportData"), None)
+            if announcer_source_matches(source, metadata):
+                skipped += 1
+                unreal.log("ANNOUNCER_UNCHANGED " + expected)
+                continue
         task = unreal.AssetImportTask()
         task.set_editor_property("filename", str(source))
         task.set_editor_property("destination_path", destination)
@@ -54,8 +94,10 @@ def import_announcer():
         task.set_editor_property("save", False)
         task.set_editor_property("factory", unreal.SoundFactory())
         tasks.append(task)
-    assets.import_asset_tasks(tasks)
-    for line, task in zip(lines, tasks):
+        imported_lines.append(line)
+    if tasks:
+        assets.import_asset_tasks(tasks)
+    for line, task in zip(imported_lines, tasks):
         expected = destination + "/VO_" + line["id"]
         paths = task.get_editor_property("imported_object_paths")
         require(len(paths) == 1, "Expected one announcer wave: " + expected)
@@ -80,7 +122,7 @@ def import_announcer():
             package = ROOT / "Content/Audio/Announcer" / (name + ".uasset")
             package.unlink(missing_ok=True)
             unreal.log("ANNOUNCER_PRUNED " + path)
-    unreal.log("ANNOUNCER_IMPORTED waves=" + str(len(lines)))
+    unreal.log("ANNOUNCER_IMPORTED waves=" + str(len(tasks)) + " skipped=" + str(skipped) + " total=" + str(len(lines)))
 
 
 def import_world_audio():
@@ -255,7 +297,8 @@ def import_world_audio():
     unreal.log("AUDIO_IMPORTED waves=115 support=25 total=140")
 
 
-if "-AnnouncerOnly" in unreal.SystemLibrary.get_command_line().split():
-    import_announcer()
-else:
-    import_world_audio()
+if __name__ == "__main__":
+    if "-AnnouncerOnly" in unreal.SystemLibrary.get_command_line().split():
+        import_announcer()
+    else:
+        import_world_audio()

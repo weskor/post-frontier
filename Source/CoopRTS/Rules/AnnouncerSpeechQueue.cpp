@@ -2,8 +2,11 @@
 
 namespace AnnouncerSpeechQueue
 {
-bool FQueue::Enqueue(FName Id, float ServerTime, double Now)
+bool FQueue::Enqueue(FName Id, float ServerTime, double Now, bool bSpeechPlaying)
 {
+	const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Id);
+	if (Definition && Definition->bPingSpeech && (bSpeechPlaying || !IsEmpty()))
+		return false;
 	DropExpired(Now);
 	if (Now - static_cast<double>(ServerTime) >= MaxAgeSeconds)
 		return false;

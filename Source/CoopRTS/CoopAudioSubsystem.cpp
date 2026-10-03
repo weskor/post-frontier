@@ -360,9 +360,10 @@ void UCoopAudioSubsystem::PlayAnnouncer(FName Id, float ServerTime)
 	if (AnnouncerWorld != World)
 		StopAnnouncer();
 	AnnouncerWorld = World;
-	if (!AnnouncerQueue.Enqueue(Id, ServerTime, AnnouncerServerTime(World)))
+	const bool bSpeechPlaying = IsValid(AnnouncerComponent.Get()) && AnnouncerComponent->IsPlaying();
+	if (!AnnouncerQueue.Enqueue(Id, ServerTime, AnnouncerServerTime(World), bSpeechPlaying))
 		return;
-	if (!IsValid(AnnouncerComponent.Get()) || !AnnouncerComponent->IsPlaying())
+	if (!bSpeechPlaying)
 		StartNextAnnouncer();
 }
 

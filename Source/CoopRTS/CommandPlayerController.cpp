@@ -1087,6 +1087,8 @@ bool ACommandPlayerController::PingAtScreenPosition(const FVector2D& Position)
 			return false;
 		double Nearest = 3.; // Same diamond radius as the force marker in CommandMinimap.
 		const ACommandPlayerState* Viewer = GetPlayerState<ACommandPlayerState>();
+		if (!IsValid(Viewer))
+			return false;
 		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		{
 			if (It->GetTeamIndex() != Viewer->TeamIndex || !IsValid(It->GetOwningPlayerState())

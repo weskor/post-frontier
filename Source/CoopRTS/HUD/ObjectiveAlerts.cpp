@@ -79,28 +79,27 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 	const FObjectiveEventView TeamPings = Pings ? Pings->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
-	int32 ObjectiveIndex = Objectives.Num() - 1;
-	int32 PingIndex = TeamPings.Num() - 1;
-	// Merge the two chronological rings newest-first without copying their events.
-	while (ObjectiveIndex >= 0 || PingIndex >= 0)
-	{
-		const bool bPing = PingIndex >= 0 && (ObjectiveIndex < 0 || TeamPings[PingIndex].ServerTime >= Objectives[ObjectiveIndex].ServerTime);
-		const FObjectiveEvent& Event = bPing ? TeamPings[PingIndex--] : Objectives[ObjectiveIndex--];
-		const float Lifetime = bPing ? UPingCommandComponent::Lifetime : UObjectiveAnnouncer::FeedLifetime;
-		const float Age = FMath::Max(0.f, Now - Event.ServerTime);
-		if (Age >= Lifetime)
-			continue;
-		const int32 ForceRows = bPing ? 0 : FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
-		const float Height = 2.f * Pad + AlertLineHeight * (2 + ForceRows);
-		const FRect Rect{ Layout.Alerts.X, Y, Layout.Alerts.W, Height };
-		if (Rect.Bottom() > Layout.Alerts.Bottom())
-			break;
-		const float Alpha = FMath::Clamp((Lifetime - Age)
-				/ UObjectiveAnnouncer::FadeSeconds,
-			0.f, 1.f);
-		Visit(Event, Rect, Alpha);
-		Y = Rect.Bottom() + RowGap;
-	}
+	const auto VisitRing = [&](const FObjectiveEventView& Events, float Lifetime, bool bPing) {
+		for (int32 Index = Events.Num() - 1; Index >= 0; --Index)
+		{
+			const FObjectiveEvent& Event = Events[Index];
+			const float Age = FMath::Max(0.f, Now - Event.ServerTime);
+			if (Age >= Lifetime)
+				continue;
+			const int32 ForceRows = bPing ? 0 : FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
+			const float Height = 2.f * Pad + AlertLineHeight * (2 + ForceRows);
+			const FRect Rect{ Layout.Alerts.X, Y, Layout.Alerts.W, Height };
+			if (Rect.Bottom() > Layout.Alerts.Bottom())
+				return false;
+			const float Alpha = FMath::Clamp((Lifetime - Age) / UObjectiveAnnouncer::FadeSeconds, 0.f, 1.f);
+			Visit(Event, Rect, Alpha);
+			Y = Rect.Bottom() + RowGap;
+		}
+		return true;
+	};
+	// Objective rows keep their space regardless of how many teammates ping.
+	if (VisitRing(Objectives, UObjectiveAnnouncer::FeedLifetime, false))
+		VisitRing(TeamPings, UPingCommandComponent::Lifetime, true);
 }
 
 bool HitTestAlert(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint,
@@ -136,7 +135,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		{
 			Region << TEXT("Team ping");
 			if (!Event.Forces.IsEmpty() && Event.Forces[0].ForceNumber > 0)
-				Region.Appendf(TEXT("  |  Force %d"), Event.Forces[0].ForceNumber);
+				Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
 			Region << TEXT("  |  Click to focus");
 		}
 		else

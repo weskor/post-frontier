@@ -1,9 +1,14 @@
 """The script is safe to import; voice finishing preserves the audible asset contract."""
 
 import hashlib
+import importlib.util
 import json
+import os
+import sys
+from collections.abc import Callable
 from pathlib import Path
-import wave
+from types import SimpleNamespace
+from typing import cast
 
 import numpy as np
 import pytest
@@ -111,3 +116,60 @@ def test_pruning_removes_only_unlisted_voice_wavs(tmp_path: Path) -> None:
     assert not (tmp_path / "VO_removed.wav").exists()
     for name in ("VO_kept.wav", "SW_unrelated.wav", "VO_kept.txt"):
         assert (tmp_path / name).read_bytes() == b"preserved bytes"
+
+
+@pytest.fixture
+def source_matches(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path, str | None], bool]:
+    """Import the real digest policy without invoking the Unreal entry point."""
+    unreal = SimpleNamespace(
+        AssetToolsHelpers=SimpleNamespace(get_asset_tools=lambda: None),
+        EditorAssetLibrary=SimpleNamespace(),
+    )
+    monkeypatch.setitem(sys.modules, "unreal", unreal)
+    script = Path(__file__).resolve().parents[2] / "Build/ImportAudio.py"
+    spec = importlib.util.spec_from_file_location("test_import_audio", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return cast(Callable[[Path, str | None], bool], getattr(module, "announcer_source_matches"))
+
+
+def test_announcer_digest_ignores_source_location_and_timestamp(
+    tmp_path: Path, source_matches: Callable[[Path, str | None], bool]
+) -> None:
+    source = tmp_path / "relocated.wav"
+    source.write_bytes(b"voice bytes")
+    metadata = json.dumps([{
+        "RelativeFilename": "another/worktree/voice.wav",
+        "Timestamp": "9999999999",
+        "FileMD5": hashlib.md5(source.read_bytes()).hexdigest().upper(),
+    }])
+    assert source_matches(source, metadata)
+
+
+def test_announcer_digest_detects_same_size_same_timestamp_change(
+    tmp_path: Path, source_matches: Callable[[Path, str | None], bool]
+) -> None:
+    source = tmp_path / "voice.wav"
+    source.write_bytes(b"voice one")
+    metadata = json.dumps([{"FileMD5": hashlib.md5(source.read_bytes()).hexdigest()}])
+    before = source.stat()
+    source.write_bytes(b"voice two")
+    os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+    assert not source_matches(source, metadata)
+
+
+@pytest.mark.parametrize("metadata", [
+    None, "", "not json", "null", "[]", "{}", "[null]", "[{}]",
+    '[{"FileMD5": 12}]',
+    '[{"FileMD5": "broken"}]',
+    '[{"FileMD5": "gggggggggggggggggggggggggggggggg"}]',
+    '[{"FileMD5": "00000000000000000000000000000000"}]',
+    '[{"FileMD5": "00000000000000000000000000000000"}, {}]',
+])
+def test_announcer_uncertain_digest_requires_import(
+    tmp_path: Path, source_matches: Callable[[Path, str | None], bool], metadata: str | None
+) -> None:
+    source = tmp_path / "voice.wav"
+    source.write_bytes(b"voice bytes")
+    assert not source_matches(source, metadata)

@@ -165,6 +165,7 @@ void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
 			Number(Entry, TEXT("serverTime"), Event.ServerTime);
 			Vector(Entry, TEXT("position"), Event.Location);
 			Number(Entry, TEXT("affectedTeam"), Event.AffectedTeam);
+			Entry->SetStringField(TEXT("targetForceOwnerName"), Event.TargetForceOwnerName);
 			Entry->SetBoolField(TEXT("active"), Now - Event.ServerTime < UPingCommandComponent::Lifetime);
 			TArray<TSharedPtr<FJsonValue>> Forces;
 			for (const FObjectiveForce& Force : Event.Forces)
@@ -548,6 +549,17 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	{
 		if (!PC || !Own || Own->CommanderIndex < 0 || !PC->PingCommands)
 			return TEXT("local owning ping controller unavailable");
+		bool bWithoutPlayerState = false;
+		Request->TryGetBoolField(TEXT("withoutPlayerState"), bWithoutPlayerState);
+		if (Action == TEXT("pingAtScreenPosition") && bWithoutPlayerState)
+		{
+			const uint32 Serial = PC->PingCommands->PingFeedbackSerial;
+			PC->SetPlayerState(nullptr);
+			const bool bSubmitted = PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))));
+			PC->SetPlayerState(Own);
+			return !bSubmitted && PC->PingCommands->PingFeedbackSerial == Serial
+				? FString() : TEXT("minimap ping before PlayerState arrived submitted a command");
+		}
 		if (Action == TEXT("pingAtScreenPosition"))
 			return PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))))
 				? FString()

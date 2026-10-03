@@ -6,6 +6,7 @@
 #include "Commands/PingCommandComponent.h"
 #include "HAL/PlatformTime.h"
 #include "ObjectiveAnnouncer.h"
+#include "HUD/HUDPanels.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPingPlacementExpiryTest, "CoopRTS.Pings.PlacementExpiry",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -86,6 +87,10 @@ public:
 					TEXT("An enemy target still permits an ordinary spot ping"))
 				|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 3))
 				return true;
+			UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State);
+			if (!Check(Announcer != nullptr, TEXT("Objective history exists for priority regression")))
+				return true;
+			Announcer->Raise(TEXT("region_lost"), 0, Ground, {});
 			LastAccepted = RealNow;
 			Stage = 3;
 			return false;
@@ -97,6 +102,8 @@ public:
 				|| !Check(FCommandService::Ping(PC, Spot, OwnForce.Get()).IsAccepted(),
 					TEXT("An owned force cannot impersonate a teammate need-help request"))
 				|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 4))
+				return true;
+			if (!CheckObjectivePriority(PC, State))
 				return true;
 			LastTime = PC->PingCommands->GetEvents().Last().ServerTime;
 			Stage = 4;
@@ -123,6 +130,25 @@ public:
 	}
 
 private:
+	bool CheckObjectivePriority(ACommandPlayerController* PC, ACommandGameState* State)
+	{
+		UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State);
+		const FObjectiveEvent& Objective = Announcer->GetEvents().Last();
+		if (!Check(Objective.ServerTime < PC->PingCommands->GetEvents().Last().ServerTime,
+				TEXT("Objective-priority fixture has a newer live ping")))
+			return false;
+		CommandHUDPanels::FLayout Layout;
+		Layout.Alerts = { 0.f, 0.f, 390.f, 64.f };
+		const CommandHUDPanels::FContext Context = CommandHUDPanels::MakeContext(PC);
+		int32 First = 0;
+		int32 Count = 0;
+		CommandHUDPanels::ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const CommandHUDPanels::FRect&, float) {
+			if (Count++ == 0)
+				First = Event.Sequence;
+		});
+		return Check(First == Objective.Sequence && Count == 1, TEXT("Newer accepted ping traffic cannot displace the only visible objective row"));
+	}
+
 	bool Check(bool Value, const TCHAR* Message)
 	{
 		if (!Value)
@@ -204,6 +230,9 @@ private:
 						&& Event.Forces[0].TeamIndex == Sender->TeamIndex && Event.Forces[0].PlayerName == Sender->GetPlayerName()
 						&& Event.Forces[0].ForceNumber == Number,
 					TEXT("Delivered event identifies the actual sender and requested teammate force")))
+				return false;
+			if (!Check(Event.TargetForceOwnerName == (Number > 0 ? TeammateForce->GetOwningPlayerState()->GetPlayerName() : FString()),
+					TEXT("Need-help delivery identifies the target's owner separately from the sender")))
 				return false;
 		}
 		return true;

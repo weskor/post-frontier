@@ -87,4 +87,54 @@ bool FAnnouncerSpeechRingTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("New world speech has the new authoritative timestamp"), Line.ServerTime, 1.f);
 	return true;
 }
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAnnouncerSpeechPingPriorityTest, "CoopRTS.Rules.Announcer.SpeechPingPriority",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FAnnouncerSpeechPingPriorityTest::RunTest(const FString& Parameters)
+{
+	AnnouncerSpeechQueue::FQueue Queue;
+	AnnouncerSpeechQueue::FLine Line;
+	const FName Pings[] = { TEXT("ping_look_here"), TEXT("ping_need_help") };
+	const FName Objectives[] = { TEXT("own_hq_critical"), TEXT("enemy_hq_offline"), TEXT("region_lost") };
+
+	for (FName Ping : Pings)
+		TestFalse(TEXT("Playing speech drops pings even with no pending backlog"), Queue.Enqueue(Ping, 100.f, 100., true));
+	TestFalse(TEXT("Dropped busy pings cannot play later"), Queue.Dequeue(100., Line));
+
+	TestTrue(TEXT("An idle announcer can speak a ping"), Queue.Enqueue(Pings[0], 100.f, 100.));
+	TestFalse(TEXT("A second ping cannot queue behind a pending ping"), Queue.Enqueue(Pings[1], 100.f, 100.));
+	if (!TestTrue(TEXT("The idle ping starts immediately"), Queue.Dequeue(100., Line)))
+		return false;
+	TestEqual(TEXT("The admitted ping retains its identity"), Line.Id, Pings[0]);
+	TestTrue(TEXT("A critical objective queues behind the one current ping"), Queue.Enqueue(Objectives[0], 101.f, 101., true));
+	TestTrue(TEXT("A second objective retains normal admission during speech"), Queue.Enqueue(Objectives[1], 102.f, 102., true));
+	for (FName Ping : Pings)
+		TestFalse(TEXT("Ping traffic cannot extend the current ping's speech backlog"), Queue.Enqueue(Ping, 103.f, 103., true));
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		if (!TestTrue(TEXT("An objective follows the current ping"), Queue.Dequeue(103., Line)))
+			return false;
+		TestEqual(TEXT("Objectives retain their FIFO order after the current ping"), Line.Id, Objectives[Index]);
+	}
+	TestFalse(TEXT("No ping is waiting behind the objectives"), Queue.Dequeue(103., Line));
+
+	for (int32 Index = 0; Index < AnnouncerSpeechQueue::Capacity; ++Index)
+		Queue.Enqueue(Objectives[Index % UE_ARRAY_COUNT(Objectives)], 110.f + Index * .25f, 114.);
+	for (int32 Index = 0; Index < AnnouncerSpeechQueue::Capacity * 2; ++Index)
+		TestFalse(TEXT("Ping traffic cannot enter a full objective backlog"), Queue.Enqueue(Pings[Index % UE_ARRAY_COUNT(Pings)], 114.f, 114.));
+	for (int32 Index = 0; Index < AnnouncerSpeechQueue::Capacity; ++Index)
+	{
+		if (!TestTrue(TEXT("Ping traffic cannot evict any pending objective"), Queue.Dequeue(114., Line)))
+			return false;
+		TestEqual(TEXT("Every objective retains its exact order under ping traffic"), Line.Id, Objectives[Index % UE_ARRAY_COUNT(Objectives)]);
+		TestEqual(TEXT("Every objective retains its authoritative timestamp"), Line.ServerTime, 110.f + Index * .25f);
+	}
+	TestFalse(TEXT("Rejected ping traffic leaves no speech backlog"), Queue.Dequeue(114., Line));
+	TestTrue(TEXT("Ping speech resumes once objective speech is idle"), Queue.Enqueue(Pings[1], 115.f, 115.));
+	if (!TestTrue(TEXT("The next idle ping is available"), Queue.Dequeue(115., Line)))
+		return false;
+	TestEqual(TEXT("Resumed speech plays the new ping rather than a dropped ping"), Line.Id, Pings[1]);
+	return true;
+}
 #endif

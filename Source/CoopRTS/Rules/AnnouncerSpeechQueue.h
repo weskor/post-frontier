@@ -19,7 +19,8 @@ struct FLine
 class FQueue
 {
 public:
-	bool Enqueue(FName Id, float ServerTime, double Now);
+	// Ping speech is best-effort: it may start only when nothing is playing or pending.
+	bool Enqueue(FName Id, float ServerTime, double Now, bool bSpeechPlaying = false);
 	bool Dequeue(double Now, FLine& OutLine);
 	void Reset();
 	int32 Num() const { return Count; }

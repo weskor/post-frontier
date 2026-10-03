@@ -173,6 +173,16 @@ def pings_hud_scenario(
     # Center the camera on map-derived arena geometry, away from either HQ.
     capture.minimap(0.5, 0.5)
     state = capture.state()
+    origin, size = state["minimapOrigin"], state["minimapSize"]
+    serial = state["pingFeedbackSerial"]
+    state = run.request(
+        "host", "pingAtScreenPosition", x=origin[0] + size * 0.5,
+        y=origin[1] + size * 0.5, withoutPlayerState=True,
+    )
+    require(
+        state["pingFeedbackSerial"] == serial and not state["pingEvents"],
+        "minimap input before PlayerState arrives submitted a command or spent ping budget",
+    )
     x, y = state["viewportWidth"] // 2, round(state["viewportHeight"] * 0.35)
     state = run.request("host", "cursor", x=x, y=y)
     require(

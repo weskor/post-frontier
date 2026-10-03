@@ -10,6 +10,7 @@ struct FDefinition
 	const TCHAR* Text;
 	bool bStateChange;
 	bool bDamage;
+	bool bPingSpeech = false;
 };
 TConstArrayView<FDefinition> Definitions();
 const FDefinition* Find(FName Id);

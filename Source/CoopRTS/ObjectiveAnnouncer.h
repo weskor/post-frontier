@@ -46,6 +46,8 @@ struct FObjectiveEvent
 	int32 DamageTier = 0;
 	UPROPERTY()
 	TArray<FObjectiveForce> Forces;
+	UPROPERTY()
+	FString TargetForceOwnerName;
 };
 
 // Non-owning chronological view over the replicated ring; no event copies.
