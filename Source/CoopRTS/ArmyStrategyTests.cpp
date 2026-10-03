@@ -110,8 +110,9 @@ public:
 					if (IsValid(Region) && IsValid(Region->Anchor) && Region->RegionRole != ERegionRole::Main
 						&& Region->RegionIndex != SafeRecoveryRegion && State->GetRegionController(Region->RegionIndex) == 5
 						&& !State->EnemyPlans.ContainsByPredicate([&](const FJevPublishedPlan& Plan) {
-							return Plan.TargetRegionIndex == Region->RegionIndex;
-						}) && (!Objective || Region->RegionIndex < Objective->RegionIndex))
+							   return Plan.TargetRegionIndex == Region->RegionIndex;
+						   })
+						&& (!Objective || Region->RegionIndex < Objective->RegionIndex))
 						Objective = Region;
 				if (!Objective)
 					return Fail(TEXT("Recovery resumption fixture needs a controlled regional objective with no other committed destination"));

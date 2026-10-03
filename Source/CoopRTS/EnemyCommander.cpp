@@ -356,7 +356,8 @@ void AEnemyCommander::EvaluatePlan()
 		const auto ActualPlan = [&]() {
 			JevPlanner::FPlan Actual;
 			Actual.Verb = Force->Verb == EForceVerb::Attack ? JevPlanner::EVerb::Attack
-				: Force->Verb == EForceVerb::Retreat ? JevPlanner::EVerb::Retreat : JevPlanner::EVerb::MoveAndHold;
+				: Force->Verb == EForceVerb::Retreat        ? JevPlanner::EVerb::Retreat
+															: JevPlanner::EVerb::MoveAndHold;
 			Actual.Source = Snapshot.Source;
 			Actual.Target = Force->Verb == EForceVerb::Retreat ? Force->GetRetreatRegion() : Force->TargetRegionIndex;
 			Actual.TargetIdentity = IsValid(Force->TargetStructure) ? Force->TargetStructure->GetUniqueID() : 0;
@@ -366,7 +367,8 @@ void AEnemyCommander::EvaluatePlan()
 			Actual.EtaSeconds = FMath::Max(0.f, JevPlanner::TravelSeconds(Summary, Snapshot, Actual.Target))
 				/ (Force->Verb == EForceVerb::Retreat ? 1.25f : 1.f);
 			Actual.CommittedUntil = Current && Now < Current->Plan.CommittedUntil
-				? Current->Plan.CommittedUntil : Now + JevPlanner::CommitmentSeconds;
+				? Current->Plan.CommittedUntil
+				: Now + JevPlanner::CommitmentSeconds;
 			return Actual;
 		};
 		JevPlanner::FPlan Next;
@@ -470,12 +472,13 @@ void AEnemyCommander::EvaluatePlan()
 		// Publish the executor's current order, including natural completion,
 		// without replacing the strategic ticket or restarting its commitment.
 		DisplayPlan.Verb = Force->Verb == EForceVerb::Attack ? JevPlanner::EVerb::Attack
-			: Force->Verb == EForceVerb::Retreat ? JevPlanner::EVerb::Retreat : JevPlanner::EVerb::MoveAndHold;
+			: Force->Verb == EForceVerb::Retreat             ? JevPlanner::EVerb::Retreat
+															 : JevPlanner::EVerb::MoveAndHold;
 		DisplayPlan.Target = Force->Verb == EForceVerb::Retreat ? Force->GetRetreatRegion() : Force->TargetRegionIndex;
 		Structure = Force->TargetStructure;
 		if (DisplayPlan.Verb != Next.Verb || DisplayPlan.Target != Next.Target)
 			DisplayPlan.EtaSeconds = Force->Verb == EForceVerb::MoveHold ? 0.f
-				: FMath::Max(0.f, JevPlanner::TravelSeconds(Summary, Snapshot, DisplayPlan.Target))
+																		 : FMath::Max(0.f, JevPlanner::TravelSeconds(Summary, Snapshot, DisplayPlan.Target))
 					/ (Force->Verb == EForceVerb::Retreat ? 1.25f : 1.f);
 		DisplayPlan.bEscalated = Next.bEscalated && Force->Verb == EForceVerb::MoveHold
 			&& DisplayPlan.Target == Next.Target;

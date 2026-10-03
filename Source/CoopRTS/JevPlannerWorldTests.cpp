@@ -189,7 +189,8 @@ public:
 				Force->GetProductionBuilding(), Force->GetHomeLocation() });
 			Force->ForceNumber = Number;
 			if (!Check(!FCommandService::IssueForceOrder(State->EnemyCommander, Force, EForceVerb::MoveHold,
-							ArmyTestSetup::CurrentRegion(Force)) && Force->OrderSerial == InitialSerial[0],
+						   ArmyTestSetup::CurrentRegion(Force))
+						&& Force->OrderSerial == InitialSerial[0],
 					TEXT("Real command service rejects mismatched team identity without changing the live accepted order")))
 				return true;
 			RejectedAt = Now;
