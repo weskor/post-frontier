@@ -124,29 +124,31 @@ The per-seed table records actual spent Power, initial members, survivors, survi
 
 ### Measured matrix
 
-Evidence run **`20261002-224929-sim-8c14`** (2026-10-02 UTC), published **2026-10-03** after unit-counters and duel-matrix landed: V2, seeds **1–10**, fixed-step **1×**, **300 game seconds per ordered pair**. **10/10 seed processes validated; 90/90 fights ended on a wipe, zero stalled fights, zero cap draws, zero failed or missing processes.** Each pair has five team-0-first and five team-5-first creations. Brawler and Rifle squads spent **120 Power**; Artillery squads spent **100 Power**, because the equal budget admits only two whole Artillery. Configuration fees are excluded.
+Evidence run **`20261003-001018-sim-7ca7`**, measured and published **2026-10-03** on clean committed HEAD **`2f2aeba`** (`dirty: False`) after the pursuit review fixes and rebase: V2, seeds **1–10**, fixed-step **1×**, **300 game seconds per ordered pair**. **10/10 seed processes validated; 90/90 fights ended on a wipe, zero stalled fights, zero cap draws, zero failed or missing processes.** Each pair has five team-0-first and five team-5-first creations. Brawler and Rifle squads spent **120 Power**; Artillery squads spent **100 Power**, because the equal budget admits only two whole Artillery. Configuration fees are excluded.
 
 Each row reports the left/team-0 and right/team-5 result separately, with ten fights per row:
 
 | Left | Right | Team 0 wins | Team 5 wins | Draws | Mean duration (game s) |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Brawler | Brawler | 5/10 (50%) | 5/10 (50%) | 0 | 14.65 |
-| Brawler | Rifle | 10/10 (100%) | 0/10 (0%) | 0 | 7.78 |
-| Brawler | Artillery | 10/10 (100%) | 0/10 (0%) | 0 | 6.26 |
-| Rifle | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 7.41 |
-| Rifle | Rifle | 3/10 (30%) | 7/10 (70%) | 0 | 8.91 |
+| Brawler | Brawler | 6/10 (60%) | 4/10 (40%) | 0 | 15.18 |
+| Brawler | Rifle | 10/10 (100%) | 0/10 (0%) | 0 | 7.41 |
+| Brawler | Artillery | 10/10 (100%) | 0/10 (0%) | 0 | 6.31 |
+| Rifle | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 7.46 |
+| Rifle | Rifle | 4/10 (40%) | 6/10 (60%) | 0 | 8.93 |
 | Rifle | Artillery | 10/10 (100%) | 0/10 (0%) | 0 | 5.93 |
-| Artillery | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 6.28 |
+| Artillery | Brawler | 0/10 (0%) | 10/10 (100%) | 0 | 6.13 |
 | Artillery | Rifle | 0/10 (0%) | 10/10 (100%) | 0 | 5.86 |
-| Artillery | Artillery | 7/10 (70%) | 3/10 (30%) | 0 | 8.48 |
+| Artillery | Artillery | 5/10 (50%) | 5/10 (50%) | 0 | 8.48 |
 
-**Runtime validity passes; balance acceptance fails: 4 rules pass, 8 fail, all with complete evidence.** Passed: Brawler prey, Artillery predator, Brawler mirror, runtime counter-table coverage. Failed: Brawler predator, Rifle prey/predator, Artillery prey, Rifle/Artillery mirrors, roster worth ratio, and HP/DPS-per-Power dominance. Combined ordered-side wins are Brawler over Artillery **20/20**, Brawler over Rifle **20/20**, and Rifle over Artillery **20/20**; the intended cyclic counters are not balanced.
+**Runtime validity passes; balance acceptance fails: 4 rules pass, 8 fail, all with complete evidence.** Passed: Brawler prey, Artillery predator, Artillery mirror, runtime counter-table coverage. Failed: Brawler predator, Rifle prey/predator, Artillery prey, Brawler/Rifle mirrors, roster worth ratio, and HP/DPS-per-Power dominance. Combined ordered-side wins are Brawler over Artillery **20/20**, Brawler over Rifle **20/20**, and Rifle over Artillery **20/20**; the intended cyclic counters are not balanced.
 
-Measured worth is **0.86875 Brawler**, **0.534375 Rifle**, **0.096875 Artillery**; maximum/minimum is **8.96774**, failing the design's worth check. Base HP/DPS per Power is **7 / 1.00000**, **3 / 0.52174**, and **2.2 / 0.32308**, respectively: Brawler dominates both other units on both metrics, and Rifle dominates Artillery. These are measured failures, not permission to tune stats in the pursuit fix. Rule definitions remain in [units.md](Design/units.md).
+Measured worth is **0.875 Brawler**, **0.528125 Rifle**, **0.096875 Artillery**; maximum/minimum is **9.03226**, failing the design's worth check. Base HP/DPS per Power is **7 / 1.00000**, **3 / 0.52174**, and **2.2 / 0.32308**, respectively: Brawler dominates both other units on both metrics, and Rifle dominates Artillery. These are measured failures, not permission to tune stats in the pursuit fix. Rule definitions remain in [units.md](Design/units.md).
 
 Pursuit rules live in [units.md](Design/units.md). In the failed intermediate run `20261002-223534-sim-10fc`, the former melee endpoint left two idle capsules **177.5 cm** apart despite **175 cm** weapons; that residual arrival stall is diagnostic evidence, not the baseline.
 
 The earlier run `20261002-174444-sim-57a0` remains invalidated: the old harness counted pursuit stalls as cap draws. Its raw artifacts remain diagnostic only. Alternated creation order and seeded offsets reduce ordering bias and near-replication; ten seeds do not establish independent random samples or statistical reproducibility.
+
+This clean baseline supersedes `20261002-224929-sim-8c14`, which came from a dirty intermediate tree. The first clean repeat, `20261002-232439-sim-63fe`, was interrupted by the harness's wall watchdog while waiting for shared pool admission after eight completed seed processes, not by a combat stall. The successful repeat used a **900-second wall-progress watchdog** to accommodate that contention; combat stall detection, the game-time cap and balance thresholds were unchanged.
 
 ### Runtime verification
 
@@ -154,7 +156,7 @@ The earlier run `20261002-174444-sim-57a0` remains invalidated: the old harness 
 - Legacy whole-match smoke `20261002-174444-sim-3bfd` validated **4/4 matches**: two per default map, all natural cap draws at **300 game seconds**, process exit zero.
 - Fixed-telemetry acceptance tests cover rule thresholds, draw denominators, spending normalization, malformed/incomplete evidence and per-map reporting; they are not proof of healthy combat.
 - [Built] The revised world scenario fails on any stalled fight in its natural **60-second-per-pair** full matrix. A separate deliberately paused encounter still proves invalid stall detection; successful wipe/cap reporting never admits a stall into denominators.
-- [Built] The separate pursuit world scenario exercises two hostile melee units leaving firing range to **200 cm**, both closing and fighting to a death within **20 game seconds**, and two Brawlers killing the first then reaching and killing the second Artillery within **25 game seconds**.
+- [Built] The separate pursuit world scenario exercises two hostile melee units leaving firing range to **200 cm**, both closing and fighting to a death within **20 game seconds**, two Brawlers killing the first then reaching and killing the second Artillery within **25 game seconds**, and standing survivors physically regrouping within **3 game seconds** without a replacement order.
 - No package, network, rendered presentation, friend playtest or support-composition result is claimed for this baseline.
 
 ## Verification and failure history
