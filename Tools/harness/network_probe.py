@@ -185,7 +185,6 @@ class NetworkProbe(NetworkPeers):
         *,
         allow_loading: bool = False,
         allow_travel: bool = False,
-        seconds: float | None = None,
     ) -> dict[str, JsonObject]:
         def check() -> dict[str, JsonObject] | None:
             states = self.all_states(
@@ -198,9 +197,7 @@ class NetworkProbe(NetworkPeers):
             )
             return states if not unready and predicate(states) else None
 
-        return self.until(
-            check, description, report_interval, names=active, seconds=seconds
-        )
+        return self.until(check, description, report_interval, names=active)
 
 
 def read_response(path: Path, expected: int) -> JsonObject | None:

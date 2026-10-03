@@ -2,9 +2,11 @@
 
 Passing events in the runs root (557 records measured on 2026-10-03) had
 maximum readiness/response/state/capture waits of 6.964/1.400/16.054/0.621 s.
-Defaults leave more than 3x that headroom. Identity and shutdown are ownership
-operations; simulation uses this default for no persisted game-time progress,
-with an explicit job-derived absolute deadline for completion.
+Defaults leave more than 3x that headroom. Identity, shutdown and native/desktop
+readiness defaults are unmeasured: no historical timing evidence was available
+for those ownership/window operations. Cold packaged launches exceeding the
+readiness bound remain an untested risk. Simulation uses its default for no
+persisted game-time progress, with a job-derived absolute completion deadline.
 """
 
 from __future__ import annotations
@@ -42,17 +44,22 @@ class Deadline:
         self, description: str, kind: WaitKind, *, seconds: float | None = None
     ) -> None:
         self.description = description
-        self.seconds = DEFAULT_SECONDS[kind] if seconds is None else seconds
-        if not math.isfinite(self.seconds) or self.seconds <= 0:
-            raise ValueError("wait deadline must be finite and positive")
-        self.parent = _active.get()
+        self.parent: Deadline | None = None
         self.snapshot: object = None
         self.token: Token[Deadline | None] | None = None
-        self.reset()
+        self.started = time.monotonic()
+        self.rebudget(DEFAULT_SECONDS[kind] if seconds is None else seconds)
 
     def reset(self) -> None:
         self.started = time.monotonic()
         self.expires = self.started + self.seconds
+
+    def rebudget(self, seconds: float) -> None:
+        """Change the total allowance without restarting the original wait."""
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError("wait deadline must be finite and positive")
+        self.seconds = seconds
+        self.expires = self.started + seconds
 
     @property
     def elapsed(self) -> float:
@@ -77,6 +84,7 @@ class Deadline:
             )
 
     def __enter__(self) -> Deadline:
+        self.parent = _active.get()
         self.token = _active.set(self)
         return self
 
@@ -84,3 +92,4 @@ class Deadline:
         if self.token is not None:
             _active.reset(self.token)
             self.token = None
+            self.parent = None

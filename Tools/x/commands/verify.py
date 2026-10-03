@@ -94,11 +94,13 @@ across commands until stop/owned-game exit; a background or idle session still
 blocks that resource. Stop after the last action or a failed iteration, before
 unrelated investigation/build/package work. Never kill a user's editor/game.
 The automatic watchdog stops the child process group after the configured interval
-without watched-log growth, marks the run stalled and retains evidence. Failed/
-interrupted network/HUD runs and failed launches also clean up recorded children.
-This detects silence, not semantic stalls: repeated pending reports/observe replies
-can keep the log growing forever. Inspect the exact predicate and peer snapshots
-when state stops advancing; living PIDs/request IDs are not meaningful progress.
+without novel watched-log lines, marks the run stalled and retains evidence.
+Repeated lines ignore timestamps and polling counters; changing semantic state
+still counts as progress. Harness predicate waits also have independent deadlines:
+failure reports the predicate, elapsed time and last observed snapshot. Failed/
+interrupted network/HUD runs and failed launches clean up recorded children.
+Inspect that predicate and its peer snapshots when state stops advancing;
+living PIDs/request IDs are not meaningful progress.
 Distinguish loading/replication convergence from completed-state assertions. If the
 predicate is impossible, a terminal error appears or progress cannot be established,
 interrupt the owned running invocation through its cleanup path. For persistent

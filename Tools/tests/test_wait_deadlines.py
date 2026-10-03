@@ -116,3 +116,14 @@ def test_wait_context_restored_after_timeout(clock: Clock) -> None:
         clock.sleep(0.1)
         next_wait.check({"phase": "ready"})
     assert next_wait.remaining == pytest.approx(0.1)
+
+
+def test_shorter_rebudget_expires_from_original_start(clock: Clock) -> None:
+    deadline = Deadline("smaller duel roster", "simulation", seconds=0.5)
+    clock.sleep(0.2)
+    deadline.rebudget(0.1)
+    with pytest.raises(WaitTimeout) as failure:
+        deadline.check({"pairs": 1})
+    assert "smaller duel roster after 0.200s" in str(failure.value)
+    assert "deadline 0.1s" in str(failure.value)
+    assert '"pairs": 1' in str(failure.value)

@@ -38,8 +38,10 @@ under the requested filter, every matching result Success, zero process exit
 and **** TEST COMPLETE. EXIT CODE: 0 **** from SoftQuit. Unrelated successes,
 accepted-order logs or timed exits do not pass. Module/input mutation fails.
 Freshness covers configured hash inputs, not arbitrary engine/toolchain changes.
-The runner stops a child process group when its watched log stops growing for
-the configured stall interval; log growth is not proof of gameplay progress.
+The runner stops a child process group when its watched log is silent or repeats
+previous lines for the configured stall interval, ignoring timestamps and polling
+counters. Novel log lines are not proof of gameplay progress. Harness predicate
+waits have independent deadlines with predicate, elapsed-time and snapshot failures.
 Inspect failures with ./x runs <id>, diagnose and rerun the affected scope.
 Never weaken assertions or product behavior merely to get green.
 """

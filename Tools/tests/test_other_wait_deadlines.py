@@ -108,6 +108,19 @@ def test_child_that_survives_kill_has_bounded_reap_failure(
     assert clock.now == pytest.approx(0.4)
 
 
+def test_expired_probe_does_not_prevent_owned_child_kill(
+    monkeypatch: pytest.MonkeyPatch, clock: Clock
+) -> None:
+    child = Child()
+    sent = pidfd_signals(monkeypatch, child)
+    with waits.Deadline("failed probe", "state", seconds=0.1):
+        clock.sleep(0.1)
+        verify.reap_owned(cast(subprocess.Popen[bytes], child))
+    assert sent == [(71, signal.SIGTERM), (71, signal.SIGKILL)]
+    assert child.returncode == -signal.SIGKILL
+    assert clock.now == pytest.approx(0.3)
+
+
 @pytest.mark.parametrize("desktop", [False, True])
 @pytest.mark.parametrize("predicate", ["identity", "readiness"])
 def test_failed_launch_reaps_child_even_before_session_identity(

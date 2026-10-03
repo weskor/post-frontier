@@ -153,8 +153,7 @@ def monitor(
                     observed_pairs = len(checkpoint["unit_definitions"]) ** 2
                     if observed_pairs != pair_count:
                         pair_count = observed_pairs
-                        absolute.seconds = completion_seconds(job, pair_count)
-                        absolute.expires = absolute.started + absolute.seconds
+                        absolute.rebudget(completion_seconds(job, pair_count))
                 if duration > previous_duration:
                     progress.reset()
                     previous_duration = duration

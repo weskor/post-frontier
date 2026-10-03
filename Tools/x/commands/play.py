@@ -102,10 +102,13 @@ public match or in Shipping. Only when diagnosing the corresponding failure:
   the visible Menu reason, session=0/busy=0/canHost=1 and a new successful Host.
 These fixtures do not prove server PreLogin rejection or distinct-account transport.
 
-Supervise actual gameplay progress: the runner's automatic stall handling watches
-log growth, not usable input or advancing state. Interrupt only this owned run if
-wedged; never bypass assertions or restart unchanged failures. Inspect ./x runs <id>
-for retained launch/log evidence and report only the surfaces actually observed.
+Supervise actual gameplay progress: the runner stops silent or repeat-only watched
+logs after the configured stall interval, ignoring timestamps and polling counters.
+Novel log lines do not prove usable input or advancing state. Verification harness
+predicates have separate deadlines; manual play has no predicate assertions.
+Interrupt only this owned run if wedged; never bypass assertions or restart unchanged
+failures. Inspect ./x runs <id> for retained launch/log evidence and report only the
+surfaces actually observed.
 """
 RECORD = True
 
