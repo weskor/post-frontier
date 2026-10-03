@@ -10,6 +10,7 @@
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
+#include "MatchTelemetry.h"
 #include "CommandPlayerState.h"
 #include "CommandCamera.h"
 #include "CommandHUD.h"
@@ -266,6 +267,7 @@ void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController*
 		return;
 	}
 	StartedCommanders.Add(NewPlayer);
+	State->MatchTelemetry->RegisterHuman(Commander);
 	UE_LOG(LogTemp, Display, TEXT("Commander joined slot=%d player=%s; construction ready"),
 		Slot, *Commander->GetPlayerName());
 }
@@ -276,6 +278,8 @@ void ACommandGameMode::Logout(AController* Exiting)
 	StartedCommanders.Remove(Cast<APlayerController>(Exiting));
 	if (Commander)
 	{
+		if (ACommandGameState* State = GetGameState<ACommandGameState>())
+			State->MatchTelemetry->HumanLeft(Commander);
 		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 			if (It->GetOwningPlayerState() == Commander)
 				It->Destroy();

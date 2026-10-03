@@ -9,6 +9,7 @@
 #include "CoopAudioSubsystem.h"
 #include "Headquarters.h"
 #include "ObjectiveAnnouncer.h"
+#include "MatchTelemetry.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "Content/BuildingDefinition.h"
@@ -94,6 +95,7 @@ ACommandGameState::ACommandGameState()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true;
 	ObjectiveAnnouncer = CreateDefaultSubobject<UObjectiveAnnouncer>(TEXT("Objective Announcer"));
+	MatchTelemetry = CreateDefaultSubobject<UMatchTelemetry>(TEXT("Match Telemetry"));
 }
 
 void ACommandGameState::BeginPlay()
@@ -109,7 +111,13 @@ void ACommandGameState::SetMatchResult(EMatchResult Result)
 {
 	if (!HasAuthority() || MatchResult == Result)
 		return;
+	const bool bTerminalTransition = MatchResult == EMatchResult::Ongoing && Result != EMatchResult::Ongoing;
+	if (bTerminalTransition)
+		for (APlayerState* Player : PlayerArray)
+			MatchTelemetry->RegisterHuman(Cast<ACommandPlayerState>(Player));
 	MatchResult = Result;
+	if (bTerminalTransition)
+		MatchTelemetry->FlushMatch();
 	OnRep_MatchResult();
 	ForceNetUpdate();
 }
@@ -135,6 +143,8 @@ void ACommandGameState::AddPlayerState(APlayerState* PlayerState)
 		if (Commander->TeamIndex == 5)
 			return;
 	Super::AddPlayerState(PlayerState);
+	if (MatchTelemetry)
+		MatchTelemetry->RegisterHuman(Cast<ACommandPlayerState>(PlayerState));
 }
 
 bool ACommandGameState::ApplyPause(ACommandPlayerController* Controller, bool bPause)

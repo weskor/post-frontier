@@ -287,6 +287,11 @@ commands = [
   ["python3", "Build/AvailabilityZoneLayout.py", "--svg", "{run}/AvailabilityZone-geometry.svg"],
 ]
 
+[scopes.telemetry]
+kind = "automation"
+filter = "CoopRTS.Telemetry.Match"
+map = "/Game/Maps/AvailabilityZoneV2"
+
 [scopes.lint]
 kind = "lint"
 
@@ -536,3 +541,35 @@ kind = "lint"
 "Source/CoopRTS/*ArmyTestSetup.*" = ["verb-input"]
 "Source/CoopRTS/Rules/ForceOrderPolicy.*" = ["verb-input"]
 "Source/CoopRTS/Content/*.*" = ["verb-input"]
+# Host telemetry's command acceptance and match-lifecycle contracts.
+"Source/CoopRTS/MatchTelemetry*" = ["telemetry"]
+"Source/CoopRTS/CommandGameState*" = ["telemetry"]
+"Source/CoopRTS/Commands/CommandService*" = ["telemetry"]
+"Source/CoopRTS/Commands/PingCommands*" = ["telemetry"]
+"Source/CoopRTS/ArmyTestSetup*" = ["telemetry"]
+"Source/CoopRTS/CommandGameMode*" = ["telemetry"]
+"Source/CoopRTS/Commands/ConstructionCommands*" = ["telemetry"]
+"Source/CoopRTS/Commands/ForceCapState*" = ["telemetry"]
+"Source/CoopRTS/Commands/OrderGraph*" = ["telemetry"]
+"Source/CoopRTS/CommandPlayerState*" = ["telemetry"]
+"Source/CoopRTS/CommandPlayerController.[ch]*" = ["telemetry"]
+"Source/CoopRTS/ArmyGroup*" = ["telemetry"]
+"Source/CoopRTS/ArmyUnit*" = ["telemetry"]
+"Source/CoopRTS/EnemyCommander*" = ["telemetry"]
+"Source/CoopRTS/Headquarters*" = ["telemetry"]
+"Source/CoopRTS/MapRegion*" = ["telemetry"]
+"Source/CoopRTS/ArenaBounds*" = ["telemetry"]
+"Source/CoopRTS/CommandBuilding*" = ["telemetry"]
+"Source/CoopRTS/ForceOrders*" = ["telemetry"]
+"Source/CoopRTS/ConstructionTypes*" = ["telemetry"]
+"Source/CoopRTS/Content/**" = ["telemetry"]
+"Source/CoopRTS/Rules/ForceOrderPolicy*" = ["telemetry"]
+"Source/CoopRTS/Rules/PlacementPolicy*" = ["telemetry"]
+"Source/CoopRTS/Rules/EconomyPolicy*" = ["telemetry"]
+"Source/CoopRTS/Rules/OutcomePolicy*" = ["telemetry"]
+"Source/CoopRTS/Rules/PauseBudget*" = ["telemetry"]
+"Source/**/*.Build.cs" = ["telemetry"]
+"Config/*" = ["telemetry"]
+"Content/Maps/AvailabilityZoneV2.*" = ["telemetry"]
+"Content/Content/*" = ["telemetry"]
+"CoopRTS.uproject*" = ["telemetry"]

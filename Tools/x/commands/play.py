@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 
 from x import jsonio
-from x.content.packages import latest_package
+from x.content.packages import latest_package_directory, package_executable
 from x.context import Context
 
 NAME = "play"
@@ -15,7 +15,9 @@ HELP = """./x play [--shipping] [--smoke] [--map /Game/Maps/Boot] [--steam] [-- 
 
 Launch the latest content-hash-fresh package while holding the exclusive lock
 until the game exits. Missing/stale packages refuse with run ./x package;
-use ./x package shipping for Shipping. No argument selects the packaged startup
+use ./x package shipping for Shipping or ./x package --playtest for the test-Steam
+distribution. Shipping selects the newest fresh ordinary/playtest package without
+changing either variant's latest pointer. No argument selects the packaged startup
 map; --map selects an explicit level. Never mutate a running artifact or stop a
 user's game to clear a blocker. Use ./x verify native|desktop for guarded automated
 input/capture on Development, and ./x check for change proof.
@@ -32,7 +34,8 @@ automatic gameplay/input/visual acceptance result.
 Smoke tiers (same command for Development and Shipping):
 ./x play --smoke --map /Game/Maps/Boot -- -nullrhi
 ./x play --smoke --shipping --map /Game/Maps/Boot -- -nullrhi
---smoke explicitly launches --map (or settings.default_map when omitted) under
+--smoke explicitly launches --map (or the playtest metadata's default map, otherwise
+settings.default_map) under
 the same exclusive lock and retains game.log, engine stdout and smoke.json.
 Development waits at most 60 seconds for the engine's exact requested LoadMap
 completion log, sends owned SIGTERM, then waits at most 15 seconds for exit 0
@@ -143,17 +146,20 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
             ),
         }
     with ctx.locks.exclusive():
-        executable = latest_package(ctx.repo, config, ctx.settings.game_target)
+        directory = latest_package_directory(ctx.repo, config)
+        executable = package_executable(directory, ctx.settings.game_target, config)
+        metadata = jsonio.load(directory / "package.json")
+        requested_map = args.map or metadata.get(
+            "default_map", ctx.settings.default_map
+        )
         argv: list[str | Path] = [executable]
         if args.map or args.smoke:
-            argv.append(args.map or ctx.settings.default_map)
+            argv.append(requested_map)
         if not args.steam:
             argv.append("-nosteam")
         argv.extend([*extra, f"-abslog={ctx.run.dir / 'game.log'}"])
         if args.smoke:
-            return smoke(
-                ctx, argv, executable, args.map or ctx.settings.default_map, config, env
-            )
+            return smoke(ctx, argv, executable, requested_map, config, env)
         return ctx.exec(argv, log="play", env=env, cwd=executable.parent)
 
 

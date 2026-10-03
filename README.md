@@ -61,6 +61,8 @@ Research is not free or bound to F keys. Select **your completed workshop** and 
 ### Controls in current source
 
 Bindings live in `CommandPlayerController` and click actions in `CommandHUD`.
+This table is also the single source for the distributable playtest's generated controls. Update it when bindings or player-facing actions change.
+
 
 | Input | Action |
 | --- | --- |
@@ -132,7 +134,7 @@ Procedures live only in `./x help`; the docs describe the project and mechanics,
 
 Unit and building definitions plus the `DA_MatchContent` catalogue live in `Content/Units/` and `Content/Content/` and are cooked with the package. Unit values come from [Build/Content/units.json](Build/Content/units.json), including the original serialized combat values; the generator writes every stat rather than preserving hidden asset-only tuning. Catalogue order remains a replicated contract (units frontline/ranged/siege, buildings barracks/extractor/workshop; the Extractor asset is still named `DA_Outpost`). Content generation procedures live in `./x help gen`.
 
-Menu is the packaged default (`GameDefaultMap`). Availability Zone v2 has 15 regions, 13 capture anchors and 16 deposits; classic Availability Zone has 10 regions. Both maps, Boot and CampusZero are in the configured cook list; `/Game/Audio` is always cooked. Development and Shipping have separate run-specific archives; legacy playtest archives are not overwritten by the runner. A distributable package includes its whole archive, not only its executable.
+Menu is the packaged default (`GameDefaultMap`). Availability Zone v2 has 15 regions, 13 capture anchors and 16 deposits; classic Availability Zone has 10 regions. Normal packages use the configured map list, including Boot and CampusZero; `/Game/Audio` is always cooked. The distributable Steam playtest cooks only Menu and both Availability Zone menu choices, and includes a commit-named compressed archive, a test-Steam launcher and instructions generated from the controls table above. Development, Shipping and playtest artifacts have independent run-specific storage; `Builds/` is untouched. A distributable package includes its whole archive, not only its executable. Packaging procedures: `./x help package`.
 
 Map and material assets are already present; normal builds do not need regeneration. `/Game/Maps/Boot` has a floor, central obstacle, boundary walls, home markers and a dynamically generated Unreal navmesh. `Build/GenerateCommandMap.py` reconstructs Boot through Unreal's editor APIs and replaces its actors, so regeneration is destructive to hand-edited map actors. It and `Build/GenerateCampusZero.py` take their arena, HQ, capture-anchor, region and deposit layout from `Build/MatchLayout.py`. The Boot generator uses a factory-built navigation brush and dynamic Recast generation for cooked-game navigation; existing unit material graphs are preserved on reruns. Generator procedures and outputs: `./x help gen`.
 
@@ -150,7 +152,9 @@ UE 5.8.3 uses `/Script/SteamSockets.SteamSocketsNetDriver`, with `/Script/Online
 
 For Linux **Development** outside a Steam launch, UE's `SteamSharedModule.cpp` writes ASCII `480` to `FPlatformProcess::BaseDir()/steam_appid.txt` before `SteamAPI_InitEx` and removes it at module shutdown. Packaged processes use their binaries directory; editor game processes use the engine's `Engine/Binaries/Linux` base directory. Those directories must be writable; Development does not require a manually staged file. Automatic creation/removal is compiled only under `!UE_BUILD_SHIPPING && !UE_BUILD_SHIPPING_WITH_EDITOR`; Shipping does not write it.
 
-A **Shipping release** requires a real Steam App ID compiled as `UE_PROJECT_STEAMSHIPPINGID` through `ProjectDefinitions` in `Source/CoopRTS.Target.cs` and Steam distribution/launch. The target currently has no such definition; the engine defaults it to `0`. Shipping's `GetRelaunchSettings` ignores development `SteamDevAppId`/`bRelaunchInSteam`, requires a Steam relaunch and uses the compiled App ID for `SteamAPI_RestartAppIfNecessary` only when nonzero. Test App ID 480 is not a release identity. Shipping has `USE_LOGGING_IN_SHIPPING=0`.
+A **Shipping release** needs a real Steam application identity and Steam distribution/launch, not test App ID 480. Shipping's `GetRelaunchSettings` ignores development `SteamDevAppId`/`bRelaunchInSteam`, requires a Steam relaunch and uses the engine module's compiled `UE_PROJECT_STEAMSHIPPINGID` for `SteamAPI_RestartAppIfNecessary` only when nonzero. The installed precompiled Steam engine module retains its compiled identity; UBT project definitions do not rebuild that engine module. Normal Shipping does not stage a test App ID file.
+
+The **distributable Shipping playtest** uses UBT's package-only project-definition override and stages `steam_appid.txt=480` beside the binary; its launcher sets the test Steam environment and optionally loads the local overlay. This supplies a test Steam API identity without pretending to rebuild the installed engine or configure a release identity. Shipping has `USE_LOGGING_IN_SHIPPING=0`: ordinary logs are absent even with `-log`. Host-local [match telemetry](Docs/Playtest/telemetry.md) is product code independent of engine logging; [step 1a feedback questions](Docs/Playtest/1a-questions.md) accompany it. Build, launch and manual Steam acceptance procedures remain in `./x help package` and `./x help play`.
 
 ## Developer direct-IP transport
 

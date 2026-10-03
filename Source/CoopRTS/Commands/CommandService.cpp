@@ -9,6 +9,7 @@
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
+#include "MatchTelemetry.h"
 #include "OrderGraph.h"
 
 namespace
@@ -62,6 +63,7 @@ FCommandResult FCommandService::PlaceBuilding(ACommandPlayerState* Commander, in
 	ACommandBuilding* Building = State->ApplyPlacement(BuildingIndex, Location, Commander, Commander->TeamIndex, Reason);
 	if (!Building)
 		return Verdict(false, Reason.IsEmpty() ? FString(TEXT("Placement rejected by server.")) : MoveTemp(Reason));
+	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Build);
 	return { ECommandRejection::None, TEXT("Building placed; construction started."), Building };
 }
 
@@ -127,6 +129,7 @@ FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, 
 	}
 	for (AArmyGroup* Force : Forces)
 		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue, Speed);
+	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
 	return Verdict(true, TEXT("Force order accepted."));
 }
 

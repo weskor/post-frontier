@@ -18,6 +18,7 @@ class AMapRegion;
 class ADepositSite;
 class UMatchContent;
 class UObjectiveAnnouncer;
+class UMatchTelemetry;
 class AArmyUnit;
 class AArmyGroup;
 
@@ -121,6 +122,8 @@ public:
 	TObjectPtr<UMatchContent> Content;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Objectives")
 	TObjectPtr<UObjectiveAnnouncer> ObjectiveAnnouncer;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Match")
+	TObjectPtr<UMatchTelemetry> MatchTelemetry;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Territory")
 	TArray<TObjectPtr<AMapRegion>> Regions;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")

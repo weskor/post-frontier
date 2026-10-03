@@ -14,6 +14,6 @@ public class CoopRTS : ModuleRules
 			"AIModule", "NavigationSystem", "GameplayTasks",
 			"OnlineSubsystem", "OnlineSubsystemUtils"
 		});
-		PrivateDependencyModuleNames.AddRange(new string[] { "Json", "SlateCore", "ApplicationCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "CoreOnline", "Json", "SlateCore", "ApplicationCore" });
 	}
 }

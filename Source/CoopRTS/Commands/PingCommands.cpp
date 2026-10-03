@@ -5,6 +5,7 @@
 #include "CommandPlayerController.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
+#include "MatchTelemetry.h"
 
 FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const FVector& Location, AArmyGroup* Force)
 {
@@ -55,5 +56,6 @@ FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const
 			&& Player->CommanderIndex < 5 && Recipient->PingCommands)
 			Recipient->PingCommands->ClientReceivePing(Event);
 	}
+	State->MatchTelemetry->RecordAccepted(Sender, EMatchDecision::Ping);
 	return { ECommandRejection::None, bTeammate ? TEXT("Need help here ping sent.") : TEXT("Look here ping sent.") };
 }
