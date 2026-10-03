@@ -193,6 +193,11 @@ kind = "automation"
 filter = "CoopRTS.Forces.Verbs.NoSafeHQFallback"
 map = "default"
 
+[scopes.route-intent]
+kind = "automation"
+filter = "CoopRTS.Forces.RouteIntent"
+map = "default"
+
 [scopes.jev-scaling]
 kind = "automation"
 filter = "CoopRTS.Economy.JevScaling"
@@ -413,7 +418,7 @@ kind = "lint"
 "Source/CoopRTS/Rules/ForceSelectionPolicy.h" = ["force-selection", "rules"]
 # Additional selection-world dependencies; matching entries are unioned.
 "Source/CoopRTS/ArenaBounds.*" = ["force-selection"]
-"Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
+"Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit", "route-intent"]
 "Source/CoopRTS/ArmyUnit.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/ArmyTestSetup.*" = ["force-selection"]
 "Source/CoopRTS/CombatTarget.*" = ["force-selection"]
@@ -425,7 +430,7 @@ kind = "lint"
 "Source/CoopRTS/Commands/*" = ["force-selection", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/DepositSite.*" = ["force-selection"]
 "Source/CoopRTS/EnemyCommander.*" = ["force-selection", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims"]
-"Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
+"Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit", "route-intent"]
 "Source/CoopRTS/MapRegion.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/SimulationSettings.*" = ["force-selection"]
 "Source/CoopRTS/Headquarters.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
@@ -498,11 +503,11 @@ kind = "lint"
 "Source/CoopRTS/Rules/PingPolicy.h" = ["rules", "pings", "pings-network"]
 "Source/CoopRTS/PingRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/PingTests.cpp" = ["pings"]
-"Source/CoopRTS/CommandMinimap.*" = ["pings"]
+"Source/CoopRTS/CommandMinimap.*" = ["pings", "route-intent"]
 "Tools/harness/network_pings.py" = ["pings-network", "tools"]
 
 # Hold alarms share the ArmyGroup/GameState interfaces with the existing scopes.
-"Source/CoopRTS/WorldOverlay.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/WorldOverlay.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "route-intent"]
 "Source/CoopRTS/CommandGameStateHold.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-structure-withdrawal", "force-contested-transit", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "objective-events", "objective-assets", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/HoldAlarmTests.cpp" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/Commands/ProductionCommands.cpp" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
@@ -591,3 +596,11 @@ kind = "lint"
 "Source/CoopRTS/CommandGameState.[h]" = ["jev-intent-ui"]
 "Source/CoopRTS/ArmyNetworkVerification.[c]pp" = ["jev-intent-ui"]
 
+# Route intent supplements existing executor/input scopes, never replaces them.
+"Source/CoopRTS/RouteIntentTests.cpp" = ["route-intent"]
+"Source/CoopRTS/RouteIntentRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/RouteIntent.*" = ["rules", "route-intent"]
+"Source/CoopRTS/ForceRouteIntent.cpp" = ["route-intent"]
+"Source/CoopRTS/HUD/ForceRoutePresentation.*" = ["route-intent"]
+"Source/CoopRTS/CommandPlayerControllerRouteIntent.cpp" = ["route-intent"]
+"Source/CoopRTS/RouteIntentVerification.*" = ["route-intent"]

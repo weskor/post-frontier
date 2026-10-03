@@ -12,6 +12,7 @@
 #include "Engine/World.h"
 #include "MapRegion.h"
 #include "Materials/MaterialInterface.h"
+#include "HUD/ForceRoutePresentation.h"
 #include "UObject/ConstructorHelpers.h"
 
 namespace
@@ -183,6 +184,7 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 		if (!Controller || !Controller->IsLocalController())
 			continue;
 		const ACommandPlayerState* Player = Controller->GetPlayerState<ACommandPlayerState>();
+		ForceRoutePresentation::DrawWorld(*this, *Controller);
 		if (State && Player && Player->TeamIndex >= 0)
 			for (const AMapRegion* Region : State->Regions)
 			{

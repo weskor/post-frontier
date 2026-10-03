@@ -358,6 +358,7 @@ void AArmyGroup::TickOrders()
 			ApplyWaypoint(WithdrawalRegionIndex, bArrived ? EArmyOrder::Attack : bWithdrawing ? EArmyOrder::Move
 																							  : EArmyOrder::Retreat);
 			UpdateMarchSpeed();
+			UpdateIntentRoutes(Graph, Count, Source, Controlled, Hostiles);
 			if (Status != PreviousStatus)
 				ForceNetUpdate();
 			return;
@@ -421,6 +422,7 @@ void AArmyGroup::TickOrders()
 			ApplyWaypoint(Waypoint, Verb == EForceVerb::Attack ? EArmyOrder::Attack : EArmyOrder::Move);
 	}
 	UpdateMarchSpeed();
+	UpdateIntentRoutes(Graph, Count, Source, Controlled, Hostiles);
 	if (Status != PreviousStatus)
 		ForceNetUpdate();
 }

@@ -20,6 +20,7 @@
 #include "CommandHUD.h"
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
+#include "RouteIntentVerification.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "Content/MatchContent.h"
@@ -392,6 +393,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
 			Result->SetBoolField(TEXT("assigningOrder"), It->IsAssigningOrder());
 			Number(Result, TEXT("pendingVerb"), static_cast<int32>(It->GetPendingVerb()));
+			RouteIntentVerification::HoverSnapshot(**It, Result);
 			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
 			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
 			TArray<TSharedPtr<FJsonValue>> Selected;
@@ -479,6 +481,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Orders.Add(MakeShared<FJsonValueObject>(OrderEntry));
 		}
 		Entry->SetArrayField(TEXT("orders"), Orders);
+		RouteIntentVerification::Snapshot(*Group, Entry);
 		Number(Entry, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
 		Vector(Entry, TEXT("front"), Group->Destination);
 		Vector(Entry, TEXT("center"), Group->GetCenter());
@@ -917,7 +920,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P")
 				&& KeyName != TEXT("G") && KeyName != TEXT("B") && KeyName != TEXT("W") && KeyName != TEXT("E")
 				&& KeyName != TEXT("LeftMouseButton")
-				&& KeyName != TEXT("T") && KeyName != TEXT("A") && KeyName != TEXT("RightMouseButton"))
+				&& KeyName != TEXT("T") && KeyName != TEXT("A") && KeyName != TEXT("RightMouseButton")
+				&& KeyName != TEXT("MouseScrollUp") && KeyName != TEXT("MouseScrollDown"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
@@ -964,6 +968,10 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Replace);
 		return TEXT("unknown JEV plan stage");
 	}
+	if (Action == TEXT("routeTeammate"))
+		return PC ? RouteIntentVerification::TeammateFixture(*PC,
+			Request->GetIntegerField(TEXT("targetRegionIndex")), Request->GetBoolField(TEXT("enabled")))
+			: TEXT("route fixture controller unavailable");
 	if (Action == TEXT("isolate"))
 	{
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It)

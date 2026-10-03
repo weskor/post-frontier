@@ -112,6 +112,14 @@ def verify_force_ownership(run: NetworkRun, s: Session, index: int) -> None:
 
 def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) -> None:
     before = issue_rejected_commands(run, s, index)
+    active = force(before, s.owner, index)
+    routes = active["intentRoutes"]
+    require(
+        routes
+        and routes[0]["orderIndex"] == 0
+        and routes[0]["regions"][-1] == active["targetRegionIndex"],
+        "published active route does not terminate at the retained force target",
+    )
     # Reliable RPC order on the same owning controller supplies a behavioral
     # delivery barrier; do not assert localized feedback wording or sleep for RPCs.
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
@@ -139,6 +147,8 @@ def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) 
             == force(before, s.owner, index)["status"]
             and force(st, s.owner, index)["waypointRegionIndex"]
             == force(before, s.owner, index)["waypointRegionIndex"]
+            and force(st, s.owner, index)["intentRoutes"]
+            == force(before, s.owner, index)["intentRoutes"]
             and order_matches(
                 st,
                 index,

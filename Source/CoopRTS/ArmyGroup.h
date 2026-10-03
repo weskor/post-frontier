@@ -106,6 +106,8 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
 	int32 ResumeCount = 0;
 
+	const TArray<FForceRoute>& GetIntentRoutes() const { return IntentRoutes; }
+
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	EArmyOrder Order = EArmyOrder::Hold;
 
@@ -188,6 +190,9 @@ private:
 	int32 AppliedWaypoint = INDEX_NONE;
 	EArmyOrder AppliedPhase = EArmyOrder::Hold;
 	TWeakObjectPtr<AActor> AppliedStructure;
+	UPROPERTY(Replicated)
+	TArray<FForceRoute> IntentRoutes;
+	void UpdateIntentRoutes(const uint64* Graph, int32 Count, int32 Source, uint64 Controlled, uint64 Hostiles);
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply = true);
 	void UpdateCombat();
 	void UpdateReinforcements();

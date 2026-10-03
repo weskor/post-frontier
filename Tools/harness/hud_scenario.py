@@ -21,6 +21,7 @@ from harness.hud_production import (
     start_and_starve,
 )
 from harness.hud_retreat import recall_box_fixture
+from harness.hud_route_intent import route_intent
 from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
@@ -451,6 +452,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     target = assign_orders(capture, barracks)
     state, squad = fill_force(run, capture, owner, barracks, target)
     force_selection(run, capture, owner, barracks)
+    route_intent(run, capture, owner, barracks)
     recruit, origin = paid_replacement(run, capture, owner, barracks, squad, state)
     retarget_replacement(run, capture, owner, barracks, target, recruit, origin)
     siege_producer(run, capture, owner, barracks)

@@ -54,3 +54,15 @@ struct FForceOrder
 	FForceOrder(EForceVerb InVerb, int32 InRegion, AActor* InStructure = nullptr)
 		: Verb(InVerb), RegionIndex(InRegion), Structure(InStructure), bStructureTarget(InStructure != nullptr) {}
 };
+
+USTRUCT()
+struct FForceRoute
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<int32> Regions;
+	// Active first; withdrawal recovery can add a retained Attack leg before the queue.
+	UPROPERTY()
+	int32 OrderIndex = 0;
+};

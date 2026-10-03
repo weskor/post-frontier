@@ -41,7 +41,7 @@ Research: [input.md](../Research/input.md).
   - a hostile structure → **Attack**.
   - Ground and minimap use the same target resolver. **[New]** War-table ordering.
 - **[Built] Order keys** cover the rest, for one accepted order each, then the mode ends: **A** then left-click a region = Attack that region; **R** = immediate Retreat. Esc or right-click cancels pending A without issuing a smart order. **[New]** The same buttons sit on the force card.
-- **[Built] Cursor preview:** beside the cursor, show Move & Hold, Attack, rally, or not allowed with the reason. Hover and confirmation share one resolver. Pending A shows the left-click Attack preview and the right-click cancellation prompt. **[New]** Route preview before confirmation.
+- **[Built] Cursor preview:** beside the cursor, show Move & Hold, Attack, rally, or not allowed with the reason. Hover and confirmation share one resolver. Pending A shows the left-click Attack preview and the right-click cancellation prompt. **[Built]** Selected-force hover previews the route before confirmation, including pending Attack and queued routes from the preceding endpoint ([forces.md](forces.md)).
 - **[Built] Shift queues** instead of replacing the current order; the limit is specified in [forces.md](forces.md#steering-forces-change--decided).
 - **[Built] Rally input** (owner decision, 2026-10-03): with a production building selected and no forces, right-click a region on ground or minimap to set that building's rally. Rally behaviour lives in [forces.md](forces.md#steering-forces-change--decided).
 - **[Built] No drag-to-order.** Dragging selects forces only.
@@ -57,7 +57,7 @@ Research: [input.md](../Research/input.md).
 - **[Built]** An always-visible **build bar** grouped by category ([buildings.md](buildings.md)), replacing the deck's build cards. Every button shows cost, availability and a grid hotkey: **B**, then a letter. Letters follow bar order: **QWERT**, then **ASDFG**, then **ZXCVB**. Today's entries: **B Q** Barracks (Production), **B W** Extractor (Economy), **B E** Workshop (Tech). Pending **B** shows on the bar and ends on any non-grid key or after **2 s**.
 - **[Built]** **Shift+LMB places another**; LMB without Shift ends placement after success. The new building is selected after placing. Esc or right-click cancels placement and any selection drag; another placement waits for an outstanding server result. A late result still reports whether the building was placed, including over the pause menu, without reopening placement or changing selection. Starting another build or order mode, or selecting a force by unit, badge, number or box, discards any deferred selection from the previous placement.
 
-**On the map:** the selected forces show their path line, a target highlight and their badge. Teammates see your orders as intent arrows.
+**On the map [Built]:** the selected forces show their path line, a target highlight and their badge. Shared commander intent and queued-route presentation are specified in [forces.md](forces.md).
 
 **Controller [Later]:**
 - X gives the smart order on the snapped target.

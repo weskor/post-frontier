@@ -18,6 +18,7 @@
 #include "Engine/World.h"
 #include "Headquarters.h"
 #include "JevIntentView.h"
+#include "HUD/ForceRoutePresentation.h"
 
 namespace
 {
@@ -334,6 +335,28 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 	}
 	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>())
 		DrawJevBadges(Map, *State);
+	ForceRoutePresentation::Visit(*Controller, [&Map](const ForceRoutePresentation::FRoute& Route) {
+		const FLinearColor Color = Route.Color.CopyWithNewOpacity(Route.OrderIndex > 0 ? .6f : 1.f);
+		const float Width = Route.bSelected || Route.bPreview ? 2.f : 1.f;
+		for (int32 Index = 1; Index < Route.Line.Count; ++Index)
+		{
+			const FVector2D A = Map.Project(Route.Line.Points[Index - 1]), B = Map.Project(Route.Line.Points[Index]);
+			const FVector2D Direction = (B - A).GetSafeNormal();
+			const FVector2D Side(-Direction.Y, Direction.X);
+			if (Route.bPreview || Route.OrderIndex > 0)
+			{
+				const double Length = FVector2D::Distance(A, B);
+				for (double Offset = 0.; Offset < Length; Offset += 7.)
+					Map.Line(A + Direction * Offset, A + Direction * FMath::Min(Offset + 4., Length), Color, Width);
+			}
+			else
+				Map.Line(A, B, Color, Width);
+			Map.Line(B, B - Direction * 5. + Side * 3., Color, Width);
+			Map.Line(B, B - Direction * 5. - Side * 3., Color, Width);
+		}
+		if (Route.Line.Count > 0 && (Route.bSelected || Route.bPreview))
+			Map.Diamond(Map.Project(Route.Line.Points[Route.Line.Count - 1]), Route.OrderIndex == 0 ? 7. : 4., Color);
+	});
 	const ACommandBuilding* Selected = Controller->GetSelectedBuilding();
 	FVector2D Front;
 	if (IsValid(Selected) && Selected->IsAlive() && IsValid(Selected->ForceGroup)

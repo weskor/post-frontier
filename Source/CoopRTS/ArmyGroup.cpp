@@ -1010,6 +1010,7 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, TargetRegionIndex);
 	DOREPLIFETIME(AArmyGroup, TargetStructure);
 	DOREPLIFETIME(AArmyGroup, Orders);
+	DOREPLIFETIME(AArmyGroup, IntentRoutes);
 	DOREPLIFETIME(AArmyGroup, Status);
 	DOREPLIFETIME(AArmyGroup, RetreatThreshold);
 	DOREPLIFETIME(AArmyGroup, MarchSpeed);
