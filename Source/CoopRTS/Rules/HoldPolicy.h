@@ -50,6 +50,9 @@ int32 ChoosePost(TConstArrayView<FVector> Posts, TConstArrayView<int32> Occupanc
 int32 ChoosePostSlot(TConstArrayView<int32> UsedSlots);
 // First occupant uses the post itself; subsequent occupants use 800 cm-spaced rings.
 FVector SharedPostOffset(int32 OccupantIndex);
+// Clipping may merge slots; resolve collisions inside the polygon without moving existing holders.
+FVector ChoosePostLocation(TConstArrayView<FVector2D> Polygon, const FVector& Post, int32 Slot,
+	TConstArrayView<FVector> OccupiedLocations);
 // Keep a permitted current target; otherwise take the nearest permitted target, stably.
 int32 ChooseThreat(TConstArrayView<FVector> ThreatPositions, TConstArrayView<bool> Permitted,
 	const FVector& ForceLocation, int32 CurrentIndex);

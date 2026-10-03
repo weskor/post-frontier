@@ -17,6 +17,47 @@ FVector2D ClosestOnEdge(const FVector2D& A, const FVector2D& B, const FVector2D&
 		: A;
 }
 
+double PolygonSignedArea(TConstArrayView<FVector2D> Polygon)
+{
+	double Area = 0.;
+	for (int32 Index = 0, Previous = Polygon.Num() - 1; Index < Polygon.Num(); Previous = Index++)
+		Area += Cross(Polygon[Previous], Polygon[Index]);
+	return Area;
+}
+
+FVector2D ClosestInteriorSeed(TConstArrayView<FVector2D> Polygon, const FVector2D& Post, double MinimumRoomSquared)
+{
+	const double Winding = PolygonSignedArea(Polygon) >= 0. ? 1. : -1.;
+	double Nearest = TNumericLimits<double>::Max();
+	FVector2D Origin = Post;
+	for (int32 Index = 0; Index < Polygon.Num(); ++Index)
+	{
+		const FVector2D A = Polygon[Index], B = Polygon[(Index + 1) % Polygon.Num()];
+		const FVector2D Edge = B - A;
+		if (Edge.SizeSquared() == 0.)
+			continue;
+		const FVector2D Middle = (A + B) * .5;
+		double GapSquared = TNumericLimits<double>::Max();
+		for (int32 Other = 0; Other < Polygon.Num(); ++Other)
+			if (Other != Index)
+				GapSquared = FMath::Min(GapSquared,
+					(ClosestOnEdge(Polygon[Other], Polygon[(Other + 1) % Polygon.Num()], Middle) - Middle).SizeSquared());
+		if (GapSquared == 0.)
+			continue;
+		const FVector2D Inward(-Edge.Y, Edge.X);
+		const FVector2D Seed = Middle + Inward * (Winding * .25 * FMath::Sqrt(GapSquared / Edge.SizeSquared()));
+		if ((HoldPolicy::ClosestBoundary(Polygon, Seed) - Seed).SizeSquared() < MinimumRoomSquared)
+			continue;
+		const double Distance = (Seed - Post).SizeSquared();
+		if (Distance < Nearest)
+		{
+			Nearest = Distance;
+			Origin = Seed;
+		}
+	}
+	return Origin;
+}
+
 FVector Centroid(TConstArrayView<FVector> Points)
 {
 	FVector Sum = FVector::ZeroVector;
@@ -126,9 +167,7 @@ FVector2D HoldPolicy::ClampInside(TConstArrayView<FVector2D> Polygon, const FVec
 		return Boundary;
 
 	// Use the nearest edge's local interior, not a centroid that may lie outside a concavity.
-	double SignedArea = 0.;
-	for (int32 Index = 0, Previous = Polygon.Num() - 1; Index < Polygon.Num(); Previous = Index++)
-		SignedArea += Cross(Polygon[Previous], Polygon[Index]);
+	const double SignedArea = PolygonSignedArea(Polygon);
 	for (int32 Index = 0, Previous = Polygon.Num() - 1; Index < Polygon.Num(); Previous = Index++)
 	{
 		const FVector2D& A = Polygon[Previous];
@@ -254,6 +293,46 @@ FVector HoldPolicy::SharedPostOffset(int32 OccupantIndex)
 	const double Angle = 2. * PI * static_cast<double>(Slot) / (6. * Ring);
 	const double Radius = 800. * Ring;
 	return FVector(FMath::Cos(Angle) * Radius, FMath::Sin(Angle) * Radius, 0.);
+}
+
+FVector HoldPolicy::ChoosePostLocation(TConstArrayView<FVector2D> Polygon, const FVector& Post, int32 Slot,
+	TConstArrayView<FVector> OccupiedLocations)
+{
+	const FVector Offset = SharedPostOffset(Slot);
+	const FVector2D Clipped = ClampInside(Polygon, FVector2D(Post + Offset));
+	constexpr double PositionTolerance = 1.e-4;
+	const auto IsOccupied = [OccupiedLocations](const FVector2D& Point, double ToleranceSquared) {
+		for (const FVector& Existing : OccupiedLocations)
+			if ((FVector2D(Existing) - Point).SizeSquared() < ToleranceSquared)
+				return true;
+		return false;
+	};
+	// Edge-inset direction can differ around the same projection.
+	if (!IsOccupied(Clipped, 1.))
+		return FVector(Clipped.X, Clipped.Y, Post.Z);
+
+	FVector2D Origin(Post);
+	double ClearanceSquared = (ClosestBoundary(Polygon, Origin) - Origin).SizeSquared();
+	const double MinimumRoomSquared = FMath::Square(4. * PositionTolerance * (OccupiedLocations.Num() + 2.));
+	if (ClearanceSquared < MinimumRoomSquared)
+	{
+		// Border/near-border posts may lack room for distinguishable points.
+		// Borrow the closest edge interior with sufficient clearance.
+		Origin = ClosestInteriorSeed(Polygon, FVector2D(Post), MinimumRoomSquared);
+		ClearanceSquared = (ClosestBoundary(Polygon, Origin) - Origin).SizeSquared();
+	}
+	check(ClearanceSquared >= MinimumRoomSquared);
+	const FVector2D Direction = Offset.IsZero() ? FVector2D(1., 0.) : FVector2D(Offset).GetSafeNormal();
+	const FVector2D Step = Direction * (.5 * FMath::Sqrt(ClearanceSquared) / (OccupiedLocations.Num() + 2.));
+	// N occupants cannot cover N+1 points separated by at least two tolerances.
+	for (int32 Rank = OccupiedLocations.Num() + 1; Rank > 1; --Rank)
+	{
+		const FVector2D Point = Origin + Step * Rank;
+		if (!IsOccupied(Point, PositionTolerance * PositionTolerance))
+			return FVector(Point.X, Point.Y, Post.Z);
+	}
+	const FVector2D Last = Origin + Step;
+	return FVector(Last.X, Last.Y, Post.Z);
 }
 
 int32 HoldPolicy::ChooseThreat(TConstArrayView<FVector> ThreatPositions, TConstArrayView<bool> Permitted,

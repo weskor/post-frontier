@@ -148,15 +148,17 @@ void ACommandGameState::UpdateRegionAlarms()
 				{
 					Holder->HoldPostIndex = HoldPolicy::ChoosePost(Region->GetDefendPosts(), Occupancy, Assets, Borders);
 					TArray<int32, TInlineAllocator<32>> UsedSlots;
+					FPositions UsedLocations;
 					for (const AArmyGroup* Other : Holders)
 						if (Other != Holder && Other->HoldPostIndex == Holder->HoldPostIndex)
+						{
 							UsedSlots.Add(Other->HoldPostSlot);
+							UsedLocations.Add(Other->HoldPostLocation);
+						}
 					Holder->HoldPostSlot = HoldPolicy::ChoosePostSlot(UsedSlots);
 					++Occupancy[Holder->HoldPostIndex];
-					const FVector Post = Region->GetDefendPosts()[Holder->HoldPostIndex]
-						+ HoldPolicy::SharedPostOffset(Holder->HoldPostSlot);
-					const FVector2D Inside = HoldPolicy::ClampInside(Region->Polygon, FVector2D(Post));
-					Holder->HoldPostLocation = FVector(Inside.X, Inside.Y, Post.Z);
+					Holder->HoldPostLocation = HoldPolicy::ChoosePostLocation(Region->Polygon,
+						Region->GetDefendPosts()[Holder->HoldPostIndex], Holder->HoldPostSlot, UsedLocations);
 				}
 				double Nearest = TNumericLimits<double>::Max();
 				for (AArmyUnit* Threat : Threats)

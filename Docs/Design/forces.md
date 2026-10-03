@@ -71,18 +71,19 @@ The two attack verbs have different rules on purpose, so players can tell them a
 - **The executor is dumb and obedient.** It never overrides the player, and its rules (retreat threshold, targeting rule, pathing) are visible on the force card.
 - **Intent arrows:** every commander's orders are drawn as coloured arrows on the shared map and minimap, so your orders tell your teammates your plan.
 
-### Holding a region [Change] — decided
+### Holding a region [Built]
 
-**What's wrong today.** In the 2026-10-01 playtest, a force holding a region ignored an attack on a building inside that region. In source, Hold sends the force to the region's capture point (the HQ in a main), and its units only engage enemies within **10.5 m of that point** (`AArmyGroup::PursuitRadius`). A building taking damage triggers nothing. On Habitable Zone v2, the farthest point of a region is on average 48 m from its capture point, and up to 75 m. A Frontline force on Hold covers about 19% of its region, Ranged 31% and Siege 53%; 12 of the 16 deposits are out of Frontline reach. Research: [area-defence.md](../Research/area-defence.md).
+Automatic Hold/Defend goals defend the target region rather than a capture-point reaction circle. The earlier playtest gap and layout measurements are recorded in [area-defence.md](../Research/area-defence.md).
 
 **Rules:**
 - **Region alarm.** An alarm fires when a hostile unit enters the region, or when anything you own in it (a building or a force) takes damage. Every force holding that region hears it. Units still fight at their normal weapon range; the alarm only decides *where they go*.
 - **Who responds:** the threat is every living hostile unit inside the region plus every living hostile unit outside the border currently damaging something the team owns inside it. Its strength is their summed Power value. Holding forces of the same team, including different commanders, respond in order of distance to the nearest threat unit until their combined living-unit Power reaches 1.25× the threat's. The others keep their posts, so a feint can't pull the whole region to one side. Each responder engages the nearest threat unit within its leash, retaining that target under the no-flip-flopping rule below. When the threat grows, more holders join by the same selection rule.
-- **Idle spot:** each holding force waits at one of the region's **defend posts** ([map.md](map.md)), chosen automatically: the post that best sits between the team's buildings in that region and its borders with hostile or not-friendly regions (no fog yet). Each holder takes the post with the fewest holders; ties use the best-placed post. Posts are shared when holders outnumber them, and holders sharing a post stand at distinct formation offsets around it. No orders are rejected. A force never changes post while an alarm is active.
+- **Idle spot:** each holding force waits at one of the region's **defend posts** ([map.md](map.md)), chosen automatically: the post that best sits between the team's buildings in that region and its borders with hostile or not-friendly regions (no fog yet). Each holder takes the post with the fewest holders; ties use the best-placed post. Posts are shared when holders outnumber them, and holders sharing a post stand at distinct formation offsets inside the region. Border clipping cannot merge their assigned positions. No orders are rejected. A force never changes post while an alarm is active.
 - **Ground markers [Built]:** see [map.md](map.md).
 - **Border rule:** pursuit stops at the region border. While an attacker outside the border is damaging something inside, the force may strike back up to its weapon range past the border; then it returns.
 - **No flip-flopping:** a responding force keeps its target until the target dies or leaves the leash, commits to an alarm for at least 8 s, and returns to its post 6 s after the region goes quiet. Starting values.
-- **Readable:** the force card shows *Responding · Drill Rig under attack*, a line runs from the force to the threat, and the alert feed logs it ([ui.md](ui.md)).
+- **Readable response [Built]:** a line runs from each responder to its threat, and the attributed alert feed logs and voices the start of a region response episode ([ui.md](ui.md)).
+- **Force card [Change]:** shows *Responding · Drill Rig under attack*. Replicated responding, threat-kind, threatened-asset and region state is available for the force bar.
 - **JEV holds regions under the same rules.**
 
 ## Force settings [New] — decided

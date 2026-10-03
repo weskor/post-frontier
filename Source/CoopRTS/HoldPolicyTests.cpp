@@ -16,6 +16,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldPostsTest, "CoopRTS.Rules.Hold.PostsAndOve
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldThreatTest, "CoopRTS.Rules.Hold.StickyThreat",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHoldClippedPostsTest, "CoopRTS.Rules.Hold.ClippedPostOverflow",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -238,6 +240,51 @@ bool FHoldPostsTest::RunTest(const FString& Parameters)
 		for (int32 Earlier = 0; Earlier < Index; ++Earlier)
 			TestTrue(TEXT("Overflow groups receive distinct, group-sized spacing"),
 				FVector::DistSquared(Offset, HoldPolicy::SharedPostOffset(Earlier)) >= FMath::Square(750.));
+	}
+	return true;
+}
+
+bool FHoldClippedPostsTest::RunTest(const FString& Parameters)
+{
+	const FVector2D Region[] = { { -400., -400. }, { 400., -400. }, { 400., 400. }, { -400., 400. } };
+	const FVector Post(0., 0., 73.);
+	TArray<FVector> Placed;
+	for (int32 Slot = 0; Slot < 19; ++Slot)
+	{
+		const FVector Location = HoldPolicy::ChoosePostLocation(Region, Post, Slot, Placed);
+		TestTrue(TEXT("Every shared placement stays in the region"), HoldPolicy::Contains(Region, FVector2D(Location)));
+		TestEqual(TEXT("Shared placement preserves terrain height"), Location.Z, Post.Z);
+		for (const FVector& Earlier : Placed)
+			TestTrue(FString::Printf(TEXT("Shared slot %d at %s remains distinct from %s"), Slot,
+						 *Location.ToString(), *Earlier.ToString()),
+				FVector::DistSquared2D(Location, Earlier) > 1.);
+		Placed.Add(Location);
+	}
+	const FVector2D Reversed[] = { { -400., -400. }, { -400., 400. }, { 400., 400. }, { 400., -400. } };
+	for (const TConstArrayView<FVector2D> Shape : { MakeArrayView(Region), MakeArrayView(Reversed) })
+	{
+		Placed.Reset();
+		const FVector BorderPost(400., 400., 73.);
+		for (int32 Slot = 0; Slot < 19; ++Slot)
+		{
+			const FVector Location = HoldPolicy::ChoosePostLocation(Shape, BorderPost, Slot, Placed);
+			TestTrue(TEXT("Border-post sharing stays inside either polygon winding"), HoldPolicy::Contains(Shape, FVector2D(Location)));
+			for (const FVector& Earlier : Placed)
+				TestTrue(TEXT("Border-post sharing keeps every assigned point distinct"),
+					Location.X != Earlier.X || Location.Y != Earlier.Y);
+			Placed.Add(Location);
+		}
+	}
+	Placed.Reset();
+	const FVector NotchPost(80., 40., 73.);
+	for (int32 Slot = 0; Slot < 19; ++Slot)
+	{
+		const FVector Location = HoldPolicy::ChoosePostLocation(Concave, NotchPost, Slot, Placed);
+		TestTrue(TEXT("Concave-post sharing never places a holder in the notch"), HoldPolicy::Contains(Concave, FVector2D(Location)));
+		for (const FVector& Earlier : Placed)
+			TestTrue(TEXT("Concave border clipping preserves distinct assigned points"),
+				Location.X != Earlier.X || Location.Y != Earlier.Y);
+		Placed.Add(Location);
 	}
 	return true;
 }

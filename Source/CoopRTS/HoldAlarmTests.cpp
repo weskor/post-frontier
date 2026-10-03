@@ -806,7 +806,8 @@ private:
 			if (!Check(Latest->Forces.ContainsByPredicate([Holder, Owner](const FObjectiveForce& Force) {
 					return Force.TeamIndex == Holder->GetTeamIndex() && Force.CommanderIndex == Owner->CommanderIndex
 						&& Force.ForceNumber == Holder->ForceNumber;
-				}), TEXT("The alert retains the responding force identity across commanders and factions")))
+				}),
+					TEXT("The alert retains the responding force identity across commanders and factions")))
 				return false;
 		}
 		return true;
