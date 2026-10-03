@@ -138,7 +138,7 @@ static void PlaceFooter(const FContext& Context, FLayout& Layout)
 	Layout.Build = { BuildX, FooterBottom - BuildBarHeight, Layout.Width - Margin - BuildX, BuildBarHeight };
 	Layout.Bottom = bTeammate ? FRect{ FooterX, Layout.Inspector.Y, TeammateCardWidth, DeckHeight }
 		: Layout.bDeck        ? Layout.Inspector
-                              : FRect{ FooterX, FooterBottom - ModeHeight, Width, ModeHeight };
+							  : FRect{ FooterX, FooterBottom - ModeHeight, Width, ModeHeight };
 	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
 }
 

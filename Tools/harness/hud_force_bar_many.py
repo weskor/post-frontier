@@ -33,7 +33,7 @@ def deck_fits_beside(state: JsonObject, cards: Sequence[JsonObject]) -> bool:
     width, height = state["viewportWidth"], state["viewportHeight"]
     scale = min(1.0, max(0.78, min(width / 1280, height / 720)))
     right = max(c["forceCard"]["rect"][0] + c["forceCard"]["rect"][2] for c in cards)
-    return (width - MARGIN * scale) - (right + GAP * scale) >= DECK_WIDTH * scale
+    return bool((width - MARGIN * scale) - (right + GAP * scale) >= DECK_WIDTH * scale)
 
 
 def deselect(run: NetworkRun, capture: Capture) -> None:

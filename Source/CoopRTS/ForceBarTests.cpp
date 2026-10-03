@@ -326,8 +326,7 @@ private:
 				Check(Layout.ForceBar.W <= Case.Cards * ForceCardMaxWidth + (Case.Cards - 1) * Gap + .01f
 						&& Layout.ForceBar.Right() <= Layout.Width - Margin + .01f,
 					TEXT("The card row is only as wide as its cards and stays on screen"));
-				Check(!Layout.bDeck || (!Layout.Inspector.Intersects(Layout.ForceBar) && !Layout.Inspector.Intersects(Layout.Build)
-											  && !Layout.Inspector.Intersects(Layout.Minimap)),
+				Check(!Layout.bDeck || (!Layout.Inspector.Intersects(Layout.ForceBar) && !Layout.Inspector.Intersects(Layout.Build) && !Layout.Inspector.Intersects(Layout.Minimap)),
 					TEXT("The deck never overlaps the cards, build bar or minimap"));
 				FJevMemoRow Rows[JevIntent::MemoVisible];
 				const int32 Count = JevMemoRows(Context, Layout, Model, Rows);

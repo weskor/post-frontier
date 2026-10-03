@@ -248,7 +248,9 @@ def memo_states(
                 height,
             ) and len(state["jevIntent"]["memos"]) >= 3
 
-        state = capture.wait(ready, f"three memo rows beside the deck at {width}x{height}")
+        state = capture.wait(
+            ready, f"three memo rows beside the deck at {width}x{height}"
+        )
         require(state["deckOpen"], "memo acceptance requires the deck beside the card")
         require(state["centreClear"], "the middle of the screen is HUD by default")
         check_display(state, f"force bar deck beside cards {width}x{height}")
