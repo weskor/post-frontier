@@ -393,7 +393,8 @@ public:
 				return true;
 			AArmyUnit* Victim = Squad->GetUnits()[0];
 			Victim->ReceiveAttack(Victim->GetHealth(), Attacker->GetUnits()[0]);
-			if (!Check(!Victim->IsAlive() && Alive(Building.Get()) == 3, TEXT("Real lethal damage opens exactly one vacancy")))
+			if (!Check(!Victim->IsAlive() && Alive(Building.Get()) == Building->GetProductionDefinition()->Capacity - 1,
+					TEXT("Real lethal damage opens exactly one vacancy")))
 				return true;
 			ReplacementBalance = Wallet->Resources;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);

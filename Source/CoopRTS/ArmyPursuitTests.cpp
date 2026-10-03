@@ -108,8 +108,8 @@ public:
 				RemoveGroup(Hostile.Get());
 				if (!Spawn(World, ArmyTestSetup::Controller(World), true))
 					return Finish();
-				Place(Friendly->GetUnits()[0], Anchor + FVector(0.f, -45.f, 0.f));
-				Place(Friendly->GetUnits()[1], Anchor + FVector(0.f, 45.f, 0.f));
+				for (int32 Index = 0; Index < Friendly->GetUnits().Num(); ++Index)
+					Place(Friendly->GetUnits()[Index], Anchor + FVector(-90.f * (Index / 2), Index % 2 == 0 ? -45.f : 45.f, 0.f));
 				FirstArtillery = Hostile->GetUnits()[0];
 				SecondArtillery = Hostile->GetUnits()[1];
 				Place(FirstArtillery.Get(), Anchor + FVector(125.f, 0.f, 0.f));
@@ -204,7 +204,17 @@ private:
 		}
 		KeepRole(Friendly.Get(), EUnitRole::Frontline, bArtillery ? 2 : 1);
 		KeepRole(Hostile.Get(), bArtillery ? EUnitRole::Siege : EUnitRole::Frontline, bArtillery ? 2 : 1);
-		return Test->TestEqual(TEXT("Friendly pursuit fixture has exact member count"), Friendly->GetUnits().Num(), bArtillery ? 2 : 1)
+		// The target-switch probe needs surviving pursuers, not the old balance's
+		// two Brawlers beating twice their Power in Artillery.
+		const int32 FriendlyCount = bArtillery
+			? FMath::DivideAndRoundUp(2 * Hostile->GetUnits()[0]->GetDefinition()->UnitCost,
+				  Friendly->GetUnits()[0]->GetDefinition()->UnitCost)
+			: 1;
+		const int32 UnitIndex = Friendly->GetUnits()[0]->GetUnitIndex();
+		for (int32 Index = Friendly->GetUnits().Num(); Index < FriendlyCount; ++Index)
+			if (!Friendly->SpawnMember(UnitIndex, Anchor, Index))
+				return Test->TestTrue(TEXT("Equal-Power pursuit members spawn"), false);
+		return Test->TestEqual(TEXT("Friendly pursuit fixture has exact equal-Power member count"), Friendly->GetUnits().Num(), FriendlyCount)
 			&& Test->TestEqual(TEXT("Hostile pursuit fixture has exact member count"), Hostile->GetUnits().Num(), bArtillery ? 2 : 1);
 	}
 
