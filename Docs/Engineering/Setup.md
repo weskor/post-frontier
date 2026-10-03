@@ -21,7 +21,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | Binary assets | `.uasset`/`.umap` are generated outputs. Tuned values and maps live in text. Agents change text only; `./x land` regenerates and commits binaries. |
 | Live-editor automation | None. Assets change only through generators from text sources; inspection uses the runner's tests and HUD verification. |
 | Command path | One validated command path for humans, JEV, tests and the harness. Test-only RPCs and debug flags leave release builds. |
-| Landing | Only through `./x land`: rebase onto main, run the scoped checks, fast-forward. A hook blocks any other commit to main. |
+| Landing | Only through `./x land`: rebase onto main, run the scoped checks (or reuse a passed check of byte-identical content that covered every selected scope), fast-forward. A hook blocks any other commit to main. |
 | Red tests | The 9 world tests failing since the regions/Extractors cutover are ported if still relevant, otherwise deleted. |
 
 ## `./x`, the only entry point
@@ -35,7 +35,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | `./x gen <asset>` | Runs one generator. Unreal generators lease one headless slot; non-Unreal generators take no Unreal lock. |
 | `./x sim` | Runs the balance harness. |
 | `./x package` | Builds a package into a run-specific folder, never over the friends' playtest build. |
-| `./x land` | Rebases, runs `check`, regenerates binary assets from text if their sources changed, fast-forwards main. |
+| `./x land` | Rebases, runs `check` unless a passed check already proved the identical rebased content, regenerates binary assets from text if their sources changed, fast-forwards main. |
 | `./x help` | The procedure reference. Docs link here instead of repeating commands. |
 
 The runner owns:

@@ -121,6 +121,41 @@ def test_rebase_then_land(repo: Path, task: Path) -> None:
     assert (task / "Docs/main.md").read_text() == "main\n"
 
 
+@pytest.mark.parametrize("after_check", ["nothing", "main-moved", "task-changed"])
+def test_land_reuses_only_a_passed_check_of_identical_content(
+    repo: Path, task: Path, after_check: str
+) -> None:
+    commit_file(task, "Tools/check.txt", "select tools\n")
+    checked = invoke(task, "check")
+    assert checked.returncode == 0, checked.stdout + checked.stderr
+    if after_check == "main-moved":
+        # Main only moves through ./x land once hooks are installed.
+        other = repo.parent / "other"
+        git(repo, "worktree", "add", "-b", "task/other", str(other))
+        commit_file(other, "Docs/main.md", "main\n")
+        assert invoke(other, "land").returncode == 0
+    elif after_check == "task-changed":
+        commit_file(task, "Docs/task.md", "changed after check\n")
+    result = invoke(task, "land")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert git(repo, "rev-parse", "HEAD") == git(task, "rev-parse", "HEAD")
+    reused = "reused passed check" in result.stdout
+    assert reused is (after_check == "nothing")
+    assert ("PASS tools" in result.stdout) is not reused
+
+
+def test_land_never_reuses_a_failed_check(repo: Path, task: Path) -> None:
+    commit_file(task, "Docs/fail.md", "fail the selected scope\n")
+    commit_file(task, "Tools/check.txt", "select tools\n")
+    assert invoke(task, "check").returncode == 1
+    before = git(repo, "rev-parse", "HEAD")
+    result = invoke(task, "land")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "reused passed check" not in result.stdout
+    assert "check failed" in result.stdout
+    assert git(repo, "rev-parse", "HEAD") == before
+
+
 def test_hook_blocks_main_commit_and_merge(repo: Path, task: Path) -> None:
     assert invoke(task, "help").returncode == 0
     commit_file(task, "Docs/task.md", "task\n")

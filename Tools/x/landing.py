@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 import subprocess
 
-from x import gitinfo, jsonio
+from x import gitinfo, jsonio, source
 from x.context import Context
+from x.scopes import load
 
 GRANT = "x-land-grant.json"
 LEDGER = "x-land-ledger.jsonl"
@@ -227,6 +228,43 @@ def rebase(ctx: Context) -> bool:
     return False
 
 
+def reusable_check(ctx: Context, branch: str) -> str | None:
+    """Return a passed check of this branch that already proved identical content.
+
+    The check must have kept its content unchanged from start to finish (no
+    formatter rewrite), match the rebased content exactly and have passed every
+    scope the rebased branch now selects. Anything else reruns the check.
+    """
+    if ctx.run is None:
+        raise RuntimeError("landing requires a recorded command")
+    snapshots = ctx.run.record["source"]["snapshots"]
+    current = snapshots[ctx.run.snapshot("land:rebased")]
+    required = set(load(ctx.repo).scopes_for(gitinfo.changed_files(ctx.repo)))
+    # Run IDs start with a UTC timestamp, so reverse name order is newest first.
+    for path in sorted(
+        ctx.settings.runs_root.glob("*-check-*/record.json"), reverse=True
+    ):
+        try:
+            record = jsonio.load(path)
+        except (OSError, ValueError):
+            continue
+        provenance = record.get("source", {})
+        completed = provenance.get("completed")
+        if (
+            record.get("command") != "check"
+            or record.get("status") != "passed"
+            or record.get("branch") != branch
+            or provenance.get("initial_to_completed") != "equal"
+            or completed is None
+            or source.equality(provenance["snapshots"][completed], current) != "equal"
+        ):
+            continue
+        proven = {result["name"] for result in record["results"] if result["ok"]}
+        if required <= proven:
+            return str(record["id"])
+    return None
+
+
 def merge_checked(ctx: Context, main: Path, branch: str) -> int:
     if ctx.run is None:
         raise RuntimeError("landing requires a recorded command")
@@ -295,6 +333,12 @@ def land(ctx: Context) -> int:
             )
         if not rebase(ctx):
             return 1
+        reused = reusable_check(ctx, branch)
+        if reused is not None:
+            message = f"reused passed check {reused}: identical content, every selected scope passed"
+            print(f"land: {message}")
+            ctx.run.add_result("check", True, message)
+            return merge_checked(ctx, main, branch)
         from x.commands.check import check
 
         result = check(ctx, audit=False)
