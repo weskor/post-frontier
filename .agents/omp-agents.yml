@@ -1,0 +1,24 @@
+# Config overlay for orchestrated worker and reviewer agents (omp --config).
+# Owner decision 2026-10-03: agents use only OpenAI (openai-codex) and Anthropic models.
+modelProviderOrder:
+  - openai-codex
+  - anthropic
+modelRoles:
+  smol: openai-codex/gpt-6-luna
+  slow: openai-codex/gpt-6.1-sol:xhigh
+  plan: anthropic/claude-opus-5-5
+  commit: openai-codex/gpt-6-luna
+  tiny: openai-codex/gpt-6-luna
+  memory: openai-codex/gpt-6-luna
+  task: openai-codex/gpt-6.1-sol
+  advisor: anthropic/claude-opus-5-5:medium
+  vision: anthropic/claude-opus-5-5
+  judge: openai-codex/gpt-6-luna
+retry:
+  fallbackChains:
+    judge: []
+    tiny: []
+    memory: []
+# find needs a System One judge model, which only TypeSafe/OpenRouter provide.
+find:
+  enabled: "off"

@@ -17,7 +17,8 @@ Workers and reviewers read only their own section ([Worker rules](#worker-rules)
 | Worker | `worker-1` … `worker-9` | `openai-codex/gpt-6.1-sol` | none: stop and tell the user |
 | Reviewer | `reviewer-1` … `reviewer-3` | `anthropic/claude-opus-5-5 --thinking medium` | `openai-codex/gpt-6-astra` |
 
-- **Starting the orchestrator:** the user runs `omp --model anthropic/claude-opus-5-5` in a herdr pane at the repo root. Fallback: `omp --model openai-codex/gpt-6.1-sol --thinking xhigh`.
+- **Starting the orchestrator:** the user runs `omp --config /home/wes/workspace/game/.agents/omp-agents.yml --model anthropic/claude-opus-5-5` in a herdr pane at the repo root. Fallback: `omp --config /home/wes/workspace/game/.agents/omp-agents.yml --model openai-codex/gpt-6.1-sol --thinking xhigh`.
+- **Model providers: OpenAI (`openai-codex`) and Anthropic only.** No OpenRouter or other model providers. Every start uses the [agent config overlay](../../omp-agents.yml), which pins all model roles and disables `find`. Agents have no `find` tool; briefs must never tell them to use it.
 - **The orchestrator plans, briefs, waits, lands and talks to the user.** It doesn't implement slices itself.
 - **At most 9 workers and 3 reviewers at a time.** `./x` shares Unreal through its headless pool and exclusive lock; the limits are review throughput and the orchestrator's attention.
 
@@ -101,7 +102,7 @@ git -C /home/wes/workspace/game-wt/<worker-n> switch -c task/<slug> main   # whe
 herdr pane run <pane-id> "cd /home/wes/workspace/game-wt/<worker-n> && pwd"
 herdr pane wait-output <pane-id> --regex '^/home/wes/workspace/game-wt/<worker-n>$' --source recent-unwrapped --timeout 10000
 herdr pane get <pane-id>
-herdr agent start <worker-n> --kind omp --pane <pane-id> --timeout 90000 -- --model openai-codex/gpt-6.1-sol
+herdr agent start <worker-n> --kind omp --pane <pane-id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model openai-codex/gpt-6.1-sol
 ```
 
 Before starting, confirm `.result.pane.foreground_cwd` from `pane get` is the worktree path and the pane is at its shell prompt. For each reviewer, use its `r<n>` pane, set and confirm its shell cwd the same way:
@@ -110,7 +111,7 @@ Before starting, confirm `.result.pane.foreground_cwd` from `pane get` is the wo
 herdr pane run <id> "cd /home/wes/workspace/game && pwd"
 herdr pane wait-output <id> --regex '^/home/wes/workspace/game$' --source recent-unwrapped --timeout 10000
 herdr pane get <id>
-herdr agent start reviewer-<n> --kind omp --pane <id> --timeout 90000 -- --model anthropic/claude-opus-5-5 --thinking medium
+herdr agent start reviewer-<n> --kind omp --pane <id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model anthropic/claude-opus-5-5 --thinking medium
 ```
 
 ### 4. Dispatch
@@ -179,7 +180,7 @@ Finish with a summary for the user: landed commits, blocked slices with their re
 Switch to the fallback model when `agent start` fails, or a turn ends on a provider error (credits, quota, a rate limit that persists after omp's retries, model unavailable). Poor work isn't a reason to switch; that goes through review.
 
 1. In the same pane, `herdr agent prompt <name> "/exit"`.
-2. Run `herdr agent start <name> --kind omp --pane <pane-id> --timeout 90000 -- --model <fallback>`.
+2. Run `herdr agent start <name> --kind omp --pane <pane-id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model <fallback>`.
 3. Resend the last prompt.
 
 Workers have no fallback: stop and tell the user.
