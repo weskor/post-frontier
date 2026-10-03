@@ -3,17 +3,22 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ConstructionTypes.h"
+#include "Rules/ArmyGroupPolicy.h"
 #include "Rules/HoldPolicy.h"
 #include "ForceOrders.h"
 #include "ArmyGroup.generated.h"
 
+class AAIController;
 class AArmyUnit;
 class ACommandBuilding;
 class ACommandGameState;
 enum class EArmyDoctrine : uint8;
 class ACommandPlayerState;
 class AMapRegion;
+class UArmyUnitDefinition;
 class UNavigationSystemV1;
+struct FArmyCombatScan;
+struct FForceTickContext;
 
 struct FArmyGroupSpawn
 {
@@ -178,8 +183,21 @@ private:
 	bool CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed);
 	void RetargetIdleRally(int32 RegionIndex);
 	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
+	bool ShouldKeepWaypoint(const ACommandGameState& State, int32 RegionIndex, AActor* Structure) const;
+	bool IssueTravelNearAnchor(EArmyOrder Phase, const FVector& Anchor, const AMapRegion& Region);
 	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
 	void CompleteOrder(int32 EndRegion);
+	// Completes the active order, then ticks the next one.
+	void AdvanceOrder(int32 EndRegion);
+	void EnsureActiveOrder(int32 Source);
+	void CancelOrphanRally(int32 Source);
+	void ReadTickContext(FForceTickContext& Ctx);
+	bool TickWithdrawal(const FForceTickContext& Ctx);
+	bool TickTarget(const FForceTickContext& Ctx);
+	bool TickHold(const FForceTickContext& Ctx, const AMapRegion& Target, bool bCleared);
+	void MaintainHoldWaypoint(const FForceTickContext& Ctx, const AMapRegion& Target);
+	void TickMarch(const FForceTickContext& Ctx);
+	void FinishTick(const FForceTickContext& Ctx);
 	void UpdateMarchSpeed();
 	int32 LastHeldRegionIndex = INDEX_NONE;
 	int32 WithdrawalRegionIndex = INDEX_NONE;
@@ -196,8 +214,20 @@ private:
 	void UpdateIntentRoutes(const uint64* Graph, int32 Count, int32 Source, uint64 Controlled, uint64 Hostiles, bool bTargetCompleted);
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply = true);
 	void UpdateCombat();
+	void UpdateUnitCombat(AArmyUnit& Unit, const FArmyCombatScan& Scan);
+	bool IsEngagementPermitted(const AArmyUnit& Unit, AActor* Enemy) const;
+	AActor* ChooseTarget(AArmyUnit& Unit, const FArmyCombatScan& Scan) const;
+	void UpdateAttackPursuit(AArmyUnit& Unit, AAIController& AI, AActor& Chosen, bool bTargetChanged);
 	void UpdateReinforcements();
+	void UpdateReinforcement(AArmyUnit& Unit, UNavigationSystemV1& Navigation);
+	bool JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation);
 	bool ReinforcementTarget(const AArmyUnit& Unit, FVector& Goal) const;
+	void AbandonReinforcementMove(AArmyUnit& Unit, AAIController& AI);
+	bool RetargetReinforcement(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation, const FVector& Goal);
+	bool CanSpawnReinforcement(const ACommandGameState* State, int32 UnitIndex, int32 Capacity, const FVector& SpawnLocation);
+	bool LaunchReinforcement(UNavigationSystemV1& Navigation, const UArmyUnitDefinition& Definition,
+		int32 UnitIndex, int32 Slot, int32 Capacity, const FVector& Exit);
+	bool HasPermittedOwner(const ACommandGameState& State) const;
 	bool ClipHoldingDestination(FVector& Goal) const;
 	float CombatAccumulator = 0.f;
 	// Stable composition slots retain retry clocks through unit-array compaction.
@@ -207,4 +237,7 @@ private:
 	void StopAllUnits();
 	void LogOrder() const;
 	FVector FormationOffset(int32 Index) const;
+	ArmyGroupPolicy::FFormation FormationShape() const { return { bProducedGroup, ForceCapacity, bOpposingArmy }; }
+	// Retry clock for a composition slot, grown on demand. Do not hold the reference across a call that may grow it.
+	float& PursuitRetryAt(int32 Slot);
 };
