@@ -27,7 +27,7 @@ public:
 		if (Now - Started > 300.0 || Now - StageStarted > 90.0)
 			return Fail(*FString::Printf(TEXT("Strategy stage %d exceeded its bounded progress deadline"), Stage));
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f)
+		if (!World || World->GetTimeSeconds() < 3.f || (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);

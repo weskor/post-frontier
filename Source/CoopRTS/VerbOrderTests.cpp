@@ -179,6 +179,7 @@ private:
 	{
 		Stage = Next;
 		StageStarted = FPlatformTime::Seconds();
+		StageGameStarted = ArmyTestSetup::GameSeconds(GameWorld);
 	}
 	bool Issue(EForceVerb Verb, int32 Index = INDEX_NONE, AActor* TargetActor = nullptr, bool bQueue = false)
 	{
@@ -285,7 +286,7 @@ private:
 	bool Prepare()
 	{
 		GameWorld = ArmyTestSetup::World();
-		if (!GameWorld || GameWorld->GetTimeSeconds() < 3.f)
+		if (!GameWorld || GameWorld->GetTimeSeconds() < 3.f || !ArmyTestSetup::NavigationReady(GameWorld))
 			return false;
 		PC = ArmyTestSetup::Controller(GameWorld);
 		State = GameWorld->GetGameState<ACommandGameState>();
@@ -420,7 +421,7 @@ private:
 		{
 			if (!Check(Holding(Target) && Force->Orders.Num() == 1, TEXT("Unqueued MoveHold persists at its captured region")))
 				return true;
-			if (FPlatformTime::Seconds() - StageStarted >= 1.)
+			if (ArmyTestSetup::GameSeconds(GameWorld) - StageGameStarted >= 1.)
 				return true;
 		}
 		return false;
@@ -760,7 +761,7 @@ private:
 				return true;
 			SetStage(3);
 		}
-		if (Stage == 3 && FPlatformTime::Seconds() - StageStarted > 1.)
+		if (Stage == 3 && ArmyTestSetup::GameSeconds(GameWorld) - StageGameStarted > 1.)
 			return Check(FVector::Dist2D(StartPosition, Force->GetCenter()) < 5.f
 					&& Force->Status == EForceStatus::Holding,
 				TEXT("New idle orphan remains physically stopped instead of following the dead producer rally"));
@@ -1062,7 +1063,7 @@ private:
 
 	FAutomationTestBase* Test;
 	EScenario Scenario;
-	double Started, StageStarted;
+	double Started, StageStarted, StageGameStarted = 0.;
 	int32 Stage = 0, Home = INDEX_NONE, EnemyHome = INDEX_NONE, Intermediate = INDEX_NONE, Target = INDEX_NONE;
 	int32 EndRegion = INDEX_NONE, SafeRegion = INDEX_NONE, RecruitBalance = 0, RefillBalance = 0;
 	uint32 RetreatAttackCount = 0;

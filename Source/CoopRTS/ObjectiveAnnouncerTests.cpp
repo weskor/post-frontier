@@ -43,7 +43,7 @@ public:
 	virtual bool Update() override
 	{
 		UWorld* World = ArmyTestSetup::World();
-		const double Now = FPlatformTime::Seconds();
+		const double GameNow = ArmyTestSetup::GameSeconds(World);
 		if (World && !bIsolated)
 		{
 			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
@@ -56,14 +56,14 @@ public:
 				It->SetActorTickEnabled(false);
 			bIsolated = true;
 		}
-		if (Now - Started > 35.)
+		if (FPlatformTime::Seconds() - Started > 35.)
 		{
 			Test->AddError(FString::Printf(TEXT("Objective scenario timed out at stage %d"), Stage));
 			return true;
 		}
 		if (Stage == 0)
 		{
-			if (!World || Now - Started < 3.)
+			if (!World || GameNow < 3. || !ArmyTestSetup::NavigationReady(World))
 				return false;
 			State = World->GetGameState<ACommandGameState>();
 			Controller = ArmyTestSetup::Controller(World);
@@ -88,10 +88,10 @@ public:
 					TEXT("Selecting a building changes selection without camera movement")))
 				return true;
 			Press(EKeys::F, true);
-			SetStage(1, Now);
+			SetStage(1, GameNow);
 			return false;
 		}
-		if (Now - StageStarted < .15)
+		if (GameNow - StageStarted < .15)
 			return false; // Real Enhanced Input must process the pressed key in a world frame.
 		if (Stage == 1)
 		{
@@ -99,7 +99,7 @@ public:
 			if (!At(Selected->GetActorLocation(), TEXT("Real F input focuses the selected building")))
 				return true;
 			Press(EKeys::SpaceBar, true);
-			SetStage(2, Now);
+			SetStage(2, GameNow);
 			return false;
 		}
 		if (Stage == 2)
@@ -109,13 +109,13 @@ public:
 			if (!Check(Controller->GetFocusedAlertSequence() == Latest.Sequence, TEXT("Real Space input focuses newest objective"))
 				|| !At(Latest.Location, TEXT("Space camera reaches latest objective location")))
 				return true;
-			SetStage(3, Now); // Release receives its own frame before the next press.
+			SetStage(3, GameNow); // Release receives its own frame before the next press.
 			return false;
 		}
 		if (Stage == 3)
 		{
 			Press(EKeys::SpaceBar, true);
-			SetStage(4, Now);
+			SetStage(4, GameNow);
 			return false;
 		}
 		if (Stage == 4)
@@ -182,10 +182,10 @@ public:
 
 private:
 	bool Check(bool Value, const TCHAR* Message) { return Test->TestTrue(Message, Value); }
-	void SetStage(int32 Value, double Now)
+	void SetStage(int32 Value, double GameNow)
 	{
 		Stage = Value;
-		StageStarted = Now;
+		StageStarted = GameNow;
 	}
 	void Press(FKey Key, bool bPressed)
 	{

@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 
+#include "ArmyTestSetup.h"
 #include "MatchSimulationSubsystem.h"
 #include "ArenaBounds.h"
 #include "ArmyGroup.h"
@@ -49,7 +50,7 @@ public:
 				World = Context.World();
 				break;
 			}
-		if (!World || World->GetTimeSeconds() < 3.f)
+		if (!World || World->GetTimeSeconds() < 3.f || (!Runner && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		if (!State || !IsValid(State->Content) || !IsValid(State->Arena) || State->Regions.IsEmpty())

@@ -22,10 +22,12 @@ Use named tests for a diagnosed failure, to iterate on scopes a check failed
 invent scenarios or duplicate the path-to-test map in documentation.
 Runs every requested scope once and retains per-scope results and logs. Automation
 builds the editor once up front when its configured source hashes are stale,
-then leases and releases one headless slot for each fresh scope world. Exclusive
-waiters and other runs can interleave between scopes; Python/scripts take no
-Unreal lock. Each automation lease records scope:<name>:headless in lock_waits,
-including uncontended acquisition. Same-worktree builds cannot replace its module.
+then runs scopes on one thread per headless_pool_size slot; each fresh scope
+world leases and releases its own headless slot, so results finish out of order.
+Exclusive waiters and other runs can interleave between scopes; Python/scripts
+take no Unreal lock. Each automation lease records scope:<name>:headless in
+lock_waits, including uncontended acquisition. Same-worktree builds cannot
+replace its module.
 
 Proof limits:
 - Python/tool and map-validator scopes prove only their checks; validator images

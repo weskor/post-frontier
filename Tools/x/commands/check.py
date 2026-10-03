@@ -20,8 +20,9 @@ By default inspect changes against main, the index, worktree and untracked files
 --all lints every tracked file; tests still follow changed paths, including deletions.
 Print each selected scope and the changed paths that selected it.
 Python format, lint and tests use uv run --locked, syncing the locked dev environment.
-Automation builds once, then leases a headless slot per scope; non-Unreal scopes
-take no Unreal lock. Scope lease wait times are retained in the run's lock_waits.
+Automation builds once, then runs scopes concurrently, each leasing its own
+headless slot; non-Unreal scopes take no Unreal lock. Scope lease wait times are
+retained in the run's lock_waits.
 Exit zero means lint and every selected scope passed, not every proof tier.
 This is the only change proof; use ./x land to land it. Tools/x/scopes.toml owns
 selection, so do not hand-pick fewer tests or recreate a feature-to-test table.

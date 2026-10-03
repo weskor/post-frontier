@@ -117,7 +117,7 @@ public:
 			return Fail(*FString::Printf(TEXT("Construction stage %d exceeded its bounded progress deadline"), Stage));
 		}
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f)
+		if (!World || World->GetTimeSeconds() < 3.f || (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();

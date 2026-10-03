@@ -16,6 +16,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "NavigationSystem.h"
 
 namespace ArmyTestSetup
 {
@@ -90,6 +91,20 @@ inline UWorld* World()
 				if (Candidate->IsGameWorld() && Candidate->GetNetMode() == NM_Standalone)
 					return Candidate;
 	return nullptr;
+}
+// Scenario stage waits use the world clock. Automation runs on an uncapped fixed
+// step (Tools/x/testing.py), so game time outruns wall time; failure deadlines
+// stay on FPlatformTime::Seconds to bound real hangs.
+inline double GameSeconds(const UWorld* World)
+{
+	return World ? World->GetTimeSeconds() : 0.;
+}
+// Async navmesh builds run at wall speed on worker threads, so a fast fixed step
+// can pass a game-time warm-up before any tile exists.
+inline bool NavigationReady(UWorld* World)
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	return Navigation && !Navigation->IsNavigationBuildInProgress();
 }
 inline ACommandPlayerController* Controller(UWorld* World)
 {

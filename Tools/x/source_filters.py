@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 import subprocess
 
+# Paths whose worktree bytes git last reported canonical, keyed by the stat that
+# was observed before the check. Any write changes ctime, forcing a recheck.
+_canonical: dict[Path, tuple[int, int, int, int]] = {}
+
 
 def lfs_pointer(content: bytes) -> tuple[str, int] | None:
     try:
@@ -78,10 +82,25 @@ def lfs_paths(
 def check_line_endings(repo: Path, text_paths: list[str]) -> None:
     # LFS assets are explicitly binary. Scanning their hydrated bytes for line
     # endings on every exec would turn metadata-only provenance into a full read.
-    if not text_paths:
+    pending: dict[str, tuple[Path, tuple[int, int, int, int]]] = {}
+    for name in text_paths:
+        path = repo / name
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            continue
+        key = (
+            metadata.st_ino,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+        )
+        if _canonical.get(path) != key:
+            pending[name] = (path, key)
+    if not pending:
         return
     endings = subprocess.check_output(
-        ["git", "-C", str(repo), "ls-files", "--eol", "-z", "--", *text_paths],
+        ["git", "-C", str(repo), "ls-files", "--eol", "-z", "--", *pending],
         stderr=subprocess.PIPE,
     )
     for eol_item in endings.split(b"\0"):
@@ -92,6 +111,8 @@ def check_line_endings(repo: Path, text_paths: list[str]) -> None:
             raise ValueError(
                 f"noncanonical worktree line endings: {os.fsdecode(eol_path)}"
             )
+    for path, key in pending.values():
+        _canonical[path] = key
 
 
 def hydrate_baseline(

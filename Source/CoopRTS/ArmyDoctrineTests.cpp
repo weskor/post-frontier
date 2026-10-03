@@ -114,7 +114,7 @@ public:
 		{
 			if (!bActorsArranged)
 			{
-				if (Now < 3. || !Actors.Find(World))
+				if (Now < 3. || !ArmyTestSetup::NavigationReady(World) || !Actors.Find(World))
 					return false;
 				if (!RestartCase())
 					Actors.IsolatePlanner();

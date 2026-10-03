@@ -42,8 +42,7 @@ public:
 	explicit FSoloPauseScenario(FAutomationTestBase* InTest) : Test(InTest), Started(FPlatformTime::Seconds()) {}
 	bool Update() override
 	{
-		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 25.)
+		if (FPlatformTime::Seconds() - Started > 25.)
 			return Fail(TEXT("Solo pause scenario timed out"));
 		if (!State.IsValid())
 		{
@@ -68,14 +67,14 @@ public:
 				return Fail(TEXT("Pause fixture army could not spawn"));
 			TargetRegion = ArmyTestSetup::TravelRegion(Army.Get(), Match->EnemyHeadquarters->GetActorLocation());
 			Destination = Match->GetRegionAnchor(TargetRegion);
-			StageStarted = Now;
+			StageStarted = ArmyTestSetup::GameSeconds(World);
 			return false;
 		}
 		if (!Controller.IsValid() || !Army.IsValid())
 			return Fail(TEXT("Pause fixture disappeared"));
 		UWorld* World = State->GetWorld();
 		ACommandPlayerState* Wallet = Controller->GetPlayerState<ACommandPlayerState>();
-		if (Stage == 0 && Now - StageStarted >= 3.)
+		if (Stage == 0 && ArmyTestSetup::GameSeconds(World) - StageStarted >= 3. && ArmyTestSetup::NavigationReady(World))
 		{
 			// Wait for real navmesh readiness before pausing; path queries still run while paused.
 			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
@@ -94,9 +93,9 @@ public:
 			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
 				return Fail(TEXT("Order given during pause rejected"));
 			Test->TestTrue(TEXT("Order intent applies immediately while paused"), Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == TargetRegion);
-			Next(Now);
+			Next(World->GetRealTimeSeconds());
 		}
-		else if (Stage == 1 && Now - StageStarted >= 1.)
+		else if (Stage == 1 && World->GetRealTimeSeconds() - StageStarted >= 1.) // Game time is frozen while paused.
 		{
 			Test->TestEqual(TEXT("Simulation clock stays frozen across real time"), World->GetTimeSeconds(), SimulationTime);
 			Test->TestEqual(TEXT("Income stops while paused"), Wallet->Resources, Balance);
@@ -106,7 +105,7 @@ public:
 			Test->TestTrue(TEXT("Closing menu preserves active pause"), World->IsPaused() && State->IsActivePaused());
 			if (!FCommandService::Resume(Controller.Get()))
 				return Fail(TEXT("Solo resume command rejected"));
-			Next(Now);
+			Next(ArmyTestSetup::GameSeconds(World));
 		}
 		else if (Stage == 2 && World->GetTimeSeconds() >= SimulationTime + 2.)
 		{
@@ -127,10 +126,10 @@ private:
 			FCommandService::Resume(Controller.Get());
 		return true;
 	}
-	void Next(double Now)
+	void Next(double StageClock)
 	{
 		++Stage;
-		StageStarted = Now;
+		StageStarted = StageClock;
 	}
 	FAutomationTestBase* Test;
 	TWeakObjectPtr<ACommandGameState> State;

@@ -10,8 +10,13 @@ from pathlib import Path
 import re
 import signal
 import subprocess
+import threading
 import time
 from typing import IO
+
+# SIGINT reaches only the main thread; it sets this so worker-thread children
+# and lock waits stop as if interrupted themselves.
+CANCELLED = threading.Event()
 
 
 class ProcessGroupSurvived(RuntimeError):
@@ -239,6 +244,8 @@ def supervise(
             detector = LogProgress(watch)
             progress = time.monotonic()
             while child.poll() is None:
+                if CANCELLED.is_set():
+                    raise KeyboardInterrupt
                 now = time.monotonic()
                 if now >= sample_at:
                     peak_rss = max(peak_rss, group_rss_bytes(child.pid))

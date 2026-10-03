@@ -39,16 +39,16 @@ public:
 						break;
 					}
 		}
-		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 65.)
+		if (FPlatformTime::Seconds() - Started > 65.)
 		{
 			Test->AddError(FString::Printf(TEXT("Combat encounter timed out at stage %d"), Stage));
 			return true;
 		}
 		if (Stage == 0)
-			return Begin(Now);
+			return Begin();
 		if (!Check(Army.IsValid() && Enemy.IsValid() && Controller.IsValid(), TEXT("Encounter groups and owner remain valid")))
 			return true;
+		const double Now = ArmyTestSetup::GameSeconds(Army->GetWorld());
 		if (Stage == 3)
 		{
 			for (const AArmyUnit* Unit : Army->GetUnits())
@@ -220,10 +220,8 @@ private:
 		return Check(bBuildingRejected, TEXT("An unregistered live hostile building rejects Attack without changing accepted intent"));
 	}
 
-	bool Begin(double Now)
+	bool Begin()
 	{
-		if (Now - Started < 3.)
-			return false; // Dynamic navmesh and AI controllers initialize asynchronously.
 		UWorld* World = nullptr;
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			if (Context.World() && Context.World()->IsGameWorld() && Context.World()->GetNetMode() == NM_Standalone)
@@ -231,8 +229,8 @@ private:
 				World = Context.World();
 				break;
 			}
-		if (!World)
-			return false;
+		if (!World || ArmyTestSetup::GameSeconds(World) < 3. || !ArmyTestSetup::NavigationReady(World))
+			return false; // Dynamic navmesh and AI controllers initialize asynchronously.
 		const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		Controller = ArmyTestSetup::Controller(World);
 		if (!ArmyTestSetup::MapReady(State) || !Controller.IsValid()
@@ -364,7 +362,7 @@ private:
 		MoveAttacks = TotalAttacks();
 		for (AArmyUnit* Unit : Army->GetUnits())
 			Unit->NextAttackTime = 0.f;
-		SetStage(3, Now);
+		SetStage(3, ArmyTestSetup::GameSeconds(World));
 		return false;
 	}
 

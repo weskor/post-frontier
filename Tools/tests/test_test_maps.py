@@ -82,9 +82,13 @@ def test_scope_map_precedence_and_fallback_rejection(
     args = parser_for(command).parse_args(argv)
     assert command.run(args, ctx) == (0 if passed else 1)
     assert ctx.run is not None
-    assert [item["argv"][2] for item in ctx.run.record["execs"]] == (
-        [override, override] if override is not None else [BOOT, CLASSIC]
-    )
+    # Scopes run concurrently, so execs are matched to scopes by log name.
+    assert {
+        Path(item["log"]).name: item["argv"][2] for item in ctx.run.record["execs"]
+    } == {
+        "home-stdout.log": override or BOOT,
+        "away-stdout.log": override or CLASSIC,
+    }
     assert [item["ok"] for item in ctx.run.record["results"]] == [passed, passed]
     if not passed:
         assert all(

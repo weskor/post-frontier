@@ -1,8 +1,11 @@
 """Per-invocation evidence with atomic lifecycle updates."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 import secrets
+import threading
 import time
 from typing import Any
 
@@ -22,6 +25,9 @@ class Run:
         self.dir.mkdir(parents=True)
         self._clock = time.monotonic()
         self.repo = repo
+        # Scopes run on worker threads; every record mutation and save holds this.
+        self._lock = threading.RLock()
+        self._scope = threading.local()
         self.record: dict[str, Any] = {
             "id": self.id,
             "command": command,
@@ -45,17 +51,29 @@ class Run:
         self.save()
 
     def save(self) -> None:
-        jsonio.save(self.dir / "record.json", self.record)
+        with self._lock:
+            jsonio.save(self.dir / "record.json", self.record)
 
     def snapshot(self, label: str) -> int:
-        snapshots = self.record["source"]["snapshots"]
-        index = len(snapshots)
-        snapshot = source.capture(
-            self.repo, self.dir / "source" / f"{index:04d}", retained=snapshots
-        )
-        snapshots.append({**snapshot, "label": label, "time": utc_now()})
-        self.save()
-        return index
+        with self._lock:
+            snapshots = self.record["source"]["snapshots"]
+            index = len(snapshots)
+            snapshot = source.capture(
+                self.repo, self.dir / "source" / f"{index:04d}", retained=snapshots
+            )
+            snapshots.append({**snapshot, "label": label, "time": utc_now()})
+            self.save()
+            return index
+
+    @contextmanager
+    def collecting_execs(self) -> Iterator[list[int]]:
+        """Collect the indices of execs recorded by the current thread."""
+        indices: list[int] = []
+        self._scope.execs = indices
+        try:
+            yield indices
+        finally:
+            del self._scope.execs
 
     def source_interval(self, before: int, after: int) -> dict[str, Any]:
         snapshots = self.record["source"]["snapshots"]
@@ -67,15 +85,16 @@ class Run:
 
     def add_exec_inputs(self, log: str, kind: str, before: str, after: str) -> None:
         """Retain the exact hashes used by an existing freshness mutation guard."""
-        for execution in reversed(self.record["execs"]):
-            if Path(execution["log"]).stem == log:
-                execution.setdefault("input_hashes", {})[kind] = {
-                    "before": before,
-                    "after": after,
-                    "equal": before == after,
-                }
-                self.save()
-                return
+        with self._lock:
+            for execution in reversed(self.record["execs"]):
+                if Path(execution["log"]).stem == log:
+                    execution.setdefault("input_hashes", {})[kind] = {
+                        "before": before,
+                        "after": after,
+                        "equal": before == after,
+                    }
+                    self.save()
+                    return
 
     def add_result(
         self,
@@ -86,20 +105,24 @@ class Run:
         *,
         provenance: dict[str, Any] | None = None,
     ) -> None:
-        self.record["results"].append(
-            {
-                "name": name,
-                "ok": ok,
-                "duration_s": duration_s,
-                "details": details,
-                **({"source": provenance} if provenance is not None else {}),
-            }
-        )
-        self.save()
+        with self._lock:
+            self.record["results"].append(
+                {
+                    "name": name,
+                    "ok": ok,
+                    "duration_s": duration_s,
+                    "details": details,
+                    **({"source": provenance} if provenance is not None else {}),
+                }
+            )
+            self.save()
 
     def add_artifact(self, path: Path, label: str) -> None:
-        self.record["artifacts"].append({"path": str(path.resolve()), "label": label})
-        self.save()
+        with self._lock:
+            self.record["artifacts"].append(
+                {"path": str(path.resolve()), "label": label}
+            )
+            self.save()
 
     def add_exec(
         self,
@@ -112,25 +135,32 @@ class Run:
         *,
         source_before: int | None = None,
         source_after: int | None = None,
-    ) -> None:
-        self.record["execs"].append(
-            {
-                "argv": argv,
-                "log": str(log),
-                "exit_code": exit_code,
-                "duration_s": duration_s,
-                "stalled": stalled,
-                "peak_rss_mb": peak_rss_mb,
-                "source": self.source_interval(source_before, source_after)
-                if source_before is not None and source_after is not None
-                else {"content": "unknown"},
-            }
-        )
-        self.save()
+    ) -> int:
+        with self._lock:
+            index = len(self.record["execs"])
+            self.record["execs"].append(
+                {
+                    "argv": argv,
+                    "log": str(log),
+                    "exit_code": exit_code,
+                    "duration_s": duration_s,
+                    "stalled": stalled,
+                    "peak_rss_mb": peak_rss_mb,
+                    "source": self.source_interval(source_before, source_after)
+                    if source_before is not None and source_after is not None
+                    else {"content": "unknown"},
+                }
+            )
+            collector = getattr(self._scope, "execs", None)
+            if collector is not None:
+                collector.append(index)
+            self.save()
+            return index
 
     def add_lock_wait(self, lock: str, duration_s: float) -> None:
-        self.record["lock_waits"].append({"lock": lock, "duration_s": duration_s})
-        self.save()
+        with self._lock:
+            self.record["lock_waits"].append({"lock": lock, "duration_s": duration_s})
+            self.save()
 
     def finish(self, exit_code: int, *, interrupted: bool = False) -> int:
         completed = self.snapshot("completed")

@@ -218,6 +218,33 @@ def test_multi_scope_invocations_interleave_and_record_each_lease(
         ]
 
 
+def test_scopes_fill_the_pool_and_yield_freed_slots_in_fifo_order(
+    probes: Probes,
+) -> None:
+    a = probes.start("a", "scopes", slots=2)
+    probes.await_entry("a.one")
+    probes.await_entry("a.two")
+    other = probes.start("other", "headless", slots=2)
+    probes.waiting("other", "pool-0.lock, pool-1.lock")
+    # The earlier waiter, not this run's queued third scope, takes the freed slot.
+    probes.scope_release("a.two")
+    probes.await_entry("other")
+    assert not probes.entered("a.three")
+    probes.release("other", other)
+    probes.await_entry("a.three")
+    for name in ("one", "three"):
+        probes.scope_release(f"a.{name}")
+    record = probes.finish_scopes("a", a)
+    for result in record["results"]:
+        logs = [Path(record["execs"][i]["log"]).name for i in result["source"]["execs"]]
+        assert logs == [f"{result['name']}-stdout.log"]
+    assert sorted(result["name"] for result in record["results"]) == [
+        "one",
+        "three",
+        "two",
+    ]
+
+
 def test_exclusive_waiter_enters_between_scopes(probes: Probes) -> None:
     a = probes.start("a", "scopes")
     probes.await_entry("a.one")
@@ -347,7 +374,8 @@ def test_same_worktree_module_wait_does_not_block_other_worktree_build(
     other_repo = probes.root / "other-worktree"
     shutil.copytree(probes.repo, other_repo)
     other = Probes(other_repo, probes.root, probes.children)
-    a = probes.start("a", "scopes", slots=2)
+    # One worker holds one of the builds' two slots, leaving pool-1 free.
+    a = probes.start("a", "scopes", slots=1)
     probes.await_entry("a.one")
     local_build = probes.start("local", "build", slots=2)
     eventually(

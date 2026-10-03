@@ -4,7 +4,6 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "Engine/World.h"
-#include "HAL/PlatformTime.h"
 #include "MapRegion.h"
 
 FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const FVector& Location, AArmyGroup* Force)
@@ -24,7 +23,7 @@ FCommandResult FCommandService::Ping(ACommandPlayerController* Controller, const
 	const FVector Spot = bTeammate ? Force->GetCenter() : Location;
 	if (Spot.ContainsNaN() || !AArenaBounds::IsTravelLocation(World, Spot))
 		return { ECommandRejection::InvalidRequest, TEXT("Ping rejected: pick a point inside the arena.") };
-	if (!Controller->PingCommands->Throttle.Accept(FPlatformTime::Seconds()))
+	if (!Controller->PingCommands->Throttle.Accept(World->GetRealTimeSeconds()))
 		return { ECommandRejection::InvalidRequest, TEXT("Ping throttled: one ping every 2 seconds.") };
 
 	FObjectiveEvent Event;

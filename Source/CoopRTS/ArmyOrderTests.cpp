@@ -36,8 +36,7 @@ public:
 						break;
 					}
 		}
-		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 35.)
+		if (FPlatformTime::Seconds() - Started > 35.)
 		{
 			if (RejectedInitialTarget.IsSet())
 				Test->AddError(FString::Printf(TEXT("Timed out waiting for live army navigation: initial Move rejected at %s"),
@@ -68,7 +67,7 @@ public:
 					}
 				}
 			}
-			if (!Army.IsValid() || Now - Started < 3.)
+			if (!Army.IsValid() || ArmyTestSetup::GameSeconds(Army->GetWorld()) < 3. || !ArmyTestSetup::NavigationReady(Army->GetWorld()))
 				return false;
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
@@ -83,7 +82,7 @@ public:
 				return false; // Navmesh can still be generating.
 			}
 			RejectedInitialTarget.Reset();
-			NextStage(Now);
+			NextStage(ArmyTestSetup::GameSeconds(Army->GetWorld()));
 			return false;
 		}
 		if (!Army.IsValid() || !Controller.IsValid())
@@ -91,6 +90,7 @@ public:
 			Test->AddError(TEXT("Army or controller disappeared during orders"));
 			return true;
 		}
+		const double Now = ArmyTestSetup::GameSeconds(Army->GetWorld());
 		if (Stage == 1 && Now - StageStarted >= 1.5)
 		{
 			Test->TestTrue(TEXT("Units actually move under the initial order"), FVector::Dist2D(StartCenter, Army->GetCenter()) > 100.);

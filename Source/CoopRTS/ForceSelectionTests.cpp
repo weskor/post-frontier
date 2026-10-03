@@ -30,7 +30,7 @@ public:
 		if (FPlatformTime::Seconds() - Started > 45.)
 			return Fail(TEXT("Force selection scenario exceeded 45 seconds"));
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f)
+		if (!World || World->GetTimeSeconds() < 3.f || (Stage == EStage::Setup && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		if (Stage == EStage::Setup)

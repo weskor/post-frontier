@@ -39,7 +39,7 @@ public:
 		{
 			const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 			ACommandPlayerController* Owner = ArmyTestSetup::Controller(World);
-			if (FPlatformTime::Seconds() - Started < 3. || !ArmyTestSetup::MapReady(State)
+			if (ArmyTestSetup::GameSeconds(World) < 3. || !ArmyTestSetup::NavigationReady(World) || !ArmyTestSetup::MapReady(State)
 				|| !Owner || !Owner->GetPlayerState<ACommandPlayerState>()
 				|| Owner->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 				return false;

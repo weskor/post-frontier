@@ -1,6 +1,7 @@
 """Run every selected scope and require explicit automation evidence."""
 
 from collections.abc import Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -8,7 +9,8 @@ import time
 
 from x.building import editor_module, ensure_editor
 from x.context import Context
-from x.scopes import Scope, load
+from x.process import CANCELLED
+from x.scopes import Scope, ScopeMap, load
 
 COMPLETE = "**** TEST COMPLETE. EXIT CODE: 0 ****"
 
@@ -78,6 +80,10 @@ def _automation(
                 "-DisablePython",
                 "-nosound",
                 "-unattended",
+                # Uncapped 1/60 s fixed step: worlds simulate faster than real
+                # time. Scenario waits use the world clock; deadlines stay wall.
+                "-UseFixedTimeStep",
+                "-FPS=60",
                 # UE's Now command clears the 5 s discovery delay, not readiness.
                 f"-ExecCmds=Automation Now; RunTests {scope.filter}; SoftQuit",
                 f"-abslog={log}",
@@ -127,25 +133,19 @@ def _scripts(ctx: Context, name: str, scope: Scope) -> tuple[bool, str]:
     return not failures, "; ".join(failures) or "all map validators passed"
 
 
-def run_scopes(
-    ctx: Context, scopes: Sequence[str], *, map_path: str | None = None
+def _run_scope(
+    ctx: Context,
+    mapping: ScopeMap,
+    name: str,
+    editor_ok: bool,
+    map_path: str | None,
 ) -> bool:
     if ctx.run is None:
         raise RuntimeError("tests require a recorded command")
-    mapping = load(ctx.repo)
-    names = list(dict.fromkeys(scopes))
-    unknown = sorted(set(names) - set(mapping.names()))
-    if unknown:
-        raise ValueError(f"unknown scopes: {', '.join(unknown)}; use ./x test --list")
-    editor_ok = True
-    if any(mapping.definitions[name].kind == "automation" for name in names):
-        editor_ok = ensure_editor(ctx)
-    passed = True
-    for name in names:
-        started = time.monotonic()
-        scope = mapping.definitions[name]
-        source_before = ctx.run.snapshot(f"scope:{name}:before")
-        first_exec = len(ctx.run.record["execs"])
+    started = time.monotonic()
+    scope = mapping.definitions[name]
+    source_before = ctx.run.snapshot(f"scope:{name}:before")
+    with ctx.run.collecting_execs() as execs:
         if scope.kind == "automation":
             ok, details = (
                 _automation(ctx, name, scope, map_path)
@@ -162,12 +162,50 @@ def run_scopes(
             ok, details = _scripts(ctx, name, scope)
         else:
             ok, details = True, "no tests; lint is enforced by ./x check"
-        source_after = ctx.run.snapshot(f"scope:{name}:after")
-        provenance = ctx.run.source_interval(source_before, source_after)
-        provenance["execs"] = list(range(first_exec, len(ctx.run.record["execs"])))
-        ctx.run.add_result(
-            name, ok, details, time.monotonic() - started, provenance=provenance
-        )
-        print(f"{'PASS' if ok else 'FAIL'} {name}: {details}", flush=True)
-        passed = passed and ok
-    return passed
+    source_after = ctx.run.snapshot(f"scope:{name}:after")
+    provenance = ctx.run.source_interval(source_before, source_after)
+    provenance["execs"] = execs
+    ctx.run.add_result(
+        name, ok, details, time.monotonic() - started, provenance=provenance
+    )
+    print(f"{'PASS' if ok else 'FAIL'} {name}: {details}", flush=True)
+    return ok
+
+
+def run_scopes(
+    ctx: Context, scopes: Sequence[str], *, map_path: str | None = None
+) -> bool:
+    """Run scopes on one worker thread per headless slot; each scope leases its own.
+
+    Each worker takes its next scope only after finishing one, so other runs'
+    FIFO tickets interleave between this run's scopes.
+    """
+    if ctx.run is None:
+        raise RuntimeError("tests require a recorded command")
+    mapping = load(ctx.repo)
+    names = list(dict.fromkeys(scopes))
+    unknown = sorted(set(names) - set(mapping.names()))
+    if unknown:
+        raise ValueError(f"unknown scopes: {', '.join(unknown)}; use ./x test --list")
+    editor_ok = True
+    if any(mapping.definitions[name].kind == "automation" for name in names):
+        editor_ok = ensure_editor(ctx)
+    futures: list[Future[bool]] = []
+    try:
+        with ThreadPoolExecutor(max_workers=ctx.settings.headless_pool_size) as pool:
+            futures = [
+                pool.submit(_run_scope, ctx, mapping, name, editor_ok, map_path)
+                for name in names
+            ]
+            try:
+                return all([future.result() for future in futures])
+            except BaseException:
+                # Stop queued scopes and make running children and lock waits
+                # unwind as interrupted before re-raising the first failure.
+                CANCELLED.set()
+                for future in futures:
+                    future.cancel()
+                wait(futures)
+                raise
+    finally:
+        CANCELLED.clear()

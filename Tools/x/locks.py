@@ -13,6 +13,7 @@ from typing import IO
 import uuid
 
 from x import jsonio
+from x.process import CANCELLED
 from x.runs import Run
 from x.settings import Settings
 
@@ -132,6 +133,8 @@ class Locks:
                                 fcntl.flock(stream, fcntl.LOCK_UN)
                             selected.clear()
                     if len(selected) != count:
+                        if CANCELLED.is_set():
+                            raise KeyboardInterrupt
                         if not waiting:
                             self._waiting(names)
                             waiting = True

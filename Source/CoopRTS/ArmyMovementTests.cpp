@@ -32,8 +32,7 @@ public:
 
 	virtual bool Update() override
 	{
-		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 90.)
+		if (FPlatformTime::Seconds() - Started > 90.)
 		{
 			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
 				if (Force.IsValid())
@@ -52,7 +51,8 @@ public:
 			UWorld* World = ArmyTestSetup::World();
 			ACommandGameState* State = World ? World->GetGameState<ACommandGameState>() : nullptr;
 			Controller = World ? ArmyTestSetup::Controller(World) : nullptr;
-			if (!ArmyTestSetup::MapReady(State) || !Controller.IsValid() || Now - Started < 3.)
+			if (!ArmyTestSetup::MapReady(State) || !Controller.IsValid() || ArmyTestSetup::GameSeconds(World) < 3.
+				|| !ArmyTestSetup::NavigationReady(World))
 				return false;
 			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
 				It->Destroy();
@@ -72,11 +72,12 @@ public:
 			Target = ArmyTestSetup::TravelRegion(Groups[0].Get(), State->EnemyHeadquarters->GetActorLocation());
 			if (Target == INDEX_NONE)
 				return Fail(TEXT("Generated home polygon needs a reachable non-enemy-main neighbour"));
-			StageStarted = Now;
+			StageStarted = ArmyTestSetup::GameSeconds(World);
 			return false;
 		}
 		if (!Groups[1].IsValid() || !Controller.IsValid())
 			return Fail(TEXT("Both independent forces and their commander must survive"));
+		const double Now = ArmyTestSetup::GameSeconds(Groups[0]->GetWorld());
 		ACommandPlayerState* Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 		if (Stage == 0)
 		{

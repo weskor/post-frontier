@@ -23,16 +23,18 @@ public:
 
 	bool Update() override
 	{
-		const double RealNow = FPlatformTime::Seconds();
-		if (RealNow - Started > 45.)
+		if (FPlatformTime::Seconds() - Started > 45.)
 			return Fail(TEXT("Ping placement/expiry scenario exceeded 45 seconds"));
 		UWorld* World = ArmyTestSetup::World();
 		ACommandPlayerController* PC = World ? ArmyTestSetup::Controller(World) : nullptr;
 		ACommandGameState* State = World ? World->GetGameState<ACommandGameState>() : nullptr;
 		ACommandPlayerState* Sender = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
 		if (!PC || !Sender || Sender->CommanderIndex < 0 || !ArmyTestSetup::MapReady(State)
-			|| !IsValid(State->EnemyCommander) || World->GetTimeSeconds() < 3.f)
+			|| !IsValid(State->EnemyCommander) || World->GetTimeSeconds() < 3.f
+			|| (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
+		// Same clock as the authoritative ping throttle.
+		const double ThrottleNow = World->GetRealTimeSeconds();
 		if (Stage == 0)
 		{
 			if (!Setup(World, PC, State))
@@ -49,13 +51,13 @@ public:
 				|| !Counts(PC, 1))
 				return true;
 			FirstTime = PC->PingCommands->GetEvents().Last().ServerTime;
-			LastAccepted = RealNow;
+			LastAccepted = ThrottleNow;
 			Stage = 1;
 			return false;
 		}
 		if (!Ally.IsValid() || !Opponent.IsValid() || !TeammateForce.IsValid() || !EnemyForce.IsValid() || !OwnForce.IsValid())
 			return Fail(TEXT("Isolated ping participants must survive"));
-		if (Stage <= 3 && RealNow - LastAccepted < 2.05)
+		if (Stage <= 3 && ThrottleNow - LastAccepted < 2.05)
 			return false;
 		if (Stage == 1)
 		{
@@ -72,7 +74,7 @@ public:
 					TEXT("Teammate force ping is accepted after the two-second cooldown"))
 				|| !Delivery(PC, Sender, TEXT("ping_need_help"), Center, TeammateForce->ForceNumber, 2))
 				return true;
-			LastAccepted = RealNow;
+			LastAccepted = ThrottleNow;
 			Stage = 2;
 			return false;
 		}
@@ -91,7 +93,7 @@ public:
 			if (!Check(Announcer != nullptr, TEXT("Objective history exists for priority regression")))
 				return true;
 			Announcer->Raise(TEXT("region_lost"), 0, Ground, {});
-			LastAccepted = RealNow;
+			LastAccepted = ThrottleNow;
 			Stage = 3;
 			return false;
 		}
