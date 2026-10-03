@@ -2,6 +2,7 @@
 
 #include "CommandHUD.h"
 #include "CommandBuilding.h"
+#include "Commands/ForceCapState.h"
 #include "CanvasItem.h"
 #include "Engine/Canvas.h"
 #include "Fonts/FontMeasure.h"
@@ -90,6 +91,7 @@ struct FContext
 	const ACommandBuilding* Building = nullptr;
 	const AArmyGroup* Force = nullptr;
 	int32 Balance = 0;
+	CommandForceCap::FOccupancy ForceSlots;
 	bool bTerminal = false;
 	bool bExpanded = true;
 };
@@ -118,7 +120,8 @@ enum class EBlock : uint8
 	Funds,
 	ForceLocked,
 	ForceUnconfigured,
-	Chosen
+	Chosen,
+	ForceCap
 };
 
 struct FButton

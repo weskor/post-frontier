@@ -136,6 +136,9 @@ void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 	case EBlock::Chosen:
 		Reason << TEXT("Specialization locked: one per commander.");
 		break;
+	case EBlock::ForceCap:
+		Reason << TEXT("Force cap reached. A producer must be gone first.");
+		break;
 	default:
 		break;
 	}

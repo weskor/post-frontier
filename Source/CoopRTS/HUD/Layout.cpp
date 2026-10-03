@@ -20,6 +20,8 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	Context.State = World ? World->GetGameState<ACommandGameState>() : nullptr;
 	Context.Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 	Context.Balance = Context.Wallet ? Context.Wallet->Resources : 0;
+	if (Context.State && IsValid(Context.Wallet))
+		Context.ForceSlots = CommandForceCap::Read(*Context.State, *Context.Wallet);
 	Context.bTerminal = Context.State && Context.State->MatchResult != EMatchResult::Ongoing;
 	Context.bExpanded = Controller->IsHUDExpanded();
 	// The controller drops selections that stop being owned, so these are the local commander's.

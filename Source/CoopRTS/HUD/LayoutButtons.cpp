@@ -115,8 +115,11 @@ static void BuildButtons(const FContext& Context, const FLayout& Layout, TFuncti
 	{
 		const UBuildingDefinition* Definition = Content->Building(Index);
 		if (Definition)
-			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, EBlock::None,
+		{
+			const EBlock Cap = Definition->bProducesForces && Context.ForceSlots.IsFull() ? EBlock::ForceCap : EBlock::None;
+			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, Cap,
 				Context.Controller->IsPlacingBuilding() && Context.Controller->GetPlacementIndex() == Index);
+		}
 	}
 }
 

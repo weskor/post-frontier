@@ -61,7 +61,15 @@ void DrawBuildPanel(const FPainter& Paint, const FContext& Context, const FLayou
 		const FRect Button = BuildCard(Layout.Build, Index, BuildCount);
 		const float CategoryRight = bHotkeyPending ? FMath::Min(Button.Right(), Right - PendingWidth - Gap) : Button.Right();
 		if (CategoryRight > Button.X)
-			Paint.Text(Category, Button.X, Layout.Build.Y + 9.f, 9.f, Palette::Muted, true, EAlign::Left, CategoryRight - Button.X);
+		{
+			TStringBuilder<48> Label;
+			Label << Category;
+			if (Definition->bProducesForces && Context.ForceSlots.Limit > 0)
+				Label.Appendf(TEXT("  %d/%d"), Context.ForceSlots.Count, Context.ForceSlots.Limit);
+			Paint.Text(Label.ToView(), Button.X, Layout.Build.Y + 9.f, 9.f,
+				Context.ForceSlots.IsFull() && Definition->bProducesForces ? Palette::Warn : Palette::Muted,
+				true, EAlign::Left, CategoryRight - Button.X);
+		}
 	}
 }
 

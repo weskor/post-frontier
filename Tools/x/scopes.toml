@@ -401,3 +401,4 @@ kind = "lint"
 "Source/CoopRTS/Rules/ForceCap.h" = ["force-cap", "rules"]
 "Source/CoopRTS/Commands/ForceCapState.*" = ["force-cap"]
 "Source/CoopRTS/Commands/CommandService.cpp" = ["force-cap"]
+"Source/CoopRTS/HUD/*" = ["force-cap"]

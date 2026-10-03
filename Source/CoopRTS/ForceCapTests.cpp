@@ -5,6 +5,10 @@
 #include "MapRegion.h"
 #include "NavigationSystem.h"
 #include "Commands/ForceCapState.h"
+#include "HUD/HUDPanels.h"
+#include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
+#include "InputKeyEventArgs.h"
+#include "HAL/PlatformTime.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FForceCapWorldTest, "CoopRTS.Construction.ForceCap",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -56,7 +60,7 @@ public:
 			}
 			const CommandForceCap::FOccupancy Coop = CommandForceCap::Read(*State, *Wallet);
 			if (!Check(Coop.Count == 4 && Coop.Limit == 4, TEXT("Co-op counts only this commander's living producers, not workshop or teammate"))
-				|| !Rejected(State, Wallet, 4))
+				|| !Rejected(State, Wallet, 4) || !HUDState(PC, 4, 4, true))
 				return true;
 			for (int32 Index = 0; Index < 6; ++Index)
 				if (!Place(State, State->EnemyCommander, BarracksIndex))
@@ -97,6 +101,8 @@ public:
 						&& CommandForceCap::Read(*State, *Wallet).Count == 3,
 					TEXT("Lethal producer damage frees a slot while its living orphan does not count")))
 				return true;
+			if (!HUDState(PC, 3, 4, false))
+				return true;
 			Stage = 2;
 			return false;
 		}
@@ -111,12 +117,13 @@ public:
 				return true;
 			State->RemovePlayerState(Foreign.Get());
 			Foreign->Destroy();
-			if (!Check(CommandForceCap::Read(*State, *Wallet).Limit == 5, TEXT("One human roster entry restores the solo cap")))
+			if (!Check(CommandForceCap::Read(*State, *Wallet).Limit == 5, TEXT("One human roster entry restores the solo cap"))
+				|| !HUDState(PC, 4, 5, false))
 				return true;
 			if (!Place(State, Wallet, BarracksIndex))
 				return true;
 			if (!Check(CommandForceCap::Read(*State, *Wallet).Count == 5, TEXT("Solo can place its fifth producer"))
-				|| !Rejected(State, Wallet, 5))
+				|| !Rejected(State, Wallet, 5) || !HUDState(PC, 5, 5, true))
 				return true;
 			Test->AddInfo(TEXT("Force cap: unfinished co-op 4, foreign/non-producer exclusion, no debit or spawn on rejection, lethal destruction frees a slot, live orphan excluded, solo fifth accepted/sixth rejected, six paid JEV producers accepted."));
 			return true;
@@ -124,6 +131,41 @@ public:
 		return Fail(TEXT("Unexpected force-cap scenario stage"));
 	}
 private:
+	bool HUDState(ACommandPlayerController* PC, int32 Count, int32 Limit, bool bCapped)
+	{
+		using namespace CommandHUDPanels;
+		const FContext Context = MakeContext(PC);
+		const FLayout Layout = MakeLayout(Context, 1280.f, 720.f);
+		if (!Check(Context.ForceSlots.Count == Count && Context.ForceSlots.Limit == Limit,
+				TEXT("Build bar occupancy follows construction, destruction and the live human roster")))
+			return false;
+		bool bProducer = false, bWorkshop = false;
+		FRect ProducerRect;
+		ForEachButton(Context, Layout, [&](const FButton& Button) {
+			if (Button.Action == EHUDAction::BuildSlot0)
+			{
+				bProducer = Button.Available() == !bCapped && Button.Block == (bCapped ? EBlock::ForceCap : EBlock::None);
+				ProducerRect = Button.Rect;
+			}
+			if (Button.Action == EHUDAction::BuildSlot2)
+				bWorkshop = Button.Available();
+		});
+		if (!Check(bProducer && bWorkshop, TEXT("Cap disables only producer buttons and frees them when a slot opens")))
+			return false;
+		if (!bCapped)
+			return true;
+		if (!Check(HitTest(Context, Layout, ProducerRect.Center()) == EHUDAction::BuildSlot0,
+				TEXT("Capped producer button remains a hit target for its explanation")))
+			return false;
+		const int32 Balance = Context.Wallet->Resources;
+		// Null-RHI has no pixel viewport; B Q enters the same blocked-action handler as a build-card click.
+		const FInputDeviceId Device = IPlatformInputDeviceMapper::Get().GetDefaultInputDevice();
+		PC->InputKey(FInputKeyEventArgs(nullptr, Device, EKeys::B, IE_Pressed, FPlatformTime::Cycles64()));
+		PC->InputKey(FInputKeyEventArgs(nullptr, Device, EKeys::Q, IE_Pressed, FPlatformTime::Cycles64()));
+		return Check(!PC->IsPlacingBuilding() && Context.Wallet->Resources == Balance
+				&& PC->GetOrderFeedback().Contains(TEXT("Force cap")) && PC->GetFeedbackOpacity() > 0.f,
+			TEXT("Capped build action explains rejection without entering placement or paying"));
+	}
 	bool Check(bool Value, const TCHAR* Message)
 	{
 		if (!Value)
