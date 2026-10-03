@@ -126,6 +126,8 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
 	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;
 	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
+	if (Context.Controller && Context.Controller->GetUIScreen() != ECommandScreen::Game)
+		Layout.Feedback = { Layout.Screen.X, FMath::Max(Margin, Layout.Screen.Y - Gap - FeedbackHeight), Layout.Screen.W, FeedbackHeight };
 	return Layout;
 }
 

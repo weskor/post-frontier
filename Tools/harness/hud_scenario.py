@@ -120,6 +120,23 @@ def primary_barracks(run: NetworkRun, capture: Capture, owner: int) -> int:
         state["buildingSelected"] and state["hudExpanded"] and not state["placing"],
         "successful placement did not select its building and restore construction choices",
     )
+    capture.key("Escape")
+    paused = capture.wait(
+        lambda s: s["uiScreen"] != state["uiScreen"],
+        "placement result remains visible after opening the pause menu",
+    )
+    require(
+        paused["orderFeedback"] == state["orderFeedback"]
+        and paused["feedbackOpacity"] > 0
+        and paused["buildingSelected"]
+        and not paused["placing"],
+        "pause swallowed the paid placement result or changed selection/mode",
+    )
+    capture.shot("placement-result-paused")
+    capture.key("Escape")
+    capture.wait(
+        lambda s: s["uiScreen"] == state["uiScreen"], "resume after placement feedback"
+    )
     capture.hud(
         BUILD_BARRACKS, "Build choices remain available immediately after placement"
     )

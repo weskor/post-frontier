@@ -138,12 +138,15 @@ public:
 			const FCommandResult LateResult = FCommandService::PlaceBuilding(Wallet, 0, Point);
 			if (!Check(LateResult.IsAccepted() && IsValid(LateResult.Building), TEXT("Late acceptance contains a real paid building")))
 				return true;
+			PC->HandleHUDAction(EHUDAction::Menu);
 			PC->ConstructionCommands->ClientPlacementFeedback(LateResult.Message, LateResult.IsAccepted(), LateResult.Building, 0);
 			Check(!PC->IsPlacingBuilding() && PC->GetSelectedBuilding() == Selection,
 				TEXT("Late acceptance after cancellation neither selects its building nor reopens placement"));
 			Check(Wallet->Resources == Balance - State->Content->Building(0)->BuildCost
 					&& PC->GetOrderFeedback() == LateResult.Message && PC->GetFeedbackOpacity() == 1.f,
 				TEXT("Cancelled paid placement still reports the authoritative result"));
+			Check(PC->GetUIScreen() == ECommandScreen::Pause, TEXT("A late result preserves the paused menu"));
+			PC->HandleHUDAction(EHUDAction::Resume);
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::E);
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 2, TEXT("B E enters Workshop placement"));

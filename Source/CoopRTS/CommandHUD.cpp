@@ -282,6 +282,8 @@ void ACommandHUD::DrawHUD()
 		DrawScreen(Paint, Context, Layout, Hover);
 		if (Context.State && Context.State->IsActivePaused())
 			DrawButton(Paint, Context, { EHUDAction::ActivePause, Layout.Pause, EBlock::None, true, 0 }, false);
+		if (Layout.bFeedback)
+			DrawFeedback(Paint, Context, Layout);
 		return;
 	}
 	const FForces Forces = CountForces(Context);

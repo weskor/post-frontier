@@ -50,7 +50,7 @@ Research: [input.md](../Research/input.md).
 
 **Building:**
 - **[Built]** An always-visible **build bar** grouped by category ([buildings.md](buildings.md)), replacing the deck's build cards. Every button shows cost, availability and a grid hotkey: **B**, then a letter. Letters follow bar order: **QWERT**, then **ASDFG**, then **ZXCVB**. Today's entries: **B Q** Barracks (Production), **B W** Extractor (Economy), **B E** Workshop (Tech). Pending **B** shows on the bar and ends on any non-grid key or after **2 s**.
-- **[Built]** **Shift+LMB places another**; LMB without Shift ends placement after success. The new building is selected after placing. Esc or right-click cancels placement; a late server result still reports whether the building was placed, without reopening placement or changing selection. Starting another build or goal mode discards any deferred selection from the previous placement.
+- **[Built]** **Shift+LMB places another**; LMB without Shift ends placement after success. The new building is selected after placing. Esc or right-click cancels placement; a late server result still reports whether the building was placed, including over the pause menu, without reopening placement or changing selection. Starting another build or goal mode discards any deferred selection from the previous placement.
 
 **On the map:** the selected forces show their path line, a target highlight and their badge. Teammates see your orders as intent arrows.
 
