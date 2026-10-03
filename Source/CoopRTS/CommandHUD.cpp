@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "EngineFontServices.h"
 #include "HUD/HUDPanels.h"
+#include "HUD/OrderCursor.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/ForceSelectionPolicy.h"
 
@@ -313,4 +314,5 @@ void ACommandHUD::DrawHUD()
 	});
 	if (Layout.bFeedback)
 		DrawFeedback(Paint, Context, Layout);
+	DrawOrderCursor(Paint, Context, Layout);
 }

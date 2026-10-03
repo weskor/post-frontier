@@ -220,13 +220,14 @@ public:
 			First->ForceGroup = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
 			if (!Check(IsValid(First->ForceGroup), TEXT("Order-mode fixture has a live force")))
 				return true;
+			PC->SelectForce(First->ForceGroup);
 			PC->PendingPlacedBuilding = Deferred.Building;
 			Deferred.Building->OwningPlayerState = nullptr;
-			PC->HandleHUDAction(EHUDAction::OrderMoveHold);
+			PC->BeginForceAttack();
 			Deferred.Building->OwningPlayerState = Wallet;
 			PC->PlayerTick(0.f);
-			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsAssigningOrder() && !PC->IsHUDExpanded(),
-				TEXT("Ownership arrival cannot retarget an active order mode or reopen the deck"));
+			Check(PC->IsForceSelected(First->ForceGroup) && !PC->GetSelectedBuilding() && PC->IsAssigningOrder(),
+				TEXT("Ownership arrival cannot retarget selected forces during Attack targeting"));
 			PC->CancelMode();
 			CheckDeferredForceSelection(PC, Wallet, Deferred.Building, First->ForceGroup);
 			Wallet->Resources = 0;

@@ -17,6 +17,7 @@
 #include "Commands/ProductionCommandComponent.h"
 #include "CommandHUD.h"
 #include "ForceOrders.h"
+#include "HUD/OrderInputPreview.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "Content/MatchContent.h"
@@ -329,6 +330,16 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			{
 				const FVector2D Cursor(CursorX, CursorY);
 				Result->SetArrayField(TEXT("cursorScreen"), { MakeShared<FJsonValueNumber>(Cursor.X), MakeShared<FJsonValueNumber>(Cursor.Y) });
+				const FOrderInputPreview Preview = It->GetOrderPreview(Cursor,
+					It->IsInputKeyDown(EKeys::LeftShift) || It->IsInputKeyDown(EKeys::RightShift));
+				auto PreviewEntry = Object();
+				Number(PreviewEntry, TEXT("resolution"), static_cast<int32>(Preview.Resolution));
+				Number(PreviewEntry, TEXT("rejection"), static_cast<int32>(Preview.Rejection));
+				Number(PreviewEntry, TEXT("regionIndex"), Preview.RegionIndex);
+				Number(PreviewEntry, TEXT("structureId"), IsValid(Preview.Structure) ? LifetimeId(Preview.Structure) : -1);
+				PreviewEntry->SetBoolField(TEXT("allowed"), Preview.IsAllowed());
+				PreviewEntry->SetStringField(TEXT("label"), Preview.Label());
+				Result->SetObjectField(TEXT("orderPreview"), PreviewEntry);
 				FVector Origin, Direction;
 				if (It->DeprojectScreenPositionToWorld(Cursor.X, Cursor.Y, Origin, Direction)
 					&& FMath::Abs(Direction.Z) >= KINDA_SMALL_NUMBER)
@@ -453,6 +464,11 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Buildings.Add(MakeShared<FJsonValueObject>(Entry));
 	}
 	Result->SetArrayField(TEXT("buildings"), Buildings);
+	if (IsValid(State->EnemyHeadquarters))
+	{
+		Number(Result, TEXT("enemyHQId"), LifetimeId(State->EnemyHeadquarters));
+		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
+	}
 	auto Sites = TArray<TSharedPtr<FJsonValue>>();
 	for (const ACapturePoint* Site : State->CaptureSites)
 	{
@@ -612,7 +628,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			Target);
 		return FString();
 	}
-	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("order")
+	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("forceOrderRPC")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
 		if (!Own || Own->CommanderIndex < 0 || !State)
@@ -629,7 +645,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (Action == TEXT("production"))
 				PC->ProductionCommands->ServerConfigureProduction(Building,
 					static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
-			else if (Action == TEXT("order"))
+			// Bypass local selection only for deliberately invalid/foreign RPC validation.
+			else if (Action == TEXT("forceOrderRPC"))
 			{
 				if (!IsValid(Building->ForceGroup))
 					return TEXT("force not replicated locally");
@@ -652,6 +669,30 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			return TEXT("placement mode unavailable");
 		PC->PlaceBuildingAt(FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f),
 			PC->IsInputKeyDown(EKeys::LeftShift) || PC->IsInputKeyDown(EKeys::RightShift));
+		return FString();
+	}
+	if (Action == TEXT("orderClick") || Action == TEXT("beginAttack")
+		|| Action == TEXT("confirmAttack") || Action == TEXT("retreat"))
+	{
+		if (!PC)
+			return TEXT("local order controller unavailable");
+		bool bQueue = false;
+		Request->TryGetBoolField(TEXT("queue"), bQueue);
+		if (Action == TEXT("beginAttack"))
+			PC->BeginForceAttack();
+		else if (Action == TEXT("retreat"))
+			PC->RetreatSelectedForces(bQueue);
+		else
+		{
+			const FVector2D Position(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")));
+			if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y))
+				return TEXT("invalid order screen point");
+			if (Action == TEXT("orderClick"))
+				PC->HandleOrderClick(Position, bQueue);
+			else
+				PC->ConfirmAttackAtScreenPosition(Position, bQueue);
+		}
+		// A resolved rejection is gameplay feedback, not a broken probe request.
 		return FString();
 	}
 	// Shared controller/HUD path checks, not native OS input. Commands still use the owning-controller RPCs.
@@ -777,7 +818,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
 				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar") && KeyName != TEXT("F")
 				&& KeyName != TEXT("One") && KeyName != TEXT("Two") && KeyName != TEXT("Three")
-				&& KeyName != TEXT("Four") && KeyName != TEXT("Five")
+				&& KeyName != TEXT("Four") && KeyName != TEXT("Five") && KeyName != TEXT("Left")
 				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
 				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P")
 				&& KeyName != TEXT("G") && KeyName != TEXT("B") && KeyName != TEXT("W") && KeyName != TEXT("E")

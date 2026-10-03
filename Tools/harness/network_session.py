@@ -14,6 +14,7 @@ from harness.network import (
     building,
     force,
     force_counts_match,
+    issue_force_order,
     order_destination_matches,
     order_matches,
     owned_buildings,
@@ -67,9 +68,7 @@ def latched(
 def hold_at(
     run: NetworkRun, s: Session, index: int, target: int, description: str
 ) -> dict[str, JsonObject]:
-    run.request(
-        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
-    )
+    issue_force_order(run, s.peer, index, MOVE_HOLD, target)
     return converged(
         run,
         s.names,
@@ -242,9 +241,7 @@ def configure_siege(run: NetworkRun, s: Session, index: int) -> int:
     )
     target = select_order_region(states["host"], index)["index"]
     # An empty force cannot physically arrive until a paid recruit joins it.
-    run.request(
-        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
-    )
+    issue_force_order(run, s.peer, index, MOVE_HOLD, target)
     converged(
         run,
         s.names,

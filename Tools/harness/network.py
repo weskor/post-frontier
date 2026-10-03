@@ -31,12 +31,16 @@ __all__ = [
     "force",
     "force_arrived",
     "force_counts_match",
+    "issue_force_order",
+    "minimap_region_point",
+    "minimap_world_point",
     "order_destination_matches",
     "order_matches",
     "owned_buildings",
     "region",
     "require",
     "select_order_region",
+    "select_producer_force",
     "wallet",
 ]
 
@@ -217,6 +221,70 @@ def near(anchor: Sequence[float], dx: float, dy: float) -> Coordinates:
     return {"x": anchor[0] + dx, "y": anchor[1] + dy}
 
 
+def minimap_world_point(
+    state: JsonObject, point: Sequence[float]
+) -> tuple[float, float]:
+    """Inverse of the production minimap transform, without screen-size assumptions."""
+    half = state["arenaHalfExtent"]
+    origin, size = state["minimapOrigin"], state["minimapSize"]
+    horizontal = (point[1] + half[1]) / (2 * half[1])
+    vertical = (half[0] - point[0]) / (2 * half[0])
+    require(
+        0 < horizontal < 1 and 0 < vertical < 1,
+        "order target is outside the clickable minimap",
+    )
+    return origin[0] + size * horizontal, origin[1] + size * vertical
+
+
+def minimap_region_point(state: JsonObject, target: int) -> tuple[float, float]:
+    return minimap_world_point(state, region(state, target)["anchor"])
+
+
+def select_producer_force(run: NetworkRun, peer: str, index: int) -> JsonObject:
+    state = run.observe(peer)
+    matches = [a for a in state["armies"] if a["producer"] == index]
+    require(len(matches) == 1, f"producer {index} has no unique replicated force")
+    army = matches[0]
+    run.request(
+        peer, "select", target="force", owner=army["owner"], number=army["forceNumber"]
+    )
+    selected = run.observe(peer)
+    require(
+        selected["selectedForces"] == [army["actorId"]]
+        and not selected["buildingSelected"],
+        "producer force did not enter owner-only command selection",
+    )
+    return selected
+
+
+def issue_force_order(
+    run: NetworkRun,
+    peer: str,
+    index: int,
+    verb: int,
+    target: int = -1,
+    *,
+    enemy_hq: bool = False,
+    queue: bool = False,
+) -> None:
+    """Select the real force, then use the controller's right-click/A/R entry points."""
+    state = select_producer_force(run, peer, index)
+    if verb == RETREAT:
+        run.request(peer, "retreat", queue=queue)
+        return
+    point = (
+        minimap_world_point(state, state["enemyHQPosition"])
+        if enemy_hq
+        else minimap_region_point(state, target)
+    )
+    if verb == ATTACK and not enemy_hq:
+        run.request(peer, "beginAttack")
+        run.request(peer, "confirmAttack", x=point[0], y=point[1], queue=queue)
+    else:
+        require(verb == MOVE_HOLD or enemy_hq, "unsupported selection order verb")
+        run.request(peer, "orderClick", x=point[0], y=point[1], queue=queue)
+
+
 def region(state: JsonObject, index: int) -> JsonObject:
     matches = [r for r in state["regions"] if r["index"] == index]
     require(len(matches) == 1, f"expected region {index}, got {len(matches)}")
@@ -368,6 +436,10 @@ def configure(parser: argparse.ArgumentParser) -> None:
         + "\nProves one replicated contract through the loopback in-process probe. "
         "Cannot prove other slices, OS input, rendering, Steam or WAN. Construction "
         "runs the continuous acceptance chain; human coordination remains unproved."
+    )
+    parser.epilog += (
+        "\nSelected-force order scenarios render offscreen at 1600x900 so their "
+        "ground/minimap pointer input uses a real viewport; rendering alone adds no visual proof."
     )
     parser.add_argument("--mode", choices=("editor", "packaged"), required=True)
     parser.add_argument(

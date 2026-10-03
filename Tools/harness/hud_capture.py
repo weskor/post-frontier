@@ -3,7 +3,9 @@
 
 The host renders with Vulkan into an offscreen viewport (-RenderOffScreen). HUD buttons are clicked
 through the controller's real left-click entry point at the centre the HUD's own geometry reports, and
-Escape/F4 go through Enhanced Input mappings via PlayerInput. None of this is compositor/OS input.
+A/R/Escape/F4 go through Enhanced Input mappings via PlayerInput. Selected forces order
+through shared right-click and Attack-confirm controller entry points; cursor snapshots
+record the same resolver used by rendered previews. None of this is compositor/OS input.
 Host-only fixtures (isolate, fund, capture, finish) shorten setup and are recorded in events.jsonl.
 
 Full run: the whole presentation state sequence (placement, production, starvation, force, casualty,

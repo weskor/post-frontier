@@ -4,12 +4,6 @@ from __future__ import annotations
 
 import time
 
-from harness.hud_actions import (
-    ORDER_ATTACK,
-    ORDER_MOVE_HOLD,
-    ORDER_RETREAT,
-    SELECT_FORCE,
-)
 from harness.hud_surface import Capture
 from harness.network import (
     ATTACK,
@@ -51,9 +45,8 @@ def prepare_home(
     )
     home = next(r for r in capture.state()["regions"] if r["homeTeam"] == 0)
     index = army["producer"]
-    run.request("host", "select", target="building", building=index)
-    capture.hud(ORDER_MOVE_HOLD, "Establish the box fixture's last held safe region")
-    capture.pick_region(index, MOVE_HOLD, home["index"])
+    capture.select_force(index)
+    capture.order_region(index, MOVE_HOLD, home["index"])
     deadline = time.monotonic() + 90
     capture.wait(
         lambda s: (
@@ -76,14 +69,14 @@ def focus_returning_force(
 ) -> None:
     capture.key("F")
     if "badge" not in force(capture.state(), owner, index):
-        run.request("host", "key", key="A", pressed=True)
+        run.request("host", "key", key="Left", pressed=True)
         try:
             capture.wait(
                 lambda s: "badge" in force(s, owner, index),
                 "returning force is visible clear of HUD panels",
             )
         finally:
-            run.request("host", "key", key="A", pressed=False)
+            run.request("host", "key", key="Left", pressed=False)
     if expected_status is not None:
         require(
             force(capture.state(), owner, index)["status"] == expected_status,
@@ -98,8 +91,8 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
     enemy_main = next(
         r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5
     )
-    capture.hud(ORDER_ATTACK, "Send the fixture force physically away from safe home")
-    capture.pick_region(index, ATTACK, enemy_main)
+    capture.begin_attack()
+    capture.order_region(index, ATTACK, enemy_main)
     departed = capture.wait(
         lambda s: (
             force_counts_match(s, owner, index)
@@ -112,9 +105,7 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         "same force physically departs home before rendered Retreat",
     )
     origin = force(departed, owner, index)["center"]
-    capture.hud(
-        ORDER_RETREAT, "Retreat immediately returns the marching force to safety"
-    )
+    capture.key("R")
     capture.wait(
         lambda s: (
             not s["assigningOrder"]
@@ -130,7 +121,7 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         ),
         "rendered Retreat drives real movement to the safe home destination",
     )
-    capture.hud(SELECT_FORCE, "Show the same returning force without replacing Retreat")
+    capture.select_force(index)
     capture.wait(
         lambda s: s["selectedForces"] == [army["actorId"]],
         "same returning force selected for visual evidence",
@@ -148,5 +139,5 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
     focus_returning_force(run, capture, owner, index)
     capture.shot("retreat-arrived-safe")
     run.phase(
-        "rendered Retreat button, safe destination, same-force return movement and arrival"
+        "rendered R Retreat, safe destination, same-force return movement and arrival"
     )

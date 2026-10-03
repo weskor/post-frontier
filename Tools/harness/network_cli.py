@@ -20,6 +20,9 @@ def main() -> None:
         parser.error("--rendered is only available for packaged runs")
     if args.max_fps is not None and args.max_fps < 1:
         parser.error("--max-fps must be positive")
+    pointer_orders = args.scenario in (
+        "ownership", "production", "economy", "restart", "construction"
+    )
     run = NetworkRun(
         Path(os.environ["X_HARNESS_DIR"]).resolve(),
         args.mode,
@@ -28,7 +31,7 @@ def main() -> None:
         args.rendered,
         args.max_fps,
         map_path=args.map,
-        offscreen=(1600, 900) if args.offscreen else None,
+        offscreen=(1600, 900) if args.offscreen or pointer_orders else None,
     )
     scenario, _ = SCENARIOS[args.scenario]
     try:

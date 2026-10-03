@@ -1,86 +1,128 @@
-"""HUD force-order targeting, cancellation and immediate Retreat acceptance."""
+"""Rendered selected-force right-click previews, A targeting and immediate R."""
 
 from __future__ import annotations
 
 from typing import cast
 
-from harness.hud_actions import ORDER_ATTACK, ORDER_MOVE_HOLD, ORDER_RETREAT
 from harness.hud_surface import Capture
 from harness.network import (
     ATTACK,
     MOVE_HOLD,
     RETREAT,
     building,
+    minimap_region_point,
+    minimap_world_point,
     order_matches,
     require,
     select_order_region,
 )
-from harness.verify import JsonObject
 
 
 def cancel_orders(capture: Capture, barracks: int) -> None:
-    for action, verb, label in (
-        (ORDER_MOVE_HOLD, MOVE_HOLD, "move-hold"),
-        (ORDER_ATTACK, ATTACK, "attack"),
-    ):
-        before_order = building(capture.state(), barracks)
-        capture.hud(action, f"{label.title()} enters region targeting")
-
-        def picking_order(s: JsonObject, verb: int = verb) -> object:
-            return (
-                s["assigningOrder"]
-                and s["pendingVerb"] == verb
-                and not s["hudExpanded"]
-            )
-
-        capture.wait(picking_order, f"{label} region targeting mode")
-        capture.shot(f"{label}-region-mode")
-        capture.key("F")
-        capture.key("Escape")
+    capture.select_force(barracks)
+    for cancellation in ("Escape", "right-click"):
+        before = building(capture.state(), barracks)
+        capture.begin_attack()
+        capture.shot(f"attack-mode-cancel-{cancellation}")
+        if cancellation == "Escape":
+            capture.key("Escape")
+        else:
+            x, y = minimap_region_point(capture.state(), before["targetRegionIndex"])
+            capture.run.request("host", "orderClick", x=x, y=y)
         cancelled = capture.wait(
-            lambda s: not s["assigningOrder"] and s["hudExpanded"],
-            f"Escape cancels {label} region targeting",
+            lambda s: not s["assigningOrder"], f"{cancellation} cancels pending A"
         )
         require(
             order_matches(
-                cancelled,
-                barracks,
-                before_order["forceVerb"],
-                before_order["targetRegionIndex"],
+                cancelled, barracks, before["forceVerb"], before["targetRegionIndex"]
             ),
-            "cancelling a region pick mutated the existing force order",
+            "cancelling A mutated the selected force's existing order",
         )
 
 
 def assign_orders(capture: Capture, barracks: int) -> int:
-    enemy_main = next(
-        r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5
+    state = capture.select_force(barracks)
+    target = select_order_region(state, barracks)["index"]
+    smart_previews(capture, barracks, target)
+    rejected_attack(capture, barracks, target)
+    capture.order_region(barracks, MOVE_HOLD, target)
+    return cast(int, target)
+
+
+def smart_previews(capture: Capture, barracks: int, target: int) -> None:
+    state = capture.state()
+    x, y = minimap_region_point(state, target)
+    preview = capture.preview(x, y)
+    require(
+        preview["allowed"]
+        and preview["resolution"] == 1
+        and preview["regionIndex"] == target
+        and preview["structureId"] == -1
+        and preview["label"] == "Move & Hold",
+        "region right-click preview does not resolve to Move & Hold",
     )
-    capture.hud(ORDER_ATTACK, "Attack requires a region pick")
+    capture.shot("cursor-preview-move-hold")
+    capture.order_region(barracks, MOVE_HOLD, target)
+
+    state = capture.state()
+    enemy_main = next(r["index"] for r in state["regions"] if r["homeTeam"] == 5)
+    x, y = minimap_world_point(state, state["enemyHQPosition"])
+    preview = capture.preview(x, y)
+    require(
+        preview["allowed"]
+        and preview["resolution"] == 2
+        and preview["structureId"] == state["enemyHQId"]
+        and preview["label"] == "Attack",
+        "hostile headquarters right-click preview does not resolve to Attack",
+    )
+    capture.shot("cursor-preview-hostile-structure-attack")
+    capture.run.request("host", "orderClick", x=x, y=y)
     capture.wait(
-        lambda s: s["assigningOrder"] and s["pendingVerb"] == ATTACK,
-        "Attack region targeting",
+        lambda s: (
+            order_matches(s, barracks, ATTACK, enemy_main)
+            and building(s, barracks)["targetStructureId"] == s["enemyHQId"]
+        ),
+        "smart right-click matches the hostile-structure Attack preview",
     )
-    capture.pick_region(barracks, ATTACK, enemy_main)
     capture.shot("attack-order")
-    capture.hud(ORDER_RETREAT, "Retreat applies immediately")
+    capture.key("R")
     capture.wait(
         lambda s: not s["assigningOrder"] and order_matches(s, barracks, RETREAT, -1),
-        "Retreat order without targeting",
+        "R immediately retreats the selected force without region targeting",
     )
     capture.shot("retreat-order")
-    target = select_order_region(capture.state(), barracks)["index"]
-    capture.hud(ORDER_ATTACK, "Attack picks a region through the minimap")
-    capture.wait(
-        lambda s: s["assigningOrder"] and s["pendingVerb"] == ATTACK,
-        "Attack minimap pick mode",
+
+
+def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
+    capture.begin_attack()
+    x, y = capture.state()["viewportWidth"] / 2, 10
+    preview = capture.preview(x, y)
+    require(
+        not preview["allowed"]
+        and preview["resolution"] == 0
+        and preview["rejection"] != 0
+        and bool(preview["label"]),
+        "rejected cursor preview omits its reason",
     )
-    capture.pick_region(barracks, ATTACK, target)
+    capture.shot("cursor-preview-rejected-with-reason")
+    before = building(capture.state(), barracks)
+    capture.run.request("host", "confirmAttack", x=x, y=y)
+    rejected = capture.wait(
+        lambda s: (
+            s["assigningOrder"]
+            and s["pendingVerb"] == ATTACK
+            and bool(s["orderFeedback"])
+            and s["feedbackOpacity"] > 0
+        ),
+        "rejected Attack keeps A open and explains why",
+    )
+    require(
+        rejected["orderFeedback"] == preview["label"]
+        and order_matches(
+            rejected, barracks, before["forceVerb"], before["targetRegionIndex"]
+        ),
+        "rejected Attack disagrees with its preview or mutated the force order",
+    )
+    capture.shot("attack-rejected-mode-open")
+    capture.order_region(barracks, ATTACK, target)
     capture.shot("attack-region-assigned")
-    capture.hud(ORDER_MOVE_HOLD, "Move + Hold replaces Attack on the selected region")
-    capture.wait(
-        lambda s: s["assigningOrder"] and s["pendingVerb"] == MOVE_HOLD,
-        "Move + Hold minimap pick mode",
-    )
-    capture.pick_region(barracks, MOVE_HOLD, target)
-    return cast(int, target)

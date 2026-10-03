@@ -18,6 +18,7 @@ from harness.network import (
     force,
     force_arrived,
     force_counts_match,
+    issue_force_order,
     order_matches,
     owned_buildings,
     require,
@@ -259,13 +260,7 @@ def replace_vacancy(
     )
     origin = replacement["position"]
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
-    run.request(
-        s.peer,
-        "order",
-        building=index,
-        forceVerb=MOVE_HOLD,
-        targetRegionIndex=original_target,
-    )
+    issue_force_order(run, s.peer, index, MOVE_HOLD, original_target)
     # Arrival may precede a delayed peer's next sample; retain the same replacement
     # slot's movement evidence rather than requiring another transient reinforcing flag.
     latched(

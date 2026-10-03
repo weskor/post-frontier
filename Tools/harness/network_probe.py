@@ -1,4 +1,19 @@
-"""File-backed probe protocol and supervised snapshot convergence."""
+"""File-backed probe protocol and supervised snapshot convergence.
+
+Selection ordering uses the production controller: ``orderClick(x, y, queue=False)``
+is smart right-click (or cancels pending A), ``beginAttack()`` opens A targeting,
+``confirmAttack(x, y, queue=False)`` confirms its region, and ``retreat(queue=False)``
+orders the selected forces immediately. ``key`` can exercise A/R/Escape and Shift
+through PlayerInput; ``select`` must establish owner-only force selection first.
+Gameplay rejections return a normal probe response and controller feedback, not a
+transport error. Only intentional invalid/foreign validation uses ``forceOrderRPC``
+with building, forceVerb, targetRegionIndex, targetEnemyHQ and queue fields.
+
+With a cursor available, snapshots expose ``orderPreview``: resolution
+(0 Reject, 1 MoveHold, 2 Attack, 3 Rally), rejection, regionIndex, structureId,
+allowed and label. Preview queue semantics use the actual Shift state.
+``enemyHQId`` and ``enemyHQPosition`` locate the replicated hostile structure.
+"""
 
 from __future__ import annotations
 

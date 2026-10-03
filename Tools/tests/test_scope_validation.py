@@ -17,6 +17,14 @@ from x.scopes import load
             'kind = "automation"\nfilter = "CoopRTS.Rules"\nmap = "/Game/Boot?listen"',
             "map",
         ),
+        (
+            'kind = "automation"\nfilter = "CoopRTS.Input.Verbs"\nmap = "default"\nrendered = "false"',
+            "rendered",
+        ),
+        (
+            'kind = "automation"\nfilter = "CoopRTS.Input.Verbs"\nmap = "default"\nrendered = 1',
+            "rendered",
+        ),
         ('kind = "script"', "commands"),
         ('kind = "script"\ncommands = []', "commands"),
         ('kind = "script"\ncommands = [[]]', "commands"),

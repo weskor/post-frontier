@@ -13,7 +13,7 @@
 
 ## Camera
 
-- A free camera, as today.
+- **[Built]** A free camera: arrow keys or middle-mouse drag pan; the wheel zooms. A is reserved for Attack, not camera movement.
 - **Zoom out to a war-table view** (Supreme Commander style): regions become readable icons showing forces, JEV intent, orders, traits and supply links. Zoom in for spectacle.
 
 ## Selecting and giving orders [Change] — decided
@@ -34,15 +34,17 @@ Research: [input.md](../Research/input.md).
 - **[Built] Click a production building** to open its panel and highlight its force's badge without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force. **[New]** The associated force-bar card also lights up.
 - **[Built] Click a teammate's force, unit or producer** to inspect its owner, current order, strength and reinforcing members read-only, never adding it to command selection, with a **Need help here [G]** ping shortcut. You can't command it. **[New]** The full force-bar card adds ETA with the order verbs.
 
-**Giving orders:**
-- **Right-click is the smart order:**
+**Giving orders [Built] unless noted:**
+- **[Built] Right-click is the smart order** for all selected owned forces:
   - a region → **Move & Hold**, always, including regions JEV holds;
   - a hostile structure → **Attack**.
-  - It works on the ground, the minimap and the war table.
-- **Order keys** cover the rest, for one order each, then the mode ends: **A** then a region = Attack that region; **R** = Retreat. The same buttons sit on the force card. Esc or right-click cancels a pending order key.
-- **Previews:** the cursor shows which order a right-click will give, and the route preview appears before you confirm. Shift queues up to 3 orders.
-- **No drag-to-order.** It duplicates right-click and doesn't work on a controller.
-- **Feedback rules:** a rejected order keeps the mode open and says why **[Change]**; rejected placements already do **[Built]**. A greyed-out gameplay button explains itself when clicked **[Built]**. Messages hold for **3 s**, then fade over **1 s** (starting values) **[Built]**.
+  - Ground and minimap use the same target resolver. **[New]** War-table ordering.
+- **[Built] Order keys** cover the rest, for one accepted order each, then the mode ends: **A** then left-click a region = Attack that region; **R** = immediate Retreat. Esc or right-click cancels pending A without issuing a smart order. **[New]** The same buttons sit on the force card.
+- **[Built] Cursor preview:** beside the cursor, show Move & Hold, Attack, rally, or not allowed with the reason. Hover and confirmation share one resolver. Pending A shows the left-click Attack preview and the right-click cancellation prompt. **[New]** Route preview before confirmation.
+- **[Built] Shift queues** instead of replacing the current order; the limit is specified in [forces.md](forces.md#steering-forces-change--decided).
+- **[Built] Rally input** (owner decision, 2026-10-03): with a production building selected and no forces, right-click a region on ground or minimap to set that building's rally. Rally behaviour lives in [forces.md](forces.md#steering-forces-change--decided).
+- **[Built] No drag-to-order.** Dragging selects forces only.
+- **[Built] Feedback rules:** a rejected order keeps the mode open and says why, including a server rejection; the mode ends on acceptance, not on sending. Rejected placements also retain their mode. A greyed-out gameplay button explains itself when clicked. Messages hold for **3 s**, then fade over **1 s** (starting values).
 
 **Force bar [New]:** a bottom row of force cards. Each shows the force number, unit type, strength (e.g. 5/6), current order, status with ETA (*Marching to West Cut · 0:20*), retreat or refill state, and whether it's cut off from supply. It also shows **production state**: refill progress, a pause/resume toggle, and an *upgrade available* badge that opens the building's panel.
 
@@ -63,7 +65,7 @@ Research: [input.md](../Research/input.md).
 - The cursor snaps to regions, structures and badges.
 - **Target-first menu:** select a region or structure and get *Hold here with…* / *Attack with…*, listing your forces with arrival times. It comes with controller support and also works on the war table.
 
-**Today [Built]:** forces are selected independently of buildings, including survivors without a producer. Orders still use the production-building inspector: select it, choose Move & Hold or Attack and pick a region, or apply Retreat immediately. The verbs and commandable-orphan APIs are built; selected-force order input, force-bar cards, smart right-click and A/R order keys remain **[New]**.
+**Today [Built]:** forces are selected and ordered independently of buildings, including survivors without a producer. The production inspector contains production, rally information and a Select force shortcut, not order buttons or building-force region picking. Ground/minimap smart right-click, A/R keys, queue modifiers and cursor feedback use selected forces. Force-bar cards and route/intent presentation remain **[New]**.
 
 ## Awareness [Built] / [New] — decided
 

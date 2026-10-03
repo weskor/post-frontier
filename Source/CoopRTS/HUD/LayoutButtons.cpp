@@ -129,10 +129,6 @@ static void ProducerButtons(const FContext& Context, const FLayout& Layout, TFun
 	const UMatchContent* Content = MatchContent(Context);
 	const FRect Recipes = Column(Layout.Inspector, 0, 3);
 	const FRect Production = Column(Layout.Inspector, 1, 3);
-	FRect Orders = Column(Layout.Inspector, 2, 3);
-	// Leave the footer button and an eight-pixel gap below the order rows.
-	if (IsValid(Building->ForceGroup))
-		Orders.H -= 12.f;
 	const EBlock RoleLock = Building->bForceConfigured ? EBlock::ForceLocked : EBlock::None;
 	const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
 	const int32 RecipeCount = Content ? FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))) : 0;
@@ -146,10 +142,6 @@ static void ProducerButtons(const FContext& Context, const FLayout& Layout, TFun
 		Building->bForceConfigured || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
 		EBlock::None, Building->bProductionEnabled);
 	const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
-	const EBlock OrderLock = Building->bForceConfigured && Force ? EBlock::None : EBlock::ForceUnconfigured;
-	EmitButton(Context, Visit, EHUDAction::OrderMoveHold, Row(Orders, 0), 0, OrderLock, Force && Force->Verb == EForceVerb::MoveHold);
-	EmitButton(Context, Visit, EHUDAction::OrderAttack, Row(Orders, 1), 0, OrderLock, Force && Force->Verb == EForceVerb::Attack);
-	EmitButton(Context, Visit, EHUDAction::OrderRetreat, Row(Orders, 2), 0, OrderLock, Force && Force->Verb == EForceVerb::Retreat);
 	if (Force)
 		Visit(FButton{ EHUDAction::SelectForce,
 			{ Layout.Inspector.Right() - Pad - 150.f, Layout.Inspector.Bottom() - Pad - 22.f, 150.f, 22.f },

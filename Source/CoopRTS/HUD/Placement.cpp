@@ -50,7 +50,7 @@ static void DrawOrderMode(const FPainter& Paint, const FContext& Context, const 
 	TStringBuilder<32> Title;
 	Title.Appendf(TEXT("ISSUE %s"), OrderTitle(Verb));
 	Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true);
-	Paint.Text(TEXT("Pick a region on ground or minimap for this barracks' force."), X, Row2, 10.f,
+	Paint.Text(TEXT("Pick a region for the selected forces. Shift+LMB queues."), X, Row2, 10.f,
 		Palette::Muted, false, EAlign::Left, TextWidth);
 	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Assign"));
 	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));

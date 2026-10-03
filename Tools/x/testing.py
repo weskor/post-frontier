@@ -73,9 +73,11 @@ def _automation(
                 ctx.repo / ctx.settings.project,
                 map_path,
                 "-game",
-                "-nullrhi",
-                # Null RHI assertions need neither shader compilation nor loading.
-                "-NoShaderCompile",
+                *(
+                    ["-RenderOffScreen", "-windowed", "-ResX=1600", "-ResY=900", "-NoSplash", "-nosteam"]
+                    if scope.rendered
+                    else ["-nullrhi", "-NoShaderCompile"]
+                ),
                 # Editor Python start-up scripts are outside C++ automation.
                 "-DisablePython",
                 "-nosound",

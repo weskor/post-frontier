@@ -13,6 +13,7 @@ from harness.network import (
     force,
     force_arrived,
     force_counts_match,
+    issue_force_order,
     order_matches,
     region,
 )
@@ -46,9 +47,7 @@ def retreat_from_home(
         for st in safe_states.values()
     }
     safe_origin = force(safe_states["host"], s.owner, index)["center"]
-    run.request(
-        s.peer, "order", building=index, forceVerb=ATTACK, targetRegionIndex=outbound
-    )
+    issue_force_order(run, s.peer, index, ATTACK, outbound)
     departed = converged(
         run,
         s.names,
@@ -66,9 +65,7 @@ def retreat_from_home(
         "same force physically departs its safe home before Retreat",
     )
     origin = force(departed["host"], s.owner, index)["center"]
-    run.request(
-        s.peer, "order", building=index, forceVerb=RETREAT, targetRegionIndex=-1
-    )
+    issue_force_order(run, s.peer, index, RETREAT)
     latched(
         run,
         s.names,

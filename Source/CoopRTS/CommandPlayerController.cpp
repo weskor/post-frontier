@@ -87,6 +87,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bSelectionDragging = false;
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
+	bOrderPending = false;
 	bHUDExpanded = true;
 	bPlacementPending = false;
 	bPlacementCancelled = false;
@@ -134,10 +135,10 @@ void ACommandPlayerController::SetupInputComponent()
 		Mapping->MapKey(Action, Key);
 		Input->BindAction(Action, Event, this, Method);
 	};
-	Bind(TEXT("PanForward"), EKeys::W, &ThisClass::PanForward, ETriggerEvent::Triggered);
-	Bind(TEXT("PanBackward"), EKeys::S, &ThisClass::PanBackward, ETriggerEvent::Triggered);
-	Bind(TEXT("PanLeft"), EKeys::A, &ThisClass::PanLeft, ETriggerEvent::Triggered);
-	Bind(TEXT("PanRight"), EKeys::D, &ThisClass::PanRight, ETriggerEvent::Triggered);
+	Bind(TEXT("PanForward"), EKeys::Up, &ThisClass::PanForward, ETriggerEvent::Triggered);
+	Bind(TEXT("PanBackward"), EKeys::Down, &ThisClass::PanBackward, ETriggerEvent::Triggered);
+	Bind(TEXT("PanLeft"), EKeys::Left, &ThisClass::PanLeft, ETriggerEvent::Triggered);
+	Bind(TEXT("PanRight"), EKeys::Right, &ThisClass::PanRight, ETriggerEvent::Triggered);
 	Bind(TEXT("ZoomIn"), EKeys::MouseScrollUp, &ThisClass::ZoomIn, ETriggerEvent::Started);
 	Bind(TEXT("ZoomOut"), EKeys::MouseScrollDown, &ThisClass::ZoomOut, ETriggerEvent::Started);
 	Bind(TEXT("Select"), EKeys::LeftMouseButton, &ThisClass::SelectUnderCursor, ETriggerEvent::Started);
@@ -147,7 +148,7 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("SelectForce3"), EKeys::Three, &ThisClass::SelectForce3, ETriggerEvent::Started);
 	Bind(TEXT("SelectForce4"), EKeys::Four, &ThisClass::SelectForce4, ETriggerEvent::Started);
 	Bind(TEXT("SelectForce5"), EKeys::Five, &ThisClass::SelectForce5, ETriggerEvent::Started);
-	Bind(TEXT("CancelPointerMode"), EKeys::RightMouseButton, &ThisClass::CancelPointerMode, ETriggerEvent::Started);
+	Bind(TEXT("SmartOrder"), EKeys::RightMouseButton, &ThisClass::RightClickAtCursor, ETriggerEvent::Started);
 	Bind(TEXT("FocusAlert"), EKeys::SpaceBar, &ThisClass::FocusAlert, ETriggerEvent::Started);
 	Bind(TEXT("FocusSelection"), EKeys::F, &ThisClass::FocusSelection, ETriggerEvent::Started);
 	Bind(TEXT("MenuOrCancel"), EKeys::Escape, &ThisClass::Escape, ETriggerEvent::Started);
@@ -206,6 +207,16 @@ bool ACommandPlayerController::InputKey(const FInputKeyEventArgs& Params)
 				SetFeedback(Hint.ToString());
 				return true;
 			}
+		}
+		if (Params.Key == EKeys::A)
+		{
+			BeginForceAttack();
+			return true;
+		}
+		if (Params.Key == EKeys::R)
+		{
+			RetreatSelectedForces(IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+			return true;
 		}
 	}
 	return Super::InputKey(Params);
@@ -337,7 +348,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 			Overlay->Line(FVector(A.X, A.Y, 13.f), FVector(B.X, B.Y, 13.f), Color, 3.f);
 		}
 	};
-	const AMapRegion* HoveredRegion = bAssigningOrder && IsOwnedBuilding(SelectedBuilding) ? CursorOrderRegion() : nullptr;
+	const AMapRegion* HoveredRegion = bAssigningOrder && !SelectedForces.IsEmpty() ? CursorOrderRegion() : nullptr;
 	if (IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer() && IsValid(SelectedBuilding->ForceGroup))
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
@@ -455,24 +466,6 @@ const AMapRegion* ACommandPlayerController::CursorOrderRegion() const
 	if (HUD && HUD->IsPanelPoint(Position))
 		return nullptr;
 	return CursorGround(Location) ? State->FindRegionAt(Location) : nullptr;
-}
-
-void ACommandPlayerController::IssueOrderAt(const FVector& Location)
-{
-	if (!CanIssueGameplayCommand() || !IsOwnedBuilding(SelectedBuilding) || !IsValid(SelectedBuilding->ForceGroup))
-		return;
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const AMapRegion* Region = State ? State->FindRegionAt(Location) : nullptr;
-	if (!Region)
-	{
-		SetFeedback(TEXT("Choose a region on the ground or minimap."));
-		PlayUISound(TEXT("Reject"));
-		return;
-	}
-	bAssigningOrder = false;
-	bHUDExpanded = true;
-	SetFeedback(TEXT("Order sent; awaiting server."));
-	OrderCommands->ServerIssueForceOrder({ SelectedBuilding->ForceGroup.Get() }, PendingVerb, Region->RegionIndex, nullptr, false);
 }
 
 const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
@@ -757,6 +750,11 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 		HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
 		return true;
 	}
+	if (bAssigningOrder)
+	{
+		ConfirmAttackAtScreenPosition(Position, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+		return true;
+	}
 	FVector WorldPosition;
 	int32 AlertSequence;
 	if (HUD->GetAlertWorldPosition(Position, WorldPosition, AlertSequence))
@@ -766,11 +764,6 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 	}
 	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
 	{
-		if (bAssigningOrder)
-		{
-			IssueOrderAt(WorldPosition);
-			return true;
-		}
 		bInitialFocusPending = false;
 		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
 			Camera->FocusOn(WorldPosition);
@@ -1008,11 +1001,9 @@ void ACommandPlayerController::SelectUnderCursor()
 	}
 	if (bAssigningOrder)
 	{
-		FVector Location;
-		if (CursorGround(Location))
-			IssueOrderAt(Location);
-		else
-			SetFeedback(TEXT("Choose a region on the ground or minimap."));
+		float X, Y;
+		if (GetMousePosition(X, Y))
+			ConfirmAttackAtScreenPosition(FVector2D(X, Y), IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
 		return;
 	}
 	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
@@ -1059,6 +1050,16 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 			PingCommands->ServerPing(Force->GetCenter(), Force);
 		return;
 	}
+	if (Action == EHUDAction::OrderAttack)
+	{
+		BeginForceAttack();
+		return;
+	}
+	if (Action == EHUDAction::OrderRetreat)
+	{
+		RetreatSelectedForces(IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+		return;
+	}
 	const CommandHUDPanels::FContext Context = CommandHUDPanels::MakeContext(this);
 	const CommandHUDPanels::FLayout Layout = CommandHUDPanels::MakeLayout(Context, 1280.f, 720.f);
 	bool bBlocked = false;
@@ -1076,9 +1077,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		PlayUISound(TEXT("Reject"));
 		return;
 	}
-	const bool bOrderAction = Action == EHUDAction::OrderMoveHold || Action == EHUDAction::OrderAttack
-		|| Action == EHUDAction::OrderRetreat;
-	PlayUISound(bOrderAction ? TEXT("Front") : TEXT("Click"));
+	PlayUISound(TEXT("Click"));
 	if (Action == EHUDAction::Construction)
 	{
 		CancelMode();
@@ -1130,33 +1129,6 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	}
 	if (!SelectedBuilding->IsProducer())
 		return;
-	if (bOrderAction)
-	{
-		if (!SelectedBuilding->IsComplete() || !SelectedBuilding->bForceConfigured || !IsValid(SelectedBuilding->ForceGroup))
-		{
-			SetFeedback(TEXT("Complete this barracks and Start & Lock its force before issuing an order."));
-			PlayUISound(TEXT("Reject"));
-			return;
-		}
-		PendingPlacedBuilding.Reset();
-		PendingPlacedBuildingNetGUID = 0;
-		PendingVerb = Action == EHUDAction::OrderMoveHold ? EForceVerb::MoveHold
-			: Action == EHUDAction::OrderAttack           ? EForceVerb::Attack
-														  : EForceVerb::Retreat;
-		bPlacingBuilding = false;
-		if (PendingVerb == EForceVerb::Retreat)
-		{
-			bAssigningOrder = false;
-			bHUDExpanded = true;
-			SetFeedback(TEXT("Retreat sent; awaiting server."));
-			OrderCommands->ServerIssueForceOrder({ SelectedBuilding->ForceGroup.Get() }, PendingVerb, INDEX_NONE, nullptr, false);
-			return;
-		}
-		bAssigningOrder = true;
-		bHUDExpanded = false;
-		SetFeedback(TEXT("Choose a region on ground or minimap; right-click/Esc cancels."));
-		return;
-	}
 	if (Action == EHUDAction::ToggleProduction)
 	{
 		ProductionCommands->ServerConfigureProduction(SelectedBuilding, SelectedBuilding->ProductionRole, !SelectedBuilding->bProductionEnabled);
@@ -1334,7 +1306,7 @@ void ACommandPlayerController::FocusAlert()
 
 void ACommandPlayerController::CancelPointerMode()
 {
-	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending)
+	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending || bSelectionDragging)
 	{
 		CancelMode();
 		SetFeedback(TEXT("Mode cancelled."));

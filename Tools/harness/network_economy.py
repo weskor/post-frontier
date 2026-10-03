@@ -15,6 +15,7 @@ from harness.network import (
     distance2,
     force,
     force_arrived,
+    issue_force_order,
     near,
     order_destination_matches,
     order_matches,
@@ -64,9 +65,7 @@ def capture_region(
     target = select_order_region(state, index, exclude=excluded)["index"]
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
-    run.request(
-        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
-    )
+    issue_force_order(run, s.peer, index, MOVE_HOLD, target)
     states = converged(
         run,
         s.names,
@@ -373,14 +372,7 @@ def attack_and_finish(
     state = run.observe("host")
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
-    run.request(
-        s.peer,
-        "order",
-        building=index,
-        forceVerb=ATTACK,
-        targetRegionIndex=enemy_main,
-        targetEnemyHQ=True,
-    )
+    issue_force_order(run, s.peer, index, ATTACK, enemy_main, enemy_hq=True)
     converged(
         run,
         s.names,

@@ -10,22 +10,16 @@ import struct
 import subprocess
 from typing import cast
 
-from harness.network import NetworkRun, order_matches, region, require
+from harness.network import (
+    ATTACK,
+    MOVE_HOLD,
+    NetworkRun,
+    minimap_region_point,
+    order_matches,
+    require,
+    select_producer_force,
+)
 from harness.verify import JsonObject
-
-
-def minimap_region_point(state: JsonObject, target: int) -> tuple[float, float]:
-    """Inverse of the HUD's arena-to-minimap transform, using a replicated region anchor."""
-    anchor = region(state, target)["anchor"]
-    half = state["arenaHalfExtent"]
-    origin, size = state["minimapOrigin"], state["minimapSize"]
-    horizontal = (anchor[1] + half[1]) / (2 * half[1])
-    vertical = (half[0] - anchor[0]) / (2 * half[0])
-    require(
-        0 < horizontal < 1 and 0 < vertical < 1,
-        "region anchor is outside the clickable minimap",
-    )
-    return origin[0] + size * horizontal, origin[1] + size * vertical
 
 
 def png_size(path: Path) -> tuple[int, int]:
@@ -143,23 +137,47 @@ class Capture:
         )
         self.run.phase(f"minimap camera-only click at {horizontal:.2f},{vertical:.2f}")
 
-    def pick_region(self, index: int, verb: int, target: int) -> None:
-        before = self.state()
-        require(
-            before["assigningOrder"] and before["pendingVerb"] == verb,
-            "requested order pick mode is inactive",
-        )
-        x, y = minimap_region_point(before, target)
-        self.run.request("host", "hudClick", x=x, y=y)
+    def select_force(self, index: int) -> JsonObject:
+        return select_producer_force(self.run, "host", index)
+
+    def begin_attack(self) -> None:
+        self.key("A")
         self.wait(
-            lambda s: (
-                not s["assigningOrder"]
-                and s["hudExpanded"]
-                and order_matches(s, index, verb, target)
-            ),
-            "minimap submits selected region order",
+            lambda s: s["assigningOrder"] and s["pendingVerb"] == ATTACK,
+            "A enters selected-force Attack targeting",
         )
-        self.run.phase(f"minimap selected region {target} for verb {verb}")
+
+    def order_region(self, index: int, verb: int, target: int) -> None:
+        before = self.state()
+        require(bool(before["selectedForces"]), "order needs selected forces")
+        x, y = minimap_region_point(before, target)
+        self.run.request("host", "cursor", x=x, y=y)
+        if verb == ATTACK:
+            require(
+                before["assigningOrder"] and before["pendingVerb"] == ATTACK,
+                "A Attack targeting is inactive",
+            )
+            self.run.request("host", "confirmAttack", x=x, y=y)
+        else:
+            require(verb == MOVE_HOLD, "region right-click must be Move & Hold")
+            self.run.request("host", "orderClick", x=x, y=y)
+        self.wait(
+            lambda s: not s["assigningOrder"] and order_matches(s, index, verb, target),
+            "selected-force minimap order is accepted",
+        )
+        self.run.phase(f"selection orders region {target} with verb {verb}")
+
+    def preview(self, x: float, y: float) -> JsonObject:
+        self.run.request("host", "cursor", x=x, y=y)
+        state = self.wait(
+            lambda s: (
+                "orderPreview" in s
+                and abs(s["cursorScreen"][0] - x) <= 1
+                and abs(s["cursorScreen"][1] - y) <= 1
+            ),
+            "shared cursor order preview is observed",
+        )
+        return cast(JsonObject, state["orderPreview"])
 
     def shot(self, label: str) -> Path:
         state = self.state()
@@ -195,6 +213,7 @@ class Capture:
             placing=state["placing"],
             assigningOrder=state["assigningOrder"],
             feedback=state.get("orderFeedback", ""),
+            orderPreview=state.get("orderPreview"),
         )
         print(f"Captured {path} ({width}x{height})", flush=True)
         return path

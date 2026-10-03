@@ -362,16 +362,16 @@ private:
 		if (!Check(HUD->FindActionScreenPosition(EHUDAction::SelectForce, Action) && PC->HandleHUDClick(Action) && Only(Owned[0].Get()),
 				TEXT("Building panel Select force button switches to its force")))
 			return false;
-		PC->SelectActorWithModifiers(Buildings[0].Get(), false, false);
-		if (!Check(HUD->FindActionScreenPosition(EHUDAction::OrderMoveHold, Action) && PC->HandleHUDClick(Action) && PC->IsAssigningOrder(),
-				TEXT("Existing building order flow opens region targeting")))
+		PC->SelectForce(Owned[0].Get());
+		PC->BeginForceAttack();
+		if (!Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack,
+				TEXT("Selected force enters Attack targeting")))
 			return false;
 		PC->SelectActor(Foreign->GetUnits()[0]);
 		if (!Check(!PC->IsAssigningOrder() && !PC->IsPlacingBuilding() && PC->GetSelectedForces().IsEmpty(),
-				TEXT("Read-only teammate inspection cancels pending building order"))
-			|| !Check(!HUD->FindActionScreenPosition(EHUDAction::OrderMoveHold, Action)
-					&& !HUD->FindActionScreenPosition(EHUDAction::ToggleProduction, Action),
-				TEXT("Read-only teammate exposes no building commands")))
+				TEXT("Read-only teammate inspection cancels pending force order"))
+			|| !Check(!HUD->FindActionScreenPosition(EHUDAction::ToggleProduction, Action),
+				TEXT("Read-only teammate exposes no production command")))
 			return false;
 		if (!Check(HUD->FindActionScreenPosition(EHUDAction::BuildSlot0, Action) && PC->HandleHUDClick(Action) && PC->IsPlacingBuilding(),
 				TEXT("Existing construction bar can enter placement mode")))

@@ -28,6 +28,9 @@ Exclusive waiters and other runs can interleave between scopes; Python/scripts
 take no Unreal lock. Each automation lease records scope:<name>:headless in
 lock_waits, including uncontended acquisition. Same-worktree builds cannot
 replace its module.
+Automation scopes default to null RHI. A scope with rendered = true in
+Tools/x/scopes.toml uses a 1600x900 Vulkan offscreen viewport for input/HUD
+assertions, under the same locks and freshness checks; no native window/input.
 
 Proof limits:
 - Python/tool and map-validator scopes prove only their checks; validator images
@@ -36,8 +39,8 @@ Proof limits:
   they cannot prove actors, navigation, replication, rendering or native input.
 - World assertions can exercise real actors/navigation/payment/arrival, only
   where asserted. Controlled fixtures are not an unaided new-match playthrough;
-  a second controller in one world is not a remote client. Standalone Success
-  cannot prove client ownership, replication, hit testing or presentation.
+  a second controller in one world is not a remote client. Rendered scopes prove
+  only asserted input/hit geometry; captures must be inspected for visual claims.
 
 Automation requires the requested map to start, at least one completed test
 under the requested filter, every matching result Success, zero process exit

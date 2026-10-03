@@ -10,7 +10,7 @@ void UOrderCommandComponent::ServerIssueForceOrder_Implementation(const TArray<A
 {
 	ACommandPlayerController* Controller = CastChecked<ACommandPlayerController>(GetOwner());
 	const FCommandResult Result = FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Forces, Verb, RegionIndex, Structure, bQueue);
-	ClientConstructionFeedback(Result.Message, Result.IsAccepted());
+	ClientForceOrderFeedback(Result.Message, Result.IsAccepted());
 }
 
 void UOrderCommandComponent::ServerSetRetreatThreshold_Implementation(const TArray<AArmyGroup*>& Forces, ERetreatThreshold Threshold)
@@ -30,4 +30,9 @@ void UOrderCommandComponent::ServerSetRallyPoint_Implementation(ACommandBuilding
 void UOrderCommandComponent::ClientConstructionFeedback_Implementation(const FString& Message, bool bAccepted)
 {
 	CastChecked<ACommandPlayerController>(GetOwner())->SetCommandFeedback(Message, bAccepted);
+}
+
+void UOrderCommandComponent::ClientForceOrderFeedback_Implementation(const FString& Message, bool bAccepted)
+{
+	CastChecked<ACommandPlayerController>(GetOwner())->CompleteOrderInput(Message, bAccepted);
 }

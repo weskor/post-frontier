@@ -27,7 +27,7 @@ def issue_rejected_commands(run: NetworkRun, s: Session, index: int) -> JsonObje
     invalid_region = max(r["index"] for r in before["regions"]) + 1
     run.request(
         s.peer,
-        "order",
+        "forceOrderRPC",
         building=index,
         forceVerb=255,
         targetRegionIndex=building(before, index)["targetRegionIndex"],
@@ -35,17 +35,21 @@ def issue_rejected_commands(run: NetworkRun, s: Session, index: int) -> JsonObje
     for verb in (MOVE_HOLD, ATTACK):
         run.request(
             s.peer,
-            "order",
+            "forceOrderRPC",
             building=index,
             forceVerb=verb,
             targetRegionIndex=invalid_region,
         )
         run.request(
-            s.peer, "order", building=index, forceVerb=verb, targetRegionIndex=-1
+            s.peer,
+            "forceOrderRPC",
+            building=index,
+            forceVerb=verb,
+            targetRegionIndex=-1,
         )
     run.request(
         s.peer,
-        "order",
+        "forceOrderRPC",
         building=index,
         forceVerb=RETREAT,
         targetRegionIndex=invalid_region,
@@ -56,7 +60,11 @@ def issue_rejected_commands(run: NetworkRun, s: Session, index: int) -> JsonObje
             "host", "production", building=index, recipe=FRONTLINE, enabled=True
         )
         run.request(
-            "host", "order", building=index, forceVerb=RETREAT, targetRegionIndex=-1
+            "host",
+            "forceOrderRPC",
+            building=index,
+            forceVerb=RETREAT,
+            targetRegionIndex=-1,
         )
         require(
             wallet(run.observe("host"), s.identities["host"])["wallet"]

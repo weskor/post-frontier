@@ -81,6 +81,8 @@ def start_and_starve(
 def fill_force(
     run: NetworkRun, capture: Capture, owner: int, barracks: int, target: int
 ) -> tuple[JsonObject, int]:
+    run.request("host", "select", target="building", building=barracks)
+    capture.key("F")
     before_resume = building(capture.state(), barracks)
     capacity = before_resume["capacity"]
     run.request(
@@ -203,13 +205,8 @@ def retarget_replacement(
     moved_target = select_order_region(capture.state(), barracks, exclude=(target,))[
         "index"
     ]
-    run.request(
-        "host",
-        "order",
-        building=barracks,
-        forceVerb=MOVE_HOLD,
-        targetRegionIndex=moved_target,
-    )
+    capture.select_force(barracks)
+    capture.order_region(barracks, MOVE_HOLD, moved_target)
     capture.wait(
         lambda s: order_destination_matches(s, owner, barracks, moved_target),
         "replacement force retargets to the new held region",
@@ -233,6 +230,8 @@ def retarget_replacement(
         ),
         "replacement physically arrives",
     )
+    run.request("host", "select", target="building", building=barracks)
+    capture.key("F")
     capture.shot("barracks-replacement-complete")
     capture.hud(TOGGLE_PRODUCTION, "Pause after replacement proof")
     state = capture.wait(
@@ -249,7 +248,7 @@ def check_removed_squad_keys(
     run: NetworkRun, capture: Capture, owner: int, state: JsonObject
 ) -> None:
     roster = [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner]
-    for key in ("Tab", "Q", "H", "R"):
+    for key in ("Tab", "Q", "H"):
         capture.key(key)
     state = capture.state()
     require(

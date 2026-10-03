@@ -341,11 +341,11 @@ def focus_box_badges(run: NetworkRun, capture: Capture, owner: int) -> JsonObjec
     if visible(state):
         return state
     # Focus centres the force set, not the HUD's unobstructed map area.
-    run.request("host", "key", key="A", pressed=True)
+    run.request("host", "key", key="Left", pressed=True)
     try:
         capture.wait(visible, "pan the box fixture badges clear of HUD panels")
     finally:
-        run.request("host", "key", key="A", pressed=False)
+        run.request("host", "key", key="Left", pressed=False)
     return capture.wait(visible, "box fixture badges remain visible after pan stops")
 
 

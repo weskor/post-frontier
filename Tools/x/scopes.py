@@ -17,6 +17,7 @@ class Scope:
     map: str = ""
     paths: tuple[str, ...] = ()
     commands: tuple[tuple[str, ...], ...] = ()
+    rendered: bool = False
 
 
 def map_package(value: str) -> str:
@@ -73,6 +74,8 @@ def _scope(name: str, spec: Mapping[str, Any]) -> Scope:
     if kind not in ("automation", "pytest", "script", "lint"):
         raise ValueError(f"scope {name}: unsupported kind {kind}")
     if kind == "automation":
+        if not isinstance(spec.get("rendered", False), bool):
+            raise ValueError(f"scope {name}: rendered must be a boolean")
         test_filter = spec.get("filter")
         if not isinstance(test_filter, str) or not test_filter.strip():
             raise ValueError(f"scope {name}: automation requires a non-empty filter")
@@ -115,6 +118,7 @@ def _scope(name: str, spec: Mapping[str, Any]) -> Scope:
         map=spec.get("map", ""),
         paths=tuple(spec.get("paths", [])),
         commands=tuple(tuple(command) for command in spec.get("commands", [])),
+        rendered=spec.get("rendered", False),
     )
 
 

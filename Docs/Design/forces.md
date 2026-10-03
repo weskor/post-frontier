@@ -36,13 +36,13 @@
 
 **The redesign:**
 
-- **[Built] You select forces, not buildings.** The selection model includes living orphan forces, numbered map badges and teammate read-only inspection; input and camera behaviour live in [ui.md](ui.md#selecting-and-giving-orders-change--decided). **[Change]** Force-bar cards and selected-force order input replace the temporary building-inspector order controls; buildings then only produce, upgrade and refit.
+- **[Built] You select and order forces, not buildings.** The selection model includes living orphan forces, numbered map badges and teammate read-only inspection; order input and camera behaviour live in [ui.md](ui.md#selecting-and-giving-orders-change--decided). Building-inspector order controls are removed. **[New]** Force-bar cards; buildings keep production, upgrades and refits.
 - **[Built] Keys 1–4 (solo 1–5)** select a single owned force by its number, including a living orphan. Camera focus and multi-selection inputs are specified in [ui.md](ui.md#selecting-and-giving-orders-change--decided).
 - **Several forces at once:**
   - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md#selecting-and-giving-orders-change--decided). Commands accept several owned forces atomically.
   - **[Built]** Each multi-force command samples a selection speed cap once from the slowest living member's authored speed; an empty producer-backed force uses its authored production type. Zero-speed empty orphans are excluded from the sample. The cap belongs to that issued order, is not re-sampled after casualties, and resets when the order completes; Retreat adds its sprint bonus to that capped speed.
   - **[Later]** Saved control groups (Ctrl+1–9). Cut from launch scope in the design review; box-select, Shift-select and the order queue cover multi-force orders.
-- **[Built] Three verbs** replace Hold, Expand, Assault and Fall Back in the command layer, executor, JEV, simulation and verification. Until selected-force order input lands, the building inspector offers Move & Hold and Attack with region picking, and immediate Retreat for that building's force.
+- **[Built] Three verbs** replace Hold, Expand, Assault and Fall Back in the command layer, executor, JEV, simulation and verification. Selected-force input is specified in [ui.md](ui.md#selecting-and-giving-orders-change--decided).
 
 | Verb | Target | Behaviour |
 |---|---|---|
@@ -58,7 +58,7 @@ Move & Hold and Attack have different combat rules on purpose, so players can te
 
 - **[Built] Fighting on the way:** travelling Move & Hold and Attack acquire automatic targets only within their weapon range, rather than the old 800 cm/enemy-ahead acquisition rule, and do not leave the march route to chase. Near-target Attack-phase combat, including a Move & Hold still securing its capture anchor, can pursue within **10.5 m** of the current waypoint destination (`AArmyGroup::PursuitRadius`). Once the region is secured, Move & Hold uses the whole-region [holding rules](#holding-a-region-built), not that local pursuit circle.
 - **[Built] Intermediate capture:** a march waits for uncontested intermediate ground to become controlled. If a hostile contests its capture point, the force continues after physically reaching that waypoint rather than leaving its route to hunt the blocker. The final target still uses the verb's completion rules.
-- **[Built] Order queue:** commands queue up to **3 orders in total, including the active order**, e.g. *Attack Relay → Move & Hold West Cut*. **[New]** Shift-queue input and display on the force card and path line.
+- **[Built] Order queue:** commands queue up to **3 orders in total, including the active order**, e.g. *Attack Relay → Move & Hold West Cut*. Shift-queue input is built ([ui.md](ui.md)); display on the force card and path line remains **[New]**.
   - **[Built]** An order yields to the next queued order when it completes. **Move & Hold** completes once the force has arrived, there are no hostile units inside the region and, if capturable, the team controls it. With nothing queued it keeps holding.
   - **[Built] Attack** completes after physical arrival at a controlled, hostile-free target region, or when its target structure is destroyed. It advances to a queued order instead of turning into Move & Hold. A withdrawal already in progress finishes its safe arrival first.
   - **[Built] Retreat** completes once the force has arrived and refilled to full capacity; an orphan completes on arrival because it cannot refill.

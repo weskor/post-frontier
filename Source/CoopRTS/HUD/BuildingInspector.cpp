@@ -77,7 +77,7 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 		Building->Health, Building->MaxHealth(), Status, StatusColor);
 	const FRect Recipes = Column(Inspector, 0, 3);
 	const FRect Production = Column(Inspector, 1, 3);
-	const FRect Orders = Column(Inspector, 2, 3);
+	const FRect Rally = Column(Inspector, 2, 3);
 	ColumnLabel(Paint, Recipes, TEXT("FORCE TYPE"), Building->bForceConfigured ? TEXT("LOCKED") : TEXT("choose before Start"));
 	int32 Joined = 0, Travelling = 0;
 	Building->GetForceCounts(Joined, Travelling);
@@ -87,9 +87,19 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	TStringBuilder<32> ForceCounts;
 	ForceCounts.Appendf(TEXT("joined %d/%d"), Joined, Capacity);
 	ColumnLabel(Paint, Production, TEXT("FORCE"), ForceCounts.ToView());
-	const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
-	ColumnLabel(Paint, Orders, TEXT("ORDER"), Force ? ForceStatusTitle(Force->Status) : TEXT("UNCONFIGURED"),
-		Force ? OrderColor(Force->Verb) : Palette::Muted);
+	ColumnLabel(Paint, Rally, TEXT("RALLY POINT"));
+	const AMapRegion* RallyRegion = nullptr;
+	if (Context.State)
+		for (const AMapRegion* Region : Context.State->Regions)
+			if (IsValid(Region) && Region->RegionIndex == Building->RallyRegionIndex)
+			{
+				RallyRegion = Region;
+				break;
+			}
+	Paint.Text(RallyRegion ? RallyRegion->DisplayName.ToString() : TEXT("Own region by default"),
+		Rally.X, Row(Rally, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Rally.W);
+	Paint.DrawKey(Rally.X, Row(Rally, 1).Y, TEXT("RMB"), TEXT("Set rally region"));
+	Paint.Text(TEXT("Select force to give orders"), Rally.X, Row(Rally, 2).Y, 9.f, Palette::Muted, false, EAlign::Left, Rally.W);
 
 	const FRect Progress = Row(Production, 0);
 	const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
@@ -285,7 +295,7 @@ void DrawForceInspector(const FPainter& Paint, const FContext& Context, const FR
 			}
 
 	DrawForceStrength(Paint, Force, Strength);
-	Paint.Text(bHasProducer ? TEXT("Building panel keeps production and orders.") : TEXT("Survivors retain their order and remain selectable."),
+	Paint.Text(bOwned ? TEXT("RMB: smart order | A: Attack region | R: Retreat | Shift: queue") : TEXT("Teammate's force: orders are read only."),
 		Inspector.X + Pad, Inspector.Bottom() - 22.f, 10.f, Palette::Muted, false, EAlign::Left, Inspector.W - 2.f * Pad);
 }
 

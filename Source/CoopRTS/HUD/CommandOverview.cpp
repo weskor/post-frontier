@@ -35,8 +35,8 @@ static void DrawNextStep(const FPainter& Paint, const FContext& Context, const F
 	}
 	else if (Forces.ControlledRegions <= 1)
 	{
-		First = TEXT("Choose Attack and pick");
-		Second = TEXT("a region to capture it.");
+		First = TEXT("Select forces, then RMB");
+		Second = TEXT("a region to Move & Hold.");
 	}
 	else if (Forces.Workshops == 0)
 	{
@@ -51,7 +51,7 @@ static void DrawNextStep(const FPainter& Paint, const FContext& Context, const F
 	ColumnLabel(Paint, Next, TEXT("NEXT STEP"));
 	Paint.Text(First, Next.X, Y, 10.5f, Palette::Friendly, true, EAlign::Left, Next.W);
 	Paint.Text(Second, Next.X, Y + 18.f, 10.5f, Palette::Friendly, true, EAlign::Left, Next.W);
-	Paint.Text(TEXT("Click an owned building."), Next.X, Y + 46.f, 8.5f, Palette::Faint,
+	Paint.Text(TEXT("A: Attack region / R: Retreat"), Next.X, Y + 46.f, 8.5f, Palette::Faint,
 		false, EAlign::Left, Next.W);
 }
 

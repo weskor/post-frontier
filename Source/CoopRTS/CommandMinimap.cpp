@@ -326,7 +326,7 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 		const float TextScale = FMath::Clamp(Size / 210.f, .65f, 1.f);
 		const FSlateFontInfo Font(GEngine->GetSmallFont(), 9.f * TextScale, FName(TEXT("Regular")));
 		FCanvasTextStringViewItem Header(Origin - FVector2D(0, 29.f * TextScale),
-			FStringView(TEXT("ARENA  /  CLICK TO PAN")), Font, View);
+			FStringView(Controller->IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL") : TEXT("ARENA / LMB PAN / RMB ORDER")), Font, View);
 		Canvas->DrawItem(Header);
 		FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
 			FStringView(TEXT("HQ/base | sector | amber: contest/front")), Font, Neutral);

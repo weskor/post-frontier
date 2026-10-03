@@ -7,6 +7,7 @@
 #include "ConstructionTypes.h"
 #include "CommandPlayerState.h"
 #include "ForceOrders.h"
+#include "HUD/OrderInputPreview.h"
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
@@ -67,6 +68,12 @@ public:
 	void PlaceBuildingAt(const FVector& Location, bool bRepeat);
 	bool IsAssigningOrder() const { return bAssigningOrder; }
 	EForceVerb GetPendingVerb() const { return PendingVerb; }
+	void BeginForceAttack();
+	void RetreatSelectedForces(bool bQueue = false);
+	bool HandleOrderClick(const FVector2D& Position, bool bQueue = false);
+	void ConfirmAttackAtScreenPosition(const FVector2D& Position, bool bQueue = false);
+	FOrderInputPreview GetOrderPreview(const FVector2D& Position, bool bQueue = false) const;
+	void CompleteOrderInput(const FString& Message, bool bAccepted);
 	// Left-click entry points shared by real input and the Development verification probe.
 	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
@@ -128,6 +135,7 @@ private:
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;
 	bool bAssigningOrder = false;
+	bool bOrderPending = false;
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;
 	bool bPlacementCancelled = false;
@@ -175,7 +183,8 @@ private:
 	bool HandleScreenAction(EHUDAction Action);
 	bool CursorGround(FVector& Location) const;
 	const AMapRegion* CursorOrderRegion() const;
-	void IssueOrderAt(const FVector& Location);
+	void RightClickAtCursor();
+	void SendResolvedOrder(const FOrderInputPreview& Preview, bool bQueue);
 	void ResetLocalMatchView();
 	void SelectPlacedBuilding();
 };

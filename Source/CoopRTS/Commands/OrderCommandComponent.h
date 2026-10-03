@@ -19,4 +19,6 @@ public:
 	void ServerSetRallyPoint(ACommandBuilding* Building, int32 RegionIndex);
 	UFUNCTION(Client, Reliable)
 	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
+	UFUNCTION(Client, Reliable)
+	void ClientForceOrderFeedback(const FString& Message, bool bAccepted);
 };

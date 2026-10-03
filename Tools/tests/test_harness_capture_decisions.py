@@ -3,7 +3,8 @@
 from pathlib import Path
 import struct
 
-from harness.hud_surface import capture_dimensions, minimap_region_point
+from harness.hud_surface import capture_dimensions
+from harness.network import minimap_region_point
 from harness.verification_readiness import (
     WindowNotReady,
     desktop_log_ready,

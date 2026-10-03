@@ -46,18 +46,6 @@ static void ProductionText(const FContext& Context, const FButton& Button, FComm
 	Text.RightColor = Palette::Muted;
 }
 
-static void OrderText(const FButton& Button, FCommandText& Text)
-{
-	const EForceVerb Verb = Button.Action == EHUDAction::OrderMoveHold ? EForceVerb::MoveHold
-		: Button.Action == EHUDAction::OrderAttack                     ? EForceVerb::Attack
-																	   : EForceVerb::Retreat;
-	Text.Left << OrderTitle(Verb);
-	Text.Accent = OrderColor(Verb);
-	if (Button.Available())
-		Text.Right << (Button.bActive ? TEXT("CURRENT") : OrderPurpose(Verb));
-	Text.RightColor = Button.bActive ? Text.Accent : Palette::Faint;
-}
-
 static bool CommandText(const FContext& Context, const FButton& Button, FCommandText& Text)
 {
 	const ACommandBuilding* Building = Context.Building;
@@ -72,11 +60,6 @@ static bool CommandText(const FContext& Context, const FButton& Button, FCommand
 		break;
 	case EHUDAction::ToggleProduction:
 		ProductionText(Context, Button, Text);
-		break;
-	case EHUDAction::OrderMoveHold:
-	case EHUDAction::OrderAttack:
-	case EHUDAction::OrderRetreat:
-		OrderText(Button, Text);
 		break;
 	case EHUDAction::CancelConstruction:
 		Text.Left << TEXT("CANCEL BUILD");

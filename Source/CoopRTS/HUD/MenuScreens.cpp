@@ -112,15 +112,15 @@ static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 
 	DrawScreenLine(Paint, Panel, TEXT("1  Build a Barracks on green grid preview cells (220 resources)."), 0);
 	DrawScreenLine(Paint, Panel, TEXT("2  Select it when complete. Choose a force type, then Start."), 1);
-	DrawScreenLine(Paint, Panel, TEXT("3  Choose Move & Hold or Attack; pick a region on ground or minimap."), 2);
+	DrawScreenLine(Paint, Panel, TEXT("3  Select forces; right-click a region to Move & Hold, a hostile base to Attack."), 2);
 	DrawScreenLine(Paint, Panel, TEXT("4  Controlled regions allow building. Extractors (160) earn private Power."), 3);
 	DrawScreenLine(Paint, Panel, TEXT("5  Build a Workshop (190), buy one specialization (150)."), 4);
 	DrawScreenLine(Paint, Panel, TEXT("6  Attack advances to your region; Retreat regroups in safe territory."), 5, Palette::Gold);
-	DrawScreenLine(Paint, Panel, TEXT("Click badge/unit: force. Building: orders; double-click: force."), 6, Palette::Friendly);
+	DrawScreenLine(Paint, Panel, TEXT("Click badge/unit: force. Building: production; double-click: force."), 6, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Shift-click: toggle. Drag box: badges. 1-4 (solo 1-5): force."), 7);
 	DrawScreenLine(Paint, Panel, TEXT("F or double-tap number: centre. Space: latest / older alert."), 8);
-	DrawScreenLine(Paint, Panel, TEXT("WASD/middle drag: pan. Wheel: zoom. F4: deck. Esc: menu (pauses solo only)."), 9);
-	DrawScreenLine(Paint, Panel, TEXT("Attack takes regions; it withdraws below 40% strength and refills."), 10, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Arrows/middle drag: pan. Wheel: zoom. F4: deck. Esc: cancel/menu."), 9);
+	DrawScreenLine(Paint, Panel, TEXT("A then region: Attack. R: Retreat. Shift: queue. Building + RMB: rally."), 10, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("G: ping ground / minimap; teammate force: Need help here."), 11, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 12, Palette::Muted);
 }

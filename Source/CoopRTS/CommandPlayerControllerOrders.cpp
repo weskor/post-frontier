@@ -1,0 +1,207 @@
+#include "CommandPlayerController.h"
+
+#include "ArenaBounds.h"
+#include "CombatTarget.h"
+#include "CommandBuilding.h"
+#include "CommandGameState.h"
+#include "CommandHUD.h"
+#include "Commands/OrderCommandComponent.h"
+#include "Commands/OrderGraph.h"
+#include "Headquarters.h"
+#include "InputCoreTypes.h"
+#include "MapRegion.h"
+
+using namespace ForceOrderInput;
+
+FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Position, bool bQueue) const
+{
+	FOrderInputPreview Preview;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const ACommandPlayerState* Commander = GetPlayerState<ACommandPlayerState>();
+	if (bOrderPending)
+	{
+		Preview.Rejection = ERejection::Pending;
+		return Preview;
+	}
+	FContext Context;
+	Context.bAvailable = State && State->MatchResult == EMatchResult::Ongoing && IsValid(Commander)
+		&& Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5
+		&& GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !IsBuildHotkeyPending();
+	Context.bAttack = bAssigningOrder;
+	Context.bQueue = bQueue;
+	Context.bProducerSelected = IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer();
+	uint64 Graph[ForceOrders::MaxRegions];
+	TArray<FForce, TInlineAllocator<5>> Forces;
+	if (State)
+	{
+		Context.Graph = MakeArrayView(Graph, ForceOrderGraph::ReadGraph(*State, Graph));
+		for (const AArmyGroup* Force : SelectedForces)
+			Forces.Add({ IsOwnedForce(Force), IsValid(Force) ? ForceOrderGraph::SourceRegion(*Force, *State) : INDEX_NONE,
+				IsValid(Force) ? Force->Orders.Num() : 0 });
+		Context.Forces = Forces;
+		if (Context.bProducerSelected)
+		{
+			const AMapRegion* Region = State->FindRegionAt(SelectedBuilding->GetActorLocation());
+			Context.ProducerRegion = Region ? Region->RegionIndex : INDEX_NONE;
+		}
+		const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+		FVector Location;
+		bool bGround = false;
+		if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
+		{
+			bGround = true;
+			// Use the drawn minimap symbol bounds, in screen pixels. HQ is drawn last.
+			FVector2D Origin;
+			float Size;
+			const AArenaBounds* Arena = AArenaBounds::Find(GetWorld());
+			if (Arena && HUD->GetMinimapScreenRect(Origin, Size))
+			{
+				const auto Pick = [&](AActor* Actor, double Radius) {
+					if (!CombatTarget::IsAliveHostile(Actor, Commander ? Commander->TeamIndex : 0))
+						return;
+					const FVector World = Actor->GetActorLocation();
+					const FVector2D Point = Origin + FVector2D((World.Y + Arena->HalfExtent.Y) / (2. * Arena->HalfExtent.Y), (Arena->HalfExtent.X - World.X) / (2. * Arena->HalfExtent.X)) * Size;
+					if (FMath::Abs(Position.X - Point.X) <= Radius && FMath::Abs(Position.Y - Point.Y) <= Radius)
+						Preview.Structure = Actor;
+				};
+				for (ACommandBuilding* Building : State->Buildings)
+					Pick(Building, 3.);
+				Pick(State->FriendlyHeadquarters, 6.);
+				Pick(State->EnemyHeadquarters, 6.);
+			}
+		}
+		else if (!HUD || !HUD->IsPanelPoint(Position))
+		{
+			FHitResult Hit;
+			if (GetHitResultAtScreenPosition(Position, ECC_Visibility, false, Hit)
+				&& (Cast<ACommandBuilding>(Hit.GetActor()) || Cast<AHeadquarters>(Hit.GetActor()))
+				&& CombatTarget::IsAliveHostile(Hit.GetActor(), Commander ? Commander->TeamIndex : 0))
+				Preview.Structure = Hit.GetActor();
+			FVector RayOrigin, Direction;
+			if (DeprojectScreenPositionToWorld(Position.X, Position.Y, RayOrigin, Direction) && FMath::Abs(Direction.Z) >= KINDA_SMALL_NUMBER)
+			{
+				const double Time = -RayOrigin.Z / Direction.Z;
+				bGround = Time > 0. && FMath::IsFinite(Time);
+				if (bGround)
+					Location = RayOrigin + Direction * Time;
+			}
+		}
+		// A is explicitly a region order, including when the region contains a structure.
+		if (Context.bAttack || Forces.IsEmpty())
+			Preview.Structure = nullptr;
+		if (Preview.Structure)
+		{
+			Location = Preview.Structure->GetActorLocation();
+			bGround = true;
+		}
+		const AMapRegion* Region = bGround ? State->FindRegionAt(Location) : nullptr;
+		Preview.RegionIndex = Region ? Region->RegionIndex : INDEX_NONE;
+		Context.TargetRegion = Preview.RegionIndex;
+		Context.bHostileStructure = Preview.Structure != nullptr;
+	}
+	static_cast<FResult&>(Preview) = Resolve(Context);
+	return Preview;
+}
+
+void ACommandPlayerController::SendResolvedOrder(const FOrderInputPreview& Preview, bool bQueue)
+{
+	if (!Preview.IsAllowed())
+	{
+		SetCommandFeedback(Preview.Label(), false);
+		return;
+	}
+	if (Preview.Resolution == EResolution::Rally)
+	{
+		OrderCommands->ServerSetRallyPoint(SelectedBuilding, Preview.RegionIndex);
+		return;
+	}
+	TArray<AArmyGroup*> Forces;
+	Forces.Reserve(SelectedForces.Num());
+	for (AArmyGroup* Force : SelectedForces)
+		Forces.Add(Force);
+	bOrderPending = true;
+	SetFeedback(TEXT("Order sent; awaiting server."));
+	OrderCommands->ServerIssueForceOrder(Forces,
+		Preview.Resolution == EResolution::Attack ? EForceVerb::Attack : EForceVerb::MoveHold,
+		Preview.RegionIndex, Preview.Structure, bQueue);
+}
+
+bool ACommandPlayerController::HandleOrderClick(const FVector2D& Position, bool bQueue)
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return false;
+	if (bAssigningOrder || bPlacingBuilding || bBuildHotkeyPending || bSelectionDragging)
+	{
+		CancelPointerMode();
+		return true;
+	}
+	SendResolvedOrder(GetOrderPreview(Position, bQueue), bQueue);
+	return true;
+}
+
+void ACommandPlayerController::RightClickAtCursor()
+{
+	if (bAssigningOrder || bPlacingBuilding || bBuildHotkeyPending || bSelectionDragging)
+	{
+		CancelPointerMode();
+		return;
+	}
+	float X, Y;
+	if (GetMousePosition(X, Y))
+		HandleOrderClick(FVector2D(X, Y), IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+}
+
+void ACommandPlayerController::BeginForceAttack()
+{
+	if (GetUIScreen() != ECommandScreen::Game || !CanIssueGameplayCommand())
+		return;
+	if (bOrderPending || SelectedForces.IsEmpty())
+	{
+		SetCommandFeedback(bOrderPending ? TEXT("Waiting for order confirmation.") : TEXT("Select your forces first."), false);
+		return;
+	}
+	CancelMode();
+	bAssigningOrder = true;
+	PendingVerb = EForceVerb::Attack;
+	bHUDExpanded = false;
+	SetFeedback(TEXT("Attack: LMB a region on ground or minimap; Shift queues; RMB/Esc cancels."));
+}
+
+void ACommandPlayerController::ConfirmAttackAtScreenPosition(const FVector2D& Position, bool bQueue)
+{
+	if (bAssigningOrder)
+		SendResolvedOrder(GetOrderPreview(Position, bQueue), bQueue);
+}
+
+void ACommandPlayerController::RetreatSelectedForces(bool bQueue)
+{
+	if (GetUIScreen() != ECommandScreen::Game || !CanIssueGameplayCommand())
+		return;
+	if (bOrderPending || SelectedForces.IsEmpty())
+	{
+		SetCommandFeedback(bOrderPending ? TEXT("Waiting for order confirmation.") : TEXT("Select your forces first."), false);
+		return;
+	}
+	CancelMode();
+	TArray<AArmyGroup*> Forces;
+	Forces.Reserve(SelectedForces.Num());
+	for (AArmyGroup* Force : SelectedForces)
+		Forces.Add(Force);
+	bOrderPending = true;
+	SetFeedback(TEXT("Retreat sent; awaiting server."));
+	OrderCommands->ServerIssueForceOrder(Forces, EForceVerb::Retreat, INDEX_NONE, nullptr, bQueue);
+}
+
+void ACommandPlayerController::CompleteOrderInput(const FString& Message, bool bAccepted)
+{
+	if (bOrderPending)
+	{
+		bOrderPending = false;
+		if (bAccepted && bAssigningOrder)
+		{
+			bAssigningOrder = false;
+			bHUDExpanded = true;
+		}
+	}
+	SetCommandFeedback(Message, bAccepted);
+}
