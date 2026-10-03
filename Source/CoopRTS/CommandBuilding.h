@@ -11,6 +11,7 @@
 #include "CommandBuilding.generated.h"
 class ADepositSite;
 class AArmyGroup;
+class AMapRegion;
 class UBoxComponent;
 class UStaticMeshComponent;
 class UStaticMesh;
@@ -122,6 +123,7 @@ private:
 	bool ApplyResearch(EArmyDoctrine Choice);
 	bool ApplyProduction(int32 UnitIndex, bool bEnabled);
 	bool ApplyFront(EFrontOrder Order, const FVector& Location);
+	bool ApplyRegionFront(EFrontOrder Order, const AMapRegion& Region);
 	void CommitGoal(EForceGoal Goal, int32 RegionIndex, int32 Source, const uint64* Graph, int32 Count);
 	bool FindProductionExit(FVector& OutLocation, int32& Cursor) const;
 	FForceGoalDriver GoalDriver;

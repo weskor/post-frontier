@@ -5,6 +5,7 @@
 #include "CommandGameState.h"
 #include "Content/UnitDefinition.h"
 #include "Engine/World.h"
+#include "NavigationSystem.h"
 #include "MapRegion.h"
 #include "Commands/GoalGraph.h"
 
@@ -50,6 +51,38 @@ void ACommandBuilding::CommitGoal(EForceGoal Goal, int32 RegionIndex, int32 Sour
 		GoalDriver.Graph[Index] = Graph[Index];
 	TickGoal();
 	ForceNetUpdate();
+}
+
+bool ACommandBuilding::ApplyRegionFront(EFrontOrder Order, const AMapRegion& Region)
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const FVector Anchor = State->GetRegionAnchor(Region.RegionIndex);
+	if (ApplyFront(Order, Anchor))
+		return true;
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!Navigation)
+		return false;
+	// A structure can obstruct a formation slot even when the anchor is navigable.
+	// Region goals may move the centre within the existing anchor tolerance;
+	// precise point orders still reject obstructed formations atomically.
+	constexpr float Tolerance = 75.f;
+	constexpr float Diagonal = UE_INV_SQRT_2;
+	static const FVector2D Directions[] = {
+		{ 1.f, 0.f }, { -1.f, 0.f }, { 0.f, 1.f }, { 0.f, -1.f },
+		{ Diagonal, Diagonal }, { -Diagonal, Diagonal }, { Diagonal, -Diagonal }, { -Diagonal, -Diagonal }
+	};
+	for (const FVector2D& Direction : Directions)
+	{
+		const FVector Candidate = Anchor + FVector(Direction.X, Direction.Y, 0.f) * Tolerance;
+		FNavLocation Projected;
+		if (!Navigation->ProjectPointToNavigation(Candidate, Projected, FVector(Tolerance, Tolerance, 200.f))
+			|| FVector::DistSquared2D(Anchor, Projected.Location) > FMath::Square(Tolerance)
+			|| !Region.Contains(Projected.Location))
+			continue;
+		if (ApplyFront(Order, Projected.Location))
+			return true;
+	}
+	return false;
 }
 
 void ACommandBuilding::TickGoal()
@@ -166,14 +199,17 @@ void ACommandBuilding::TickGoal()
 		if (ForceGoal != EForceGoal::Hold)
 			Order = EFrontOrder::Secure;
 	}
-	if (!Region(*State, Waypoint))
+	const AMapRegion* WaypointRegion = Region(*State, Waypoint);
+	if (!WaypointRegion)
 		return;
 	GoalDriver.Waypoint = Waypoint;
 	// Wipes preserve this cache and the persistent group; replacement units inherit the front.
 	if (GoalDriver.AppliedWaypoint == Waypoint && GoalDriver.AppliedOrder == static_cast<uint8>(Order))
 		return;
-	const FVector Location = ForceGoal == EForceGoal::FallBack ? ForceGroup->GetHomeLocation() : State->GetRegionAnchor(Waypoint);
-	if (!ApplyFront(Order, Location))
+	const bool bAccepted = ForceGoal == EForceGoal::FallBack
+		? ApplyFront(Order, ForceGroup->GetHomeLocation())
+		: ApplyRegionFront(Order, *WaypointRegion);
+	if (!bAccepted)
 		return;
 	GoalDriver.bEnabled = true; // Internal front application must not disable the goal driver.
 	GoalDriver.AppliedWaypoint = Waypoint;

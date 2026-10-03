@@ -58,6 +58,7 @@ The two attack verbs have different rules on purpose, so players can tell them a
 - **Today [Built]:**
   - Auto-retreat exists for Assault only. It uses a Defend front and keeps firing, and resumes only at full strength.
   - Fall Back goes to the barracks and doesn't fire.
+  - Region-goal waypoints [Built] accept only complete formation paths. If a structure blocks a slot at the capture anchor, the centre may shift by at most 75 cm within that same region; precise point orders still reject obstructed formations.
 
 - **Fighting on the way:** both Move & Hold and Attack fight whatever they meet in range while travelling, which keeps them predictable.
 - **Order queue:** Shift-queue up to **3 orders**, e.g. *Attack Relay → Move & Hold West Cut*. The queue shows on the force card and the path line.

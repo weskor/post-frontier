@@ -81,8 +81,7 @@ public:
 			if (Production->FrontOrder == EFrontOrder::FallBack || Recovery->FrontOrder == EFrontOrder::FallBack
 				|| Production->GetGoalWaypointRegionIndex() == INDEX_NONE)
 				return Fail(TEXT("Naturally healed force must resume an accepted strategic region goal and front"));
-			Test->AddInfo(TEXT("Enemy proof: exact per-unit paid economy, real polygon capture/extractor, paid forward barracks construction, region expansion/nearest defense goals, JEV-only finite payments/depletion/freeing and producer-scoped natural repair recovery."));
-			return true;
+			return ObserveResumedTravel(State, World);
 		}
 		if (Stage == 0)
 		{
@@ -370,6 +369,29 @@ public:
 		return false;
 	}
 private:
+	bool ObserveResumedTravel(const ACommandGameState* State, const UWorld* World)
+	{
+		const int32 Waypoint = Production->GetGoalWaypointRegionIndex();
+		const AMapRegion* Region = State->FindRegionAt(Production->FrontLocation);
+		if (!Region || Region->RegionIndex != Waypoint
+			|| FVector::Dist2D(Production->FrontLocation, State->GetRegionAnchor(Waypoint)) > 75.f
+			|| Production->FrontOrder != Recovery->FrontOrder
+			|| !Production->FrontLocation.Equals(Recovery->FrontLocation, 1.f))
+			return Fail(TEXT("Resumed producer and force must agree on a navigable front within the actual region waypoint"));
+		const FVector Center = Recovery->GetCenter();
+		if (ResumeDeadline < 0.)
+		{
+			ResumeStart = Center;
+			ResumeTarget = Recovery->Destination;
+			ResumeDeadline = World->GetTimeSeconds() + 10.;
+		}
+		if (FVector::Dist2D(Center, ResumeTarget) > FVector::Dist2D(ResumeStart, ResumeTarget) - 100.f)
+			return World->GetTimeSeconds() >= ResumeDeadline
+				? Fail(TEXT("Healed JEV force must physically leave recovery and advance toward its resumed front"))
+				: false;
+		Test->AddInfo(TEXT("Enemy proof: exact paid economy, real capture/extractor, forward production, independent producer recovery and physical resumed strategic travel."));
+		return true;
+	}
 	bool Fail(const TCHAR* Message)
 	{
 		Test->AddError(Message);
@@ -405,6 +427,9 @@ private:
 	int32 HumanBalance = 0;
 	int32 EnemyBudget = 600;
 	double NextProgress = 0.;
+	FVector ResumeStart = FVector::ZeroVector;
+	FVector ResumeTarget = FVector::ZeroVector;
+	double ResumeDeadline = -1.;
 };
 bool FEnemyConstructionTest::RunTest(const FString&)
 {
