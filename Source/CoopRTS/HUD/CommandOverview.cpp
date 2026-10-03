@@ -86,7 +86,7 @@ static void DrawOverviewControls(const FPainter& Paint, const FRect& Controls)
 	Paint.DrawKey(Controls.X + Half, Y + 65.f, TEXT("Space"), TEXT("Alerts"));
 	Paint.Text(TEXT("Drag: box badges"), Controls.X, Y + 65.f, 9.f, Palette::Muted, false, EAlign::Left, Controls.W);
 	Paint.DrawKey(Controls.X + Half, Y + 85.f, TEXT("F4"), TEXT("Deck"));
-	Paint.Text(TEXT("Double-tap number: centre"), Controls.X, Y + 85.f, 8.f, Palette::Faint, false, EAlign::Left, Controls.W);
+	Paint.Text(TEXT("Number twice: centre"), Controls.X, Y + 85.f, 8.f, Palette::Faint, false, EAlign::Left, Controls.W);
 }
 
 void DrawOverview(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FRect& Inspector)

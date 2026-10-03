@@ -26,11 +26,11 @@ def start_and_starve(
     run: NetworkRun, capture: Capture, owner: int, barracks: int
 ) -> None:
     run.request("host", "income", paused=True)
-    run.request("host", "fund", owner=owner, amount=30)
     capture.hud(RECIPE_RANGED, "Ranged recipe")
-    capture.wait(
+    selected = capture.wait(
         lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated"
     )
+    run.request("host", "fund", owner=owner, amount=building(selected, barracks)["unitCost"])
     capture.hud(TOGGLE_PRODUCTION, "Start production")
     capture.wait(
         lambda s: (
@@ -78,11 +78,13 @@ def fill_force(
     run: NetworkRun, capture: Capture, owner: int, barracks: int, target: int
 ) -> tuple[JsonObject, int]:
     before_resume = building(capture.state(), barracks)
+    capacity = before_resume["capacity"]
     run.request(
         "host",
         "fund",
         owner=owner,
-        amount=(4 - before_resume["joined"] - before_resume["travelling"]) * 30,
+        amount=(capacity - before_resume["joined"] - before_resume["travelling"])
+        * before_resume["unitCost"],
     )
     capture.wait(
         lambda s: building(s, barracks)["productionState"] == "Producing",
@@ -101,15 +103,15 @@ def fill_force(
     capture.shot("barracks-recruit-travelling")
     state = capture.wait(
         lambda s: (
-            building(s, barracks)["joined"] == 4
+            building(s, barracks)["joined"] == capacity
             and building(s, barracks)["travelling"] == 0
             and force_counts_match(s, owner, barracks)
             and building(s, barracks)["productionState"] == "ForceComplete"
         ),
-        "four paid ranged units physically join and fill their own force",
+        "paid ranged units physically join and fill their own force",
     )
     require(
-        building(state, barracks)["capacity"] == 4
+        building(state, barracks)["capacity"] == capacity
         and wallet(state, owner)["wallet"] == 0,
         "ranged force capacity or single-unit payment mismatch",
     )
@@ -128,7 +130,7 @@ def fill_force(
         lambda s: (
             building(s, barracks)["enabled"]
             and building(s, barracks)["productionState"] == "ForceComplete"
-            and building(s, barracks)["joined"] == 4
+            and building(s, barracks)["joined"] == capacity
             and wallet(s, owner)["wallet"] == 0
         ),
         "enabled full force reports automatic capacity waiting, without charging",
@@ -144,6 +146,8 @@ def paid_replacement(
     squad: int,
     state: JsonObject,
 ) -> tuple[JsonObject, list[float]]:
+    recipe = building(state, barracks)
+    deficit = recipe["capacity"] - 1
     capture.hud(TOGGLE_PRODUCTION, "Pause full force before casualty")
     capture.wait(
         lambda s: building(s, barracks)["productionState"] == "Paused",
@@ -153,18 +157,18 @@ def paid_replacement(
     run.request("host", "kill", owner=owner, army=squad, slot=victim["slot"])
     capture.wait(
         lambda s: (
-            building(s, barracks)["joined"] == 3
+            building(s, barracks)["joined"] == deficit
             and building(s, barracks)["travelling"] == 0
         ),
         "real casualty creates force deficit",
     )
     capture.shot("barracks-casualty-deficit-paused")
-    run.request("host", "fund", owner=owner, amount=30)
+    run.request("host", "fund", owner=owner, amount=recipe["unitCost"])
     capture.hud(TOGGLE_PRODUCTION, "Resume automatic paid replacement")
     state = capture.wait(
         lambda s: (
             building(s, barracks)["travelling"] == 1
-            and building(s, barracks)["joined"] == 3
+            and building(s, barracks)["joined"] == deficit
             and wallet(s, owner)["wallet"] == 0
             and force_counts_match(s, owner, barracks)
         ),
@@ -210,7 +214,7 @@ def retarget_replacement(
     )
     capture.wait(
         lambda s: (
-            building(s, barracks)["joined"] == 4
+            building(s, barracks)["joined"] == building(s, barracks)["capacity"]
             and building(s, barracks)["travelling"] == 0
             and force_counts_match(s, owner, barracks)
         ),
@@ -223,7 +227,7 @@ def retarget_replacement(
         "force paused for presentation checks",
     )
     run.phase(
-        "permanent type, partial pause, starvation, four-unit force, real casualty and paid physical replacement"
+        "permanent type, partial pause, starvation, full force, real casualty and paid physical replacement"
     )
     roster = [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner]
     for key in ("Tab", "Q", "H", "R"):
