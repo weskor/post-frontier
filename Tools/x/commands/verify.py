@@ -8,7 +8,7 @@ import sys
 from types import ModuleType
 
 from x.building import ensure_editor
-from x.context import Context
+from x.context import HEADLESS_UNREAL_ENV, Context
 from x.verifying.artifacts import package_snapshot
 from x.verifying.cleanup import cleanup
 from x.verifying.sessions import lease
@@ -168,7 +168,11 @@ def execute(args: argparse.Namespace, ctx: Context, folder: Path) -> int:
         code = ctx.exec(
             [sys.executable, script, *argv],
             log=f"verify-{args.harness}",
-            env={"PYTHONPATH": str(ctx.repo / "Tools"), "X_HARNESS_DIR": str(folder)},
+            env={
+                **HEADLESS_UNREAL_ENV,
+                "PYTHONPATH": str(ctx.repo / "Tools"),
+                "X_HARNESS_DIR": str(folder),
+            },
         )
     finally:
         action = getattr(args, "command", getattr(args, "action", ""))

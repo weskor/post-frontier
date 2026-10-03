@@ -8,7 +8,7 @@ import re
 import time
 
 from x.building import editor_module, ensure_editor
-from x.context import Context
+from x.context import HEADLESS_UNREAL_ENV, Context
 from x.process import CANCELLED
 from x.scopes import Scope, ScopeMap, load
 
@@ -90,6 +90,7 @@ def _automation(
                 "-stdout",
             ],
             log=f"{name}-stdout",
+            env=HEADLESS_UNREAL_ENV,
             watch=log,
         )
         inputs_after = ctx.freshness.current_hash("editor")

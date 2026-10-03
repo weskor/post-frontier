@@ -6,7 +6,7 @@ import sys
 from x.building import ensure_editor
 from x.content import simulation
 from x.content.packages import latest_package
-from x.context import Context
+from x.context import HEADLESS_UNREAL_ENV, Context
 
 NAME = "sim"
 SUMMARY = (
@@ -51,7 +51,7 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
             *sys.argv[2:],
         ],
         log="simulation",
-        env={"PYTHONPATH": str(ctx.repo / "Tools")},
+        env={**HEADLESS_UNREAL_ENV, "PYTHONPATH": str(ctx.repo / "Tools")},
         stall_seconds=max(ctx.settings.stall_seconds, args.stall_seconds + 30),
     )
     ctx.run.add_artifact(ctx.run.dir / "Report.md", "simulation report")

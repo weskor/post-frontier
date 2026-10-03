@@ -1,6 +1,6 @@
 """Scope overrides must launch and require the selected world, not a fallback."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
@@ -42,7 +42,12 @@ def automation_context(
     )
 
     def observe(
-        self: Context, argv: Sequence[str | Path], *, log: str, watch: Path
+        self: Context,
+        argv: Sequence[str | Path],
+        *,
+        log: str,
+        watch: Path,
+        env: Mapping[str, str] | None = None,
     ) -> int:
         world = observations[watch.stem]
         watch.write_text(

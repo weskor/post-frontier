@@ -5,7 +5,7 @@ import argparse
 from x.building import ensure_editor
 from x.content.generating import invocation
 from x.content.registry import BY_NAME, GENERATORS
-from x.context import Context
+from x.context import HEADLESS_UNREAL_ENV, Context
 
 NAME = "gen"
 SUMMARY = "List or run content generators, importers and asset tools."
@@ -65,7 +65,9 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     if entry.runtime != "unreal":
         return ctx.exec(invocation(entry, ctx, extra), log="generate")
     with ctx.locks.module(), ctx.locks.headless():
-        code = ctx.exec(invocation(entry, ctx, extra), log="generate")
+        code = ctx.exec(
+            invocation(entry, ctx, extra), log="generate", env=HEADLESS_UNREAL_ENV
+        )
         if ctx.run is not None:
             text = (ctx.run.dir / "unreal.log").read_text()
             ok = (

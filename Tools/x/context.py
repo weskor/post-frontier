@@ -11,6 +11,13 @@ from x.process import execute
 from x.runs import Run
 from x.settings import Settings
 
+# Every editor-hosted process otherwise starts `UnrealBuildTool -Mode=ValidatePlatforms`
+# at boot. Concurrent UBT processes race on rotating the shared
+# ~/.config/Epic/UnrealBuildTool/Trace.uba and abort (FileNotFoundException),
+# which also broke editor builds. Headless runs never need platform SDK status;
+# packaging and the GUI editor keep the default.
+HEADLESS_UNREAL_ENV = {"UE_SKIP_UBT_SDK_SETUP": "1"}
+
 
 @dataclass
 class Context:
