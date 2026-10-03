@@ -72,8 +72,10 @@ public:
 	void RetreatSelectedForces(bool bQueue = false);
 	bool HandleOrderClick(const FVector2D& Position, bool bQueue = false);
 	void ConfirmAttackAtScreenPosition(const FVector2D& Position, bool bQueue = false);
+	// Call only for minimap/world points, after HUD actions and force cards have consumed their clicks.
+	bool HandleAttackTargetClick(const FVector2D& Position);
 	FOrderInputPreview GetOrderPreview(const FVector2D& Position, bool bQueue = false) const;
-	void CompleteOrderInput(const FString& Message, bool bAccepted);
+	void CompleteOrderInput(const FString& Message, bool bAccepted, uint32 AttackInputId);
 	// Left-click entry points shared by real input and the Development verification probe.
 	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
@@ -135,7 +137,7 @@ private:
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;
 	bool bAssigningOrder = false;
-	bool bOrderPending = false;
+	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;
 	bool bPlacementCancelled = false;
@@ -159,6 +161,7 @@ private:
 	void PanBackward();
 	void PanLeft();
 	void PanRight();
+	FVector2D GetEdgePanAxis() const;
 	void ZoomIn();
 	void ZoomOut();
 	void SelectUnderCursor();
@@ -182,7 +185,6 @@ private:
 	bool CursorHit(FHitResult& Hit) const;
 	bool HandleScreenAction(EHUDAction Action);
 	bool CursorGround(FVector& Location) const;
-	const AMapRegion* CursorOrderRegion() const;
 	void RightClickAtCursor();
 	void SendResolvedOrder(const FOrderInputPreview& Preview, bool bQueue);
 	void ResetLocalMatchView();

@@ -15,11 +15,13 @@ from harness.network import (
     order_matches,
     require,
     select_order_region,
+    wallet,
 )
 
 
 def cancel_orders(capture: Capture, barracks: int) -> None:
     capture.select_force(barracks)
+    panel_actions_during_attack(capture, barracks)
     for cancellation in ("Escape", "right-click"):
         before = building(capture.state(), barracks)
         capture.begin_attack()
@@ -30,7 +32,8 @@ def cancel_orders(capture: Capture, barracks: int) -> None:
             x, y = minimap_region_point(capture.state(), before["targetRegionIndex"])
             capture.run.request("host", "orderClick", x=x, y=y)
         cancelled = capture.wait(
-            lambda s: not s["assigningOrder"], f"{cancellation} cancels pending A"
+            lambda s: not s["assigningOrder"] and s["hudExpanded"],
+            f"{cancellation} cancels pending A and restores the deck",
         )
         require(
             order_matches(
@@ -38,6 +41,50 @@ def cancel_orders(capture: Capture, barracks: int) -> None:
             ),
             "cancelling A mutated the selected force's existing order",
         )
+
+
+def panel_actions_during_attack(capture: Capture, barracks: int) -> None:
+    before = building(capture.state(), barracks)
+    capture.begin_attack()
+    capture.hud(43, "Pause stays usable during A targeting")
+    capture.wait(
+        lambda s: s["activePaused"] and s["assigningOrder"] and not s["hudExpanded"],
+        "Pause dispatches without consuming the Attack target",
+    )
+    capture.hud(43, "Resume stays usable during A targeting")
+    capture.wait(
+        lambda s: not s["activePaused"] and s["assigningOrder"],
+        "Resume dispatches without consuming the Attack target",
+    )
+    screen = capture.state()["uiScreen"]
+    capture.hud(33, "MENU stays usable during A targeting")
+    capture.wait(
+        lambda s: s["uiScreen"] != screen and not s["assigningOrder"]
+        and s["hudExpanded"],
+        "MENU opens and cancels A, restoring the deck",
+    )
+    capture.hud(23, "Resume the game after the targeting MENU regression")
+    capture.wait(lambda s: s["uiScreen"] == screen, "MENU resumes the game")
+    capture.begin_attack()
+    state = capture.state()
+    owner = state["localIndex"]
+    budget = wallet(state, owner)["wallet"]
+    capture.run.request("host", "fund", owner=owner, amount=220)
+    capture.hud(1, "Construction build choice stays usable during A targeting")
+    capture.wait(
+        lambda s: s["placing"] and not s["assigningOrder"] and not s["hudExpanded"],
+        "Construction build choice replaces A with placement",
+    )
+    capture.key("Escape")
+    restored = capture.wait(
+        lambda s: not s["placing"] and not s["assigningOrder"] and s["hudExpanded"],
+        "Cancelling construction restores the deck",
+    )
+    capture.run.request("host", "fund", owner=owner, amount=budget)
+    require(
+        order_matches(restored, barracks, before["forceVerb"], before["targetRegionIndex"]),
+        "panel actions during A mutated the selected force's order",
+    )
 
 
 def assign_orders(capture: Capture, barracks: int) -> int:
@@ -95,8 +142,17 @@ def smart_previews(capture: Capture, barracks: int, target: int) -> None:
 
 def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
     capture.begin_attack()
-    x, y = capture.state()["viewportWidth"] / 2, 10
-    preview = capture.preview(x, y)
+    state = capture.state()
+    origin, size = state["minimapOrigin"], state["minimapSize"]
+    # Arena corners lie outside the playable regions; resolve an actual map
+    # point, never a HUD panel that must continue dispatching its own action.
+    for horizontal, vertical in ((0.01, 0.01), (0.99, 0.01), (0.01, 0.99), (0.99, 0.99)):
+        x, y = origin[0] + size * horizontal, origin[1] + size * vertical
+        preview = capture.preview(x, y)
+        if not preview["allowed"]:
+            break
+    else:
+        raise AssertionError("fixture has no invalid minimap corner for rejected A")
     require(
         not preview["allowed"]
         and preview["resolution"] == 0
@@ -106,11 +162,12 @@ def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
     )
     capture.shot("cursor-preview-rejected-with-reason")
     before = building(capture.state(), barracks)
-    capture.run.request("host", "confirmAttack", x=x, y=y)
+    capture.run.request("host", "hudClick", x=x, y=y)
     rejected = capture.wait(
         lambda s: (
             s["assigningOrder"]
             and s["pendingVerb"] == ATTACK
+            and not s["hudExpanded"]
             and bool(s["orderFeedback"])
             and s["feedbackOpacity"] > 0
         ),

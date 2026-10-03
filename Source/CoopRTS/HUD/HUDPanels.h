@@ -36,7 +36,6 @@ void ForEachForceBadge(const FPainter& Paint, const FContext& Context, const FLa
 void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FButton&)> Visit);
 EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint);
 const TCHAR* OrderTitle(EForceVerb Verb);
-const TCHAR* OrderPurpose(EForceVerb Verb);
 FLinearColor OrderColor(EForceVerb Verb);
 const TCHAR* ForceStatusTitle(EForceStatus Status);
 const TCHAR* ResearchName(EArmyDoctrine Doctrine);

@@ -42,8 +42,6 @@ enum class EHUDAction : uint8
 	Restart = 34,
 	HostCoop = 35,
 	InviteFriends = 36,
-	OrderAttack = 38,
-	OrderRetreat = 39,
 	MapV2 = 41,
 	MapClassic = 42,
 	ActivePause = 43,

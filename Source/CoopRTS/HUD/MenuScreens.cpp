@@ -119,7 +119,7 @@ static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 	DrawScreenLine(Paint, Panel, TEXT("Click badge/unit: force. Building: production; double-click: force."), 6, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Shift-click: toggle. Drag box: badges. 1-4 (solo 1-5): force."), 7);
 	DrawScreenLine(Paint, Panel, TEXT("F or double-tap number: centre. Space: latest / older alert."), 8);
-	DrawScreenLine(Paint, Panel, TEXT("Arrows/middle drag: pan. Wheel: zoom. F4: deck. Esc: cancel/menu."), 9);
+	DrawScreenLine(Paint, Panel, TEXT("Arrows/edge/middle drag: pan. Wheel: zoom. F4: deck. Esc: cancel/menu."), 9);
 	DrawScreenLine(Paint, Panel, TEXT("A then region: Attack. R: Retreat. Shift: queue. Building + RMB: rally."), 10, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("G: ping ground / minimap; teammate force: Need help here."), 11, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 12, Palette::Muted);

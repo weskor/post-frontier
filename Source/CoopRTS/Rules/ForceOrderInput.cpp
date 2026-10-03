@@ -19,8 +19,6 @@ const TCHAR* FResult::Label() const
 		return TEXT("Not allowed: three orders maximum, including the active order.");
 	case ERejection::Unreachable:
 		return TEXT("Not allowed: region is unreachable.");
-	case ERejection::Pending:
-		return TEXT("Waiting for order confirmation.");
 	case ERejection::None:
 		break;
 	}

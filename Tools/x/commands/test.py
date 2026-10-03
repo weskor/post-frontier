@@ -39,8 +39,10 @@ Proof limits:
   they cannot prove actors, navigation, replication, rendering or native input.
 - World assertions can exercise real actors/navigation/payment/arrival, only
   where asserted. Controlled fixtures are not an unaided new-match playthrough;
-  a second controller in one world is not a remote client. Rendered scopes prove
-  only asserted input/hit geometry; captures must be inspected for visual claims.
+  a second controller in one world is not a remote client.
+  Standalone Success cannot prove client ownership, replication, hit testing or presentation.
+  Rendered scopes prove only asserted input/hit geometry; captures must be
+  inspected for visual claims, and do not establish client ownership or replication.
 
 Automation requires the requested map to start, at least one completed test
 under the requested filter, every matching result Success, zero process exit

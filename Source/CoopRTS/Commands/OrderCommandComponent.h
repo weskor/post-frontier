@@ -12,7 +12,7 @@ class COOPRTS_API UOrderCommandComponent : public UActorComponent
 public:
 	UOrderCommandComponent();
 	UFUNCTION(Server, Reliable)
-	void ServerIssueForceOrder(const TArray<AArmyGroup*>& Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue);
+	void ServerIssueForceOrder(const TArray<AArmyGroup*>& Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue, uint32 AttackInputId);
 	UFUNCTION(Server, Reliable)
 	void ServerSetRetreatThreshold(const TArray<AArmyGroup*>& Forces, ERetreatThreshold Threshold);
 	UFUNCTION(Server, Reliable)
@@ -20,5 +20,5 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
 	UFUNCTION(Client, Reliable)
-	void ClientForceOrderFeedback(const FString& Message, bool bAccepted);
+	void ClientForceOrderFeedback(const FString& Message, bool bAccepted, uint32 AttackInputId);
 };

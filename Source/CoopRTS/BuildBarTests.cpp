@@ -81,7 +81,7 @@ public:
 			Key(PC, EKeys::F1);
 			Check(!PC->IsBuildHotkeyPending(), TEXT("Any non-grid key ends the build prefix"));
 			Key(PC, EKeys::W);
-			Check(!PC->IsPlacingBuilding(), TEXT("W after a non-grid key remains a camera key"));
+			Check(!PC->IsPlacingBuilding(), TEXT("W after a non-grid key does not place a building"));
 			Key(PC, EKeys::W, IE_Released);
 			ACommandCamera* Camera = Cast<ACommandCamera>(PC->GetPawn());
 			if (!Check(IsValid(Camera), TEXT("Local commander has a camera")))
@@ -226,9 +226,11 @@ public:
 			PC->BeginForceAttack();
 			Deferred.Building->OwningPlayerState = Wallet;
 			PC->PlayerTick(0.f);
-			Check(PC->IsForceSelected(First->ForceGroup) && !PC->GetSelectedBuilding() && PC->IsAssigningOrder(),
-				TEXT("Ownership arrival cannot retarget selected forces during Attack targeting"));
+			Check(PC->IsForceSelected(First->ForceGroup) && !PC->GetSelectedBuilding()
+					&& PC->IsAssigningOrder() && !PC->IsHUDExpanded(),
+				TEXT("Ownership arrival cannot retarget selected forces during Attack targeting or reopen the deck"));
 			PC->CancelMode();
+			Check(!PC->IsAssigningOrder() && PC->IsHUDExpanded(), TEXT("Cancelling Attack targeting restores the deck"));
 			CheckDeferredForceSelection(PC, Wallet, Deferred.Building, First->ForceGroup);
 			Wallet->Resources = 0;
 			Key(PC, EKeys::B);

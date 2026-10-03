@@ -119,7 +119,6 @@ enum class EBlock : uint8
 	Terminal,
 	Funds,
 	ForceLocked,
-	ForceUnconfigured,
 	Chosen,
 	ForceCap
 };

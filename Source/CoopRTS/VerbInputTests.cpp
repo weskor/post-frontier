@@ -11,6 +11,7 @@
 #include "HAL/PlatformTime.h"
 #include "InputKeyEventArgs.h"
 #include "InputCoreTypes.h"
+#include "UnrealClient.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVerbInputWorldTest, "CoopRTS.Input.Verbs",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -50,6 +51,7 @@ public:
 				return false;
 			if (!Setup(World))
 				return true;
+			bRestoreCursor = PC->GetMousePosition(OriginalMouseX, OriginalMouseY);
 			SelectBoth();
 			Camera->FocusOn(State->GetRegionAnchor(Target));
 			++Stage;
@@ -87,8 +89,9 @@ public:
 		}
 		case 3:
 			Key(EKeys::A, IE_Released);
-			if (!Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack, TEXT("Real A key enters selected-force Attack mode"))
-				|| !ConfirmAttack(false))
+			if (!Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack && !PC->IsHUDExpanded(),
+					TEXT("Real A key enters selected-force Attack mode and collapses the deck"))
+				|| !ExerciseAttackPanels() || !ConfirmMinimapAttack())
 				return true;
 			Key(EKeys::R, IE_Pressed);
 			++Stage;
@@ -106,7 +109,7 @@ public:
 			break;
 		case 5:
 			Key(EKeys::A, IE_Released);
-			if (!Check(PC->IsAssigningOrder(), TEXT("A can reopen targeting after Retreat")))
+			if (!Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("A can reopen targeting after Retreat with the deck collapsed")))
 				return true;
 			SaveSerials();
 			Key(EKeys::Escape, IE_Pressed);
@@ -114,22 +117,23 @@ public:
 			break;
 		case 6:
 			Key(EKeys::Escape, IE_Released);
-			if (!Check(!PC->IsAssigningOrder() && PC->GetUIScreen() == ECommandScreen::Game && Unchanged(),
-					TEXT("Real Esc cancels A without ordering or opening pause")))
+			if (!Check(!PC->IsAssigningOrder() && PC->IsHUDExpanded() && PC->GetUIScreen() == ECommandScreen::Game && Unchanged(),
+					TEXT("Real Esc cancels A without ordering or opening pause and restores the deck")))
 				return true;
 			Key(EKeys::A, IE_Pressed);
 			++Stage;
 			break;
 		case 7:
 			Key(EKeys::A, IE_Released);
-			if (!Check(PC->IsAssigningOrder(), TEXT("A reopens targeting before right-click cancellation")))
+			if (!Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("A reopens targeting before right-click cancellation with the deck collapsed")))
 				return true;
 			Key(EKeys::RightMouseButton, IE_Pressed);
 			++Stage;
 			break;
 		case 8:
 			Key(EKeys::RightMouseButton, IE_Released);
-			if (!Check(!PC->IsAssigningOrder() && Unchanged(), TEXT("Real right-click cancels A without giving a smart order"))
+			if (!Check(!PC->IsAssigningOrder() && PC->IsHUDExpanded() && Unchanged(),
+					TEXT("Real right-click cancels A without giving a smart order and restores the deck"))
 				|| !Submit(Minimap(State->GetRegionAnchor(Target)), ForceOrderInput::EResolution::MoveHold, EForceVerb::MoveHold, Target))
 				return true;
 			Key(EKeys::LeftShift, IE_Pressed);
@@ -162,22 +166,89 @@ public:
 		}
 		case 10: {
 			Key(EKeys::A, IE_Released);
-			if (!Check(PC->IsAssigningOrder(), TEXT("A opens even when the existing queue is full")))
+			if (!Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("A opens with the deck collapsed even when the existing queue is full")))
 				return true;
 			const FVector2D Point = Minimap(State->GetRegionAnchor(Target));
 			const FOrderInputPreview Preview = PC->GetOrderPreview(Point, true);
 			if (!Rejection(Preview))
 				return true;
-			PC->ConfirmAttackAtScreenPosition(Point, true);
-			if (!RejectedUnchanged(Preview) || !Check(PC->IsAssigningOrder(), TEXT("Rejected A keeps Attack mode open")))
+			if (!Check(PC->HandleHUDClick(Point), TEXT("Real minimap HUD click consumes rejected A target"))
+				|| !RejectedUnchanged(Preview)
+				|| !Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("Rejected A keeps Attack mode open and the deck collapsed")))
 				return true;
 			Key(EKeys::LeftShift, IE_Released);
-			if (!ConfirmAttack(false) || !ExerciseRallyAndBox())
+			++Stage;
+			break;
+		}
+		case 11: {
+			if (!Check(!PC->IsInputKeyDown(EKeys::LeftShift), TEXT("Shift release reaches the input state before unshifted confirmation"))
+				|| !ConfirmMinimapAttack())
+				return true;
+			Camera->FocusOn(State->GetRegionAnchor(Target));
+			Key(EKeys::A, IE_Pressed);
+			++Stage;
+			break;
+		}
+		case 12: {
+			Key(EKeys::A, IE_Released);
+			FVector2D Ground;
+			if (!Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("A opens ground targeting with the deck collapsed"))
+				|| !Check(PC->ProjectWorldLocationToScreen(State->GetRegionAnchor(Target), Ground) && !HUD->IsPanelPoint(Ground),
+					TEXT("Attack region projects onto the uncovered ground viewport")))
+				return true;
+			PC->SetMouseLocation(FMath::RoundToInt(Ground.X), FMath::RoundToInt(Ground.Y));
+			float X, Y;
+			if (!Check(PC->GetMousePosition(X, Y), TEXT("Native ground click has a viewport cursor"))
+				|| !AttackPreview(FVector2D(X, Y), false))
+				return true;
+			SaveSerials();
+			Key(EKeys::LeftMouseButton, IE_Pressed);
+			++Stage;
+			break;
+		}
+		case 13:
+			Key(EKeys::LeftMouseButton, IE_Released);
+			if (!Check(!Unchanged(), TEXT("Native LMB through the controller selection path submits the ground Attack"))
+				|| !OrdersMatch(EForceVerb::Attack, Target, nullptr, false)
+				|| !Check(!PC->IsAssigningOrder() && PC->IsHUDExpanded(), TEXT("Accepted native ground A ends targeting and restores the deck"))
+				|| !ExerciseMinimapRally())
+				return true;
+			++Stage;
+			break;
+		case 14:
+			if (!ExerciseGroundRallyAndBox())
 				return true;
 			PC->SelectActor(nullptr);
-			Test->AddInfo(TEXT("Verb input: ground/minimap smart orders, multi-force region and hostile structure targets, A/R/Esc/right-click keys, Shift bounded queue, preview/order agreement, rejection retention and explanation, producer rally and selection-only drag."));
-			return true;
-		}
+			Camera->FocusOn(FVector::ZeroVector);
+			CenterCursor();
+			CameraBefore = Camera->GetActorLocation();
+			Key(EKeys::Up, IE_Pressed);
+			++Stage;
+			break;
+		case 15:
+			Key(EKeys::Up, IE_Released);
+			if (!Check(Camera->GetActorLocation().X > CameraBefore.X + 1.,
+					TEXT("Native Up arrow moves the camera forward through its input binding")))
+				return true;
+			if (!BeginEdgePan())
+				return Finish();
+			++Stage;
+			break;
+		case 16:
+			if (!FocusedViewport())
+			{
+				Test->AddInfo(TEXT("Edge-pan movement proof unavailable: native viewport focus was lost."));
+				return Finish();
+			}
+			if (ArmyTestSetup::GameSeconds(World) - EdgePanStarted < .05)
+				return false;
+			if (!Check(Camera->GetActorLocation().X < CameraBefore.X - 1.,
+					bEdgeOverPanel ? TEXT("Focused viewport bottom edge pans the camera over a HUD panel")
+								   : TEXT("Focused viewport bottom edge pans the camera")))
+				return true;
+			Test->AddInfo(bEdgeOverPanel ? TEXT("Edge-pan movement observed with native viewport focus over a HUD panel.")
+										: TEXT("Edge-pan movement observed with native viewport focus; HUD panels do not intersect this viewport's edge band."));
+			return Finish();
 		}
 		return false;
 	}
@@ -190,12 +261,12 @@ private:
 			Test->AddError(Message);
 			bFailed = true;
 		}
+		if (!Value)
+			RestoreInput();
 		return Value;
 	}
 	bool Fail(const TCHAR* Message)
 	{
-		for (const FKey& Value : { EKeys::A, EKeys::R, EKeys::Escape, EKeys::RightMouseButton, EKeys::LeftShift })
-			Key(Value, IE_Released);
 		Check(false, Message);
 		return true;
 	}
@@ -207,6 +278,52 @@ private:
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
 				Value, Event, FPlatformTime::Cycles64()));
 		}
+	}
+	void RestoreInput()
+	{
+		for (const FKey& Value : { EKeys::A, EKeys::R, EKeys::Escape, EKeys::RightMouseButton,
+				 EKeys::LeftMouseButton, EKeys::LeftShift, EKeys::Up })
+			Key(Value, IE_Released);
+		if (IsValid(PC) && bRestoreCursor)
+			PC->SetMouseLocation(FMath::RoundToInt(OriginalMouseX), FMath::RoundToInt(OriginalMouseY));
+	}
+	bool Finish()
+	{
+		RestoreInput();
+		Test->AddInfo(TEXT("Verb input: ground/minimap smart orders, multi-force region and hostile structure targets, real minimap HUD and native ground LMB A routing, Pause/Menu panel interactions, targeting/acceptance/cancellation deck state, A/R/Esc/right-click keys, Shift bounded queue, preview/order agreement, rejection retention and explanation, minimap and ground producer rally, selection-only drag and native arrow camera movement."));
+		return true;
+	}
+	void CenterCursor()
+	{
+		int32 Width = 0, Height = 0;
+		PC->GetViewportSize(Width, Height);
+		PC->SetMouseLocation(Width / 2, Height / 2);
+	}
+	FViewport* FocusedViewport() const
+	{
+		UGameViewportClient* Client = PC->GetWorld()->GetGameViewport();
+		FViewport* Viewport = Client ? Client->Viewport : nullptr;
+		return Viewport && Viewport->HasFocus() && Viewport->IsForegroundWindow() ? Viewport : nullptr;
+	}
+	bool BeginEdgePan()
+	{
+		if (!FocusedViewport())
+		{
+			Test->AddInfo(TEXT("Edge-pan movement proof unavailable: viewport lacks native focus/foreground (offscreen runs do not establish native focus)."));
+			return false;
+		}
+		int32 Width = 0, Height = 0;
+		PC->GetViewportSize(Width, Height);
+		PC->SetMouseLocation(Width / 2, Height - 8);
+		float X, Y;
+		if (!Check(PC->GetMousePosition(X, Y) && X >= 0.f && X < Width && Y >= Height - 8 && Y < Height,
+				TEXT("Focused native viewport cursor reaches the inclusive bottom edge band")))
+			return false;
+		bEdgeOverPanel = HUD->IsPanelPoint(FVector2D(X, Y));
+		Camera->FocusOn(FVector::ZeroVector);
+		CameraBefore = Camera->GetActorLocation();
+		EdgePanStarted = ArmyTestSetup::GameSeconds(PC->GetWorld());
+		return true;
 	}
 	void SelectBoth()
 	{
@@ -268,17 +385,54 @@ private:
 			&& Check(PC->HandleOrderClick(Point, bQueue), TEXT("Shared smart right-click entry consumes the order"))
 			&& OrdersMatch(Verb, Region, Structure, bQueue);
 	}
-	bool ConfirmAttack(bool bQueue)
+	bool ClickPanel(EHUDAction Action)
+	{
+		FVector2D Point;
+		return Check(HUD->FindActionScreenPosition(Action, Point), TEXT("Regression panel action has a visible HUD hit target"))
+			&& Check(PC->HandleHUDClick(Point), TEXT("Real HUD click dispatches the panel action during A"));
+	}
+	bool ExerciseAttackPanels()
+	{
+		SaveSerials();
+		PC->CompleteOrderInput(TEXT("Earlier non-targeting order accepted."), true, 0);
+		if (!Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded() && Unchanged(),
+				TEXT("A late non-targeting acknowledgement cannot close A or reopen its deck")))
+			return false;
+		if (!Check(!State->IsActivePaused(), TEXT("Panel regression begins with the simulation running"))
+			|| !ClickPanel(EHUDAction::ActivePause)
+			|| !Check(State->IsActivePaused() && PC->GetWorld()->IsPaused()
+					&& PC->IsAssigningOrder() && !PC->IsHUDExpanded() && Unchanged(),
+				TEXT("Pause panel pauses simulation while preserving A targeting and collapsed deck without ordering"))
+			|| !ClickPanel(EHUDAction::Menu)
+			|| !Check(PC->GetUIScreen() == ECommandScreen::Pause && !PC->IsAssigningOrder()
+					&& PC->IsHUDExpanded() && State->IsActivePaused() && Unchanged(),
+				TEXT("Menu panel cancels A and restores the deck without changing active pause or force orders"))
+			|| !ClickPanel(EHUDAction::Resume)
+			|| !Check(PC->GetUIScreen() == ECommandScreen::Game && State->IsActivePaused() && PC->GetWorld()->IsPaused(),
+				TEXT("Closing the menu does not resume a separately active-paused simulation")))
+			return false;
+		Key(EKeys::A, IE_Pressed);
+		Key(EKeys::A, IE_Released);
+		return Check(PC->IsAssigningOrder() && !PC->IsHUDExpanded(), TEXT("A reopens while actively paused"))
+			&& ClickPanel(EHUDAction::ActivePause)
+			&& Check(!State->IsActivePaused() && !PC->GetWorld()->IsPaused()
+					&& PC->IsAssigningOrder() && !PC->IsHUDExpanded() && Unchanged(),
+				TEXT("Pause panel resumes simulation while preserving A targeting and force orders"));
+	}
+	bool AttackPreview(const FVector2D& Point, bool bQueue)
+	{
+		const FOrderInputPreview Preview = PC->GetOrderPreview(Point, bQueue);
+		return Check(Preview.IsAllowed() && Preview.Resolution == ForceOrderInput::EResolution::Attack
+					&& Preview.RegionIndex == Target && !Preview.Structure,
+				TEXT("Pending A previews Attack on a region rather than smart MoveHold"));
+	}
+	bool ConfirmMinimapAttack()
 	{
 		const FVector2D Point = Minimap(State->GetRegionAnchor(Target));
-		const FOrderInputPreview Preview = PC->GetOrderPreview(Point, bQueue);
-		if (!Check(Preview.IsAllowed() && Preview.Resolution == ForceOrderInput::EResolution::Attack
-					&& Preview.RegionIndex == Target && !Preview.Structure,
-				TEXT("Pending A previews Attack on a region rather than smart MoveHold")))
-			return false;
-		PC->ConfirmAttackAtScreenPosition(Point, bQueue);
-		return OrdersMatch(EForceVerb::Attack, Target, nullptr, bQueue)
-			&& Check(!PC->IsAssigningOrder(), TEXT("Accepted A ends targeting mode"));
+		return AttackPreview(Point, false)
+			&& Check(PC->HandleHUDClick(Point), TEXT("Real minimap HUD click confirms pending A"))
+			&& OrdersMatch(EForceVerb::Attack, Target, nullptr, false)
+			&& Check(!PC->IsAssigningOrder() && PC->IsHUDExpanded(), TEXT("Accepted minimap A ends targeting and restores the deck"));
 	}
 	ACommandBuilding* Building(UWorld* World, ACommandPlayerState* Owner, const FVector& Location)
 	{
@@ -357,18 +511,46 @@ private:
 		}
 		return true;
 	}
-	bool ExerciseRallyAndBox()
+	bool ExerciseMinimapRally()
 	{
 		SaveSerials();
 		PC->SelectActorWithModifiers(Producer, false, false);
-		const FVector2D Point = Minimap(State->GetRegionAnchor(Target));
+		const FVector2D Point = Minimap(HostileRegionPoint);
 		const FOrderInputPreview Preview = PC->GetOrderPreview(Point);
 		if (!Check(PC->GetSelectedForces().IsEmpty() && PC->GetSelectedBuilding() == Producer
 					&& Preview.IsAllowed() && Preview.Resolution == ForceOrderInput::EResolution::Rally
-					&& Preview.RegionIndex == Target,
-				TEXT("Producer without selected forces previews region rally"))
-			|| !Check(PC->HandleOrderClick(Point) && Producer->RallyRegionIndex == Target && Unchanged(),
-				TEXT("Producer right-click sets rally without ordering existing forces")))
+					&& Preview.RegionIndex == EnemyHome,
+				TEXT("Producer without selected forces previews minimap region rally"))
+			|| !Check(PC->HandleOrderClick(Point) && Producer->RallyRegionIndex == EnemyHome && Unchanged(),
+				TEXT("Producer minimap right-click sets rally without ordering existing forces")))
+			return false;
+		Camera->FocusOn(State->GetRegionAnchor(Target));
+		return true;
+	}
+	bool ExerciseGroundRallyAndBox()
+	{
+		FVector2D Ground = FVector2D::ZeroVector;
+		bool bFound = false;
+		for (int32 Index = 0; Index < 16; ++Index)
+		{
+			const float Angle = Index * PI / 8.f;
+			const FVector Location = State->GetRegionAnchor(Target)
+				+ FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * 350.f;
+			if (RegionAt(State, Location) == Target && PC->ProjectWorldLocationToScreen(Location, Ground)
+				&& !HUD->IsPanelPoint(Ground))
+			{
+				bFound = true;
+				break;
+			}
+		}
+		if (!Check(bFound, TEXT("Target polygon supplies an uncovered ground rally point with the producer deck and feedback visible")))
+			return false;
+		const FOrderInputPreview GroundPreview = PC->GetOrderPreview(Ground);
+		if (!Check(GroundPreview.IsAllowed() && GroundPreview.Resolution == ForceOrderInput::EResolution::Rally
+					&& GroundPreview.RegionIndex == Target,
+				TEXT("Producer without selected forces previews ground region rally"))
+			|| !Check(PC->HandleOrderClick(Ground) && Producer->RallyRegionIndex == Target && Unchanged(),
+				TEXT("Producer ground right-click replaces minimap rally without ordering existing forces")))
 			return false;
 		SelectBoth();
 		int32 Width = 0, Height = 0;
@@ -383,6 +565,11 @@ private:
 	int32 Stage = 0;
 	int32 Target = INDEX_NONE, EnemyHome = INDEX_NONE;
 	FVector HostileRegionPoint = FVector::ZeroVector;
+	FVector CameraBefore = FVector::ZeroVector;
+	double EdgePanStarted = 0.;
+	float OriginalMouseX = 0.f, OriginalMouseY = 0.f;
+	bool bRestoreCursor = false;
+	bool bEdgeOverPanel = false;
 	ACommandPlayerController* PC = nullptr;
 	ACommandGameState* State = nullptr;
 	ACommandHUD* HUD = nullptr;

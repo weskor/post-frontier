@@ -18,11 +18,6 @@ FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Po
 	FOrderInputPreview Preview;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const ACommandPlayerState* Commander = GetPlayerState<ACommandPlayerState>();
-	if (bOrderPending)
-	{
-		Preview.Rejection = ERejection::Pending;
-		return Preview;
-	}
 	FContext Context;
 	Context.bAvailable = State && State->MatchResult == EMatchResult::Ongoing && IsValid(Commander)
 		&& Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5
@@ -119,11 +114,10 @@ void ACommandPlayerController::SendResolvedOrder(const FOrderInputPreview& Previ
 	Forces.Reserve(SelectedForces.Num());
 	for (AArmyGroup* Force : SelectedForces)
 		Forces.Add(Force);
-	bOrderPending = true;
 	SetFeedback(TEXT("Order sent; awaiting server."));
 	OrderCommands->ServerIssueForceOrder(Forces,
 		Preview.Resolution == EResolution::Attack ? EForceVerb::Attack : EForceVerb::MoveHold,
-		Preview.RegionIndex, Preview.Structure, bQueue);
+		Preview.RegionIndex, Preview.Structure, bQueue, bAssigningOrder ? AttackInputId : 0);
 }
 
 bool ACommandPlayerController::HandleOrderClick(const FVector2D& Position, bool bQueue)
@@ -155,13 +149,15 @@ void ACommandPlayerController::BeginForceAttack()
 {
 	if (GetUIScreen() != ECommandScreen::Game || !CanIssueGameplayCommand())
 		return;
-	if (bOrderPending || SelectedForces.IsEmpty())
+	if (SelectedForces.IsEmpty())
 	{
-		SetCommandFeedback(bOrderPending ? TEXT("Waiting for order confirmation.") : TEXT("Select your forces first."), false);
+		SetCommandFeedback(TEXT("Select your forces first."), false);
 		return;
 	}
 	CancelMode();
 	bAssigningOrder = true;
+	if (++AttackInputId == 0)
+		++AttackInputId;
 	PendingVerb = EForceVerb::Attack;
 	bHUDExpanded = false;
 	SetFeedback(TEXT("Attack: LMB a region on ground or minimap; Shift queues; RMB/Esc cancels."));
@@ -173,13 +169,21 @@ void ACommandPlayerController::ConfirmAttackAtScreenPosition(const FVector2D& Po
 		SendResolvedOrder(GetOrderPreview(Position, bQueue), bQueue);
 }
 
+bool ACommandPlayerController::HandleAttackTargetClick(const FVector2D& Position)
+{
+	if (!bAssigningOrder)
+		return false;
+	ConfirmAttackAtScreenPosition(Position, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+	return true;
+}
+
 void ACommandPlayerController::RetreatSelectedForces(bool bQueue)
 {
 	if (GetUIScreen() != ECommandScreen::Game || !CanIssueGameplayCommand())
 		return;
-	if (bOrderPending || SelectedForces.IsEmpty())
+	if (SelectedForces.IsEmpty())
 	{
-		SetCommandFeedback(bOrderPending ? TEXT("Waiting for order confirmation.") : TEXT("Select your forces first."), false);
+		SetCommandFeedback(TEXT("Select your forces first."), false);
 		return;
 	}
 	CancelMode();
@@ -187,21 +191,16 @@ void ACommandPlayerController::RetreatSelectedForces(bool bQueue)
 	Forces.Reserve(SelectedForces.Num());
 	for (AArmyGroup* Force : SelectedForces)
 		Forces.Add(Force);
-	bOrderPending = true;
 	SetFeedback(TEXT("Retreat sent; awaiting server."));
-	OrderCommands->ServerIssueForceOrder(Forces, EForceVerb::Retreat, INDEX_NONE, nullptr, bQueue);
+	OrderCommands->ServerIssueForceOrder(Forces, EForceVerb::Retreat, INDEX_NONE, nullptr, bQueue, 0);
 }
 
-void ACommandPlayerController::CompleteOrderInput(const FString& Message, bool bAccepted)
+void ACommandPlayerController::CompleteOrderInput(const FString& Message, bool bAccepted, uint32 InAttackInputId)
 {
-	if (bOrderPending)
+	if (bAccepted && bAssigningOrder && InAttackInputId != 0 && InAttackInputId == AttackInputId)
 	{
-		bOrderPending = false;
-		if (bAccepted && bAssigningOrder)
-		{
-			bAssigningOrder = false;
-			bHUDExpanded = true;
-		}
+		bAssigningOrder = false;
+		bHUDExpanded = true;
 	}
 	SetCommandFeedback(Message, bAccepted);
 }

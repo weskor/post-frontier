@@ -87,7 +87,6 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bSelectionDragging = false;
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
-	bOrderPending = false;
 	bHUDExpanded = true;
 	bPlacementPending = false;
 	bPlacementCancelled = false;
@@ -263,6 +262,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	SelectedForces.RemoveAll([this](const TObjectPtr<AArmyGroup>& Force) { return !IsOwnedForce(Force); });
 	if (InspectedForce && !IsSelectableForce(InspectedForce))
 		InspectedForce = nullptr;
+	PendingPan += GetEdgePanAxis();
 	if (!PendingPan.IsNearlyZero())
 		bInitialFocusPending = false;
 	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
@@ -348,7 +348,19 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 			Overlay->Line(FVector(A.X, A.Y, 13.f), FVector(B.X, B.Y, 13.f), Color, 3.f);
 		}
 	};
-	const AMapRegion* HoveredRegion = bAssigningOrder && !SelectedForces.IsEmpty() ? CursorOrderRegion() : nullptr;
+	const AMapRegion* HoveredRegion = nullptr;
+	if (bAssigningOrder && !SelectedForces.IsEmpty() && GetMousePosition(MouseX, MouseY))
+	{
+		const int32 RegionIndex = GetOrderPreview(FVector2D(MouseX, MouseY),
+			IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift)).RegionIndex;
+		if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
+			for (const AMapRegion* Region : State->Regions)
+				if (IsValid(Region) && Region->RegionIndex == RegionIndex)
+				{
+					HoveredRegion = Region;
+					break;
+				}
+	}
 	if (IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer() && IsValid(SelectedBuilding->ForceGroup))
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
@@ -452,21 +464,6 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	return !Location.ContainsNaN();
 }
 
-const AMapRegion* ACommandPlayerController::CursorOrderRegion() const
-{
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
-	float X, Y;
-	FVector Location;
-	if (!State || !GetMousePosition(X, Y))
-		return nullptr;
-	const FVector2D Position(X, Y);
-	if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
-		return State->FindRegionAt(Location);
-	if (HUD && HUD->IsPanelPoint(Position))
-		return nullptr;
-	return CursorGround(Location) ? State->FindRegionAt(Location) : nullptr;
-}
 
 const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
 {
@@ -750,11 +747,6 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 		HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
 		return true;
 	}
-	if (bAssigningOrder)
-	{
-		ConfirmAttackAtScreenPosition(Position, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
-		return true;
-	}
 	FVector WorldPosition;
 	int32 AlertSequence;
 	if (HUD->GetAlertWorldPosition(Position, WorldPosition, AlertSequence))
@@ -764,6 +756,8 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 	}
 	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
 	{
+		if (HandleAttackTargetClick(Position))
+			return true;
 		bInitialFocusPending = false;
 		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
 			Camera->FocusOn(WorldPosition);
@@ -1003,7 +997,7 @@ void ACommandPlayerController::SelectUnderCursor()
 	{
 		float X, Y;
 		if (GetMousePosition(X, Y))
-			ConfirmAttackAtScreenPosition(FVector2D(X, Y), IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+			HandleAttackTargetClick(FVector2D(X, Y));
 		return;
 	}
 	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
@@ -1048,16 +1042,6 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	{
 		if (AArmyGroup* Force = GetInspectedForce(); IsSelectableForce(Force) && !IsOwnedForce(Force))
 			PingCommands->ServerPing(Force->GetCenter(), Force);
-		return;
-	}
-	if (Action == EHUDAction::OrderAttack)
-	{
-		BeginForceAttack();
-		return;
-	}
-	if (Action == EHUDAction::OrderRetreat)
-	{
-		RetreatSelectedForces(IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
 		return;
 	}
 	const CommandHUDPanels::FContext Context = CommandHUDPanels::MakeContext(this);

@@ -64,7 +64,7 @@ Bindings live in `CommandPlayerController` and click actions in `CommandHUD`.
 
 | Input | Action |
 | --- | --- |
-| Arrow keys / middle mouse drag / wheel | Pan / drag camera / zoom; A is reserved for Attack |
+| Arrow keys / screen edges / middle mouse drag / wheel | Pan / edge pan / drag camera / zoom; A is reserved for Attack. Focus, HUD-edge behavior and starting speed: [Camera](Docs/Design/ui.md#camera) |
 | Space | Jump to latest objective alert; press again to step backward through retained alerts |
 | F | Focus selection; otherwise friendly HQ |
 | G / teammate force inspector's Need help here button | Ping the ground or minimap cursor; teammate forces send Need help here, other spots Look here. Team-only cue, named feed and map/minimap markers ([Ping rules](Docs/Design/ui.md)) |

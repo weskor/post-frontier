@@ -47,20 +47,6 @@ const TCHAR* OrderTitle(EForceVerb Verb)
 	}
 }
 
-const TCHAR* OrderPurpose(EForceVerb Verb)
-{
-	switch (Verb)
-	{
-	case EForceVerb::MoveHold:
-	case EForceVerb::Attack:
-		return TEXT("pick region");
-	case EForceVerb::Retreat:
-		return TEXT("regroup");
-	default:
-		return TEXT("");
-	}
-}
-
 FLinearColor OrderColor(EForceVerb Verb)
 {
 	switch (Verb)
@@ -141,9 +127,6 @@ void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 		break;
 	case EBlock::ForceLocked:
 		Reason << TEXT("Force type locked after Start.");
-		break;
-	case EBlock::ForceUnconfigured:
-		Reason << TEXT("Start & Lock this force first.");
 		break;
 	case EBlock::Chosen:
 		Reason << TEXT("Specialization locked: one per commander.");

@@ -143,7 +143,10 @@ class Capture:
     def begin_attack(self) -> None:
         self.key("A")
         self.wait(
-            lambda s: s["assigningOrder"] and s["pendingVerb"] == ATTACK,
+            lambda s: (
+                s["assigningOrder"] and s["pendingVerb"] == ATTACK
+                and not s["hudExpanded"]
+            ),
             "A enters selected-force Attack targeting",
         )
 
@@ -154,15 +157,19 @@ class Capture:
         self.run.request("host", "cursor", x=x, y=y)
         if verb == ATTACK:
             require(
-                before["assigningOrder"] and before["pendingVerb"] == ATTACK,
+                before["assigningOrder"] and before["pendingVerb"] == ATTACK
+                and not before["hudExpanded"],
                 "A Attack targeting is inactive",
             )
-            self.run.request("host", "confirmAttack", x=x, y=y)
+            self.run.request("host", "hudClick", x=x, y=y)
         else:
             require(verb == MOVE_HOLD, "region right-click must be Move & Hold")
             self.run.request("host", "orderClick", x=x, y=y)
         self.wait(
-            lambda s: not s["assigningOrder"] and order_matches(s, index, verb, target),
+            lambda s: (
+                not s["assigningOrder"] and s["hudExpanded"]
+                and order_matches(s, index, verb, target)
+            ),
             "selected-force minimap order is accepted",
         )
         self.run.phase(f"selection orders region {target} with verb {verb}")

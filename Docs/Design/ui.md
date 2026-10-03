@@ -13,7 +13,8 @@
 
 ## Camera
 
-- **[Built]** A free camera: arrow keys or middle-mouse drag pan; the wheel zooms. A is reserved for Attack, not camera movement.
+- **[Built]** A free camera: arrow keys, screen-edge movement or middle-mouse drag pan; the wheel zooms (owner decision, 2026-10-03). WASD does not pan; A is reserved for Attack.
+- **[Built]** Screen-edge pan starts within **8 viewport pixels** of an edge while the game viewport has focus and its window is foreground. It is always active at the edge, **including over HUD panels**; outside-viewport cursors and modal screens do not edge-pan. Edge and arrow pan share the existing zoom-scaled speed: **1.1 × current camera arm length per second**, initially **2,640 cm/s** at the default 2,400 cm arm. Combined/diagonal input is clamped to that speed.
 - **Zoom out to a war-table view** (Supreme Commander style): regions become readable icons showing forces, JEV intent, orders, traits and supply links. Zoom in for spectacle.
 
 ## Selecting and giving orders [Change] — decided

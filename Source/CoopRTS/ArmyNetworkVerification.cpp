@@ -654,7 +654,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 					static_cast<EForceVerb>(Request->GetIntegerField(TEXT("forceVerb"))),
 					static_cast<int32>(Request->GetIntegerField(TEXT("targetRegionIndex"))),
 					Request->GetBoolField(TEXT("targetEnemyHQ")) ? State->EnemyHeadquarters.Get() : nullptr,
-					Request->GetBoolField(TEXT("queue")));
+					Request->GetBoolField(TEXT("queue")), 0);
 			}
 			else if (Action == TEXT("cancel"))
 				PC->ConstructionCommands->ServerCancelBuilding(Building);

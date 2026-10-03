@@ -19,8 +19,7 @@ enum class ERejection : uint8
 	InvalidTarget,
 	NotOwned,
 	QueueFull,
-	Unreachable,
-	Pending
+	Unreachable
 };
 struct FForce
 {

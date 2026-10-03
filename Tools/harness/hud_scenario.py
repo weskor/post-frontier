@@ -254,18 +254,25 @@ def awareness(
         lambda s: at_alert(s, previous),
         "second Space steps to the preceding alert",
     )
+    capture.minimap(0.5, 0.5)
+    capture.select_force(barracks)
+    capture.begin_attack()
     row = next(
         row
         for row in capture.state()["uiAlerts"]
         if row["sequence"] == latest["sequence"]
     )
-    capture.minimap(0.5, 0.5)
     run.request("host", "hudClick", x=row["x"], y=row["y"])
     capture.wait(
-        lambda s: at_alert(s, latest),
-        "clicking the rendered feed row actually focuses its location",
+        lambda s: at_alert(s, latest) and s["assigningOrder"] and not s["hudExpanded"],
+        "clicking the rendered feed row during A focuses its location without consuming A",
     )
     capture.shot("objective-feed-click-camera")
+    capture.key("Escape")
+    capture.wait(
+        lambda s: not s["assigningOrder"] and s["hudExpanded"],
+        "cancelling A after an alert click restores the deck",
+    )
     alert_expiry(capture, latest)
     run.phase(
         "objective strip, attributed feed, selection stability, Space history and feed click"
