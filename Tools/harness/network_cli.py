@@ -21,7 +21,11 @@ def main() -> None:
     if args.max_fps is not None and args.max_fps < 1:
         parser.error("--max-fps must be positive")
     pointer_orders = args.scenario in (
-        "ownership", "production", "economy", "restart", "construction"
+        "ownership",
+        "production",
+        "economy",
+        "restart",
+        "construction",
     )
     run = NetworkRun(
         Path(os.environ["X_HARNESS_DIR"]).resolve(),

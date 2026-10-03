@@ -74,7 +74,14 @@ def _automation(
                 map_path,
                 "-game",
                 *(
-                    ["-RenderOffScreen", "-windowed", "-ResX=1600", "-ResY=900", "-NoSplash", "-nosteam"]
+                    [
+                        "-RenderOffScreen",
+                        "-windowed",
+                        "-ResX=1600",
+                        "-ResY=900",
+                        "-NoSplash",
+                        "-nosteam",
+                    ]
                     if scope.rendered
                     else ["-nullrhi", "-NoShaderCompile"]
                 ),
