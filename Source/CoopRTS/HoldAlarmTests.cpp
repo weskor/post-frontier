@@ -287,6 +287,24 @@ public:
 				if (!Check(bQuietObserved && Now - Quiet >= 6., TEXT("Responder returns only after six uninterrupted quiet game seconds")))
 					return true;
 			}
+			if (!SetupEngagedFront())
+				return true;
+			SetStage(EStage::FrontAcquire, Now);
+			break;
+		case EStage::FrontAcquire:
+			if (!IsStationaryEngaged())
+				break;
+			EngagedOrderSerial = FrontProbe->OrderSerial;
+			SetStage(EStage::FrontEngaged, Now);
+			break;
+		case EStage::FrontEngaged:
+			if (!Check(FrontProbe->OrderSerial == EngagedOrderSerial,
+					TEXT("Front maintenance does not re-issue accepted moves while a stationary unit is engaged"))
+				|| !Check(IsStationaryEngaged(), TEXT("The live target remains engaged throughout two front-maintenance periods")))
+				return true;
+			if (Now - StageStarted < 4.25)
+				break;
+			Test->AddInfo(TEXT("Automatic Secure front preserved its order serial while a displaced unit engaged a living target at weapon range."));
 			return Finish();
 		default:
 			break;
@@ -308,7 +326,9 @@ private:
 		StickyAcquire,
 		Sticky,
 		StickyDeath,
-		LateQuiet
+		LateQuiet,
+		FrontAcquire,
+		FrontEngaged
 	};
 
 	bool Check(bool Condition, const TCHAR* Message)
@@ -737,6 +757,60 @@ private:
 		}
 		return Best;
 	}
+	bool SetupEngagedFront()
+	{
+		// A non-Hold front exercises the maintenance guard itself; regional
+		// Hold bypasses maintenance. Keep this duel outside the held region.
+		const AHeadquarters* HQ = State->EnemyHeadquarters.Get();
+		const AMapRegion* Home = HQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
+		if (!Check(Home && Home != Region.Get() && Threats[1].IsValid() && Threats[1]->IsAlive(),
+				TEXT("A separate enemy home supplies the engaged-front fixture")))
+			return false;
+		const double Range = Threats[1]->WeaponRange();
+		FVector Start, Target;
+		bool bFound = false;
+		const FVector Directions[] = { FVector::ForwardVector, -FVector::ForwardVector, FVector::RightVector, -FVector::RightVector };
+		for (const FVector& Post : Home->GetDefendPosts())
+		{
+			for (const FVector& Direction : Directions)
+				if (Project(Post + Direction * 400., Start) && Project(Start + Direction * (Range * .75), Target)
+					&& Home->Contains(Start) && Home->Contains(Target)
+					&& FVector::Dist2D(Start, HQ->GetActorLocation()) > Range + 200.
+					&& FVector::Dist2D(Start, Target) > 170.
+					&& FVector::Dist2D(Start, Target) < Range)
+				{
+					bFound = true;
+					break;
+				}
+			if (bFound)
+				break;
+		}
+		if (!Check(bFound, TEXT("Map-derived navigation provides a displaced in-range encounter away from the HQ")))
+			return false;
+		ACommandPlayerState* Wallet = ArmyTestSetup::Controller(State->GetWorld())->GetPlayerState<ACommandPlayerState>();
+		FrontProbe = Spawn(Wallet, 50, Start);
+		if (!Check(FrontProbe.IsValid() && FrontProbe->SpawnMember(UnitIndex, Start, 2),
+				TEXT("A real automatic-front combat unit spawns")))
+			return false;
+		// Isolate maintenance from target death; ordinary combat still acquires,
+		// locks and stops at weapon range while its cooldown is held.
+		FrontProbe->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
+		Teleport(Threats[1].Get(), Target);
+		return Check(FCommandService::AssignFront(Wallet, FrontProbe.Get(), EFrontOrder::Secure, Target).IsAccepted(),
+			TEXT("The normal command service accepts the automatic Secure front"));
+	}
+	bool IsStationaryEngaged() const
+	{
+		if (!FrontProbe.IsValid() || FrontProbe->GetUnits().IsEmpty() || !Threats[1].IsValid() || !Threats[1]->IsAlive())
+			return false;
+		const AArmyUnit* Unit = FrontProbe->GetUnits()[0];
+		const AAIController* AI = Cast<AAIController>(Unit->GetController());
+		return FrontProbe->bAutomaticFront && !FrontProbe->IsHoldingRegion()
+			&& Unit->Target == Threats[1].Get() && !Unit->bPursuing && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle
+			&& FVector::Dist2D(Unit->GetActorLocation(), Threats[1]->GetActorLocation()) <= Unit->WeaponRange()
+			&& FVector::Dist2D(FrontProbe->GetCenter(), FrontProbe->FrontLocation) > 170.;
+	}
+
 	bool Finish()
 	{
 		if (!Check(AtPosts() && Responders().IsEmpty(), TEXT("Quiet holders physically return to their unchanged defend posts")))
@@ -756,10 +830,11 @@ private:
 	bool bFailed = false, bShootBuilding = false, bObservedBuildingDamage = false, bObservedThreatDamage = false;
 	bool bCommitObserved = false, bQuietObserved = false, bObservedBorderShot = false;
 	int32 UnitIndex = INDEX_NONE, BuildingInitialHealth = 0, ThreatInitialHealth = 0, OutsideHealth = 0;
+	int32 EngagedOrderSerial = 0;
 	TWeakObjectPtr<ACommandGameState> State;
 	TWeakObjectPtr<AMapRegion> Region;
 	TWeakObjectPtr<ACommandPlayerState> SecondCommander;
-	TWeakObjectPtr<AArmyGroup> Enemy, StickyHolder;
+	TWeakObjectPtr<AArmyGroup> Enemy, StickyHolder, FrontProbe;
 	TWeakObjectPtr<ACommandBuilding> Building;
 	TWeakObjectPtr<AArmyUnit> FirstTarget;
 	TArray<TWeakObjectPtr<AArmyGroup>> Holders;
