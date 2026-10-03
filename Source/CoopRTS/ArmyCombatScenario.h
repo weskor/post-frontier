@@ -67,7 +67,7 @@ private:
 	bool CheckCounterPreference(const FVector& Anchor);
 	bool CheckStructurePriority(AHeadquarters* HQ, bool& bOk);
 	bool CheckPersistentLock(const ACommandGameState* State, const FVector& Anchor, bool& bOk);
-	void CheckChaseBounds(bool& bOk);
+	void CheckChaseBounds(const AArmyUnit* Heavy, bool& bOk);
 	bool RejectUnregisteredTargets();
 	bool Rejected(AActor* Target, uint32 Serial, const FVector& Destination);
 	bool CheckDetachedTarget(uint32 Serial, const FVector& Destination);

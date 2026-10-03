@@ -32,7 +32,7 @@ bool FArmyCombatScenario::CheckCounterAcquisition(const ACommandGameState* State
 	bool bOk = CheckCounterPreference(Anchor);
 	if (!CheckStructurePriority(HQ, bOk) || !CheckPersistentLock(State, Anchor, bOk))
 		return false;
-	CheckChaseBounds(bOk);
+	CheckChaseBounds(Enemy->GetUnits()[0], bOk);
 	for (int32 Index = 0; Index < 6; ++Index)
 	{
 		Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
@@ -124,7 +124,7 @@ bool FArmyCombatScenario::CheckPersistentLock(const ACommandGameState* State, co
 	return true;
 }
 
-void FArmyCombatScenario::CheckChaseBounds(bool& bOk)
+void FArmyCombatScenario::CheckChaseBounds(const AArmyUnit* Heavy, bool& bOk)
 {
 	for (const AArmyUnit* Unit : Army->GetUnits())
 	{
