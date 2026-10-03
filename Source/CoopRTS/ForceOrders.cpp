@@ -23,21 +23,31 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 	FVector Center = FVector::ZeroVector;
 	FVector Offsets = FVector::ZeroVector;
 	int32 Joined = 0;
+	float FormationRadiusSquared = 0.f;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing())
 			continue;
 		Center += Unit->GetActorLocation();
-		Offsets += FormationOffset(Unit->GetCompositionSlot());
+		const FVector Offset = FormationOffset(Unit->GetCompositionSlot());
+		Offsets += Offset;
+		FormationRadiusSquared = FMath::Max(FormationRadiusSquared, Offset.SizeSquared2D());
 		++Joined;
 	}
 	if (!Joined)
 		return false;
 	Center /= Joined;
-	// Correct a sparse formation's biased member centre without requiring
-	// crowd-steered members to occupy a rigid slot before regional holding.
-	return Region->Contains(Center)
-		&& FVector::DistSquared2D(Center - Offsets / Joined, Destination) <= FMath::Square(170.f);
+	// Correct sparse-slot bias without requiring rigid slot occupancy after
+	// crowd steering. A nearby mean must not stop a trailing member en route.
+	if (!Region->Contains(Center)
+		|| FVector::DistSquared2D(Center - Offsets / Joined, Destination) > FMath::Square(170.f))
+		return false;
+	const float ArrivalRadiusSquared = FMath::Square(FMath::Sqrt(FormationRadiusSquared) + 170.f);
+	for (const AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing()
+			&& FVector::DistSquared2D(Unit->GetActorLocation(), Center) > ArrivalRadiusSquared)
+			return false;
+	return true;
 }
 
 int32 AArmyGroup::GetCapacity() const
