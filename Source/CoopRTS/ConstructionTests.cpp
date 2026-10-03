@@ -443,10 +443,9 @@ public:
 						&& FVector::Dist2D(RecruitStart, JoinedStart) > 500.f && JoinedCenterMatches(Squad.Get()),
 					TEXT("Replacement leaves producer rather than spawning at force; center excludes travellers")))
 				return true;
-			TArray<int32, TInlineAllocator<4>> ReservedRegions;
-			ReservedRegions.Add(Squad->TargetRegionIndex);
-			ReservedRegions.Add(OtherRegion);
-			const int32 Region = FindForceRegion(State, Squad.Get(), State->EnemyHeadquarters->GetActorLocation(), ReservedRegions);
+			// Retarget to clear home ground, not another full force's exact slots.
+			// This isolates a moving rendezvous from cross-force capsule blockage.
+			const int32 Region = ForceOrderGraph::TeamMain(*State, Squad->GetTeamIndex());
 			if (Region == INDEX_NONE || !FCommandService::IssueForceOrder(Wallet, Squad.Get(), EForceVerb::MoveHold, Region))
 				return Fail(TEXT("Replacement order needs a different reachable region"));
 			Stage = 5;

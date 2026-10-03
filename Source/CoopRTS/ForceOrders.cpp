@@ -13,6 +13,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "MapRegion.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "NavigationSystem.h"
 
 namespace
 {
@@ -146,18 +147,28 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 	}
 	if (!IssueTravel(Phase, Anchor))
 	{
-		// Region intent does not prescribe an exact formation centre. A legal
-		// extractor can cover an anchor slot; keep the centre within its normal
-		// projection margin while still requiring complete, distinct slot paths.
-		static const FVector Adjustments[] = {
-			{ 75.f, 0.f, 0.f }, { 0.f, 75.f, 0.f }, { -75.f, 0.f, 0.f }, { 0.f, -75.f, 0.f }
+		// A building nav cutout can obstruct an exact formation slot. Region
+		// intent may shift the centre, but its actual projection stays within
+		// the anchor tolerance and every member still requires a complete path.
+		constexpr float Tolerance = 75.f;
+		constexpr float Diagonal = UE_INV_SQRT_2;
+		static const FVector2D Directions[] = {
+			{ 1.f, 0.f }, { -1.f, 0.f }, { 0.f, 1.f }, { 0.f, -1.f },
+			{ Diagonal, Diagonal }, { -Diagonal, Diagonal }, { Diagonal, -Diagonal }, { -Diagonal, -Diagonal }
 		};
 		bool bAccepted = false;
-		if (!Structure)
-			for (const FVector& Adjustment : Adjustments)
+		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+		const AMapRegion* Region = ForceOrderGraph::Region(*State, RegionIndex);
+		if (!Structure && Navigation)
+			for (const FVector2D& Direction : Directions)
 			{
-				const FVector Candidate = Anchor + Adjustment;
-				if (ForceOrderGraph::Region(*State, RegionIndex)->Contains(Candidate) && IssueTravel(Phase, Candidate))
+				const FVector Candidate = Anchor + FVector(Direction.X, Direction.Y, 0.f) * Tolerance;
+				FNavLocation Projected;
+				if (!Navigation->ProjectPointToNavigation(Candidate, Projected, FVector(Tolerance, Tolerance, 200.f))
+					|| FVector::DistSquared2D(Anchor, Projected.Location) > FMath::Square(Tolerance)
+					|| !Region->Contains(Projected.Location))
+					continue;
+				if (IssueTravel(Phase, Projected.Location))
 				{
 					bAccepted = true;
 					break;

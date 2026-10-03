@@ -114,8 +114,7 @@ public:
 				|| Recovery->Orders.IsEmpty() || Recovery->WaypointRegionIndex == INDEX_NONE
 				|| Recovery->TargetRegionIndex == SafeRecoveryRegion)
 				return Fail(TEXT("Naturally healed joined recruits must resume accepted strategic travel beyond their recovery region"));
-			Test->AddInfo(TEXT("Enemy proof: exact per-unit paid economy, real polygon capture/extractor, paid forward barracks construction, region expansion/nearest defense orders, JEV-only finite payments/depletion/freeing and producer-scoped natural repair recovery."));
-			return true;
+			return ObserveResumedTravel(State, World);
 		}
 		if (Stage == 0)
 		{
@@ -389,6 +388,27 @@ public:
 		return false;
 	}
 private:
+	bool ObserveResumedTravel(const ACommandGameState* State, const UWorld* World)
+	{
+		const int32 Waypoint = Recovery->WaypointRegionIndex;
+		const AMapRegion* Region = State->FindRegionAt(Recovery->Destination);
+		if (!Region || Region->RegionIndex != Waypoint
+			|| FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Waypoint)) > 75.f)
+			return Fail(TEXT("Resumed force has a complete navigable formation within its actual region waypoint"));
+		const FVector Center = Recovery->GetCenter();
+		if (ResumeDeadline < 0.)
+		{
+			ResumeStart = Center;
+			ResumeTarget = Recovery->Destination;
+			ResumeDeadline = World->GetTimeSeconds() + 10.;
+		}
+		if (FVector::Dist2D(Center, ResumeTarget) > FVector::Dist2D(ResumeStart, ResumeTarget) - 100.f)
+			return World->GetTimeSeconds() >= ResumeDeadline
+				? Fail(TEXT("Healed JEV force must physically leave recovery and advance toward its resumed waypoint within ten game seconds"))
+				: false;
+		Test->AddInfo(TEXT("Enemy proof: exact paid economy, real capture/extractor, forward production, independent producer safe recovery and physical resumed strategic travel."));
+		return true;
+	}
 	bool Fail(const TCHAR* Message)
 	{
 		Test->AddError(Message);
@@ -451,6 +471,9 @@ private:
 	int32 TimedStage = -1;
 	double Started = FPlatformTime::Seconds();
 	double StageStarted = Started;
+	FVector ResumeStart = FVector::ZeroVector;
+	FVector ResumeTarget = FVector::ZeroVector;
+	double ResumeDeadline = -1.;
 };
 bool FEnemyConstructionTest::RunTest(const FString&)
 {
