@@ -108,7 +108,7 @@ int32 JevMemoRows(const FContext& Context, const FLayout& Layout, const FJevInte
 	FJevMemoRow (&Rows)[JevIntent::MemoVisible]);
 void ForEachJevIntentPanel(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FRect&)> Visit);
 const TCHAR* JevVerbTag(JevPlanner::EVerb Verb, bool bEscalated);
-// Text of a world-map badge: "JEV  Attack  0:20" or "JEV  Escalated: defending X".
+// Text of a world-map badge: "JEV  Attack  <region>  0:20" or "JEV  Escalated: defending <region>".
 void JevBadgeLabel(const FContext& Context, const JevIntent::FRegionBadge& Badge, FStringBuilderBase& Label);
 void DrawJevIntent(const FPainter& Paint, const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model);
 void DrawJevRegionBadges(const FPainter& Paint, const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model);

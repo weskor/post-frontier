@@ -2,6 +2,7 @@
 #include "CapturePoint.h"
 #include "CommandGameState.h"
 #include "DepositSite.h"
+#include "MapRegion.h"
 #include "CommandPlayerController.h"
 
 namespace CommandHUDPanels
@@ -16,11 +17,17 @@ static void DrawCaptureSites(const FPainter& Paint, const FContext& Context)
 		FVector2D Screen;
 		if (!ProjectOverlay(Paint, Context, Site->GetActorLocation() + FVector(0.f, 0.f, 110.f), Screen))
 			continue;
-		const FRect Back{ Screen.X - 48.f, Screen.Y - Line - 18.f, 96.f, Line + 12.f };
+		// The region's display name, as the JEV timeline and memos print it; the anchor number only where no region contains it.
+		const AMapRegion* Region = Context.State->FindRegionAt(Site->GetActorLocation());
+		TStringBuilder<64> Label;
+		if (Region)
+			Label << Region->DisplayName.ToString();
+		else
+			Label.Appendf(TEXT("REGION %d"), Site->SiteIndex + 1);
+		const float Width = FMath::Max(96.f, Paint.TextWidth(Label.ToView(), 10.f, true) + 16.f);
+		const FRect Back{ Screen.X - Width * .5f, Screen.Y - Line - 18.f, Width, Line + 12.f };
 		if (!OverlayFits(Paint, Back))
 			continue;
-		TStringBuilder<32> Label;
-		Label.Appendf(TEXT("REGION %d"), Site->SiteIndex + 1);
 		const FLinearColor OwnerColor = Site->ControllingTeam == 0 ? Palette::Good
 			: Site->ControllingTeam == 5                           ? Palette::Bad
 																   : Palette::Gold;

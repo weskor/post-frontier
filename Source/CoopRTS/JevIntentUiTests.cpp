@@ -81,6 +81,10 @@ private:
 		Moving.EtaSeconds = FMath::Max(1.f, Moving.EtaSeconds - 10.f);
 		Moving.RemainingCommitment -= 2.f;
 		Check(Feed.Observe(State) == 0, TEXT("A changed ETA alone posts no new memo"));
+		Moving.TargetStructure = State.EnemyHeadquarters;
+		Check(Feed.Observe(State) == 0, TEXT("A target structure appearing posts no memo: the text does not print it"));
+		Moving.TargetStructure = nullptr;
+		Check(Feed.Observe(State) == 0, TEXT("The target structure dying posts no duplicate memo"));
 		Check(EntrySeconds(World, Moving.TicketNumber) < Before, TEXT("The timeline countdown follows the published ETA"));
 		CheckDisplay(World, State, Feed, 2);
 		Stage = 2;
@@ -184,7 +188,16 @@ private:
 			const JevIntent::FRegionBadge* Badge = Model.Badges.FindByPredicate(
 				[&](const JevIntent::FRegionBadge& Candidate) { return Candidate.Region == Plan.TargetRegionIndex; });
 			if (Check(Badge != nullptr, TEXT("Every targeted region has a badge")))
+			{
 				Check(!Plan.bEscalated || Badge->bEscalated, TEXT("An escalated plan escalates its region's badge"));
+				TStringBuilder<128> Label;
+				JevBadgeLabel(Context, *Badge, Label);
+				const FString& Name = JevIntentView::RegionName(State, Plan.TargetRegionIndex);
+				Check(!Name.IsEmpty() && FString(Label.ToView()).Contains(Name),
+					TEXT("A world badge names its target region, as the timeline and memos do"));
+				Check(Plan.bEscalated || FString(Label.ToView()).Contains(Plan.Verb == EForceVerb::Attack ? TEXT("Attack") : TEXT("Move & Hold")),
+					TEXT("A non-escalated badge names the plan's verb"));
+			}
 		}
 		for (const JevIntent::FRegionBadge& Badge : Model.Badges)
 			Check(State.EnemyPlans.ContainsByPredicate([&](const FJevPublishedPlan& Plan) { return Plan.TargetRegionIndex == Badge.Region; }),
@@ -219,6 +232,9 @@ private:
 			for (const FRect& Other : Others)
 				Check(!Overlaps(Rect, Other), TEXT("JEV panels avoid the objective strip, alert feed, deck, build bar, minimap and feedback"));
 			Check(IsPanelPoint(Context, Layout, Rect.Center()), TEXT("JEV panels capture clicks like every other panel"));
+			FContext Framed = Context;
+			Framed.JevIntent = &Intent;
+			Check(IsPanelPoint(Framed, Layout, Rect.Center()), TEXT("The HUD's shared frame model captures the same clicks"));
 		}
 	}
 

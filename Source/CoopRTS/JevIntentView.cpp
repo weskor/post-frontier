@@ -31,7 +31,6 @@ void Snapshot(const ACommandGameState& State, FPlans& Out)
 		View.ForceNumber = Plan.ForceNumber;
 		View.Verb = PlannerVerb(Plan.Verb);
 		View.Target = Plan.TargetRegionIndex;
-		View.StructureIdentity = IsValid(Plan.TargetStructure) ? Plan.TargetStructure->GetUniqueID() : 0;
 		View.SizeBand = Plan.SizeBand;
 		View.EtaSeconds = Plan.EtaSeconds;
 		View.EtaIssuedAt = Plan.EtaIssuedAt;

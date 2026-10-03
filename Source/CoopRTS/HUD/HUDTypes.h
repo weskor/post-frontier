@@ -82,6 +82,8 @@ struct FRect
 	}
 };
 
+struct FJevIntentModel;
+
 // Local presentation inputs shared by drawing and hit testing.
 struct FContext
 {
@@ -93,6 +95,8 @@ struct FContext
 	int32 Balance = 0;
 	CommandForceCap::FOccupancy ForceSlots;
 	bool bTerminal = false;
+	// The frame's JEV display model when the HUD draws; panel queries rebuild one when it is null.
+	const FJevIntentModel* JevIntent = nullptr;
 	bool bExpanded = true;
 };
 struct FLayout

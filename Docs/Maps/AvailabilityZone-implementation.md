@@ -150,7 +150,7 @@ Strategy automation on this map uses `./x test strategy --map /Game/Maps/Availab
 
 1. JEV places a barracks within 20 s and completes it 12 s later.
 2. Transformer Row is captured, then outposted, then Switchyard (order per the score table: 7 then 8), all within 30 s of the design timeline (about 0:46 and 1:25).
-3. `EnemyPlan` flips to `ASSAULT HQ` after two established sectors.
+3. A JEV force publishes an Attack plan on the human HQ's region after two established sectors (`ACommandGameState::EnemyPlans`).
 4. The first unit of the wave crosses the human **gate or door**; record which, over five runs. This is data, not a pass/fail, until P3.
 5. The wave reaches the ramp foot within 60 s of leaving the Terrace (design: 40 s), with no stalled units.
 

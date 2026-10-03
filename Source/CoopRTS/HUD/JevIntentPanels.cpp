@@ -190,8 +190,10 @@ int32 JevMemoRows(const FContext& Context, const FLayout& Layout, const FJevInte
 
 void ForEachJevIntentPanel(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FRect&)> Visit)
 {
-	FJevIntentModel Model;
-	BuildJevIntentModel(Context, Model);
+	FJevIntentModel Local;
+	if (!Context.JevIntent)
+		BuildJevIntentModel(Context, Local);
+	const FJevIntentModel& Model = Context.JevIntent ? *Context.JevIntent : Local;
 	if (const FRect Timeline = JevTimelineRect(Context, Layout, Model); Timeline.W > 0.f)
 		Visit(Timeline);
 	FJevMemoRow Rows[JevIntent::MemoVisible];
@@ -207,7 +209,7 @@ void JevBadgeLabel(const FContext& Context, const JevIntent::FRegionBadge& Badge
 		Label.Appendf(TEXT("JEV  Escalated: defending %s"), *Region);
 	else
 	{
-		Label.Appendf(TEXT("JEV  %s  "), VerbName(Badge.Verb));
+		Label.Appendf(TEXT("JEV  %s  %s  "), VerbName(Badge.Verb), *Region);
 		JevIntent::AppendCountdown(Label, Badge.Seconds);
 	}
 	if (Badge.Plans > 1)
@@ -237,7 +239,7 @@ void DrawJevRegionBadges(const FPainter& Paint, const FContext& Context, const F
 		TStringBuilder<128> Label;
 		JevBadgeLabel(Context, Badge, Label);
 		const float Width = Paint.TextWidth(Label.ToView(), 10.f, true) + 22.f;
-		// Above the region's REGION n label, which hangs from the same projected point.
+		// Above the region's name label, which hangs from the same projected point.
 		const FRect Rect{ Screen.X - Width * .5f, Screen.Y - 2.f * Line - 29.f, Width, Line + 8.f };
 		if (!OverlayFits(Paint, Rect) || !OverlayClearsPanels(Context, Layout, Rect))
 			continue;

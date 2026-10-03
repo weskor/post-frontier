@@ -278,8 +278,11 @@ void ACommandHUD::DrawHUD()
 	ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
 	if (!Controller)
 		return;
-	const FContext Context = MakeContext(Controller);
+	FContext Context = MakeContext(Controller);
 	ObserveJevIntent(Context);
+	FJevIntentModel Intent;
+	BuildJevIntentModel(Context, Intent);
+	Context.JevIntent = &Intent;
 	const FLayout Layout = MakeLayout(Context, Canvas->ClipX, Canvas->ClipY);
 	const UFont* Font = GEngine->GetSmallFont();
 	if (Layout.Scale <= 0.f || !Font || !FEngineFontServices::IsInitialized())
@@ -300,8 +303,6 @@ void ACommandHUD::DrawHUD()
 		return;
 	}
 	const FForces Forces = CountForces(Context);
-	FJevIntentModel Intent;
-	BuildJevIntentModel(Context, Intent);
 	DrawWorldOverlays(Paint, Context, Layout);
 	DrawJevRegionBadges(Paint, Context, Layout, Intent);
 

@@ -63,13 +63,13 @@ void BuildBadges(TConstArrayView<FPlanView> Plans, float Now, FBadges& Out)
 
 bool FMemoFeed::FAnnounced::Matches(const FPlanView& Plan) const
 {
-	return Ticket == Plan.Ticket && Verb == Plan.Verb && Target == Plan.Target
-		&& StructureIdentity == Plan.StructureIdentity && SizeBand == Plan.SizeBand && bEscalated == Plan.bEscalated;
+	return Ticket == Plan.Ticket && Verb == Plan.Verb && Target == Plan.Target && SizeBand == Plan.SizeBand
+		&& bEscalated == Plan.bEscalated;
 }
 
 FMemoFeed::FAnnounced FMemoFeed::Describe(const FPlanView& Plan)
 {
-	return { Plan.Force, Plan.Ticket, Plan.Verb, Plan.Target, Plan.StructureIdentity, Plan.SizeBand, Plan.bEscalated };
+	return { Plan.Force, Plan.Ticket, Plan.Verb, Plan.Target, Plan.SizeBand, Plan.bEscalated };
 }
 
 int32 FMemoFeed::Observe(TConstArrayView<FPlanView> Plans, float Now)

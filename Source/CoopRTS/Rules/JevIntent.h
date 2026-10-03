@@ -22,7 +22,6 @@ struct FPlanView
 	int32 ForceNumber = 0;
 	JevPlanner::EVerb Verb = JevPlanner::EVerb::MoveAndHold;
 	int32 Target = INDEX_NONE;
-	uint32 StructureIdentity = 0;
 	int32 SizeBand = 2;
 	float EtaSeconds = 0.f;
 	// Server time at which EtaSeconds was computed; the countdown runs from there.
@@ -88,8 +87,8 @@ void BuildTimeline(TConstArrayView<FPlanView> Plans, float Now, FTimeline& Out);
 // One badge per targeted region, ascending by region index.
 void BuildBadges(TConstArrayView<FPlanView> Plans, float Now, FBadges& Out);
 
-// Posts a plan's memo when the plan is first seen or its announcement changes: ticket,
-// verb, target, structure, size band or escalation. ETA drift alone is not a new memo.
+// Posts a plan's memo when the plan is first seen or the part of it the memo prints changes: ticket,
+// verb, target region, size band or escalation. ETA drift or a changed target structure is not a new memo.
 class FMemoFeed
 {
 public:
@@ -108,7 +107,6 @@ private:
 		int32 Ticket = 0;
 		JevPlanner::EVerb Verb = JevPlanner::EVerb::MoveAndHold;
 		int32 Target = INDEX_NONE;
-		uint32 StructureIdentity = 0;
 		int32 SizeBand = 0;
 		bool bEscalated = false;
 		bool Matches(const FPlanView& Plan) const;
