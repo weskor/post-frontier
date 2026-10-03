@@ -18,7 +18,6 @@ from harness.network import (
     force,
     force_arrived,
     force_counts_match,
-    order_destination_matches,
     order_matches,
     owned_buildings,
     require,

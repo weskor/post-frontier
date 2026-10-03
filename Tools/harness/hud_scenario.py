@@ -25,10 +25,12 @@ from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
     BARRACKS,
+    HOLDING,
     SIEGE,
     WORKSHOP,
     NetworkRun,
     building,
+    distance2,
     owned_buildings,
     require,
     wallet,
@@ -347,8 +349,38 @@ def focus_box_badges(run: NetworkRun, capture: Capture, owner: int) -> JsonObjec
     return capture.wait(visible, "box fixture badges remain visible after pan stops")
 
 
+def settle_box_members(capture: Capture, owner: int) -> None:
+    previous: dict[int, Sequence[float]] = {}
+
+    def settled(state: JsonObject) -> bool:
+        nonlocal previous
+        armies = [a for a in state["armies"] if a["owner"] == owner]
+        current: dict[int, Sequence[float]] = {
+            u["actorId"]: u["position"]
+            for army in armies
+            for u in army["units"]
+            if u["health"] > 0
+        }
+        stable = current.keys() == previous.keys() and all(
+            distance2(position, previous[actor]) <= 0.25**2
+            for actor, position in current.items()
+        )
+        previous = current
+        return bool(current) and stable and all(
+            army["status"] == HOLDING and not army["bHoldResponding"]
+            for army in armies
+            if any(u["health"] > 0 for u in army["units"])
+        )
+
+    capture.wait(
+        settled,
+        "living members settle at quiet posts before precision box geometry",
+    )
+
+
 def force_box_selection(run: NetworkRun, capture: Capture, owner: int) -> None:
     recall_box_fixture(run, capture, owner)
+    settle_box_members(capture, owner)
     armies = [a for a in capture.state()["armies"] if a["owner"] == owner]
     require(len(armies) == 2, "box fixture needs the existing two configured forces")
     for index, army in enumerate(armies):

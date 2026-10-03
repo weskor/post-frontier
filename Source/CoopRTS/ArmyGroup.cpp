@@ -354,10 +354,11 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	const int32 OldCapacity = ForceCapacity;
 	bProducedGroup = true;
 	ForceCapacity = Capacity;
-	const FVector Rendezvous = AI ? ReinforcementTarget(*Candidate) : FVector::ZeroVector;
+	FVector Rendezvous;
 	FPreparedMove Move;
 	Move.Controller = AI;
 	if (!IsValid(Candidate) || !AI
+		|| !ReinforcementTarget(*Candidate, Rendezvous)
 		|| FVector::DistSquared2D(Candidate->GetActorLocation(), Transform.GetLocation()) > FMath::Square(40.f)
 		|| !PrepareMove(*Navigation, Candidate->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
 			Candidate->GetNavAgentLocation(), Rendezvous, Move, 75.f)
@@ -394,8 +395,31 @@ FVector AArmyGroup::GetCenter() const
 																	  : GetActorLocation();
 }
 
-FVector AArmyGroup::ReinforcementTarget(const AArmyUnit& Unit) const
+bool AArmyGroup::ClipHoldingDestination(FVector& Goal) const
 {
+	if (!IsHoldingRegion())
+		return true;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (State)
+		for (const AMapRegion* Region : State->Regions)
+			if (IsValid(Region) && Region->RegionIndex == HoldRegionIndex)
+			{
+				const FVector2D Inside = HoldPolicy::ClampInside(Region->Polygon, FVector2D(Goal));
+				Goal.X = Inside.X;
+				Goal.Y = Inside.Y;
+				return true;
+			}
+	return false;
+}
+
+bool AArmyGroup::ReinforcementTarget(const AArmyUnit& Unit, FVector& Goal) const
+{
+	if (IsHoldingRegion() && HoldPostIndex != INDEX_NONE && !bHoldResponding)
+	{
+		// Holding slots are individually clipped/projected, not a rigid formation.
+		Goal = HoldPostLocation + FormationOffset(Unit.CompositionSlot);
+		return ClipHoldingDestination(Goal);
+	}
 	// A depleted formation's member center is biased toward its occupied slots.
 	// Recover its moving anchor so an empty slot does not target an existing member.
 	FVector Anchor = FVector::ZeroVector;
@@ -411,7 +435,8 @@ FVector AArmyGroup::ReinforcementTarget(const AArmyUnit& Unit) const
 		Anchor /= Joined;
 	else
 		Anchor = AppliedWaypoint != INDEX_NONE ? Destination : GetActorLocation();
-	return Anchor + FormationOffset(Unit.CompositionSlot);
+	Goal = Anchor + FormationOffset(Unit.CompositionSlot);
+	return ClipHoldingDestination(Goal);
 }
 
 void AArmyGroup::UpdateReinforcements()
@@ -428,7 +453,14 @@ void AArmyGroup::UpdateReinforcements()
 			continue;
 		Unit->Target = nullptr;
 		Unit->bPursuing = false;
-		const FVector Goal = ReinforcementTarget(*Unit);
+		FVector Goal;
+		if (!ReinforcementTarget(*Unit, Goal))
+		{
+			AI->StopMovement();
+			Unit->GetCharacterMovement()->StopMovementImmediately();
+			Unit->bHasReinforcementPath = false;
+			continue;
+		}
 		const bool bRetarget = !Unit->bHasReinforcementPath
 			|| FVector::DistSquared2D(Goal, Unit->ReinforcementRendezvous) > FMath::Square(55.f)
 			|| AI->GetMoveStatus() == EPathFollowingStatus::Idle;
@@ -478,8 +510,10 @@ void AArmyGroup::UpdateReinforcements()
 		Formation.Controller = AI;
 		if (Order != EArmyOrder::Hold)
 		{
-			if (!PrepareMove(*Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
-					Unit->GetNavAgentLocation(), Destination + FormationOffset(Unit->CompositionSlot), Formation)
+			FVector FormationGoal = Destination + FormationOffset(Unit->CompositionSlot);
+			if (!ClipHoldingDestination(FormationGoal)
+				|| !PrepareMove(*Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
+					Unit->GetNavAgentLocation(), FormationGoal, Formation)
 				|| !StartPreparedMove(Formation))
 				continue;
 		}

@@ -189,7 +189,8 @@ private:
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply = true);
 	void UpdateCombat();
 	void UpdateReinforcements();
-	FVector ReinforcementTarget(const AArmyUnit& Unit) const;
+	bool ReinforcementTarget(const AArmyUnit& Unit, FVector& Goal) const;
+	bool ClipHoldingDestination(FVector& Goal) const;
 	float CombatAccumulator = 0.f;
 	// Stable composition slots retain retry clocks through unit-array compaction.
 	TArray<float, TInlineAllocator<6>> NextPursuitAttempts;
