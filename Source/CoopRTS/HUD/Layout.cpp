@@ -110,12 +110,16 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Screen = { (Layout.Width - ScreenWidth) * .5f, (Layout.Height - ScreenHeight) * .5f, ScreenWidth, ScreenHeight };
 	Layout.Pause = { Layout.Menu.Right() - 190.f, Layout.Menu.Bottom() + Gap, 190.f, TopHeight };
 	const FRect ForceBar = ForceBarRect(Layout);
-	Layout.Minimap = { Margin, ForceBar.Y - Gap - MinimapSize, MinimapSize, MinimapSize };
+	const float FooterBottom = ForceBar.Y - Gap * .5f;
+	Layout.Minimap = { Margin, FooterBottom - MinimapSize, MinimapSize, MinimapSize };
 	const float X = Layout.Minimap.Right() + Gap;
-	Layout.Build = { X, ForceBar.Y - Gap - 88.f, FMath::Min(InspectorWidth, Layout.Width - X - Margin), 88.f };
-	Layout.Inspector = { X, Layout.Build.Y - Gap - DeckHeight, Layout.Build.W, DeckHeight };
+	// Side-by-side deck and build bar leave the JEV timeline and memo column readable.
+	const float Width = FMath::Min(InspectorWidth, FMath::Max(0.f, Layout.Width - X - Margin - Gap - 430.f));
+	Layout.Inspector = { X, FooterBottom - DeckHeight, Width, DeckHeight };
+	const float BuildX = Layout.Inspector.Right() + Gap;
+	Layout.Build = { BuildX, FooterBottom - 88.f, Layout.Width - Margin - BuildX, 88.f };
 	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
-																		: FRect{ X, Layout.Build.Y - Gap - ModeHeight, Layout.Build.W, ModeHeight };
+																		: FRect{ X, FooterBottom - ModeHeight, Width, ModeHeight };
 	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (Announcer && !Announcer->GetEvents().IsEmpty())
@@ -126,9 +130,7 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 		Layout.Objectives.H = FMath::Max(ObjectiveHeight, 27.f + Rows * (21.f + RowGap) - RowGap + Pad);
 	}
 	const float AlertX = Layout.Width - Margin - AlertWidth;
-	const float AlertBottom = AlertX < Layout.Bottom.Right()
-		? Layout.Bottom.Y - Gap - FeedbackHeight
-		: Layout.Height - Margin;
+	const float AlertBottom = Layout.Build.Y - Gap;
 	Layout.Alerts = { AlertX, Layout.Objectives.Bottom() + Gap, AlertWidth,
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
 	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;

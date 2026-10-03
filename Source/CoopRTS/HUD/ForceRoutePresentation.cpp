@@ -12,6 +12,24 @@
 #include "WorldOverlay.h"
 #include <limits>
 
+RouteIntent::FPolyline ForceRoutePresentation::BuildLine(const AArmyGroup& Force, const FForceRoute& Route,
+	const FVector& Start, bool bActive, TConstArrayView<FVector> Anchors)
+{
+	RouteIntent::FPolyline Line = RouteIntent::Polyline(Start, Route.Regions, Anchors,
+		bActive && !Route.Regions.IsEmpty() && Force.WaypointRegionIndex == Route.Regions[0]);
+	if (Line.Count == 0)
+		return Line;
+	if (bActive && Route.Regions.Last() == Force.WaypointRegionIndex)
+		Line.Points[Line.Count - 1] = Force.Destination;
+	if (Force.Orders.IsValidIndex(Route.OrderIndex))
+	{
+		const FForceOrder& Order = Force.Orders[Route.OrderIndex];
+		if (IsValid(Order.Structure) && Route.Regions.Last() == Order.RegionIndex)
+			Line.Points[Line.Count - 1] = Order.Structure->GetActorLocation();
+	}
+	return Line;
+}
+
 static void VisitOrders(const AArmyGroup& Force, bool bSelected, TConstArrayView<FVector> Anchors,
 	TFunctionRef<void(const ForceRoutePresentation::FRoute&)> Draw)
 {
@@ -28,19 +46,9 @@ static void VisitOrders(const AArmyGroup& Force, bool bSelected, TConstArrayView
 		Render.bActive = Leg == 0;
 		Render.bSelected = bSelected;
 		Render.Color = Color;
-		Render.Line = RouteIntent::Polyline(Start, Route.Regions, Anchors,
-			Leg == 0 && Force.WaypointRegionIndex == Route.Regions[0]);
+		Render.Line = ForceRoutePresentation::BuildLine(Force, Route, Start, Leg == 0, Anchors);
 		if (Render.Line.Count == 0)
 			break;
-		// Accepted formation destinations and structure targets need not be the region anchor.
-		if (Leg == 0 && Route.Regions.Last() == Force.WaypointRegionIndex)
-			Render.Line.Points[Render.Line.Count - 1] = Force.Destination;
-		if (Force.Orders.IsValidIndex(Route.OrderIndex))
-		{
-			const FForceOrder& Order = Force.Orders[Route.OrderIndex];
-			if (IsValid(Order.Structure) && Route.Regions.Last() == Order.RegionIndex)
-				Render.Line.Points[Render.Line.Count - 1] = Order.Structure->GetActorLocation();
-		}
 		Draw(Render);
 		Start = Render.Line.Points[Render.Line.Count - 1];
 	}

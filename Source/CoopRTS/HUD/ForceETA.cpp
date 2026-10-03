@@ -3,7 +3,7 @@
 #include "CommandGameState.h"
 #include "Commands/OrderGraph.h"
 #include "Rules/ForceCardPolicy.h"
-#include "ArenaBounds.h"
+#include "ForceRoutePresentation.h"
 
 namespace ForceTravelETA
 {
@@ -15,34 +15,23 @@ int32 Compute(const AArmyGroup& Force, const ACommandGameState& State)
 	const float Speed = Force.GetMarchSpeed();
 	if (Speed <= 0.f)
 		return INDEX_NONE;
-	double Length = 0.;
-	FVector Start = Force.GetCenter();
-	auto Segment = [&](const FVector& End) {
-		if (!AArenaBounds::IsTravelLocation(Force.GetWorld(), End))
-			return false;
-		Length += FVector::Dist2D(Start, End);
-		Start = End;
-		return true;
-	};
-	if (!Segment(Force.Destination))
+	const TArray<FForceRoute>& Routes = Force.GetIntentRoutes();
+	if (Routes.IsEmpty())
 		return INDEX_NONE;
-	if (Force.Status == EForceStatus::Marching)
+	const FForceRoute& Route = Routes[0];
+	FVector Anchors[ForceOrders::MaxRegions];
+	for (int32 Region : Route.Regions)
 	{
-		uint64 Graph[ForceOrders::MaxRegions];
-		const int32 Count = ForceOrderGraph::ReadGraph(State, Graph);
-		int32 Current = Force.WaypointRegionIndex;
-		for (int32 Steps = 0; Current != Force.TargetRegionIndex && Steps < Count; ++Steps)
-		{
-			const int32 Next = ForceOrders::NextWaypoint(Graph, Count, Current, Force.TargetRegionIndex);
-			if (Next == INDEX_NONE || Next == Current || !Segment(State.GetRegionAnchor(Next)))
-				return INDEX_NONE;
-			Current = Next;
-		}
-		if (Current != Force.TargetRegionIndex)
+		if (Region < 0 || Region >= ForceOrders::MaxRegions || !ForceOrderGraph::Region(State, Region))
 			return INDEX_NONE;
-		if (IsValid(Force.TargetStructure) && !Segment(Force.TargetStructure->GetActorLocation()))
-			return INDEX_NONE;
+		Anchors[Region] = State.GetRegionAnchor(Region);
 	}
+	const RouteIntent::FPolyline Line = ForceRoutePresentation::BuildLine(Force, Route, Force.GetCenter(), true, Anchors);
+	if (Line.Count == 0)
+		return INDEX_NONE;
+	double Length = 0.;
+	for (int32 Index = 1; Index < Line.Count; ++Index)
+		Length += FVector::Dist2D(Line.Points[Index - 1], Line.Points[Index]);
 	return ForceCardPolicy::TravelSeconds(Length, Speed);
 }
 }

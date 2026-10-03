@@ -5,8 +5,8 @@ class ACommandGameState;
 
 namespace ForceTravelETA
 {
-// Travel estimate along the replicated waypoint and remaining shortest graph route.
-// Region-anchor segments exclude capture/combat delays and local crowd/nav detours.
+// Travel estimate along the active replicated intent route, using the drawn path's geometry.
+// Excludes capture/combat delays and local crowd/nav detours; never recomputes a graph route.
 int32 Compute(const AArmyGroup& Force, const ACommandGameState& State);
 struct FEntry
 {

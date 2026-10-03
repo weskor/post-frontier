@@ -5,6 +5,8 @@
 #include "HUD/ForceBar.h"
 #include "HUD/HUDPanels.h"
 #include "HUD/ForceETA.h"
+#include "HUD/ForceRoutePresentation.h"
+#include "JevIntentFixture.h"
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/PingCommandComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -99,6 +101,7 @@ public:
 			Click(Own.Get(), EHUDAction::ForceCardProduction);
 			Check(!Producer->bProductionEnabled, TEXT("Card pauses its producer without unlocking its unit type"));
 			Teammate(State);
+			MemoLayout(State);
 			return true;
 		}
 		return false;
@@ -200,28 +203,13 @@ private:
 	bool States(ACommandGameState* State)
 	{
 		const FContext Context = MakeContext(PC.Get());
-		Own->Verb = EForceVerb::Attack;
-		Own->TargetRegionIndex = Target;
-		Own->WaypointRegionIndex = Target;
-		Own->Destination = State->GetRegionAnchor(Target);
-		Own->Status = EForceStatus::Marching;
-		Own->MarchSpeed = 300.f;
+		if (!ETA(State))
+			return false;
 		FForceCard March;
 		ReadForceCard(Context, *Own, 20, March);
 		Check(March.Joined == 6 && March.Capacity == 6 && March.Travelling == 0 && March.State == ForceCardPolicy::EState::Marching,
 			TEXT("Initial card shows all six joined members and the active marching state"));
 		Check(March.Status.ToView().Contains(TEXT("0:20")), TEXT("Marching card includes the supplied travel ETA"));
-		float Slowest = TNumericLimits<float>::Max();
-		for (const AArmyUnit* Unit : Own->GetUnits())
-			Slowest = FMath::Min(Slowest, Unit->GetDefinition()->MoveSpeed);
-		const double Distance = FVector::Dist2D(Own->GetCenter(), Own->Destination);
-		const int32 ExpectedETA = FMath::CeilToInt(Distance / FMath::Min(Slowest, 300.f));
-		Check(ForceTravelETA::Compute(*Own, *State) == ExpectedETA,
-			TEXT("ETA uses the route length divided by the slowest authored living member, respecting the selection speed cap"));
-		Own->MarchSpeed = Slowest * .5f;
-		Check(ForceTravelETA::Compute(*Own, *State) == FMath::CeilToInt(Distance / (Slowest * .5f)),
-			TEXT("A slower multi-selection cap cannot produce the individual force's faster ETA"));
-		Own->MarchSpeed = 300.f;
 		for (int32 Index = 0; Index < 3; ++Index)
 		{
 			AArmyUnit* Unit = Own->GetUnits().Last();
@@ -270,6 +258,61 @@ private:
 		Own->bHoldResponding = false;
 		Own->ResumeCount = 0;
 		return true;
+	}
+	bool ETA(ACommandGameState* State)
+	{
+		PC->SelectForce(Own.Get());
+		PC->OrderCommands->ServerIssueForceOrder({ Own.Get() }, EForceVerb::Attack, Target, nullptr, false, 0);
+		PC->OrderCommands->ServerIssueForceOrder({ Own.Get() }, EForceVerb::Retreat, INDEX_NONE, nullptr, true, 0);
+		Own->TickOrders();
+		Own->MarchSpeed = 300.f;
+		if (!Check(Own->Status == EForceStatus::Marching && Own->GetIntentRoutes().Num() == 2,
+			TEXT("ETA fixture has an issued active Attack route and a queued Retreat")))
+			return false;
+		double Distance = -1.;
+		ForceRoutePresentation::Visit(*PC, [&](const ForceRoutePresentation::FRoute& Route) {
+			if (!Route.bActive || !Route.bSelected)
+				return;
+			Distance = 0.;
+			for (int32 Index = 1; Index < Route.Line.Count; ++Index)
+				Distance += FVector::Dist2D(Route.Line.Points[Index - 1], Route.Line.Points[Index]);
+		});
+		if (!Check(Distance >= 0., TEXT("The selected active route is drawn")))
+			return false;
+		float Slowest = TNumericLimits<float>::Max();
+		for (const AArmyUnit* Unit : Own->GetUnits())
+			Slowest = FMath::Min(Slowest, Unit->GetDefinition()->MoveSpeed);
+		Check(ForceTravelETA::Compute(*Own, *State) == FMath::CeilToInt(Distance / FMath::Min(Slowest, 300.f)),
+			TEXT("ETA follows the drawn active route at the slowest living speed, excluding the queued Retreat"));
+		Own->MarchSpeed = Slowest * .5f;
+		Check(ForceTravelETA::Compute(*Own, *State) == FMath::CeilToInt(Distance / (Slowest * .5f)),
+			TEXT("A slower multi-selection cap increases ETA along the same drawn route"));
+		Own->MarchSpeed = 300.f;
+		return true;
+	}
+	void MemoLayout(ACommandGameState* State)
+	{
+		PC->SelectForce(Own.Get());
+		const FString Error = JevIntentFixture::Publish(State->GetWorld(), *State, JevIntentFixture::EStage::Create);
+		if (!Check(Error.IsEmpty(), TEXT("JEV layout fixture publishes real plans")))
+			return;
+		const FContext Context = MakeContext(PC.Get());
+		if (!Check(Context.bExpanded, TEXT("Memo acceptance uses the expanded deck")))
+			return;
+		ObserveJevIntent(Context);
+		FJevIntentModel Model;
+		BuildJevIntentModel(Context, Model);
+		for (const FVector2D& Resolution : { FVector2D(1600.f, 900.f), FVector2D(1280.f, 720.f) })
+		{
+			const FLayout Layout = MakeLayout(Context, Resolution.X, Resolution.Y);
+			FJevMemoRow Rows[JevIntent::MemoVisible];
+			const int32 Count = JevMemoRows(Context, Layout, Model, Rows);
+			Check(Count >= 2, TEXT("At least two JEV memo rows fit beside the expanded deck at both resolutions"));
+			for (int32 Index = 0; Index < Count; ++Index)
+				Check(!Rows[Index].Rect.Intersects(Layout.Bottom) && !Rows[Index].Rect.Intersects(Layout.Build)
+					&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(ForceBarRect(Layout)),
+					TEXT("Visible JEV memos do not overlap the expanded deck, build bar, minimap or force bar"));
+		}
 	}
 	bool SelectionAndLayout(ACommandGameState* State)
 	{
