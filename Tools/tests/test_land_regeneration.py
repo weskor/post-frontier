@@ -91,7 +91,9 @@ def test_land_without_generated_sources_regenerates_nothing(
     result = invoke(task, "land")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "nothing to regenerate" in result.stdout
-    assert git(repo, "log", "--format=%s", "-2").splitlines()[0] == "change Docs/task.md"
+    assert (
+        git(repo, "log", "--format=%s", "-2").splitlines()[0] == "change Docs/task.md"
+    )
     (record,) = (repo.parent / "runs").glob("*-land-*")
     assert not list(record.glob("regenerate-*.log"))
 
@@ -138,7 +140,11 @@ def test_unmapped_binary_is_rejected(repo: Path, task: Path) -> None:
 def test_commit_cannot_reclassify_its_outputs_as_authored(
     repo: Path, task: Path
 ) -> None:
-    write(task, "Tools/x/generated.toml", MAP.replace('"Content/Art/hand.uasset"', '"Content/Fake/**"'))
+    write(
+        task,
+        "Tools/x/generated.toml",
+        MAP.replace('"Content/Art/hand.uasset"', '"Content/Fake/**"'),
+    )
     write(task, "Content/Fake/asset.uasset", "value=5\n")
     git(task, "add", ".")
     assert git_result(task, "commit", "-m", "reclassify").returncode != 0

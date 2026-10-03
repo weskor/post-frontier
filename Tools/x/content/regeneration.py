@@ -13,7 +13,9 @@ SUBJECT = "Regenerate binary assets (./x land)"
 
 
 def committed_changes(repo: Path) -> list[str]:
-    diff = gitinfo.query(repo, "diff", "--name-only", "--no-renames", "-z", "main", "HEAD")
+    diff = gitinfo.query(
+        repo, "diff", "--name-only", "--no-renames", "-z", "main", "HEAD"
+    )
     return [path for path in diff.split("\0") if path]
 
 
@@ -95,4 +97,3 @@ def regenerate(ctx: Context) -> str | None:
     ctx.run.add_result("regenerate", True, f"committed {len(changed)} files")
     print(f"land: committed {len(changed)} regenerated files")
     return None
-

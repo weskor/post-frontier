@@ -26,12 +26,18 @@ def tracked() -> list[str]:
         ("Content/**/*.uasset", "Content/A/B/DA_A.uasset", True),
         ("Art/Units/*.fbx", "Art/Units/SM_A.fbx", True),
         ("Art/Units/*.fbx", "Art/UnitsX/SM_A.fbx", False),
-        ("Content/Art/Materials/MI_AZ_*.uasset", "Content/Art/Materials/MI_AZ_Rust.uasset", True),
+        (
+            "Content/Art/Materials/MI_AZ_*.uasset",
+            "Content/Art/Materials/MI_AZ_Rust.uasset",
+            True,
+        ),
         ("a.b", "aXb", False),
         ("a?c", "a/c", False),
     ],
 )
-def test_glob_is_anchored_and_directory_aware(pattern: str, path: str, expected: bool) -> None:
+def test_glob_is_anchored_and_directory_aware(
+    pattern: str, path: str, expected: bool
+) -> None:
     assert generated.matches(pattern, path) is expected
 
 
