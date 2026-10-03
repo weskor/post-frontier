@@ -12,7 +12,6 @@
 #include "NavigationSystem.h"
 #include "Navigation/PathFollowingComponent.h"
 
-
 namespace ArmyGroupInternal
 {
 AAIController* GetReadyController(AArmyUnit* Unit)
