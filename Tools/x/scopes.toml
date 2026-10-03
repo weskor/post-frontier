@@ -301,8 +301,8 @@ kind = "lint"
 "Source/CoopRTS/Rules/ForceSelectionPolicy.h" = ["force-selection", "rules"]
 # Additional selection-world dependencies; matching entries are unioned.
 "Source/CoopRTS/ArenaBounds.*" = ["force-selection"]
-"Source/CoopRTS/ArmyGroup.*" = ["force-selection"]
-"Source/CoopRTS/ArmyUnit.*" = ["force-selection"]
+"Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/ArmyUnit.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/ArmyTestSetup.*" = ["force-selection"]
 "Source/CoopRTS/CombatTarget.*" = ["force-selection"]
 "Source/CoopRTS/CommandBuildingProduction.*" = ["force-selection"]
@@ -313,8 +313,8 @@ kind = "lint"
 "Source/CoopRTS/Commands/*" = ["force-selection"]
 "Source/CoopRTS/DepositSite.*" = ["force-selection"]
 "Source/CoopRTS/EnemyCommander.*" = ["force-selection"]
-"Source/CoopRTS/ForceGoals.*" = ["force-selection"]
-"Source/CoopRTS/MapRegion.*" = ["force-selection"]
+"Source/CoopRTS/ForceGoals.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/MapRegion.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/SimulationSettings.*" = ["force-selection"]
 "Source/CoopRTS/GoalOrderTests.cpp" = ["goal-orders"]
 "Source/CoopRTS/Headquarters.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
@@ -384,10 +384,6 @@ kind = "lint"
 "Tools/harness/network_pings.py" = ["pings-network", "tools"]
 
 # Hold alarms share the ArmyGroup/GameState interfaces with the existing scopes.
-"Source/CoopRTS/ArmyGroup.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
-"Source/CoopRTS/ArmyUnit.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
-"Source/CoopRTS/ForceGoals.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
-"Source/CoopRTS/MapRegion.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/WorldOverlay.*" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/CommandGameStateHold.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "objective-events", "objective-assets", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/HoldAlarmTests.cpp" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
