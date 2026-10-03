@@ -274,11 +274,9 @@ public:
 							&& Wallet->Resources == Before - (Roles[Index] == EUnitRole::Siege ? 180 : 0),
 						TEXT("First Start creates a permanent typed force and charges siege configuration exactly 180")))
 					return true;
-				const float ExpectedDuration = Roles[Index] == EUnitRole::Frontline ? 10.f / 3.f
-					: Roles[Index] == EUnitRole::Ranged                             ? 13.f / 3.f
-																					: 20.f / 3.f;
+				const float Duration = Producer->GetProductionDefinition()->UnitDuration;
 				const int32 BeforeWork = Wallet->Resources;
-				Producer->TickProduction(ExpectedDuration - .25f);
+				Producer->TickProduction(Duration - .25f);
 				if (!Check(Alive(Producer) == 0 && Wallet->Resources == BeforeWork,
 						TEXT("Work short of one unit duration cannot spawn or debit, for any force type")))
 					return true;
@@ -314,8 +312,8 @@ public:
 			Building->TickProduction(Building->GetProductionDuration());
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 			Squad = Building->ForceGroup;
-			if (!Check(Alive(Building.Get()) == 1 && Wallet->Resources == 1970,
-					TEXT("One completed ranged slot produces one unit, not a batch, for exactly 30")))
+			if (!Check(Alive(Building.Get()) == 1 && Wallet->Resources == 2000 - Building->GetProductionDefinition()->UnitCost,
+					TEXT("One completed slot produces one unit, not a batch, and charges its definition's unit cost")))
 				return true;
 			Recruit = Squad->GetUnits()[0];
 			if (!Check(Recruit->GetUnitRole() == EUnitRole::Ranged && Recruit->GetCommanderIndex() == Wallet->CommanderIndex
@@ -350,8 +348,6 @@ public:
 		}
 		if (Stage == 3)
 		{
-			const int32 Capacities[] = { 4, 6, 2 };
-			const int32 Costs[] = { 30, 20, 50 };
 			int32 ExpectedDebit = 0;
 			bool bFull = true;
 			const bool bReportProgress = World->GetTimeSeconds() - LastProgressReport >= 5.f;
@@ -359,14 +355,15 @@ public:
 				LastProgressReport = World->GetTimeSeconds();
 			for (int32 Index = 0; Index < Producers.Num(); ++Index)
 			{
+				const UArmyUnitDefinition* Definition = Producers[Index]->GetProductionDefinition();
 				int32 Joined, Travelling;
 				Producers[Index]->GetForceCounts(Joined, Travelling);
-				if (!Check(Joined + Travelling <= Capacities[Index], TEXT("Alive travellers consume their producer capacity")))
+				if (!Check(Joined + Travelling <= Definition->Capacity, TEXT("Alive travellers consume their producer capacity")))
 					return true;
-				if (!Check(ValidMembers(Producers[Index].Get(), Capacities[Index]), TEXT("Force roles, ownership and unique slots remain valid")))
+				if (!Check(ValidMembers(Producers[Index].Get(), Definition->Capacity), TEXT("Force roles, ownership and unique slots remain valid")))
 					return true;
-				ExpectedDebit += (Joined + Travelling - (Index == 0 ? 1 : 0)) * Costs[Index];
-				bFull &= Joined == Capacities[Index] && Travelling == 0;
+				ExpectedDebit += (Joined + Travelling - (Index == 0 ? 1 : 0)) * Definition->UnitCost;
+				bFull &= Joined == Definition->Capacity && Travelling == 0;
 				if (bReportProgress)
 					UE_LOG(LogTemp, Display, TEXT("Production fixture filling force=%d joined=%d travelling=%d state=%d front=%s"),
 						Index, Joined, Travelling, static_cast<int32>(Producers[Index]->GetProductionState()),
@@ -388,9 +385,6 @@ public:
 						TEXT("Explicit pause takes presentation priority even on a full force")))
 					return true;
 			}
-			if (!Check(Wallet->Resources == FillBalance - 3 * 30 - 6 * 20 - 2 * 50,
-					TEXT("Twelve living units fill independent 4/6/2 forces without a shared cap")))
-				return true;
 			OtherFront = Forces[1]->FrontLocation;
 			OtherOrder = Forces[1]->FrontOrder;
 			FCommandService::AssignFront(Wallet, Building.Get(), EFrontOrder::Secure, FromFriendlyHQ(State, 1700.f, -1100.f, 5.f));
@@ -414,8 +408,9 @@ public:
 			if (!Recruit.IsValid() || !Recruit->IsReinforcing())
 				return false;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
-			if (!Check(Wallet->Resources == ReplacementBalance - 30 && UnrelatedWallet->Resources == 777
-						&& Alive(Building.Get()) == 4 && Alive(Producers[1].Get()) == 6,
+			if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost && UnrelatedWallet->Resources == 777
+						&& Alive(Building.Get()) == Building->GetProductionDefinition()->Capacity
+						&& Alive(Producers[1].Get()) == Producers[1]->GetProductionDefinition()->Capacity,
 					TEXT("Replacement debits only its own commander, without taking another producer's capacity")))
 				return true;
 			RecruitStart = Recruit->GetActorLocation();
@@ -465,7 +460,7 @@ public:
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 			Recruit = Squad->GetUnits()[0];
 			if (!Check(Recruit->IsReinforcing() && Building->ForceGroup == Squad.Get()
-						&& Squad->FrontLocation == RememberedFront && Wallet->Resources == ReplacementBalance - 30,
+						&& Squad->FrontLocation == RememberedFront && Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost,
 					TEXT("Wiped force refills its remembered front under the original identity")))
 				return true;
 			Recruit->ReceiveAttack(Recruit->GetHealth(), Attacker->GetUnits()[0]);
@@ -482,7 +477,7 @@ public:
 			if (Alive(Building.Get()) == 0)
 				return false;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
-			if (!Check(Wallet->Resources == ReplacementBalance - 30, TEXT("Dead traveller replacement charges again")))
+			if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost, TEXT("Dead traveller replacement charges again")))
 				return true;
 			Building->ReceiveAttack(Building->Health, Attacker->GetUnits()[0]);
 			if (!Check(Squad.IsValid() && !IsValid(Squad->GetProductionBuilding()) && Squad->FrontLocation == RememberedFront,

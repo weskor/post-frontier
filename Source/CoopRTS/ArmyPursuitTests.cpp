@@ -53,6 +53,8 @@ public:
 				return Finish();
 			Left = Friendly->GetUnits()[0];
 			Right = Hostile->GetUnits()[0];
+			const int32 Damage = CombatPolicy::Damage(Left->GetDefinition()->AttackDamage, Left->GetDamageType(), Right->GetArmorClass());
+			MeleeTimeLimit = 5.f + FMath::DivideAndRoundUp(Right->GetHealth(), Damage) * Left->AttackInterval();
 			Place(Left.Get(), Anchor);
 			Place(Right.Get(), Anchor + FVector(125.f, 0.f, 0.f));
 			Arm(Friendly.Get());
@@ -87,9 +89,9 @@ public:
 		}
 		if (Stage == 1)
 		{
-			if (Elapsed > 20.f)
+			if (Elapsed > MeleeTimeLimit)
 			{
-				Test->AddError(TEXT("Two melee units at 200 cm failed to close and fight to a death within 20 game seconds"));
+				Test->AddError(FString::Printf(TEXT("Two melee units at 200 cm failed to close and fight to a death within %.2f game seconds"), MeleeTimeLimit));
 				return Finish();
 			}
 			if (Left.IsValid() && Right.IsValid())
@@ -220,6 +222,7 @@ private:
 	TArray<FVector> FightEndPositions;
 	double Started;
 	float StageStarted = 0.f;
+	float MeleeTimeLimit = 0.f;
 	int32 Stage = 0;
 	bool bIsolated = false, bBothClosed = false, bBothFired = false, bReachedSecond = false;
 };
