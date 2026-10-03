@@ -249,7 +249,7 @@ public:
 				return false;
 			Check(World->GetRealTimeSeconds() - PrefixTime >= 2., TEXT("Build prefix expires after two seconds"));
 			Key(PC, EKeys::W);
-			Check(!PC->IsPlacingBuilding(), TEXT("W after prefix expiry remains a camera key"));
+			Check(!PC->IsPlacingBuilding(), TEXT("W after prefix expiry cannot select an extractor"));
 			Key(PC, EKeys::W, IE_Released);
 			return true;
 		}

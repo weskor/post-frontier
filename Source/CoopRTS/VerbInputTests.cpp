@@ -33,7 +33,7 @@ public:
 		if (bFailed)
 			return true;
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f)
+		if (!World || ArmyTestSetup::GameSeconds(World) < 3. || (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		if (Stage == 0)
 		{
