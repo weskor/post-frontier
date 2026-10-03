@@ -133,7 +133,10 @@ void AEnemyCommander::EvaluatePlan()
 			|| Entry.Force->GetAliveCount() == 0;
 	});
 	if (TeamIndex == 5)
-		State->EnemyPlans.Reset();
+		State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) {
+			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander
+				|| Entry.Force->GetAliveCount() == 0;
+		});
 	const UMatchContent& Content = *State->Content;
 	const int32 ProducerIndex = FirstBuildingWith(Content, &UBuildingDefinition::bProducesForces);
 	const int32 ExtractorIndex = FirstBuildingWith(Content, &UBuildingDefinition::bRequiresDeposit);
@@ -340,7 +343,11 @@ void AEnemyCommander::EvaluatePlan()
 		Snapshot.ClassSpeeds = Speed;
 		JevPlanner::FPlan Next;
 		if (!JevPlanner::Decide(Summary, Snapshot, Now, Current ? &Current->Plan : nullptr, Next))
+		{
+			if (TeamIndex == 5)
+				State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
 			continue;
+		}
 		AActor* Structure = nullptr;
 		for (int32 Index = 0; Index < Targets.Num(); ++Index)
 			if (Targets[Index].Identity == Next.TargetIdentity)
@@ -356,7 +363,11 @@ void AEnemyCommander::EvaluatePlan()
 			|| Force->TargetStructure != Structure || Force->Orders.IsEmpty();
 		const bool bChanged = bActualChanged && (bDecisionChanged || bNewCommitment);
 		if (bChanged && !FCommandService::IssueForceOrder(Commander, Force, OrderVerb(Next.Verb), Next.Verb == JevPlanner::EVerb::Retreat ? INDEX_NONE : Next.Target, Structure))
+		{
+			if (TeamIndex == 5)
+				State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
 			continue;
+		}
 		if (bChanged && Next.Verb == JevPlanner::EVerb::Retreat && ValidRegion(Force->GetRetreatRegion()))
 		{
 			Next.Target = Force->GetRetreatRegion();
@@ -396,7 +407,13 @@ void AEnemyCommander::EvaluatePlan()
 		}
 		if (TeamIndex == 5)
 		{
-			FJevPublishedPlan& Published = State->EnemyPlans.AddDefaulted_GetRef();
+			FJevPublishedPlan* Existing = State->EnemyPlans.FindByPredicate(
+				[&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
+			const bool bMemoChanged = !Existing || Existing->TicketNumber != Current->TicketNumber
+				|| Existing->Verb != OrderVerb(DisplayPlan.Verb) || Existing->TargetRegionIndex != DisplayPlan.Target
+				|| Existing->SizeBand != DisplayPlan.SizeBand || Existing->EtaSeconds != DisplayPlan.EtaSeconds
+				|| Existing->bEscalated != DisplayPlan.bEscalated;
+			FJevPublishedPlan& Published = Existing ? *Existing : State->EnemyPlans.AddDefaulted_GetRef();
 			Published.TicketNumber = Current->TicketNumber;
 			Published.Force = Force;
 			Published.ForceNumber = Force->ForceNumber;
@@ -409,8 +426,9 @@ void AEnemyCommander::EvaluatePlan()
 			Published.CommittedUntil = Next.CommittedUntil;
 			Published.RemainingCommitment = JevPlanner::Remaining(Next, Now);
 			Published.bEscalated = Next.bEscalated;
-			Published.Memo = MemoTemplates.Format(DisplayPlan, Published.TicketNumber,
-				Regions[DisplayPlan.Target]->DisplayName.ToString());
+			if (bMemoChanged)
+				Published.Memo = MemoTemplates.Format(DisplayPlan, Published.TicketNumber,
+					Regions[DisplayPlan.Target]->DisplayName.ToString());
 #if !UE_BUILD_SHIPPING
 			if (bNewCommitment || bEscalation)
 			{
