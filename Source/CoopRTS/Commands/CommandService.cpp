@@ -1,4 +1,5 @@
 #include "CommandService.h"
+#include "ForceCapState.h"
 #include "CommandBuilding.h"
 #include "CommandGameMode.h"
 #include "CommandGameState.h"
@@ -50,6 +51,13 @@ FCommandResult FCommandService::PlaceBuilding(ACommandPlayerState* Commander, in
 	ACommandGameState* State = CommandState(Commander);
 	if (!State)
 		return Verdict(false, TEXT("Placement rejected: match or commander unavailable."), ECommandRejection::Unavailable);
+	const UBuildingDefinition* Definition = IsValid(State->Content) ? State->Content->Building(BuildingIndex) : nullptr;
+	if (Definition && Definition->bProducesForces)
+	{
+		FString CapReason = CommandForceCap::BlockReason(CommandForceCap::Read(*State, *Commander));
+		if (!CapReason.IsEmpty())
+			return Verdict(false, MoveTemp(CapReason));
+	}
 	FString Reason;
 	ACommandBuilding* Building = State->ApplyPlacement(BuildingIndex, Location, Commander, Commander->TeamIndex, Reason);
 	if (!Building)
