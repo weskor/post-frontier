@@ -356,6 +356,23 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
     )
 
 
+def focus_box_badges(run: NetworkRun, capture: Capture, owner: int) -> JsonObject:
+    def visible(state: JsonObject) -> bool:
+        return all("badge" in a for a in state["armies"] if a["owner"] == owner)
+
+    capture.key("F")
+    state = capture.state()
+    if visible(state):
+        return state
+    # Focus centres the force set, not the HUD's unobstructed map area.
+    run.request("host", "key", key="A", pressed=True)
+    try:
+        capture.wait(visible, "pan the box fixture badges clear of HUD panels")
+    finally:
+        run.request("host", "key", key="A", pressed=False)
+    return capture.wait(visible, "box fixture badges remain visible after pan stops")
+
+
 def force_box_selection(run: NetworkRun, capture: Capture, owner: int) -> None:
     recall_box_fixture(run, capture, owner)
     armies = [a for a in capture.state()["armies"] if a["owner"] == owner]
@@ -369,8 +386,7 @@ def force_box_selection(run: NetworkRun, capture: Capture, owner: int) -> None:
             number=army["forceNumber"],
             toggle=index > 0,
         )
-    capture.key("F")
-    state = capture.state()
+    state = focus_box_badges(run, capture, owner)
     require(
         all("badge" in a for a in state["armies"] if a["owner"] == owner),
         f"nearby box fixture badges are not visible after focus: camera={state['cameraPosition']}",
