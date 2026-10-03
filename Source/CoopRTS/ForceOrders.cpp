@@ -15,14 +15,24 @@
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationSystem.h"
 
-namespace
-{
-bool Arrived(const AArmyGroup& Force, const ACommandGameState& State, int32 RegionIndex)
+bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
 {
 	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);
-	return Force.GetJoinedCount() > 0 && Region && Region->Contains(Force.GetCenter())
-		&& FVector::DistSquared2D(Force.GetCenter(), Force.Destination) <= FMath::Square(170.f);
-}
+	if (!Region || !Region->Contains(GetCenter()))
+		return false;
+	bool bJoined = false;
+	for (const AArmyUnit* Unit : Units)
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing())
+			continue;
+		bJoined = true;
+		// Sparse formations have a biased member centre. Arrival belongs to
+		// the occupied slots of the accepted formation, not that biased mean.
+		if (FVector::DistSquared2D(Unit->GetActorLocation(), Destination + FormationOffset(Unit->GetCompositionSlot()))
+			> FMath::Square(170.f))
+			return false;
+	}
+	return bJoined;
 }
 
 int32 AArmyGroup::GetCapacity() const
@@ -99,6 +109,7 @@ bool AArmyGroup::CommitOrder(const FForceOrder& InOrder, bool bQueue, float Sele
 		// A replacement owns movement immediately, including while navigation is rebuilding.
 		// Clear the old pursuit corridor before preparing the new complete route.
 		StopAllUnits();
+		ResetHoldState();
 		Order = Verb == EForceVerb::Retreat ? EArmyOrder::Retreat : EArmyOrder::Move;
 		AttackTarget = nullptr;
 		NextWaypointAttempt = NextHoldingMaintenance = 0.f;
@@ -207,6 +218,13 @@ void AArmyGroup::CompleteOrder(int32 EndRegion)
 	NextWaypointAttempt = NextHoldingMaintenance = 0.f;
 	bWithdrawing = false;
 	WithdrawalRegionIndex = INDEX_NONE;
+	ResetHoldState();
+	if (bIdleRally && !IsValid(ProductionBuilding))
+	{
+		StopAllUnits();
+		Destination = GetCenter();
+		Order = AppliedPhase = EArmyOrder::Attack;
+	}
 	// Complete at this validated waypoint without inventing a march phase,
 	// including when an orphan's casualty withdrawal turns into MoveHold.
 	if (Next.Verb != EForceVerb::MoveHold || Next.RegionIndex != EndRegion)
@@ -284,7 +302,7 @@ void AArmyGroup::TickOrders()
 			|| !(ForceOrders::ConnectedMask(Graph, Count, Home, Controlled) & ~Hostiles & (uint64(1) << WithdrawalRegionIndex)))
 			WithdrawalRegionIndex = Safe;
 		const bool bArrived = AppliedWaypoint == WithdrawalRegionIndex
-			&& (PreviousStatus == EForceStatus::Refilling || Arrived(*this, *State, WithdrawalRegionIndex));
+			&& (PreviousStatus == EForceStatus::Refilling || HasArrivedAtRegion(*State, WithdrawalRegionIndex));
 		Status = bArrived ? EForceStatus::Refilling : bWithdrawing ? EForceStatus::Withdrawing
 																   : EForceStatus::Retreating;
 		// Target loss never aborts a casualty withdrawal in hostile ground.
@@ -325,7 +343,7 @@ void AArmyGroup::TickOrders()
 	const bool bHostiles = (Hostiles & (uint64(1) << TargetRegionIndex)) != 0;
 	const bool bTaken = State->GetRegionController(TargetRegionIndex) == TeamIndex && !bHostiles;
 	const bool bCleared = (!Target->Anchor || bTaken) && !bHostiles;
-	const bool bArrived = AppliedWaypoint == TargetRegionIndex && Arrived(*this, *State, TargetRegionIndex);
+	const bool bArrived = AppliedWaypoint == TargetRegionIndex && HasArrivedAtRegion(*State, TargetRegionIndex);
 	if (Verb == EForceVerb::Attack && !bStructureAttack && bTaken && bArrived)
 	{
 		CompleteOrder(TargetRegionIndex);
@@ -342,12 +360,19 @@ void AArmyGroup::TickOrders()
 			return;
 		}
 		Status = EForceStatus::Holding;
-		// Preserve today's Defend/Hold combat behavior; the hold-alarm slice owns
-		// changes to responding, posts and the region leash.
 		MarchSpeed = Orders[0].SelectionSpeed = 0.f;
-		if (PreviousStatus != EForceStatus::Holding || GetWorld()->GetTimeSeconds() >= NextHoldingMaintenance)
+		// Once assigned, posts/alarms own Destination. Never pull a holder back
+		// to the anchor; an unowned capture target must be secured before posts.
+		if (!(bIdleRally && !IsValid(ProductionBuilding)) && !IsHoldingRegion()
+			&& (PreviousStatus != EForceStatus::Holding || GetWorld()->GetTimeSeconds() >= NextHoldingMaintenance))
 		{
-			ApplyWaypoint(TargetRegionIndex, EArmyOrder::Attack);
+			if (ApplyWaypoint(TargetRegionIndex, EArmyOrder::Attack)
+				&& (!Target->Anchor || State->GetRegionController(TargetRegionIndex) == TeamIndex)
+				&& !Target->GetDefendPosts().IsEmpty())
+			{
+				HoldRegionIndex = TargetRegionIndex;
+				ForceNetUpdate();
+			}
 			NextHoldingMaintenance = GetWorld()->GetTimeSeconds() + 2.f;
 		}
 	}
@@ -362,7 +387,7 @@ void AArmyGroup::TickOrders()
 			&& (TeamIndex == 0 ? Current->Anchor->bEnemyPresent : Current->Anchor->bFriendlyPresent);
 		if (Source == TargetRegionIndex || (Current && (!Current->Anchor || (Controlled & (uint64(1) << Source))))
 			|| (bContested && AppliedWaypoint != INDEX_NONE
-				&& (AppliedWaypoint != Source || Arrived(*this, *State, Source))))
+				&& (AppliedWaypoint != Source || HasArrivedAtRegion(*State, Source))))
 			Waypoint = ForceOrders::NextWaypoint(Graph, Count, Source, TargetRegionIndex);
 		if (Waypoint == TargetRegionIndex && TargetStructure)
 			ApplyWaypoint(Waypoint, EArmyOrder::Attack, TargetStructure);

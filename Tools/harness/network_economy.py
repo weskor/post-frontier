@@ -9,14 +9,12 @@ from harness.network import (
     EXTRACTOR,
     HOLDING,
     MOVE_HOLD,
-    RETREAT,
-    RETREATING,
     NetworkRun,
     alive_units,
     building,
     distance2,
     force,
-    force_counts_match,
+    force_arrived,
     near,
     order_destination_matches,
     order_matches,
@@ -77,6 +75,7 @@ def capture_region(
             and order_matches(st, index, MOVE_HOLD, target)
             and building(st, index)["status"] == HOLDING
             and order_destination_matches(st, s.owner, index, target)
+            and force_arrived(st, s.owner, index, target)
         ),
         "produced force captures and holds the target region with Move & Hold",
     )
@@ -119,21 +118,7 @@ def clear_deposit(
             and not next(site for site in st["sites"] if site["index"] == target)[
                 "friendlyPresent"
             ]
-            and force_counts_match(st, s.owner, index)
-            and (
-                order_matches(st, index, RETREAT, -1)
-                or order_destination_matches(st, s.owner, index, home)
-            )
-            and force(st, s.owner, index)["status"] != RETREATING
-            and force(st, s.owner, index)["waypointRegionIndex"] == home
-            and distance2(
-                force(st, s.owner, index)["destination"], region(st, home)["anchor"]
-            )
-            <= 75**2
-            and distance2(
-                force(st, s.owner, index)["center"], region(st, home)["anchor"]
-            )
-            < 150**2
+            and force_arrived(st, s.owner, index, home)
             and all(
                 distance2(u["position"], free["position"]) > 500**2
                 for u in alive_units(force(st, s.owner, index))

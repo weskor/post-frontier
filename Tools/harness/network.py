@@ -29,6 +29,7 @@ __all__ = [
     "building",
     "distance2",
     "force",
+    "force_arrived",
     "force_counts_match",
     "order_destination_matches",
     "order_matches",
@@ -270,20 +271,83 @@ def order_matches(state: JsonObject, index: int, verb: int, target: int) -> bool
     )
 
 
+def region_contains(area: JsonObject, point: Sequence[float]) -> bool:
+    """Match inclusive polygon boundaries, including degenerate-edge rejection."""
+    polygon = area["polygon"]
+    if len(polygon) < 3:
+        return False
+    inside = False
+    for previous, current in zip(polygon, [*polygon[1:], polygon[0]], strict=True):
+        dx, dy = current[0] - previous[0], current[1] - previous[1]
+        ox, oy = point[0] - previous[0], point[1] - previous[1]
+        length2 = dx * dx + dy * dy
+        dot = ox * dx + oy * dy
+        if (
+            length2 > 0
+            and abs(dx * oy - dy * ox) <= 1e-6 * length2**0.5
+            and 0 <= dot <= length2
+        ):
+            return True
+        if (previous[1] > point[1]) != (current[1] > point[1]) and (
+            point[0] < previous[0] + oy * dx / dy
+        ):
+            inside = not inside
+    return inside
+
+
 def order_destination_matches(
     state: JsonObject, owner: int, index: int, target: int
 ) -> bool:
     if not force_counts_match(state, owner, index):
         return False
     group = force(state, owner, index)
-    # The complete formation may resolve an obstructed region anchor by up to 75 cm.
-    # Check the actual destination, not an acceptance message or intent-only marker.
-    return (
+    if not (
         order_matches(state, index, MOVE_HOLD, target)
         and group["forceVerb"] == MOVE_HOLD
         and group["targetRegionIndex"] == target
         and group["waypointRegionIndex"] == target
-        and distance2(group["destination"], region(state, target)["anchor"]) <= 75**2
+    ):
+        return False
+    area = region(state, target)
+    if group["status"] == HOLDING and group["holdRegionIndex"] != -1:
+        if group["holdRegionIndex"] != target or group["holdPostIndex"] < 0:
+            return False
+        if not region_contains(area, group["holdPostLocation"]):
+            return False
+        if group["bHoldResponding"]:
+            # A missing threat during commitment grace cannot prove a live endpoint.
+            return bool(
+                group["holdThreatId"] != -1
+                and distance2(group["destination"], group["holdThreatPosition"]) <= 1
+            )
+        return distance2(group["destination"], group["holdPostLocation"]) <= 1
+    # March/refill and neutral capture retain the complete-formation anchor bound.
+    return distance2(group["destination"], area["anchor"]) <= 75**2
+
+
+def force_arrived(state: JsonObject, owner: int, index: int, target: int) -> bool:
+    """Physical arrival, not merely accepted intent or an early Holding status."""
+    if not force_counts_match(state, owner, index):
+        return False
+    group = force(state, owner, index)
+    area = region(state, target)
+    destination_valid = (
+        group["holdRegionIndex"] == target
+        and order_destination_matches(state, owner, index, target)
+    ) or (
+        order_matches(state, index, RETREAT, -1)
+        and group["forceVerb"] == RETREAT
+        and group["targetRegionIndex"] == -1
+        and group["status"] == REFILLING
+        and distance2(group["destination"], area["anchor"]) <= 75**2
+    )
+    return (
+        destination_valid
+        and group["status"] in (HOLDING, REFILLING)
+        and not group["bHoldResponding"]
+        and group["waypointRegionIndex"] == target
+        and region_contains(area, group["center"])
+        and distance2(group["center"], group["destination"]) < 150**2
     )
 
 

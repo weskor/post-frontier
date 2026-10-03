@@ -13,6 +13,7 @@ from harness.network import (
     building,
     distance2,
     force,
+    force_arrived,
     force_counts_match,
     order_destination_matches,
     order_matches,
@@ -114,6 +115,7 @@ def fill_force(
             and wallet(s, owner)["wallet"] == 0
             and building(s, barracks)["status"] == HOLDING
             and order_matches(s, barracks, MOVE_HOLD, target)
+            and force_arrived(s, owner, barracks, target)
         ),
         "paid ranged units physically join and fill their own force",
     )
@@ -227,6 +229,7 @@ def retarget_replacement(
             and building(s, barracks)["status"] == HOLDING
             and order_matches(s, barracks, MOVE_HOLD, moved_target)
             and order_destination_matches(s, owner, barracks, moved_target)
+            and force_arrived(s, owner, barracks, moved_target)
         ),
         "replacement physically arrives",
     )

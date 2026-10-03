@@ -352,7 +352,9 @@ void AEnemyCommander::EvaluatePlan()
 					&& FVector::DistSquared2D(Force->Destination, Anchor) <= FMath::Square(75.f);
 				const bool bAtCompletedRecovery = Force->Verb == EForceVerb::MoveHold
 					&& FVector::DistSquared2D(Center, Anchor) <= FMath::Square(170.f + 75.f);
-				if (bAtRecoveryWaypoint || bAtCompletedRecovery)
+				const bool bHoldingRecovery = Force->IsHoldingRegion() && Force->HoldRegionIndex == Held
+					&& Force->TargetRegionIndex == Held;
+				if (bAtRecoveryWaypoint || bAtCompletedRecovery || bHoldingRecovery)
 				{
 					Verb = EForceVerb::MoveHold;
 					Target = Held;

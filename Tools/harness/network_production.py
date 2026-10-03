@@ -16,6 +16,7 @@ from harness.network import (
     building,
     distance2,
     force,
+    force_arrived,
     force_counts_match,
     order_destination_matches,
     order_matches,
@@ -189,6 +190,9 @@ def retarget_and_open_vacancy(
             and building(st, second)["forceNumber"] == 2
             and force(st, s.owner, index)["forceNumber"] == 1
             and force(st, s.owner, second)["forceNumber"] == 2
+            and force_arrived(
+                st, s.owner, second, building(st, second)["targetRegionIndex"]
+            )
         ),
         "producer numbers 1/2 and matching group numbers observed on host and remote",
     )
@@ -287,7 +291,7 @@ def replace_vacancy(
             and force_counts_match(st, s.owner, index)
             and building(st, index)["status"] == HOLDING
             and order_matches(st, index, MOVE_HOLD, original_target)
-            and order_destination_matches(st, s.owner, index, original_target)
+            and force_arrived(st, s.owner, index, original_target)
         ),
         "replacement physically arrives and joins moving force",
     )

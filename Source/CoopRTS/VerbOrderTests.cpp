@@ -859,16 +859,40 @@ private:
 				return false;
 			if (!KillTo(3))
 				return true;
-			AArmyUnit* Shooter = Force->GetUnits()[0];
-			PutHostile(Force->GetCenter() + FVector(900.f, 0.f, 0.f));
+			const FVector Center = Force->GetCenter();
+			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GameWorld);
+			bool bPlaced = false;
+			for (int32 Direction = 0; Nav && Direction < 8; ++Direction)
+			{
+				const float Angle = Direction * PI / 4.f;
+				const FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * 900.f;
+				FNavLocation Ground;
+				if (Region(State, Target)->Contains(Candidate)
+					&& Nav->ProjectPointToNavigation(Candidate, Ground, FVector(90.f, 90.f, 500.f))
+					&& Region(State, Target)->Contains(Ground.Location))
+				{
+					PutHostile(FVector(Ground.Location.X, Ground.Location.Y, Center.Z));
+					bPlaced = true;
+					break;
+				}
+			}
+			if (!Check(bPlaced, TEXT("Stationary hostile occupies reachable held-region ground outside weapon range")))
+				return true;
+			SetStage(16);
+			return false;
+		}
+		if (Stage == 16)
+		{
 			TickForce();
 			bool bObservedPursuit = false;
 			for (const AArmyUnit* Unit : Force->GetUnits())
 				if (const AAIController* AI = Cast<AAIController>(Unit->GetController());
 					Unit->bPursuing && AI && AI->GetMoveStatus() != EPathFollowingStatus::Idle)
 					bObservedPursuit = true;
-			if (!Check(bObservedPursuit, TEXT("Retreat replaces a real active combat pursuit, not only an idle formation")))
-				return true;
+			if (!bObservedPursuit)
+				return false; // Await real shared-alarm movement before replacing it.
+			Test->AddInfo(TEXT("Retreat replaces observed active regional combat pursuit."));
+			AArmyUnit* Shooter = Force->GetUnits()[0];
 			PutHostile(Shooter->GetActorLocation() + FVector(60.f, 0.f, 0.f));
 			if (!Issue(EForceVerb::Retreat))
 				return true;

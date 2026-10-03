@@ -9,6 +9,7 @@
 
 class AArmyUnit;
 class ACommandBuilding;
+class ACommandGameState;
 enum class EArmyDoctrine : uint8;
 class ACommandPlayerState;
 class AMapRegion;
@@ -172,6 +173,7 @@ private:
 	void UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation, float Now);
 	bool CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed);
 	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
+	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
 	void CompleteOrder(int32 EndRegion);
 	void UpdateMarchSpeed();
 	int32 LastHeldRegionIndex = INDEX_NONE;

@@ -118,15 +118,15 @@ public:
 					return false;
 				if (!RestartCase())
 					Actors.IsolatePlanner();
-				// Two groups cannot settle into the same six physical slots. Give
-				// each its own real region anchor, then wait for natural arrival.
+				// Give each fixture its own region intent; holding then assembles at
+				// that region's assigned shared post, not at the capture anchor.
 				const int32 Home = ArmyTestSetup::CurrentRegion(Actors.Armies[0].Get());
 				const int32 Other = ArmyTestSetup::TravelRegion(Actors.Armies[0].Get(),
 					Actors.State->FriendlyHeadquarters->GetActorLocation());
 				if (!Check(Home != INDEX_NONE && Other != INDEX_NONE && Home != Other
 							&& FCommandService::IssueForceOrder(Actors.Wallet.Get(), Actors.Armies[0].Get(), EForceVerb::MoveHold, Home).IsAccepted()
 							&& FCommandService::IssueForceOrder(Actors.Wallet.Get(), Actors.Armies[1].Get(), EForceVerb::MoveHold, Other).IsAccepted(),
-						TEXT("Doctrine fixtures accept separate physical region-anchor holds")))
+						TEXT("Doctrine fixtures accept separate physical region holds")))
 					return true;
 				bActorsArranged = true;
 			}
@@ -173,13 +173,14 @@ protected:
 
 	bool Settled(const AArmyGroup* Force) const
 	{
-		// Holding is also the spawn default; require the accepted anchor order
-		// and actual arrival, not that transient pre-navigation state.
-		if (!Force || Force->Orders.IsEmpty() || Force->Verb != EForceVerb::MoveHold
-			|| Force->Status != EForceStatus::Holding || Force->TargetRegionIndex == INDEX_NONE
+		// Holding is also the spawn default; require accepted region intent,
+		// controlled ground and physical assembly at the assigned shared post.
+		if (!Force || Force->Orders.IsEmpty() || !Force->IsHoldingRegion()
+			|| Force->HoldPostIndex == INDEX_NONE || Force->bHoldResponding
+			|| Force->HoldRegionIndex != Force->TargetRegionIndex
 			|| Force->WaypointRegionIndex != Force->TargetRegionIndex
 			|| Actors.State->GetRegionController(Force->TargetRegionIndex) != Force->GetTeamIndex()
-			|| FVector::Dist2D(Force->GetCenter(), Actors.State->GetRegionAnchor(Force->TargetRegionIndex)) > 170.f)
+			|| FVector::Dist2D(Force->GetCenter(), Force->HoldPostLocation) > 170.f)
 			return false;
 		for (const AArmyUnit* Unit : Force->GetUnits())
 			if (Unit->GetVelocity().Size2D() > 1.f)
@@ -203,17 +204,24 @@ protected:
 	int32 WeaponHitFresh(AArmyUnit* Shooter, const AArmyUnit* Equivalent) const
 	{
 		const AArmyGroup* Source = Equivalent->GetGroup();
+		// A fresh equivalent must earn Holding through physical anchor arrival;
+		// spawning at another holder's post is not arrival for its new command.
+		const FVector SourceCenter = Source->GetCenter();
+		const FVector FixtureCenter = Source->IsHoldingRegion()
+			? Actors.State->GetRegionAnchor(Source->TargetRegionIndex)
+			: SourceCenter;
 		AArmyGroup* Fixture = ArmyTestSetup::SpawnGroup(Actors.World.Get(),
-			Cast<ACommandPlayerController>(Source->GetOwner()), Source->GetArmyIndex(), Source->GetCenter());
+			Cast<ACommandPlayerController>(Source->GetOwner()), Source->GetArmyIndex(), FixtureCenter);
 		if (!Fixture)
 			return 0;
-		// Spawn collision adjustment can displace an overlapping clone. Restore
-		// the entire real formation before arrival is evaluated, not just the victim.
+		// Preserve the settled formation geometry while translating the whole
+		// fixture to its own command's physical arrival point.
 		for (AArmyUnit* Member : Fixture->GetUnits())
 			for (const AArmyUnit* Original : Source->GetUnits())
 				if (Member->GetCompositionSlot() == Original->GetCompositionSlot())
 				{
-					Member->SetActorLocation(Original->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+					Member->SetActorLocation(FixtureCenter + Original->GetActorLocation() - SourceCenter,
+						false, nullptr, ETeleportType::TeleportPhysics);
 					break;
 				}
 		if (!FCommandService::IssueForceOrder(Fixture->GetOwningPlayerState(), Fixture, Source->Verb,
@@ -224,6 +232,12 @@ protected:
 			return 0;
 		}
 		Fixture->TickOrders();
+		if (!Check(!Source->IsHoldingRegion() || Fixture->IsHoldingRegion(),
+				TEXT("Fresh stationary damage fixture physically earns its own commanded Holding phase")))
+		{
+			Fixture->Destroy();
+			return 0;
+		}
 		AArmyUnit* Target = Fixture->GetUnits()[Equivalent->GetCompositionSlot()];
 		const int32 Damage = Target->GetDefinition() == Equivalent->GetDefinition() ? WeaponHit(Shooter, Target) : 0;
 		Fixture->Destroy(); // EndPlay destroys every fixture member and its AI controller.
@@ -632,15 +646,16 @@ private:
 			AArmyUnit* Piercing = Actors.Enemy->GetUnits()[2];
 			const int32 PiercingProtected = (Piercing->GetDefinition()->AttackDamage * 3 / 2) * 3 / 4;
 			if (!Check(WeaponHitFresh(Piercing, Held) == PiercingProtected,
-					TEXT("Stationary Defend frontline mitigation composes with the Piercing bonus against Heavy")))
+					TEXT("Stationary held frontline mitigation composes with the Piercing bonus against Heavy")))
 				return true;
 			AArmyUnit* Ranged = Actors.Armies[0]->GetUnits()[2];
 			if (!Check(Ranged->GetUnitRole() == EUnitRole::Ranged
 						&& WeaponHit(Enemy, Ranged) == Baseline * 3 / 2,
-					TEXT("Stationary Defend Light ranged takes full Kinetic bonus without frontline-only mitigation")))
+					TEXT("Stationary held Light ranged takes full Kinetic bonus without frontline-only mitigation")))
 				return true;
 			Start = Moving->GetActorLocation();
-			RetreatOrigin = Actors.State->GetRegionAnchor(Actors.Armies[1]->TargetRegionIndex);
+			RetreatOrigin = Actors.Armies[1]->HoldPostLocation;
+			RetreatRegion = Actors.Armies[1]->HoldRegionIndex;
 			if (!Check(FCommandService::IssueForceOrder(Actors.Wallet.Get(), Actors.Armies[1].Get(), EForceVerb::MoveHold,
 						   ArmyTestSetup::TravelRegion(Actors.Armies[1].Get(), Actors.State->EnemyHeadquarters->GetActorLocation()))
 						   .IsAccepted(),
@@ -652,10 +667,11 @@ private:
 		}
 		if (Stage == 1)
 		{
-			if (!After(Now, .7) || FVector::Dist2D(Actors.Armies[1]->GetCenter(), RetreatOrigin) < 500.f)
+			if (!After(Now, .7) || ArmyTestSetup::CurrentRegion(Actors.Armies[1].Get()) == RetreatRegion
+				|| FVector::Dist2D(Actors.Armies[1]->GetCenter(), RetreatOrigin) < 500.f)
 				return false;
 			if (!Check(FVector::Dist2D(Moving->GetActorLocation(), Start) > 30.f,
-					TEXT("Frontline traveling to its Defend front actually changes position")))
+					TEXT("Frontline traveling to its MoveHold region actually changes position")))
 				return true;
 			if (!Check(WeaponHit(Enemy, Moving) == BaseDamage,
 					TEXT("Moving frontline takes full real weapon damage despite chosen doctrine")))
@@ -718,18 +734,19 @@ private:
 				return false;
 			AArmyUnit* Replacement = LaterFrontline.Get();
 			if (!Check(Replacement && WeaponHitFresh(Enemy, Replacement) == BaseDamage * 3 / 4,
-					TEXT("New stationary Defend frontline inherits protection against a real shot")))
+					TEXT("New stationary held frontline inherits protection against a real shot")))
 				return true;
 			if (!Check(FCommandService::IssueForceOrder(Actors.Wallet.Get(), Replacement->GetGroup(), EForceVerb::Attack, INDEX_NONE, Actors.State->EnemyHeadquarters).IsAccepted()
 						&& WeaponHit(Enemy, Replacement) == BaseDamage,
 					TEXT("Attack frontline does not receive stationary Hold mitigation")))
 				return true;
-			Test->AddInfo(TEXT("Entrenched: stationary Defend mitigates real hits; traveling, retreating and Secure members do not; later units inherit."));
+			Test->AddInfo(TEXT("Entrenched: stationary Holding mitigates real hits; traveling, retreating and Attack members do not; later units inherit."));
 			return true;
 		}
 		return true;
 	}
 	int32 BaseDamage = 0;
+	int32 RetreatRegion = INDEX_NONE;
 	FVector Start = FVector::ZeroVector;
 	FVector RetreatOrigin = FVector::ZeroVector;
 	TWeakObjectPtr<AArmyUnit> LaterFrontline;

@@ -96,7 +96,6 @@ public:
 			Test->TestTrue(TEXT("Units actually move under the initial order"), FVector::Dist2D(StartCenter, Army->GetCenter()) > 100.);
 			StartCenter = Army->GetCenter();
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
-			Replacement = State->GetRegionAnchor(HomeRegion);
 			Serial = Army->OrderSerial;
 			uint64 Graph[ForceOrders::MaxRegions];
 			const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
@@ -108,14 +107,17 @@ public:
 				: Source;
 			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, HomeRegion);
 			Test->TestTrue(TEXT("Replacement receives a new order serial"), Army->OrderSerial > Serial);
-			Test->TestTrue(TEXT("Replacement records its new region and routes through the graph waypoint"),
+			Test->TestTrue(TEXT("Replacement records its new region and routes through the graph waypoint or assigned hold post"),
 				Army->TargetRegionIndex == HomeRegion && Army->WaypointRegionIndex == ReplacementWaypoint
-					&& FVector::Dist2D(Army->Destination, State->GetRegionAnchor(ReplacementWaypoint)) < 100.f);
+					&& FVector::Dist2D(Army->Destination, Army->IsHoldingRegion() ? Army->HoldPostLocation : State->GetRegionAnchor(ReplacementWaypoint)) < 100.f);
 			NextStage(Now);
 		}
-		else if (Stage == 2 && Army->Status == EForceStatus::Holding)
+		else if (Stage == 2 && HoldingSettled())
 		{
-			Test->TestTrue(TEXT("Units physically reach the replacement region rather than stale intent"), FVector::Dist2D(Army->GetCenter(), Replacement) < 500.f);
+			Test->TestTrue(TEXT("Units physically reach the replacement region's assigned post rather than stale intent"),
+				Army->HoldRegionIndex == HomeRegion
+					&& ArmyTestSetup::CurrentRegion(Army.Get()) == HomeRegion
+					&& FVector::Dist2D(Army->GetCenter(), Army->HoldPostLocation) < 150.f);
 			NextStage(Now);
 		}
 		else if (Stage == 3)
@@ -164,16 +166,16 @@ public:
 		else if (Stage == 6)
 		{
 			bRetreatMoved |= FVector::Dist2D(Army->GetCenter(), RetreatStart) > 300.f;
-			if (Army->Status != EForceStatus::Holding || !HoldingSettled())
+			if (Army->Status != EForceStatus::Holding || !MembersStopped())
 				return false;
-			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
 			Test->TestTrue(TEXT("Producerless Retreat physically returns to the remembered safe region"),
 				bRetreatMoved && Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == HomeRegion
+					&& Army->HoldRegionIndex == INDEX_NONE && Army->HoldPostIndex == INDEX_NONE
 					&& ArmyTestSetup::CurrentRegion(Army.Get()) == HomeRegion
-					&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(HomeRegion)) < 150.f);
+					&& FVector::Dist2D(Army->GetCenter(), Army->Destination) < 35.f);
 			for (const AArmyUnit* Unit : Army->GetUnits())
-				Test->TestTrue(TEXT("Every retreating member physically arrives in its home formation"),
-					FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(HomeRegion)) < 450.f);
+				Test->TestTrue(TEXT("Every retreating orphan member arrives at safety without an implicit post assignment"),
+					FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) < 450.f);
 			Test->AddInfo(TEXT("Live navigation passed: region travel, replacement, physical Hold arrival, atomic invalid region and safe Retreat completion."));
 			return true;
 		}
@@ -182,8 +184,14 @@ public:
 private:
 	bool HoldingSettled() const
 	{
-		if (Army->Verb != EForceVerb::MoveHold || Army->Status != EForceStatus::Holding)
+		if (!Army->IsHoldingRegion() || Army->HoldPostIndex == INDEX_NONE || Army->bHoldResponding
+			|| Army->HoldRegionIndex != Army->TargetRegionIndex
+			|| FVector::Dist2D(Army->GetCenter(), Army->HoldPostLocation) >= 150.f)
 			return false;
+		return MembersStopped();
+	}
+	bool MembersStopped() const
+	{
 		for (const AArmyUnit* Unit : Army->GetUnits())
 		{
 			const AAIController* AI = Cast<AAIController>(Unit->GetController());
@@ -203,7 +211,6 @@ private:
 	TWeakObjectPtr<ACommandPlayerController> Controller;
 	TArray<FVector> HeldPositions;
 	FVector StartCenter = FVector::ZeroVector;
-	FVector Replacement = FVector::ZeroVector;
 	FVector RetreatStart = FVector::ZeroVector;
 	TOptional<FVector> RejectedInitialTarget;
 	uint32 Serial = 0;

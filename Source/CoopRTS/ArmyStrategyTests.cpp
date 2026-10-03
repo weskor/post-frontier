@@ -418,12 +418,19 @@ private:
 	{
 		if (Recovery->WaypointRegionIndex == INDEX_NONE
 			|| State->GetRegionController(Recovery->WaypointRegionIndex) != 5
-			|| State->IsRegionContested(Recovery->WaypointRegionIndex, 5)
-			|| FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Recovery->WaypointRegionIndex)) > 75.f)
+			|| State->IsRegionContested(Recovery->WaypointRegionIndex, 5))
 			return false;
 		if (Recovery->Verb == EForceVerb::Retreat)
 			return Recovery->TargetRegionIndex == INDEX_NONE
-				&& (Recovery->Status == EForceStatus::Retreating || Recovery->Status == EForceStatus::Refilling);
+				&& (Recovery->Status == EForceStatus::Retreating || Recovery->Status == EForceStatus::Refilling)
+				&& FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Recovery->WaypointRegionIndex)) <= 75.f;
+		if (Recovery->IsHoldingRegion())
+		{
+			const AMapRegion* Held = State->FindRegionAt(Recovery->GetCenter());
+			return Recovery->HoldRegionIndex == Recovery->WaypointRegionIndex
+				&& Recovery->TargetRegionIndex == Recovery->WaypointRegionIndex
+				&& Held && Held->RegionIndex == Recovery->WaypointRegionIndex;
+		}
 		// Replacing the completed Retreat's producer rally starts MoveHold in Marching
 		// until the next executor tick observes arrival. It must already be physically
 		// at the same safe destination; a later real Holding phase is still required.
@@ -433,6 +440,7 @@ private:
 			&& Recovery->TargetRegionIndex == Recovery->WaypointRegionIndex
 			&& PhysicalRegion && PhysicalRegion->RegionIndex == Recovery->WaypointRegionIndex
 			&& PhysicalRegion->Contains(Recovery->GetCenter())
+			&& FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Recovery->WaypointRegionIndex)) <= 75.f
 			&& FVector::Dist2D(Recovery->GetCenter(), Recovery->Destination) <= 170.f;
 	}
 	ACommandBuilding* PlaceEnemy(ACommandGameState* State, FName Id, const FVector& Center)

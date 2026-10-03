@@ -11,8 +11,8 @@ from harness.network import (
     NetworkRun,
     distance2,
     force,
+    force_arrived,
     force_counts_match,
-    order_destination_matches,
     order_matches,
     region,
 )
@@ -27,12 +27,8 @@ def begin_retreat_home(run: NetworkRun, s: Session, index: int) -> int:
         run,
         s.names,
         lambda st: (
-            order_destination_matches(st, s.owner, index, home)
+            force_arrived(st, s.owner, index, home)
             and force(st, s.owner, index)["status"] == HOLDING
-            and distance2(
-                force(st, s.owner, index)["center"], region(st, home)["anchor"]
-            )
-            < 150**2
         ),
         "same force physically holds home before its Retreat departure",
     )
@@ -44,6 +40,12 @@ def begin_retreat_home(run: NetworkRun, s: Session, index: int) -> int:
 def retreat_from_home(
     run: NetworkRun, s: Session, index: int, home: int, outbound: int
 ) -> None:
+    safe_states = {name: run.observe(name) for name in s.names}
+    safe_ids = {
+        st["localIndex"]: force(st, s.owner, index)["actorId"]
+        for st in safe_states.values()
+    }
+    safe_origin = force(safe_states["host"], s.owner, index)["center"]
     run.request(
         s.peer, "order", building=index, forceVerb=ATTACK, targetRegionIndex=outbound
     )
@@ -52,6 +54,8 @@ def retreat_from_home(
         s.names,
         lambda st: (
             force_counts_match(st, s.owner, index)
+            and force(st, s.owner, index)["actorId"] == safe_ids[st["localIndex"]]
+            and distance2(force(st, s.owner, index)["center"], safe_origin) > 1000**2
             and order_matches(st, index, ATTACK, outbound)
             and force(st, s.owner, index)["status"] == MARCHING
             and distance2(
@@ -70,6 +74,7 @@ def retreat_from_home(
         s.names,
         lambda st: (
             force_counts_match(st, s.owner, index)
+            and force(st, s.owner, index)["actorId"] == safe_ids[st["localIndex"]]
             and order_matches(st, index, RETREAT, -1)
             and force(st, s.owner, index)["status"] == RETREATING
             and force(st, s.owner, index)["waypointRegionIndex"] == home

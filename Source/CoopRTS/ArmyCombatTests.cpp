@@ -141,11 +141,11 @@ public:
 		{
 			if (Army->Verb == EForceVerb::MoveHold && Army->Status == EForceStatus::Marching)
 				return false; // Completion can still assemble the safe-region formation.
-			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
-			if (!Check(bObservedRetreatMotion && Army->Verb == EForceVerb::MoveHold
-						&& Army->Status == EForceStatus::Holding
-						&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(Army->TargetRegionIndex)) < 500.f,
-					TEXT("Physically moving orphan Retreat completes into MoveHold at its safe region")))
+			if (!Check(bObservedRetreatMotion && Army->IsHoldingRegion()
+						&& Army->HoldRegionIndex == Army->TargetRegionIndex
+						&& Army->HoldPostIndex != INDEX_NONE
+						&& ArmyTestSetup::CurrentRegion(Army.Get()) == Army->TargetRegionIndex,
+					TEXT("Physically moving orphan Retreat completes into its safe-region hold, including live alarm response")))
 				return true;
 		}
 		if (!RejectUnregisteredTargets())
@@ -390,6 +390,9 @@ private:
 						.IsAccepted(),
 				TEXT("Targeting fixture accepts a real region Attack without casualty withdrawal")))
 			return false;
+		if (!Check(Army->Verb == EForceVerb::Attack && Army->Order == EArmyOrder::Attack && !Army->IsHoldingRegion(),
+				TEXT("Counter and persistent-lock probes exercise local Attack combat, not shared-post Holding")))
+			return false;
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -408,6 +411,9 @@ private:
 					   EForceVerb::Attack, INDEX_NONE, HQ)
 					   .IsAccepted(),
 				TEXT("Explicit hostile HQ Attack is accepted")))
+			return false;
+		if (!Check(Army->Verb == EForceVerb::Attack && Army->Order == EArmyOrder::Attack && !Army->IsHoldingRegion(),
+				TEXT("Explicit structure priority exercises the Attack phase")))
 			return false;
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->TargetStructure == HQ && Army->GetUnits()[0]->Target == HQ,
@@ -430,6 +436,9 @@ private:
 					   EForceVerb::Attack, Region)
 					   .IsAccepted(),
 				TEXT("Region Attack can replace the structure command")))
+			return false;
+		if (!Check(Army->Verb == EForceVerb::Attack && Army->Order == EArmyOrder::Attack && !Army->IsHoldingRegion(),
+				TEXT("Non-counter lock fixture remains in the ordinary local Attack phase")))
 			return false;
 		AArmyUnit* Frontline = Army->GetUnits()[0];
 		AArmyUnit* Heavy = Enemy->GetUnits()[0];

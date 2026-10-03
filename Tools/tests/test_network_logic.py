@@ -5,6 +5,7 @@ from pathlib import Path
 
 from harness.network import (
     army,
+    force_arrived,
     force_counts_match,
     order_destination_matches,
     reachable_regions,
@@ -162,15 +163,29 @@ def held_snapshot() -> JsonObject:
         forceVerb=0,
         targetRegionIndex=20,
         waypointRegionIndex=20,
+        holdRegionIndex=-1,
+        holdPostIndex=-1,
+        holdPostLocation=[0, 0, 0],
+        bHoldResponding=False,
+        holdThreatId=-1,
+        center=[2045, 60, 0],
         status=1,
         destination=[2045, 60, 999],
     )
-    state["regions"] = [{"index": 20, "anchor": [2000, 0, 0]}]
+    state["regions"] = [
+        {
+            "index": 20,
+            "anchor": [2000, 0, 0],
+            "polygon": [[1500, -1000], [3500, -1000], [3500, 1000], [1500, 1000]],
+        }
+    ]
     return state
 
 
-def test_holding_destination_accepts_complete_formation_resolution_boundary() -> None:
+@pytest.mark.parametrize("status", [0, 1, 4])
+def test_travel_and_pending_capture_keep_formation_anchor_boundary(status: int) -> None:
     state = held_snapshot()
+    state["armies"][0]["status"] = status
     assert order_destination_matches(state, 3, 8, 20)
     state["armies"][0]["destination"][0] += 0.01
     assert not order_destination_matches(state, 3, 8, 20)
@@ -197,6 +212,85 @@ def test_partial_force_replication_cannot_prove_holding_destination() -> None:
     state = held_snapshot()
     state["armies"].clear()
     assert not order_destination_matches(state, 3, 8, 20)
+
+
+def post_snapshot() -> JsonObject:
+    state = held_snapshot()
+    state["armies"][0].update(
+        holdRegionIndex=20,
+        holdPostIndex=0,
+        holdPostLocation=[2800, 500, 0],
+        destination=[2800, 500, 0],
+        center=[2800, 500, 0],
+    )
+    return state
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("holdRegionIndex", 10),
+        ("holdPostIndex", -1),
+        ("destination", [2000, 0, 0]),
+        ("targetRegionIndex", 10),
+        ("waypointRegionIndex", 10),
+    ],
+)
+def test_assigned_post_rejects_stale_anchor_and_wrong_region(
+    field: str, value: object
+) -> None:
+    state = post_snapshot()
+    assert order_destination_matches(state, 3, 8, 20)
+    state["armies"][0][field] = value
+    assert not order_destination_matches(state, 3, 8, 20)
+
+
+def test_equal_post_and_destination_outside_held_polygon_is_not_valid() -> None:
+    state = post_snapshot()
+    state["armies"][0].update(
+        destination=[3501, 500, 0], holdPostLocation=[3501, 500, 0]
+    )
+    assert not order_destination_matches(state, 3, 8, 20)
+
+
+def test_hold_response_requires_live_threat_not_post_or_grace_endpoint() -> None:
+    state = post_snapshot()
+    group = state["armies"][0]
+    group.update(
+        bHoldResponding=True,
+        holdThreatId=42,
+        holdThreatPosition=[3200, 700, 0],
+    )
+    assert not order_destination_matches(state, 3, 8, 20)
+    group["destination"] = [3200, 700, 0]
+    assert order_destination_matches(state, 3, 8, 20)
+    assert not force_arrived(state, 3, 8, 20)
+    group["holdThreatId"] = -1
+    assert not order_destination_matches(state, 3, 8, 20)
+
+
+def test_holding_status_before_post_travel_finishes_does_not_prove_arrival() -> None:
+    state = post_snapshot()
+    state["armies"][0]["center"] = [2000, 0, 0]
+    assert order_destination_matches(state, 3, 8, 20)
+    assert not force_arrived(state, 3, 8, 20)
+    state["armies"][0]["center"] = [2800, 500, 0]
+    assert force_arrived(state, 3, 8, 20)
+    state["armies"][0].update(
+        center=[3501, 500, 0],
+        destination=[3500, 500, 0],
+        holdPostLocation=[3500, 500, 0],
+    )
+    assert not force_arrived(state, 3, 8, 20)
+
+
+def test_retreat_refill_arrival_keeps_anchor_bound_before_auto_hold_post() -> None:
+    state = held_snapshot()
+    state["buildings"][0].update(forceVerb=2, targetRegionIndex=-1)
+    state["armies"][0].update(forceVerb=2, targetRegionIndex=-1, status=4)
+    assert force_arrived(state, 3, 8, 20)
+    state["armies"][0]["destination"][0] += 0.01
+    assert not force_arrived(state, 3, 8, 20)
 
 
 def test_reply_reader_waits_for_complete_current_request(tmp_path: Path) -> None:

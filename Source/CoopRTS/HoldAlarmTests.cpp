@@ -722,17 +722,17 @@ private:
 				return false;
 		}
 		return Check(Holder.Order == AcceptedOrder && Holder.Destination.Equals(AcceptedDestination, 1.)
-					&& Holder.OrderSerial == AcceptedSerial && Holder.Verb == AcceptedVerb && Holder.Status == AcceptedStatus
-					&& Holder.TargetRegionIndex == AcceptedTarget && Holder.TargetStructure == AcceptedStructure
-					&& Holder.WaypointRegionIndex == AcceptedWaypoint && Holder.MarchSpeed == AcceptedMarchSpeed
-					&& Member->GetActorLocation() == AcceptedPosition && Member->GetVelocity() == AcceptedVelocity
-					&& Member->PursuitGoal == AcceptedPursuitGoal && Member->bPursuing == bAcceptedPursuing
-					&& AI->GetMoveStatus() == AcceptedMoveStatus
-					&& Holder.HoldRegionIndex == AcceptedRegion && Holder.HoldPostIndex == AcceptedPost
-					&& Holder.HoldPostLocation.Equals(AcceptedPostLocation, 1.) && Holder.bHoldResponding == bAcceptedResponding
-					&& Holder.HoldThreat == AcceptedThreat && Holder.HoldThreatenedAsset == AcceptedAsset && Holder.HoldThreatKind == AcceptedKind
-					&& Holder.GetHoldResponseStarted() == AcceptedStarted && Holder.GetHoldQuietSince() == AcceptedQuiet,
-				TEXT("Rejected regionless MoveHold preserves accepted verb, status, target, movement and complete Hold state"));
+				&& Holder.OrderSerial == AcceptedSerial && Holder.Verb == AcceptedVerb && Holder.Status == AcceptedStatus
+				&& Holder.TargetRegionIndex == AcceptedTarget && Holder.TargetStructure == AcceptedStructure
+				&& Holder.WaypointRegionIndex == AcceptedWaypoint && Holder.MarchSpeed == AcceptedMarchSpeed
+				&& Member->GetActorLocation() == AcceptedPosition && Member->GetVelocity() == AcceptedVelocity
+				&& Member->PursuitGoal == AcceptedPursuitGoal && Member->bPursuing == bAcceptedPursuing
+				&& AI->GetMoveStatus() == AcceptedMoveStatus
+				&& Holder.HoldRegionIndex == AcceptedRegion && Holder.HoldPostIndex == AcceptedPost
+				&& Holder.HoldPostLocation.Equals(AcceptedPostLocation, 1.) && Holder.bHoldResponding == bAcceptedResponding
+				&& Holder.HoldThreat == AcceptedThreat && Holder.HoldThreatenedAsset == AcceptedAsset && Holder.HoldThreatKind == AcceptedKind
+				&& Holder.GetHoldResponseStarted() == AcceptedStarted && Holder.GetHoldQuietSince() == AcceptedQuiet,
+			TEXT("Rejected regionless MoveHold preserves accepted verb, status, target, movement and complete Hold state"));
 	}
 	bool CheckPosts()
 	{

@@ -148,13 +148,15 @@ public:
 			{
 				if (Force->GetUnits().Num() != 6)
 					return Fail(TEXT("Navigation must preserve every member's identity"));
-				if (Force->Status != EForceStatus::Holding || Force->TargetRegionIndex != Target)
+				if (!Force->IsHoldingRegion() || Force->TargetRegionIndex != Target
+					|| Force->HoldRegionIndex != Target || Force->HoldPostIndex == INDEX_NONE || Force->bHoldResponding
+					|| ArmyTestSetup::CurrentRegion(Force.Get()) != Target)
 					return false;
 				for (const AArmyUnit* Unit : Force->GetUnits())
 				{
 					if (Unit->GetGroup() != Force.Get())
 						return Fail(TEXT("Independent forces cannot exchange members"));
-					if (Unit->GetVelocity().Size2D() > 5.f || FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(Target)) > 500.f)
+					if (Unit->GetVelocity().Size2D() > 5.f || FVector::Dist2D(Unit->GetActorLocation(), Force->HoldPostLocation) > 500.f)
 						return false;
 				}
 			}
@@ -170,11 +172,12 @@ public:
 		}
 		else if (Stage == 5)
 		{
-			const ACommandGameState* State = Groups[0]->GetWorld()->GetGameState<ACommandGameState>();
 			bool bArrived = true;
 			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
 			{
-				bArrived &= Force->Status == EForceStatus::Holding && Force->TargetRegionIndex == CrossingTarget;
+				bArrived &= Force->IsHoldingRegion() && Force->TargetRegionIndex == CrossingTarget
+					&& Force->HoldRegionIndex == CrossingTarget && Force->HoldPostIndex != INDEX_NONE && !Force->bHoldResponding
+					&& ArmyTestSetup::CurrentRegion(Force.Get()) == CrossingTarget;
 				for (AArmyUnit* Unit : Force->GetUnits())
 				{
 					const FVector Relative = Unit->GetActorLocation() - Obstacle.GetCenter();
@@ -184,7 +187,7 @@ public:
 					const UPathFollowingComponent* Path = Following(Unit);
 					bArrived &= Path && Path->GetStatus() == EPathFollowingStatus::Idle
 						&& Unit->GetVelocity().Size2D() < 5.f
-						&& FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(CrossingTarget)) < 450.f;
+						&& FVector::Dist2D(Unit->GetActorLocation(), Force->HoldPostLocation) < 450.f;
 				}
 			}
 			if (!bArrived)

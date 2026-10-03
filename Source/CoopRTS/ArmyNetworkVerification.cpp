@@ -198,6 +198,19 @@ void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
 	Result->SetArrayField(TEXT("pingEvents"), Events);
 }
 
+void HoldSnapshot(const AArmyGroup& Group, const TSharedPtr<FJsonObject>& Entry)
+{
+	Number(Entry, TEXT("holdRegionIndex"), Group.HoldRegionIndex);
+	Number(Entry, TEXT("holdPostIndex"), Group.HoldPostIndex);
+	Vector(Entry, TEXT("holdPostLocation"), Group.HoldPostLocation);
+	Entry->SetBoolField(TEXT("bHoldResponding"), Group.bHoldResponding);
+	const AArmyUnit* Threat = Group.HoldThreat;
+	const bool bLiveThreat = IsValid(Threat) && Threat->IsAlive();
+	Number(Entry, TEXT("holdThreatId"), bLiveThreat ? LifetimeId(Threat) : -1);
+	if (bLiveThreat)
+		Vector(Entry, TEXT("holdThreatPosition"), Threat->GetActorLocation());
+}
+
 TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 {
 	auto Result = Object();
@@ -367,6 +380,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Vector(Entry, TEXT("center"), Group->GetCenter());
 		Vector(Entry, TEXT("destination"), Group->Destination);
 		Vector(Entry, TEXT("home"), Group->GetHomeLocation());
+		HoldSnapshot(*Group, Entry);
 		if (ACommandPlayerController* Local = Cast<ACommandPlayerController>(World->GetFirstPlayerController()))
 			if (const ACommandHUD* HUD = Cast<ACommandHUD>(Local->GetHUD()))
 			{

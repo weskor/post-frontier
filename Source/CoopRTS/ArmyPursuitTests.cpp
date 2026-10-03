@@ -68,7 +68,7 @@ public:
 			MeleeTimeLimit = 5.f + FMath::DivideAndRoundUp(Right->GetHealth(), Damage) * Left->AttackInterval();
 			Place(Left.Get(), Anchor + FVector(400.f, 0.f, 0.f));
 			Place(Right.Get(), Anchor + FVector(525.f, 0.f, 0.f));
-			if (!Arm(Friendly.Get(), EForceVerb::Attack) || !Arm(Hostile.Get(), EForceVerb::Attack))
+			if (!Arm(Friendly.Get()) || !Arm(Hostile.Get()))
 				return Finish();
 			// Establish an in-range lock without doing damage, then leave range
 			// without issuing another order: this is the original dead-band transition.
@@ -125,7 +125,7 @@ public:
 				SecondArtillery = Hostile->GetUnits()[1];
 				Place(FirstArtillery.Get(), Anchor + FVector(525.f, 0.f, 0.f));
 				Place(SecondArtillery.Get(), Anchor + FVector(725.f, 0.f, 0.f));
-				if (!Arm(Friendly.Get(), EForceVerb::Attack) || !Arm(Hostile.Get(), EForceVerb::MoveHold))
+				if (!Arm(Friendly.Get()) || !Arm(Hostile.Get()))
 					return Finish();
 				Stage = 2;
 				StageStarted = World->GetTimeSeconds();
@@ -168,15 +168,17 @@ private:
 		Unit->SetActorLocation(Position, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 
-	bool Arm(AArmyGroup* Group, EForceVerb Verb)
+	bool Arm(AArmyGroup* Group)
 	{
-		// Commands own phase, waypoint and formation destination. Reduced melee
-		// fixtures must not withdraw at their production capacity threshold.
+		// Ordinary local Attack owns the melee dead band and target-switch leash.
+		// A MoveHold on controlled ground would instead use shared posts/alarms.
+		// Reduced fixtures must not withdraw at their production threshold.
 		const bool bAccepted = FCommandService::SetRetreatThreshold(Group->GetOwningPlayerState(), Group, ERetreatThreshold::Never).IsAccepted()
-			&& FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group, Verb,
+			&& FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group, EForceVerb::Attack,
 				ArmyTestSetup::RegionAt(Group->GetWorld()->GetGameState<ACommandGameState>(), Anchor))
 				   .IsAccepted();
-		return Test->TestTrue(TEXT("Pursuit fixture accepts real threshold and region verb commands"), bAccepted);
+		return Test->TestTrue(TEXT("Pursuit fixture accepts real local Attack without shared-post Holding"),
+			bAccepted && Group->Verb == EForceVerb::Attack && Group->Order == EArmyOrder::Attack && !Group->IsHoldingRegion());
 	}
 
 	static void RemoveGroup(AArmyGroup* Group)
