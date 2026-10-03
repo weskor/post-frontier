@@ -390,7 +390,8 @@ FVector AArmyGroup::GetCenter() const
 			++Count;
 		}
 	}
-	return Count > 0 ? Center / Count : AppliedWaypoint != INDEX_NONE ? Destination : GetActorLocation();
+	return Count > 0 ? Center / Count : AppliedWaypoint != INDEX_NONE ? Destination
+																	  : GetActorLocation();
 }
 
 FVector AArmyGroup::ReinforcementTarget(const AArmyUnit& Unit) const
@@ -814,8 +815,7 @@ void AArmyGroup::UpdateCombat()
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	AHeadquarters* HostileHQ = State ? (TeamIndex == 5 ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get()) : nullptr;
 	const TArray<TObjectPtr<ACommandBuilding>>* HostileBuildings = State ? &State->Buildings : nullptr;
-	if (AttackTarget && (!CombatTarget::IsAliveHostile(AttackTarget.Get(), TeamIndex)
-		|| (Status != EForceStatus::Marching && FVector::DistSquared2D(AttackTarget->GetActorLocation(), Destination) > FMath::Square(PursuitRadius))))
+	if (AttackTarget && (!CombatTarget::IsAliveHostile(AttackTarget.Get(), TeamIndex) || (Status != EForceStatus::Marching && FVector::DistSquared2D(AttackTarget->GetActorLocation(), Destination) > FMath::Square(PursuitRadius))))
 	{
 		AttackTarget = nullptr;
 		ForceNetUpdate();

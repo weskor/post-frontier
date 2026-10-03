@@ -98,7 +98,7 @@ void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& 
 	if (Controller->IsPlacingBuilding())
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Place")) + 12.f + Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")),
 			Paint.KeyWidth(TEXT("Shift+LMB"), TEXT("places another")));
-	else if (Controller->IsAssigningGoal())
+	else if (Controller->IsAssigningOrder())
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Assign")), Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")));
 	else
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("F4"), TEXT("Show deck")), Paint.TextWidth(TEXT("Build bar always visible"), 8.f));

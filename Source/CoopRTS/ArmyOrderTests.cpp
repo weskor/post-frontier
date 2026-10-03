@@ -132,7 +132,7 @@ public:
 			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
 				Test->TestTrue(TEXT("Every unit stays stopped after Hold assembly settles"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
 			if (!Test->TestTrue(TEXT("Producerless fixture accepts real outward travel before Retreat"),
-					!IsValid(Army->ProductionBuilding)
+					!IsValid(Army->GetProductionBuilding())
 						&& FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, AwayRegion).IsAccepted()))
 				return true;
 			NextStage(Now);
@@ -146,7 +146,7 @@ public:
 			RetreatStart = Army->GetCenter();
 			if (!Test->TestTrue(TEXT("Retreat starts outside its remembered safe region and is accepted"),
 					FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::Retreat).IsAccepted()
-						&& Army->Status == EForceStatus::Retreating && Army->WithdrawalRegionIndex == HomeRegion))
+						&& Army->Status == EForceStatus::Retreating && Army->WaypointRegionIndex == HomeRegion))
 				return true;
 			NextStage(Now);
 		}

@@ -218,15 +218,15 @@ public:
 			First->ConstructionProgress = 1.f;
 			First->bForceConfigured = true;
 			First->ForceGroup = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f));
-			if (!Check(IsValid(First->ForceGroup), TEXT("Goal-mode fixture has a live force")))
+			if (!Check(IsValid(First->ForceGroup), TEXT("Order-mode fixture has a live force")))
 				return true;
 			PC->PendingPlacedBuilding = Deferred.Building;
 			Deferred.Building->OwningPlayerState = nullptr;
-			PC->HandleHUDAction(EHUDAction::GoalHold);
+			PC->HandleHUDAction(EHUDAction::OrderMoveHold);
 			Deferred.Building->OwningPlayerState = Wallet;
 			PC->PlayerTick(0.f);
-			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsAssigningGoal() && !PC->IsHUDExpanded(),
-				TEXT("Ownership arrival cannot retarget an active goal mode or reopen the deck"));
+			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsAssigningOrder() && !PC->IsHUDExpanded(),
+				TEXT("Ownership arrival cannot retarget an active order mode or reopen the deck"));
 			PC->CancelMode();
 			CheckDeferredForceSelection(PC, Wallet, Deferred.Building, First->ForceGroup);
 			Wallet->Resources = 0;

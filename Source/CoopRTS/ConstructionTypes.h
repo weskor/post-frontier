@@ -10,4 +10,3 @@ enum class EBuildingKind : uint8
 	Extractor,
 	Workshop
 };
-

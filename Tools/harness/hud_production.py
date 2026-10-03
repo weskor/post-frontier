@@ -14,8 +14,8 @@ from harness.network import (
     distance2,
     force,
     force_counts_match,
-    order_matches,
     order_destination_matches,
+    order_matches,
     require,
     select_order_region,
     wallet,
@@ -123,6 +123,7 @@ def fill_force(
 
 
 def check_full_capacity_controls(capture: Capture, owner: int, barracks: int) -> None:
+    capacity = building(capture.state(), barracks)["capacity"]
     capture.hud(TOGGLE_PRODUCTION, "Pause full force")
     capture.wait(
         lambda s: (
@@ -238,6 +239,12 @@ def retarget_replacement(
     run.phase(
         "permanent type, partial pause, starvation, full force, real casualty and paid physical replacement"
     )
+    check_removed_squad_keys(run, capture, owner, state)
+
+
+def check_removed_squad_keys(
+    run: NetworkRun, capture: Capture, owner: int, state: JsonObject
+) -> None:
     roster = [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner]
     for key in ("Tab", "Q", "H", "R"):
         capture.key(key)

@@ -4,6 +4,7 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "AIController.h"
+#include "CapturePoint.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "HAL/PlatformTime.h"
 
@@ -173,7 +174,8 @@ private:
 		// fixtures must not withdraw at their production capacity threshold.
 		const bool bAccepted = FCommandService::SetRetreatThreshold(Group->GetOwningPlayerState(), Group, ERetreatThreshold::Never).IsAccepted()
 			&& FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group, Verb,
-				ArmyTestSetup::RegionAt(Group->GetWorld()->GetGameState<ACommandGameState>(), Anchor)).IsAccepted();
+				ArmyTestSetup::RegionAt(Group->GetWorld()->GetGameState<ACommandGameState>(), Anchor))
+				   .IsAccepted();
 		return Test->TestTrue(TEXT("Pursuit fixture accepts real threshold and region verb commands"), bAccepted);
 	}
 

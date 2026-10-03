@@ -30,8 +30,8 @@ __all__ = [
     "distance2",
     "force",
     "force_counts_match",
-    "order_matches",
     "order_destination_matches",
+    "order_matches",
     "owned_buildings",
     "region",
     "require",
@@ -270,7 +270,9 @@ def order_matches(state: JsonObject, index: int, verb: int, target: int) -> bool
     )
 
 
-def order_destination_matches(state: JsonObject, owner: int, index: int, target: int) -> bool:
+def order_destination_matches(
+    state: JsonObject, owner: int, index: int, target: int
+) -> bool:
     if not force_counts_match(state, owner, index):
         return False
     group = force(state, owner, index)

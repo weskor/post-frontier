@@ -248,9 +248,7 @@ void AArmyGroup::TickOrders()
 	const int32 Home = ForceOrderGraph::TeamMain(*State, TeamIndex);
 	ResumeCount = ForceOrders::ResumeCount(GetCapacity());
 	const EForceStatus PreviousStatus = Status;
-	const bool bTargetCompleted = Verb == EForceVerb::Attack && (bStructureAttack
-		? !CombatTarget::IsAliveHostile(TargetStructure, TeamIndex)
-		: State->GetRegionController(TargetRegionIndex) == TeamIndex && !(Hostiles & (uint64(1) << TargetRegionIndex)));
+	const bool bTargetCompleted = Verb == EForceVerb::Attack && (bStructureAttack ? !CombatTarget::IsAliveHostile(TargetStructure, TeamIndex) : State->GetRegionController(TargetRegionIndex) == TeamIndex && !(Hostiles & (uint64(1) << TargetRegionIndex)));
 	if (bStructureAttack && bTargetCompleted && !bWithdrawing)
 	{
 		CompleteOrder(Source);
@@ -301,8 +299,8 @@ void AArmyGroup::TickOrders()
 		}
 		else
 		{
-			ApplyWaypoint(WithdrawalRegionIndex, bArrived ? EArmyOrder::Attack
-				: bWithdrawing ? EArmyOrder::Move : EArmyOrder::Retreat);
+			ApplyWaypoint(WithdrawalRegionIndex, bArrived ? EArmyOrder::Attack : bWithdrawing ? EArmyOrder::Move
+																							  : EArmyOrder::Retreat);
 			UpdateMarchSpeed();
 			if (Status != PreviousStatus)
 				ForceNetUpdate();

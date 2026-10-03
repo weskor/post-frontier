@@ -155,7 +155,6 @@ def test_order_selection_rejects_boundary_home_excluded_and_unreachable_regions(
         select_order_region(state, 8, exclude=(20,))
 
 
-
 def held_snapshot() -> JsonObject:
     state = force_snapshot()
     state["buildings"][0].update(forceVerb=0, targetRegionIndex=20)

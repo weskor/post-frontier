@@ -68,7 +68,8 @@ public:
 				return true;
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
 			if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack,
-						ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation())).IsAccepted(),
+						   ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation()))
+						   .IsAccepted(),
 					TEXT("An owned region Attack replaces the travelling MoveHold")))
 				return true;
 			const FVector Approach = (Army->Destination - Army->GetCenter()).GetSafeNormal2D();
@@ -385,7 +386,8 @@ private:
 			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
 		if (!Check(FCommandService::SetRetreatThreshold(Army->GetOwningPlayerState(), Army.Get(), ERetreatThreshold::Never).IsAccepted()
 					&& FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack,
-						ArmyTestSetup::RegionAt(State, Anchor)).IsAccepted(),
+						ArmyTestSetup::RegionAt(State, Anchor))
+						.IsAccepted(),
 				TEXT("Targeting fixture accepts a real region Attack without casualty withdrawal")))
 			return false;
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -403,7 +405,9 @@ private:
 			TEXT("A live in-range target stays selected when a nearer matching-class enemy appears"));
 		// A registered structure command must outrank unit counter preference.
 		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(),
-					EForceVerb::Attack, INDEX_NONE, HQ).IsAccepted(), TEXT("Explicit hostile HQ Attack is accepted")))
+					   EForceVerb::Attack, INDEX_NONE, HQ)
+					   .IsAccepted(),
+				TEXT("Explicit hostile HQ Attack is accepted")))
 			return false;
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->TargetStructure == HQ && Army->GetUnits()[0]->Target == HQ,
@@ -412,7 +416,9 @@ private:
 		// All Light candidates are outside the leash until the Heavy lock is real.
 		const int32 Region = ArmyTestSetup::RegionAt(State, Anchor);
 		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(),
-					EForceVerb::Attack, Region).IsAccepted(), TEXT("Region Attack can replace the structure command")))
+					   EForceVerb::Attack, Region)
+					   .IsAccepted(),
+				TEXT("Region Attack can replace the structure command")))
 			return false;
 		AArmyUnit* Frontline = Army->GetUnits()[0];
 		AArmyUnit* Heavy = Enemy->GetUnits()[0];
