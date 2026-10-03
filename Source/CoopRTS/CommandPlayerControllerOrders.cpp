@@ -10,8 +10,55 @@
 #include "Headquarters.h"
 #include "InputCoreTypes.h"
 #include "MapRegion.h"
+#include "Rules/ControllerInputPolicy.h"
 
 using namespace ForceOrderInput;
+
+AActor* ACommandPlayerController::PickMinimapStructure(const ACommandHUD& HUD, const FVector2D& Position, const ACommandGameState& State, int32 Team) const
+{
+	// Use the drawn minimap symbol bounds, in screen pixels. HQ is drawn last.
+	FVector2D Origin;
+	float Size;
+	const AArenaBounds* Arena = AArenaBounds::Find(GetWorld());
+	if (!Arena || !HUD.GetMinimapScreenRect(Origin, Size))
+		return nullptr;
+	AActor* Picked = nullptr;
+	const auto Pick = [&](AActor* Actor, double Radius) {
+		if (!CombatTarget::IsAliveHostile(Actor, Team))
+			return;
+		const FVector World = Actor->GetActorLocation();
+		const FVector2D Point = ControllerInputPolicy::MinimapPoint(FVector2D(World.X, World.Y), Arena->HalfExtent, Origin, Size);
+		if (ControllerInputPolicy::IsWithinMarker(Position, Point, Radius))
+			Picked = Actor;
+	};
+	for (ACommandBuilding* Building : State.Buildings)
+		Pick(Building, 3.);
+	Pick(State.FriendlyHeadquarters, 6.);
+	Pick(State.EnemyHeadquarters, 6.);
+	return Picked;
+}
+
+bool ACommandPlayerController::PickOrderTarget(const FVector2D& Position, const ACommandGameState& State, AActor*& Structure, FVector& Location) const
+{
+	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+	const ACommandPlayerState* Commander = GetPlayerState<ACommandPlayerState>();
+	const int32 Team = Commander ? Commander->TeamIndex : 0;
+	if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
+	{
+		Structure = PickMinimapStructure(*HUD, Position, State, Team);
+		return true;
+	}
+	if (HUD && HUD->IsPanelPoint(Position))
+		return false;
+	FHitResult Hit;
+	if (GetHitResultAtScreenPosition(Position, ECC_Visibility, false, Hit)
+		&& (Cast<ACommandBuilding>(Hit.GetActor()) || Cast<AHeadquarters>(Hit.GetActor()))
+		&& CombatTarget::IsAliveHostile(Hit.GetActor(), Team))
+		Structure = Hit.GetActor();
+	FVector RayOrigin, Direction;
+	return DeprojectScreenPositionToWorld(Position.X, Position.Y, RayOrigin, Direction)
+		&& ControllerInputPolicy::GroundPoint(RayOrigin, Direction, Location);
+}
 
 FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Position, bool bQueue) const
 {
@@ -39,48 +86,8 @@ FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Po
 			const AMapRegion* Region = State->FindRegionAt(SelectedBuilding->GetActorLocation());
 			Context.ProducerRegion = Region ? Region->RegionIndex : INDEX_NONE;
 		}
-		const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
 		FVector Location;
-		bool bGround = false;
-		if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
-		{
-			bGround = true;
-			// Use the drawn minimap symbol bounds, in screen pixels. HQ is drawn last.
-			FVector2D Origin;
-			float Size;
-			const AArenaBounds* Arena = AArenaBounds::Find(GetWorld());
-			if (Arena && HUD->GetMinimapScreenRect(Origin, Size))
-			{
-				const auto Pick = [&](AActor* Actor, double Radius) {
-					if (!CombatTarget::IsAliveHostile(Actor, Commander ? Commander->TeamIndex : 0))
-						return;
-					const FVector World = Actor->GetActorLocation();
-					const FVector2D Point = Origin + FVector2D((World.Y + Arena->HalfExtent.Y) / (2. * Arena->HalfExtent.Y), (Arena->HalfExtent.X - World.X) / (2. * Arena->HalfExtent.X)) * Size;
-					if (FMath::Abs(Position.X - Point.X) <= Radius && FMath::Abs(Position.Y - Point.Y) <= Radius)
-						Preview.Structure = Actor;
-				};
-				for (ACommandBuilding* Building : State->Buildings)
-					Pick(Building, 3.);
-				Pick(State->FriendlyHeadquarters, 6.);
-				Pick(State->EnemyHeadquarters, 6.);
-			}
-		}
-		else if (!HUD || !HUD->IsPanelPoint(Position))
-		{
-			FHitResult Hit;
-			if (GetHitResultAtScreenPosition(Position, ECC_Visibility, false, Hit)
-				&& (Cast<ACommandBuilding>(Hit.GetActor()) || Cast<AHeadquarters>(Hit.GetActor()))
-				&& CombatTarget::IsAliveHostile(Hit.GetActor(), Commander ? Commander->TeamIndex : 0))
-				Preview.Structure = Hit.GetActor();
-			FVector RayOrigin, Direction;
-			if (DeprojectScreenPositionToWorld(Position.X, Position.Y, RayOrigin, Direction) && FMath::Abs(Direction.Z) >= KINDA_SMALL_NUMBER)
-			{
-				const double Time = -RayOrigin.Z / Direction.Z;
-				bGround = Time > 0. && FMath::IsFinite(Time);
-				if (bGround)
-					Location = RayOrigin + Direction * Time;
-			}
-		}
+		bool bGround = PickOrderTarget(Position, *State, Preview.Structure, Location);
 		// A is explicitly a region order, including when the region contains a structure.
 		if (Context.bAttack || Forces.IsEmpty())
 			Preview.Structure = nullptr;

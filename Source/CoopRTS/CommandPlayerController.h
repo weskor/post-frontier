@@ -11,6 +11,9 @@
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
+class ACommandGameState;
+class ACommandHUD;
+class AWorldOverlay;
 class AMapRegion;
 class UBuildingDefinition;
 class UInputAction;
@@ -198,4 +201,32 @@ private:
 	void SendResolvedOrder(const FOrderInputPreview& Preview, bool bQueue);
 	void ResetLocalMatchView();
 	void SelectPlacedBuilding();
+	// Camera and per-tick state, in CommandPlayerControllerCamera.cpp and CommandPlayerControllerSelection.cpp.
+	void UpdateCamera(float DeltaTime);
+	void PruneSelection();
+	// Input chords, in CommandPlayerControllerInput.cpp.
+	bool HandleBuildChordKey(const FKey& Key);
+	void BeginBuildChord();
+	// Placement, in CommandPlayerControllerPlacement.cpp.
+	void BeginBuildingPlacement(int32 BuildIndex);
+	void ClickPlacement();
+	// HUD action dispatch, in CommandPlayerControllerHUD.cpp.
+	bool HandleGlobalHUDAction(EHUDAction Action);
+	bool IsHUDActionBlocked(EHUDAction Action);
+	void HandleBuildingAction(EHUDAction Action);
+	// Menu screens, in CommandPlayerControllerScreens.cpp; each returns true when the action applied.
+	bool ApplyMenuWorldAction(EHUDAction Action, ECommandScreen Current);
+	bool ApplyNavigationAction(EHUDAction Action, ECommandScreen Current);
+	bool ApplyLeaveAction(EHUDAction Action, ECommandScreen Current);
+	// Pings, in CommandPlayerControllerPing.cpp.
+	bool PingMinimapPoint(const ACommandHUD& HUD, const FVector& Location);
+	bool PingWorldPoint(const FVector2D& Position);
+	// Order preview targets, in CommandPlayerControllerOrders.cpp.
+	AActor* PickMinimapStructure(const ACommandHUD& HUD, const FVector2D& Position, const ACommandGameState& State, int32 Team) const;
+	bool PickOrderTarget(const FVector2D& Position, const ACommandGameState& State, AActor*& Structure, FVector& Location) const;
+	// World overlay drawn each tick, in CommandPlayerControllerOverlay.cpp.
+	void DrawWorldOverlay(AWorldOverlay& Overlay) const;
+	void DrawPlacementOverlay(AWorldOverlay& Overlay) const;
+	void DrawRegionOverlay(AWorldOverlay& Overlay) const;
+	void DrawSelectionOverlay(AWorldOverlay& Overlay) const;
 };
