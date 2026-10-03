@@ -237,6 +237,8 @@ def telemetry_plan() -> JsonObject:
         force=10,
         verb=1,
         source_region=0,
+        source_controller=5,
+        order_changed=True,
         target_region=1,
         target_structure="EnemyHQ",
         size_band=8,
@@ -329,3 +331,58 @@ def test_four_match_plan_counts_ignore_republication_and_autopilot(
         assert match["attacks_observed"] == 2
     text = (tmp_path / "Report.md").read_text()
     assert "| **Total** | | **4** | **4** | **4** | **12** | **4** |" in text
+    assert "Escalation by source-region owner at event time" in text
+    assert "| **Total** | jev | **0** | **4** | **0** |" in text
+
+
+def test_escalation_uses_captured_owner_and_creation_is_deduplicated() -> None:
+    job, report = telemetry()
+    plan = telemetry_plan()
+    report["events"] += [
+        dict(plan, time=1, kind="plan_created", team=5, verb=0, escalated=True),
+        dict(plan, time=2, kind="plan_created", team=5, verb=0, escalated=True),
+        dict(plan, time=3, kind="plan_created", team=5, ticket=2),
+        dict(time=3.5, kind="region_control", team=5, region=0, previous_team=-1),
+        dict(
+            plan, time=4, kind="plan_escalated", team=5, ticket=2,
+            escalated=True, source_controller=-1, order_changed=False,
+        ),
+        dict(
+            plan, time=5, kind="plan_escalated", team=5, ticket=2,
+            escalated=True, source_controller=5, order_changed=False,
+        ),
+        dict(plan, time=6, kind="plan_created", team=5, ticket=3),
+        dict(
+            plan, time=7, kind="plan_escalated", team=5, ticket=3,
+            escalated=True, source_controller=0,
+        ),
+        dict(plan, time=8, kind="plan_created", team=0, ticket=4, escalated=True),
+    ]
+    report["snapshots"][-1]["enemy_plans"] = [dict(plan, verb=0, escalated=True)]
+    validate_report(report, job)
+    evidence = committed_plan_evidence(report)
+    assert evidence["counts"] == dict(
+        move_and_hold=1, attack=2, retreat=0, total=3, escalated=3
+    )
+    assert evidence["escalation_by_owner"] == {
+        "jev": dict(creation_defense=1, order_changing=0, label_only=0),
+        "neutral": dict(creation_defense=0, order_changing=0, label_only=1),
+        "player": dict(creation_defense=0, order_changing=1, label_only=0),
+    }
+    assert evidence["escalation_counts"] == dict(
+        creation_defense=1, order_changing=1, label_only=1
+    )
+
+
+@pytest.mark.parametrize("kind", ["plan_created", "plan_escalated"])
+@pytest.mark.parametrize("field", ["source_controller", "order_changed"])
+def test_plan_events_require_exact_escalation_evidence(kind: str, field: str) -> None:
+    job, report = telemetry()
+    plan = telemetry_plan()
+    if kind == "plan_escalated":
+        report["events"].append(dict(plan, time=1, kind="plan_created", team=5))
+    event = dict(plan, time=2, kind=kind, team=5, escalated=True)
+    del event[field]
+    report["events"].append(event)
+    with pytest.raises(ValueError, match="source ownership|order change evidence"):
+        validate_report(report, job)

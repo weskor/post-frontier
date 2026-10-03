@@ -100,6 +100,27 @@ public:
 			if (Recovery->Verb == EForceVerb::MoveHold && Recovery->Status == EForceStatus::Holding
 				&& InSafeRecovery(State))
 				bObservedSafeHold = true;
+			if (!bRecoveryObjectiveOpened && Joined && Health / Joined >= .8f && HealedTicket
+				&& ArmyTestSetup::GameSeconds(World) >= HealedDeadline)
+			{
+				// Recovery cannot steal another force's committed goal. Expose a
+				// genuinely unclaimed regional objective at the decision boundary.
+				AMapRegion* Objective = nullptr;
+				for (AMapRegion* Region : State->Regions)
+					if (IsValid(Region) && IsValid(Region->Anchor) && Region->RegionRole != ERegionRole::Main
+						&& Region->RegionIndex != SafeRecoveryRegion && State->GetRegionController(Region->RegionIndex) == 5
+						&& !State->EnemyPlans.ContainsByPredicate([&](const FJevPublishedPlan& Plan) {
+							return Plan.TargetRegionIndex == Region->RegionIndex;
+						}) && (!Objective || Region->RegionIndex < Objective->RegionIndex))
+						Objective = Region;
+				if (!Objective)
+					return Fail(TEXT("Recovery resumption fixture needs a controlled regional objective with no other committed destination"));
+				Objective->Anchor->SetActorTickEnabled(false);
+				Objective->Anchor->ControllingTeam = INDEX_NONE;
+				bRecoveryObjectiveOpened = true;
+				Test->AddInfo(FString::Printf(TEXT("Reopened unclaimed recovery objective %d at expired commitment %.2f"),
+					Objective->RegionIndex, HealedDeadline));
+			}
 			Planner->EvaluatePlan();
 			if (!OtherProduction.IsValid() || !OtherForce.IsValid() || OtherProduction->ForceGroup != OtherForce.Get()
 				|| OtherForce->GetProductionBuilding() != OtherProduction.Get())
@@ -119,7 +140,7 @@ public:
 				return Fail(TEXT("Recovery must physically reach safe MoveHold and heal the same injured joined roster before resuming"));
 			const FJevPublishedPlan* HeldPlan = PublishedRecovery(State);
 			if (Recovery->TargetRegionIndex == SafeRecoveryRegion && HeldPlan
-				&& ArmyTestSetup::GameSeconds(World) < HeldPlan->CommittedUntil)
+				&& ArmyTestSetup::GameSeconds(World) < (HealedTicket ? HealedDeadline : HeldPlan->CommittedUntil))
 			{
 				if (HealedTicket == 0)
 				{
@@ -127,13 +148,21 @@ public:
 					HealedDeadline = HeldPlan->CommittedUntil;
 				}
 				if (HeldPlan->TicketNumber != HealedTicket || HeldPlan->CommittedUntil != HealedDeadline)
-					return Fail(TEXT("Healing above 80 percent cannot replace the still-committed safe recovery ticket"));
+					return Fail(*FString::Printf(TEXT("Healing cannot replace a safe recovery ticket before its recorded deadline (old=%d deadline=%.2f new=%d newdeadline=%.2f now=%.2f target=%d owner=%d escalated=%d)"),
+						HealedTicket, HealedDeadline, HeldPlan->TicketNumber, HeldPlan->CommittedUntil,
+						ArmyTestSetup::GameSeconds(World), HeldPlan->TargetRegionIndex,
+						State->GetRegionController(HeldPlan->TargetRegionIndex), HeldPlan->bEscalated));
 				return false;
 			}
 			if ((Recovery->Verb != EForceVerb::MoveHold && Recovery->Verb != EForceVerb::Attack)
 				|| Recovery->Orders.IsEmpty() || Recovery->WaypointRegionIndex == INDEX_NONE
 				|| Recovery->TargetRegionIndex == SafeRecoveryRegion)
-				return Fail(TEXT("Naturally healed joined recruits must resume accepted strategic travel beyond their recovery region"));
+				return Fail(*FString::Printf(TEXT("Healed roster has no resumed regional travel (health=%.3f oldticket=%d olddeadline=%.2f ticket=%d deadline=%.2f now=%.2f verb=%d target=%d safe=%d source=%d owner=%d escalated=%d memo=%s)"),
+					Health / Joined, HealedTicket, HealedDeadline, HeldPlan ? HeldPlan->TicketNumber : 0,
+					HeldPlan ? HeldPlan->CommittedUntil : 0.f, ArmyTestSetup::GameSeconds(World),
+					int32(Recovery->Verb), Recovery->TargetRegionIndex, SafeRecoveryRegion,
+					ArmyTestSetup::CurrentRegion(Recovery.Get()), State->GetRegionController(SafeRecoveryRegion),
+					HeldPlan && HeldPlan->bEscalated, HeldPlan ? *HeldPlan->Memo : TEXT("missing")));
 			return ObserveResumedTravel(State, World);
 		}
 		if (Stage == 0)
@@ -511,6 +540,7 @@ private:
 	TArray<TWeakObjectPtr<AArmyUnit>> DamagedUnits;
 	bool bObservedRegionAdvance = false;
 	bool bObservedSafeHold = false;
+	bool bRecoveryObjectiveOpened = false;
 	int32 SafeRecoveryRegion = INDEX_NONE;
 	float InitialDamagedHealth = 0.f;
 	float DefenseReadyAt = 0.f;

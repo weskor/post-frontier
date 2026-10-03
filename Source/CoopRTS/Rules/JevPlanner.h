@@ -18,7 +18,6 @@ enum class EVerb : uint8
 struct FRegion
 {
 	bool bExists = false;
-	bool bTargetAlive = true;
 	bool bMain = false;
 	bool bClaimed = false;
 	bool bAttacked = false;
@@ -53,6 +52,8 @@ struct FForce
 	int32 Home = INDEX_NONE;
 	int32 UnitCount = 0;
 	float HealthFraction = 1.f;
+	// Actual executor verb, not the stored plan: completed Retreat orders no longer qualify.
+	bool bRetreating = false;
 	bool bRecovering = false;
 	bool bAtRecovery = false;
 	FVector Position = FVector::ZeroVector;
@@ -91,7 +92,9 @@ FCandidates Propose(const FWorld& World, const FForce& Force);
 const FCandidate* Choose(const FCandidates& Candidates);
 bool TargetValid(const FWorld& World, const FPlan& Plan);
 // Returns false only when there is neither a legal proposal nor an active commitment.
-// Escalation retains the original deadline; invalidation starts a fresh commitment.
+// An attacked, team-controlled source forces defense unless the executor is Retreating.
+// Defense is escalated at creation; escalation retains an active commitment's deadline.
+// Target invalidation starts a fresh commitment.
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out);
 float Remaining(const FPlan& Plan, float Now);
 }

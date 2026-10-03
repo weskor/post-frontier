@@ -32,6 +32,7 @@ private:
 		JevPlanner::FPlan Plan;
 		int32 TicketNumber = 0;
 		bool bRecovering = false;
+		bool bCommandsRejected = false;
 	};
 	TArray<FCommittedForce, TInlineAllocator<8>> CommittedForces;
 	FJevMemoTemplates MemoTemplates;

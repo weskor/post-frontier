@@ -12,6 +12,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevExceptionsTest, "CoopRTS.Rules.Jev.Exceptio
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStructureTargetTest, "CoopRTS.Rules.Jev.StructureTarget",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevForeignSourceTest, "CoopRTS.Rules.Jev.ForeignSource",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevDefenseCreationTest, "CoopRTS.Rules.Jev.DefenseCreation",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevRetreatExemptionTest, "CoopRTS.Rules.Jev.RetreatExemption",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -165,14 +171,10 @@ bool FJevExceptionsTest::RunTest(const FString&)
 	FPlan Defending;
 	Decide(World, Force, 4.f, &Next, Defending);
 	TestTrue(TEXT("Defense remains committed after threat leaves"), Defending.bEscalated);
-	World.Regions[Initial.Target].bTargetAlive = false;
-	TestTrue(TEXT("Destroyed target triggers immediate replacement"), Decide(World, Force, 4.f, &Initial, Next));
-	TestNotEqual(TEXT("Destroyed region cannot be selected again"), Next.Target, Initial.Target);
-	TestEqual(TEXT("Replacement receives full commitment"), Next.CommittedUntil, 29.f);
-	World.Regions[Initial.Target].bTargetAlive = true;
 	World.Regions[Initial.Target].Controller = 5;
 	TestTrue(TEXT("Captured target triggers immediate replacement"), Decide(World, Force, 5.f, &Initial, Next));
 	TestNotEqual(TEXT("Captured expansion cannot be selected again"), Next.Target, Initial.Target);
+	TestEqual(TEXT("Capture replacement receives full commitment"), Next.CommittedUntil, 30.f);
 	World.Regions[Initial.Target].Controller = 0;
 	Decide(World, Force, 6.f, &Initial, Next);
 	TestEqual(TEXT("Capture by opponents is not an exception"), Next.CommittedUntil, Initial.CommittedUntil);
@@ -201,6 +203,161 @@ bool FJevStructureTargetTest::RunTest(const FString&)
 	TestEqual(TEXT("Structure invalidation starts a fresh window"), Replacement.CommittedUntil, 28.f);
 	World.Targets = {};
 	TestFalse(TEXT("Removed actors invalidate their committed identity"), TargetValid(World, Initial));
+	return true;
+}
+
+bool FJevForeignSourceTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	const int32 ForeignControllers[] = { INDEX_NONE, 0 };
+	for (const int32 Controller : ForeignControllers)
+		for (const bool bDamage : { false, true })
+		{
+			FWorld World = WorldSummary();
+			World.Regions[1].Controller = Controller;
+			World.Regions[2].Controller = 0;
+			World.Regions[2].DepositValue = 10;
+			FTarget Targets[] = { { 101, 2, true } };
+			World.Targets = Targets;
+			FForce Force = ForceSummary(Speeds);
+			FPlan Initial, Held;
+			TestTrue(TEXT("A transit fixture starts with a concrete committed Attack"), Decide(World, Force, 0.f, nullptr, Initial));
+			TestEqual(TEXT("Transit Attack selects the intended destination"), Initial.Target, 2);
+			TestEqual(TEXT("Transit Attack has a concrete target"), Initial.TargetIdentity, uint32(101));
+			Force.Source = 1;
+			Force.Position = World.Regions[1].Position;
+			World.Regions[1].Hostiles = bDamage ? 0 : 1;
+			World.Regions[1].bAttacked = bDamage;
+			TestTrue(TEXT("Foreign-source hostiles or damage retain the transit commitment"), Decide(World, Force, 2.f, &Initial, Held));
+			TestEqual(TEXT("Foreign transit retains Attack"), Held.Verb, Initial.Verb);
+			TestEqual(TEXT("Foreign transit retains destination"), Held.Target, Initial.Target);
+			TestEqual(TEXT("Foreign transit retains concrete identity"), Held.TargetIdentity, Initial.TargetIdentity);
+			TestFalse(TEXT("Foreign transit never escalates"), Held.bEscalated);
+			TestEqual(TEXT("Foreign transit retains deadline"), Held.CommittedUntil, Initial.CommittedUntil);
+			FPlan CommittedMove = Initial;
+			CommittedMove.Verb = EVerb::MoveAndHold;
+			CommittedMove.TargetIdentity = 0;
+			TestTrue(TEXT("Foreign-source attacks also retain committed Move and Hold transit"),
+				Decide(World, Force, 3.f, &CommittedMove, Held));
+			TestEqual(TEXT("Move and Hold transit retains its destination"), Held.Target, CommittedMove.Target);
+			TestEqual(TEXT("Move and Hold transit retains its verb"), Held.Verb, CommittedMove.Verb);
+			TestEqual(TEXT("Move and Hold transit retains its deadline"), Held.CommittedUntil, CommittedMove.CommittedUntil);
+			TestFalse(TEXT("Move and Hold transit never escalates in foreign regions"), Held.bEscalated);
+
+			Force.Source = Initial.Target;
+			Force.Position = World.Regions[Initial.Target].Position;
+			World.Regions[Initial.Target].Controller = Controller;
+			World.Regions[Initial.Target].Hostiles = bDamage ? 0 : 1;
+			World.Regions[Initial.Target].bAttacked = bDamage;
+			TestTrue(TEXT("Foreign-source hostiles or damage retain Attack on arrival"), Decide(World, Force, 4.f, &Initial, Held));
+			TestEqual(TEXT("Arrival never converts Attack into Move and Hold"), Held.Verb, EVerb::Attack);
+			TestEqual(TEXT("Arrival retains concrete structure identity"), Held.TargetIdentity, Initial.TargetIdentity);
+			TestEqual(TEXT("Arrival retains destination"), Held.Target, Initial.Target);
+			TestEqual(TEXT("Arrival retains published source"), Held.Source, Initial.Source);
+			TestEqual(TEXT("Arrival retains ETA"), Held.EtaSeconds, Initial.EtaSeconds);
+			TestEqual(TEXT("Arrival retains deadline"), Held.CommittedUntil, Initial.CommittedUntil);
+			TestTrue(TEXT("Arrival retains capture invalidation flag"), Held.bRequiresUnownedTarget);
+			TestFalse(TEXT("Foreign Attack target never escalates"), Held.bEscalated);
+		}
+	return true;
+}
+
+bool FJevDefenseCreationTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	for (const bool bDamage : { false, true })
+	{
+		FWorld World = WorldSummary();
+		World.Regions[1].Controller = World.Team;
+		World.Regions[1].Hostiles = bDamage ? 0 : 1;
+		World.Regions[1].bAttacked = bDamage;
+		World.Regions[1].bClaimed = true;
+		World.bAdvantage = true;
+		FForce Force = ForceSummary(Speeds);
+		Force.Source = 1;
+		Force.Position = World.Regions[1].Position + FVector(100.f, 0.f, 0.f);
+		Force.HealthFraction = .1f;
+		Force.bRecovering = Force.bAtRecovery = true;
+		const FCandidates Candidates = Propose(World, Force);
+		TestEqual(TEXT("Forced defense is the only proposal despite injury, advantage and claims"), Candidates.Count, 1);
+		const FCandidate* Best = Choose(Candidates);
+		if (!TestNotNull(TEXT("Attacked own source has a defense candidate"), Best))
+			continue;
+		TestEqual(TEXT("An injured force not actually Retreating must defend"), Best->Plan.Verb, EVerb::MoveAndHold);
+		TestTrue(TEXT("Defense candidate is already escalated"), Best->Plan.bEscalated);
+		FPlan Initial, Held;
+		TestTrue(TEXT("An attacked own source creates a defense plan"), Decide(World, Force, 10.f, nullptr, Initial));
+		TestEqual(TEXT("Created defense targets current owned source"), Initial.Target, Force.Source);
+		TestTrue(TEXT("Creation publishes escalation without a later label flip"), Initial.bEscalated);
+		TestFalse(TEXT("Created defense does not require an unowned target"), Initial.bRequiresUnownedTarget);
+		TestEqual(TEXT("Defense creation starts the full window"), Initial.CommittedUntil, 35.f);
+		Force.UnitCount = 2;
+		Force.Position = World.Regions[1].Position;
+		TestTrue(TEXT("Second evaluation retains the newly created defense"), Decide(World, Force, 12.f, &Initial, Held));
+		TestEqual(TEXT("Defense verb is stable"), Held.Verb, Initial.Verb);
+		TestEqual(TEXT("Defense escalation label is stable"), Held.bEscalated, Initial.bEscalated);
+		TestEqual(TEXT("Defense source is stable"), Held.Source, Initial.Source);
+		TestEqual(TEXT("Defense destination is stable"), Held.Target, Initial.Target);
+		TestEqual(TEXT("Defense identity is stable"), Held.TargetIdentity, Initial.TargetIdentity);
+		TestEqual(TEXT("Defense size band is stable despite roster changes"), Held.SizeBand, Initial.SizeBand);
+		TestEqual(TEXT("Defense ETA is stable despite arrival"), Held.EtaSeconds, Initial.EtaSeconds);
+		TestEqual(TEXT("Defense capture flag is stable"), Held.bRequiresUnownedTarget, Initial.bRequiresUnownedTarget);
+		TestEqual(TEXT("Defense deadline is not extended"), Held.CommittedUntil, Initial.CommittedUntil);
+		World.Regions[1].Hostiles = 0;
+		World.Regions[1].bAttacked = false;
+		Decide(World, Force, 14.f, &Initial, Held);
+		TestTrue(TEXT("Creation defense keeps its label after the attack ends"), Held.bEscalated);
+		TestEqual(TEXT("Resolved attack does not restart commitment"), Held.CommittedUntil, Initial.CommittedUntil);
+	}
+	return true;
+}
+
+bool FJevRetreatExemptionTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	for (const bool bDamage : { false, true })
+	{
+		FWorld World = WorldSummary();
+		World.Regions[1].Controller = World.Team;
+		FForce Force = ForceSummary(Speeds);
+		Force.Source = 1;
+		Force.Position = World.Regions[1].Position;
+		Force.HealthFraction = .1f;
+		FPlan Initial, Held;
+		TestTrue(TEXT("Safe source permits injury recovery"), Decide(World, Force, 0.f, nullptr, Initial));
+		TestEqual(TEXT("Recovery fixture starts Retreat"), Initial.Verb, EVerb::Retreat);
+		Force.bRetreating = true;
+		World.Regions[1].Hostiles = bDamage ? 0 : 1;
+		World.Regions[1].bAttacked = bDamage;
+		TestTrue(TEXT("Actual Retreat remains committed through own-region attacks"), Decide(World, Force, 2.f, &Initial, Held));
+		TestEqual(TEXT("Actual Retreat is not replaced by defense"), Held.Verb, EVerb::Retreat);
+		TestEqual(TEXT("Actual Retreat keeps its endpoint"), Held.Target, Initial.Target);
+		TestEqual(TEXT("Actual Retreat keeps its deadline"), Held.CommittedUntil, Initial.CommittedUntil);
+		TestFalse(TEXT("Actual Retreat does not acquire an escalation label"), Held.bEscalated);
+		TestEqual(TEXT("New proposals do not force active Retreat into defense"), Choose(Propose(World, Force))->Plan.Verb, EVerb::Retreat);
+		Force.HealthFraction = 1.f;
+		World.Regions[Force.Home].Hostiles = 1;
+		TestTrue(TEXT("Expired planning window cannot cancel an actual Retreat under attack"),
+			Decide(World, Force, CommitmentSeconds, &Initial, Held));
+		TestEqual(TEXT("Healthy in-flight Retreat still retreats when home is attacked"), Held.Verb, EVerb::Retreat);
+		TestFalse(TEXT("Renewed Retreat never becomes a creation-defense label"), Held.bEscalated);
+		Force.HealthFraction = .1f;
+		World.Regions[Force.Home].Hostiles = 0;
+		FPlan StaleAttack = Initial;
+		StaleAttack.Verb = EVerb::Attack;
+		Decide(World, Force, 3.f, &StaleAttack, Held);
+		TestEqual(TEXT("Exemption follows actual Retreat even with a stale non-Retreat plan"), Held.Verb, StaleAttack.Verb);
+		TestFalse(TEXT("Stale non-Retreat plan does not bypass actual Retreat exemption"), Held.bEscalated);
+		Force.bRetreating = false;
+		Decide(World, Force, 4.f, &Initial, Held);
+		TestEqual(TEXT("Stored Retreat alone does not exempt a completed executor"), Held.Verb, EVerb::MoveAndHold);
+		TestEqual(TEXT("Completed Retreat defends its attacked current source"), Held.Target, Force.Source);
+		TestTrue(TEXT("Completed Retreat becomes visibly escalated"), Held.bEscalated);
+		TestEqual(TEXT("Completed Retreat defense retains the original window"), Held.CommittedUntil, Initial.CommittedUntil);
+	}
 	return true;
 }
 #endif

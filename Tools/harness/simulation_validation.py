@@ -164,11 +164,21 @@ def validate_plans(report: JsonObject) -> None:
         ):
             continue
         validate_plan(event)
+        if event.get("source_controller") not in (-1, 0, 5) or isinstance(
+            event.get("source_controller"), bool
+        ):
+            raise ValueError("Missing or invalid JEV plan source ownership")
+        if not isinstance(event.get("order_changed"), bool):
+            raise ValueError("Missing JEV plan order change evidence")
+        if event["kind"] == "plan_escalated" and not event["escalated"]:
+            raise ValueError("Escalation event must mark plan escalated")
         ticket = event["ticket"]
         if event["kind"] == "plan_created":
             if ticket in created and created[ticket]["force"] != event["force"]:
                 raise ValueError("JEV ticket reused by another force")
             created.setdefault(ticket, event)
+            if created[ticket] is event and event["escalated"]:
+                escalated.setdefault(ticket, event["time"])
         else:
             if ticket not in created:
                 raise ValueError("Missing JEV plan creation before escalation")

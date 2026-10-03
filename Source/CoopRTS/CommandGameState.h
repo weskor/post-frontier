@@ -58,6 +58,8 @@ struct FJevPlanHistoryEntry
 	FJevPublishedPlan Plan;
 	float TimeSeconds = 0.f;
 	bool bEscalation = false;
+	int32 SourceController = INDEX_NONE;
+	bool bOrderChanged = false;
 	int32 ForceNumber = 0;
 	FString TargetStructureName;
 };

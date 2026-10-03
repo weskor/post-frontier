@@ -13,6 +13,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevEscalationWorldTest, "CoopRTS.Enemy.Planner
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevTargetDestroyedWorldTest, "CoopRTS.Enemy.Planner.TargetDestroyed",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevForeignAttackWorldTest, "CoopRTS.Enemy.Planner.ForeignAttack",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevRejectedOrderWorldTest, "CoopRTS.Enemy.Planner.RejectedOrder",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevCommittedClaimsWorldTest, "CoopRTS.Enemy.Planner.CommittedClaims",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 namespace
 {
@@ -20,7 +26,10 @@ enum class EJevWorldProof
 {
 	Commitment,
 	Escalation,
-	TargetDestroyed
+	TargetDestroyed,
+	ForeignAttack,
+	RejectedOrder,
+	CommittedClaims
 };
 
 // Each filter runs alone in a fresh world. Only the tested commander makes
@@ -76,7 +85,7 @@ public:
 			if (!Check(Initial[0].TicketNumber != Initial[1].TicketNumber,
 					TEXT("Independent forces publish distinct tickets")))
 				return true;
-			if (Proof == EJevWorldProof::TargetDestroyed
+			if ((Proof == EJevWorldProof::TargetDestroyed || Proof == EJevWorldProof::ForeignAttack)
 				&& !Check(Initial[0].Verb == EForceVerb::Attack && IsValid(Initial[0].TargetStructure)
 						&& Cast<ACommandBuilding>(Initial[0].TargetStructure),
 					TEXT("Destruction proof must start with an accepted concrete hostile building Attack")))
@@ -85,6 +94,13 @@ public:
 				&& !Check(Initial[0].TargetRegionIndex != Initial[0].SourceRegionIndex,
 					TEXT("Escalation proof must start with a committed order away from its source")))
 				return true;
+			if (Proof == EJevWorldProof::RejectedOrder || Proof == EJevWorldProof::CommittedClaims)
+				for (const TWeakObjectPtr<AArmyGroup>& Force : Forces)
+					Park(*Force);
+			if (Proof == EJevWorldProof::ForeignAttack)
+				for (const TWeakObjectPtr<AArmyGroup>& Force : Forces)
+					for (AArmyUnit* Unit : Force->GetUnits())
+						Unit->NextAttackTime = TNumericLimits<float>::Max();
 			AcceptedAt = Now;
 			Stage = 2;
 			return false;
@@ -94,9 +110,17 @@ public:
 			Planner->EvaluatePlan();
 			return !PublishedMatches(State, Now) || !Unchanged(State, 0) || !Unchanged(State, 1);
 		}
+		if (Stage == 2 && Proof == EJevWorldProof::ForeignAttack
+			&& ArmyTestSetup::CurrentRegion(Forces[0].Get()) != Initial[0].TargetRegionIndex)
+		{
+			if (Now >= Initial[0].CommittedUntil - 2.f)
+				return Fail(TEXT("Real Attack must enter its player-owned target before commitment expires"));
+			Planner->EvaluatePlan();
+			return !PublishedMatches(State, Now) || !Unchanged(State, 0) || !Unchanged(State, 1);
+		}
 		if (Stage == 2)
 		{
-			if (Proof == EJevWorldProof::Commitment)
+			if (Proof == EJevWorldProof::Commitment || Proof == EJevWorldProof::RejectedOrder)
 			{
 				// Exhaust every real deposit: the economic world summary changes, but
 				// none of the still-neutral destination regions becomes invalid.
@@ -115,11 +139,14 @@ public:
 						TEXT("Health scores change below recovery threshold without casualties or damage to the independent force")))
 					return true;
 			}
-			else if (Proof == EJevWorldProof::Escalation)
+			else if (Proof == EJevWorldProof::Escalation || Proof == EJevWorldProof::ForeignAttack)
 			{
 				InvadedRegion = ArmyTestSetup::CurrentRegion(Forces[0].Get());
 				if (!Check(InvadedRegion != INDEX_NONE && InvadedRegion != ArmyTestSetup::CurrentRegion(Forces[1].Get()),
 						TEXT("Source invasion fixture must isolate one force's actual polygon")))
+					return true;
+				if (!Check(State->GetRegionController(InvadedRegion) == (Proof == EJevWorldProof::Escalation ? 5 : 0),
+						TEXT("Defense invasion uses JEV control; foreign Attack invasion uses player control")))
 					return true;
 				Intruder = ArmyTestSetup::SpawnGroup(World, PC, 43,
 					State->GetRegionAnchor(InvadedRegion) + FVector(0.f, 350.f, 100.f));
@@ -128,6 +155,20 @@ public:
 				Park(*Intruder);
 				if (!Check(State->IsRegionContested(InvadedRegion, 5),
 						TEXT("Actual hostile members must occupy the force's source region")))
+					return true;
+			}
+			else if (Proof == EJevWorldProof::CommittedClaims)
+			{
+				if (!Check(Initial[0].TargetRegionIndex != Initial[1].TargetRegionIndex,
+						TEXT("Independent expansion plans reserve distinct targets")))
+					return true;
+				for (AMapRegion* Region : State->Regions)
+					if (IsValid(Region) && IsValid(Region->Anchor) && Region->RegionRole != ERegionRole::Main
+						&& Region->RegionIndex != Initial[1].TargetRegionIndex)
+						Region->Anchor->ControllingTeam = 5;
+				if (!Check(State->GetRegionController(Initial[0].TargetRegionIndex) == 5
+							&& State->GetRegionController(Initial[1].TargetRegionIndex) == INDEX_NONE,
+						TEXT("Capture invalidates the earlier force while the later force's remaining neutral target stays reserved")))
 					return true;
 			}
 			else
@@ -140,9 +181,51 @@ public:
 			}
 			Stage = 3;
 		}
+		if (Proof == EJevWorldProof::RejectedOrder && Now >= Initial[0].CommittedUntil && Stage == 3)
+		{
+			AArmyGroup* Force = Forces[0].Get();
+			const int32 Number = Force->ForceNumber;
+			Force->Initialize({ 0, State->EnemyCommander.Get(), Force->GetArmyIndex(),
+				Force->GetProductionBuilding(), Force->GetHomeLocation() });
+			Force->ForceNumber = Number;
+			if (!Check(!FCommandService::IssueForceOrder(State->EnemyCommander, Force, EForceVerb::MoveHold,
+							ArmyTestSetup::CurrentRegion(Force)) && Force->OrderSerial == InitialSerial[0],
+					TEXT("Real command service rejects mismatched team identity without changing the live accepted order")))
+				return true;
+			RejectedAt = Now;
+			Stage = 4;
+		}
 		Planner->EvaluatePlan();
 		if (!PublishedMatches(State, Now))
 			return true;
+		if (Proof == EJevWorldProof::RejectedOrder)
+		{
+			if (Now < Initial[0].CommittedUntil)
+				return !Unchanged(State, 0) || !Unchanged(State, 1);
+			const FJevPublishedPlan* Actual = Plan(State, 0);
+			if (!Check(Actual->Verb == Initial[0].Verb && Actual->TargetRegionIndex == Initial[0].TargetRegionIndex
+						&& Actual->TargetStructure == Initial[0].TargetStructure && !Actual->bEscalated
+						&& Forces[0]->OrderSerial == InitialSerial[0],
+					TEXT("Rejected proposals keep the live accepted order published, not the rejected desired order")))
+				return true;
+			if (Stage == 4)
+			{
+				RejectedFallback = *Actual;
+				if (!Check(Actual->TicketNumber != Initial[0].TicketNumber
+							&& FMath::IsNearlyEqual(Actual->CommittedUntil - Now, 25.f, .01f),
+						TEXT("All rejected fresh candidates adopt the actual order with a new full commitment")))
+					return true;
+				Stage = 5;
+			}
+			if (!Check(Actual->TicketNumber == RejectedFallback.TicketNumber
+						&& Actual->CommittedUntil == RejectedFallback.CommittedUntil && Actual->Memo == RejectedFallback.Memo,
+					TEXT("Actual-order fallback remains published and committed across repeated evaluations")))
+				return true;
+			if (Now - RejectedAt < 2.f)
+				return false;
+			Test->AddInfo(TEXT("JEV rejected order: real ownership rejection, all candidates rejected, live actual-order publication and stable fallback commitment."));
+			return true;
+		}
 		if (Proof == EJevWorldProof::Commitment)
 		{
 			if (Now < Initial[0].CommittedUntil)
@@ -164,6 +247,32 @@ public:
 		if (!Unchanged(State, 1))
 			return true;
 		const FJevPublishedPlan* Changed = Plan(State, 0);
+		if (Proof == EJevWorldProof::ForeignAttack)
+		{
+			if (!Check(Now < Initial[0].CommittedUntil && !Changed->bEscalated
+						&& Changed->Verb == EForceVerb::Attack && State->GetRegionController(InvadedRegion) == 0
+						&& State->IsRegionContested(InvadedRegion, 5),
+					TEXT("Attack arrival among actual player-region defenders must not become a defending escalation")))
+				return true;
+			if (!Unchanged(State, 0))
+				return true;
+			if (ForeignObservedAt == 0.f)
+				ForeignObservedAt = Now;
+			if (Now - ForeignObservedAt < 1.f)
+				return false;
+			Test->AddInfo(TEXT("JEV foreign Attack: real target arrival and hostile player-region occupants preserve the accepted Attack, ticket, deadline and memo."));
+			return true;
+		}
+		if (Proof == EJevWorldProof::CommittedClaims)
+		{
+			if (!Check(Changed->TicketNumber != Initial[0].TicketNumber
+						&& Changed->TargetRegionIndex != Initial[1].TargetRegionIndex
+						&& Now < Initial[1].CommittedUntil,
+					TEXT("Earlier force's replacement cannot steal a later force's still-committed target")))
+				return true;
+			Test->AddInfo(TEXT("JEV committed claims: earlier invalidation respects later held destination before evaluation order reaches that force."));
+			return true;
+		}
 		if (Proof == EJevWorldProof::Escalation)
 		{
 			if (!Check(Changed->TicketNumber == Initial[0].TicketNumber
@@ -246,7 +355,7 @@ private:
 				return Fail(TEXT("Independent producer fixtures must accept normal rally and paid production commands"));
 			Forces[Index] = Force;
 		}
-		if (Proof == EJevWorldProof::TargetDestroyed)
+		if (Proof == EJevWorldProof::TargetDestroyed || Proof == EJevWorldProof::ForeignAttack)
 			for (AMapRegion* Region : State->Regions)
 				if (IsValid(Region) && Region->RegionRole != ERegionRole::Main && IsValid(Region->Anchor)
 					&& Region != ForwardSource)
@@ -384,12 +493,15 @@ private:
 	TWeakObjectPtr<AArmyGroup> Forces[2];
 	TWeakObjectPtr<AArmyGroup> Intruder;
 	FJevPublishedPlan Initial[2];
+	FJevPublishedPlan RejectedFallback;
 	uint32 InitialSerial[2] = {};
 	FJevMemoTemplates Templates;
 	int32 Stage = 0;
 	int32 InvadedRegion = INDEX_NONE;
 	float AcceptedAt = 0.f;
 	float LastHeldAt = 0.f;
+	float RejectedAt = 0.f;
+	float ForeignObservedAt = 0.f;
 	double Started = FPlatformTime::Seconds();
 };
 }
@@ -407,6 +519,21 @@ bool FJevEscalationWorldTest::RunTest(const FString&)
 bool FJevTargetDestroyedWorldTest::RunTest(const FString&)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FJevPlannerWorldScenario(this, EJevWorldProof::TargetDestroyed));
+	return true;
+}
+bool FJevForeignAttackWorldTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FJevPlannerWorldScenario(this, EJevWorldProof::ForeignAttack));
+	return true;
+}
+bool FJevRejectedOrderWorldTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FJevPlannerWorldScenario(this, EJevWorldProof::RejectedOrder));
+	return true;
+}
+bool FJevCommittedClaimsWorldTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FJevPlannerWorldScenario(this, EJevWorldProof::CommittedClaims));
 	return true;
 }
 #endif

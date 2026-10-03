@@ -316,16 +316,28 @@ void AEnemyCommander::EvaluatePlan()
 			++Roles[Role == EUnitRole::Frontline ? 0 : Role == EUnitRole::Ranged ? 1
 																				 : 2];
 	}
+	int32 Reservations[ForceOrders::MaxRegions] = {};
+	for (const FCommittedForce& Entry : CommittedForces)
+		if (Now < Entry.Plan.CommittedUntil && Entry.Plan.Verb != JevPlanner::EVerb::Retreat
+			&& JevPlanner::TargetValid(Summary, Entry.Plan) && Controllers[Entry.Plan.Target] != TeamIndex)
+		{
+			++Reservations[Entry.Plan.Target];
+			Summary.Regions[Entry.Plan.Target].bClaimed = true;
+		}
 	for (AArmyGroup* Force : Forces)
 	{
 		FCommittedForce* Current = CommittedForces.FindByPredicate(
 			[&](const FCommittedForce& Entry) { return Entry.Force == Force; });
+		if (Current && Now < Current->Plan.CommittedUntil && Current->Plan.Verb != JevPlanner::EVerb::Retreat
+			&& JevPlanner::TargetValid(Summary, Current->Plan) && Controllers[Current->Plan.Target] != TeamIndex)
+			Summary.Regions[Current->Plan.Target].bClaimed = --Reservations[Current->Plan.Target] > 0;
 		JevPlanner::FForce Snapshot;
 		Snapshot.Source = ForceOrderGraph::SourceRegion(*Force, *State);
 		Snapshot.Home = HomeRegion->RegionIndex;
 		Snapshot.Position = Force->GetCenter();
 		Snapshot.UnitCount = Force->GetAliveCount();
 		Snapshot.bRecovering = Current && Current->bRecovering;
+		Snapshot.bRetreating = Force->Verb == EForceVerb::Retreat;
 		float Health = 0.f;
 		int32 Joined = 0;
 		for (const AArmyUnit* Unit : Force->GetUnits())
@@ -341,33 +353,94 @@ void AEnemyCommander::EvaluatePlan()
 			&& Force->IsHoldingRegion() && Force->HoldRegionIndex == Snapshot.Source;
 		const float Speed[] = { Force->GetBaseMarchSpeed() };
 		Snapshot.ClassSpeeds = Speed;
+		const auto ActualPlan = [&]() {
+			JevPlanner::FPlan Actual;
+			Actual.Verb = Force->Verb == EForceVerb::Attack ? JevPlanner::EVerb::Attack
+				: Force->Verb == EForceVerb::Retreat ? JevPlanner::EVerb::Retreat : JevPlanner::EVerb::MoveAndHold;
+			Actual.Source = Snapshot.Source;
+			Actual.Target = Force->Verb == EForceVerb::Retreat ? Force->GetRetreatRegion() : Force->TargetRegionIndex;
+			Actual.TargetIdentity = IsValid(Force->TargetStructure) ? Force->TargetStructure->GetUniqueID() : 0;
+			Actual.SizeBand = JevPlanner::SizeBand(Snapshot.UnitCount);
+			Actual.bRequiresUnownedTarget = Force->Verb != EForceVerb::Retreat && ValidRegion(Actual.Target)
+				&& Controllers[Actual.Target] != TeamIndex;
+			Actual.EtaSeconds = FMath::Max(0.f, JevPlanner::TravelSeconds(Summary, Snapshot, Actual.Target))
+				/ (Force->Verb == EForceVerb::Retreat ? 1.25f : 1.f);
+			Actual.CommittedUntil = Current && Now < Current->Plan.CommittedUntil
+				? Current->Plan.CommittedUntil : Now + JevPlanner::CommitmentSeconds;
+			return Actual;
+		};
 		JevPlanner::FPlan Next;
-		if (!JevPlanner::Decide(Summary, Snapshot, Now, Current ? &Current->Plan : nullptr, Next))
+		const bool bRejectedCommitment = Current && Current->bCommandsRejected && Now < Current->Plan.CommittedUntil;
+		bool bCommandsRejected = bRejectedCommitment;
+		if (bRejectedCommitment)
+			Next = ActualPlan();
+		else if (!JevPlanner::Decide(Summary, Snapshot, Now, Current ? &Current->Plan : nullptr, Next))
 		{
-			if (TeamIndex == 5)
-				State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
-			continue;
+			if (Force->Orders.IsEmpty())
+			{
+				if (TeamIndex == 5)
+					State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
+				continue;
+			}
+			Next = ActualPlan();
 		}
 		AActor* Structure = nullptr;
 		for (int32 Index = 0; Index < Targets.Num(); ++Index)
 			if (Targets[Index].Identity == Next.TargetIdentity)
 				Structure = TargetActors[Index];
-#if !UE_BUILD_SHIPPING
-		const bool bEscalation = Current && !Current->Plan.bEscalated && Next.bEscalated;
-#endif
-		const bool bNewCommitment = !Current || Next.CommittedUntil != Current->Plan.CommittedUntil;
+		const bool bFreshDecision = !Current || Next.CommittedUntil != Current->Plan.CommittedUntil;
 		const bool bDecisionChanged = !Current || Next.Verb != Current->Plan.Verb
 			|| Next.Target != Current->Plan.Target || Next.TargetIdentity != Current->Plan.TargetIdentity;
 		const bool bActualChanged = Force->Verb != OrderVerb(Next.Verb)
 			|| (Next.Verb != JevPlanner::EVerb::Retreat && Force->TargetRegionIndex != Next.Target)
 			|| Force->TargetStructure != Structure || Force->Orders.IsEmpty();
-		const bool bChanged = bActualChanged && (bDecisionChanged || bNewCommitment);
+		bool bChanged = bActualChanged && (bDecisionChanged || bFreshDecision);
 		if (bChanged && !FCommandService::IssueForceOrder(Commander, Force, OrderVerb(Next.Verb), Next.Verb == JevPlanner::EVerb::Retreat ? INDEX_NONE : Next.Target, Structure))
 		{
-			if (TeamIndex == 5)
-				State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
-			continue;
+			bool bAccepted = false;
+			// A failed fresh choice must not monopolize every evaluation. Try the
+			// remaining legal proposals; a held defense cannot switch to an unrelated order.
+			if (bFreshDecision)
+			{
+				const JevPlanner::FCandidates Alternatives = JevPlanner::Propose(Summary, Snapshot);
+				for (int32 At = 0; At < Alternatives.Count; ++At)
+				{
+					JevPlanner::FPlan Alternative = Alternatives.Values[At].Plan;
+					if (Alternative.Verb == Next.Verb && Alternative.Target == Next.Target
+						&& Alternative.TargetIdentity == Next.TargetIdentity)
+						continue;
+					AActor* AlternativeStructure = nullptr;
+					for (int32 Index = 0; Index < Targets.Num(); ++Index)
+						if (Targets[Index].Identity == Alternative.TargetIdentity)
+							AlternativeStructure = TargetActors[Index];
+					if (!FCommandService::IssueForceOrder(Commander, Force, OrderVerb(Alternative.Verb),
+							Alternative.Verb == JevPlanner::EVerb::Retreat ? INDEX_NONE : Alternative.Target, AlternativeStructure))
+						continue;
+					Alternative.CommittedUntil = Now + JevPlanner::CommitmentSeconds;
+					Next = Alternative;
+					Structure = AlternativeStructure;
+					bAccepted = true;
+					break;
+				}
+			}
+			if (!bAccepted)
+			{
+				if (Force->Orders.IsEmpty())
+				{
+					if (TeamIndex == 5)
+						State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
+					continue;
+				}
+				Next = ActualPlan();
+				Structure = Force->TargetStructure;
+				bChanged = false;
+				bCommandsRejected = true;
+			}
 		}
+		const bool bNewCommitment = !Current || Next.CommittedUntil != Current->Plan.CommittedUntil;
+#if !UE_BUILD_SHIPPING
+		const bool bEscalation = Current && !Current->Plan.bEscalated && Next.bEscalated;
+#endif
 		if (bChanged && Next.Verb == JevPlanner::EVerb::Retreat && ValidRegion(Force->GetRetreatRegion()))
 		{
 			Next.Target = Force->GetRetreatRegion();
@@ -387,24 +460,25 @@ void AEnemyCommander::EvaluatePlan()
 			Current->TicketNumber = NextTicketNumber++;
 		Current->Plan = Next;
 		Current->bRecovering = bRecovering;
-		if (ValidRegion(Next.Target) && Next.bRequiresUnownedTarget)
-			Summary.Regions[Next.Target].bClaimed = true;
-		JevPlanner::FPlan DisplayPlan = Next;
-		if (Next.Verb == JevPlanner::EVerb::Retreat)
+		Current->bCommandsRejected = bCommandsRejected;
+		if (ValidRegion(Next.Target) && Next.Verb != JevPlanner::EVerb::Retreat && Controllers[Next.Target] != TeamIndex)
 		{
-			// Execution can finish before the next strategic decision; completion does not reset commitment.
-			if (Force->Verb == EForceVerb::MoveHold)
-			{
-				DisplayPlan.Verb = JevPlanner::EVerb::MoveAndHold;
-				DisplayPlan.Target = Force->TargetRegionIndex;
-				DisplayPlan.EtaSeconds = 0.f;
-			}
-			else if (ValidRegion(Force->GetRetreatRegion()) && Force->GetRetreatRegion() != Next.Target)
-			{
-				DisplayPlan.Target = Force->GetRetreatRegion();
-				DisplayPlan.EtaSeconds = JevPlanner::TravelSeconds(Summary, Snapshot, DisplayPlan.Target) / 1.25f;
-			}
+			++Reservations[Next.Target];
+			Summary.Regions[Next.Target].bClaimed = true;
 		}
+		JevPlanner::FPlan DisplayPlan = Next;
+		// Publish the executor's current order, including natural completion,
+		// without replacing the strategic ticket or restarting its commitment.
+		DisplayPlan.Verb = Force->Verb == EForceVerb::Attack ? JevPlanner::EVerb::Attack
+			: Force->Verb == EForceVerb::Retreat ? JevPlanner::EVerb::Retreat : JevPlanner::EVerb::MoveAndHold;
+		DisplayPlan.Target = Force->Verb == EForceVerb::Retreat ? Force->GetRetreatRegion() : Force->TargetRegionIndex;
+		Structure = Force->TargetStructure;
+		if (DisplayPlan.Verb != Next.Verb || DisplayPlan.Target != Next.Target)
+			DisplayPlan.EtaSeconds = Force->Verb == EForceVerb::MoveHold ? 0.f
+				: FMath::Max(0.f, JevPlanner::TravelSeconds(Summary, Snapshot, DisplayPlan.Target))
+					/ (Force->Verb == EForceVerb::Retreat ? 1.25f : 1.f);
+		DisplayPlan.bEscalated = Next.bEscalated && Force->Verb == EForceVerb::MoveHold
+			&& DisplayPlan.Target == Next.Target;
 		if (TeamIndex == 5)
 		{
 			FJevPublishedPlan* Existing = State->EnemyPlans.FindByPredicate(
@@ -425,7 +499,7 @@ void AEnemyCommander::EvaluatePlan()
 			Published.EtaSeconds = DisplayPlan.EtaSeconds;
 			Published.CommittedUntil = Next.CommittedUntil;
 			Published.RemainingCommitment = JevPlanner::Remaining(Next, Now);
-			Published.bEscalated = Next.bEscalated;
+			Published.bEscalated = DisplayPlan.bEscalated;
 			if (bMemoChanged)
 				Published.Memo = MemoTemplates.Format(DisplayPlan, Published.TicketNumber,
 					Regions[DisplayPlan.Target]->DisplayName.ToString());
@@ -438,6 +512,8 @@ void AEnemyCommander::EvaluatePlan()
 				History.bEscalation = bEscalation && !bNewCommitment;
 				History.ForceNumber = Force->ForceNumber;
 				History.TargetStructureName = Structure ? Structure->GetName() : FString();
+				History.SourceController = ValidRegion(DisplayPlan.Source) ? Controllers[DisplayPlan.Source] : INDEX_NONE;
+				History.bOrderChanged = bChanged;
 			}
 #endif
 		}

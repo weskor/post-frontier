@@ -112,35 +112,27 @@ def layout_evidence(groups: Groups, lines: list[str]) -> JsonObject:
     return layouts
 
 
-def plan_evidence(
-    valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
-) -> JsonObject:
+def _append_plan_details(
+    matches: list[JsonObject], owner_totals: JsonObject, lines: list[str]
+) -> None:
     lines += [
         "",
-        "## JEV committed plans (team 5)",
+        "### Escalation by source-region owner at event time",
         "",
-        "Counts are unique tickets per match, grouped by their creation verb. Escalation changes the same ticket, not the plan count; two-second republication and repeated snapshots do not count again. Team 0 autopilot does not publish plans.",
+        "Ownership is captured in each event, not reconstructed from region-control snapshots. Defense at creation is not a mid-commitment transition. Later transitions are split by whether a new command was issued; label-only changes issue no order. Only the first creation and first transition per ticket count.",
         "",
-        "| Match | Seed | Move & Hold | Attack | Retreat | Total | Escalated | Captures | Attacks observed |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Match | Source owner | Defense at creation | Order-changing transitions | Label-only transitions |",
+        "| --- | --- | ---: | ---: | ---: |",
     ]
-    matches = []
-    totals = dict.fromkeys((*PLAN_VERBS, "total", "escalated"), 0)
-    for record, report in valid:
-        evidence = committed_plan_evidence(report)
-        evidence.update(
-            match=Path(record["directory"]).name, seed=record["job"]["seed"]
-        )
-        matches.append(evidence)
-        counts = evidence["counts"]
-        for name in totals:
-            totals[name] += counts[name]
+    for evidence in matches:
+        for owner, categories in evidence["escalation_by_owner"].items():
+            lines.append(
+                f"| `{evidence['match']}` | {owner} | {categories['creation_defense']} | {categories['order_changing']} | {categories['label_only']} |"
+            )
+    for owner, categories in owner_totals.items():
         lines.append(
-            f"| `{evidence['match']}` | {evidence['seed']} | {counts['move_and_hold']} | {counts['attack']} | {counts['retreat']} | {counts['total']} | {counts['escalated']} | {evidence['captures']} | {evidence['attacks_observed']} |"
+            f"| **Total** | {owner} | **{categories['creation_defense']}** | **{categories['order_changing']}** | **{categories['label_only']}** |"
         )
-    lines.append(
-        f"| **Total** | | **{totals['move_and_hold']}** | **{totals['attack']}** | **{totals['retreat']}** | **{totals['total']}** | **{totals['escalated']}** | | |"
-    )
     lines += [
         "",
         "### Active published plans at each terminal snapshot",
@@ -165,7 +157,55 @@ def plan_evidence(
             lines.append(
                 f"| {plan['ticket']} | {plan['force']} | {PLAN_LABELS[plan['verb']]} | {plan['source_region']} | {plan['target_region']} | ~{plan['size_band']} units | {plan['eta_seconds']:.1f} | {plan['remaining_commitment_seconds']:.1f} | {'yes' if plan['escalated'] else 'no'} | {memo} |"
             )
-    return dict(team=5, counts=totals, matches=matches)
+
+
+def plan_evidence(
+    valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
+) -> JsonObject:
+    lines += [
+        "",
+        "## JEV committed plans (team 5)",
+        "",
+        "Counts are unique tickets per match, grouped by their creation verb. Escalated includes defense at creation and later transitions without counting the same ticket twice; repeated publications do not count again. Team 0 autopilot is excluded.",
+        "",
+        "| Match | Seed | Move & Hold | Attack | Retreat | Total | Escalated | Captures | Attacks observed |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    matches = []
+    totals = dict.fromkeys((*PLAN_VERBS, "total", "escalated"), 0)
+    owner_totals = {
+        owner: dict(creation_defense=0, order_changing=0, label_only=0)
+        for owner in ("jev", "neutral", "player")
+    }
+    for record, report in valid:
+        evidence = committed_plan_evidence(report)
+        evidence.update(
+            match=Path(record["directory"]).name, seed=record["job"]["seed"]
+        )
+        matches.append(evidence)
+        counts = evidence["counts"]
+        for name in totals:
+            totals[name] += counts[name]
+        for owner, categories in evidence["escalation_by_owner"].items():
+            for category, count in categories.items():
+                owner_totals[owner][category] += count
+        lines.append(
+            f"| `{evidence['match']}` | {evidence['seed']} | {counts['move_and_hold']} | {counts['attack']} | {counts['retreat']} | {counts['total']} | {counts['escalated']} | {evidence['captures']} | {evidence['attacks_observed']} |"
+        )
+    lines.append(
+        f"| **Total** | | **{totals['move_and_hold']}** | **{totals['attack']}** | **{totals['retreat']}** | **{totals['total']}** | **{totals['escalated']}** | | |"
+    )
+    _append_plan_details(matches, owner_totals, lines)
+    return dict(
+        team=5,
+        counts=totals,
+        escalation_by_owner=owner_totals,
+        escalation_counts={
+            category: sum(row[category] for row in owner_totals.values())
+            for category in ("creation_defense", "order_changing", "label_only")
+        },
+        matches=matches,
+    )
 
 
 def paired_comparisons(

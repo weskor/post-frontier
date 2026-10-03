@@ -9,6 +9,13 @@ bool Exists(const FWorld& World, int32 Index)
 	return Index >= 0 && Index < ForceOrders::MaxRegions && World.Regions[Index].bExists;
 }
 
+bool MustDefend(const FWorld& World, const FForce& Force)
+{
+	return !Force.bRetreating && Exists(World, Force.Source)
+		&& World.Regions[Force.Source].Controller == World.Team
+		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked);
+}
+
 struct FPaths
 {
 	int32 Hops[ForceOrders::MaxRegions];
@@ -107,7 +114,7 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FPaths& Rou
 		if (!Target.Identity || !Target.bAlive || !Exists(World, Target.Region))
 			continue;
 		const FRegion& Region = World.Regions[Target.Region];
-		if (!Region.bTargetAlive || Region.bClaimed || Region.Controller == World.Team || Route.Hops[Target.Region] == INDEX_NONE
+		if (Region.bClaimed || Region.Controller == World.Team || Route.Hops[Target.Region] == INDEX_NONE
 			|| (Region.bMain && Target.Region != World.EnemyHome))
 			continue;
 		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
@@ -137,18 +144,33 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 	if (!Exists(World, Force.Source) || Force.UnitCount <= 0 || SlowestSpeed(Force) <= 0.f)
 		return Out;
 	const FPaths Route = Paths(World, Force);
+	if (Force.bRetreating)
+	{
+		// An in-flight Retreat remains Retreat even after its planning window
+		// expires; the executor chooses safety if the home region is attacked.
+		if (Exists(World, Force.Home) && Route.Hops[Force.Home] != INDEX_NONE)
+			Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), 1000.f);
+		return Out;
+	}
+	if (MustDefend(World, Force))
+	{
+		FPlan Defense = MakePlan(World, Force, EVerb::MoveAndHold, Force.Source, Route.Length[Force.Source]);
+		Defense.bEscalated = true;
+		Offer(Out, Defense, 100.f);
+		return Out;
+	}
 	const bool bRecover = Force.HealthFraction < .35f || (Force.bRecovering && Force.HealthFraction < .8f);
 	if (bRecover && Force.bAtRecovery && Exists(World, Force.Source)
 		&& World.Regions[Force.Source].Controller == World.Team && !World.Regions[Force.Source].Hostiles)
 		Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Force.Source, Route.Length[Force.Source]), 1001.f);
-	if (Exists(World, Force.Home) && World.Regions[Force.Home].bTargetAlive
+	if (Exists(World, Force.Home)
 		&& World.Regions[Force.Home].Controller == World.Team && World.Regions[Force.Home].Hostiles == 0
 		&& Route.Hops[Force.Home] != INDEX_NONE)
 		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), bRecover ? 1000.f : -1000.f);
 	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 	{
 		const FRegion& Region = World.Regions[Index];
-		if (!Region.bExists || !Region.bTargetAlive || Route.Hops[Index] == INDEX_NONE || Region.bClaimed)
+		if (!Region.bExists || Route.Hops[Index] == INDEX_NONE || Region.bClaimed)
 			continue;
 		if (Region.Controller == World.Team)
 		{
@@ -177,7 +199,7 @@ const FCandidate* Choose(const FCandidates& Candidates)
 
 bool TargetValid(const FWorld& World, const FPlan& Plan)
 {
-	if (!Exists(World, Plan.Target) || !World.Regions[Plan.Target].bTargetAlive
+	if (!Exists(World, Plan.Target)
 		|| (Plan.bRequiresUnownedTarget && World.Regions[Plan.Target].Controller == World.Team))
 		return false;
 	if (!Plan.TargetIdentity)
@@ -190,10 +212,9 @@ bool TargetValid(const FWorld& World, const FPlan& Plan)
 
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out)
 {
-	if (Current && Now < Current->CommittedUntil && Exists(World, Force.Source)
-		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked))
+	if (Current && Now < Current->CommittedUntil && MustDefend(World, Force))
 	{
-		if (Current->bEscalated && Current->Target == Force.Source)
+		if (Current->bEscalated && Current->Verb == EVerb::MoveAndHold && Current->Target == Force.Source)
 		{
 			Out = *Current;
 			return true;

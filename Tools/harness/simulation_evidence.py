@@ -33,13 +33,32 @@ def committed_plan_evidence(report: JsonObject) -> JsonObject:
     """Count ticket lifetimes, not evaluations, snapshots or changed verbs."""
     created: dict[int, int] = {}
     escalated: set[int] = set()
+    transitions: set[int] = set()
+    breakdown = {
+        owner: dict(creation_defense=0, order_changing=0, label_only=0)
+        for owner in ("jev", "neutral", "player")
+    }
     for event in report["events"]:
         if event.get("team") != 5:
             continue
+        ticket = event.get("ticket")
         if event["kind"] == "plan_created":
-            created.setdefault(event["ticket"], event["verb"])
+            if ticket in created:
+                continue
+            created[ticket] = event["verb"]
+            if not event["escalated"]:
+                continue
+            category = "creation_defense"
         elif event["kind"] == "plan_escalated":
-            escalated.add(event["ticket"])
+            if ticket not in created or ticket in transitions:
+                continue
+            transitions.add(ticket)
+            category = "order_changing" if event["order_changed"] else "label_only"
+        else:
+            continue
+        escalated.add(ticket)
+        owner = {5: "jev", -1: "neutral", 0: "player"}[event["source_controller"]]
+        breakdown[owner][category] += 1
     counts = {
         name: sum(verb == index for verb in created.values())
         for index, name in enumerate(PLAN_VERBS)
@@ -52,6 +71,11 @@ def committed_plan_evidence(report: JsonObject) -> JsonObject:
             total=len(created),
             escalated=len(escalated.intersection(created)),
         ),
+        escalation_by_owner=breakdown,
+        escalation_counts={
+            category: sum(row[category] for row in breakdown.values())
+            for category in ("creation_defense", "order_changing", "label_only")
+        },
         captures=sum(
             event["kind"] == "region_control" and event.get("team") == 5
             for event in report["events"]

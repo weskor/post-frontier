@@ -771,6 +771,8 @@ void FMatchSimulation::Observe(ACommandGameState& State)
 		const TSharedRef<FJsonObject> Row = Event(Entry.bEscalation ? TEXT("plan_escalated") : TEXT("plan_created"), 5);
 		Row->SetNumberField(TEXT("time"), FMath::Max(0., Entry.TimeSeconds - StartWorldTime));
 		PlanFields(*Row, Entry.Plan, Entry.ForceNumber, Entry.TargetStructureName, StartWorldTime, Entry.Plan.RemainingCommitment);
+		Row->SetNumberField(TEXT("source_controller"), Entry.SourceController);
+		Row->SetBoolField(TEXT("order_changed"), Entry.bOrderChanged);
 	}
 	for (auto It = ObservedUnits.CreateIterator(); It; ++It)
 	{
