@@ -212,7 +212,7 @@ private:
 			: 1;
 		const int32 UnitIndex = Friendly->GetUnits()[0]->GetUnitIndex();
 		for (int32 Index = Friendly->GetUnits().Num(); Index < FriendlyCount; ++Index)
-			if (!Friendly->SpawnMember(UnitIndex, Anchor, Index))
+			if (!Friendly->SpawnMember(UnitIndex, Anchor + FVector(-500.f, -160.f * Index, 0.f), Index))
 				return Test->TestTrue(TEXT("Equal-Power pursuit members spawn"), false);
 		return Test->TestEqual(TEXT("Friendly pursuit fixture has exact equal-Power member count"), Friendly->GetUnits().Num(), FriendlyCount)
 			&& Test->TestEqual(TEXT("Hostile pursuit fixture has exact member count"), Hostile->GetUnits().Num(), bArtillery ? 2 : 1);
