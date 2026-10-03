@@ -52,6 +52,7 @@ public:
 			if (!Setup(World))
 				return true;
 			bRestoreCursor = PC->GetMousePosition(OriginalMouseX, OriginalMouseY);
+			CenterCursor();
 			SelectBoth();
 			Camera->FocusOn(State->GetRegionAnchor(Target));
 			++Stage;
@@ -379,10 +380,15 @@ private:
 		int32 Region, AActor* Structure = nullptr, bool bQueue = false)
 	{
 		const FOrderInputPreview Preview = PC->GetOrderPreview(Point, bQueue);
-		return Check(Preview.IsAllowed() && Preview.Resolution == Resolution && Preview.RegionIndex == Region
-					   && Preview.Structure == Structure,
-				   TEXT("Smart preview resolves expected verb and target"))
-			&& Check(PC->HandleOrderClick(Point, bQueue), TEXT("Shared smart right-click entry consumes the order"))
+		if (!Preview.IsAllowed() || Preview.Resolution != Resolution || Preview.RegionIndex != Region
+			|| Preview.Structure != Structure)
+		{
+			Test->AddInfo(FString::Printf(TEXT("Preview at (%.1f, %.1f): resolution=%d rejection=%d region=%d structure=%s panel=%d camera=%s"),
+				Point.X, Point.Y, static_cast<int32>(Preview.Resolution), static_cast<int32>(Preview.Rejection),
+				Preview.RegionIndex, *GetNameSafe(Preview.Structure), HUD->IsPanelPoint(Point), *Camera->GetActorLocation().ToString()));
+			return Check(false, TEXT("Smart preview resolves expected verb and target"));
+		}
+		return Check(PC->HandleOrderClick(Point, bQueue), TEXT("Shared smart right-click entry consumes the order"))
 			&& OrdersMatch(Verb, Region, Structure, bQueue);
 	}
 	bool ClickPanel(EHUDAction Action)

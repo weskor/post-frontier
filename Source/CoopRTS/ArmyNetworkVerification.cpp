@@ -822,6 +822,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
 				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P")
 				&& KeyName != TEXT("G") && KeyName != TEXT("B") && KeyName != TEXT("W") && KeyName != TEXT("E")
+				&& KeyName != TEXT("LeftMouseButton")
 				&& KeyName != TEXT("T") && KeyName != TEXT("A") && KeyName != TEXT("RightMouseButton"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;

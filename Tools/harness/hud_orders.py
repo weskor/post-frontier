@@ -144,23 +144,16 @@ def smart_previews(capture: Capture, barracks: int, target: int) -> None:
 
 
 def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
+    before_view = capture.state()
+    half = before_view["arenaHalfExtent"]
+    camera = before_view["cameraPosition"]
+    # Regions tile the arena, including its minimap corners. Pan to the north
+    # boundary and target uncovered ground beyond it instead of a HUD panel.
+    capture.minimap(0.5, 0.0)
     capture.begin_attack()
     state = capture.state()
-    origin, size = state["minimapOrigin"], state["minimapSize"]
-    # Arena corners lie outside the playable regions; resolve an actual map
-    # point, never a HUD panel that must continue dispatching its own action.
-    for horizontal, vertical in (
-        (0.01, 0.01),
-        (0.99, 0.01),
-        (0.01, 0.99),
-        (0.99, 0.99),
-    ):
-        x, y = origin[0] + size * horizontal, origin[1] + size * vertical
-        preview = capture.preview(x, y)
-        if not preview["allowed"]:
-            break
-    else:
-        raise AssertionError("fixture has no invalid minimap corner for rejected A")
+    x, y = state["viewportWidth"] * 0.5, state["viewportHeight"] * 0.35
+    preview = capture.preview(x, y)
     require(
         not preview["allowed"]
         and preview["resolution"] == 0
@@ -170,7 +163,7 @@ def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
     )
     capture.shot("cursor-preview-rejected-with-reason")
     before = building(capture.state(), barracks)
-    capture.run.request("host", "hudClick", x=x, y=y)
+    capture.key("LeftMouseButton")
     rejected = capture.wait(
         lambda s: (
             s["assigningOrder"]
@@ -191,3 +184,7 @@ def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
     capture.shot("attack-rejected-mode-open")
     capture.order_region(barracks, ATTACK, target)
     capture.shot("attack-region-assigned")
+    capture.minimap(
+        (camera[1] + half[1]) / (2 * half[1]),
+        (half[0] - camera[0]) / (2 * half[0]),
+    )
