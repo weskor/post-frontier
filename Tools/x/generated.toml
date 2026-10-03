@@ -1,0 +1,173 @@
+# Source-to-output map for generated binary assets (`.uasset`/`.umap`).
+#
+# Agents change the text sources; `./x land` regenerates the outputs of every
+# entry whose `sources` changed on the branch and commits them in a separate
+# commit. The pre-commit hook rejects any other commit that changes an output.
+#
+# [[generated]]  name     unique id, printed by land
+#                gen      `./x gen` entries run in this order (de-duplicated across entries)
+#                sources  repo-relative globs; a branch change to any of them triggers regeneration
+#                outputs  repo-relative globs of the files the gens write; every tracked
+#                         binary must match exactly one entry (`generated` or `authored`)
+# [[authored]]   name, reason, paths: hand-authored binaries with no generator; commits may change them
+#
+# Globs are anchored: `*` and `?` stay inside a directory, `**` crosses directories.
+# Entries run in file order, so an entry that needs another's outputs comes after it.
+# Blender and REAPER outputs (`Art/**/*.fbx`, `Art/Audio/**/*.wav`) are sources here:
+# they are produced by manual `./x gen` runs and imported by the entries below.
+
+[[generated]]
+name = "match-content"
+gen = ["generate-match-content"]
+sources = ["Build/GenerateMatchContent.py", "Build/Content/**"]
+outputs = ["Content/Units/**", "Content/Content/**"]
+
+[[generated]]
+name = "shared-material"
+gen = ["build-shared-material"]
+sources = ["Build/BuildSharedMaterial.py", "Build/ArtMaterials.py", "Art/Textures/**/*.jpg"]
+outputs = [
+  "Content/Art/Textures/**",
+  "Content/Art/Materials/M_Shared.uasset",
+  "Content/Art/Materials/MF_*.uasset",
+  "Content/Art/Materials/MI_SC2_*.uasset",
+]
+
+[[generated]]
+name = "unit-meshes"
+gen = ["import-unit-meshes"]
+sources = ["Build/ImportUnitMeshes.py", "Build/ArtMaterials.py", "Art/Units/*.fbx"]
+outputs = ["Content/Art/Units/**", "Content/Maps/UnitGallery.umap"]
+
+[[generated]]
+name = "building-meshes"
+gen = ["import-building-meshes"]
+sources = ["Build/ImportBuildingMeshes.py", "Build/ArtMaterials.py", "Art/Buildings/*.fbx"]
+outputs = ["Content/Art/Buildings/**"]
+
+[[generated]]
+name = "environment-kit"
+gen = ["import-environment-kit"]
+sources = [
+  "Build/ImportEnvironmentKit.py",
+  "Build/EnvKit.py",
+  "Build/ArtMaterials.py",
+  "Art/Environment/*.fbx",
+]
+outputs = ["Content/Art/Environment/**"]
+
+[[generated]]
+name = "terrain-kit"
+gen = ["import-terrain-kit"]
+sources = [
+  "Build/ImportTerrainKit.py",
+  "Build/TerrainKit.py",
+  "Build/AvailabilityZoneLayout.py",
+  "Build/DrawMapLayout.py",
+  "Build/MatchLayout.py",
+  "Build/ArtMaterials.py",
+  "Build/Maps/AvailabilityZone.json",
+  "Art/Terrain/*.fbx",
+]
+outputs = ["Content/Art/Terrain/**"]
+
+[[generated]]
+name = "command-map"
+gen = ["generate-command-map"]
+sources = ["Build/GenerateCommandMap.py", "Build/MatchLayout.py"]
+outputs = ["Content/Maps/Boot.umap", "Content/Materials/M_Command*.uasset", "Content/Materials/MI_Command*.uasset"]
+
+[[generated]]
+name = "menu-map"
+gen = ["generate-menu-map"]
+sources = ["Build/GenerateMenuMap.py"]
+outputs = ["Content/Maps/Menu.umap"]
+
+[[generated]]
+name = "overlay-materials"
+gen = ["generate-overlay-materials"]
+sources = ["Build/GenerateOverlayMaterials.py"]
+outputs = ["Content/Materials/Overlay/**"]
+
+[[generated]]
+name = "campus-zero"
+gen = ["generate-campus-zero"]
+sources = [
+  "Build/GenerateCampusZero.py",
+  "Build/MatchLayout.py",
+  "Build/EnvKit.py",
+  "Build/ArtMaterials.py",
+]
+outputs = [
+  "Content/Maps/CampusZero.umap",
+  "Content/Art/Materials/M_Glow.uasset",
+  "Content/Art/Materials/M_Surface.uasset",
+  "Content/Art/Materials/MI_Asphalt.uasset",
+  "Content/Art/Materials/MI_CampusConcrete.uasset",
+  "Content/Art/Materials/MI_Concrete.uasset",
+  "Content/Art/Materials/MI_ContainerBlue.uasset",
+  "Content/Art/Materials/MI_GlowCable.uasset",
+  "Content/Art/Materials/MI_GlowHuman.uasset",
+  "Content/Art/Materials/MI_GlowMachine.uasset",
+  "Content/Art/Materials/MI_Olive.uasset",
+  "Content/Art/Materials/MI_RoadLine.uasset",
+  "Content/Art/Materials/MI_Rust.uasset",
+  "Content/Art/Materials/MI_Sandbag.uasset",
+  "Content/Art/Materials/MI_ScrapGround.uasset",
+  "Content/Art/Materials/MI_Steel.uasset",
+]
+
+[[generated]]
+name = "art-gallery"
+gen = ["build-art-gallery"]
+sources = ["Build/BuildArtGallery.py", "Build/EnvKit.py", "Build/ArtMaterials.py"]
+outputs = ["Content/Maps/ArtGallery.umap", "Content/Art/Materials/MI_GalleryFloor.uasset"]
+
+[[generated]]
+name = "availability-zone"
+gen = ["generate-availability-zone"]
+sources = [
+  "Build/GenerateAvailabilityZone.py",
+  "Build/AvailabilityZoneLayout.py",
+  "Build/DrawMapLayout.py",
+  "Build/MatchLayout.py",
+  "Build/TerrainKit.py",
+  "Build/EnvKit.py",
+  "Build/ArtMaterials.py",
+  "Build/Maps/AvailabilityZone.json",
+]
+outputs = ["Content/Maps/AvailabilityZone.umap", "Content/Art/Materials/MI_AZ_*.uasset"]
+
+[[generated]]
+name = "availability-zone-v2"
+gen = ["generate-availability-zone-v2"]
+sources = [
+  "Build/GenerateAvailabilityZoneV2.py",
+  "Build/DrawAvailabilityZoneV2.py",
+  "Build/MatchLayout.py",
+  "Build/Maps/AvailabilityZoneV2.json",
+]
+outputs = ["Content/Maps/AvailabilityZoneV2.umap"]
+
+[[generated]]
+name = "unit-audio"
+gen = ["import-audio"]
+sources = ["Build/ImportAudio.py", "Art/Audio/Human/**/*.wav", "Art/Audio/Machine/**/*.wav"]
+outputs = ["Content/Audio/Human/**", "Content/Audio/Machine/**", "Content/Audio/Mix/**"]
+
+[[generated]]
+name = "announcer-audio"
+gen = ["import-audio"]
+sources = ["Build/ImportAudio.py", "Build/Audio/announcer_lines.json", "Art/Audio/Announcer/*.wav"]
+outputs = ["Content/Audio/Announcer/**"]
+
+[[authored]]
+name = "legacy-materials"
+reason = "no script in Build/ writes these material instances; they predate the generators"
+paths = [
+  "Content/Art/Materials/MI_CoolingTower.uasset",
+  "Content/Art/Materials/MI_Env*.uasset",
+  "Content/Art/Materials/MI_GlowMachineEye.uasset",
+  "Content/Art/Materials/MI_Hall*.uasset",
+  "Content/Art/Materials/MI_Unit*.uasset",
+]

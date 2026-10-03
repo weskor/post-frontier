@@ -11,15 +11,25 @@ HELP = """./x land
 
 Run on a committed task/<slug> branch, never main. Landings serialize under
 <lock_dir>/land.lock. Rebase conflicts are aborted and their paths printed.
-After the rebase, reuse the newest passed ./x check of this branch whose content
+After the rebase, regenerate binary assets whose text sources changed on the
+branch: Tools/x/generated.toml maps sources to outputs and the ./x gen entries
+that write them. Gens run serially under <lock_dir>/generator.lock and their
+outputs are committed in one separate "Regenerate binary assets (./x land)"
+commit; a generator that fails or writes outside its outputs refuses the
+landing and leaves the worktree clean. No changed source: nothing regenerates.
+A retry drops earlier regeneration commits and makes fresh ones.
+Then reuse the newest passed ./x check of this branch whose content
 stayed unchanged during the check, equals the rebased content exactly and passed
 every scope now selected; the land record names it. Otherwise run the scoped
-check in-process; commit any formatting fixes before retrying. Reuse does not
-rerun flaky scopes or detect engine/toolchain changes.
+check in-process on the result, regenerated binaries included; commit any
+formatting fixes before retrying. Reuse does not rerun flaky scopes or detect
+engine/toolchain changes.
 Fast-forward main in its own worktree; any local change there blocks landing.
 Audit main against the landing ledger; on failure stop and ask the owner.
 Print the landed commit range and run ID. Hooks allow main updates only here.
-Binary regeneration and the binary-commit hook switch on together in phase 4.
+The pre-commit hook rejects any other commit that changes a generated binary
+(or adds an unmapped .uasset/.umap): change the text source and land. Hand-made
+binaries with no generator are listed as authored in the map and stay allowed.
 """
 RECORD = True
 

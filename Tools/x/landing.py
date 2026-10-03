@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 
 from x import gitinfo, jsonio, source
+from x.content.regeneration import rebase_command, regenerate
 from x.context import Context
 from x.scopes import load
 
@@ -209,7 +210,8 @@ def refuse(ctx: Context, message: str) -> int:
 
 
 def rebase(ctx: Context) -> bool:
-    if ctx.exec(["git", "rebase", "main"], log="land-rebase") == 0:
+    argv, env = rebase_command(ctx.repo)
+    if ctx.exec(argv, log="land-rebase", env=env) == 0:
         return True
     conflicts = gitinfo.query(ctx.repo, "diff", "--name-only", "--diff-filter=U", "-z")
     paths = [path for path in conflicts.split("\0") if path]
@@ -333,6 +335,9 @@ def land(ctx: Context) -> int:
             )
         if not rebase(ctx):
             return 1
+        refusal = regenerate(ctx)
+        if refusal is not None:
+            return refuse(ctx, refusal)
         reused = reusable_check(ctx, branch)
         if reused is not None:
             message = f"reused passed check {reused}: identical content, every selected scope passed"

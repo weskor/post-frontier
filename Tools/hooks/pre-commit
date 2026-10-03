@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Reject commits that change generated binaries unless ./x land makes them."""
+
+import fcntl
+import importlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tomllib
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+generated = importlib.import_module("x.content.generated")
+
+
+def git(*args, check=True):
+    return subprocess.run(["git", *args], capture_output=True, check=check).stdout
+
+
+def command(pid):
+    return [part.decode() for part in Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if part]
+
+
+def parent(pid):
+    # The comm field may contain spaces and parentheses.
+    return int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+
+
+def landing_runner(toplevel):
+    """True when a live `./x land` of this worktree holds the landing lock and runs this commit."""
+    pid = os.getppid()
+    while pid > 1:
+        args = command(pid)
+        if len(args) == 3 and Path(args[1]).name == "x" and args[2] == "land":
+            break
+        pid = parent(pid)
+    else:
+        return False
+    runner = Path(args[1])
+    if not runner.is_absolute():
+        runner = Path(f"/proc/{pid}/cwd").resolve() / runner
+    repo = runner.resolve().parent
+    if repo != toplevel:
+        return False
+    settings = tomllib.loads((repo / "Tools/x/settings.toml").read_text())
+    lock = Path(settings["lock_dir"]).expanduser() / "land.lock"
+    with lock.open("rb") as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            pass
+        else:
+            return False
+    holders = [json.loads(path.read_text()) for path in lock.parent.glob(f"land.lock.{pid}.*.holder.json")]
+    return any(
+        holder["pid"] == pid and holder["command"] == "land" and holder["worktree"] == str(repo)
+        for holder in holders
+    )
+
+
+def maps():
+    """The staged map plus main's: a commit cannot reclassify its own outputs."""
+    loaded = []
+    for spec in (f":{generated.MAP_PATH}", f"main:{generated.MAP_PATH}"):
+        result = subprocess.run(["git", "show", spec], capture_output=True)
+        if result.returncode == 0:
+            loaded.append(generated.parse(result.stdout.decode()))
+    return loaded
+
+
+def main():
+    staged = [
+        path.decode("utf-8", "surrogateescape")
+        for path in git("diff", "--cached", "--name-only", "--no-renames", "-z").split(b"\0")
+        if path
+    ]
+    messages = generated.rejections(maps(), staged)
+    if not messages:
+        return 0
+    toplevel = Path(git("rev-parse", "--show-toplevel").decode().strip()).resolve()
+    try:
+        if landing_runner(toplevel):
+            return 0
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        pass
+    print("pre-commit: generated binaries are committed only by ./x land:", file=sys.stderr)
+    for message in messages:
+        print(f"  {message}", file=sys.stderr)
+    return 1
+
+
+sys.exit(main())
