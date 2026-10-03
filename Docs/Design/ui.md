@@ -30,10 +30,11 @@ Research: [input.md](../Research/input.md).
 **Input devices:** mouse and keyboard at launch. Every interaction must stay possible on a controller later: no drag-only actions, no hover-only information, large targets the cursor can snap to, and an on-screen prompt for every key.
 
 **Selecting:**
-- **[Built]** Click a force's numbered, owner-coloured map badge or any living unit to select its force. Shift-click adds or removes an owned force; box-select includes badge centres, with Shift adding to the existing selection. Number keys select by force number ([forces.md](forces.md)). **[New]** Selection through force-bar cards.
+- **[Built]** Click a force's numbered, owner-coloured map badge or any living unit to select its force. Shift-click adds or removes an owned force; box-select includes badge centres, with Shift adding to the existing selection. Number keys select by force number ([forces.md](forces.md)). **[Built]** Clicking an owned force-bar card selects that force without moving the camera.
 - **[Built] Selecting never moves the camera.** Double-tap a force's number within 0.3 s, or press F, to centre on the selection; several forces focus their midpoint. Box dragging begins beyond 6 screen pixels. Space jumps to the latest alert (see "Awareness" below).
-- **[Built] Click a production building** to open its panel and highlight its force's badge without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force. **[New]** The associated force-bar card also lights up.
-- **[Built] Click a teammate's force, unit or producer** to inspect its owner, current order, strength and reinforcing members read-only, never adding it to command selection, with a **Need help here [G]** ping shortcut. You can't command it. **[New]** The full force-bar card adds ETA with the order verbs.
+- **[Change]** Shift-clicking an owned force card adds it without toggling an existing selection; double-clicking its body focuses that force.
+- **[Built] Click a production building** to open its panel and highlight its force's badge and force-bar card without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force.
+- **[Built] Click a teammate's force, unit or producer** to inspect its owner, current order, strength and reinforcing members read-only, never adding it to command selection, with a **Need help here [G]** ping shortcut. You can't command it. **[Change]** The full read-only force card replaces the interim inspector and adds the same ETA and rule summaries, with no command or production controls.
 
 **Giving orders [Built] unless noted:**
 - **[Built] Right-click is the smart order** for all selected owned forces:
@@ -47,9 +48,15 @@ Research: [input.md](../Research/input.md).
 - **[Built] No drag-to-order.** Dragging selects forces only.
 - **[Built] Feedback rules:** a rejected order keeps the mode open and says why, including a server rejection; the mode ends on acceptance, not on sending. Rejected placements also retain their mode. A greyed-out gameplay button explains itself when clicked. Messages hold for **3 s**, then fade over **1 s** (starting values).
 
-**Force bar [New]:** a bottom row of force cards. Each shows the force number, unit type, strength (e.g. 5/6), current order, status with ETA (*Marching to West Cut · 0:20*), retreat or refill state, and whether it's cut off from supply. It also shows **production state**: refill progress, a pause/resume toggle, and an *upgrade available* badge that opens the building's panel.
+**Force bar [Built] — display and production:** one bottom card per owned force, ordered by force number. Each shows its number, unit type, joined strength, current order, status, production state and refill progress with a pause/resume toggle. Travelling recruits are counted separately from joined strength; a force without a producer is labelled as an orphan without reinforcements. **[Change]** The card's Attack and Retreat actions use selected-force order input; threshold and targeting presentation follow [forces.md](forces.md).
 
-**Order-state inputs [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: presentation can keep *Withdrawing · 3/6 → resumes at 5/6* while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md#steering-forces-change--decided); force-card presentation remains **[New]**.
+**Force-bar layout [Built]:** a full-width bottom row, 188 virtual pixels high, with 10-pixel outer margins, 8-pixel gaps and cards capped at 300 pixels wide. The build bar, command deck and minimap sit above it. Own-force paused-refill and full-strength surfaces have been inspected at 1600×900 and 1280×720.
+
+**Force ETA [Change]:** remaining distance to the replicated destination, followed by the remaining shortest region-anchor route and any final structure segment, divided by the force's effective march speed ([forces.md](forces.md)). The travel estimate excludes combat, capture waits and local navigation/crowd detours; no client navigation mesh is required. The shared force helper refreshes periodically or when an order or waypoint changes. JEV's authoritative plan ETA is not replaced by this client-side estimate.
+
+**Force-card future badges [New]:** supply cutoff and upgrade availability arrive with their mechanics in [forces.md](forces.md); neither is shown early.
+
+**Order-state inputs [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: presentation can keep *Withdrawing · 3/6 → resumes at 5/6* while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md); force-card presentation acceptance remains **[Change]**.
 
 **Building panel:** the rare decisions stay at the building: tier upgrades, perk slots and the unit lock ([forces.md](forces.md)).
 

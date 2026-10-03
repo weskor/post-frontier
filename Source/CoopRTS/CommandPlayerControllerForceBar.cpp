@@ -7,6 +7,19 @@
 #include "Commands/PingCommandComponent.h"
 #include "HAL/PlatformTime.h"
 
+void ACommandPlayerController::SelectForceCard(AArmyGroup* Force, bool bAdd, bool bDoubleClick)
+{
+	const double Now = FPlatformTime::Seconds();
+	const bool bFocus = bDoubleClick || (LastClickedForceCard.Get() == Force && Now - LastForceCardClickTime <= .3);
+	if (!bAdd || !IsForceSelected(Force))
+		SelectForce(Force, bAdd);
+	LastClickedForceCard = bFocus ? nullptr : Force;
+	LastForceCardClickTime = Now;
+	if (bFocus)
+		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+			Camera->FocusOn(Force->GetCenter());
+}
+
 void ACommandPlayerController::HandleForceCardClick(AArmyGroup* Force, EHUDAction Action, bool bAdd, bool bDoubleClick)
 {
 	if (GetUIScreen() != ECommandScreen::Game || !IsSelectableForce(Force))
@@ -19,15 +32,7 @@ void ACommandPlayerController::HandleForceCardClick(AArmyGroup* Force, EHUDActio
 	}
 	if (Action == EHUDAction::None)
 	{
-		const double Now = FPlatformTime::Seconds();
-		const bool bFocus = bDoubleClick || (LastClickedForceCard.Get() == Force && Now - LastForceCardClickTime <= .3);
-		if (!bAdd || !IsForceSelected(Force))
-			SelectForce(Force, bAdd);
-		LastClickedForceCard = bFocus ? nullptr : Force;
-		LastForceCardClickTime = Now;
-		if (bFocus)
-			if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
-				Camera->FocusOn(Force->GetCenter());
+		SelectForceCard(Force, bAdd, bDoubleClick);
 		return;
 	}
 	LastClickedForceCard.Reset();
@@ -36,7 +41,10 @@ void ACommandPlayerController::HandleForceCardClick(AArmyGroup* Force, EHUDActio
 	if (Action == EHUDAction::ForceCardAttack || Action == EHUDAction::ForceCardRetreat)
 	{
 		SelectForce(Force);
-		HandleHUDAction(Action == EHUDAction::ForceCardAttack ? EHUDAction::OrderAttack : EHUDAction::OrderRetreat);
+		if (Action == EHUDAction::ForceCardAttack)
+			BeginForceAttack();
+		else
+			RetreatSelectedForces(bAdd);
 		return;
 	}
 	if (Action == EHUDAction::ForceCardProduction)

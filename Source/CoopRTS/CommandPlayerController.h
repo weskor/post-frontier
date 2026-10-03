@@ -110,6 +110,8 @@ protected:
 	virtual void PostSeamlessTravel() override;
 
 private:
+	void SelectForceCard(AArmyGroup* Force, bool bAdd, bool bDoubleClick);
+
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	friend class FBuildBarScenario;
 #endif

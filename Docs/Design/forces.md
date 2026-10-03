@@ -50,7 +50,7 @@
 | **Attack** | A region or a hostile structure | **[Built]** Push to the target, fighting and capturing along the way, and chase enemies near the target. Below the retreat threshold it makes a **fighting withdrawal**, still firing, to the nearest safe region. With a living producer it **resumes the retained Attack automatically at 80% joined capacity**, rounded upward; travelling recruits do not satisfy this count. An orphan's withdrawal ends on safe arrival, advancing any queued order or becoming Move & Hold there. **When the force has arrived and the region is controlled without hostile units, or the structure is destroyed, the Attack turns into Move & Hold** where it ends unless another order is queued. A target completed during withdrawal does not interrupt the trip to safety; completion is applied on safe arrival. **[New]** The force card shows *Withdrawing · 3/6 → resumes at 5/6*, inferred from the retained Attack verb, Refilling status and withdrawal resume count. |
 | **Retreat** | — | **[Built]** A manual order: sprint (+25% speed) to the nearest safe region **without firing while Retreating**, then refill there with weapons enabled. Arrival ends the sprint. Completing refill yields to the next explicit order; with none queued, Move & Hold defaults to the living producer's rally, or stays at the arrival region for an orphan. |
 
-Move & Hold and Attack have different combat rules on purpose, so players can tell them apart. That was the reported problem #5. **[New]** The force card states each rule in one line.
+Move & Hold and Attack have different combat rules on purpose, so players can tell them apart. That was the reported problem #5. **[Change]** Each force card states its current verb's rule in one line; presentation lives in [ui.md](ui.md).
 
 **Definitions:**
 - **[Built] Safe region:** the nearest HQ-connected controlled region with no hostile units inside, preferring the last region the force held when it is eligible. If none exists, manual Retreat and an Attack's withdrawal go to the team's main region (the HQ's region), the last line of defence.
@@ -71,7 +71,7 @@ Move & Hold and Attack have different combat rules on purpose, so players can te
   - A force in a cut-off region gets nothing until it's reconnected or retreats.
   - This ties steering to the connectivity rule ([economy.md](economy.md)).
 - **[New] Refit after an upgrade:** in a connected region, old units are swapped for upgraded ones **one at a time**, through the same channel as reinforcements. Nobody walks back to the building.
-- **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. **[New]** These rules and ETA inputs appear on the force card.
+- **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. **[Change]** Force-card order-state presentation and the travel estimate are specified in [ui.md](ui.md).
 - **[Built] Intent arrows:** every human commander's active route and queued orders are drawn in their commander colour on the shared map and minimap. The authority publishes region lists only for human forces; each client builds the lines from its map anchors. A withdrawal includes the direct safe leg and, only when recovery can resume it, the retained Attack. Queued Retreat predictions advance the last-held region through preceding Move & Hold legs. Selected paths have a target highlight, queued legs are dashed, and an uncommitted hover preview is white. Teammates can read the plan without selecting the force.
 
 ### Holding a region [Built]
@@ -93,7 +93,7 @@ Move & Hold forces with Holding status and a valid held region defend that whole
 
 ## Force settings [Built] — commands; presentation [New]
 
-**[Built]** Each force has one owned retreat-threshold setting. **[New]** It is shown and changed on its force card:
+**[Built]** Each force has one owned retreat-threshold setting. **[Change]** It is shown and changed on its force card:
 
 | Setting | Options | Default | Applies to |
 |---|---|---|---|
@@ -105,7 +105,7 @@ Move & Hold forces with Holding status and a valid held region defend that whole
   - A unit keeps its current target until it dies or leaves weapon range/the pursuit leash. A newly available counter-class or nearer enemy does not interrupt that lock.
   - The counter preference applies only when a unit acquires a new automatic target: prefer enemies of the armor class it deals bonus damage against, then the nearest eligible enemy.
   - Demolition units prefer structures on new automatic acquisition.
-  - The rule is readable from the two icons and shown on the force card [New].
+  - **[Built]** Force-card text explains the rule. **[New]** Two-icon presentation accompanies that explanation.
   - A per-force priority setting is **[Later]**.
 
 ## Barracks upgrades [New] — decided

@@ -148,14 +148,16 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 		Card.Production << TEXT("Orphan \u00B7 no reinforcements");
 }
 
-const TCHAR* ForceVerbRule(EForceVerb Verb, bool bHasProducer)
+static const TCHAR* ForceVerbRule(const FForceCard& Card)
 {
-	switch (Verb)
+	switch (Card.Force->Verb)
 	{
 	case EForceVerb::Attack:
-		return bHasProducer ? TEXT("Fight + chase; withdraw; resume at 80%.") : TEXT("Fight + chase; withdraw to safety; no refill.");
+		if (Card.Force->RetreatThreshold == ERetreatThreshold::Never)
+			return TEXT("Fight + chase; no automatic withdrawal.");
+		return Card.Producer ? TEXT("Fight + chase; withdraw; resume at 80%.") : TEXT("Fight + chase; withdraw to safety; no refill.");
 	case EForceVerb::Retreat:
-		return bHasProducer ? TEXT("+25% sprint, no fire; refill, then next order.") : TEXT("+25% sprint, no fire; then next order.");
+		return Card.Producer ? TEXT("+25% sprint; no fire; refill then hold/queue.") : TEXT("+25% sprint; no fire; then hold/queue.");
 	default:
 		return TEXT("Fight en route; hold; never auto-retreat.");
 	}
@@ -217,7 +219,7 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	Paint.Text(Card.Order.ToView(), X, Rect.Y + 24.f, 9.f, OrderColor(Card.Force->Verb), true, EAlign::Left, Width);
 	Paint.Text(Card.Status.ToView(), X, Rect.Y + 42.f, 8.f, Card.State == ForceCardPolicy::EState::Withdrawing ? Palette::Warn : Palette::Text,
 		false, EAlign::Left, Width);
-	Paint.Text(ForceVerbRule(Card.Force->Verb, Card.Producer != nullptr), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
+	Paint.Text(ForceVerbRule(Card), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
 	Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(ForceTargetRule(Card.Definition), X, Rect.Y + 87.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(Card.Production.ToView(), X, Rect.Y + 101.f, 8.f, Palette::Muted, false, EAlign::Left, Width - (Card.bOwned && Card.Producer ? 63.f : 0.f));
