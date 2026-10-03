@@ -174,8 +174,8 @@ void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
 	Root->SetStringField(TEXT("match_id"), MatchId);
 	Root->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName()));
 	Root->SetNumberField(TEXT("battle_seconds"), EndedBattleSeconds);
-	Root->SetStringField(TEXT("result"), bAbandoned ? TEXT("Abandoned")
-		: State->MatchResult == EMatchResult::Victory ? TEXT("Victory") : TEXT("Defeat"));
+	Root->SetStringField(TEXT("result"), bAbandoned ? TEXT("Abandoned") : State->MatchResult == EMatchResult::Victory ? TEXT("Victory")
+																													  : TEXT("Defeat"));
 
 	TArray<TSharedPtr<FJsonValue>> PlayerValues;
 	PlayerValues.Reserve(Players.Num());
@@ -214,10 +214,9 @@ void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
 	const AHeadquarters* HQ = bDefeat ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get();
 	const bool bDestroyedHQ = !bAbandoned && IsValid(HQ) && HQ->Health <= 0;
 	const bool bTie = bDestroyedHQ && bDefeat && IsValid(State->EnemyHeadquarters) && State->EnemyHeadquarters->Health <= 0;
-	Ending->SetStringField(TEXT("cause"), bAbandoned ? AbandonmentCause
-		: bDestroyedHQ ? bTie ? TEXT("both_headquarters_destroyed")
-			: bDefeat ? TEXT("friendly_headquarters_destroyed") : TEXT("enemy_headquarters_destroyed")
-		: TEXT("match_result_set"));
+	Ending->SetStringField(TEXT("cause"), bAbandoned ? AbandonmentCause : bDestroyedHQ ? bTie ? TEXT("both_headquarters_destroyed") : bDefeat ? TEXT("friendly_headquarters_destroyed")
+																																			  : TEXT("enemy_headquarters_destroyed")
+																					   : TEXT("match_result_set"));
 	const AMapRegion* Region = bDestroyedHQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
 	Ending->SetNumberField(TEXT("region_index"), Region ? Region->RegionIndex : INDEX_NONE);
 	Ending->SetStringField(TEXT("region_name"), Region ? Region->DisplayName.ToString() : FString());

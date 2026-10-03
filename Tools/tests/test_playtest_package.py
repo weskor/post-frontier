@@ -243,7 +243,9 @@ def test_shipping_does_not_resolve_a_development_playtest(
     playtest_repo: Path, tmp_path: Path
 ) -> None:
     directory = run_package(context(playtest_repo, tmp_path))
-    with pytest.raises(ValueError, match=r"no shipping package; run \./x package shipping"):
+    with pytest.raises(
+        ValueError, match=r"no shipping package; run \./x package shipping"
+    ):
         packages.latest_package_directory(playtest_repo, "shipping")
     assert packages.latest_package_directory(playtest_repo, "development") == directory
 

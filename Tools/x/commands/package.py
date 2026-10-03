@@ -81,6 +81,18 @@ def prepare_playtest(
     }
 
 
+def validate_cooked_inputs(
+    ctx: Context, is_playtest: bool, commit: str, package_hash: str
+) -> None:
+    current_hash = ctx.freshness.current_hash("package")
+    if is_playtest:
+        current_hash = playtest.input_hash(ctx.repo, current_hash)
+        if gitinfo.is_dirty(ctx.repo):
+            raise ValueError("package inputs changed during cooking; Git tree is dirty")
+    if current_hash != package_hash or gitinfo.commit(ctx.repo) != commit:
+        raise ValueError("package inputs changed during cooking; run ./x package again")
+
+
 def remove_unpublished(directory: Path, previous: Path | None) -> None:
     latest = directory.parent / "latest"
     if latest.is_symlink() and latest.readlink() == Path(directory.name):
@@ -123,17 +135,7 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
             executable = package_executable(directory, ctx.settings.game_target, config)
             details: dict[str, Any] = {}
             archive: Path | None = None
-            current_hash = ctx.freshness.current_hash("package")
-            if is_playtest:
-                current_hash = playtest.input_hash(ctx.repo, current_hash)
-                if gitinfo.is_dirty(ctx.repo):
-                    raise ValueError(
-                        "package inputs changed during cooking; Git tree is dirty"
-                    )
-            if current_hash != package_hash or gitinfo.commit(ctx.repo) != commit:
-                raise ValueError(
-                    "package inputs changed during cooking; run ./x package again"
-                )
+            validate_cooked_inputs(ctx, is_playtest, commit, package_hash)
             if is_playtest:
                 archive, details = prepare_playtest(
                     ctx, directory, executable, commit, maps

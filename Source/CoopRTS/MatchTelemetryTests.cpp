@@ -73,9 +73,9 @@ public:
 			ACommandPlayerController* Instant = Participant(World, State, 3, TEXT("Telemetry instant private name"));
 			InstantJoined = State->MatchTelemetry->GetBattleSeconds();
 			AArmyGroup* InstantForce = Instant ? ArmyTestSetup::SpawnGroup(World, Instant, 0,
-				ArmyTestSetup::FromFriendlyHQ(State, 1600.f, 650.f, 100.f)) : nullptr;
-			if (!Check(InstantForce && FCommandService::IssueForceOrder(Instant->GetPlayerState<ACommandPlayerState>(), InstantForce,
-						  EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(InstantForce)).IsAccepted(),
+													 ArmyTestSetup::FromFriendlyHQ(State, 1600.f, 650.f, 100.f))
+											   : nullptr;
+			if (!Check(InstantForce && FCommandService::IssueForceOrder(Instant->GetPlayerState<ACommandPlayerState>(), InstantForce, EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(InstantForce)).IsAccepted(),
 					TEXT("A zero-duration connected human can make an accepted decision while paused")))
 				return true;
 			Leave(World, Instant);
@@ -102,12 +102,14 @@ public:
 			Leaver = Participant(World, State, 1, TEXT("Telemetry reconnected private name"), PrivateOnlineId);
 			Rejoined = State->MatchTelemetry->GetBattleSeconds();
 			LeavingForce = Leaver.IsValid() ? ArmyTestSetup::SpawnGroup(World, Leaver.Get(), 0,
-				ArmyTestSetup::FromFriendlyHQ(State, 1300.f, 650.f, 100.f)) : nullptr;
+												  ArmyTestSetup::FromFriendlyHQ(State, 1300.f, 650.f, 100.f))
+											: nullptr;
 			if (!Check(LeavingForce.IsValid(), TEXT("Reconnected online identity owns a fresh real force")))
 				return true;
 			Freeze(LeavingForce.Get());
 			if (!Check(FCommandService::IssueForceOrder(Leaver->GetPlayerState<ACommandPlayerState>(), LeavingForce.Get(),
-						  EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(LeavingForce.Get())).IsAccepted(),
+						   EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(LeavingForce.Get()))
+						   .IsAccepted(),
 					TEXT("Reconnected human's accepted order belongs to the original participant")))
 				return true;
 			StageStarted = ArmyTestSetup::GameSeconds(World);
@@ -514,10 +516,13 @@ private:
 			Seen[Index] = true;
 			const bool bLeft = !bFresh && (Index == 1 || Index == 3);
 			const double ExpectedJoined = bFresh || bHost ? Joined
-				: Index == 1 ? FirstJoined : Index == 2 ? ZeroJoined : InstantJoined;
+				: Index == 1                              ? FirstJoined
+				: Index == 2                              ? ZeroJoined
+														  : InstantJoined;
 			const double ExpectedParticipation = !bFresh && Index == 1
 				? FirstLeft - FirstJoined + LastLeft - Rejoined
-				: !bFresh && Index == 3 ? 0. : Seconds - ExpectedJoined;
+				: !bFresh && Index == 3 ? 0.
+										: Seconds - ExpectedJoined;
 			double Left = -1.;
 			if (!Check(Joined == ExpectedJoined && Joined <= Seconds && (bFresh || !bHost || Joined <= FirstJoined)
 						&& bDisconnected == bLeft
@@ -528,7 +533,9 @@ private:
 						&& (bFresh || Index != 1 || (FirstLeft > FirstJoined && Rejoined > FirstLeft && LastLeft > Rejoined)),
 					TEXT("Exact first join, last logout and connected intervals exclude prejoin, pause and reconnect gaps")))
 				return false;
-			const int32 Orders = bFresh ? 0 : bHost || Index == 1 ? 2 : Index == 3 ? 1 : 0;
+			const int32 Orders = bFresh ? 0 : bHost || Index == 1 ? 2
+				: Index == 3                                      ? 1
+																  : 0;
 			const int32 Builds = !bFresh && bHost ? 1 : 0;
 			const int32 Pings = !bFresh && bHost ? 1 : 0;
 			const TCHAR* Counts[] = { TEXT("orders"), TEXT("builds"), TEXT("pings") };
