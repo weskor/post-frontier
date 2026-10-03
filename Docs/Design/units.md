@@ -13,7 +13,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 | Siege ×2 | 220 | 32 | 100 + 180 | 1150 |
 
 - Before the retag, no armor or damage-type modifiers existed and targeting was nearest-first, so Frontline dominated. The three Workshop specializations still work: Siege Optics (×1.25 Siege range, ×0.75 damage), Entrenched Frontline (×0.75 damage taken), and Field Repairs (healing).
-- Without micro, Ranged could not kite to make up for it. The retag added counters and class speeds; the three existing units now use the starting combat and production profiles below while duel tuning proceeds.
+- Without micro, Ranged could not kite to make up for it. [Built] The retag added counters and class speeds; the three existing units now use the tuned profiles below, accepted in the [dated runtime matrix](../Balance.md).
 
 ## Counter system [Change] — decided
 
@@ -54,9 +54,9 @@ Each unit's Human and Machine display names live in [World.md](../World.md#unit-
 
 | # | Unit | Armor | Damage | Job |
 |---|---|---|---|---|
-| 1 | Brawler [Built] | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline; balance tuning pending) |
-| 2 | Rifle [Built] | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged; balance tuning pending) |
-| 3 | Artillery [Built] | Light | Demolition + splash | Breaks buildings and damages clumped squads (today's Siege; balance tuning pending) |
+| 1 | Brawler [Built] | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline) |
+| 2 | Rifle [Built] | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged) |
+| 3 | Artillery [Built] | Light | Demolition + splash | Breaks buildings and damages clumped squads (today's Siege) |
 | 4 | Lancer | Shielded | Piercing beam | Durable assault unit against Heavy |
 | 5 | Scrambler | Light | EMP | Strips shields; an auto-cast pulse stuns buildings |
 | 6 | Raider | Light, fast | Kinetic | Prefers Drill Rigs and isolated targets, captures quickly, cuts supply chains |
@@ -86,9 +86,9 @@ Answers to each armor class, as players will actually experience them:
 
 Scrambler, Repair crew and Shield projector are **support**. They are tested in compositions, not one-on-one duels.
 
-## Stat profiles — decided shape, starting values
+## Stat profiles — tuned existing roster and new-unit starting values
 
-**Current stats [Built]:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. Brawler, Rifle and Artillery now use the starting profiles below; duel tuning is not yet accepted.
+**Current stats [Built], accepted 2026-10-03:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. Brawler, Rifle and Artillery pass the existing-roster acceptance rules in [Balance.md](../Balance.md); this does not validate the unbuilt roster or support compositions.
 
 **Authored tags [Built]:** the generator accepts only the real role, armor and damage-type names. Hidden `Unset` defaults and unknown names are rejected before any asset is written.
 
@@ -98,13 +98,13 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 - **Speed bands by armor class [Change]:** slow 360 (Heavy) and fast 480 (Light) are [Built]; medium 420 (Shielded) and very fast 560 (Raider) are [New].
 - **Auto-casts at tier 1:** only the specialists (Scrambler, Repair crew, Shield projector). Branches add auto-casts to other units, e.g. the Warden's taunt.
 
-Starting values for tuning in the harness duel matrix:
+[Built] Tuned existing-unit values; [New] the other rows remain starting values for future harness validation:
 
 | Unit | Squad | Cost per unit | Full squad | HP | DPS | Range | Speed | Auto-cast |
 |---|---:|---:|---:|---|---:|---|---|---|
-| Brawler | 6 | 20 | 120 | 150 | 10 | melee | slow | — |
-| Rifle | 5 | 24 | 120 | 90 | 24 | mid | fast | — |
-| Artillery | 3 | 40 | 120 | 100 | 22 splash | long | fast | — |
+| Brawler | 6 | 20 | 120 | 330 | 7 | melee | slow | — |
+| Rifle | 5 | 24 | 120 | 92 | 24 | mid | fast | — |
+| Artillery | 3 | 40 | 120 | 160 | 16 splash | long | fast | — |
 | Lancer | 3 | 45 | 135 | 110 + 80 shield | 30 | mid | medium | — |
 | Scrambler | 3 | 35 | 105 | 80 | 12 EMP | mid | fast | EMP pulse every 10 s: strips shields, stuns buildings 3 s |
 | Raider | 4 | 25 | 100 | 85 | 16 | short | very fast | — (passive: 2× capture speed) |
@@ -112,13 +112,9 @@ Starting values for tuning in the harness duel matrix:
 | Shield projector | 2 | 45 | 90 | 90 + 120 shield | 6 | short | medium | 100-point regenerating shield bubble on allies within 500 |
 | Juggernaut | 1 | 260 | 260 | 1600 | 90 Demolition | melee | slow | — (passive: stun and slow immunity, −50% damage from Turrets) |
 
-**Sanity check on the starting values (squad against squad, before range and splash):**
-- **Rifles beat Brawlers.** Rifles do 180 effective DPS against 900 HP, so they kill the squad in 5.0 s, and they get about 1 s of free fire while Brawlers close the distance. Brawlers do 90 against 450 HP, so they need 5.0 s plus that 1 s.
-- **Lancers beat Brawlers.** 135 effective DPS against 900 HP takes 6.7 s; Brawlers need 9.5 s to kill 570 HP (shield included).
-- **No squad leads on both HP and DPS per Power.** Brawler: 7.5 HP and 0.5 DPS per Power. Rifle: 3.75 HP and 1.0 DPS per Power.
-- These are paper numbers. **Validate the harness duel matrix before accepting tuned values.** `MatchSimulationSubsystem` records each runtime definition and ordered encounter.
+[Built] The dated runtime matrix in [Balance.md](../Balance.md) replaces the former paper starting-value comparisons. Counter outcomes include range, pursuit, targeting and splash; isolated squad DPS arithmetic is not acceptance evidence.
 
-Production time per unit stays roughly proportional to cost, as today (1/6 to 1/7.5 s per Power).
+[Built] Existing-unit production time is proportional to cost at 1/6 s per Power. Per-unit durations and the unchanged one-time Artillery fee live in [forces.md](forces.md).
 
 ## Branches and masteries — decided starting set
 
