@@ -7,6 +7,7 @@
 #include "MapRegion.h"
 #include "ObjectiveAnnouncer.h"
 #include "NavigationData.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "NavigationSystem.h"
 #include "HAL/PlatformTime.h"
 
@@ -860,7 +861,7 @@ private:
 		const AArmyUnit* Unit = FrontProbe->GetUnits()[0];
 		const AAIController* AI = Cast<AAIController>(Unit->GetController());
 		return FrontProbe->bAutomaticFront && !FrontProbe->IsHoldingRegion()
-			&& Unit->Target == Threats[1].Get() && !Unit->bPursuing && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle
+			&& Unit->Target == Threats[1].Get() && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle
 			&& FVector::Dist2D(Unit->GetActorLocation(), Threats[1]->GetActorLocation()) <= Unit->WeaponRange()
 			&& FVector::Dist2D(FrontProbe->GetCenter(), FrontProbe->FrontLocation) > 170.;
 	}
