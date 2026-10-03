@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "HUD/ForceETA.h"
 #include "CommandHUD.generated.h"
 
 // Ordinals 0..15 are fixed for offscreen probes and hud_capture.py; append new actions only.
@@ -46,7 +47,14 @@ enum class EHUDAction : uint8
 	MapClassic = 42,
 	ActivePause = 43,
 	SelectForce = 44,
-	PingTeammateForce = 45
+	PingTeammateForce = 45,
+	ForceCardAttack = 46,
+	ForceCardRetreat = 47,
+	ForceCardProduction = 48,
+	ForceCardNever = 49,
+	ForceCard25 = 50,
+	ForceCard40 = 51,
+	ForceCard60 = 52
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.
@@ -65,6 +73,9 @@ public:
 	// Drawing and hit testing share one layout computed from the viewport size and local presentation state.
 	bool IsPanelPoint(const FVector2D& Position) const;
 	EHUDAction GetActionAtScreenPosition(const FVector2D& Position) const;
+	AArmyGroup* GetForceCardAtScreenPosition(const FVector2D& Position, EHUDAction& OutAction) const;
+	bool FindForceCardScreenPosition(const AArmyGroup* Force, EHUDAction Action, FVector2D& OutPosition) const;
+	int32 GetForceETA(const AArmyGroup& Force) const;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Screen-space centre of a visible action, including blocked buttons that explain clicks.
 	bool FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const;
@@ -79,4 +90,6 @@ public:
 	bool GetMinimapWorldPosition(const FVector2D& Position, FVector& OutWorld) const;
 	bool GetAlertWorldPosition(const FVector2D& Position, FVector& OutWorld, int32& OutSequence) const;
 	bool FindAlertScreenPosition(int32 Sequence, FVector2D& OutPosition) const;
+private:
+	mutable TArray<ForceTravelETA::FEntry, TInlineAllocator<6>> ForceETACache;
 };

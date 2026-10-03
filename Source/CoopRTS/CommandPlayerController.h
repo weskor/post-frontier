@@ -80,6 +80,7 @@ public:
 	// Left-click entry points shared by real input and the Development verification probe.
 	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
+	void HandleForceCardClick(AArmyGroup* Force, EHUDAction Action, bool bAdd, bool bDoubleClick = false);
 	void SelectActor(AActor* Actor, bool bToggle = false);
 	ECommandScreen GetUIScreen() const;
 	float GetMasterVolume() const;
@@ -121,6 +122,8 @@ private:
 	TWeakObjectPtr<ACommandBuilding> LastClickedBuilding;
 	double LastBuildingClickTime = -1.;
 	int32 LastForceKey = 0;
+	TWeakObjectPtr<AArmyGroup> LastClickedForceCard;
+	double LastForceCardClickTime = -1.;
 	double LastForceKeyTime = -1.;
 	FVector2D SelectionDragStart = FVector2D::ZeroVector;
 	bool bSelectionDragging = false;

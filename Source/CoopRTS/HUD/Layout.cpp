@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "ForceBar.h"
 #include "ArmyGroup.h"
 #include "CommandPlayerController.h"
 #include "CommandGameState.h"
@@ -108,9 +109,10 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Menu = { Layout.Width - Margin - 90.f, Margin, 90.f, TopHeight };
 	Layout.Screen = { (Layout.Width - ScreenWidth) * .5f, (Layout.Height - ScreenHeight) * .5f, ScreenWidth, ScreenHeight };
 	Layout.Pause = { Layout.Menu.Right() - 190.f, Layout.Menu.Bottom() + Gap, 190.f, TopHeight };
-	Layout.Minimap = { Margin, Layout.Height - Margin - MinimapSize, MinimapSize, MinimapSize };
+	const FRect ForceBar = ForceBarRect(Layout);
+	Layout.Minimap = { Margin, ForceBar.Y - Gap - MinimapSize, MinimapSize, MinimapSize };
 	const float X = Layout.Minimap.Right() + Gap;
-	Layout.Build = { X, Layout.Height - Margin - 88.f, FMath::Min(InspectorWidth, Layout.Width - X - Margin), 88.f };
+	Layout.Build = { X, ForceBar.Y - Gap - 88.f, FMath::Min(InspectorWidth, Layout.Width - X - Margin), 88.f };
 	Layout.Inspector = { X, Layout.Build.Y - Gap - DeckHeight, Layout.Build.W, DeckHeight };
 	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
 																		: FRect{ X, Layout.Build.Y - Gap - ModeHeight, Layout.Build.W, ModeHeight };
@@ -179,6 +181,7 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Minimap);
 	Visit(Layout.Build);
 	Visit(Layout.Bottom);
+	Visit(ForceBarRect(Layout));
 	if (Layout.bFeedback)
 		Visit(Layout.Feedback);
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent&, const FRect& Alert, float) {

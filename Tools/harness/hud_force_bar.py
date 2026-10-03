@@ -1,0 +1,163 @@
+"""Force-card shared clicks and live state captures at every requested resolution."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from harness.hud_actions import TOGGLE_PRODUCTION
+from harness.hud_setup import boot, place_barracks
+from harness.hud_surface import Capture, minimap_region_point, no_compositor_windows
+from harness.network import (
+    ATTACK,
+    BARRACKS,
+    NetworkRun,
+    alive_units,
+    building,
+    force,
+    owned_buildings,
+    require,
+    select_order_region,
+)
+from harness.verify import JsonObject
+
+
+def card(state: JsonObject, owner: int, barracks: int) -> JsonObject:
+    group = force(state, owner, barracks)
+    require("forceCard" in group, "force bar card was not visible")
+    return group["forceCard"]
+
+
+def click(run: NetworkRun, owner: int, number: int, control: str) -> None:
+    run.request("host", "forceCard", owner=owner, number=number, control=control)
+    run.phase(f"force card shared geometry click: {control}")
+
+
+def capture_states(
+    run: NetworkRun,
+    capture: Capture,
+    resolutions: Sequence[tuple[int, int]],
+    label: str,
+    owner: int,
+    barracks: int,
+) -> None:
+    for width, height in resolutions:
+        run.request("host", "resolution", width=width, height=height)
+        state = capture.wait(
+            lambda s, width=width, height=height: (
+                s["viewportWidth"],
+                s["viewportHeight"],
+            )
+            == (width, height),
+            f"force bar viewport {width}x{height}",
+        )
+        view = card(state, owner, barracks)
+        require(
+            view["joined"] == building(state, barracks)["joined"]
+            and view["capacity"] == building(state, barracks)["capacity"]
+            and view["owned"],
+            "force card strength/access disagrees with its real force",
+        )
+        require(view["clearsPanels"], "force card overlaps deck/build bar/minimap")
+        capture.shot(f"force-bar-{label}-{width}x{height}")
+
+
+def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
+    capture = Capture(run)
+    pid, state = boot(run, capture, resolutions[0])
+    owner = state["localIndex"]
+    run.request("host", "income", paused=True)
+    run.request("host", "fund", owner=owner, amount=4000)
+    state = place_barracks(run, capture, owner, 1, "force bar producer placed")
+    barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
+    capture.wait(
+        lambda s: building(s, barracks)["constructionProgress"] == 1,
+        "force bar producer completed",
+    )
+    capture.hud(TOGGLE_PRODUCTION, "lock initial Frontline force")
+    state = capture.wait(
+        lambda s: building(s, barracks)["configured"], "force bar force configured"
+    )
+    number = building(state, barracks)["forceNumber"]
+    refill_states(run, capture, resolutions, owner, barracks, number)
+    order_states(run, capture, resolutions, owner, barracks, number)
+    no_compositor_windows(run, pid)
+    run.event("PASS", captures=capture.count, resolutions=resolutions, scenario="force-bar")
+
+
+def refill_states(
+    run: NetworkRun,
+    capture: Capture,
+    resolutions: Sequence[tuple[int, int]],
+    owner: int,
+    barracks: int,
+    number: int,
+) -> None:
+    capture.wait(
+        lambda s: 0 < building(s, barracks)["productionSeconds"]
+        < building(s, barracks)["unitTime"],
+        "force bar refill progressing",
+    )
+    click(run, owner, number, "production")
+    paused = capture.wait(
+        lambda s: not building(s, barracks)["enabled"], "card pauses paid refill"
+    )
+    require(
+        card(paused, owner, barracks)["productionProgress"] > 0,
+        "paused card lost its in-progress refill",
+    )
+    capture_states(run, capture, resolutions, "paused-refill", owner, barracks)
+    click(run, owner, number, "production")
+    capture.wait(
+        lambda s: building(s, barracks)["joined"] == building(s, barracks)["capacity"]
+        and building(s, barracks)["travelling"] == 0,
+        "force bar paid members join to full strength",
+    )
+    click(run, owner, number, "select")
+    require(
+        force(capture.state(), owner, barracks)["actorId"]
+        in capture.state()["selectedForces"],
+        "card click did not select its own force",
+    )
+    capture_states(run, capture, resolutions, "full", owner, barracks)
+
+
+def order_states(
+    run: NetworkRun,
+    capture: Capture,
+    resolutions: Sequence[tuple[int, int]],
+    owner: int,
+    barracks: int,
+    number: int,
+) -> None:
+    state = capture.state()
+    target = select_order_region(state, barracks)["index"]
+    click(run, owner, number, "attack")
+    state = capture.wait(lambda s: s["assigningOrder"], "card opens Attack mode")
+    x, y = minimap_region_point(state, target)
+    run.request("host", "hudClick", x=x, y=y)
+    capture.wait(
+        lambda s: force(s, owner, barracks)["forceVerb"] == ATTACK
+        and force(s, owner, barracks)["targetRegionIndex"] == target
+        and force(s, owner, barracks)["status"] == 0,
+        "card Attack marches on confirmed region",
+    )
+    capture_states(run, capture, resolutions, "marching", owner, barracks)
+    click(run, owner, number, "production")
+    click(run, owner, number, "60")
+    state = capture.state()
+    group = force(state, owner, barracks)
+    for victim in alive_units(group)[:3]:
+        run.request("host", "kill", owner=owner, army=group["army"], slot=victim["slot"])
+    capture.wait(
+        lambda s: card(s, owner, barracks)["presentationState"] == 2
+        and card(s, owner, barracks)["joined"] == 3
+        and force(s, owner, barracks)["resumeCount"] == 5,
+        "three casualties trigger fighting withdrawal that resumes at five joined",
+    )
+    capture_states(run, capture, resolutions, "withdrawing-3-of-6", owner, barracks)
+    click(run, owner, number, "retreat")
+    capture.wait(
+        lambda s: force(s, owner, barracks)["forceVerb"] == 2,
+        "card Retreat replaces retained Attack",
+    )
+    capture_states(run, capture, resolutions, "manual-retreat", owner, barracks)

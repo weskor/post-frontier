@@ -1,0 +1,37 @@
+#pragma once
+#include "HUDTypes.h"
+#include "ForceOrders.h"
+#include "Rules/ForceCardPolicy.h"
+
+namespace CommandHUDPanels
+{
+constexpr float ForceBarHeight = 188.f;
+struct FForceCard
+{
+	const AArmyGroup* Force = nullptr;
+	const UArmyUnitDefinition* Definition = nullptr;
+	const ACommandBuilding* Producer = nullptr;
+	int32 Joined = 0;
+	int32 Travelling = 0;
+	int32 Capacity = 0;
+	bool bOwned = false;
+	bool bHighlighted = false;
+	float ProductionProgress = 0.f;
+	ForceCardPolicy::EState State = ForceCardPolicy::EState::Holding;
+	TStringBuilder<128> Title;
+	TStringBuilder<256> Order;
+	TStringBuilder<256> Status;
+	TStringBuilder<128> Production;
+};
+FRect ForceBarRect(const FLayout& Layout);
+void ForEachForceCard(const FContext& Context, const FLayout& Layout,
+	TFunctionRef<void(AArmyGroup*, const FRect&)> Visit);
+void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card);
+const TCHAR* ForceVerbRule(EForceVerb Verb);
+const TCHAR* ForceTargetRule(const UArmyUnitDefinition* Definition);
+void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect,
+	TFunctionRef<void(const FButton&, FStringView)> Visit);
+EHUDAction HitTestForceCard(const FForceCard& Card, const FRect& Rect, const FVector2D& Point);
+void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& Rect, const FVector2D& Mouse);
+void DrawForceBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
+}

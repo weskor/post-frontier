@@ -12,7 +12,9 @@ Full run: the whole presentation state sequence (placement, production, starvati
 research, victory) at the first resolution, selected-barracks captures at the others.
 --quick pings: real G ground placement, shared minimap placement, active map/minimap marker captures,
 then a six-second expiry capture. --quick jev-intent: publishes controlled JEV plans (create, escalate, replace) on an
-isolated host and captures the timeline bar, region badge and memo feed after each. Other --quick labels boot one placed barracks and capture the
+isolated host and captures the timeline bar, region badge and memo feed after each.
+--quick force-bar: real card selection, production pause/resume, Attack, withdrawal and Retreat,
+with state captures at every --res. Other --quick labels boot one placed barracks and capture the
 deck + inspector at one resolution; they do not prove production, orders, research or victory.
 """
 
@@ -62,10 +64,11 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "--quick",
         type=label,
         metavar="LABEL",
-        help="'pings' captures G ground/minimap markers and six-second expiry; 'jev-intent' captures the JEV "
-        "timeline, badges and memos through plan creation, escalation and replacement; other labels boot, "
-        "place and select one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first "
-        "resolution, then stop; no production fill, fronts, research or victory",
+        help="'force-bar' exercises force cards at every --res; 'pings' captures G ground/minimap "
+        "markers and six-second expiry; 'jev-intent' captures the JEV timeline, badges and memos "
+        "through plan creation, escalation and replacement; other labels boot, place and select "
+        "one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first resolution, "
+        "then stop; no production fill, fronts, research or victory",
     )
     parser.add_argument("--max-fps", type=int, default=30)
 
@@ -85,7 +88,12 @@ def main() -> None:
         map_path=args.map,
     )
     try:
-        if args.quick:
+        if args.quick == "force-bar":
+            from harness.hud_force_bar import scenario as force_bar_scenario
+
+            force_bar_scenario(run, resolutions)
+            print(f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}")
+        elif args.quick:
             quick(run, args.quick, resolutions[0])
             print(
                 f"PASS: quick {args.quick} at {resolutions[0][0]}x{resolutions[0][1]}; evidence: {run.run}"

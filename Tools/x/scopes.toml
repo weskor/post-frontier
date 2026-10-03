@@ -305,6 +305,11 @@ map = "/Game/Maps/AvailabilityZoneV2"
 [scopes.lint]
 kind = "lint"
 
+[scopes.force-bar]
+kind = "automation"
+filter = "CoopRTS.HUD.ForceBar"
+map = "default"
+
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
 "*.md" = ["lint"]
@@ -477,8 +482,8 @@ kind = "lint"
 "Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network", "pings", "pings-network"]
 "Source/CoopRTS/CommandGameState.*" = ["force-selection", "pause", "pause-network", "objective-events", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims"]
 "Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network"]
-"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events", "pings", "pings-network"]
-"Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings"]
+"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events", "pings", "pings-network", "force-bar"]
+"Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings", "force-bar"]
 "Source/CoopRTS/HUD/*.cpp" = ["pause", "pings"]
 "Tools/harness/network_scenarios.py" = ["pause-network", "pings-network", "tools"]
 "Source/CoopRTS/ArmyNetworkVerification.*" = ["pause", "pause-network", "pings-network"]
@@ -605,3 +610,12 @@ kind = "lint"
 "Source/CoopRTS/HUD/ForceRoutePresentation.*" = ["route-intent"]
 "Source/CoopRTS/CommandPlayerControllerRouteIntent.cpp" = ["route-intent", "verb-input"]
 "Source/CoopRTS/RouteIntentVerification.*" = ["route-intent"]
+
+# Force bar display/control contracts supplement existing include-closure scopes.
+"Source/CoopRTS/ForceBarTests.cpp" = ["force-bar"]
+"Source/CoopRTS/ForceCardRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/ForceCardPolicy.*" = ["force-bar", "rules"]
+"Source/CoopRTS/HUD/ForceBar*" = ["force-bar"]
+"Source/CoopRTS/HUD/ForceETA.*" = ["force-bar"]
+"Source/CoopRTS/CommandPlayerControllerForceBar.cpp" = ["force-bar"]
+"Source/CoopRTS/HUD/Layout*" = ["force-bar"]

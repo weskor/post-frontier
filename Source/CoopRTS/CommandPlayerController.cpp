@@ -747,6 +747,12 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 		HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
 		return true;
 	}
+	EHUDAction CardAction;
+	if (AArmyGroup* Force = HUD->GetForceCardAtScreenPosition(Position, CardAction))
+	{
+		HandleForceCardClick(Force, CardAction, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+		return true;
+	}
 	FVector WorldPosition;
 	int32 AlertSequence;
 	if (HUD->GetAlertWorldPosition(Position, WorldPosition, AlertSequence))

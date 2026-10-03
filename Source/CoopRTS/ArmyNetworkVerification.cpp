@@ -18,6 +18,7 @@
 #include "HUD/HUDPanels.h"
 #include "JevIntentFixture.h"
 #include "CommandHUD.h"
+#include "HUD/ForceBarVerification.h"
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
 #include "RouteIntentVerification.h"
@@ -327,7 +328,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
 		{
 			TArray<TSharedPtr<FJsonValue>> Buttons;
-			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::PingTeammateForce); ++Index)
+			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::ForceCard60); ++Index)
 			{
 				FVector2D Position;
 				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
@@ -470,6 +471,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("status"), static_cast<int32>(Group->Status));
 		Number(Entry, TEXT("retreatThreshold"), static_cast<int32>(Group->RetreatThreshold));
 		Number(Entry, TEXT("waypointRegionIndex"), Group->WaypointRegionIndex);
+		Number(Entry, TEXT("resumeCount"), Group->ResumeCount);
 		Number(Entry, TEXT("marchSpeed"), Group->GetMarchSpeed());
 		TArray<TSharedPtr<FJsonValue>> Orders;
 		for (const FForceOrder& Order : Group->Orders)
@@ -495,6 +497,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 				if (HUD->FindForceScreenPosition(Group, Badge))
 					Entry->SetArrayField(TEXT("badge"), { MakeShared<FJsonValueNumber>(Badge.X), MakeShared<FJsonValueNumber>(Badge.Y) });
 				Entry->SetBoolField(TEXT("highlighted"), Local->IsForceHighlighted(Group));
+				ForceBarVerification::Snapshot(*Local, *Group, Entry);
 			}
 		auto Units = TArray<TSharedPtr<FJsonValue>>();
 		for (const AArmyUnit* Unit : Group->GetUnits())
@@ -665,6 +668,9 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 {
 	if (!World)
 		return TEXT("game world unavailable");
+	FString ForceCardError;
+	if (ForceBarVerification::Apply(*World, Request, ForceCardError))
+		return ForceCardError;
 	FString Action;
 	Request->TryGetStringField(TEXT("action"), Action);
 	if (Action == TEXT("observe"))

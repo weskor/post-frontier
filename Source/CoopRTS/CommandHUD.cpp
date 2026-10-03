@@ -9,6 +9,7 @@
 #include "EngineFontServices.h"
 #include "HUD/HUDPanels.h"
 #include "HUD/OrderCursor.h"
+#include "HUD/ForceBar.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/ForceSelectionPolicy.h"
 
@@ -77,6 +78,9 @@ EHUDAction ACommandHUD::GetActionAtScreenPosition(const FVector2D& Position) con
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
 	if (!Controller)
 		return EHUDAction::None;
+	EHUDAction CardAction;
+	if (GetForceCardAtScreenPosition(Position, CardAction))
+		return CardAction;
 	int32 Width, Height;
 	Controller->GetViewportSize(Width, Height);
 	const FContext Context = MakeContext(Controller);
@@ -95,6 +99,13 @@ bool ACommandHUD::FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosi
 	const FContext Context = MakeContext(Controller);
 	const FLayout Layout = MakeLayout(Context, Width, Height);
 	bool bFound = false;
+	bool bCardFound = false;
+	ForEachForceCard(Context, Layout, [&](AArmyGroup* Force, const FRect&) {
+		if (FindForceCardScreenPosition(Force, Action, OutPosition))
+			bCardFound = true;
+	});
+	if (bCardFound)
+		return true;
 	ForEachButton(Context, Layout, [&](const FButton& Button) {
 		if (Button.Action == Action)
 		{
@@ -245,7 +256,9 @@ static void DrawSelectionBox(const FPainter& Paint, const ACommandPlayerControll
 
 static void DrawCommandDeck(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout)
 {
-	if (Context.bExpanded || CanPingInspectedForce(Context))
+	if (CanPingInspectedForce(Context))
+		return; // The same read-only force card is drawn by DrawForceBar.
+	if (Context.bExpanded)
 	{
 		Paint.Panel(Layout.Inspector);
 		if (Context.Building)
@@ -312,6 +325,7 @@ void ACommandHUD::DrawHUD()
 	DrawJevIntent(Paint, Context, Layout, Intent);
 	DrawBuildPanel(Paint, Context, Layout);
 	DrawCommandDeck(Paint, Context, Forces, Layout);
+	DrawForceBar(Paint, Context, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button) {
 		if (Button.Action == EHUDAction::Menu)
 			DrawScreenButton(Paint, Button, Button.Action == Hover);
