@@ -6,7 +6,7 @@
 #include "HUD/ForceRoutePresentation.h"
 #include "HAL/PlatformTime.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRouteIntentWorldTest, "CoopRTS.Forces.RouteIntent",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRouteIntentWorldTest, "CoopRTS.Forces.RouteIntent.March",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 class FRouteIntentScenario : public IAutomationLatentCommand

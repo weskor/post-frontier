@@ -78,6 +78,15 @@ private:
 			if (Region->HomeTeam < 0 && Region->Anchor)
 			{
 				Captures.Emplace(Region->Anchor.Get(), Region->Anchor->ControllingTeam);
+				bool bOccupied = false;
+				for (TActorIterator<AArmyUnit> It(World); It; ++It)
+					if (It->GetTeamIndex() == 5 && It->IsAlive() && Region->Contains(It->GetActorLocation()))
+					{
+						bOccupied = true;
+						break;
+					}
+				if (bOccupied)
+					continue;
 				if (!Main->Neighbours.Contains(Region->RegionIndex))
 					Far = Region->RegionIndex;
 				else
