@@ -69,7 +69,12 @@ bool Better(const FCandidate& A, const FCandidate& B)
 		return A.Score > B.Score;
 	if (A.Plan.Target != B.Plan.Target)
 		return A.Plan.Target < B.Plan.Target;
-	return uint8(A.Plan.Verb) < uint8(B.Plan.Verb);
+	if (A.Plan.Verb != B.Plan.Verb)
+		return uint8(A.Plan.Verb) < uint8(B.Plan.Verb);
+	// Prefer a concrete hostile structure over a generic regional attack on a tie.
+	if (!A.Plan.TargetIdentity || !B.Plan.TargetIdentity)
+		return A.Plan.TargetIdentity != 0 && B.Plan.TargetIdentity == 0;
+	return A.Plan.TargetIdentity < B.Plan.TargetIdentity;
 }
 
 void Offer(FCandidates& Out, const FPlan& Plan, float Score)
@@ -84,6 +89,31 @@ void Offer(FCandidates& Out, const FPlan& Plan, float Score)
 	for (int32 Index = Out.Count - 1; Index > At; --Index)
 		Out.Values[Index] = Out.Values[Index - 1];
 	Out.Values[At] = Candidate;
+}
+
+float RegionScore(const FWorld& World, const FForce& Force, const FPaths& Route, int32 Index)
+{
+	const FRegion& Region = World.Regions[Index];
+	return Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
+		: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
+			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
+			- (Region.Controller != INDEX_NONE ? 3.f : 0.f);
+}
+
+void OfferStructures(const FWorld& World, const FForce& Force, const FPaths& Route, FCandidates& Out)
+{
+	for (const FTarget& Target : World.Targets)
+	{
+		if (!Target.Identity || !Target.bAlive || !Exists(World, Target.Region))
+			continue;
+		const FRegion& Region = World.Regions[Target.Region];
+		if (!Region.bTargetAlive || Region.bClaimed || Region.Controller == World.Team || Route.Hops[Target.Region] == INDEX_NONE
+			|| (Region.bMain && Target.Region != World.EnemyHome))
+			continue;
+		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
+		Plan.TargetIdentity = Target.Identity;
+		Offer(Out, Plan, RegionScore(World, Force, Route, Target.Region));
+	}
 }
 }
 
@@ -127,12 +157,9 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		if (Region.bMain && Index != World.EnemyHome)
 			continue;
 		const EVerb Verb = Region.Controller == INDEX_NONE ? EVerb::MoveAndHold : EVerb::Attack;
-		const float Score = Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
-													 : 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
-				- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
-				- (Region.Controller != INDEX_NONE ? 3.f : 0.f);
-		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), Score);
+		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Route, Index));
 	}
+	OfferStructures(World, Force, Route, Out);
 	return Out;
 }
 
@@ -147,8 +174,15 @@ const FCandidate* Choose(const FCandidates& Candidates)
 
 bool TargetValid(const FWorld& World, const FPlan& Plan)
 {
-	return Exists(World, Plan.Target) && World.Regions[Plan.Target].bTargetAlive
-		&& (!Plan.bRequiresUnownedTarget || World.Regions[Plan.Target].Controller != World.Team);
+	if (!Exists(World, Plan.Target) || !World.Regions[Plan.Target].bTargetAlive
+		|| (Plan.bRequiresUnownedTarget && World.Regions[Plan.Target].Controller == World.Team))
+		return false;
+	if (!Plan.TargetIdentity)
+		return true;
+	for (const FTarget& Target : World.Targets)
+		if (Target.Identity == Plan.TargetIdentity && Target.Region == Plan.Target)
+			return Target.bAlive;
+	return false;
 }
 
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out)

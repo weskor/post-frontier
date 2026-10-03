@@ -29,9 +29,18 @@ struct FRegion
 	FVector Position = FVector::ZeroVector;
 };
 
+// Opaque actor identity keeps structure destruction distinct from region capture.
+struct FTarget
+{
+	uint32 Identity = 0;
+	int32 Region = INDEX_NONE;
+	bool bAlive = false;
+};
+
 struct FWorld
 {
 	FRegion Regions[ForceGoals::MaxRegions];
+	TConstArrayView<FTarget> Targets;
 	int32 Team = 5;
 	int32 EnemyHome = INDEX_NONE;
 	bool bAdvantage = false;
@@ -54,6 +63,7 @@ struct FPlan
 	EVerb Verb = EVerb::MoveAndHold;
 	int32 Source = INDEX_NONE;
 	int32 Target = INDEX_NONE;
+	uint32 TargetIdentity = 0;
 	int32 SizeBand = 2;
 	float EtaSeconds = 0.f;
 	float CommittedUntil = 0.f;

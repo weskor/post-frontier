@@ -10,6 +10,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevCommitmentTest, "CoopRTS.Rules.Jev.Commitme
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevExceptionsTest, "CoopRTS.Rules.Jev.Exceptions",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStructureTargetTest, "CoopRTS.Rules.Jev.StructureTarget",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -166,6 +168,31 @@ bool FJevExceptionsTest::RunTest(const FString&)
 	World.Regions[Initial.Target].Controller = 0;
 	Decide(World, Force, 6.f, &Initial, Next);
 	TestEqual(TEXT("Capture by opponents is not an exception"), Next.CommittedUntil, Initial.CommittedUntil);
+	return true;
+}
+
+bool FJevStructureTargetTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	FWorld World = WorldSummary();
+	World.Regions[1].Controller = 0;
+	FTarget Targets[] = { { 101, 1, true }, { 102, 1, true } };
+	World.Targets = Targets;
+	const float Speeds[] = { 100.f };
+	const FForce Force = ForceSummary(Speeds);
+	FPlan Initial, Held, Replacement;
+	TestTrue(TEXT("A hostile structure is a legal attack target"), Decide(World, Force, 0.f, nullptr, Initial));
+	TestEqual(TEXT("Structure attack records stable identity"), Initial.TargetIdentity, uint32(101));
+	Targets[1].bAlive = false;
+	Decide(World, Force, 2.f, &Initial, Held);
+	TestEqual(TEXT("An unrelated structure dying does not release commitment"), Held.CommittedUntil, Initial.CommittedUntil);
+	Targets[0].bAlive = false;
+	TestTrue(TEXT("Actual structure death releases commitment immediately"), Decide(World, Force, 3.f, &Initial, Replacement));
+	TestEqual(TEXT("The replacement can keep attacking the surviving region"), Replacement.Target, Initial.Target);
+	TestEqual(TEXT("The dead structure is not reused"), Replacement.TargetIdentity, uint32(0));
+	TestEqual(TEXT("Structure invalidation starts a fresh window"), Replacement.CommittedUntil, 28.f);
+	World.Targets = {};
+	TestFalse(TEXT("Removed actors invalidate their committed identity"), TargetValid(World, Initial));
 	return true;
 }
 #endif
