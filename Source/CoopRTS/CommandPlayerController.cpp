@@ -837,6 +837,8 @@ void ACommandPlayerController::SelectForce(AArmyGroup* Force, bool bToggle)
 	if (GetUIScreen() != ECommandScreen::Game || !IsSelectableForce(Force))
 		return;
 	bInitialFocusPending = false;
+	PendingPlacedBuilding.Reset();
+	PendingPlacedBuildingNetGUID = 0;
 	bAssigningGoal = false;
 	bPlacingBuilding = false;
 	bHUDExpanded = true;
@@ -885,6 +887,8 @@ void ACommandPlayerController::SelectForceBox(const FVector2D& Start, const FVec
 	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
 	if (!HUD)
 		return;
+	PendingPlacedBuilding.Reset();
+	PendingPlacedBuildingNetGUID = 0;
 	TArray<AArmyGroup*> Forces;
 	HUD->GetForcesInScreenBox(Start, End, Forces);
 	bInitialFocusPending = false;

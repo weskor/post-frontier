@@ -149,6 +149,13 @@ public:
 			Check(!PC->IsPlacingBuilding(), TEXT("Right-click cancels Extractor placement"));
 			Check(!PC->bSelectionDragging && PC->bPlacementPending,
 				TEXT("Cancellation stops force box selection while retaining the in-flight placement"));
+			Key(PC, EKeys::B);
+			Key(PC, EKeys::Q);
+			Check(!PC->IsPlacingBuilding() && PC->GetOrderFeedback() == TEXT("Waiting for placement confirmation."),
+				TEXT("B Q cannot reopen placement while the cancelled request awaits its reply"));
+			PC->HandleHUDAction(EHUDAction::BuildSlot0);
+			Check(!PC->IsPlacingBuilding() && PC->GetOrderFeedback() == TEXT("Waiting for placement confirmation."),
+				TEXT("Build bar action also refuses placement until the cancelled request completes"));
 			FVector Point;
 			if (!Check(FindPlacement(State, Point), TEXT("A third footprint exists for the late placement result")))
 				return true;
@@ -221,6 +228,7 @@ public:
 			Check(PC->GetSelectedBuilding() == First.Get() && PC->IsAssigningGoal() && !PC->IsHUDExpanded(),
 				TEXT("Ownership arrival cannot retarget an active goal mode or reopen the deck"));
 			PC->CancelMode();
+			CheckDeferredForceSelection(PC, Wallet, Deferred.Building, First->ForceGroup);
 			Wallet->Resources = 0;
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::Q);
@@ -270,6 +278,31 @@ public:
 		return false;
 	}
 private:
+	void CheckDeferredForceSelection(ACommandPlayerController* PC, ACommandPlayerState* Wallet,
+		ACommandBuilding* Building, AArmyGroup* Force)
+	{
+		Force->ForceNumber = 1;
+		for (bool bBox : { false, true })
+		{
+			PC->SelectForce(Force);
+			PC->HandleHUDAction(EHUDAction::BuildSlot0);
+			Building->OwningPlayerState = nullptr;
+			PC->ConstructionCommands->ClientPlacementFeedback(TEXT("Building placed; construction started."), true, Building, 0);
+			if (bBox)
+			{
+				int32 Width, Height;
+				PC->GetViewportSize(Width, Height);
+				PC->SelectForceBox(FVector2D::ZeroVector, FVector2D(Width, Height), true);
+			}
+			else
+				PC->SelectForceNumber(Force->ForceNumber);
+			Building->OwningPlayerState = Wallet;
+			PC->PlayerTick(0.f);
+			Check(PC->IsForceSelected(Force) && PC->GetSelectedForces().Num() == 1 && !PC->GetSelectedBuilding(),
+				bBox ? TEXT("Ownership arrival cannot replace additive box force selection with the deferred building")
+					 : TEXT("Ownership arrival cannot replace numbered force selection with the deferred building"));
+		}
+	}
 	bool Check(bool bCondition, const TCHAR* Message) { return Test->TestTrue(Message, bCondition); }
 	FAutomationTestBase* Test;
 	double Started;
