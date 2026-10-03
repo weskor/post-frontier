@@ -46,7 +46,9 @@ exit, other Shipping exit, crash signature/report or timeout fails. Crash
 evidence is checked through shutdown, not just before the signal.
 Shipping proves bounded liveness/no observed crash, NOT map-loaded readiness,
 gameplay, input or rendering. Development logs do not prove those surfaces either.
-Smoke never uses ExecCmds or engine test hooks, and never targets another game.
+Smoke rejects extra -ExecCmds arguments (case-insensitive, both -ExecCmds=commands
+and -ExecCmds commands); normal play still permits them. Smoke never uses engine
+test hooks and never targets another game.
 
 Steam setup and manual acceptance (only when requested):
 ./x play --steam -- -windowed -ResX=1280 -ResY=720 -log
@@ -122,6 +124,12 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     config = "shipping" if args.shipping else "development"
     extra = list(args.extra)
     extra = extra[1:] if extra[:1] == ["--"] else extra
+    if args.smoke and any(
+        value.partition("=")[0].lower() == "-execcmds" for value in extra
+    ):
+        raise ValueError(
+            "--smoke rejects -ExecCmds; use normal play for console commands"
+        )
     env = {}
     if args.steam:
         env = {

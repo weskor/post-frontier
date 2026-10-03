@@ -2,7 +2,7 @@
 
 ## Method
 
-The default whole-match mode of `./x sim` ([`./x help sim`](../x)) runs one fresh authoritative standalone Unreal process per match. Team 5 uses the ordinary `AEnemyCommander`; an explicitly opted-in `UMatchSimulationSubsystem` spawns the same class with `TeamIndex=0` and the local `ACommandPlayerState` as `Commander`. Human-side autopilot exists only in opted-in standalone worlds; economy overrides are similarly isolated. No fixtures grant money, armies, capture or damage in whole-match mode.
+The default whole-match mode of `./x sim` ([`./x help sim`](../x)) runs one fresh authoritative standalone Unreal process per match. Team 5 uses the ordinary `AEnemyCommander`; an explicitly opted-in `FMatchSimulation` spawns the same class with `TeamIndex=0` and the local `ACommandPlayerState` as `Commander`. Human-side autopilot exists only in opted-in standalone worlds; economy overrides are similarly isolated. No fixtures grant money, armies, capture or damage in whole-match mode.
 
 The runner owns process launch, headless scheduling, freshness and cleanup. Editor standalone and packaged Development matches both require the requested map to start; a wrong/unstarted map is a failure, not a result. Runtime artifact mutation is rejected.
 
@@ -41,7 +41,7 @@ Seeds initialize UE's global `Rand/FRand` and `SRand` streams before gameplay. E
 
 ### Telemetry API and artifacts
 
-`UMatchSimulationSubsystem` observes existing real-game APIs: `ACommandGameState::GetIncomePerSecond`, region/controller queries, `ACommandBuilding` production/goal state, living `AArmyUnit` health/role/attack counters and `AArmyGroup` centers. `FSimulationSettings::ForWorld` supplies the actual baseline payments and deposit rate/reserve initialization; it is not a reporting-only override. Economy still pays through the existing two-second finite-extraction policy.
+`FMatchSimulation` observes existing real-game APIs: `ACommandGameState::GetIncomePerSecond`, region/controller queries, `ACommandBuilding` production/goal state, living `AArmyUnit` health/role/attack counters and `AArmyGroup` centers. `FSimulationSettings::ForWorld` supplies the actual baseline payments and deposit rate/reserve initialization; it is not a reporting-only override. Economy still pays through the existing two-second finite-extraction policy.
 
 Each match has `launch.json` (job, command, artifact identity, return code and harness status), `stdout.log`, `game.log`, and atomically replaced `match.json` checkpoints. Schema version **1** includes:
 

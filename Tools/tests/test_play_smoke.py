@@ -40,6 +40,8 @@ def stop(signum, frame):
 signal.signal(signal.SIGTERM, stop)
 """
 _READY = "emit('LogLoad: Took 0.015 seconds to LoadMap(/Game/Maps/Boot)')"
+_SHIPPING_SURVIVAL_SECONDS = 3.0
+_SHUTDOWN_SECONDS = 2.0
 
 
 def run_child(
@@ -48,8 +50,8 @@ def run_child(
     *,
     shipping: bool = False,
     startup: float = 2.0,
-    shutdown: float = 0.4,
-    survival: float = 0.5,
+    shutdown: float = _SHUTDOWN_SECONDS,
+    survival: float = _SHIPPING_SURVIVAL_SECONDS,
 ) -> SmokeResult:
     script = tmp_path / "child.py"
     script.write_text(_CHILD + "\n" + body + "\ntime.sleep(30)\n")
@@ -200,13 +202,13 @@ def test_shipping_liveness_accepts_only_owned143_without_readiness(
     assert result.ok and result.survived and result.term_sent
     assert not result.ready and not result.shutdown
     assert result.engine_exit_code == 143
-    assert result.duration_s >= 0.5
+    assert result.duration_s >= _SHIPPING_SURVIVAL_SECONDS
 
 
 def test_shipping_logged_map_cannot_shorten_liveness_bound(tmp_path: Path) -> None:
     result = run_child(tmp_path, _READY, shipping=True)
     assert result.ok and result.survived and not result.ready
-    assert result.duration_s >= 0.5
+    assert result.duration_s >= _SHIPPING_SURVIVAL_SECONDS
 
 
 @pytest.mark.parametrize("exit_code", [0, 143])

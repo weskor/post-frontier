@@ -304,6 +304,52 @@ def test_macro_definedness_does_not_prove_value(directive: str) -> None:
     assert symbol_lines(text) == [3, 7]
 
 
+@pytest.mark.parametrize("directive", ["elifdef", "elifndef"])
+def test_elif_definedness_transitions_and_directive_uses(directive: str) -> None:
+    text = (
+        f"#if {DEV_GUARD}\n"
+        "VerifySession();\n"
+        f"#{directive} VerifySession\n"
+        'TEXT("-SimSeed=1");\n'
+        "#if PLATFORM_WINDOWS\n"
+        "VerifySession();\n"
+        "#endif\n"
+        f"#elif {DEV_GUARD}\n"
+        "VerifySession();\n"
+        "#else\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "VerifySession();\n"
+        f"#if {DEV_GUARD}\n"
+        "#if PLATFORM_WINDOWS\n"
+        "VerifySession();\n"
+        f"#{directive} WITH_DEV_AUTOMATION_TESTS\n"
+        'TEXT("-autopilot");\n'
+        "#else\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#endif\n"
+    )
+    assert symbol_lines(text) == [3, 4, 6, 11, 13]
+
+
+@pytest.mark.parametrize("directive", ["elifdef", "elifndef"])
+def test_elif_definedness_does_not_prove_value(directive: str) -> None:
+    text = (
+        "#if 0\n"
+        f"#{directive} WITH_DEV_AUTOMATION_TESTS\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#else\n"
+        "#if !UE_BUILD_SHIPPING\n"
+        "VerifySession();\n"
+        "#endif\n"
+        "#endif\n"
+    )
+    assert symbol_lines(text) == [4, 8]
+
+
 def test_comments_literals_and_token_boundaries() -> None:
     text = (
         f"// #if {DEV_GUARD}\n"
@@ -336,6 +382,42 @@ def test_logical_lines_keep_physical_diagnostic_lines() -> None:
         "Verify\\\nSession();\n"
     )
     assert symbol_lines(text) == [7, 8]
+
+
+@pytest.mark.parametrize(
+    ("number", "lines"),
+    [("1'000", [4, 5]), ("1'\\\n000", [5, 6])],
+)
+def test_digit_separator_does_not_hide_guard_end(number: str, lines: list[int]) -> None:
+    text = (
+        f"#if {DEV_GUARD}\n"
+        f"const auto Count = {number};\n"
+        "#endif\n"
+        "VerifySession();\n"
+        'TEXT("-SimSeed=1");\n'
+        r"const auto Quote = '\'';"
+        "\n"
+        f"#if {DEV_GUARD}\n"
+        "VerifySession();\n"
+        'TEXT("-autopilot");\n'
+        "#endif\n"
+    )
+    assert symbol_lines(text) == lines
+
+
+@pytest.mark.parametrize("literal", [r"'\''", r"'\\'", r"'\n'", "'\\\nn'"])
+def test_escaped_character_literals_preserve_guard_boundaries(literal: str) -> None:
+    text = (
+        f"const auto Character = {literal};\n"
+        "VerifySession();\n"
+        f"#if {DEV_GUARD}\n"
+        f"const auto Character = {literal};\n"
+        "VerifySession();\n"
+        "#endif\n"
+        'TEXT("-autopilot");\n'
+    )
+    continued_lines = literal.count("\n")
+    assert symbol_lines(text) == [2 + continued_lines, 7 + 2 * continued_lines]
 
 
 @pytest.mark.parametrize(

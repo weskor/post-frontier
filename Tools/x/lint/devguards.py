@@ -9,12 +9,14 @@ ALL = 0b1111
 DEV_ONLY = 0b0010
 LEXEMES = re.compile(
     r'R"(?P<delimiter>[^\s()\\]{0,16})\(.*?\)(?P=delimiter)"'
-    r'|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*.*?\*/',
+    r'|"(?:\\.|[^"\\])*"|\'(?:\\[^\r\n]|[^\'\\\r\n])*\'|//[^\n]*|/\*.*?\*/',
     re.DOTALL,
 )
 TOKENS = re.compile(r"[A-Za-z_]\w*|[01]|&&|\|\||[!()]")
 IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
-DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")
+DIRECTIVE = re.compile(
+    r"^\s*#\s*(if|ifdef|ifndef|elif|elifdef|elifndef|else|endif)\b(.*)$"
+)
 
 
 @dataclass(frozen=True)
@@ -126,7 +128,7 @@ def branch(kind: str, expression: str, active: int, stack: list[Branch]) -> int:
     if kind == "else":
         frame.saw_else = True
         return frame.remaining
-    value = condition(expression)
+    value = condition(expression) if kind == "elif" else Truth()
     active = frame.remaining & value.yes
     frame.remaining &= value.no
     return active
@@ -209,7 +211,7 @@ def scan(path: str, text: str, settings: TestOnlySymbols) -> list[Finding]:
     for line in directives.splitlines(keepends=True):
         directive = DIRECTIVE.fullmatch(line.rstrip("\r\n"))
         line_active = active
-        if directive and directive[1] == "elif" and stack:
+        if directive and directive[1] in {"elif", "elifdef", "elifndef"} and stack:
             line_active = stack[-1].remaining
         if directive:
             active = branch(directive[1], directive[2], active, stack)

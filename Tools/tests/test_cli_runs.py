@@ -4,12 +4,14 @@ import argparse
 from dataclasses import replace
 import importlib
 from pathlib import Path
+import sys
 from types import ModuleType
 from typing import cast
 
 import pytest
+from test_content_packages import make_package
 from x import cli, jsonio
-from x.commands import runs
+from x.commands import play, runs
 from x.context import Context
 from x.runs import Run, recent
 from x.settings import load
@@ -120,3 +122,57 @@ def test_usage_errors_do_not_record(
     )
     assert cli.main(["unknown"]) == 2
     assert cli.main(["runs", "--invalid"]) == 2
+
+
+@pytest.mark.parametrize("shipping", [False, True])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["-ExecCmds=Quit"],
+        ["-eXeCcMdS=Quit"],
+        ["-ExecCmds", "Quit"],
+        ["-EXECCMDS", "Quit"],
+    ],
+)
+def test_smoke_console_commands_refuse_before_locks_or_package_lookup(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    shipping: bool,
+    extra: list[str],
+) -> None:
+    settings = replace(
+        load(repo), runs_root=repo.parent / "runs", lock_dir=repo.parent / "locks"
+    )
+    monkeypatch.setattr(cli, "load", lambda root: settings)
+    argv = ["--smoke", *(["--shipping"] if shipping else []), "--", *extra]
+    command = cast(cli.Command, play)
+    args = cli.parser_for(command).parse_args(argv)
+    # Neither tier has a package: invalid smoke input must win over that error.
+    assert cli.invoke(command, args, repo, ["play", *argv]) == 1
+    assert not settings.lock_dir.exists()
+    record = recent(settings.runs_root)[0]
+    assert record["status"] == "failed" and record["execs"] == []
+
+
+def test_smoke_console_commands_refuse_a_fresh_package_without_launching(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = replace(
+        load(repo), runs_root=repo.parent / "runs", lock_dir=repo.parent / "locks"
+    )
+    monkeypatch.setattr(cli, "load", lambda root: settings)
+    directory = make_package(repo, "20261003-100000-package-play")
+    executable = directory / "Linux/CoopRTS/Binaries/Linux/CoopRTS"
+    marker = repo.parent / "launched"
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "from pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text('launched')\n"
+    )
+    executable.chmod(0o755)
+    command = cast(cli.Command, play)
+    argv = ["--smoke", "--", "-ExecCmds=Quit"]
+    args = cli.parser_for(command).parse_args(argv)
+    assert cli.invoke(command, args, repo, ["play", *argv]) == 1
+    assert not marker.exists()
+    assert not settings.lock_dir.exists()
