@@ -114,7 +114,7 @@ The design target remains unmet. Further tuning should distinguish goal/front co
 
 ## Tuned existing roster — accepted 2026-10-03
 
-[Built] Evidence run **`20261003-031913-sim-5bdc`**, measured on clean committed HEAD **`20443e5`** (`dirty: False`): V2, seeds **1–40**, fixed-step **1×**, **300 game seconds per ordered pair**. All **40/40 seed processes** validated, with **360/360 wipes**, no cap draws, stalled fights, failed or missing processes. Every pair has **20 team-0-first and 20 team-5-first** creations. Each squad spends the full **120 Power**, excluding the Artillery configuration fee.
+[Built] Evidence run **`20261003-034351-sim-0afb`**, measured on clean committed HEAD **`be17c3b`** (`dirty: False`) after rebasing onto main: V2, seeds **1–40**, fixed-step **1×**, **300 game seconds per ordered pair**. All **40/40 seed processes** validated, with **360/360 wipes**, no cap draws, stalled fights, failed or missing processes. Every pair has **20 team-0-first and 20 team-5-first** creations. Each squad spends the full **120 Power**, excluding the Artillery configuration fee.
 
 ### Accepted runtime definitions
 
@@ -132,21 +132,23 @@ The design target remains unmet. Further tuning should distinguish goal/front co
 
 | Left | Right | Team 0 wins | Team 5 wins | Draws |
 | --- | --- | ---: | ---: | ---: |
-| Brawler | Brawler | 21/40 (52.5%) | 19/40 (47.5%) | 0 |
+| Brawler | Brawler | 23/40 (57.5%) | 17/40 (42.5%) | 0 |
 | Brawler | Rifle | 2/40 (5%) | 38/40 (95%) | 0 |
 | Brawler | Artillery | 34/40 (85%) | 6/40 (15%) | 0 |
 | Rifle | Brawler | 40/40 (100%) | 0/40 (0%) | 0 |
 | Rifle | Rifle | 19/40 (47.5%) | 21/40 (52.5%) | 0 |
 | Rifle | Artillery | 8/40 (20%) | 32/40 (80%) | 0 |
 | Artillery | Brawler | 2/40 (5%) | 38/40 (95%) | 0 |
-| Artillery | Rifle | 37/40 (92.5%) | 3/40 (7.5%) | 0 |
-| Artillery | Artillery | 21/40 (52.5%) | 19/40 (47.5%) | 0 |
+| Artillery | Rifle | 38/40 (95%) | 2/40 (5%) | 0 |
+| Artillery | Artillery | 20/40 (50%) | 20/40 (50%) | 0 |
 
-[Built] **Runtime validity and all 12 balance rules pass**, with complete evidence. Combined ordered-side prey wins are Brawler **72/80 (90%)**, Rifle **78/80 (97.5%)**, Artillery **69/80 (86.25%)**; predator wins are **2/80 (2.5%)**, **11/80 (13.75%)**, **8/80 (10%)**, respectively. Each mirror side has exact two-sided **`p = 0.8746293124`**, so none rejects 50% at the required significance.
+[Built] **Runtime validity and all 12 balance rules pass**, with complete evidence. Combined ordered-side prey wins are Brawler **72/80 (90%)**, Rifle **78/80 (97.5%)**, Artillery **70/80 (87.5%)**; predator wins are **2/80 (2.5%)**, **10/80 (12.5%)**, **8/80 (10%)**, respectively. Both sides of each mirror have exact two-sided p-values **0.4295905078 Brawler**, **0.8746293124 Rifle**, **1 Artillery**, so none rejects 50% at the required significance.
 
-[Built] Worth is **0.4892708333 Brawler**, **0.4866666667 Rifle**, **0.5240625 Artillery**; maximum/minimum **1.0768407534**. HP/DPS per Power is **16.5 / 0.35**, **3.8333333333 / 1**, **4 / 0.4**; no unit strictly leads another on both metrics.
+[Built] Worth is **0.4904166667 Brawler**, **0.484375 Rifle**, **0.5252083333 Artillery**; maximum/minimum **1.0843010753**. HP/DPS per Power is **16.5 / 0.35**, **3.8333333333 / 1**, **4 / 0.4**; no unit strictly leads another on both metrics.
 
 The selected candidate kept the original one-second Rifle cadence and passed every non-mirror rule in its ten-seed screen. Further cadence variants did not justify chasing ten-fight mirror noise. The accepted forty-seed measurement uses the orchestrator's revised statistical rule, not the superseded ±5% screen. Non-rejection is not proof of exact equality or independent seed samples. The earlier baseline below is historical; support compositions, expanded roster, network, rendering and packaged gameplay are not validated by this matrix.
+
+[Built] Scoped check **`20261003-034304-check-5ada`** passed all selected scopes, including combat, four doctrines, both match outcomes, pursuit, production and the duel world scenario; **33 rules tests** and **872 Python tests** passed with no lint findings. Whole-match run **`20261003-034351-sim-7fa9`** validated **4/4 matches** with a **600-game-second cap**: classic-map team 0 won both matches (median **2.84 game minutes**); V2 had two natural ten-minute cap draws. This is a runtime regression smoke, not acceptance of whole-match pacing or side balance.
 
 ## Duel report — pursuit-fixed baseline published 2026-10-03
 
