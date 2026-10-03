@@ -21,6 +21,7 @@ struct FRegion
 	bool bTargetAlive = true;
 	bool bMain = false;
 	bool bClaimed = false;
+	bool bAttacked = false;
 	int32 Controller = INDEX_NONE;
 	int32 Hostiles = 0;
 	int32 DepositValue = 0;

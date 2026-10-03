@@ -57,7 +57,7 @@ FPlan MakePlan(const FWorld& World, const FForce& Force, EVerb Verb, int32 Targe
 	Plan.Source = Force.Source;
 	Plan.Target = Target;
 	Plan.SizeBand = SizeBand(Force.UnitCount);
-	const float Speed = SlowestSpeed(Force);
+	const float Speed = SlowestSpeed(Force) * (Verb == EVerb::Retreat ? 1.25f : 1.f);
 	Plan.EtaSeconds = Speed > 0.f ? Length / Speed : 0.f;
 	Plan.bRequiresUnownedTarget = Verb != EVerb::Retreat && World.Regions[Target].Controller != World.Team;
 	return Plan;
@@ -108,7 +108,9 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		return Out;
 	const FPaths Route = Paths(World, Force);
 	const bool bRecover = Force.HealthFraction < .35f || (Force.bRecovering && Force.HealthFraction < .8f);
-	if (Exists(World, Force.Home) && Route.Hops[Force.Home] != INDEX_NONE)
+	if (Exists(World, Force.Home) && World.Regions[Force.Home].bTargetAlive
+		&& World.Regions[Force.Home].Controller == World.Team && World.Regions[Force.Home].Hostiles == 0
+		&& Route.Hops[Force.Home] != INDEX_NONE)
 		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), bRecover ? 1000.f : -1000.f);
 	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
 	{
@@ -117,9 +119,9 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 			continue;
 		if (Region.Controller == World.Team)
 		{
-			if (Region.Hostiles > 0 || Index == Force.Source)
+			if (Region.Hostiles > 0 || Region.bAttacked || Index == Force.Source)
 				Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Index, Route.Length[Index]),
-					Region.Hostiles > 0 ? 100.f - Route.Hops[Index] * 5.f : -100.f);
+					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f : -100.f);
 			continue;
 		}
 		if (Region.bMain && Index != World.EnemyHome)
@@ -152,8 +154,13 @@ bool TargetValid(const FWorld& World, const FPlan& Plan)
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out)
 {
 	if (Current && Now < Current->CommittedUntil && Exists(World, Force.Source)
-		&& World.Regions[Force.Source].Hostiles > 0)
+		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked))
 	{
+		if (Current->bEscalated && Current->Target == Force.Source)
+		{
+			Out = *Current;
+			return true;
+		}
 		Out = MakePlan(World, Force, EVerb::MoveAndHold, Force.Source,
 			FVector::Dist2D(Force.Position, World.Regions[Force.Source].Position));
 		Out.bEscalated = true;

@@ -9,7 +9,15 @@ import statistics
 
 from harness.simulation_charts import make_charts
 from harness.simulation_comparison import compare_pair, symmetry_metadata
-from harness.simulation_evidence import GroupKey, Groups, save_json, teams
+from harness.simulation_evidence import (
+    PLAN_LABELS,
+    PLAN_VERBS,
+    GroupKey,
+    Groups,
+    committed_plan_evidence,
+    save_json,
+    teams,
+)
 from harness.simulation_validation import validate_report
 from harness.verify import JsonObject
 
@@ -102,6 +110,62 @@ def layout_evidence(groups: Groups, lines: list[str]) -> JsonObject:
                 f"  Reward graph hops: `{metadata['reward_hops']}`; median ≥12-unit largest-region share: **{share}**."
             )
     return layouts
+
+
+def plan_evidence(
+    valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
+) -> JsonObject:
+    lines += [
+        "",
+        "## JEV committed plans (team 5)",
+        "",
+        "Counts are unique tickets per match, grouped by their creation verb. Escalation changes the same ticket, not the plan count; two-second republication and repeated snapshots do not count again. Team 0 autopilot does not publish plans.",
+        "",
+        "| Match | Seed | Move & Hold | Attack | Retreat | Total | Escalated | Captures | Attacks observed |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    matches = []
+    totals = dict.fromkeys((*PLAN_VERBS, "total", "escalated"), 0)
+    for record, report in valid:
+        evidence = committed_plan_evidence(report)
+        evidence.update(
+            match=Path(record["directory"]).name, seed=record["job"]["seed"]
+        )
+        matches.append(evidence)
+        counts = evidence["counts"]
+        for name in totals:
+            totals[name] += counts[name]
+        lines.append(
+            f"| `{evidence['match']}` | {evidence['seed']} | {counts['move_and_hold']} | {counts['attack']} | {counts['retreat']} | {counts['total']} | {counts['escalated']} | {evidence['captures']} | {evidence['attacks_observed']} |"
+        )
+    lines.append(
+        f"| **Total** | | **{totals['move_and_hold']}** | **{totals['attack']}** | **{totals['retreat']}** | **{totals['total']}** | **{totals['escalated']}** | | |"
+    )
+    lines += [
+        "",
+        "### Active published plans at each terminal snapshot",
+        "",
+        "Full sampled plan histories and creation/escalation events remain in each `match.json`; ETA and remaining commitment below are in seconds at the terminal observation.",
+    ]
+    for evidence in matches:
+        lines += [
+            "",
+            f"#### `{evidence['match']}` — {evidence['active_at_seconds']:.1f}s",
+            "",
+        ]
+        if not evidence["active_plans"]:
+            lines.append("No active published plans.")
+            continue
+        lines += [
+            "| Ticket | Force | Verb | Source region | Target region | Size band | ETA s | Commitment s | Escalated | Memo |",
+            "| ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        ]
+        for plan in evidence["active_plans"]:
+            memo = " ".join(plan["memo"].split()).replace("|", r"\|")
+            lines.append(
+                f"| {plan['ticket']} | {plan['force']} | {PLAN_LABELS[plan['verb']]} | {plan['source_region']} | {plan['target_region']} | ~{plan['size_band']} units | {plan['eta_seconds']:.1f} | {plan['remaining_commitment_seconds']:.1f} | {'yes' if plan['escalated'] else 'no'} | {memo} |"
+            )
+    return dict(team=5, counts=totals, matches=matches)
 
 
 def paired_comparisons(
@@ -236,6 +300,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         "",
     ]
     layouts = layout_evidence(groups, lines)
+    plans = plan_evidence(valid, lines)
     comparisons = paired_comparisons(valid, manifest, lines)
     report_tail(run, manifest, failed, groups, lines)
     save_json(
@@ -243,6 +308,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         dict(
             groups=summaries,
             layouts=layouts,
+            jev_plans=plans,
             failures=failed,
             dilation_comparisons=comparisons,
         ),

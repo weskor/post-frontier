@@ -99,6 +99,8 @@ def validate_snapshots(report: JsonObject, duration: float) -> None:
         validate_teams(snapshot)
         if not isinstance(snapshot.get("deposits"), list):
             raise ValueError("Missing per-deposit history")
+        if not isinstance(snapshot.get("enemy_plans"), list):
+            raise ValueError("Missing per-force JEV plan history")
     if (
         abs(snapshots[0]["time"]) > 0.001
         or abs(snapshots[-1]["time"] - duration) > 0.001

@@ -48,6 +48,12 @@ bool FJevCandidatesTest::RunTest(const FString&)
 	const float Speeds[] = { 200.f, 100.f };
 	FForce Force = ForceSummary(Speeds);
 	TestEqual(TEXT("ETA follows the slowest class across every path leg"), TravelSeconds(World, Force, 2), 20.f);
+	FWorld Safe = World;
+	Safe.Regions[2].Controller = 5;
+	FForce Returning = Force;
+	Returning.Home = 2;
+	Returning.HealthFraction = .1f;
+	TestEqual(TEXT("Retreat ETA includes its sprint speed"), Choose(Propose(Safe, Returning))->Plan.EtaSeconds, 16.f);
 	World.Regions[0].Neighbours = uint64(1) << 1;
 	World.Regions[1].Position = FVector(0.f, 1000.f, 0.f);
 	TestTrue(TEXT("ETA uses the region path, not the endpoint distance"), TravelSeconds(World, Force, 2) > 30.f);
@@ -57,6 +63,11 @@ bool FJevCandidatesTest::RunTest(const FString&)
 	const FCandidates Candidates = Propose(World, Force);
 	for (int32 Index = 0; Index < Candidates.Count; ++Index)
 		TestEqual(TEXT("Claimed and disconnected targets cannot be proposed"), Candidates.Values[Index].Plan.Target, 0);
+	World.Regions[0].Hostiles = 1;
+	Force.HealthFraction = .1f;
+	const FCandidates Threatened = Propose(World, Force);
+	for (int32 Index = 0; Index < Threatened.Count; ++Index)
+		TestNotEqual(TEXT("Retreat cannot select a threatened recovery region"), Threatened.Values[Index].Plan.Verb, EVerb::Retreat);
 	Force.UnitCount = 0;
 	TestEqual(TEXT("An empty force cannot publish a deployment"), Propose(World, Force).Count, 0);
 	for (int32 Count = 0; Count <= 9; ++Count)
@@ -123,15 +134,23 @@ bool FJevExceptionsTest::RunTest(const FString&)
 	using namespace JevPlanner;
 	FWorld World = WorldSummary();
 	const float Speeds[] = { 100.f };
-	const FForce Force = ForceSummary(Speeds);
+	FForce Force = ForceSummary(Speeds);
 	FPlan Initial, Next;
 	Decide(World, Force, 0.f, nullptr, Initial);
+	World.Regions[0].bAttacked = true;
+	TestTrue(TEXT("Damage from outside the source polygon permits defense"), Decide(World, Force, 1.f, &Initial, Next));
+	TestTrue(TEXT("Ranged region damage escalates even without an invading unit"), Next.bEscalated);
+	World.Regions[0].bAttacked = false;
 	World.Regions[0].Hostiles = 1;
 	TestTrue(TEXT("Own-region attack permits escalation"), Decide(World, Force, 2.f, &Initial, Next));
 	TestTrue(TEXT("Defense is visibly escalated"), Next.bEscalated);
 	TestEqual(TEXT("Defense targets own current region"), Next.Target, Force.Source);
 	TestEqual(TEXT("Defense uses Move and Hold"), Next.Verb, EVerb::MoveAndHold);
 	TestEqual(TEXT("Escalation retains deadline"), Next.CommittedUntil, Initial.CommittedUntil);
+	Force.UnitCount = 2;
+	FPlan Repeated;
+	Decide(World, Force, 3.f, &Next, Repeated);
+	TestEqual(TEXT("Ongoing defense does not flicker its committed size band"), Repeated.SizeBand, Next.SizeBand);
 	World.Regions[0].Hostiles = 0;
 	FPlan Defending;
 	Decide(World, Force, 4.f, &Next, Defending);

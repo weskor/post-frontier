@@ -1,6 +1,7 @@
 """Invalid attempts, missing samples and censored results never inflate report numbers."""
 
 from copy import deepcopy
+import json
 from pathlib import Path
 
 from harness.simulation_charts import sample_buckets
@@ -56,7 +57,13 @@ def telemetry() -> tuple[JsonObject, JsonObject]:
         deposits=[{}],
         unit_definitions=[{}],
         snapshots=[
-            dict(time=t, scheduled_time=t, teams=deepcopy(teams), deposits=[])
+            dict(
+                time=t,
+                scheduled_time=t,
+                teams=deepcopy(teams),
+                deposits=[],
+                enemy_plans=[],
+            )
             for t in (0, 30, 60)
         ],
         events=[
@@ -160,6 +167,21 @@ def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
         validate_report(report, job)
 
 
+def test_missing_plans_are_excluded_instead_of_crashing_aggregation(
+    tmp_path: Path,
+) -> None:
+    job, report = telemetry()
+    del report["snapshots"][-1]["enemy_plans"]
+    folder = tmp_path / "match"
+    folder.mkdir()
+    save_json(folder / "match.json", report)
+    record = dict(job=job, directory=str(folder), status="complete", returncode=0)
+    assert not summarize(tmp_path, dict(matches=[record], planned_jobs=[job]))
+    evidence = json.loads((tmp_path / "summary.json").read_text())
+    assert evidence["groups"] == []
+    assert evidence["failures"][0]["status"] == "failed"
+
+
 def test_incomplete_batch_and_missing_pair_fail_reporting(tmp_path: Path) -> None:
     manifest = dict(
         matches=[],
@@ -198,3 +220,66 @@ def test_layout_uses_planar_distance_and_unreachable_reward() -> None:
     assert result["0"]["nearest_natural_cm"] == 50
     assert result["0"]["reward_hops"] == {"2": None}
     assert result["5"]["nearest_natural_cm"] == pytest.approx((70**2 + 40**2) ** 0.5)
+
+
+def test_four_match_plan_counts_ignore_republication_and_autopilot(
+    tmp_path: Path,
+) -> None:
+    records = []
+    for seed in range(1, 5):
+        job, report = telemetry()
+        job.update(seed=seed, variant="baseline2")
+        report["seed"] = seed
+        plan = dict(
+            ticket=1,
+            force=10,
+            verb=0,
+            source_region=0,
+            target_region=1,
+            size_band=8,
+            eta_seconds=10,
+            remaining_commitment_seconds=25,
+            escalated=False,
+            memo="Ticket #1 · Reallocating ~8 units",
+        )
+        # One ticket persists across evaluation publications and changes verb
+        # during escalation. Its creation verb still counts only once.
+        report["events"] += [
+            dict(plan, time=time, kind="plan_created", team=5)
+            for time in (2, 4, 6)
+        ]
+        report["events"] += [
+            dict(plan, time=time, kind="plan_escalated", team=5, verb=1, escalated=True)
+            for time in (8, 10)
+        ]
+        report["events"] += [
+            dict(plan, time=12, kind="plan_created", team=5, verb=1, escalated=True),
+            dict(plan, time=14, kind="plan_created", team=5, ticket=2, verb=2),
+            dict(plan, time=16, kind="plan_created", team=5, ticket=3, verb=1),
+            dict(plan, time=18, kind="plan_created", team=0, ticket=4),
+            dict(plan, time=20, kind="plan_escalated", team=0, ticket=4),
+            dict(time=22, kind="region_control", team=5, region=1, previous_team=0),
+        ]
+        report["events"].sort(key=lambda event: event["time"])
+        for snapshot in report["snapshots"][1:]:
+            snapshot["enemy_plans"] = [dict(plan, verb=1, escalated=True)]
+        directory = tmp_path / f"match-{seed}"
+        directory.mkdir()
+        save_json(directory / "match.json", report)
+        records.append(
+            dict(job=job, directory=str(directory), status="complete", returncode=0)
+        )
+    manifest = dict(matches=records, planned_jobs=[row["job"] for row in records])
+    assert summarize(tmp_path, manifest)
+    evidence = json.loads((tmp_path / "summary.json").read_text())["jev_plans"]
+    assert evidence["counts"] == dict(
+        move_and_hold=4, attack=4, retreat=4, total=12, escalated=4
+    )
+    for match in evidence["matches"]:
+        assert match["counts"] == dict(
+            move_and_hold=1, attack=1, retreat=1, total=3, escalated=1
+        )
+        assert match["captures"] == 1
+        assert match["attacks_observed"] == 2
+    text = (tmp_path / "Report.md").read_text()
+    assert "| **Total** | | **4** | **4** | **4** | **12** | **4** |" in text
