@@ -29,6 +29,8 @@ void UMatchTelemetry::BeginPlay()
 	if (ACommandGameState* State = AuthorityState())
 	{
 		MatchId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+		// Seamless travel renames the old world before component EndPlay.
+		MapName = UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName());
 		StartedSimulationSeconds = GetWorld()->GetTimeSeconds();
 		for (APlayerState* Player : State->PlayerArray)
 			RegisterHuman(Cast<ACommandPlayerState>(Player));
@@ -172,7 +174,7 @@ void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
 	const TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
 	Root->SetNumberField(TEXT("schema_version"), 2);
 	Root->SetStringField(TEXT("match_id"), MatchId);
-	Root->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName()));
+	Root->SetStringField(TEXT("map"), MapName);
 	Root->SetNumberField(TEXT("battle_seconds"), EndedBattleSeconds);
 	Root->SetStringField(TEXT("result"), bAbandoned ? TEXT("Abandoned") : State->MatchResult == EMatchResult::Victory ? TEXT("Victory")
 																													  : TEXT("Defeat"));

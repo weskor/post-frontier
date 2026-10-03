@@ -363,7 +363,10 @@ private:
 		Player->CommanderIndex = Index;
 		Player->SetPlayerName(Name);
 		if (OnlineId)
-			Player->SetUniqueId(FUniqueNetIdRepl(FUniqueNetIdString::Create(FString(OnlineId), FName(TEXT("NULL")))));
+		{
+			const FUniqueNetIdRef Identity = FUniqueNetIdString::Create(FString(OnlineId), FName(TEXT("NULL")));
+			Player->SetUniqueId(FUniqueNetIdRepl(Identity));
+		}
 		State->AddPlayerState(Player);
 		return PC;
 	}

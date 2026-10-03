@@ -58,6 +58,7 @@ private:
 	void WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause = nullptr);
 	TArray<FMatchTelemetryPlayer> Players;
 	FString MatchId;
+	FString MapName;
 	FString OutputPath;
 	double StartedSimulationSeconds = 0.;
 	double EndedBattleSeconds = 0.;

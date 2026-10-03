@@ -4,7 +4,7 @@ The host writes one JSON per match in the game's saved folder, under `Telemetry/
 
 ## Schema [Built]
 
-`schema_version` is **2**. Root fields: `match_id`, `map`, `battle_seconds`, `result`, `players`, `ending`.
+`schema_version` is **2**. Root fields: `match_id`, `map`, `battle_seconds`, `result`, `players`, `ending`. `map` is the original map identity, captured at BeginPlay before seamless travel can rename the old world.
 
 - `battle_seconds`: simulation time from the match component's BeginPlay to terminal result or abandonment; paused wall time is excluded. `result` is `Victory`, `Defeat` or `Abandoned`, from the friendly team's perspective.
 - Each `players` entry contains a random match-local `player_id`, `commander_index` (zero-based; index 0 is HUD Commander 1), `disconnected`, `joined_seconds`, `left_seconds`, `participation_seconds`, exact `orders`, `builds`, `pings`, and their per-minute rates plus `decisions_per_minute`. No network ID or player name is written.
