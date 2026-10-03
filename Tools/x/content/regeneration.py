@@ -1,8 +1,9 @@
 """`./x land` step: regenerate binaries whose text sources changed, commit them apart."""
 
-import fcntl
+import contextlib
 from pathlib import Path
 import shlex
+import subprocess
 import sys
 
 from x import gitinfo
@@ -19,24 +20,87 @@ def committed_changes(repo: Path) -> list[str]:
     return [path for path in diff.split("\0") if path]
 
 
-def has_regeneration_commits(repo: Path) -> bool:
-    subjects = gitinfo.query(repo, "log", "--format=%s", "main..HEAD").splitlines()
-    return SUBJECT in subjects
+def commit_paths(repo: Path, sha: str) -> list[str]:
+    output = gitinfo.query(
+        repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", sha
+    )
+    return [path for path in output.split("\0") if path]
+
+
+def branch_commits(repo: Path) -> list[str]:
+    return gitinfo.query(repo, "rev-list", "--no-merges", "main..HEAD").split()
+
+
+def is_regeneration(repo: Path, mapping: generated.GeneratedMap, sha: str) -> bool:
+    """Land's own commit: its subject, and every path one of the mapped outputs."""
+    if gitinfo.query(repo, "log", "-1", "--format=%s", sha).strip() != SUBJECT:
+        return False
+    outputs = tuple(pattern for entry in mapping.entries for pattern in entry.outputs)
+    paths = commit_paths(repo, sha)
+    return bool(paths) and all(generated.matches_any(outputs, path) for path in paths)
+
+
+def foreign_output_changes(repo: Path) -> str | None:
+    """Refusal naming branch commits, other than land's, that change generated outputs.
+
+    Only main..HEAD is inspected, so binaries already on main (landed by another
+    branch's land) never trip it.
+    """
+    mapping = generated.load(repo)
+    maps = [mapping]
+    with contextlib.suppress(subprocess.CalledProcessError):
+        main_map = gitinfo.query(repo, "show", f"main:{generated.MAP_PATH}")
+        maps.append(generated.parse(main_map))
+    found: list[str] = []
+    for sha in branch_commits(repo):
+        if is_regeneration(repo, mapping, sha):
+            continue
+        found += [
+            f"{sha[:9]}: {message}"
+            for message in generated.rejections(maps, commit_paths(repo, sha))
+        ]
+    if not found:
+        return None
+    return (
+        "branch commits change generated binaries (commit text only; land "
+        "regenerates them): " + "; ".join(found)
+    )
 
 
 def rebase_command(repo: Path) -> tuple[list[str], dict[str, str]]:
-    """Rebase onto main, dropping earlier regeneration commits: land makes fresh ones.
+    """Rebase onto main, dropping regeneration commits a crashed land left behind.
 
-    A kept commit would replay binaries and conflict when main moved the same assets.
+    Land removes its regeneration commit whenever it refuses, so only a crash
+    leaves one. A kept commit would replay binaries and conflict when main moved
+    the same assets; land makes a fresh one.
     """
-    if not has_regeneration_commits(repo):
+    mapping = generated.load(repo)
+    stale = [sha for sha in branch_commits(repo) if is_regeneration(repo, mapping, sha)]
+    if not stale:
         return ["git", "rebase", "main"], {}
     script = Path(__file__).resolve().with_name("drop_commits.py")
     editor = f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}"
-    return ["git", "rebase", "-i", "main"], {
+    return ["git", "-c", "rebase.autoSquash=false", "rebase", "-i", "main"], {
         "GIT_SEQUENCE_EDITOR": editor,
-        "X_DROP_SUBJECT": SUBJECT,
+        "X_DROP_SHAS": " ".join(stale),
     }
+
+
+def undo_regeneration(repo: Path, head: str) -> None:
+    """Remove land's regeneration commit after a refusal, keeping other local edits.
+
+    The worktree can hold check-applied formatting that the worker must commit;
+    stash it around the reset so only the regenerated binaries go away.
+    """
+    if gitinfo.commit(repo) == head:
+        return
+    stashed = gitinfo.is_dirty(repo)
+    if stashed:
+        gitinfo.query(repo, "stash", "push", "--quiet", "--include-untracked")
+    gitinfo.query(repo, "reset", "--hard", head)
+    if stashed:
+        gitinfo.query(repo, "stash", "pop", "--quiet")
+    print("land: removed the regeneration commit; the next land regenerates")
 
 
 def restore(repo: Path) -> None:
@@ -72,14 +136,13 @@ def regenerate(ctx: Context) -> str | None:
         f"land: regenerating {', '.join(entry.name for entry in entries)} "
         f"via ./x gen {', '.join(gens)}"
     )
-    with ctx.locks.held(["generator.lock"], fcntl.LOCK_EX):
-        for name in gens:
-            code = ctx.exec(
-                [sys.executable, ctx.repo / "x", "gen", name], log=f"regenerate-{name}"
-            )
-            if code != 0:
-                restore(ctx.repo)
-                return f"./x gen {name} failed; inspect regenerate-{name}.log"
+    for name in gens:
+        code = ctx.exec(
+            [sys.executable, ctx.repo / "x", "gen", name], log=f"regenerate-{name}"
+        )
+        if code != 0:
+            restore(ctx.repo)
+            return f"./x gen {name} failed; inspect regenerate-{name}.log"
     changed = dirty_paths(ctx.repo)
     stray = [path for path in changed if not generated.matches_any(writable, path)]
     if stray:

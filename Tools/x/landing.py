@@ -7,7 +7,12 @@ from pathlib import Path
 import subprocess
 
 from x import gitinfo, jsonio, source
-from x.content.regeneration import rebase_command, regenerate
+from x.content.regeneration import (
+    foreign_output_changes,
+    rebase_command,
+    regenerate,
+    undo_regeneration,
+)
 from x.context import Context
 from x.scopes import load
 
@@ -311,6 +316,31 @@ def merge_checked(ctx: Context, main: Path, branch: str) -> int:
     return 0
 
 
+def check_and_merge(ctx: Context, main: Path, branch: str) -> int:
+    if ctx.run is None:
+        raise RuntimeError("landing requires a recorded command")
+    reused = reusable_check(ctx, branch)
+    if reused is not None:
+        message = f"reused passed check {reused}: identical content, every selected scope passed"
+        print(f"land: {message}")
+        ctx.run.add_result("check", True, message)
+        return merge_checked(ctx, main, branch)
+    from x.commands.check import check
+
+    result = check(ctx, audit=False)
+    if result.reformatted:
+        return refuse(
+            ctx,
+            "check reformatted files; commit them before landing: "
+            + ", ".join(map(str, result.reformatted)),
+        )
+    if not result.ok:
+        return refuse(ctx, "check failed; fix and commit before landing")
+    if gitinfo.is_dirty(ctx.repo):
+        return refuse(ctx, "check left task worktree dirty; commit changes first")
+    return merge_checked(ctx, main, branch)
+
+
 def land(ctx: Context) -> int:
     if ctx.run is None:
         raise RuntimeError("landing requires a recorded command")
@@ -333,28 +363,16 @@ def land(ctx: Context) -> int:
             return refuse(
                 ctx, "main worktree is dirty; commit or move every local change first"
             )
+        foreign = foreign_output_changes(ctx.repo)
+        if foreign is not None:
+            return refuse(ctx, foreign)
         if not rebase(ctx):
             return 1
+        head = gitinfo.commit(ctx.repo)
         refusal = regenerate(ctx)
         if refusal is not None:
             return refuse(ctx, refusal)
-        reused = reusable_check(ctx, branch)
-        if reused is not None:
-            message = f"reused passed check {reused}: identical content, every selected scope passed"
-            print(f"land: {message}")
-            ctx.run.add_result("check", True, message)
-            return merge_checked(ctx, main, branch)
-        from x.commands.check import check
-
-        result = check(ctx, audit=False)
-        if result.reformatted:
-            return refuse(
-                ctx,
-                "check reformatted files; commit them before landing: "
-                + ", ".join(map(str, result.reformatted)),
-            )
-        if not result.ok:
-            return refuse(ctx, "check failed; fix and commit before landing")
-        if gitinfo.is_dirty(ctx.repo):
-            return refuse(ctx, "check left task worktree dirty; commit changes first")
-        return merge_checked(ctx, main, branch)
+        code = check_and_merge(ctx, main, branch)
+        if code != 0:
+            undo_regeneration(ctx.repo, head)
+        return code

@@ -11,13 +11,18 @@ HELP = """./x land
 
 Run on a committed task/<slug> branch, never main. Landings serialize under
 <lock_dir>/land.lock. Rebase conflicts are aborted and their paths printed.
+Before rebasing, refuse a branch whose own commits change generated binaries
+(agents commit text only; main's history is not inspected).
 After the rebase, regenerate binary assets whose text sources changed on the
 branch: Tools/x/generated.toml maps sources to outputs and the ./x gen entries
-that write them. Gens run serially under <lock_dir>/generator.lock and their
-outputs are committed in one separate "Regenerate binary assets (./x land)"
-commit; a generator that fails or writes outside its outputs refuses the
-landing and leaves the worktree clean. No changed source: nothing regenerates.
-A retry drops earlier regeneration commits and makes fresh ones.
+that write them. Gens run serially and their outputs are committed in one
+separate "Regenerate binary assets (./x land)" commit; a generator that fails
+or writes outside its outputs refuses the landing and leaves the worktree
+clean. No changed source: nothing regenerates. Whenever land refuses after
+committing regenerated binaries it removes that commit again (other local
+edits, such as check formatting, are kept), so a manual `git rebase main`
+never replays binaries. Only a crashed land can leave one; the next land
+drops commits with that subject whose paths are all mapped outputs.
 Then reuse the newest passed ./x check of this branch whose content
 stayed unchanged during the check, equals the rebased content exactly and passed
 every scope now selected; the land record names it. Otherwise run the scoped

@@ -60,6 +60,16 @@ def subjects(repo: Path) -> list[str]:
     return git(repo, "log", "--format=%s", "main..HEAD").splitlines()
 
 
+def forge_commit(repo: Path, path: str, text: str, subject: str) -> str:
+    """Commit without hooks (plumbing), standing in for a crash or a skipped hook."""
+    write(repo, path, text)
+    git(repo, "add", path)
+    tree = git(repo, "write-tree")
+    commit = git(repo, "commit-tree", tree, "-p", "HEAD", "-m", subject)
+    git(repo, "reset", "-q", "--hard", commit)
+    return commit
+
+
 def test_source_change_regenerates_and_commits_binaries(repo: Path, task: Path) -> None:
     commit_file(task, "Build/Content/fake.json", '{"value": 7}\n')
     result = invoke(task, "land")
@@ -158,7 +168,8 @@ def test_retry_after_failed_check_keeps_one_regeneration_commit(
     commit_file(task, "Tools/check.txt", "select tools\n")
     first = invoke(task, "land")
     assert first.returncode == 1 and "check failed" in first.stdout
-    assert subjects(task).count(SUBJECT) == 1
+    assert SUBJECT not in subjects(task)
+    assert git(task, "status", "--porcelain") == ""
     git(task, "rm", "-q", "Docs/fail.md")
     git(task, "commit", "-m", "fix")
     second = invoke(task, "land")
@@ -187,3 +198,56 @@ def test_generator_failure_is_refused(repo: Path, task: Path) -> None:
     assert result.returncode == 1
     assert "./x gen fake-assets failed" in result.stdout
     assert git(task, "status", "--porcelain") == ""
+
+
+def test_refusal_after_regeneration_keeps_local_formatting(repo: Path, task: Path) -> None:
+    commit_file(task, "Build/Content/fake.json", '{"value": 6}\n')
+    commit_file(task, "Tools/x/unformatted.py", "answer=1\n")
+    base = git(task, "rev-parse", "HEAD")
+    result = invoke(task, "land")
+    assert result.returncode == 1 and "check reformatted files" in result.stdout
+    assert git(task, "rev-parse", "HEAD") == base
+    assert (task / "Tools/x/unformatted.py").read_text() == "answer = 1\n"
+    assert (task / "Content/Fake/asset.uasset").read_text() == "value=0\n"
+    assert git(task, "status", "--porcelain").split() == ["M", "Tools/x/unformatted.py"]
+
+
+def test_crashed_land_leftover_is_dropped_but_lookalikes_are_kept(
+    repo: Path, task: Path
+) -> None:
+    commit_file(task, "Docs/work.md", "work\n")
+    forge_commit(task, "Docs/lookalike.md", "mine\n", SUBJECT)
+    forge_commit(task, "Content/Fake/asset.uasset", "value=9\n", SUBJECT)
+    result = invoke(task, "land")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (repo / "Content/Fake/asset.uasset").read_text() == "value=0\n"
+    assert (repo / "Docs/lookalike.md").read_text() == "mine\n"
+    assert (repo / "Docs/work.md").read_text() == "work\n"
+
+
+def test_branch_commit_changing_generated_output_is_refused(
+    repo: Path, task: Path
+) -> None:
+    commit_file(task, "Docs/task.md", "text\n")
+    forge_commit(task, "Content/Fake/asset.uasset", "value=8\n", "sneaky")
+    before = git(repo, "rev-parse", "HEAD")
+    result = invoke(task, "land")
+    assert result.returncode == 1
+    assert "branch commits change generated binaries" in result.stdout
+    assert "Content/Fake/asset.uasset" in result.stdout
+    assert git(repo, "rev-parse", "HEAD") == before
+
+
+def test_generated_outputs_already_on_main_do_not_trip_land(
+    repo: Path, task: Path
+) -> None:
+    other = repo.parent / "other"
+    git(repo, "worktree", "add", "-b", "task/other", str(other))
+    commit_file(other, "Build/Content/fake.json", '{"value": 2}\n')
+    assert invoke(other, "land").returncode == 0
+    assert (repo / "Content/Fake/asset.uasset").read_text() == "value=2\n"
+    commit_file(task, "Docs/task.md", "text\n")
+    result = invoke(task, "land")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "nothing to regenerate" in result.stdout
+    assert (repo / "Content/Fake/asset.uasset").read_text() == "value=2\n"
