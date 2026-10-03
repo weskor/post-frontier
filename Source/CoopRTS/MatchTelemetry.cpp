@@ -35,42 +35,63 @@ void UMatchTelemetry::BeginPlay()
 	}
 }
 
+void UMatchTelemetry::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	const ACommandGameState* State = AuthorityState();
+	if (State && State->MatchResult == EMatchResult::Ongoing && !bFlushed && !MatchId.IsEmpty())
+	{
+		const TCHAR* Cause = TEXT("unknown_end_play");
+		switch (EndPlayReason)
+		{
+		case EEndPlayReason::LevelTransition:
+			Cause = TEXT("level_transition");
+			break;
+		case EEndPlayReason::RemovedFromWorld:
+			Cause = TEXT("removed_from_world");
+			break;
+		case EEndPlayReason::EndPlayInEditor:
+			Cause = TEXT("end_play_in_editor");
+			break;
+		case EEndPlayReason::Quit:
+			Cause = TEXT("application_quit");
+			break;
+		case EEndPlayReason::Destroyed:
+			Cause = TEXT("owner_destroyed");
+			break;
+		}
+		WriteMatch(true, Cause);
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
 FMatchTelemetryPlayer* UMatchTelemetry::FindOrRegister(ACommandPlayerState* Player)
 {
 	const ACommandGameState* State = AuthorityState();
-	if (!State || bFlushed || State->MatchResult != EMatchResult::Ongoing
+	if (!State || MatchId.IsEmpty() || bFlushed || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(Player) || Player->GetWorld() != GetWorld() || Player->TeamIndex != 0
 		|| Player->CommanderIndex < 0 || Player->CommanderIndex >= 5)
 		return nullptr;
+	const FUniqueNetIdRepl& UniqueId = Player->GetUniqueId();
 	for (FMatchTelemetryPlayer& Entry : Players)
-		if (Entry.State == Player)
+		if (Entry.State == Player || (UniqueId.IsValid() && Entry.OnlineId.IsValid() && Entry.OnlineId == UniqueId))
 		{
 			Entry.State = Player;
 			Entry.CommanderIndex = Player->CommanderIndex;
-			Entry.PlayerName = Player->GetPlayerName();
+			if (!Entry.OnlineId.IsValid() && UniqueId.IsValid())
+				Entry.OnlineId = UniqueId;
+			if (Entry.bDisconnected)
+				Entry.ConnectedSinceSeconds = GetBattleSeconds();
 			Entry.bDisconnected = false;
 			return &Entry;
 		}
-	const FUniqueNetIdRepl& UniqueId = Player->GetUniqueId();
-	const FString OnlineId = UniqueId.IsValid() ? UniqueId.ToString() : FString();
-	if (!OnlineId.IsEmpty())
-		for (FMatchTelemetryPlayer& Entry : Players)
-			if (Entry.PlayerId == OnlineId)
-			{
-				Entry.State = Player;
-				Entry.CommanderIndex = Player->CommanderIndex;
-				Entry.PlayerName = Player->GetPlayerName();
-				Entry.bDisconnected = false;
-				return &Entry;
-			}
 	FMatchTelemetryPlayer& Entry = Players.AddDefaulted_GetRef();
 	Entry.State = Player;
-	// Steam identity remains stable across reconnects. Offline players receive a
-	// distinct match-local identity, never a reusable commander slot or name.
-	Entry.PlayerId = !OnlineId.IsEmpty() ? OnlineId
-										 : TEXT("local:") + FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
+	Entry.OnlineId = UniqueId;
+	// Never derive this match-local label from an account ID, host or name.
+	Entry.PlayerId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
 	Entry.CommanderIndex = Player->CommanderIndex;
-	Entry.PlayerName = Player->GetPlayerName();
+	Entry.JoinedSeconds = GetBattleSeconds();
+	Entry.ConnectedSinceSeconds = Entry.JoinedSeconds;
 	return &Entry;
 }
 
@@ -81,8 +102,15 @@ void UMatchTelemetry::RegisterHuman(ACommandPlayerState* Player)
 
 void UMatchTelemetry::HumanLeft(ACommandPlayerState* Player)
 {
-	if (FMatchTelemetryPlayer* Entry = FindOrRegister(Player))
-		Entry->bDisconnected = true;
+	for (FMatchTelemetryPlayer& Entry : Players)
+		if (Entry.State == Player && !Entry.bDisconnected && !bFlushed)
+		{
+			Entry.LeftSeconds = GetBattleSeconds();
+			Entry.ParticipationSeconds += FMath::Max(0., Entry.LeftSeconds - Entry.ConnectedSinceSeconds);
+			Entry.bHasLeft = true;
+			Entry.bDisconnected = true;
+			return;
+		}
 }
 
 void UMatchTelemetry::RecordAccepted(ACommandPlayerState* Player, EMatchDecision Decision)
@@ -129,36 +157,50 @@ void UMatchTelemetry::FlushMatch()
 	const ACommandGameState* State = AuthorityState();
 	if (!State || bFlushed || State->MatchResult == EMatchResult::Ongoing)
 		return;
+	WriteMatch(false);
+}
+
+void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
+{
+	const ACommandGameState* State = AuthorityState();
+	if (!State || bFlushed || MatchId.IsEmpty()
+		|| (State->MatchResult == EMatchResult::Ongoing) != bAbandoned)
+		return;
 	EndedBattleSeconds = GetBattleSeconds();
 	bFlushed = true; // One attempt even on failure; reporting cannot change outcome.
 
 	const TSharedRef<FJsonObject> Root = MakeShared<FJsonObject>();
-	Root->SetNumberField(TEXT("schema_version"), 1);
+	Root->SetNumberField(TEXT("schema_version"), 2);
 	Root->SetStringField(TEXT("match_id"), MatchId);
 	Root->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName()));
 	Root->SetNumberField(TEXT("battle_seconds"), EndedBattleSeconds);
-	Root->SetStringField(TEXT("result"), State->MatchResult == EMatchResult::Victory ? TEXT("Victory") : TEXT("Defeat"));
+	Root->SetStringField(TEXT("result"), bAbandoned ? TEXT("Abandoned")
+		: State->MatchResult == EMatchResult::Victory ? TEXT("Victory") : TEXT("Defeat"));
 
 	TArray<TSharedPtr<FJsonValue>> PlayerValues;
 	PlayerValues.Reserve(Players.Num());
-	const double PerMinute = EndedBattleSeconds > 0. ? 60. / EndedBattleSeconds : 0.;
 	for (FMatchTelemetryPlayer& Entry : Players)
 	{
 		if (!Entry.bDisconnected && Entry.State.IsValid())
-		{
-			Entry.PlayerName = Entry.State->GetPlayerName();
 			Entry.CommanderIndex = Entry.State->CommanderIndex;
-		}
+		const double Participation = Entry.ParticipationSeconds
+			+ (Entry.bDisconnected ? 0. : FMath::Max(0., EndedBattleSeconds - Entry.ConnectedSinceSeconds));
+		const double PerMinute = Participation > 0. ? 60. / Participation : 0.;
 		const TSharedRef<FJsonObject> Player = MakeShared<FJsonObject>();
 		Player->SetStringField(TEXT("player_id"), Entry.PlayerId);
-		Player->SetStringField(TEXT("player_name"), Entry.PlayerName);
 		Player->SetNumberField(TEXT("commander_index"), Entry.CommanderIndex);
 		Player->SetBoolField(TEXT("disconnected"), Entry.bDisconnected);
+		Player->SetNumberField(TEXT("joined_seconds"), Entry.JoinedSeconds);
+		if (Entry.bHasLeft)
+			Player->SetNumberField(TEXT("left_seconds"), Entry.LeftSeconds);
+		else
+			Player->SetField(TEXT("left_seconds"), MakeShared<FJsonValueNull>());
+		Player->SetNumberField(TEXT("participation_seconds"), Participation);
 		Player->SetNumberField(TEXT("orders"), Entry.Orders);
 		Player->SetNumberField(TEXT("builds"), Entry.Builds);
 		Player->SetNumberField(TEXT("pings"), Entry.Pings);
-		// Every rate uses the full battle's simulation duration, including for
-		// late joiners/leavers. A zero-duration battle has finite zero rates.
+		// Rates use accumulated connected simulation time, excluding prejoin and
+		// disconnection gaps. Zero participation produces finite zero rates.
 		Player->SetNumberField(TEXT("orders_per_minute"), Entry.Orders * PerMinute);
 		Player->SetNumberField(TEXT("builds_per_minute"), Entry.Builds * PerMinute);
 		Player->SetNumberField(TEXT("pings_per_minute"), Entry.Pings * PerMinute);
@@ -170,11 +212,12 @@ void UMatchTelemetry::FlushMatch()
 	const TSharedRef<FJsonObject> Ending = MakeShared<FJsonObject>();
 	const bool bDefeat = State->MatchResult == EMatchResult::Defeat;
 	const AHeadquarters* HQ = bDefeat ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get();
-	const bool bDestroyedHQ = IsValid(HQ) && HQ->Health <= 0;
+	const bool bDestroyedHQ = !bAbandoned && IsValid(HQ) && HQ->Health <= 0;
 	const bool bTie = bDestroyedHQ && bDefeat && IsValid(State->EnemyHeadquarters) && State->EnemyHeadquarters->Health <= 0;
-	Ending->SetStringField(TEXT("cause"), bDestroyedHQ ? bTie ? TEXT("both_headquarters_destroyed") : bDefeat ? TEXT("friendly_headquarters_destroyed")
-																											  : TEXT("enemy_headquarters_destroyed")
-													   : TEXT("match_result_set"));
+	Ending->SetStringField(TEXT("cause"), bAbandoned ? AbandonmentCause
+		: bDestroyedHQ ? bTie ? TEXT("both_headquarters_destroyed")
+			: bDefeat ? TEXT("friendly_headquarters_destroyed") : TEXT("enemy_headquarters_destroyed")
+		: TEXT("match_result_set"));
 	const AMapRegion* Region = bDestroyedHQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
 	Ending->SetNumberField(TEXT("region_index"), Region ? Region->RegionIndex : INDEX_NONE);
 	Ending->SetStringField(TEXT("region_name"), Region ? Region->DisplayName.ToString() : FString());

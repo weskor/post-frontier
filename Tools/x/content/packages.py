@@ -27,7 +27,7 @@ def package_executable(directory: Path, target: str, config: str) -> Path:
 
 
 def latest_package_directory(repo: Path, config: str) -> Path:
-    variants = (config, "playtest") if config == "shipping" else (config,)
+    variants = (config, "playtest") if config == "development" else (config,)
     candidates = []
     for variant in variants:
         latest = repo / "Saved/Packages" / variant / "latest"
@@ -97,8 +97,10 @@ def publish(
     if archive is not None:
         playtest.compress(directory, archive)
         current = playtest.input_hash(repo)
-        if current != package_hash or gitinfo.commit(repo) != (details or {}).get(
-            "commit"
+        if (
+            current != package_hash
+            or gitinfo.commit(repo) != (details or {}).get("commit")
+            or gitinfo.is_dirty(repo)
         ):
             raise ValueError(
                 "package inputs changed during archiving; run ./x package again"

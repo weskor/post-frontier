@@ -1,7 +1,6 @@
 """Launch a content-hash-verified package while holding the exclusive lock."""
 
 import argparse
-import os
 from pathlib import Path
 import sys
 
@@ -11,20 +10,21 @@ from x.context import Context
 
 NAME = "play"
 SUMMARY = "Launch the latest fresh package, offline by default."
-HELP = """./x play [--shipping] [--smoke] [--map /Game/Maps/Boot] [--steam] [-- extra]
+HELP = """./x play [--shipping] [--smoke] [--map LEVEL] [--steam] [-- extra]
 
 Launch the latest content-hash-fresh package while holding the exclusive lock
 until the game exits. Missing/stale packages refuse with run ./x package;
-use ./x package shipping for Shipping or ./x package --playtest for the test-Steam
-distribution. Shipping selects the newest fresh ordinary/playtest package without
-changing either variant's latest pointer. No argument selects the packaged startup
-map; --map selects an explicit level. Never mutate a running artifact or stop a
+use ./x package shipping for Shipping or ./x package --playtest for the Development
+test-Steam distribution. Development selects the newest fresh ordinary/playtest
+package without changing either variant's latest pointer; Shipping selects only
+ordinary Shipping. No argument selects the packaged startup map; --map selects an
+explicit cooked level. Never mutate a running artifact or stop a
 user's game to clear a blocker. Use ./x verify native|desktop for guarded automated
 input/capture on Development, and ./x check for change proof.
 Without --steam, -nosteam disables Steam. Extra arguments can select window size,
 listen/client URLs, logging or an explicit SDL backend:
-./x play --map /Game/Maps/Boot -- -nullrhi -ExecCmds=Quit
-./x play -- /Game/Maps/Boot?listen -windowed -ResX=1280 -ResY=720
+./x play -- -nullrhi -ExecCmds=Quit
+./x play -- -windowed -ResX=1280 -ResY=720
 ./x play -- 127.0.0.1:7777 -windowed -ResX=1280 -ResY=720
 Each command holds its local exclusive lock, so direct-IP remote play needs a
 separate workstation/lock domain; use ./x verify network|desktop for local peers.
@@ -32,8 +32,8 @@ IP proof does not prove Steam. A successful launch or clean exit is not an
 automatic gameplay/input/visual acceptance result.
 
 Smoke tiers (same command for Development and Shipping):
-./x play --smoke --map /Game/Maps/Boot -- -nullrhi
-./x play --smoke --shipping --map /Game/Maps/Boot -- -nullrhi
+./x play --smoke -- -nullrhi
+./x play --smoke --shipping -- -nullrhi
 --smoke explicitly launches --map (or the playtest metadata's default map, otherwise
 settings.default_map) under
 the same exclusive lock and retains game.log, engine stdout and smoke.json.
@@ -177,7 +177,7 @@ def smoke(
     report = folder / "smoke.json"
     game_log = folder / "game.log"
     argv[-1] = f"-abslog={game_log}"
-    user_config = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+    user_config = Path.home() / ".config"
     crash_roots = [
         executable.parents[2] / "Saved/Crashes",
         user_config / "Epic" / ctx.settings.game_target / "Saved/Crashes",

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "MatchTelemetry.generated.h"
 
 class ACommandGameState;
@@ -18,17 +19,23 @@ enum class EMatchDecision : uint8
 struct FMatchTelemetryPlayer
 {
 	TWeakObjectPtr<ACommandPlayerState> State;
+	// Opaque reconnect identity is memory-only; PlayerId is an unrelated UUID.
+	FUniqueNetIdRepl OnlineId;
 	FString PlayerId;
-	FString PlayerName;
 	int32 CommanderIndex = INDEX_NONE;
 	int32 Orders = 0;
 	int32 Builds = 0;
 	int32 Pings = 0;
+	double JoinedSeconds = 0.;
+	double LeftSeconds = 0.;
+	double ConnectedSinceSeconds = 0.;
+	double ParticipationSeconds = 0.;
+	bool bHasLeft = false;
 	bool bDisconnected = false;
 };
 
 // Local, non-replicated product telemetry. Each fresh GameState owns a fresh
-// component; only authority records humans and attempts a terminal JSON write.
+// component; only authority records humans and attempts a terminal/abandoned write.
 UCLASS()
 class COOPRTS_API UMatchTelemetry : public UActorComponent
 {
@@ -36,6 +43,7 @@ class COOPRTS_API UMatchTelemetry : public UActorComponent
 public:
 	UMatchTelemetry();
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	void RegisterHuman(ACommandPlayerState* Player);
 	void HumanLeft(ACommandPlayerState* Player);
 	void RecordAccepted(ACommandPlayerState* Player, EMatchDecision Decision);
@@ -47,6 +55,7 @@ public:
 private:
 	ACommandGameState* AuthorityState() const;
 	FMatchTelemetryPlayer* FindOrRegister(ACommandPlayerState* Player);
+	void WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause = nullptr);
 	TArray<FMatchTelemetryPlayer> Players;
 	FString MatchId;
 	FString OutputPath;

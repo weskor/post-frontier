@@ -19,16 +19,16 @@ HELP = (
     "last successful package. package.json records run_id, config, commit and "
     "the input content hash. Only the two newest successful packages per variant "
     "are kept; unsuccessful archives are removed. Builds/ is untouched. "
-    "--playtest always selects Shipping, cooks Menu, AvailabilityZoneV2 and the "
-    "classic AvailabilityZone menu option, and writes a commit-named tar.gz under "
-    "Saved/Packages/playtest/<run-id>/ with PLAYTEST.txt controls generated from "
-    "README.md and PLAYTEST.sh for test Steam App 480. It passes the supported "
-    "UBT ProjectDefine override for project modules; installed precompiled Steam "
-    "engine modules are not rebuilt. The staged steam_appid.txt and helper supply "
-    "the actual test identity. This is not a release identity or Steam acceptance "
+    "--playtest always selects Development, requires a clean Git tree, cooks "
+    "Menu, AvailabilityZoneV2 and the classic AvailabilityZone menu option, and "
+    "writes a commit-named tar.gz under Saved/Packages/playtest/<run-id>/ with "
+    "PLAYTEST.txt controls generated from README.md and PLAYTEST.sh for test "
+    "Steam App 480. The staged steam_appid.txt and launcher environment supply "
+    "the test identity; this is not a release identity or Steam acceptance "
     "proof. Ordinary Development/Shipping latest pointers are unchanged. "
-    "./x play --shipping selects the newest fresh Shipping/playtest variant; "
-    "a playtest's default smoke map is AvailabilityZoneV2."
+    "./x play selects the newest fresh Development/playtest variant; --shipping "
+    "selects ordinary Shipping only. A playtest's default smoke map is "
+    "AvailabilityZoneV2."
 )
 RECORD = True
 UAT_SCRIPT = Path("Engine/Build/BatchFiles/RunUAT.sh")
@@ -39,9 +39,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--playtest", action="store_true")
 
 
-def cook(
-    ctx: Context, directory: Path, config: str, maps: list[str], is_playtest: bool
-) -> int:
+def cook(ctx: Context, directory: Path, config: str, maps: list[str]) -> int:
     return ctx.exec(
         [
             ctx.settings.engine_root / UAT_SCRIPT,
@@ -61,7 +59,6 @@ def cook(
             f"-archivedirectory={directory}",
             "-unattended",
             "-utf8output",
-            *([playtest.STEAM_UBT_ARGS] if is_playtest else []),
         ],
         log="package",
     )
@@ -80,7 +77,7 @@ def prepare_playtest(
         "default_map": playtest.DEFAULT_MAP,
         "archive": archive.name,
         "steam_app_id": 480,
-        "steam_identity": "staged-appid-and-project-definition",
+        "steam_identity": "staged-appid-and-launcher-env",
     }
 
 
@@ -99,7 +96,7 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     if ctx.run is None:
         raise RuntimeError("packaging requires a recorded run")
     is_playtest = getattr(args, "playtest", False)
-    config = "shipping" if is_playtest else args.config
+    config = "development" if is_playtest else args.config
     variant = "playtest" if is_playtest else config
     directory = ctx.repo / "Saved/Packages" / variant / ctx.run.id
     maps = list(playtest.MAPS) if is_playtest else ctx.settings.maps()
@@ -108,6 +105,10 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     published = False
     latest = directory.parent / "latest"
     with ctx.locks.exclusive():
+        if is_playtest and gitinfo.is_dirty(ctx.repo):
+            raise ValueError(
+                "--playtest requires a clean Git tree; commit or remove local changes"
+            )
         previous = latest.readlink() if latest.is_symlink() else None
         try:
             package_hash = ctx.freshness.current_hash("package")
@@ -116,22 +117,26 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
                 # Validate authored instructions before launching an expensive cook.
                 playtest.controls(ctx.repo)
                 package_hash = playtest.input_hash(ctx.repo, package_hash)
-            code = cook(ctx, directory, config, maps, is_playtest)
+            code = cook(ctx, directory, config, maps)
             if code:
                 return code
             executable = package_executable(directory, ctx.settings.game_target, config)
             details: dict[str, Any] = {}
             archive: Path | None = None
-            if is_playtest:
-                archive, details = prepare_playtest(
-                    ctx, directory, executable, commit, maps
-                )
             current_hash = ctx.freshness.current_hash("package")
             if is_playtest:
                 current_hash = playtest.input_hash(ctx.repo, current_hash)
+                if gitinfo.is_dirty(ctx.repo):
+                    raise ValueError(
+                        "package inputs changed during cooking; Git tree is dirty"
+                    )
             if current_hash != package_hash or gitinfo.commit(ctx.repo) != commit:
                 raise ValueError(
                     "package inputs changed during cooking; run ./x package again"
+                )
+            if is_playtest:
+                archive, details = prepare_playtest(
+                    ctx, directory, executable, commit, maps
                 )
             publish(
                 ctx.repo,

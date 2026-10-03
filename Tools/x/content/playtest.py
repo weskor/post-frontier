@@ -15,7 +15,6 @@ MAPS = (
     "/Game/Maps/AvailabilityZone",
 )
 DEFAULT_MAP = MAPS[1]
-STEAM_UBT_ARGS = "-ubtargs=-ProjectDefine:UE_PROJECT_STEAMSHIPPINGID=480"
 INPUTS = (
     "README.md",
     "Tools/x/commands/package.py",
@@ -101,20 +100,13 @@ def prepare(
         f"{table}\n\n"
         "SEND FEEDBACK\n"
         "Tell the organizer what happened, which commander you were, and this\n"
-        "commit. Send screenshots and any Saved/Logs, Saved/Crashes and\n"
-        "Saved/Telemetry files (telemetry is host-only; no automatic upload).\n"
-        f"Look under {relative.parents[2]}/Saved and, if redirected, under\n"
-        f"${{XDG_CONFIG_HOME:-$HOME/.config}}/Epic/{target}/Saved. Ordinary\n"
-        "Shipping engine logging is compiled out: absent logs are expected;\n"
-        "-log does not enable them. Keep the host's match JSON files.\n\n"
-        "TEST STEAM IDENTITY\n"
-        "This Shipping playtest stages steam_appid.txt=480 next to the binary\n"
-        "and sets SteamAppId/SteamGameId=480. UBT's supported ProjectDefine\n"
-        "override sets UE_PROJECT_STEAMSHIPPINGID=480 in project modules only;\n"
-        "it does not rebuild the installed precompiled Steam engine module.\n"
-        "That module retains its compiled identity; the staged file supplies\n"
-        "the test Steam API identity. App 480 is test setup, not a release\n"
-        "identity or Steam distribution/WAN/invitation acceptance proof.\n"
+        "commit. Send screenshots, the game's Saved/Logs/CoopRTS.log, crash\n"
+        "reports in Saved/Crashes/, and the host's match JSON files in\n"
+        "Saved/Telemetry/ (host-only; no automatic upload).\n"
+        f"These paths are under {relative.parents[2]}/ in the extracted build.\n"
+        f"If they are not there, check $HOME/.config/Epic/{target}/Saved/:\n"
+        "Logs/CoopRTS.log, Crashes/ and Telemetry/*.json. Start with PLAYTEST.sh;\n"
+        "Development writes game logs without an extra -log argument.\n"
     )
     return directory / f"CoopRTS-playtest-{commit}.tar.gz"
 
