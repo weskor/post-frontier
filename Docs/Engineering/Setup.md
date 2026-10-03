@@ -17,7 +17,7 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | Baseline | The working tree was committed as-is on 2026-10-02 (`3104bdc`). HEAD had been two days behind (125 modified, 289 untracked files). |
 | Entry point | One Python task runner, `./x`, at the repo root. The only documented way to do anything. |
 | Fast tests | Automation tests in an editor-hosted `-game` process, start-up trimmed; Low-Level Tests need a source engine build (see [Open](#open)). |
-| Unreal processes | Headless test processes run in parallel, up to N (set from RAM). Anything using the desktop, Steam, packaging or asset generators takes an exclusive lock. `./x` owns both. |
+| Unreal processes | Headless automation and Unreal generators lease one pool slot; network verification leases one per Unreal peer, capped at N and acquired together. Packaging, `./x play`, `./x editor` and native/desktop sessions stay exclusive. `./x` owns FIFO admission and both lock modes. |
 | Binary assets | `.uasset`/`.umap` are generated outputs. Tuned values and maps live in text. Agents change text only; `./x land` regenerates and commits binaries. |
 | Live-editor automation | None. Assets change only through generators from text sources; inspection uses the runner's tests and HUD verification. |
 | Command path | One validated command path for humans, JEV, tests and the harness. Test-only RPCs and debug flags leave release builds. |
@@ -32,16 +32,16 @@ Target setup for building Post-Frontier with many agents working in parallel. Th
 | `./x test <scope>` | Runs one test scope (see tiers below). |
 | `./x check` | Runs exactly the scopes mapped to the files changed against main, plus format and lint. The only proof an agent offers. |
 | `./x verify <feature>` | Runs a feature's slow verification (network, HUD capture, native window). |
-| `./x gen <asset>` | Runs one generator. Takes the exclusive lock. |
+| `./x gen <asset>` | Runs one generator. Unreal generators lease one headless slot; non-Unreal generators take no Unreal lock. |
 | `./x sim` | Runs the balance harness. |
 | `./x package` | Builds a package into a run-specific folder, never over the friends' playtest build. |
 | `./x land` | Rebases, runs `check`, regenerates binary assets from text if their sources changed, fast-forwards main. |
 | `./x help` | The procedure reference. Docs link here instead of repeating commands. |
 
 The runner owns:
-- **Locks:** the headless process pool and the exclusive desktop lock, queued fairly, with stale-lock cleanup after crashes. Stale editor builds take a global one-at-a-time build lock before pool admission; waiting builds hold no pool slot. Fresh editor checks use only headless admission. Every worktree reads its pool size from [settings.toml](../../Tools/x/settings.toml).
-- **Freshness:** content hashes of sources, not file timestamps. Today `verify.py` refuses to run if any source file is newer than the module, so one agent's edit blocks everyone ([tests audit](Audit/tests.md)).
-- **Evidence:** every run writes a machine-readable record (command, commit, scopes, results, timings, log paths) into a per-run folder. Agents cite run IDs; nobody hand-writes RESULTS.md.
+- **Locks:** the headless process pool and exclusive desktop lock admit requests first-come, first-served using ordered, flock-protected tickets. Dead waiters and holders cannot block the queue. Stale editor builds take a global one-at-a-time build lock before pool admission; waiting builds hold no pool slot. Fresh editor checks take no pool slot. Automation builds once up front and releases its lease after each scope; Python and script scopes take no Unreal lock. Unreal generators use one slot; network verification acquires one slot per peer together, capped at the configured pool size. Packaging, play, editor and native/desktop sessions remain exclusive. Every worktree reads its pool size from [settings.toml](../../Tools/x/settings.toml).
+- **Freshness:** content hashes of sources, not file timestamps. A per-worktree module readers/writer lock prevents builds from replacing a module used by automation; input/module changes during a scope still fail that scope.
+- **Evidence:** every run writes a machine-readable record (command, commit, scopes, results, timings, log paths) into a per-run folder. Every automation lease includes its scope-labelled wait in `lock_waits`, even without contention. Agents cite run IDs; nobody hand-writes RESULTS.md.
 - **The engine path, maps list and ports,** each defined once.
 
 ## Test tiers
@@ -59,7 +59,7 @@ The runner owns:
 
 - **One branch per task, one git worktree per worker slot.** A slot's worktree is reused for its next task once the previous one has landed, so its `Binaries/` and `Intermediate/` stay warm; a full non-unity module build in a fresh worktree takes ~30 s (run `20261002-103603-build-c862`). The derived-data cache is shared. Roles, panes and the task loop are in the [orchestrate skill](../../.agents/skills/orchestrate/SKILL.md).
 - **Unity builds are off** for the game module (done in phase 1: `CoopRTS.Build.cs` sets `bUseUnity = false`). Each `.cpp` compiles separately, so same-named helpers in different files no longer collide ([architecture audit](Audit/architecture.md)).
-- **Generated binaries never conflict:** agents don't commit them, and `land` regenerates them serially under the exclusive lock.
+- **Generated binaries never conflict:** agents don't commit them; each worktree's generators write only its own assets using a headless slot, and `land` regenerates before committing.
 - **Feature folders:** code, tests and the scope entry for a feature live together, so a task touches one folder plus the shared interfaces.
 
 ## Architecture targets

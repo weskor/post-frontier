@@ -20,8 +20,11 @@ Use named tests for a diagnosed failure or a specifically requested baseline;
 --list prints the available scope names, kinds and automation filters. Do not
 invent scenarios or duplicate the path-to-test map in documentation.
 Runs every requested scope once and retains per-scope results and logs. Automation
-builds the editor automatically when its configured source hashes are stale,
-then launches a fresh headless world on the scope's configured map.
+builds the editor once up front when its configured source hashes are stale,
+then leases and releases one headless slot for each fresh scope world. Exclusive
+waiters and other runs can interleave between scopes; Python/scripts take no
+Unreal lock. Each automation lease records scope:<name>:headless in lock_waits,
+including uncontended acquisition. Same-worktree builds cannot replace its module.
 
 Proof limits:
 - Python/tool and map-validator scopes prove only their checks; validator images

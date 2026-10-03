@@ -31,6 +31,9 @@ not a requirement after every change. Use host plus one remote for ordinary
 replicated proof; --clients 0 or 4 and --emulation belong only to requested topology/
 fault checks. Emulation requires observed native PktLag=120/PktLoss=8 on every peer.
 Editor mode ensures a fresh editor build. Packaged mode requires ./x package.
+Network leases one headless slot per host/client peer, capped at the configured
+pool size and acquired together. HUD uses one slot. Native/desktop sessions remain
+exclusive; rendered network peers still use the headless pool.
 If the current packaged -nullrhi launch actually fails, retain that failure and
 try a new ./x verify network invocation with --rendered; the socket assertions
 are unchanged and Vulkan windows alone add no visual proof.
@@ -186,8 +189,8 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
             return execute(args, ctx, session)
     if args.mode == "editor" and not ensure_editor(ctx):
         return 1
-    exclusive = args.harness == "network" and args.clients > 0
-    with ctx.locks.exclusive() if exclusive else ctx.locks.headless():
+    peers = 1 + args.clients if args.harness == "network" else 1
+    with ctx.locks.headless(peers):
         if args.mode == "packaged":
             package_snapshot(ctx.repo)
         return execute(args, ctx, folder)

@@ -60,7 +60,7 @@ def _automation(
         ctx.settings.default_map if scope.map == "default" else scope.map
     )
     log = ctx.run.dir / f"{name}-unreal.log"
-    with ctx.locks.headless():
+    with ctx.locks.module(), ctx.locks.headless(label=f"scope:{name}:headless"):
         before = editor_module(ctx).stat()
         inputs = ctx.freshness.current_hash("editor")
         if not ctx.freshness.is_fresh("editor"):
