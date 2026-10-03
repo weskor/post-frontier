@@ -97,13 +97,22 @@ public:
 			break;
 		case EStage::CheckNumber:
 			Key(NumberKeys[NumberIndex], IE_Released);
-			if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("Key %d selects force number %d, not army array index"), NumberIndex + 1, NumberIndex + 1))
+			if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("%s key %d selects force number %d, not army array index"),
+					bSoloNumberPass ? TEXT("Solo") : TEXT("Co-op"), NumberIndex + 1, NumberIndex + 1))
 				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Single number key does not move camera")))
 				return true;
-			if (++NumberIndex < 5)
+			if (++NumberIndex < (bSoloNumberPass ? 5 : 4))
 				Stage = EStage::PressNumber;
+			else if (!bSoloNumberPass)
+			{
+				PC->SelectActor(Owned[0].Get());
+				BeforeCamera = Camera->GetActorLocation();
+				Key(EKeys::Five, IE_Pressed);
+				Stage = EStage::CheckCoopFive;
+			}
 			else
 			{
+				State->AddPlayerState(ForeignWallet.Get());
 				PC->SelectActor(Owned[0].Get());
 				PC->SelectForce(Owned[1].Get(), true);
 				Camera->FocusOn(FromFriendlyHQ(State, 0.f, -1800.f, 0.f));
@@ -111,6 +120,16 @@ public:
 				Key(EKeys::F, IE_Pressed);
 				Stage = EStage::CheckFocus;
 			}
+			break;
+		case EStage::CheckCoopFive:
+			Key(EKeys::Five, IE_Released);
+			if (!Check(Only(Owned[0].Get()), TEXT("Two-human roster rejects key five without changing the existing selection"))
+				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Rejected co-op key five does not move camera")))
+				return true;
+			State->RemovePlayerState(ForeignWallet.Get());
+			bSoloNumberPass = true;
+			NumberIndex = 0;
+			Stage = EStage::PressNumber;
 			break;
 		case EStage::CheckFocus:
 			Key(EKeys::F, IE_Released);
@@ -135,7 +154,7 @@ public:
 			if (!ExerciseOrphan())
 				return true;
 			PC->SelectActor(nullptr);
-			Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, solo keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, building panel/highlight and real-time short/expired/interrupted double-click windows, enemy/dead exclusions and teammate read-only inspection."));
+			Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, co-op keys 1–4 and key-5 rejection, one-human roster keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, building panel/highlight and real-time short/expired/interrupted double-click windows, enemy/dead exclusions and teammate read-only inspection."));
 			return true;
 		default:
 			break;
@@ -151,6 +170,7 @@ private:
 		ExpiredBuildingClick,
 		PressNumber,
 		CheckNumber,
+		CheckCoopFive,
 		CheckFocus,
 		HUD
 	};
@@ -384,6 +404,7 @@ private:
 	double BuildingClickStarted = 0.;
 	EStage Stage = EStage::Setup;
 	int32 NumberIndex = 0;
+	bool bSoloNumberPass = false;
 	const FKey NumberKeys[5] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four, EKeys::Five };
 	TWeakObjectPtr<ACommandPlayerController> PC;
 	TWeakObjectPtr<ACommandCamera> Camera;
