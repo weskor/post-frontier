@@ -558,7 +558,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const bool bSubmitted = PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))));
 			PC->SetPlayerState(Own);
 			return !bSubmitted && PC->PingCommands->PingFeedbackSerial == Serial
-				? FString() : TEXT("minimap ping before PlayerState arrived submitted a command");
+				? FString()
+				: TEXT("minimap ping before PlayerState arrived submitted a command");
 		}
 		if (Action == TEXT("pingAtScreenPosition"))
 			return PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))))

@@ -242,6 +242,24 @@ static void DrawSelectionBox(const FPainter& Paint, const ACommandPlayerControll
 	Paint.Outline(Box, Palette::Friendly);
 }
 
+static void DrawCommandDeck(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout)
+{
+	if (Context.bExpanded || CanPingInspectedForce(Context))
+	{
+		if (Context.bExpanded)
+			DrawBuildPanel(Paint, Layout);
+		Paint.Panel(Layout.Inspector);
+		if (Context.Building)
+			DrawBuildingInspector(Paint, Context, Layout.Inspector);
+		else if (Context.Force)
+			DrawForceInspector(Paint, Context, Layout.Inspector);
+		else
+			DrawOverview(Paint, Context, Forces, Layout.Inspector);
+	}
+	else
+		DrawModeBar(Paint, Context, Layout);
+}
+
 void ACommandHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -280,20 +298,7 @@ void ACommandHUD::DrawHUD()
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
-	if (Context.bExpanded || CanPingInspectedForce(Context))
-	{
-		if (Context.bExpanded)
-			DrawBuildPanel(Paint, Layout);
-		Paint.Panel(Layout.Inspector);
-		if (Context.Building)
-			DrawBuildingInspector(Paint, Context, Layout.Inspector);
-		else if (Context.Force)
-			DrawForceInspector(Paint, Context, Layout.Inspector);
-		else
-			DrawOverview(Paint, Context, Forces, Layout.Inspector);
-	}
-	else
-		DrawModeBar(Paint, Context, Layout);
+	DrawCommandDeck(Paint, Context, Forces, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button) {
 		if (Button.Action == EHUDAction::Menu)
 			DrawScreenButton(Paint, Button, Button.Action == Hover);

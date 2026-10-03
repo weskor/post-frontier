@@ -176,8 +176,11 @@ def pings_hud_scenario(
     origin, size = state["minimapOrigin"], state["minimapSize"]
     serial = state["pingFeedbackSerial"]
     state = run.request(
-        "host", "pingAtScreenPosition", x=origin[0] + size * 0.5,
-        y=origin[1] + size * 0.5, withoutPlayerState=True,
+        "host",
+        "pingAtScreenPosition",
+        x=origin[0] + size * 0.5,
+        y=origin[1] + size * 0.5,
+        withoutPlayerState=True,
     )
     require(
         state["pingFeedbackSerial"] == serial and not state["pingEvents"],

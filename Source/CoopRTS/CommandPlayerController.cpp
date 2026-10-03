@@ -1063,7 +1063,6 @@ void ACommandPlayerController::FocusSelection()
 		Camera->FocusOn(Target);
 }
 
-
 void ACommandPlayerController::PingAtCursor()
 {
 	float X, Y;
