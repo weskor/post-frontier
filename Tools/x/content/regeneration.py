@@ -22,7 +22,14 @@ def committed_changes(repo: Path) -> list[str]:
 
 def commit_paths(repo: Path, sha: str) -> list[str]:
     output = gitinfo.query(
-        repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "--no-renames", "-z", sha
+        repo,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        "--no-renames",
+        "-z",
+        sha,
     )
     return [path for path in output.split("\0") if path]
 

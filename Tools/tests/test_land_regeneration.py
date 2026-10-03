@@ -200,7 +200,9 @@ def test_generator_failure_is_refused(repo: Path, task: Path) -> None:
     assert git(task, "status", "--porcelain") == ""
 
 
-def test_refusal_after_regeneration_keeps_local_formatting(repo: Path, task: Path) -> None:
+def test_refusal_after_regeneration_keeps_local_formatting(
+    repo: Path, task: Path
+) -> None:
     commit_file(task, "Build/Content/fake.json", '{"value": 6}\n')
     commit_file(task, "Tools/x/unformatted.py", "answer=1\n")
     base = git(task, "rev-parse", "HEAD")
