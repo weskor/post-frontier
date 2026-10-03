@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ConstructionTypes.h"
+#include "Rules/HoldPolicy.h"
 #include "ArmyGroup.generated.h"
 
 class AArmyUnit;
@@ -26,6 +27,15 @@ enum class EArmyOrder : uint8
 	Move,
 	Attack,
 	Retreat
+};
+
+UENUM(BlueprintType)
+enum class EHoldThreatKind : uint8
+{
+	Intrusion,
+	Force,
+	Building,
+	Headquarters
 };
 
 UCLASS()
@@ -80,6 +90,24 @@ public:
 	FVector FrontLocation = FVector::ZeroVector;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	bool bAutomaticFront = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	int32 HoldRegionIndex = INDEX_NONE;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	int32 HoldPostIndex = INDEX_NONE;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	FVector HoldPostLocation = FVector::ZeroVector;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	bool bHoldResponding = false;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	TObjectPtr<AArmyUnit> HoldThreat;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	TObjectPtr<AActor> HoldThreatenedAsset;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Hold")
+	EHoldThreatKind HoldThreatKind = EHoldThreatKind::Intrusion;
+	bool IsHoldingRegion() const;
+	bool IsHoldTargetPermitted(const AArmyUnit& Target) const;
+	double GetHoldResponseStarted() const { return HoldClock.Started; }
+	double GetHoldQuietSince() const { return HoldClock.QuietSince; }
 
 	static constexpr float PursuitRadius = 1050.f;
 
@@ -108,6 +136,12 @@ protected:
 private:
 	friend class FCommandService;
 	friend class ACommandBuilding;
+	friend class ACommandGameState;
+	HoldPolicy::FClock HoldClock;
+	int32 HoldPostSlot = INDEX_NONE;
+	void ResetHoldState();
+	void UpdateHoldCombat();
+	void UpdateHoldMovement(AArmyUnit& Unit, const FVector& Goal);
 	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
 	bool ApplyAttack(FVector InDestination, AActor* InTarget);
 	bool ApplyHold();

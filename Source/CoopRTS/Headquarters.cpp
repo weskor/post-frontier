@@ -54,11 +54,12 @@ void AHeadquarters::BeginPlay()
 
 void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 {
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
 		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
 		return;
 	const int32 PreviousHealth = Health;
+	State->NotifyRegionDamage(this, TeamIndex, Attacker);
 	Health = FMath::Max(0, Health - Damage);
 	OnRep_Appearance();
 	ForceNetUpdate();

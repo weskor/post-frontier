@@ -196,6 +196,11 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		return;
 	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing)
 		return;
+	if ((HoldAlarmElapsed += DeltaSeconds) >= .25f)
+	{
+		HoldAlarmElapsed = 0.f;
+		UpdateRegionAlarms();
+	}
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	if (bVerificationIncomePaused)
 		return;

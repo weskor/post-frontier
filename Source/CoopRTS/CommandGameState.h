@@ -17,6 +17,16 @@ class AMapRegion;
 class ADepositSite;
 class UMatchContent;
 class UObjectiveAnnouncer;
+class AArmyUnit;
+
+struct FHoldDamageSource
+{
+	TWeakObjectPtr<AArmyUnit> Attacker;
+	TWeakObjectPtr<AActor> Victim;
+	int32 Team = INDEX_NONE;
+	int32 Region = INDEX_NONE;
+	double Expires = 0.;
+};
 
 UENUM(BlueprintType)
 enum class EMatchResult : uint8
@@ -54,6 +64,8 @@ public:
 	bool IsRegionContested(int32 RegionIndex, int32 ForTeam) const;
 	FVector GetRegionAnchor(int32 RegionIndex) const;
 	FVector ResolveBuildingLocation(int32 BuildingIndex, const FVector& RequestedLocation, int32 Team = 0) const;
+	void NotifyRegionDamage(AActor* Victim, int32 VictimTeam, AArmyUnit* Attacker);
+	bool IsDamagingRegion(const AArmyUnit& Attacker, int32 RegionIndex, int32 DefendingTeam) const;
 	bool ValidateBuildingPlacement(int32 BuildingIndex, int32 Team, const FVector& Location, FString& OutReason) const;
 	bool IsInBuildTerritory(int32 BuildingIndex, int32 Team, const FVector& Location) const;
 	int32 GetBaselineIncomePerSecond() const;
@@ -105,6 +117,9 @@ private:
 	ACommandBuilding* ApplyPlacement(int32 BuildingIndex, const FVector& Location,
 		ACommandPlayerState* Commander, int32 Team, FString& OutReason);
 	float IncomeElapsed = 0.f;
+	void UpdateRegionAlarms();
+	TArray<FHoldDamageSource> HoldDamageSources;
+	float HoldAlarmElapsed = 0.f;
 	// Tenths preserve fractional JEV credits without floating-point drift.
 	int32 EnemyIncomeRemainderTenths = 0;
 	float AudioLiveStartServerTime = 0.f;

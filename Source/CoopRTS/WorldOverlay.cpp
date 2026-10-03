@@ -1,5 +1,8 @@
 #include "WorldOverlay.h"
 
+#include "ArmyGroup.h"
+#include "ArmyUnit.h"
+#include "EngineUtils.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "CommandPlayerState.h"
@@ -202,6 +205,10 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 			}
 		break;
 	}
+	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		if (It->bHoldResponding && IsValid(It->HoldThreat) && It->HoldThreat->IsAlive())
+			Line(It->GetCenter() + FVector(0., 0., 45.),
+				It->HoldThreat->GetActorLocation() + FVector(0., 0., 45.), FColor::Orange, 5.f);
 	const float Now = GetWorld()->GetTimeSeconds();
 	Flashes.RemoveAllSwap([Now](const FFlash& Flash) { return Flash.Expires <= Now; }, EAllowShrinking::No);
 	for (const FFlash& Flash : Flashes)

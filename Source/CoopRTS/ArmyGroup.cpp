@@ -21,6 +21,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Rules/TargetingPolicy.h"
 #include "Rules/PursuitPolicy.h"
+#include "MapRegion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogArmyOrders, Log, All);
 
@@ -461,6 +462,13 @@ bool AArmyGroup::AssignFront(EFrontOrder InOrder, const FVector& InLocation)
 	FrontOrder = InOrder;
 	FrontLocation = Destination;
 	bAutomaticFront = true;
+	if (InOrder == EFrontOrder::Defend)
+	{
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		const AMapRegion* Region = State ? State->FindRegionAt(FrontLocation) : nullptr;
+		if (Region)
+			HoldRegionIndex = Region->RegionIndex;
+	}
 	FrontMaintenanceSeconds = 0.f;
 	ForceNetUpdate();
 	return true;
@@ -469,6 +477,7 @@ bool AArmyGroup::AssignFront(EFrontOrder InOrder, const FVector& InLocation)
 bool AArmyGroup::ApplyHold()
 {
 	StopAllUnits();
+	ResetHoldState();
 	AttackTarget = nullptr;
 	Order = EArmyOrder::Hold;
 	Destination = GetCenter();
@@ -574,6 +583,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 	}
 
 	StopAllUnits();
+	ResetHoldState();
 	for (const FPreparedMove& Move : Prepared)
 	{
 		// Submit the complete prevalidated path; no second query or delayed order.
@@ -606,7 +616,7 @@ void AArmyGroup::Tick(float DeltaSeconds)
 	if (!State || State->MatchResult != EMatchResult::Ongoing)
 		return;
 	UpdateReinforcements();
-	if (bAutomaticFront && !Units.IsEmpty() && (FrontMaintenanceSeconds += Elapsed) >= 2.f)
+	if (bAutomaticFront && !IsHoldingRegion() && !Units.IsEmpty() && (FrontMaintenanceSeconds += Elapsed) >= 2.f)
 	{
 		FrontMaintenanceSeconds = 0.f;
 		const bool bDisplaced = FVector::DistSquared2D(GetCenter(), FrontLocation) > FMath::Square(170.f);
@@ -635,10 +645,173 @@ void AArmyGroup::Tick(float DeltaSeconds)
 	UpdateCombat();
 }
 
+bool AArmyGroup::IsHoldingRegion() const
+{
+	return bAutomaticFront && FrontOrder == EFrontOrder::Defend && HoldRegionIndex != INDEX_NONE;
+}
+
+void AArmyGroup::ResetHoldState()
+{
+	HoldRegionIndex = HoldPostIndex = HoldPostSlot = INDEX_NONE;
+	bHoldResponding = false;
+	HoldThreat = nullptr;
+	HoldThreatenedAsset = nullptr;
+	HoldThreatKind = EHoldThreatKind::Intrusion;
+	HoldClock = {};
+}
+
+bool AArmyGroup::IsHoldTargetPermitted(const AArmyUnit& Target) const
+{
+	if (!Target.IsAlive() || Target.GetTeamIndex() == TeamIndex || !IsHoldingRegion())
+		return false;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (!State)
+		return false;
+	for (const AMapRegion* Region : State->Regions)
+		if (IsValid(Region) && Region->RegionIndex == HoldRegionIndex)
+		{
+			const FVector2D Position(Target.GetActorLocation());
+			const bool bInside = HoldPolicy::Contains(Region->Polygon, Position);
+			const double Distance = FVector2D::Distance(Position, HoldPolicy::ClosestBoundary(Region->Polygon, Position));
+			float Range = 0.f;
+			for (const AArmyUnit* Unit : Units)
+				if (IsValid(Unit) && Unit->IsAlive())
+					Range = FMath::Max(Range, Unit->WeaponRange());
+			return HoldPolicy::WithinLeash(bInside, State->IsDamagingRegion(Target, HoldRegionIndex, TeamIndex), Distance, Range);
+		}
+	return false;
+}
+
+void AArmyGroup::UpdateHoldMovement(AArmyUnit& Unit, const FVector& RequestedGoal)
+{
+	AAIController* AI = GetReadyController(&Unit);
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!AI || !State || !Navigation)
+		return;
+	const AMapRegion* Region = nullptr;
+	for (const AMapRegion* Candidate : State->Regions)
+		if (IsValid(Candidate) && Candidate->RegionIndex == HoldRegionIndex)
+			Region = Candidate;
+	if (!Region)
+		return;
+	const FVector2D Inside = HoldPolicy::ClampInside(Region->Polygon, FVector2D(RequestedGoal));
+	const FVector Goal(Inside.X, Inside.Y, RequestedGoal.Z);
+	if (Unit.bPursuing && FVector::DistSquared2D(Goal, Unit.PursuitGoal) <= FMath::Square(130.f)
+		&& (AI->GetMoveStatus() != EPathFollowingStatus::Idle || FVector::DistSquared2D(Unit.GetActorLocation(), Goal) <= FMath::Square(60.f)))
+		return;
+	FPreparedMove Move;
+	Move.Controller = AI;
+	if (!PrepareMove(*Navigation, Unit.GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
+			Unit.GetNavAgentLocation(), Goal, Move, 75.f))
+		return;
+	bool bEntered = HoldPolicy::Contains(Region->Polygon, FVector2D(Unit.GetActorLocation()));
+	FVector Previous = Unit.GetActorLocation();
+	for (const FNavPathPoint& Point : Move.Path->GetPathPoints())
+	{
+		if (bEntered && !HoldPolicy::SegmentInside(Region->Polygon, FVector2D(Previous), FVector2D(Point.Location)))
+			return;
+		bEntered |= HoldPolicy::Contains(Region->Polygon, FVector2D(Point.Location));
+		Previous = Point.Location;
+	}
+	if (StartPreparedMove(Move))
+	{
+		Unit.bPursuing = true;
+		Unit.PursuitGoal = Move.Goal;
+	}
+}
+
+void AArmyGroup::UpdateHoldCombat()
+{
+	if (HoldPostIndex == INDEX_NONE)
+		return;
+	if (HoldThreat && !IsHoldTargetPermitted(*HoldThreat))
+		HoldThreat = nullptr;
+	if (!bHoldResponding)
+		Destination = HoldPostLocation;
+	else if (HoldThreat)
+		Destination = HoldThreat->GetActorLocation();
+	for (AArmyUnit* Unit : Units)
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->bReinforcing)
+			continue;
+		AArmyUnit* Target = bHoldResponding ? HoldThreat.Get() : nullptr;
+		if (!bHoldResponding)
+		{
+			auto Permitted = [this, Unit](AArmyUnit* Enemy) {
+				return IsValid(Enemy) && IsHoldTargetPermitted(*Enemy)
+					&& FVector::DistSquared2D(Unit->GetActorLocation(), Enemy->GetActorLocation()) <= FMath::Square(Unit->WeaponRange());
+			};
+			Target = Cast<AArmyUnit>(Unit->Target.Get());
+			if (!Permitted(Target))
+			{
+				Target = nullptr;
+				FTargetSelection Selection;
+				int32 CandidateIndex = 0;
+				for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
+					if (Permitted(*It))
+					{
+						const int32 Candidate = CandidateIndex++;
+						Selection.Consider(Unit->GetDamageType(), Candidate, It->GetArmorClass(),
+							FVector::DistSquared2D(Unit->GetActorLocation(), It->GetActorLocation()));
+						if (Selection.Index == Candidate)
+							Target = *It;
+					}
+			}
+		}
+		if (Unit->Target != Target)
+		{
+			Unit->Target = Target;
+			Unit->bPursuing = false;
+			Unit->ForceNetUpdate();
+		}
+		if (!bHoldResponding)
+		{
+			UpdateHoldMovement(*Unit, HoldPostLocation + FormationOffset(Unit->CompositionSlot));
+			if (Target)
+				Unit->FireAt(Target);
+			continue;
+		}
+		if (!Target)
+		{
+			// Hold the last response position through the commitment/quiet grace,
+			// rather than continuing a stale move or returning before the clock expires.
+			if (AAIController* AI = Cast<AAIController>(Unit->GetController()))
+				AI->StopMovement();
+			Unit->GetCharacterMovement()->StopMovementImmediately();
+			Unit->bPursuing = false;
+			continue;
+		}
+		const float Distance = FVector::Dist2D(Unit->GetActorLocation(), Target->GetActorLocation());
+		if (Distance <= Unit->WeaponRange())
+		{
+			if (AAIController* AI = Cast<AAIController>(Unit->GetController()))
+				AI->StopMovement();
+			Unit->GetCharacterMovement()->StopMovementImmediately();
+			Unit->bPursuing = false;
+			Unit->FireAt(Target);
+		}
+		else
+		{
+			FVector Direction = Unit->GetActorLocation() - Target->GetActorLocation();
+			Direction.Z = 0.f;
+			Direction.Normalize();
+			FVector Goal = Target->GetActorLocation() + Direction * (Unit->WeaponRange() * .82f);
+			Goal.Z = HoldPostLocation.Z;
+			UpdateHoldMovement(*Unit, Goal);
+		}
+	}
+}
+
 void AArmyGroup::UpdateCombat()
 {
 	if (Order == EArmyOrder::Retreat)
 		return;
+	if (IsHoldingRegion())
+	{
+		UpdateHoldCombat();
+		return;
+	}
 	if (Units.IsEmpty())
 	{
 		if (AttackTarget)
@@ -831,5 +1004,12 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, FrontOrder);
 	DOREPLIFETIME(AArmyGroup, FrontLocation);
 	DOREPLIFETIME(AArmyGroup, bAutomaticFront);
+	DOREPLIFETIME(AArmyGroup, HoldRegionIndex);
+	DOREPLIFETIME(AArmyGroup, HoldPostIndex);
+	DOREPLIFETIME(AArmyGroup, HoldPostLocation);
+	DOREPLIFETIME(AArmyGroup, bHoldResponding);
+	DOREPLIFETIME(AArmyGroup, HoldThreat);
+	DOREPLIFETIME(AArmyGroup, HoldThreatenedAsset);
+	DOREPLIFETIME(AArmyGroup, HoldThreatKind);
 	DOREPLIFETIME(AArmyGroup, ProductionBuilding);
 }

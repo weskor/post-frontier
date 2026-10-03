@@ -285,7 +285,7 @@ void AArmyUnit::FireAt(AActor* Victim)
 
 void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 {
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || !IsValid(Attacker) || !Attacker->IsAlive()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
 		|| Attacker->TeamIndex == TeamIndex || Damage <= 0)
@@ -297,6 +297,8 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 			&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
 		? Damage * 3 / 4
 		: Damage;
+	if (State && AppliedDamage > 0)
+		State->NotifyRegionDamage(this, TeamIndex, Attacker);
 	Health = FMath::Max(0, Health - AppliedDamage);
 	OnRep_Appearance();
 	ForceNetUpdate();
