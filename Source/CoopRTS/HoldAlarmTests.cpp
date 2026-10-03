@@ -5,6 +5,7 @@
 #include "ArmyUnit.h"
 #include "AIController.h"
 #include "MapRegion.h"
+#include "ObjectiveAnnouncer.h"
 #include "NavigationData.h"
 #include "NavigationSystem.h"
 #include "HAL/PlatformTime.h"
@@ -116,6 +117,9 @@ public:
 				InitialCenters.Add(Holder->GetCenter());
 			if (Case == ECase::SharedCommanders && !ChooseSharedIntrusion())
 				return true;
+			ExpectedResponseEvents = ResponseEventCount();
+			if (!Check(ExpectedResponseEvents >= 0, TEXT("The authoritative objective history is available")))
+				return true;
 			BeginAlarm(Now);
 			break;
 		case EStage::Respond:
@@ -126,6 +130,8 @@ public:
 			FirstResponders = Responders();
 			FirstTarget = Holders[FirstResponders[0]]->HoldThreat;
 			ResponseStarted = Holders[FirstResponders[0]]->GetHoldResponseStarted();
+			if (!CheckResponseFeed(true))
+				return true;
 			if (!Check(FirstTarget == Threats[0].Get(), TEXT("Nearest eligible intrusion or damaging attacker is the response target")))
 				return true;
 			if (Case == ECase::Timers)
@@ -162,12 +168,14 @@ public:
 				if (!Check(Holders[Index]->bHoldResponding && Holders[Index]->HoldThreat == FirstTarget.Get(),
 						TEXT("Threat growth preserves committed responders and their live target")))
 					return true;
-			if (!CheckExpandedSelection() || !CheckIdleHolders(Responders()))
+			if (!CheckExpandedSelection() || !CheckIdleHolders(Responders()) || !CheckResponseFeed())
 				return true;
 			EnableWeapons();
 			SetStage(EStage::Combat, Now);
 			break;
 		case EStage::Combat:
+			if (!CheckResponseFeed())
+				return true;
 			if (Building.IsValid() && Building->Health < BuildingInitialHealth)
 				bObservedBuildingDamage = true;
 			if (Threats[0].IsValid() && Threats[0]->GetHealth() < ThreatInitialHealth)
@@ -228,6 +236,8 @@ public:
 			FirstResponders = Responders();
 			FirstTarget = Holders[FirstResponders[0]]->HoldThreat;
 			StickyHolder = Holders[FirstResponders[0]];
+			if (!CheckResponseFeed(true))
+				return true;
 			{
 				FVector Closer;
 				const FVector TowardTarget = (FirstTarget->GetActorLocation() - StickyHolder->GetCenter()).GetSafeNormal2D();
@@ -246,6 +256,8 @@ public:
 			SetStage(EStage::Sticky, Now);
 			break;
 		case EStage::Sticky:
+			if (!CheckResponseFeed())
+				return true;
 			if (!Check(StickyHolder->HoldThreat == FirstTarget.Get(), TEXT("Live target stays sticky when a closer eligible hostile enters")))
 				return true;
 			if (Now - StageStarted < 2.)
@@ -522,6 +534,7 @@ private:
 						&& Holder->SpawnMember(UnitIndex, Ground, 2),
 					TEXT("A real living holder spawns on map navigation")))
 				return true;
+			Holder->ForceNumber = Index + 1;
 			Holder->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
 			if (!Check(FCommandService::AssignFront(Wallet, Holder, EFrontOrder::Defend, Anchor).IsAccepted(),
 					TEXT("Real Defend front accepts the complete region hold")))
@@ -633,6 +646,7 @@ private:
 	}
 	void BeginAlarm(double Now)
 	{
+		++ExpectedResponseEvents;
 		Teleport(Threats[0].Get(), Case == ECase::Border ? Outside : Intrusion);
 		ThreatInitialHealth = Threats[0]->GetHealth();
 		bShootBuilding = Building.IsValid();
@@ -757,6 +771,46 @@ private:
 		}
 		return Best;
 	}
+	int32 ResponseEventCount() const
+	{
+		const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State.Get());
+		if (!Announcer)
+			return INDEX_NONE;
+		int32 Count = 0;
+		for (const FObjectiveEvent& Event : Announcer->GetEvents())
+			if (Event.Id == TEXT("region_defenders_responding") && Event.RegionIndex == Region->RegionIndex
+				&& Event.AffectedTeam == Holders[0]->GetTeamIndex())
+				++Count;
+		return Count;
+	}
+	bool CheckResponseFeed(bool bCheckInitialForces = false)
+	{
+		if (!Check(ResponseEventCount() == ExpectedResponseEvents,
+				TEXT("Each response episode produces one region alert; polling, growth and target changes do not spam it")))
+			return false;
+		if (!bCheckInitialForces)
+			return true;
+		const FObjectiveEvent* Latest = nullptr;
+		for (const FObjectiveEvent& Event : UObjectiveAnnouncer::Get(State.Get())->GetEvents())
+			if (Event.Id == TEXT("region_defenders_responding") && Event.RegionIndex == Region->RegionIndex
+				&& Event.AffectedTeam == Holders[0]->GetTeamIndex())
+				Latest = &Event;
+		if (!Check(Latest && Latest->Forces.Num() == FirstResponders.Num(),
+				TEXT("The regional alert attributes exactly the initial responders")))
+			return false;
+		for (int32 Index : FirstResponders)
+		{
+			const AArmyGroup* Holder = Holders[Index].Get();
+			const ACommandPlayerState* Owner = Holder->GetOwningPlayerState();
+			if (!Check(Latest->Forces.ContainsByPredicate([Holder, Owner](const FObjectiveForce& Force) {
+					return Force.TeamIndex == Holder->GetTeamIndex() && Force.CommanderIndex == Owner->CommanderIndex
+						&& Force.ForceNumber == Holder->ForceNumber;
+				}), TEXT("The alert retains the responding force identity across commanders and factions")))
+				return false;
+		}
+		return true;
+	}
+
 	bool SetupEngagedFront()
 	{
 		// A non-Hold front exercises the maintenance guard itself; regional
@@ -813,6 +867,8 @@ private:
 
 	bool Finish()
 	{
+		if (!CheckResponseFeed())
+			return true;
 		if (!Check(AtPosts() && Responders().IsEmpty(), TEXT("Quiet holders physically return to their unchanged defend posts")))
 			return true;
 		for (int32 Index = 0; Index < Holders.Num(); ++Index)
@@ -831,6 +887,7 @@ private:
 	bool bCommitObserved = false, bQuietObserved = false, bObservedBorderShot = false;
 	int32 UnitIndex = INDEX_NONE, BuildingInitialHealth = 0, ThreatInitialHealth = 0, OutsideHealth = 0;
 	int32 EngagedOrderSerial = 0;
+	int32 ExpectedResponseEvents = 0;
 	TWeakObjectPtr<ACommandGameState> State;
 	TWeakObjectPtr<AMapRegion> Region;
 	TWeakObjectPtr<ACommandPlayerState> SecondCommander;

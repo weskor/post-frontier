@@ -9,6 +9,7 @@
 #include "EngineUtils.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
+#include "ObjectiveAnnouncer.h"
 #include "Rules/HoldPolicy.h"
 
 namespace
@@ -137,9 +138,12 @@ void ACommandGameState::UpdateRegionAlarms()
 				else if (Occupancy.IsValidIndex(Holder->HoldPostIndex))
 					++Occupancy[Holder->HoldPostIndex];
 			}
+			bool bRegionWasResponding = false;
+			int32 RespondingCount = 0;
 			TArray<HoldPolicy::FCandidate, TInlineAllocator<32>> Candidates;
 			for (AArmyGroup* Holder : Holders)
 			{
+				bRegionWasResponding |= Holder->bHoldResponding;
 				if (!Occupancy.IsValidIndex(Holder->HoldPostIndex))
 				{
 					Holder->HoldPostIndex = HoldPolicy::ChoosePost(Region->GetDefendPosts(), Occupancy, Assets, Borders);
@@ -167,6 +171,7 @@ void ACommandGameState::UpdateRegionAlarms()
 				const AArmyUnit* PreviousThreat = Holder->HoldThreat;
 				const AActor* PreviousAsset = Holder->HoldThreatenedAsset;
 				Holder->bHoldResponding = HoldPolicy::UpdateClock(Holder->HoldClock, Now, bAlarm, Candidates[Index].bSelected);
+				RespondingCount += Holder->bHoldResponding ? 1 : 0;
 				TArray<bool, TInlineAllocator<128>> Permitted;
 				int32 Current = INDEX_NONE;
 				for (int32 ThreatIndex = 0; ThreatIndex < Threats.Num(); ++ThreatIndex)
@@ -202,6 +207,22 @@ void ACommandGameState::UpdateRegionAlarms()
 				if (bWasResponding != Holder->bHoldResponding || PreviousThreat != Holder->HoldThreat || PreviousAsset != Holder->HoldThreatenedAsset)
 					Holder->ForceNetUpdate();
 			}
+			if (!bRegionWasResponding && RespondingCount > 0)
+				if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))
+				{
+					TArray<FObjectiveForce> Responders;
+					Responders.Reserve(RespondingCount);
+					for (const AArmyGroup* Holder : Holders)
+						if (Holder->bHoldResponding)
+							for (const AArmyUnit* Unit : Holder->GetUnits())
+								if (IsValid(Unit) && Unit->IsAlive())
+								{
+									Responders.Add(UObjectiveAnnouncer::DescribeForce(Unit));
+									break;
+								}
+					static const FName RespondingEvent(TEXT("region_defenders_responding"));
+					Announcer->Raise(RespondingEvent, Team, GetRegionAnchor(Region->RegionIndex), Responders);
+				}
 		}
 	}
 }
