@@ -38,6 +38,8 @@ public:
 			return false;
 		if ((Stage == 0 || Stage == 4) && State->MatchTelemetry->GetBattleSeconds() < 3.)
 			return false;
+		if (Stage == 0 && !ArmyTestSetup::NavigationReady(World))
+			return false;
 		if (Stage == 0)
 		{
 			if (!Setup(World, PC, State))
@@ -54,16 +56,16 @@ public:
 			PausedSeconds = State->MatchTelemetry->GetBattleSeconds();
 			if (!Commands(World, PC, State))
 				return true;
-			StageStarted = Now;
+			StageStarted = World->GetRealTimeSeconds();
 			Stage = 1;
 			return false;
 		}
 		if (Stage == 1)
 		{
-			if (Now - StageStarted < 1.1)
+			if (World->GetRealTimeSeconds() - StageStarted < 1.1)
 				return false;
 			if (!Check(State->MatchTelemetry->GetBattleSeconds() == PausedSeconds,
-					TEXT("Paused wall-clock time is excluded from battle simulation seconds"))
+					TEXT("Paused real time is excluded from battle simulation seconds"))
 				|| !Check(FCommandService::Resume(PC).IsAccepted(), TEXT("Real match resumes before terminal outcome")))
 				return true;
 			State->EnemyHeadquarters->ReceiveAttack(State->EnemyHeadquarters->Health, FirstForce->GetUnits()[0]);
@@ -82,13 +84,13 @@ public:
 			OriginalTimestamp = IFileManager::Get().GetTimeStamp(*OriginalPath);
 			if (!Check(FFileHelper::LoadFileToString(OriginalJson, *OriginalPath), TEXT("Terminal JSON snapshot loads")))
 				return true;
-			StageStarted = Now;
+			StageStarted = ArmyTestSetup::GameSeconds(World);
 			Stage = 3;
 			return false;
 		}
 		if (Stage == 3)
 		{
-			if (Now - StageStarted < 1.1)
+			if (ArmyTestSetup::GameSeconds(World) - StageStarted < 1.1)
 				return false;
 			State->SetMatchResult(EMatchResult::Victory);
 			State->MatchTelemetry->FlushMatch();
