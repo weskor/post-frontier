@@ -59,8 +59,9 @@ def panel_actions_during_attack(capture: Capture, barracks: int) -> None:
     screen = capture.state()["uiScreen"]
     capture.hud(33, "MENU stays usable during A targeting")
     capture.wait(
-        lambda s: s["uiScreen"] != screen and not s["assigningOrder"]
-        and s["hudExpanded"],
+        lambda s: (
+            s["uiScreen"] != screen and not s["assigningOrder"] and s["hudExpanded"]
+        ),
         "MENU opens and cancels A, restoring the deck",
     )
     capture.hud(23, "Resume the game after the targeting MENU regression")
@@ -82,7 +83,9 @@ def panel_actions_during_attack(capture: Capture, barracks: int) -> None:
     )
     capture.run.request("host", "fund", owner=owner, amount=budget)
     require(
-        order_matches(restored, barracks, before["forceVerb"], before["targetRegionIndex"]),
+        order_matches(
+            restored, barracks, before["forceVerb"], before["targetRegionIndex"]
+        ),
         "panel actions during A mutated the selected force's order",
     )
 
@@ -146,7 +149,12 @@ def rejected_attack(capture: Capture, barracks: int, target: int) -> None:
     origin, size = state["minimapOrigin"], state["minimapSize"]
     # Arena corners lie outside the playable regions; resolve an actual map
     # point, never a HUD panel that must continue dispatching its own action.
-    for horizontal, vertical in ((0.01, 0.01), (0.99, 0.01), (0.01, 0.99), (0.99, 0.99)):
+    for horizontal, vertical in (
+        (0.01, 0.01),
+        (0.99, 0.01),
+        (0.01, 0.99),
+        (0.99, 0.99),
+    ):
         x, y = origin[0] + size * horizontal, origin[1] + size * vertical
         preview = capture.preview(x, y)
         if not preview["allowed"]:

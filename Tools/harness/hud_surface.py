@@ -144,7 +144,8 @@ class Capture:
         self.key("A")
         self.wait(
             lambda s: (
-                s["assigningOrder"] and s["pendingVerb"] == ATTACK
+                s["assigningOrder"]
+                and s["pendingVerb"] == ATTACK
                 and not s["hudExpanded"]
             ),
             "A enters selected-force Attack targeting",
@@ -157,7 +158,8 @@ class Capture:
         self.run.request("host", "cursor", x=x, y=y)
         if verb == ATTACK:
             require(
-                before["assigningOrder"] and before["pendingVerb"] == ATTACK
+                before["assigningOrder"]
+                and before["pendingVerb"] == ATTACK
                 and not before["hudExpanded"],
                 "A Attack targeting is inactive",
             )
@@ -167,7 +169,8 @@ class Capture:
             self.run.request("host", "orderClick", x=x, y=y)
         self.wait(
             lambda s: (
-                not s["assigningOrder"] and s["hudExpanded"]
+                not s["assigningOrder"]
+                and s["hudExpanded"]
                 and order_matches(s, index, verb, target)
             ),
             "selected-force minimap order is accepted",

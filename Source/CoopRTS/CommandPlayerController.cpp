@@ -352,7 +352,8 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	if (bAssigningOrder && !SelectedForces.IsEmpty() && GetMousePosition(MouseX, MouseY))
 	{
 		const int32 RegionIndex = GetOrderPreview(FVector2D(MouseX, MouseY),
-			IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift)).RegionIndex;
+			IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift))
+									  .RegionIndex;
 		if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
 			for (const AMapRegion* Region : State->Regions)
 				if (IsValid(Region) && Region->RegionIndex == RegionIndex)
@@ -463,7 +464,6 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	Location.Z = 0.f;
 	return !Location.ContainsNaN();
 }
-
 
 const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
 {

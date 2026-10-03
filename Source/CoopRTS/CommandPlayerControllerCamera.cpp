@@ -15,6 +15,8 @@ FVector2D ACommandPlayerController::GetEdgePanAxis() const
 	if (X < 0.f || Y < 0.f || X >= Size.X || Y >= Size.Y)
 		return FVector2D::ZeroVector;
 	constexpr float Margin = 8.f;
-	return FVector2D(Y <= Margin ? 1.f : Y >= Size.Y - Margin ? -1.f : 0.f,
-		X <= Margin ? -1.f : X >= Size.X - Margin ? 1.f : 0.f);
+	return FVector2D(Y <= Margin ? 1.f : Y >= Size.Y - Margin ? -1.f
+															  : 0.f,
+		X <= Margin ? -1.f : X >= Size.X - Margin ? 1.f
+												  : 0.f);
 }

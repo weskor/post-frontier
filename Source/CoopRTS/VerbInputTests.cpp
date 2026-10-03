@@ -247,7 +247,7 @@ public:
 								   : TEXT("Focused viewport bottom edge pans the camera")))
 				return true;
 			Test->AddInfo(bEdgeOverPanel ? TEXT("Edge-pan movement observed with native viewport focus over a HUD panel.")
-										: TEXT("Edge-pan movement observed with native viewport focus; HUD panels do not intersect this viewport's edge band."));
+										 : TEXT("Edge-pan movement observed with native viewport focus; HUD panels do not intersect this viewport's edge band."));
 			return Finish();
 		}
 		return false;
@@ -423,8 +423,8 @@ private:
 	{
 		const FOrderInputPreview Preview = PC->GetOrderPreview(Point, bQueue);
 		return Check(Preview.IsAllowed() && Preview.Resolution == ForceOrderInput::EResolution::Attack
-					&& Preview.RegionIndex == Target && !Preview.Structure,
-				TEXT("Pending A previews Attack on a region rather than smart MoveHold"));
+				&& Preview.RegionIndex == Target && !Preview.Structure,
+			TEXT("Pending A previews Attack on a region rather than smart MoveHold"));
 	}
 	bool ConfirmMinimapAttack()
 	{
