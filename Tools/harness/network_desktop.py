@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import suppress
 import datetime
 import json
 import os
@@ -27,7 +28,10 @@ from harness.verify import (
     identity,
     map_started,
     package_stamp,
+    reap_owned,
+    wait_for_exit,
 )
+from harness.waits import Deadline, WaitTimeout
 from x.scopes import map_package
 
 
@@ -108,16 +112,33 @@ def stop_one(run: Path, item: JsonObject) -> None:
         if identity(pid) != item["identity"]:
             raise RuntimeError("PID identity changed before cleanup")
         signal.pidfd_send_signal(fd, signal.SIGTERM)
-        while identity(pid) == item["identity"]:
-            time.sleep(0.1)
-        event(run, "stop", pid=pid, result="TERM")
+        try:
+            wait_for_exit(
+                pid, item["identity"], f"desktop peer {pid} graceful shutdown"
+            )
+        except WaitTimeout as error:
+            event(run, "stop-escalation", pid=pid, error=str(error))
+            with suppress(ProcessLookupError):
+                signal.pidfd_send_signal(fd, signal.SIGKILL)
+            wait_for_exit(
+                pid, item["identity"], f"desktop peer {pid} exit after SIGKILL"
+            )
+            event(run, "stop", pid=pid, result="KILL")
+        else:
+            event(run, "stop", pid=pid, result="TERM")
     finally:
         os.close(fd)
 
 
 def stop(run: Path) -> None:
+    failures = []
     for item in reversed(list(session(run)["peers"].values())):
-        stop_one(run, item)
+        try:
+            stop_one(run, item)
+        except (OSError, RuntimeError, WaitTimeout) as error:
+            failures.append(error)
+    if failures:
+        raise failures[0]
     print(f"Stopped recorded game processes only; evidence retained in {run}")
 
 
@@ -144,6 +165,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
+    children = []
     try:
         for index in range(clients + 1):
             name = "host" if index == 0 else f"c{index}"
@@ -179,7 +201,8 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
                 )
-            # A launch only fails on an observed process exit, never elapsed wall time.
+            children.append(process)
+            deadline = Deadline(f"{name} executable identity", "identity")
             while True:
                 stamp = identity(process.pid)
                 if stamp and stamp["exe"] == str(BINARY.resolve()):
@@ -188,6 +211,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
                     raise RuntimeError(
                         f"{name} failed to establish executable identity; inspect its stdout.log"
                     )
+                deadline.check({"peer": name, "pid": process.pid, "identity": stamp})
                 time.sleep(0.1)
             record["peers"][name] = {
                 "pid": process.pid,
@@ -198,7 +222,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
             event(
                 run, "launch", peer=name, pid=process.pid, command=command, map=map_path
             )
-            # Wait for an owned mapped window on the selected map or the process's own exit.
+            deadline = Deadline(f"{name} mapped window on {map_path}", "readiness")
             while True:
                 try:
                     report = doctor(run, name)
@@ -217,12 +241,28 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
                         raise RuntimeError(
                             f"{name} did not become a mapped window on {map_path}; inspect per-peer logs"
                         ) from error
-                    time.sleep(0.3)
+                    deadline.check(
+                        {
+                            "peer": name,
+                            "pid": process.pid,
+                            "identity": identity(process.pid),
+                            "readiness": str(error),
+                        }
+                    )
+                    time.sleep(min(0.3, deadline.remaining))
     except BaseException as error:
         try:
             event(run, "launch-failed", map=map_path, error=repr(error))
         finally:
-            stop(run)
+            try:
+                stop(run)
+            except (OSError, RuntimeError, WaitTimeout) as cleanup_error:
+                error.add_note(f"Recorded peer cleanup failed: {cleanup_error}")
+            for child in reversed(children):
+                try:
+                    reap_owned(child)
+                except (OSError, WaitTimeout) as cleanup_error:
+                    error.add_note(f"Owned child cleanup failed: {cleanup_error}")
         raise
 
 
@@ -347,6 +387,6 @@ if __name__ == "__main__":
         sys.exit("run through ./x verify")
     try:
         main()
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+    except (RuntimeError, WaitTimeout, OSError, subprocess.SubprocessError) as error:
         print(f"Multiplayer desktop verification blocked: {error}", file=sys.stderr)
         sys.exit(1)

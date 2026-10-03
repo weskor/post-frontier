@@ -163,7 +163,14 @@ class Capture:
             previous = size
             return stable or None
 
-        self.run.until(written, f"screenshot {path.name} written", 5, names=["host"])
+        self.run.until(
+            written,
+            f"screenshot {path.name} written",
+            5,
+            names=["host"],
+            kind="capture",
+            snapshot=lambda: {"path": str(path), "size": previous},
+        )
         width, height = capture_dimensions(path, state)
         self.run.event(
             "capture",

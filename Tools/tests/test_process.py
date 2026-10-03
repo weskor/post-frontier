@@ -92,7 +92,7 @@ def test_watch_growth_prevents_stall_and_console_growth_does_not(ctx: Context) -
     watch = ctx.repo / "progress"
     code = (
         "from pathlib import Path; import sys,time; p=Path(sys.argv[1]); "
-        '[(p.open("a").write("progress\\n"), time.sleep(0.08)) for _ in range(8)]'
+        '[(p.open("a").write(f"game seconds={step}\\n"), time.sleep(0.08)) for step in range(8)]'
     )
     assert (
         ctx.exec(

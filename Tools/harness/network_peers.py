@@ -22,6 +22,7 @@ from harness.verify import (
     module_stamp,
     package_stamp,
 )
+from harness.waits import Deadline, WaitTimeout
 from x.scopes import map_package
 
 
@@ -264,18 +265,32 @@ class NetworkPeers:
     def stop(self, name: str) -> None:
         self.resume(name)
         entry = self.peers[name]
-        pid = entry["process"].pid
-        if self.live(name):
+        process = entry["process"]
+        pid = process.pid
+        if process.poll() is None:
             fd = os.pidfd_open(pid)
             try:
-                require(self.live(name), f"{name} PID identity changed before stop")
+                # A failed identity wait still owns this freshly spawned Popen.
+                require(
+                    entry["identity"] is None or self.live(name),
+                    f"{name} PID identity changed before stop",
+                )
                 signal.pidfd_send_signal(fd, signal.SIGTERM)
-                while self.live(name):
-                    time.sleep(0.1)
+                deadline = Deadline(f"{name} exits after SIGTERM", "shutdown")
+                try:
+                    while process.poll() is None:
+                        deadline.check({"pid": pid, "identity": identity(pid)})
+                        time.sleep(min(0.1, deadline.remaining))
+                except WaitTimeout as error:
+                    self.event("cleanup-escalation", peer=name, error=str(error))
+                    signal.pidfd_send_signal(fd, signal.SIGKILL)
+                    deadline = Deadline(f"{name} exits after SIGKILL", "shutdown")
+                    while process.poll() is None:
+                        deadline.check({"pid": pid, "identity": identity(pid)})
+                        time.sleep(min(0.1, deadline.remaining))
             finally:
                 os.close(fd)
-        entry["process"].wait()
-        self.event("stop", peer=name, pid=pid, exit_code=entry["process"].returncode)
+        self.event("stop", peer=name, pid=pid, exit_code=process.returncode)
 
     def command(self, name: str, host: bool, folder: Path) -> list[str]:
         if self.mode == "editor":

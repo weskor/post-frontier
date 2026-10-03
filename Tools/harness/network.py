@@ -54,6 +54,7 @@ class NetworkRun(NetworkProbe):
             f"{name} executable identity",
             30,
             names=[name],
+            kind="identity",
         )
         if host:
             self.until(
@@ -61,6 +62,7 @@ class NetworkRun(NetworkProbe):
                 f"{name} selected map {self.map_path}",
                 5,
                 names=[name],
+                kind="readiness",
             )
         if not rejection:
             self.until(
@@ -70,6 +72,7 @@ class NetworkRun(NetworkProbe):
                 f"{name} first probe response",
                 120,
                 names=[name],
+                kind="readiness",
             )
 
     def isolate_fresh_host(self, previous_generation: int, site_count: int) -> None:

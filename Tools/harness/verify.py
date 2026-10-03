@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+from contextlib import suppress
 import datetime
 import json
 import os
@@ -19,6 +20,7 @@ import time
 from typing import Any, cast
 
 from harness.verification_readiness import native_log_ready
+from harness.waits import Deadline, WaitTimeout
 from x import scopes
 
 # JSON session and compositor payloads are dynamic third-party records.
@@ -137,6 +139,45 @@ def doctor(run: Path, focused: bool = False) -> JsonObject:
     }
 
 
+def wait_for_exit(pid: int, expected: JsonObject, description: str) -> None:
+    deadline = Deadline(description, "shutdown")
+    while (current := identity(pid)) == expected:
+        deadline.check({"pid": pid, "identity": current})
+        time.sleep(min(0.1, deadline.remaining))
+
+
+def reap_owned(process: subprocess.Popen[Any]) -> None:
+    """Reap our child even when executable identity was never established."""
+    if process.poll() is not None:
+        return
+    try:
+        fd = os.pidfd_open(process.pid)
+    except ProcessLookupError:
+        fd = None
+    try:
+        for signum in (signal.SIGTERM, signal.SIGKILL):
+            if fd is not None and process.poll() is None:
+                with suppress(ProcessLookupError):
+                    signal.pidfd_send_signal(fd, signum)
+            deadline = Deadline(
+                f"owned child {process.pid} exit after {signal.Signals(signum).name}",
+                "shutdown",
+            )
+            try:
+                while process.poll() is None:
+                    deadline.check(
+                        {"pid": process.pid, "returncode": process.returncode}
+                    )
+                    time.sleep(min(0.1, deadline.remaining))
+                return
+            except WaitTimeout:
+                if signum == signal.SIGKILL:
+                    raise
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
 def stop(run: Path) -> None:
     session = state(run)
     pid = session["pid"]
@@ -148,11 +189,13 @@ def stop(run: Path) -> None:
         if identity(pid) != session["identity"]:
             raise RuntimeError("PID identity changed before cleanup; no signal sent")
         signal.pidfd_send_signal(fd, signal.SIGTERM)
-        deadline = time.monotonic() + 15
-        while identity(pid) == session["identity"] and time.monotonic() < deadline:
-            time.sleep(0.1)
-        if identity(pid) == session["identity"]:
-            signal.pidfd_send_signal(fd, signal.SIGKILL)
+        try:
+            wait_for_exit(pid, session["identity"], "native game graceful shutdown")
+        except WaitTimeout as error:
+            record(run, "cleanup-escalation", error=str(error))
+            with suppress(ProcessLookupError):
+                signal.pidfd_send_signal(fd, signal.SIGKILL)
+            wait_for_exit(pid, session["identity"], "native game exit after SIGKILL")
             record(run, "cleanup", result="owned process required SIGKILL")
         else:
             record(run, "cleanup", result="owned process exited after SIGTERM")
@@ -190,16 +233,15 @@ def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
             start_new_session=True,
         )
     try:
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
+        deadline = Deadline("native game executable identity", "identity")
+        while True:
             current = identity(process.pid)
             if current and current["exe"] == str(BINARY.resolve()):
                 break
             if process.poll() is not None:
                 raise RuntimeError("Game exited during launch; inspect stdout.log")
+            deadline.check({"pid": process.pid, "identity": current})
             time.sleep(0.05)
-        else:
-            raise RuntimeError("Could not establish game process identity")
         (run / "session.json").write_text(
             json.dumps(
                 {
@@ -213,8 +255,8 @@ def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
             )
         )
         record(run, "launch", map=map_path, command=command)
-        deadline = time.monotonic() + 90
-        while time.monotonic() < deadline:
+        deadline = Deadline(f"native mapped window on {map_path}", "readiness")
+        while True:
             if process.poll() is not None:
                 raise RuntimeError(
                     "Game exited before readiness; inspect evidence logs"
@@ -223,20 +265,27 @@ def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
                 report = doctor(run)
                 print(json.dumps(report, indent=2))
                 return
-            except RuntimeError:
-                time.sleep(0.25)
-        raise RuntimeError("Game did not become ready within 90 seconds")
+            except RuntimeError as error:
+                deadline.check(
+                    {
+                        "pid": process.pid,
+                        "identity": identity(process.pid),
+                        "readiness": str(error),
+                    }
+                )
+                time.sleep(min(0.25, deadline.remaining))
     except BaseException as error:
         record(run, "launch-failure", map=map_path, command=command, error=repr(error))
-        if (run / "session.json").exists():
-            stop(run)
-        elif process.poll() is None:
-            process.terminate()
+        try:
+            if (run / "session.json").exists():
+                stop(run)
+        except (OSError, RuntimeError, WaitTimeout) as cleanup_error:
+            error.add_note(f"Recorded game cleanup failed: {cleanup_error}")
+        finally:
             try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+                reap_owned(process)
+            except (OSError, WaitTimeout) as cleanup_error:
+                error.add_note(f"Owned child cleanup failed: {cleanup_error}")
         raise
 
 
@@ -400,6 +449,6 @@ if __name__ == "__main__":
         sys.exit("run through ./x verify")
     try:
         main()
-    except (RuntimeError, OSError, subprocess.SubprocessError) as error:
+    except (RuntimeError, WaitTimeout, OSError, subprocess.SubprocessError) as error:
         print(f"Verification blocked: {error}", file=sys.stderr)
         sys.exit(1)

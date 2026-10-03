@@ -11,6 +11,7 @@ from typing import cast
 
 from harness.network_peers import NetworkPeers, require
 from harness.verify import JsonObject, map_started
+from harness.waits import Deadline, WaitKind, WaitTimeout
 
 
 class NetworkProbe(NetworkPeers):
@@ -37,31 +38,53 @@ class NetworkProbe(NetworkPeers):
         report_interval: float,
         *,
         names: Sequence[str] | None = None,
+        kind: WaitKind = "state",
+        seconds: float | None = None,
+        snapshot: Callable[[], object] | None = None,
     ) -> T:
         names = list(names if names is not None else self.peers)
-        started = time.monotonic()
-        next_report = started
-        # Older call sites pass larger reporting intervals, not deadlines. Keep
-        # every pending predicate visible even when a peer stops responding.
-        report_interval = min(report_interval, 5)
-        while True:
-            self.check_artifact()
-            self.check_network_failures()
-            for name in names:
-                entry = self.peers[name]
-                if entry["process"].poll() is not None:
-                    raise AssertionError(
-                        f"{name} exited ({entry['process'].returncode}) waiting for {explanation}; see logs"
-                    )
-            value = predicate()
-            if value:
-                self.check_network_failures()
-                return value
-            now = time.monotonic()
-            if now >= next_report:
-                self.progress(explanation, now - started, names)
-                next_report = now + report_interval
-            time.sleep(0.15)
+
+        def observed() -> object:
+            if snapshot is not None:
+                return snapshot()
+            return {
+                name: {
+                    "state": self.latest_states.get(name),
+                    "pending": self.pending.get(name),
+                    "error": self.latest_errors.get(name),
+                    "health": self.connection_health.get(name, "starting"),
+                    "identity": self.peers[name]["identity"],
+                }
+                for name in names
+            }
+
+        with Deadline(explanation, kind, seconds=seconds) as deadline:
+            next_report = deadline.started
+            report_interval = min(report_interval, 5)
+            try:
+                while True:
+                    deadline.check(observed())
+                    self.check_artifact()
+                    self.check_network_failures()
+                    for name in names:
+                        entry = self.peers[name]
+                        if entry["process"].poll() is not None:
+                            raise AssertionError(
+                                f"{name} exited ({entry['process'].returncode}) waiting for {explanation}; see logs"
+                            )
+                    value = predicate()
+                    deadline.check(observed())
+                    if value:
+                        self.check_network_failures()
+                        return value
+                    now = time.monotonic()
+                    if now >= next_report:
+                        self.progress(explanation, deadline.elapsed, names)
+                        next_report = now + report_interval
+                    time.sleep(min(0.15, deadline.remaining))
+            except WaitTimeout as error:
+                self.event("timeout", detail=explanation, error=str(error))
+                raise
 
     def reply_ready(self, name: str) -> bool:
         return (
@@ -97,6 +120,7 @@ class NetworkProbe(NetworkPeers):
                 f"{name} {action} response",
                 5,
                 names=[name],
+                kind="response",
             )
         finally:
             self.pending.pop(name, None)
@@ -161,6 +185,7 @@ class NetworkProbe(NetworkPeers):
         *,
         allow_loading: bool = False,
         allow_travel: bool = False,
+        seconds: float | None = None,
     ) -> dict[str, JsonObject]:
         def check() -> dict[str, JsonObject] | None:
             states = self.all_states(
@@ -173,7 +198,9 @@ class NetworkProbe(NetworkPeers):
             )
             return states if not unready and predicate(states) else None
 
-        return self.until(check, description, report_interval, names=active)
+        return self.until(
+            check, description, report_interval, names=active, seconds=seconds
+        )
 
 
 def read_response(path: Path, expected: int) -> JsonObject | None:
