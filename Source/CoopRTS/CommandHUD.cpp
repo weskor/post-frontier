@@ -258,6 +258,17 @@ static void DrawCommandDeck(const FPainter& Paint, const FContext& Context, cons
 		DrawModeBar(Paint, Context, Layout);
 }
 
+static void DrawWorldOverlays(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
+{
+	DrawUnitHealthBars(Paint, Context);
+	DrawHeadquartersOverlays(Paint, Context);
+	DrawBuildingOverlays(Paint, Context);
+	DrawSectorOverlays(Paint, Context);
+	DrawForceLabels(Paint, Context, Layout);
+	DrawSelectionBox(Paint, Context.Controller, Layout);
+	DrawPingMarkers(Paint, Context);
+}
+
 void ACommandHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -287,13 +298,7 @@ void ACommandHUD::DrawHUD()
 		return;
 	}
 	const FForces Forces = CountForces(Context);
-	DrawUnitHealthBars(Paint, Context);
-	DrawHeadquartersOverlays(Paint, Context);
-	DrawBuildingOverlays(Paint, Context);
-	DrawSectorOverlays(Paint, Context);
-	DrawForceLabels(Paint, Context, Layout);
-	DrawSelectionBox(Paint, Controller, Layout);
-	DrawPingMarkers(Paint, Context);
+	DrawWorldOverlays(Paint, Context, Layout);
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
