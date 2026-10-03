@@ -30,7 +30,9 @@ def start_and_starve(
     selected = capture.wait(
         lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated"
     )
-    run.request("host", "fund", owner=owner, amount=building(selected, barracks)["unitCost"])
+    run.request(
+        "host", "fund", owner=owner, amount=building(selected, barracks)["unitCost"]
+    )
     capture.hud(TOGGLE_PRODUCTION, "Start production")
     capture.wait(
         lambda s: (
@@ -107,13 +109,10 @@ def fill_force(
             and building(s, barracks)["travelling"] == 0
             and force_counts_match(s, owner, barracks)
             and building(s, barracks)["productionState"] == "ForceComplete"
+            and building(s, barracks)["capacity"] == capacity
+            and wallet(s, owner)["wallet"] == 0
         ),
         "paid ranged units physically join and fill their own force",
-    )
-    require(
-        building(state, barracks)["capacity"] == capacity
-        and wallet(state, owner)["wallet"] == 0,
-        "ranged force capacity or single-unit payment mismatch",
     )
     capture.shot("barracks-force-complete")
     capture.hud(TOGGLE_PRODUCTION, "Pause full force")

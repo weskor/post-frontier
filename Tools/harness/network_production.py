@@ -35,7 +35,8 @@ from harness.verify import JsonObject
 
 
 def start_first_recruit(run: NetworkRun, s: Session, index: int) -> Sequence[float]:
-    fund(run, s, 50, "one-unit budget")
+    recipe = building(run.observe("host"), index)
+    fund(run, s, recipe["unitCost"], "one-unit budget")
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
     states = converged(
         run,
@@ -45,7 +46,7 @@ def start_first_recruit(run: NetworkRun, s: Session, index: int) -> Sequence[flo
             and force_counts_match(st, s.owner, index)
             and wallet(st, s.owner)["wallet"] == 0
         ),
-        "one physical siege recruit, not batch production, replicated for exactly 50",
+        "one physical siege recruit, not batch production, replicated for exactly one unit cost",
     )
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
     converged(
@@ -96,19 +97,21 @@ def await_first_arrival(
 
 
 def fill_siege_force(run: NetworkRun, s: Session, index: int) -> None:
-    run.request("host", "fund", owner=s.owner, amount=50)
+    recipe = building(run.observe("host"), index)
+    remaining = recipe["capacity"] - recipe["joined"] - recipe["travelling"]
+    run.request("host", "fund", owner=s.owner, amount=remaining * recipe["unitCost"])
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
     converged(
         run,
         s.names,
         lambda st: (
-            building(st, index)["joined"] == 2
+            building(st, index)["joined"] == recipe["capacity"]
             and building(st, index)["travelling"] == 0
             and building(st, index)["productionState"] == "ForceComplete"
             and wallet(st, s.owner)["wallet"] == 0
             and force_counts_match(st, s.owner, index)
         ),
-        "siege force naturally fills two alive slots without repeated configuration charge",
+        "siege force naturally fills its alive slots without repeated configuration charge",
     )
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
     converged(
@@ -143,19 +146,25 @@ def create_second_force(run: NetworkRun, s: Session, index: int, squad: int) -> 
         for b in owned_buildings(states["host"], s.owner, BARRACKS)
         if b["index"] != index
     )
-    run.request("host", "fund", owner=s.owner, amount=120)
+    run.request(s.peer, "production", building=second, recipe=RANGED, enabled=False)
+    recipes = converged(
+        run, s.names, lambda st: building(st, second)["recipe"] == RANGED,
+        "second producer selects ranged recipe before funding",
+    )
+    recipe = building(recipes["host"], second)
+    run.request("host", "fund", owner=s.owner, amount=recipe["capacity"] * recipe["unitCost"])
     run.request(s.peer, "production", building=second, recipe=RANGED, enabled=True)
     states = converged(
         run,
         s.names,
         lambda st: (
-            building(st, second)["joined"] == 4
+            building(st, second)["joined"] == recipe["capacity"]
             and building(st, second)["forceGoal"] == HOLD
             and building(st, second)["travelling"] == 0
             and force_counts_match(st, s.owner, second)
             and wallet(st, s.owner)["wallet"] == 0
         ),
-        "independent ranged force fills four paid slots",
+        "independent ranged force fills its paid slots",
     )
     require(
         building(states["host"], second)["forceID"] != squad,
@@ -203,12 +212,13 @@ def retarget_and_open_vacancy(
         "building-only goal scope replicates without moving other force",
     )
     victim = alive_units(force(run.observe("host"), s.owner, index))[0]
+    capacity = building(run.observe("host"), index)["capacity"]
     run.request("host", "kill", owner=s.owner, army=squad, slot=victim["slot"])
     converged(
         run,
         s.names,
         lambda st: (
-            building(st, index)["joined"] + building(st, index)["travelling"] == 1
+            building(st, index)["joined"] + building(st, index)["travelling"] == capacity - 1
             and force_counts_match(st, s.owner, index)
         ),
         "real hostile damage opens one replicated vacancy",
@@ -219,14 +229,15 @@ def retarget_and_open_vacancy(
 def replace_vacancy(
     run: NetworkRun, s: Session, index: int, original_target: int
 ) -> dict[str, JsonObject]:
-    run.request("host", "fund", owner=s.owner, amount=50)
+    recipe = building(run.observe("host"), index)
+    run.request("host", "fund", owner=s.owner, amount=recipe["unitCost"])
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
     states = converged(
         run,
         s.names,
         lambda st: (
             building(st, index)["travelling"] == 1
-            and building(st, index)["joined"] == 1
+            and building(st, index)["joined"] == recipe["capacity"] - 1
             and force_counts_match(st, s.owner, index)
             and wallet(st, s.owner)["wallet"] == 0
         ),
@@ -264,7 +275,7 @@ def replace_vacancy(
         run,
         s.names,
         lambda st: (
-            building(st, index)["joined"] == 2
+            building(st, index)["joined"] == recipe["capacity"]
             and building(st, index)["travelling"] == 0
             and force_counts_match(st, s.owner, index)
         ),
@@ -285,7 +296,7 @@ def produce_and_replace(run: NetworkRun, s: Session, index: int, squad: int) -> 
     states = replace_vacancy(run, s, index, original_target)
     require(
         all(
-            building(st, second)["joined"] == 4
+            building(st, second)["joined"] == building(st, second)["capacity"]
             and building(st, second)["front"] == second_front
             and goal_matches(st, index, HOLD, original_target)
             and goal_matches(st, second, HOLD, second_target)

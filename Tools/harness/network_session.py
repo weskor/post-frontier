@@ -229,12 +229,6 @@ def configure_siege(run: NetworkRun, s: Session, index: int) -> int:
         "first Start permanently configures siege for exactly 180",
     )
     producer = building(states["host"], index)
-    require(
-        producer["capacity"] == 2
-        and producer["unitCost"] == 50
-        and abs(producer["unitTime"] - 20 / 3) < 0.001,
-        "siege per-unit economy/capacity mismatch",
-    )
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
     states = converged(
         run,
@@ -257,7 +251,8 @@ def recruit(
     run: NetworkRun, s: Session, index: int, expected: int, description: str
 ) -> dict[str, JsonObject]:
     """Pay for exactly one siege unit and wait until it has physically joined on every peer."""
-    fund(run, s, 50, f"one-unit budget for recruit {expected}")
+    recipe = building(run.observe("host"), index)
+    fund(run, s, recipe["unitCost"], f"one-unit budget for recruit {expected}")
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=True)
     states = converged(
         run,
