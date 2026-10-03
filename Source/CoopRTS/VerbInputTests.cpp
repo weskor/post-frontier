@@ -43,6 +43,20 @@ public:
 			if (!PC || !MapReady(State) || !State->Content
 				|| !PC->GetPlayerState<ACommandPlayerState>() || PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 				return false;
+			// Automation startup can resize the offscreen window after -ResX/-ResY.
+			// Establish the supported HUD surface before projecting world clicks.
+			int32 Width = 0, Height = 0;
+			PC->GetViewportSize(Width, Height);
+			if (Width != 1600 || Height != 900)
+			{
+				if (!bRequestedViewport)
+				{
+					Test->AddInfo(FString::Printf(TEXT("Setting input fixture viewport from %dx%d to 1600x900"), Width, Height));
+					PC->ConsoleCommand(TEXT("r.SetRes 1600x900w"));
+					bRequestedViewport = true;
+				}
+				return false;
+			}
 			HUD = PC->GetHUD<ACommandHUD>();
 			Camera = Cast<ACommandCamera>(PC->GetPawn());
 			FVector2D Origin;
@@ -568,6 +582,7 @@ private:
 	FAutomationTestBase* Test;
 	double Started;
 	bool bFailed = false;
+	bool bRequestedViewport = false;
 	int32 Stage = 0;
 	int32 Target = INDEX_NONE, EnemyHome = INDEX_NONE;
 	FVector HostileRegionPoint = FVector::ZeroVector;
