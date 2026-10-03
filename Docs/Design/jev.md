@@ -33,9 +33,10 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
 
 - **The unit of a published plan is one JEV force:**
   - its source region, target region, size band and ETA;
-  - the ETA is computed from the per-class speeds;
+  - the size band rounds the unit count to the nearest multiple of 2, with a minimum of 2, and reads `~N units`;
+  - the ETA is computed from the per-class speeds along the region path;
   - under fog ([map.md](map.md)), size and composition show only when the source region is visible.
-- **Committed:** a plan is held for **20–30 s**. During that window the planner may not change that force's order, which also keeps the display from flickering with the 2 s re-planning. Two exceptions:
+- **Committed:** a plan is held for **25 s**. During that window the planner may not change that force's order, which also keeps the display from flickering with the 2 s re-planning. Two exceptions:
   - The force's own region is attacked. It may defend, and the plan visibly changes to *Escalated: defending X*.
   - The target becomes invalid: destroyed, or captured by JEV.
 - This commitment is what gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
