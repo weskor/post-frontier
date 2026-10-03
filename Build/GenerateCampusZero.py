@@ -29,6 +29,7 @@ import unreal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ArtMaterials as art
+import ContentText
 import EnvKit
 import MatchLayout
 
@@ -38,8 +39,8 @@ actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 editor = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
 
-# Mirrors ACapturePoint (Source/CoopRTS). If it moves, update here. Arena extent is read from the placed actor below.
-CAPTURE_RADIUS = 430.0
+# Shared with ACapturePoint through Build/Content/constants.json. Arena extent is read from the placed actor below.
+CAPTURE_RADIUS = float(ContentText.constants()["capture_radius"])
 SITES = MatchLayout.SITES
 FRIENDLY_HQ = MatchLayout.FRIENDLY_HQ
 ENEMY_HQ = MatchLayout.ENEMY_HQ

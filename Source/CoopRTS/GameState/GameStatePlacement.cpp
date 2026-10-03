@@ -14,6 +14,7 @@
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "NavigationSystem.h"
+#include "Rules/GameplayConstants.h"
 #include "Rules/PlacementPolicy.h"
 
 namespace
@@ -202,14 +203,14 @@ bool CheckPolicy(const ACommandGameState& State, const FPlacementSite& Site, FSt
 
 bool IsFootprintBlocked(UWorld* World, const FPlacementSite& Site)
 {
-	const FVector Center(Site.Location.X, Site.Location.Y, Site.Location.Z + 65.f);
+	const FVector Center(Site.Location.X, Site.Location.Y, Site.Location.Z + GameplayConstants::PlacementBoxCentreZ);
 	FCollisionObjectQueryParams Objects;
 	Objects.AddObjectTypesToQuery(ECC_WorldStatic);
 	Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
 	Objects.AddObjectTypesToQuery(ECC_Pawn);
 	FCollisionQueryParams Query(SCENE_QUERY_STAT(BuildingPlacement), false);
 	return World->OverlapAnyTestByObjectType(Center, FQuat::Identity, Objects,
-		FCollisionShape::MakeBox(FVector(Site.Radius, Site.Radius, 55.f)), Query);
+		FCollisionShape::MakeBox(FVector(Site.Radius, Site.Radius, GameplayConstants::PlacementBoxHalfZ)), Query);
 }
 
 bool HasNavigableGround(UNavigationSystemV1& Navigation, const FPlacementSite& Site)
@@ -223,7 +224,7 @@ bool HasNavigableGround(UNavigationSystemV1& Navigation, const FPlacementSite& S
 		FNavLocation Projected;
 		if (!Navigation.ProjectPointToNavigation(Sample, Projected, FVector(45.f, 45.f, 200.f))
 			|| FVector::DistSquared2D(Sample, Projected.Location) > FMath::Square(45.f)
-			|| FMath::Abs(Sample.Z - Projected.Location.Z) > 110.f)
+			|| FMath::Abs(Sample.Z - Projected.Location.Z) > GameplayConstants::PlacementZTolerance)
 			return false;
 	}
 	return true;

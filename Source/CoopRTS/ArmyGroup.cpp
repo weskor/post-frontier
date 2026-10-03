@@ -19,6 +19,7 @@
 #include "NavigationData.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Rules/GameplayConstants.h"
 #include "Rules/TargetingPolicy.h"
 #include "Rules/PursuitPolicy.h"
 #include "MapRegion.h"
@@ -211,8 +212,8 @@ EArmyDoctrine AArmyGroup::GetDoctrine() const
 FVector AArmyGroup::FormationOffset(int32 Index) const
 {
 	if (bProducedGroup)
-		return FVector((ForceCapacity / 2 - 1 - 2 * (Index / 2)) * 55.f,
-			(Index % 2 ? 1.f : -1.f) * 55.f, 0.f);
+		return FVector((ForceCapacity / 2 - 1 - 2 * (Index / 2)) * (GameplayConstants::FormationSpacing * .5f),
+			(Index % 2 ? 1.f : -1.f) * (GameplayConstants::FormationSpacing * .5f), 0.f);
 	return FVector((bOpposingArmy ? -1.f : 1.f) * (1 - Index / 2) * 220.f,
 		(Index % 2 ? 1.f : -1.f) * 140.f, 0.f);
 }

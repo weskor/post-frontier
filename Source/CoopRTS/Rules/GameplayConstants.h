@@ -14,4 +14,8 @@ constexpr int32 NormalDepositAmount = 2400;
 constexpr int32 RichDepositAmount = 3000;
 constexpr float CaptureRadius = 430.f;
 constexpr float HostileHqClearance = 1000.f;
+constexpr float PlacementZTolerance = 110.f;
+constexpr float PlacementBoxCentreZ = 65.f;
+constexpr float PlacementBoxHalfZ = 55.f;
+constexpr float FormationSpacing = 110.f;
 }

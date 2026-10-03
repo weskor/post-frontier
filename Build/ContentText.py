@@ -94,6 +94,11 @@ def shared_map_constants() -> dict[str, Any]:
     return {
         "capture_radius": shared["capture_radius"],
         "hq_exclusion_radius": shared["hostile_hq_clearance"],
+        "placement_z_tolerance": shared["placement_z_tolerance"],
+        "placement_overlap_box": {
+            "centre_z_offset": shared["placement_box_centre_z"],
+            "half_z": shared["placement_box_half_z"],
+        },
         "footprint_radius": {
             definition["asset_name"].lower(): definition["footprint_radius"]
             for definition in building_definitions()

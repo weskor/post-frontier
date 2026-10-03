@@ -6,5 +6,9 @@
   "normal_deposit_amount": 2400,
   "rich_deposit_amount": 3000,
   "capture_radius": 430.0,
-  "hostile_hq_clearance": 1000.0
+  "hostile_hq_clearance": 1000.0,
+  "placement_z_tolerance": 110.0,
+  "placement_box_centre_z": 65.0,
+  "placement_box_half_z": 55.0,
+  "formation_spacing": 110.0
 }

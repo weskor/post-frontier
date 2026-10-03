@@ -58,13 +58,20 @@ def test_economy_defaults_follow_shared_constants() -> None:
 
 
 def test_map_constants_come_from_building_and_constants_sources(content: Path) -> None:
-    rewrite(content / "constants.json", lambda data: data.update(capture_radius=500.0))
+    rewrite(
+        content / "constants.json",
+        lambda data: data.update(
+            capture_radius=500.0, placement_z_tolerance=90.0, placement_box_half_z=40.0
+        ),
+    )
     rewrite(
         content / "buildings.json", lambda data: data[0].update(footprint_radius=130.0)
     )
     values: dict[str, Any] = {}
     ContentText.add_shared_constants(values)
     assert values["capture_radius"] == 500.0
+    assert values["placement_z_tolerance"] == 90.0
+    assert values["placement_overlap_box"] == {"centre_z_offset": 65.0, "half_z": 40.0}
     assert values["footprint_radius"] == {
         "barracks": 130.0,
         "outpost": 95.0,

@@ -69,8 +69,6 @@ class PlacementBoxData(TypedDict):
 class ConstantsData(TypedDict):
     source: str
     unit_speed_cm_s: float
-    formation_column_spacing: float
-    formation_row_spacing: float
     force_width: float
     force_depth_frontline: float
     capture_radius: float

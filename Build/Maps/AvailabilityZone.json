@@ -19,10 +19,8 @@
     "half_height": 1000
   },
   "constants": {
-    "source": "Map-tool model parameters. capture_radius, hq_exclusion_radius and footprint_radius are added from Build/Content (constants.json, buildings.json) by Build/ContentText.py and must not appear here. The rest mirror C++ literals or v1 design values that have no shared source yet.",
+    "source": "Map-tool model parameters. capture_radius, hq_exclusion_radius, footprint_radius, placement_z_tolerance and placement_overlap_box are added from Build/Content (constants.json, buildings.json) by Build/ContentText.py and must not appear here. The rest have no C++ definition: design allowances and v1 territory-era values.",
     "unit_speed_cm_s": 420,
-    "formation_column_spacing": 110,
-    "formation_row_spacing": 110,
     "force_width": 180,
     "force_depth_frontline": 290,
     "capture_seconds": 8,
@@ -30,13 +28,8 @@
     "hq_territory_radius": 900,
     "jev_intruder_radius": 1500,
     "jev_defend_offset": [-400, -250],
-    "placement_z_tolerance": 110,
     "click_plane_z": 0,
     "jev_build_z": 5,
-    "placement_overlap_box": {
-      "centre_z_offset": 65,
-      "half_z": 55
-    },
     "character_max_step_height": 45,
     "nav_agent_max_step_height": 35,
     "sector_income": 6,
