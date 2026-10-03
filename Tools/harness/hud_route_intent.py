@@ -14,7 +14,9 @@ from harness.network import (
 from harness.verify import JsonObject
 
 
-def frame_route(run: NetworkRun, capture: Capture, owner: int, barracks: int) -> tuple[JsonObject, int, int]:
+def frame_route(
+    run: NetworkRun, capture: Capture, owner: int, barracks: int
+) -> tuple[JsonObject, int, int]:
     before = capture.state()
     original = force(before, owner, barracks)
     source = next(
@@ -53,7 +55,14 @@ def frame_route(run: NetworkRun, capture: Capture, owner: int, barracks: int) ->
     return original, home, destination
 
 
-def publish_queue(run: NetworkRun, capture: Capture, owner: int, barracks: int, home: int, destination: int) -> JsonObject:
+def publish_queue(
+    run: NetworkRun,
+    capture: Capture,
+    owner: int,
+    barracks: int,
+    home: int,
+    destination: int,
+) -> JsonObject:
     run.request(
         "host",
         "order",
