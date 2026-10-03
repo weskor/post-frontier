@@ -144,6 +144,17 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
     original, home, destination = frame_route(run, capture, owner, barracks)
     state = publish_queue(run, capture, owner, barracks, home, destination)
     orders = force(state, owner, barracks)["orders"]
+    # Park the cursor on the top bar so no order preview overlays the committed path.
+    run.request(
+        "host",
+        "cursor",
+        x=state["viewportWidth"] * 0.3,
+        y=state["viewportHeight"] * 0.03,
+    )
+    state = capture.wait(
+        lambda s: not s["routePreview"] and not s["orderPreview"]["allowed"],
+        "committed path capture has no route preview",
+    )
     capture.shot("route-selected-path-queue")
     preview_target = home
     require(

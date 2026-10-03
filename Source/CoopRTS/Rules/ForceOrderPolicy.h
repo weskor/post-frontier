@@ -7,6 +7,7 @@ namespace ForceOrders
 constexpr int32 MaxRegions = 64;
 // Adjacency bit N addresses stable region index N. Ascending-index BFS breaks ties.
 // Returns Start when already there, INDEX_NONE for invalid or unreachable endpoints.
+// Defined in Rules/RouteIntent.cpp: the same traversal that builds route previews and published intent.
 int32 NextWaypoint(const uint64* Neighbours, int32 RegionCount, int32 Start, int32 Target);
 // The controlled component reachable from Home. Invalid graphs or homes return zero.
 uint64 ConnectedMask(const uint64* Neighbours, int32 RegionCount, int32 Home, uint64 ControlledMask);
