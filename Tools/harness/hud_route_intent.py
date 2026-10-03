@@ -140,7 +140,9 @@ def check_queue_rejection(
     capture.run.request("host", "key", key="LeftShift", pressed=False)
 
 
-def capture_committed_path(run: NetworkRun, capture: Capture, state: JsonObject) -> None:
+def capture_committed_path(
+    run: NetworkRun, capture: Capture, state: JsonObject
+) -> None:
     # Park the cursor on the top bar so no order preview overlays the committed path.
     run.request(
         "host",
