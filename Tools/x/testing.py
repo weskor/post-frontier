@@ -86,13 +86,15 @@ def _automation(
             log=f"{name}-stdout",
             watch=log,
         )
+        inputs_after = ctx.freshness.current_hash("editor")
+        ctx.run.add_exec_inputs(f"{name}-stdout", "editor", inputs, inputs_after)
         text = log.read_text(errors="replace") if log.exists() else ""
         result = parse_automation(text, scope.filter, map_path, code)
         ctx.run.add_artifact(log, f"{name} automation log")
         after = editor_module(ctx).stat()
         if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
             return False, "editor module changed during automation"
-        if inputs != ctx.freshness.current_hash("editor"):
+        if inputs != inputs_after:
             return False, "editor inputs changed during automation"
         return result.ok, result.details
 
@@ -142,6 +144,8 @@ def run_scopes(
     for name in names:
         started = time.monotonic()
         scope = mapping.definitions[name]
+        source_before = ctx.run.snapshot(f"scope:{name}:before")
+        first_exec = len(ctx.run.record["execs"])
         if scope.kind == "automation":
             ok, details = (
                 _automation(ctx, name, scope, map_path)
@@ -155,7 +159,12 @@ def run_scopes(
             ok, details = _scripts(ctx, name, scope)
         else:
             ok, details = True, "no tests; lint is enforced by ./x check"
-        ctx.run.add_result(name, ok, details, time.monotonic() - started)
+        source_after = ctx.run.snapshot(f"scope:{name}:after")
+        provenance = ctx.run.source_interval(source_before, source_after)
+        provenance["execs"] = list(range(first_exec, len(ctx.run.record["execs"])))
+        ctx.run.add_result(
+            name, ok, details, time.monotonic() - started, provenance=provenance
+        )
         print(f"{'PASS' if ok else 'FAIL'} {name}: {details}", flush=True)
         passed = passed and ok
     return passed

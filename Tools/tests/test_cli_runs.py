@@ -3,18 +3,21 @@
 import argparse
 from dataclasses import replace
 import importlib
+import json
 from pathlib import Path
 import sys
 from types import ModuleType
 from typing import cast
 
+from conftest import git
 import pytest
 from test_content_packages import make_package
-from x import cli, jsonio
+from x import cli, jsonio, source
 from x.commands import play, runs
 from x.context import Context
 from x.runs import Run, recent
 from x.settings import load
+from x.testing import run_scopes
 
 
 def command() -> ModuleType:
@@ -176,3 +179,112 @@ def test_smoke_console_commands_refuse_a_fresh_package_without_launching(
     assert cli.invoke(command, args, repo, ["play", *argv]) == 1
     assert not marker.exists()
     assert not settings.lock_dir.exists()
+
+
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_run_content_comparison_is_not_pass_or_new_evidence(
+    repo: Path, capsys: pytest.CaptureFixture[str], exit_code: int
+) -> None:
+    settings = replace(load(repo), runs_root=repo.parent / "runs")
+    ctx = Context(repo, settings)
+    (repo / "Source/rules.cpp").write_text("tested dirty bytes\n")
+    recorded = Run(repo, settings.runs_root, "check", ["check"])
+    recorded.finish(exit_code)
+    before = (recorded.dir / "record.json").read_bytes()
+    git(repo, "add", "Source/rules.cpp")
+    git(repo, "commit", "-m", "tested bytes")
+    args = argparse.Namespace(id=recorded.id, compare_current=True)
+    assert runs.run(args, ctx) == 0
+    output = capsys.readouterr().out
+    assert "completed source vs current: equal" in output
+    assert "content equality is not acceptance/PASS" in output
+    assert f"run status: {'passed' if exit_code == 0 else 'failed'}" in output
+    (repo / "Source/rules.cpp").write_text("different input\n")
+    assert runs.run(args, ctx) == 1
+    assert "completed source vs current: different" in capsys.readouterr().out
+    assert len(recent(settings.runs_root)) == 1
+    assert (recorded.dir / "record.json").read_bytes() == before
+
+
+def test_legacy_comparison_remains_unknown_and_inspectable(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings = replace(load(repo), runs_root=repo.parent / "runs")
+    ctx = Context(repo, settings)
+    recorded = Run(repo, settings.runs_root, "old", ["old"])
+    recorded.finish(0)
+    recorded.record.pop("source")
+    recorded.save()
+    before = (recorded.dir / "record.json").read_bytes()
+    assert runs.run(argparse.Namespace(id=recorded.id, compare_current=True), ctx) == 1
+    assert "completed source vs current: unknown" in capsys.readouterr().out
+    assert runs.run(argparse.Namespace(id=recorded.id, compare_current=False), ctx) == 0
+    assert "status: passed" in capsys.readouterr().out
+    assert (recorded.dir / "record.json").read_bytes() == before
+    assert runs.run(argparse.Namespace(id=None, compare_current=True), ctx) == 2
+
+
+def test_mutating_execution_does_not_test_completed_tree(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings = replace(load(repo), runs_root=repo.parent / "runs")
+    recorded = Run(repo, settings.runs_root, "gen", ["gen"])
+    ctx = Context(repo, settings, recorded)
+    assert (
+        ctx.exec(
+            [
+                sys.executable,
+                "-c",
+                "from pathlib import Path; Path('Source/rules.cpp').write_text('generated input\\n')",
+            ],
+            log="generate",
+        )
+        == 0
+    )
+    recorded.finish(0)
+    interval = recorded.record["execs"][0]["source"]
+    assert interval["content"] == "different"
+    assert recorded.record["source"]["initial_to_completed"] == "different"
+    assert runs.run(argparse.Namespace(id=recorded.id, compare_current=True), ctx) == 0
+    output = capsys.readouterr().out
+    assert "initial to completed: different" in output
+    assert "exec:generate:before vs current: different" in output
+    assert "exec:generate:after vs current: equal" in output
+
+
+def test_scope_provenance_starts_after_prior_formatting(repo: Path) -> None:
+    command = [
+        sys.executable,
+        "-c",
+        "from pathlib import Path; assert Path('Source/rules.cpp').read_text() == 'formatted'",
+    ]
+    (repo / "Tools/x/scopes.toml").write_text(
+        '[scopes.probe]\nkind="script"\ncommands='
+        + json.dumps([command])
+        + "\n[paths]\n"
+    )
+    settings = replace(load(repo), runs_root=repo.parent / "runs")
+    path = repo / "Source/rules.cpp"
+    path.write_text("unformatted")
+    recorded = Run(repo, settings.runs_root, "check", ["check"])
+    ctx = Context(repo, settings, recorded)
+    path.write_text("formatted")
+    assert run_scopes(ctx, ["probe"])
+    recorded.finish(0)
+    provenance = recorded.record["source"]
+    snapshots = provenance["snapshots"]
+    result = recorded.record["results"][0]
+    assert result["source"]["execs"] == [0]
+    assert result["source"]["content"] == "equal"
+    assert (
+        source.equality(
+            snapshots[provenance["initial"]], snapshots[result["source"]["before"]]
+        )
+        == "different"
+    )
+    assert (
+        source.equality(
+            snapshots[provenance["completed"]], snapshots[result["source"]["before"]]
+        )
+        == "equal"
+    )

@@ -35,8 +35,10 @@ def ensure_editor(ctx: Context) -> bool:
             ],
             log="build-editor",
         )
+        after = ctx.freshness.current_hash("editor")
+        ctx.run.add_exec_inputs("build-editor", "editor", before, after)
         ok = code == 0 and editor_module(ctx).is_file()
-        if ctx.freshness.current_hash("editor") != before:
+        if after != before:
             ok = False
             print("editor inputs changed during build; no freshness stamp written")
         if ok:

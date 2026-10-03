@@ -43,14 +43,17 @@ Worktree: /home/wes/workspace/game-wt/<worker-n>   Branch: task/<slug>
 ## Goal
 ## Files you may change
 ## Contract (interfaces other slices rely on)
-## Acceptance (observable result)
-## Verification (exact check; whether Unreal runs are allowed)
+## Prerequisites (landed interface/runner commits required for implementation or proof)
+## Acceptance (named observable requirements, including required repeat counts)
+## Verification (smallest proof for each requirement; whether Unreal runs are allowed)
 ## Out of scope
 ```
 
 List **every file the slice may need**, including shared files such as `Tools/x/scopes.toml` and `Tools/x/lint.toml` when its checks or lint policy need changes. Narrow file lists caused most blocked rounds; do not leave predictable dependencies for the worker to discover after dispatch.
 
 For each shared file, state the exact entries the slice owns and how to resolve rebase conflicts at landing: preserve already-landed independent entries and apply the slice's entries, never take an entire side blindly. If edits compete for the same entry, serialize those slices instead.
+
+**Amend the brief before sending a changed instruction.** Update its authoritative file list, contract, acceptance or verification section, then append a dated `Addendum (orchestrator, <date/time>)` naming the approval and which requirement it supersedes. Keep the effective rule in its section, not in conflicting copies. Scope extensions must pass the same ownership check as initial dispatch. Workers and cleared reviewers read the same amended brief; conversation-only permission is not the review contract.
 
 ### 3. Prepare slots
 
@@ -116,6 +119,10 @@ herdr agent start reviewer-<n> --kind omp --pane <id> --timeout 90000 -- --confi
 
 ### 4. Dispatch
 
+Before prompting a worker, check the candidate's authorized paths against **every active slice's brief**, including amended paths and files reserved for integration. Expand existing glob matches and compare prospective new paths too. Reserve a non-configuration file for only one slice; shared configuration is allowed only for the disjoint entries recorded in both briefs. On overlap, split out the shared interface or defer the dependent slice; a promise to resolve conflicts at landing does not satisfy ownership.
+
+Check each named prerequisite against landed main and the worker's baseline. Dispatch only the independent portion if it has disjoint files and its own acceptance; defer integration and expensive proof until the required interface or runner is present in that worktree. A tooling fix on main does not update an already-running branch. Recheck ownership and prerequisites when amending a brief or resuming a blocked slice.
+
 ```bash
 herdr agent prompt <worker-n> "Read /tmp/cooprts-work/tasks/<slug>/brief.md and do it. Follow the Worker rules in .agents/skills/orchestrate/SKILL.md." --wait --until working --timeout 30000
 ```
@@ -139,6 +146,8 @@ Handle whichever job settles first while the others keep waiting; process every 
 
 Choose any idle `reviewer-<n>` and reserve it for this slice until its review finishes. Before **every** review, clear that reviewer: `herdr agent prompt reviewer-<n> "/new"`. Don't add `--wait`: `/new` starts no turn, so the wait would fail with `agent_prompt_stalled`. Then:
 
+Before requesting review, ensure the brief contains every approval and the report maps every current acceptance requirement to evidence. Keep the previous review available for re-review. An unexplained failed requirement remains open even if a later run passes.
+
 ```bash
 herdr agent prompt reviewer-<n> "Review task <slug>: brief, report and review file in /tmp/cooprts-work/tasks/<slug>/, code in /home/wes/workspace/game-wt/<worker-n>. Follow the Reviewer rules in .agents/skills/orchestrate/SKILL.md." --wait --until working --timeout 30000
 ```
@@ -151,7 +160,7 @@ herdr agent prompt reviewer-<n> "Review task <slug>: brief, report and review fi
 
 Land one slice at a time.
 
-Prompt the worker: "Run `./x land`, reply DONE." The hook rejects other updates to main.
+Authorize `./x land` only after review accepts every current requirement and any relevant integration changes. Prompt the worker: "Run `./x land`, reply DONE." The hook rejects other updates to main.
 
 After the strict-landing hook cutover, every already-in-flight task branch must run `git rebase main` **before** invoking `./x land`. Landing code is imported before land's internal rebase, so an old runner cannot authorize the new hook even if that internal rebase succeeds. Resolve behavior-changing rebase conflicts through re-review before authorizing landing.
 
@@ -189,24 +198,25 @@ Workers have no fallback: stop and tell the user.
 
 1. **Stay in your worktree and on your task branch.** Commit there. Never touch main, other branches or other worktrees.
 2. **Start with `git status`.** If an earlier attempt left changes on the branch, continue from them.
-3. **Change only the files the brief lists.** If you need another file, stop, explain why in the report and reply `BLOCKED`.
+3. **Change only the amended brief's authorized files.** If you need another file, stop, explain why in the report and reply `BLOCKED`. Resume from the persisted approval, not just a conversational grant.
 4. **Don't ask questions.** When a decision is missing, write it in the report and reply `BLOCKED`.
 5. **Unreal only through `./x` commands, which take their own locks and stop stalled runs,** and only if the brief allows it. Never wrap `./x` (or anything else) in `flock`: an outer lock deadlocks against the runner's lock. Never kill a process you didn't start. Never write into `Builds/`.
 6. **`./x check` enforces the [lint policy](../../../Docs/Engineering/Setup.md):** inline suppressions, `TODO`/`FIXME`/`HACK`, stubs and disabled tests fail `./x check`. Exceptions only through `Tools/x/lint-exceptions.toml` with a reason.
-7. **Verify with `./x check`; the command chooses the scopes.** Run `./x verify` only when the brief names it. Never weaken a test to make it pass.
+7. **Verify with `./x check`; the command chooses the scopes.** Run `./x verify` only when the brief names it. Keep exploratory/dirty runs as diagnostic evidence. Commit formatting and implementation changes before final acceptance, or establish equivalent tested content as described by `./x help runs`. After a commit or rebase, carry forward evidence only for demonstrably unchanged tested inputs, command and fixture; record the reason and refresh only affected requirements. `--all` expands lint, not test selection. Never weaken a test to make it pass.
 8. **Land only after review and explicit instruction.** If `./x land` aborts a conflicting rebase, resolve it by rebasing your task branch onto main using the brief's entry-ownership instructions. If resolving a conflict changes behaviour, update the report and reply `BLOCKED`; do not retry `./x land` until re-review passes and the orchestrator explicitly authorizes it. Otherwise fix the landing failure, rerun `./x check`, commit any fixes and retry `./x land`.
 9. **Write `/tmp/cooprts-work/tasks/<slug>/report.md`,** at most 45 lines:
    1. Files and functions changed.
    2. Behaviour now, with exact constants.
-   3. Verification run: commands and results, and what wasn't run.
-   4. Risks, and what the orchestrator must check.
+   3. Acceptance table: requirement, run IDs, tested source/equivalence, observed proof and limits. Include actual selected scopes and required repetitions; a green check does not substitute for named simulation, rendered HUD or network acceptance.
+   4. Failed/interrupted runs: assertion or failure fingerprint, command/fixture, run IDs and diagnosis or comparable baseline. A later pass does not resolve an unexplained failure. Use existing equivalent baseline records first; any new baseline run must be authorized by the brief.
+   5. Risks, remaining requirements and what the orchestrator must check. Mark superseded evidence as historical; distinguish headless state, rendered surface, loopback replication and native/Steam proof.
 10. **Reply with one line:** `DONE` or `BLOCKED`.
 
 ## Reviewer rules
 
 1. **Read-only.** Don't edit files, build, launch Unreal or run git write commands.
-2. **Inputs:** the brief, the report, and the diff `git -C <worktree> diff main...HEAD`. On a re-review, also read the previous `review.md`.
-3. **Check every claim against the code.** Label anything you didn't verify as an inference.
-4. **Look for:** correctness against the brief's acceptance, files changed outside the brief, contract breaks for other slices, missing or weakened verification, and lint-policy violations.
+2. **Inputs:** the amended brief, report acceptance table, retained run evidence and the diff `git -C <worktree> diff main...HEAD`. On a re-review, also read the previous `review.md`.
+3. **Check every claim against the code and evidence.** Inspect the exact acceptance records and captures supporting visual claims. Follow `./x help runs` to inspect source provenance; matching content is not proof that a requirement passed. Label unavailable legacy provenance and any unverified claim as inference.
+4. **Look for:** correctness against the effective acceptance, files changed outside the amended brief, shared-interface ownership/contract breaks, missing or weakened verification, and lint-policy violations. Require a diagnosis or comparable baseline for an unexplained failure; a passing retry or the word "intermittent" is insufficient. Compare the same failure fingerprint, command/fixture and relevant source, not unrelated failures in the same scope. Do not demand new proof for unchanged inputs or tiers the brief does not require.
 5. **Write `/tmp/cooprts-work/tasks/<slug>/review.md`,** at most about 700 words, most important first. End with three lists: **Must fix**, **Should fix**, **Fine as is**.
 6. **Reply with one line:** `DONE`.

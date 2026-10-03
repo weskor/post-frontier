@@ -62,6 +62,10 @@ def test_unsuccessful_or_mutating_build_does_not_stamp(repo: Path, mode: str) ->
     assert not ensure_editor(ctx)
     assert not ctx.freshness.is_fresh("editor")
     assert not (repo / "Intermediate/x-stamps/editor.json").exists()
+    assert ctx.run is not None
+    guard = ctx.run.record["execs"][0]["input_hashes"]["editor"]
+    assert guard["equal"] is (mode != "change")
+    assert (guard["before"] == guard["after"]) is guard["equal"]
 
 
 def test_edit_between_build_comparison_and_stamp_stays_stale(

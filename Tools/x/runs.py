@@ -6,7 +6,7 @@ import secrets
 import time
 from typing import Any
 
-from x import gitinfo, jsonio
+from x import gitinfo, jsonio, source
 
 
 def utc_now() -> str:
@@ -21,6 +21,7 @@ class Run:
         self.dir = runs_root / self.id
         self.dir.mkdir(parents=True)
         self._clock = time.monotonic()
+        self.repo = repo
         self.record: dict[str, Any] = {
             "id": self.id,
             "command": command,
@@ -38,17 +39,61 @@ class Run:
             "execs": [],
             "lock_waits": [],
             "artifacts": [],
+            "source": {"snapshots": []},
         }
+        self.record["source"]["initial"] = self.snapshot("initial")
         self.save()
 
     def save(self) -> None:
         jsonio.save(self.dir / "record.json", self.record)
 
+    def snapshot(self, label: str) -> int:
+        snapshots = self.record["source"]["snapshots"]
+        index = len(snapshots)
+        snapshot = source.capture(
+            self.repo, self.dir / "source" / f"{index:04d}", retained=snapshots
+        )
+        snapshots.append({**snapshot, "label": label, "time": utc_now()})
+        self.save()
+        return index
+
+    def source_interval(self, before: int, after: int) -> dict[str, Any]:
+        snapshots = self.record["source"]["snapshots"]
+        return {
+            "before": before,
+            "after": after,
+            "content": source.equality(snapshots[before], snapshots[after]),
+        }
+
+    def add_exec_inputs(self, log: str, kind: str, before: str, after: str) -> None:
+        """Retain the exact hashes used by an existing freshness mutation guard."""
+        for execution in reversed(self.record["execs"]):
+            if Path(execution["log"]).stem == log:
+                execution.setdefault("input_hashes", {})[kind] = {
+                    "before": before,
+                    "after": after,
+                    "equal": before == after,
+                }
+                self.save()
+                return
+
     def add_result(
-        self, name: str, ok: bool, details: str = "", duration_s: float | None = None
+        self,
+        name: str,
+        ok: bool,
+        details: str = "",
+        duration_s: float | None = None,
+        *,
+        provenance: dict[str, Any] | None = None,
     ) -> None:
         self.record["results"].append(
-            {"name": name, "ok": ok, "duration_s": duration_s, "details": details}
+            {
+                "name": name,
+                "ok": ok,
+                "duration_s": duration_s,
+                "details": details,
+                **({"source": provenance} if provenance is not None else {}),
+            }
         )
         self.save()
 
@@ -64,6 +109,9 @@ class Run:
         duration_s: float,
         stalled: bool,
         peak_rss_mb: float,
+        *,
+        source_before: int | None = None,
+        source_after: int | None = None,
     ) -> None:
         self.record["execs"].append(
             {
@@ -73,6 +121,9 @@ class Run:
                 "duration_s": duration_s,
                 "stalled": stalled,
                 "peak_rss_mb": peak_rss_mb,
+                "source": self.source_interval(source_before, source_after)
+                if source_before is not None and source_after is not None
+                else {"content": "unknown"},
             }
         )
         self.save()
@@ -82,6 +133,11 @@ class Run:
         self.save()
 
     def finish(self, exit_code: int, *, interrupted: bool = False) -> int:
+        completed = self.snapshot("completed")
+        self.record["source"]["completed"] = completed
+        self.record["source"]["initial_to_completed"] = self.source_interval(
+            self.record["source"]["initial"], completed
+        )["content"]
         status = "passed"
         if interrupted:
             status = "interrupted"

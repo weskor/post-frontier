@@ -58,6 +58,7 @@ class Context:
         watched = (
             working / watch if watch is not None and not watch.is_absolute() else watch
         )
+        source_before = self.run.snapshot(f"exec:{log}:before")
         outcome = execute(
             arguments,
             log_path,
@@ -66,6 +67,7 @@ class Context:
             watched,
             self.settings.stall_seconds if stall_seconds is None else stall_seconds,
         )
+        source_after = self.run.snapshot(f"exec:{log}:after")
         self.run.add_exec(
             arguments,
             log_path,
@@ -73,6 +75,8 @@ class Context:
             outcome.duration_s,
             outcome.stalled,
             outcome.peak_rss_mb,
+            source_before=source_before,
+            source_after=source_after,
         )
         if outcome.interrupted:
             raise KeyboardInterrupt
