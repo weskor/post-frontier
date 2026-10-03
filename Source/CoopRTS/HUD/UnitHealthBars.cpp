@@ -17,8 +17,8 @@ void DrawUnitHealthBars(const FPainter& Paint, const FContext& Context)
 		if (!Unit->IsAlive() || Maximum <= 0)
 			continue;
 		// QuietSeconds is server-only repair state, not a replicated recent-combat clock.
-		const bool bSelectedForce = Context.Building && IsValid(Unit->GetGroup())
-			&& Unit->GetGroup() == Context.Building->ForceGroup;
+		const bool bSelectedForce = IsValid(Unit->GetGroup())
+			&& Context.Controller->IsForceHighlighted(Unit->GetGroup());
 		if (Unit->GetHealth() >= Maximum && !bSelectedForce)
 			continue;
 		FVector2D Screen;

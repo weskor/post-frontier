@@ -110,21 +110,22 @@ public:
 					TEXT("Each recruited force snapshots its own producer's number")))
 				return true;
 			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == First.Get(),
-					TEXT("Selecting an owned paid recruit selects its living producer")))
+			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
+					TEXT("Selecting an owned paid recruit selects its force, not its producer")))
 				return true;
 			PC->SelectActor(SecondUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == Second.Get(),
-					TEXT("Selecting another owned force's recruit selects that producer, not the prior force")))
+			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(Second->ForceGroup)
+						&& !PC->IsForceSelected(SurvivorForce.Get()),
+					TEXT("Selecting another owned recruit replaces the selected force")))
 				return true;
 			PC->SelectActor(ForeignUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr,
-					TEXT("A foreign friendly recruit clears selection despite sharing force number 1")))
+			if (!Check(PC->GetSelectedForces().IsEmpty() && PC->GetInspectedForce() == Foreign->ForceGroup,
+					TEXT("A teammate recruit sharing force number 1 is inspected read-only")))
 				return true;
 			PC->SelectActor(OwnedUnit.Get());
 			PC->SelectActor(EnemyUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr,
-					TEXT("An enemy recruit clears selection despite sharing force number 1")))
+			if (!Check(!PC->IsForceSelected(Enemy->ForceGroup),
+					TEXT("An enemy recruit sharing force number 1 cannot join command selection")))
 				return true;
 			SecondUnit->ReceiveAttack(SecondUnit->MaxHealth(), EnemyUnit.Get());
 			if (!Check(!SecondUnit->IsAlive() && Second->IsAlive(),
@@ -132,7 +133,7 @@ public:
 				return true;
 			PC->SelectActor(OwnedUnit.Get());
 			PC->SelectActor(SecondUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr, TEXT("A dead owned recruit cannot select its living producer")))
+			if (!Check(!PC->IsForceSelected(Second->ForceGroup), TEXT("A dead owned recruit cannot select its living force")))
 				return true;
 			RememberedFront = SurvivorForce->FrontLocation;
 			RememberedOrder = SurvivorForce->FrontOrder;
@@ -144,7 +145,8 @@ public:
 				return true;
 			PC->SelectActor(Second.Get());
 			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr, TEXT("Selecting an orphan survivor clears selection")))
+			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
+					TEXT("Selecting an orphan survivor selects its retained force")))
 				return true;
 			Second->ReceiveAttack(Second->MaxHealth(), EnemyUnit.Get());
 			if (!Check(!Second.IsValid(), TEXT("Destroying empty producer 2 releases its number")))
@@ -181,8 +183,9 @@ public:
 				return true;
 			PC->SelectActor(Replacement.Get());
 			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr,
-					TEXT("An orphan survivor cannot select an unrelated replacement")))
+			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get())
+						&& !PC->IsForceSelected(Replacement->ForceGroup),
+					TEXT("An orphan survivor selects its own force rather than unrelated replacement")))
 				return true;
 			OwnedUnit->ReceiveAttack(OwnedUnit->MaxHealth(), EnemyUnit.Get());
 			if (!Check(!OwnedUnit->IsAlive(), TEXT("Real lethal damage kills the last orphan unit")))

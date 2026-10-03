@@ -9,6 +9,7 @@
 #include "EngineFontServices.h"
 #include "HUD/HUDPanels.h"
 #include "ObjectiveAnnouncer.h"
+#include "Rules/ForceSelectionPolicy.h"
 
 using namespace CommandHUDPanels;
 
@@ -67,14 +68,7 @@ bool ACommandHUD::IsPanelPoint(const FVector2D& Position) const
 	const FLayout Layout = MakeLayout(Context, Width, Height);
 	if (Layout.Scale <= 0.f)
 		return false;
-	const FVector2D Point = Position / Layout.Scale;
-	FVector AlertWorld;
-	int32 AlertSequence;
-	return HitTestAlert(Context, Layout, Point, AlertWorld, AlertSequence)
-		|| Layout.Top.Contains(Point) || Layout.Objectives.Contains(Point)
-		|| Layout.Menu.Contains(Point) || Layout.Pause.Contains(Point) || Layout.Minimap.Contains(Point) || Layout.Construction.Contains(Point)
-		|| (Context.bExpanded && Layout.Build.Contains(Point)) || Layout.Bottom.Contains(Point)
-		|| (Layout.bFeedback && Layout.Feedback.Contains(Point));
+	return CommandHUDPanels::IsPanelPoint(Context, Layout, Position / Layout.Scale);
 }
 
 EHUDAction ACommandHUD::GetActionAtScreenPosition(const FVector2D& Position) const
@@ -110,6 +104,63 @@ bool ACommandHUD::FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosi
 	return bFound;
 }
 #endif
+
+static void VisitForceBadges(const ACommandPlayerController* Controller,
+	TFunctionRef<void(AArmyGroup*, const FRect&, float)> Visit)
+{
+	if (!Controller || !GEngine || Controller->GetUIScreen() != ECommandScreen::Game
+		|| !FEngineFontServices::IsInitialized())
+		return;
+	int32 Width, Height;
+	Controller->GetViewportSize(Width, Height);
+	const FContext Context = MakeContext(Controller);
+	const FLayout Layout = MakeLayout(Context, Width, Height);
+	const UFont* Font = GEngine->GetSmallFont();
+	if (Layout.Scale <= 0.f || !Font)
+		return;
+	const FPainter Paint{ nullptr, Layout.Scale, Font, FEngineFontServices::Get().GetFontMeasure() };
+	ForEachForceBadge(Paint, Context, Layout, [&](AArmyGroup* Force, const FRect& Rect) {
+		Visit(Force, Rect, Layout.Scale);
+	});
+}
+
+AArmyGroup* ACommandHUD::GetForceAtScreenPosition(const FVector2D& Position) const
+{
+	AArmyGroup* Result = nullptr;
+	VisitForceBadges(Cast<ACommandPlayerController>(GetOwningPlayerController()),
+		[&](AArmyGroup* Force, const FRect& Rect, float Scale) {
+			// Last drawn badge wins when forces overlap.
+			if (Rect.Contains(Position / Scale))
+				Result = Force;
+		});
+	return Result;
+}
+
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+bool ACommandHUD::FindForceScreenPosition(const AArmyGroup* Force, FVector2D& OutPosition) const
+{
+	bool bFound = false;
+	VisitForceBadges(Cast<ACommandPlayerController>(GetOwningPlayerController()),
+		[&](AArmyGroup* Candidate, const FRect& Rect, float Scale) {
+			if (Candidate == Force)
+			{
+				OutPosition = Rect.Center() * Scale;
+				bFound = true;
+			}
+		});
+	return bFound && GetForceAtScreenPosition(OutPosition) == Force;
+}
+#endif
+
+void ACommandHUD::GetForcesInScreenBox(const FVector2D& Start, const FVector2D& End, TArray<AArmyGroup*>& OutForces) const
+{
+	OutForces.Reset();
+	VisitForceBadges(Cast<ACommandPlayerController>(GetOwningPlayerController()),
+		[&](AArmyGroup* Force, const FRect& Rect, float Scale) {
+			if (ForceSelectionPolicy::IsInScreenBox(Rect.Center() * Scale, Start, End))
+				OutForces.Add(Force);
+		});
+}
 
 bool ACommandHUD::GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) const
 {
@@ -179,6 +230,18 @@ void ACommandHUD::PostRender()
 	Super::PostRender();
 }
 
+static void DrawSelectionBox(const FPainter& Paint, const ACommandPlayerController* Controller, const FLayout& Layout)
+{
+	FVector2D DragStart, DragEnd;
+	if (!Controller->GetSelectionDrag(DragStart, DragEnd))
+		return;
+	const FVector2D Min = FVector2D(FMath::Min(DragStart.X, DragEnd.X), FMath::Min(DragStart.Y, DragEnd.Y)) / Layout.Scale;
+	const FVector2D Size = FVector2D(FMath::Abs(DragEnd.X - DragStart.X), FMath::Abs(DragEnd.Y - DragStart.Y)) / Layout.Scale;
+	const FRect Box{ static_cast<float>(Min.X), static_cast<float>(Min.Y), static_cast<float>(Size.X), static_cast<float>(Size.Y) };
+	Paint.Fill(Box, Palette::Friendly.CopyWithNewOpacity(.08f));
+	Paint.Outline(Box, Palette::Friendly);
+}
+
 void ACommandHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -210,7 +273,8 @@ void ACommandHUD::DrawHUD()
 	DrawHeadquartersOverlays(Paint, Context);
 	DrawBuildingOverlays(Paint, Context);
 	DrawSectorOverlays(Paint, Context);
-	DrawForceLabels(Paint, Context);
+	DrawForceLabels(Paint, Context, Layout);
+	DrawSelectionBox(Paint, Controller, Layout);
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
@@ -221,6 +285,8 @@ void ACommandHUD::DrawHUD()
 		Paint.Panel(Layout.Inspector);
 		if (Context.Building)
 			DrawBuildingInspector(Paint, Context, Layout.Inspector);
+		else if (Context.Force)
+			DrawForceInspector(Paint, Context, Layout.Inspector);
 		else
 			DrawOverview(Paint, Context, Forces, Layout.Inspector);
 	}

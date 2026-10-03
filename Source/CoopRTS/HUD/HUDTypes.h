@@ -10,6 +10,7 @@
 class ACommandPlayerController;
 class ACommandGameState;
 class UMatchContent;
+class AArmyGroup;
 
 namespace CommandHUDPanels
 {
@@ -75,6 +76,10 @@ struct FRect
 	{
 		return Point.X >= X && Point.X < X + W && Point.Y >= Y && Point.Y < Y + H;
 	}
+	bool Intersects(const FRect& Other) const
+	{
+		return X < Other.Right() && Right() > Other.X && Y < Other.Bottom() && Bottom() > Other.Y;
+	}
 };
 
 // Local presentation inputs shared by drawing and hit testing.
@@ -84,6 +89,7 @@ struct FContext
 	const ACommandGameState* State = nullptr;
 	const ACommandPlayerState* Wallet = nullptr;
 	const ACommandBuilding* Building = nullptr;
+	const AArmyGroup* Force = nullptr;
 	int32 Balance = 0;
 	bool bTerminal = false;
 	bool bExpanded = true;

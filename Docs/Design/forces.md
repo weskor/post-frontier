@@ -35,10 +35,10 @@
 
 **The redesign:**
 
-- **You command forces, not buildings.** Select a force by its map badge, its card in the force bar, or one of its units. Buildings only produce; the building panel keeps upgrades and perks. How selection and orders are input lives in [ui.md](ui.md).
+- **[Built] You select forces, not buildings.** The selection model includes living orphan forces; input and camera behaviour live in [ui.md](ui.md). **[Change]** Force-bar cards and force order verbs replace the building's goal controls; buildings then only produce, upgrade and refit.
 - **Several forces at once:**
-  - Shift-click or box-select force badges to give one order to all of them.
-  - Keys **1–4** (solo **1–5**) select a single force by its force number.
+  - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md). **[Change]** One order applies to the whole selection.
+  - **[Built]** Keys **1–4** (solo **1–5**) select a single force by its force number.
   - A mixed selection marches at its slowest member's speed.
   - **[Later]** Saved control groups (Ctrl+1–9). Cut from launch scope in the design review; box-select, Shift-select and the order queue cover multi-force orders.
 - **Three verbs** replace Hold, Expand, Assault and Fall Back:
@@ -53,8 +53,8 @@ The two attack verbs have different rules on purpose, so players can tell them a
 
 **Definitions:**
 - **Safe region:** the nearest connected region with no hostiles inside, preferring the last region the force held.
-- **Orphan forces:** a force outlives its production building. It stays selectable and commandable; it just receives no more reinforcements or refits.
-  - Today an orphan keeps its last front and can't be given orders. That's the measured cause of the stalled draws ([battle.md](battle.md)).
+- **Orphan forces [Built]:** a force outlives its production building and stays selectable; it receives no more reinforcements or refits. **[Change]** It remains commandable after the building is gone.
+  - Today an orphan still keeps its last front and can't be given new orders. That's the measured cause of the stalled draws ([battle.md](battle.md)).
 - **Today [Built]:**
   - Auto-retreat exists for Assault only. It uses a Defend front and keeps firing, and resumes only at full strength.
   - Fall Back goes to the barracks and doesn't fire.

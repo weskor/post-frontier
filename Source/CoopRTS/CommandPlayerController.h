@@ -41,6 +41,16 @@ public:
 	ACommandPlayerController();
 	virtual void PlayerTick(float DeltaTime) override;
 	ACommandBuilding* GetSelectedBuilding() const { return SelectedBuilding; }
+	const TArray<TObjectPtr<AArmyGroup>>& GetSelectedForces() const { return SelectedForces; }
+	AArmyGroup* GetInspectedForce() const { return InspectedForce; }
+	bool IsForceSelected(const AArmyGroup* Force) const;
+	bool IsForceHighlighted(const AArmyGroup* Force) const;
+	void SelectForce(AArmyGroup* Force, bool bToggle = false);
+	void SelectForceNumber(int32 Number);
+	void SelectForceBox(const FVector2D& Start, const FVector2D& End, bool bAdd = false);
+	void SelectActorWithModifiers(AActor* Actor, bool bToggle, bool bDoubleClick);
+	bool GetSelectionDrag(FVector2D& Start, FVector2D& End) const;
+	void FocusSelection();
 	const FString& GetOrderFeedback() const { return Feedback; }
 	bool IsHUDExpanded() const { return bHUDExpanded; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
@@ -51,7 +61,7 @@ public:
 	bool IsAssigningGoal() const { return bAssigningGoal; }
 	EForceGoal GetPendingGoal() const { return PendingGoal; }
 	// Left-click entry points shared by real input and the Development verification probe.
-	// Returns true when Position lies on a HUD panel; the click then never reaches the world.
+	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
 	void SelectActor(AActor* Actor);
 	ECommandScreen GetUIScreen() const;
@@ -83,6 +93,17 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<ACommandBuilding> SelectedBuilding;
 	UPROPERTY(Transient)
+	TArray<TObjectPtr<AArmyGroup>> SelectedForces;
+	UPROPERTY(Transient)
+	TObjectPtr<AArmyGroup> InspectedForce;
+	TWeakObjectPtr<ACommandBuilding> LastClickedBuilding;
+	double LastBuildingClickTime = -1.;
+	int32 LastForceKey = 0;
+	double LastForceKeyTime = -1.;
+	FVector2D SelectionDragStart = FVector2D::ZeroVector;
+	bool bSelectionDragging = false;
+	bool bSelectionDragAdd = false;
+	UPROPERTY(Transient)
 	TObjectPtr<UInputMappingContext> Mapping;
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UInputAction>> Actions;
@@ -113,11 +134,18 @@ private:
 	void ZoomIn();
 	void ZoomOut();
 	void SelectUnderCursor();
+	void FinishSelectionDrag();
+	void SelectForce1() { SelectForceNumber(1); }
+	void SelectForce2() { SelectForceNumber(2); }
+	void SelectForce3() { SelectForceNumber(3); }
+	void SelectForce4() { SelectForceNumber(4); }
+	void SelectForce5() { SelectForceNumber(5); }
+	bool IsSelectableForce(const AArmyGroup* Force) const;
+	bool IsOwnedForce(const AArmyGroup* Force) const;
 	void CancelPointerMode();
 	void CancelMode();
 	void ToggleHUD();
 	void RequestRestart();
-	void FocusSelection();
 	void ToggleActivePause();
 	void HandleHUDAction(EHUDAction Action);
 	bool IsOwnedBuilding(const ACommandBuilding* Building) const;

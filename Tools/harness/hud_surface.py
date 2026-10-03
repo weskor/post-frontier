@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 import json
 from pathlib import Path
 import shutil
@@ -82,6 +82,20 @@ class Capture:
     def key(self, name: str) -> None:
         self.run.request("host", "key", key=name, pressed=True)
         self.run.request("host", "key", key=name, pressed=False)
+
+    def box(
+        self, start: Sequence[float], end: Sequence[float], *, add: bool = False
+    ) -> None:
+        self.run.request(
+            "host",
+            "select",
+            target="box",
+            add=add,
+            x=start[0],
+            y=start[1],
+            x2=end[0],
+            y2=end[1],
+        )
 
     def minimap(self, horizontal: float, vertical: float) -> None:
         before = self.state()

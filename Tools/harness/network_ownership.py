@@ -52,6 +52,42 @@ def issue_rejected_commands(run: NetworkRun, s: Session, index: int) -> JsonObje
     return before
 
 
+def verify_force_ownership(run: NetworkRun, s: Session, index: int) -> None:
+    state = run.observe(s.peer)
+    army = next(a for a in state["armies"] if a["producer"] == index)
+    camera = state["cameraPosition"]
+    run.request(
+        s.peer, "select", target="force", owner=s.owner, number=army["forceNumber"]
+    )
+    selected = run.observe(s.peer)
+    require(
+        selected["selectedForces"] == [army["actorId"]]
+        and not selected["buildingSelected"]
+        and selected["cameraPosition"] == camera,
+        "owner force selection failed or moved camera",
+    )
+    if s.peer != "host":
+        host = run.observe("host")
+        foreign = next(a for a in host["armies"] if a["producer"] == index)
+        camera = host["cameraPosition"]
+        run.request(
+            "host",
+            "select",
+            target="force",
+            owner=s.owner,
+            number=foreign["forceNumber"],
+        )
+        inspected = run.observe("host")
+        require(
+            inspected["selectedForces"] == []
+            and inspected["inspectedForce"] == foreign["actorId"]
+            and not inspected["buildingSelected"]
+            and inspected["cameraPosition"] == camera,
+            "teammate force entered command selection or inspection moved camera",
+        )
+    run.phase("replicated owner-only selection; teammate read-only force inspection")
+
+
 def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) -> None:
     before = issue_rejected_commands(run, s, index)
     # Reliable RPC order on the same owning controller supplies a behavioral
@@ -94,3 +130,4 @@ def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) 
     run.phase(
         "owner RPCs, permanent siege configuration and atomic rejection of invalid/foreign goals and locked types"
     )
+    verify_force_ownership(run, s, index)

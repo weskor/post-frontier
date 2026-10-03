@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "ArmyGroup.h"
 #include "CommandPlayerController.h"
 
 namespace CommandHUDPanels
@@ -68,11 +69,19 @@ static void DrawHiddenMode(const FPainter& Paint, const FContext& Context, const
 		else if (Context.Building->IsProducer())
 			Selection << TEXT("  \u00B7  ") << StatusText(Context.Building->GetProductionState());
 	}
+	else if (Context.Force)
+	{
+		const bool bOwned = Context.Force->GetOwningPlayerState() == Context.Wallet;
+		Selection.Appendf(TEXT("%s force %d"), bOwned ? TEXT("Selected: your") : TEXT("Read only: teammate's"),
+			Context.Force->ForceNumber);
+		if (bOwned && Context.Controller->GetSelectedForces().Num() > 1)
+			Selection.Appendf(TEXT("  \u00B7  %d selected"), Context.Controller->GetSelectedForces().Num());
+	}
 	else
-		Selection << TEXT("Nothing selected  \u00B7  click an owned building");
+		Selection << TEXT("Click badge/unit  \u00B7  Shift / box: several  \u00B7  1-4 (solo 1-5)");
 	Paint.Text(Selection.ToView(), X, Row2, 10.f, Palette::Text, false, EAlign::Left, TextWidth);
 	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("F4"), TEXT("Show deck"));
-	Paint.TextIn(TEXT("Use Construction to reopen"), { KeysRight - KeysWidth, Row2, KeysWidth, KeyHeight }, 8.f, Palette::Muted);
+	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("F"), TEXT("Centre selection"));
 }
 
 void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout)

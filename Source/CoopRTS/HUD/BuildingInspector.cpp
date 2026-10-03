@@ -1,6 +1,7 @@
 #include "HUDPanels.h"
 #include "ArmyGroup.h"
 #include "CommandGameState.h"
+#include "CommandPlayerController.h"
 #include "DepositSite.h"
 #include "MapRegion.h"
 
@@ -60,7 +61,7 @@ static void DrawProductionRemedy(const FPainter& Paint, const FContext& Context,
 	else
 		Remedy << Status;
 	Paint.Text(Remedy.ToView(), Inspector.X + Pad, Inspector.Bottom() - 22.f, 10.f, StatusColor,
-		true, EAlign::Left, Inspector.W - 2.f * Pad);
+		true, EAlign::Left, Inspector.W - 2.f * Pad - (IsValid(Context.Building->ForceGroup) ? 150.f + Gap : 0.f));
 }
 
 static void DrawProductionInspector(const FPainter& Paint, const FContext& Context, const FRect& Inspector, const FLinearColor& Accent, FStringView Title, FStringView Subtitle, int32 Owner)
@@ -187,6 +188,121 @@ void DrawBuildingInspector(const FPainter& Paint, const FContext& Context, const
 	else
 		DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle.ToView(), Owner,
 			Building->Health, Building->MaxHealth(), FStringView(), Palette::Muted);
+}
+
+static const TCHAR* ForceOrderTitle(EArmyOrder Order)
+{
+	switch (Order)
+	{
+	case EArmyOrder::Hold:
+		return TEXT("HOLDING");
+	case EArmyOrder::Move:
+		return TEXT("MOVING");
+	case EArmyOrder::Attack:
+		return TEXT("ATTACKING");
+	case EArmyOrder::Retreat:
+		return TEXT("RETREATING");
+	}
+	return TEXT("");
+}
+
+static void DrawForceSelection(const FPainter& Paint, const FContext& Context, const FRect& Selection, bool bOwned, int32 Owner)
+{
+	ColumnLabel(Paint, Selection, bOwned ? TEXT("SELECTION") : TEXT("OWNER"));
+	TStringBuilder<128> Selected;
+	if (bOwned)
+	{
+		const auto& Forces = Context.Controller->GetSelectedForces();
+		Selected.Appendf(TEXT("%d selected: "), Forces.Num());
+		bool bFirst = true;
+		for (const AArmyGroup* Group : Forces)
+		{
+			if (!IsValid(Group))
+				continue;
+			if (!bFirst)
+				Selected << TEXT(", ");
+			Selected.Appendf(TEXT("%d"), Group->ForceNumber);
+			bFirst = false;
+		}
+	}
+	else
+		Selected.Appendf(TEXT("Commander %d"), Owner + 1);
+	Paint.Text(Selected.ToView(), Selection.X, Row(Selection, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Selection.W);
+	Paint.Text(bOwned ? TEXT("Shift-click / box: select several") : TEXT("Teammate information only"),
+		Selection.X, Row(Selection, 1).Y, 9.f, Palette::Muted, false, EAlign::Left, Selection.W);
+	Paint.DrawKey(Selection.X, Row(Selection, 2).Y, TEXT("F"), TEXT("Centre selection"));
+}
+
+static void DrawForceStrength(const FPainter& Paint, const AArmyGroup* Force, const FRect& Strength)
+{
+	ColumnLabel(Paint, Strength, TEXT("STRENGTH"));
+	int32 Joined = 0, Travelling = 0, Health = 0, MaxHealth = 0;
+	for (const AArmyUnit* Unit : Force->GetUnits())
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive())
+			continue;
+		if (Unit->IsReinforcing())
+			++Travelling;
+		else
+			++Joined;
+		Health += Unit->GetHealth();
+		MaxHealth += Unit->MaxHealth();
+	}
+	TStringBuilder<64> Counts;
+	Counts.Appendf(TEXT("%d joined  \u00B7  %d travelling"), Joined, Travelling);
+	Paint.Text(Counts.ToView(), Strength.X, Row(Strength, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Strength.W);
+	const FRect HealthRow = Row(Strength, 1);
+	Paint.Bar({ HealthRow.X, HealthRow.Y, HealthRow.W, 8.f },
+		MaxHealth > 0 ? static_cast<float>(Health) / MaxHealth : 0.f, Palette::Good);
+	Counts.Reset();
+	Counts.Appendf(TEXT("HP %d / %d"), Health, MaxHealth);
+	Paint.Text(Counts.ToView(), Strength.X, HealthRow.Y + 10.f, 9.f, Palette::Muted, false, EAlign::Left, Strength.W);
+}
+
+void DrawForceInspector(const FPainter& Paint, const FContext& Context, const FRect& Inspector)
+{
+	const AArmyGroup* Force = Context.Force;
+	if (!IsValid(Force) || !IsValid(Force->GetOwningPlayerState()))
+		return;
+	const int32 Owner = Force->GetOwningPlayerState()->CommanderIndex;
+	const bool bOwned = Force->GetOwningPlayerState() == Context.Wallet;
+	const ACommandBuilding* Producer = Force->GetProductionBuilding();
+	const bool bHasProducer = IsValid(Producer) && Producer->IsAlive();
+	TStringBuilder<64> Title;
+	Title.Appendf(TEXT("FORCE %d"), Force->ForceNumber);
+	TStringBuilder<96> Subtitle;
+	Subtitle.Appendf(TEXT("C%d  \u00B7  %s  \u00B7  %s"), Owner + 1,
+		bOwned ? TEXT("your force") : TEXT("teammate's force"),
+		bHasProducer ? TEXT("reinforcements available") : TEXT("orphan: no reinforcements"));
+	DrawInspectorHeader(Paint, Inspector, AArmyUnit::GetCommanderColor(Owner), Title.ToView(), Subtitle.ToView(),
+		Owner, 0, 0, bOwned ? TEXT("SELECTED") : TEXT("READ ONLY"), bOwned ? Palette::Gold : Palette::Muted);
+
+	const FRect Selection = Column(Inspector, 0, 3);
+	const FRect Orders = Column(Inspector, 1, 3);
+	const FRect Strength = Column(Inspector, 2, 3);
+	DrawForceSelection(Paint, Context, Selection, bOwned, Owner);
+	ColumnLabel(Paint, Orders, TEXT("ORDER"));
+
+	Paint.Text(ForceOrderTitle(Force->Order), Orders.X, Row(Orders, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Orders.W);
+	if (bHasProducer)
+	{
+		Paint.Text(GoalTitle(Producer->ForceGoal), Orders.X, Row(Orders, 1).Y, 10.f,
+			GoalColor(Producer->ForceGoal), true, EAlign::Left, Orders.W);
+		if (Context.State)
+			for (const AMapRegion* Region : Context.State->Regions)
+				if (IsValid(Region) && Region->RegionIndex == Producer->GoalRegionIndex)
+				{
+					Paint.Text(Region->DisplayName.ToString(), Orders.X, Row(Orders, 2).Y, 9.f,
+						Palette::Muted, false, EAlign::Left, Orders.W);
+					break;
+				}
+	}
+	else
+		Paint.Text(TEXT("Last order retained"), Orders.X, Row(Orders, 1).Y, 9.f, Palette::Muted, false, EAlign::Left, Orders.W);
+
+	DrawForceStrength(Paint, Force, Strength);
+	Paint.Text(bHasProducer ? TEXT("Building panel keeps production and goals.") : TEXT("Survivors remain selectable without a building."),
+		Inspector.X + Pad, Inspector.Bottom() - 22.f, 10.f, Palette::Muted, false, EAlign::Left, Inspector.W - 2.f * Pad);
 }
 
 }

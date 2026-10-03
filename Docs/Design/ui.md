@@ -29,10 +29,10 @@ Research: [input.md](../Research/input.md).
 **Input devices:** mouse and keyboard at launch. Every interaction must stay possible on a controller later: no drag-only actions, no hover-only information, large targets the cursor can snap to, and an on-screen prompt for every key.
 
 **Selecting:**
-- Click a force badge, its card, or any of its units to select the force. Box-select, or Shift-click to add. Keys **1–4** (solo **1–5**) select a force by its number ([forces.md](forces.md)).
-- **Selecting never moves the camera.** Double-tap a force's number, or press F, to centre on the selection. Space jumps to the latest alert (see "Awareness" below).
-- **Click a production building** to open its panel; its force's card lights up. The panel has a *Select force* button, and double-clicking the building selects its force.
-- **Click a teammate's force** to see its card read-only (order, strength, ETA), with a ping shortcut (*need help here*). You can't command it.
+- **[Built]** Click a force's numbered, owner-coloured map badge or any living unit to select its force. Shift-click adds or removes an owned force; box-select includes badge centres, with Shift adding to the existing selection. Number keys select by force number ([forces.md](forces.md)). **[New]** Selection through force-bar cards.
+- **[Built] Selecting never moves the camera.** Double-tap a force's number within 0.3 s, or press F, to centre on the selection; several forces focus their midpoint. Box dragging begins beyond 6 screen pixels. **[New]** Space jumps to the latest alert (see "Awareness" below).
+- **[Built] Click a production building** to open its panel and highlight its force's badge without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force. **[New]** The associated force-bar card also lights up.
+- **[Built] Click a teammate's force** to inspect its owner, order and strength read-only, never adding it to command selection. **[New]** The full force-bar card adds ETA and a ping shortcut (*need help here*).
 
 **Giving orders:**
 - **Right-click is the smart order:**
@@ -61,7 +61,7 @@ Research: [input.md](../Research/input.md).
 - The cursor snaps to regions, structures and badges.
 - **Target-first menu:** select a region or structure and get *Hold here with…* / *Attack with…*, listing your forces with arrival times. It comes with controller support and also works on the war table.
 
-**Today [Built]:** you click a production building, choose a goal in its inspector, and pick a region. That flow goes away.
+**Today [Built]:** forces are selected independently of buildings, including survivors without a producer. Orders still use the production-building inspector: select it, choose a goal and pick a region. That order flow remains until force verbs replace it.
 
 ## Awareness [Built] / [New] — decided
 

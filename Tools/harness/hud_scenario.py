@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import time
 from typing import cast
 
 from harness.hud_actions import (
@@ -10,6 +11,7 @@ from harness.hud_actions import (
     CONSTRUCTION,
     RECIPE_SIEGE,
     RESEARCH_REPAIRS,
+    SELECT_FORCE,
     TOGGLE_PRODUCTION,
 )
 from harness.hud_goals import assign_goals, cancel_goals
@@ -23,6 +25,7 @@ from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
     BARRACKS,
+    FALL_BACK,
     SIEGE,
     WORKSHOP,
     NetworkRun,
@@ -302,6 +305,129 @@ def alert_expiry(capture: Capture, latest: JsonObject) -> None:
     capture.shot("objective-strip-after-feed-expiry")
 
 
+def force_selection(
+    run: NetworkRun, capture: Capture, owner: int, barracks: int
+) -> None:
+    state = capture.state()
+    army = next(a for a in state["armies"] if a["producer"] == barracks)
+    number, actor = army["forceNumber"], army["actorId"]
+    before = state["cameraPosition"]
+    run.request("host", "select", target="unit", owner=owner, number=number)
+    selected = capture.wait(
+        lambda s: s["selectedForces"] == [actor] and not s["buildingSelected"],
+        "unit selects its force instead of its producer",
+    )
+    require(selected["cameraPosition"] == before, "unit selection moved camera")
+    capture.key("F")
+    state = capture.wait(
+        lambda s: any(a["actorId"] == actor and "badge" in a for a in s["armies"]),
+        "selected force badge is visible after explicit focus",
+    )
+    run.request("host", "select", target="none")
+    before = capture.state()["cameraPosition"]
+    run.request("host", "select", target="badge", owner=owner, number=number)
+    selected = capture.wait(
+        lambda s: (
+            s["selectedForces"] == [actor]
+            and any(a["actorId"] == actor and a["highlighted"] for a in s["armies"])
+        ),
+        "shared badge geometry selects and highlights force",
+    )
+    require(selected["cameraPosition"] == before, "badge selection moved camera")
+    require(
+        not selected["selectionDragging"],
+        "badge click left a selection rectangle without a held pointer",
+    )
+    capture.shot("force-selected-badge")
+    run.request("host", "select", target="building", building=barracks)
+    capture.hud(SELECT_FORCE, "Production panel Select force")
+    capture.wait(
+        lambda s: s["selectedForces"] == [actor] and not s["buildingSelected"],
+        "building Select force button switches selection",
+    )
+    capture.shot("force-selected-panel-button")
+    run.request("host", "select", target="building", building=barracks)
+    run.phase(
+        "unit, badge and building-panel force selection without implicit camera motion"
+    )
+
+
+def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
+    army = next(
+        a
+        for a in capture.state()["armies"]
+        if a["owner"] == owner and any(u["health"] > 0 for u in a["units"])
+    )
+    run.request("host", "goal", building=army["producer"], goal=FALL_BACK, region=-1)
+    deadline = time.monotonic() + 90
+
+    def at_home(state: JsonObject) -> bool:
+        require(time.monotonic() < deadline, "box fixture force failed to return home")
+        current = next(a for a in state["armies"] if a["actorId"] == army["actorId"])
+        return (
+            sum(
+                (float(current["center"][i]) - float(current["home"][i])) ** 2
+                for i in range(2)
+            )
+            < 150**2
+        )
+
+    capture.wait(
+        at_home, "ranged force physically returns to its home for nearby box targets"
+    )
+
+
+def force_box_selection(run: NetworkRun, capture: Capture, owner: int) -> None:
+    recall_box_fixture(run, capture, owner)
+    armies = [a for a in capture.state()["armies"] if a["owner"] == owner]
+    require(len(armies) == 2, "box fixture needs the existing two configured forces")
+    for index, army in enumerate(armies):
+        run.request(
+            "host",
+            "select",
+            target="force",
+            owner=owner,
+            number=army["forceNumber"],
+            toggle=index > 0,
+        )
+    capture.key("F")
+    state = capture.state()
+    require(
+        all("badge" in a for a in state["armies"] if a["owner"] == owner),
+        f"nearby box fixture badges are not visible after focus: camera={state['cameraPosition']}",
+    )
+    badges = [a["badge"] for a in state["armies"] if a["owner"] == owner]
+    expected = {a["actorId"] for a in armies}
+    camera = state["cameraPosition"]
+    start = [min(p[i] for p in badges) - 2 for i in range(2)]
+    end = [max(p[i] for p in badges) + 2 for i in range(2)]
+    run.request("host", "select", target="none")
+    capture.box(end, start)
+    state = capture.state()
+    require(
+        set(state["selectedForces"]) == expected,
+        "reverse-drag box did not select both visible force badges",
+    )
+    require(state["cameraPosition"] == camera, "box selection moved the camera")
+    run.request(
+        "host", "select", target="force", owner=owner, number=armies[0]["forceNumber"]
+    )
+    second = next(
+        a["badge"] for a in state["armies"] if a["actorId"] == armies[1]["actorId"]
+    )
+    capture.box(
+        [second[0] - 2, second[1] - 2], [second[0] + 2, second[1] + 2], add=True
+    )
+    state = capture.state()
+    require(
+        set(state["selectedForces"]) == expected,
+        "additive box did not keep the previously selected force",
+    )
+    require(state["cameraPosition"] == camera, "additive box selection moved camera")
+    capture.shot("forces-box-selected")
+    run.phase("rendered reverse and additive force-badge box geometry")
+
+
 def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     capture = Capture(run)
     pid, state = boot(run, capture, resolutions[0])
@@ -312,9 +438,11 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     cancel_goals(capture, barracks)
     target = assign_goals(capture, barracks)
     state, squad = fill_force(run, capture, owner, barracks, target)
+    force_selection(run, capture, owner, barracks)
     recruit, origin = paid_replacement(run, capture, owner, barracks, squad, state)
     retarget_replacement(run, capture, owner, barracks, target, recruit, origin)
     siege_producer(run, capture, owner, barracks)
+    force_box_selection(run, capture, owner)
     research(run, capture, owner)
     other_resolutions(run, capture, barracks, resolutions)
     awareness(run, capture, owner, squad, barracks)

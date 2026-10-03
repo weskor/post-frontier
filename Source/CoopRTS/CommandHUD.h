@@ -51,12 +51,15 @@ enum class EHUDAction : uint8
 	GoalFallBack = 40,
 	MapV2 = 41,
 	MapClassic = 42,
-	ActivePause = 43
+	ActivePause = 43,
+	SelectForce = 44
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.
 int32 BuildSlot(EHUDAction Action);
 int32 RecipeSlot(EHUDAction Action);
+
+class AArmyGroup;
 
 UCLASS()
 class COOPRTS_API ACommandHUD : public AHUD
@@ -72,6 +75,12 @@ public:
 	// Screen-space centre of a currently clickable action; false when hidden or unavailable.
 	bool FindActionScreenPosition(EHUDAction Action, FVector2D& OutPosition) const;
 #endif
+	// Visible map badges use the same geometry for rendering, clicks, boxes and probes.
+	AArmyGroup* GetForceAtScreenPosition(const FVector2D& Position) const;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	bool FindForceScreenPosition(const AArmyGroup* Force, FVector2D& OutPosition) const;
+#endif
+	void GetForcesInScreenBox(const FVector2D& Start, const FVector2D& End, TArray<AArmyGroup*>& OutForces) const;
 	bool GetMinimapScreenRect(FVector2D& OutOrigin, float& OutSize) const;
 	bool GetMinimapWorldPosition(const FVector2D& Position, FVector& OutWorld) const;
 	bool GetAlertWorldPosition(const FVector2D& Position, FVector& OutWorld, int32& OutSequence) const;

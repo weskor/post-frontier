@@ -67,6 +67,10 @@ static bool CommandText(const FContext& Context, const FButton& Button, FCommand
 		return RecipeText(Context, Button, RecipeIndex, Text);
 	switch (Button.Action)
 	{
+	case EHUDAction::SelectForce:
+		Text.Left << TEXT("SELECT FORCE");
+		Text.Accent = Palette::Friendly;
+		break;
 	case EHUDAction::ToggleProduction:
 		ProductionText(Context, Button, Text);
 		break;

@@ -157,7 +157,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
 		{
 			TArray<TSharedPtr<FJsonValue>> Buttons;
-			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::ActivePause); ++Index)
+			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::SelectForce); ++Index)
 			{
 				FVector2D Position;
 				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
@@ -222,6 +222,14 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Number(Result, TEXT("pendingGoal"), static_cast<int32>(It->GetPendingGoal()));
 			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
 			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
+			TArray<TSharedPtr<FJsonValue>> Selected;
+			for (const AArmyGroup* Force : It->GetSelectedForces())
+				if (IsValid(Force))
+					Selected.Add(MakeShared<FJsonValueNumber>(LifetimeId(Force)));
+			Result->SetArrayField(TEXT("selectedForces"), Selected);
+			Number(Result, TEXT("inspectedForce"), IsValid(It->GetInspectedForce()) ? LifetimeId(It->GetInspectedForce()) : -1);
+			FVector2D DragStart, DragEnd;
+			Result->SetBoolField(TEXT("selectionDragging"), It->GetSelectionDrag(DragStart, DragEnd));
 			if (const APawn* Camera = It->GetPawn())
 				Vector(Result, TEXT("cameraPosition"), Camera->GetActorLocation());
 			if (const ACommandHUD* HUD = Cast<ACommandHUD>(It->GetHUD()))
@@ -266,6 +274,14 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Vector(Entry, TEXT("center"), Group->GetCenter());
 		Vector(Entry, TEXT("destination"), Group->Destination);
 		Vector(Entry, TEXT("home"), Group->GetHomeLocation());
+		if (ACommandPlayerController* Local = Cast<ACommandPlayerController>(World->GetFirstPlayerController()))
+			if (const ACommandHUD* HUD = Cast<ACommandHUD>(Local->GetHUD()))
+			{
+				FVector2D Badge;
+				if (HUD->FindForceScreenPosition(Group, Badge))
+					Entry->SetArrayField(TEXT("badge"), { MakeShared<FJsonValueNumber>(Badge.X), MakeShared<FJsonValueNumber>(Badge.Y) });
+				Entry->SetBoolField(TEXT("highlighted"), Local->IsForceHighlighted(Group));
+			}
 		auto Units = TArray<TSharedPtr<FJsonValue>>();
 		for (const AArmyUnit* Unit : Group->GetUnits())
 		{
@@ -490,17 +506,67 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			const FString Target = Request->GetStringField(TEXT("target"));
 			if (Target == TEXT("none"))
 				PC->SelectActor(nullptr);
+			else if (Target == TEXT("box"))
+			{
+				bool bAdd = false;
+				Request->TryGetBoolField(TEXT("add"), bAdd);
+				PC->SelectForceBox(
+					FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))),
+					FVector2D(Request->GetNumberField(TEXT("x2")), Request->GetNumberField(TEXT("y2"))), bAdd);
+			}
 			else if (Target == TEXT("building"))
 			{
 				const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
 				if (!State || !State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex]))
 					return TEXT("building not replicated locally");
-				PC->SelectActor(State->Buildings[BuildingIndex]);
-				if (PC->GetSelectedBuilding() != State->Buildings[BuildingIndex])
+				bool bDoubleClick = false;
+				Request->TryGetBoolField(TEXT("doubleClick"), bDoubleClick);
+				PC->SelectActorWithModifiers(State->Buildings[BuildingIndex], false, bDoubleClick);
+				if (!bDoubleClick && PC->GetSelectedBuilding() != State->Buildings[BuildingIndex])
 					return TEXT("building selection rejected");
 			}
-			else if (Target == TEXT("squad"))
-				return TEXT("Squad selection removed; select its production building and configure a goal instead.");
+			else if (Target == TEXT("force") || Target == TEXT("unit") || Target == TEXT("badge"))
+			{
+				const int32 Number = Request->GetIntegerField(TEXT("number"));
+				AArmyGroup* Force = nullptr;
+				for (TActorIterator<AArmyGroup> It(World); It; ++It)
+					if (IsValid(It->GetOwningPlayerState()) && It->GetOwningPlayerState()->CommanderIndex == Owner
+						&& It->ForceNumber == Number)
+					{
+						Force = *It;
+						break;
+					}
+				if (!Force)
+					return TEXT("force not replicated locally");
+				bool bToggle = false;
+				Request->TryGetBoolField(TEXT("toggle"), bToggle);
+				if (Target == TEXT("badge"))
+				{
+					const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
+					FVector2D Position;
+					if (!HUD || !HUD->FindForceScreenPosition(Force, Position) || HUD->GetForceAtScreenPosition(Position) != Force)
+						return TEXT("force badge not visible or obscured");
+					if (!PC->HandleHUDClick(Position))
+						return TEXT("force badge click rejected");
+				}
+				else if (Target == TEXT("unit"))
+				{
+					AArmyUnit* Unit = nullptr;
+					for (AArmyUnit* Candidate : Force->GetUnits())
+						if (IsValid(Candidate) && Candidate->IsAlive())
+						{
+							Unit = Candidate;
+							break;
+						}
+					if (!Unit)
+						return TEXT("force has no living unit");
+					PC->SelectActorWithModifiers(Unit, bToggle, false);
+				}
+				else
+					PC->SelectForce(Force, bToggle);
+				if (PC->GetInspectedForce() != Force && !(bToggle && !PC->IsForceSelected(Force)))
+					return TEXT("force inspection rejected");
+			}
 			else
 				return TEXT("unknown selection target");
 			return FString();
@@ -530,9 +596,11 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			// Delivered to PlayerInput (Enhanced Input mappings), not the OS/compositor.
 			const FString KeyName = Request->GetStringField(TEXT("key"));
 			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
-				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R")
-				&& KeyName != TEXT("P") && KeyName != TEXT("F"))
+				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar") && KeyName != TEXT("F")
+				&& KeyName != TEXT("One") && KeyName != TEXT("Two") && KeyName != TEXT("Three")
+				&& KeyName != TEXT("Four") && KeyName != TEXT("Five")
+				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),

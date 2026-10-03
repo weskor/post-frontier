@@ -27,6 +27,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Rules/PlacementPolicy.h"
+#include "Rules/ForceSelectionPolicy.h"
 #include "Commands/ConstructionCommandComponent.h"
 #include "Commands/ProductionCommandComponent.h"
 #include "Commands/OrderCommandComponent.h"
@@ -70,6 +71,13 @@ void ACommandPlayerController::ResetLocalMatchView()
 	if (!IsLocalController())
 		return;
 	SelectedBuilding = nullptr;
+	SelectedForces.Reset();
+	InspectedForce = nullptr;
+	LastClickedBuilding.Reset();
+	LastBuildingClickTime = -1.;
+	LastForceKey = 0;
+	LastForceKeyTime = -1.;
+	bSelectionDragging = false;
 	bPlacingBuilding = false;
 	bAssigningGoal = false;
 	bHUDExpanded = true;
@@ -121,6 +129,12 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("ZoomIn"), EKeys::MouseScrollUp, &ThisClass::ZoomIn, ETriggerEvent::Started);
 	Bind(TEXT("ZoomOut"), EKeys::MouseScrollDown, &ThisClass::ZoomOut, ETriggerEvent::Started);
 	Bind(TEXT("Select"), EKeys::LeftMouseButton, &ThisClass::SelectUnderCursor, ETriggerEvent::Started);
+	Bind(TEXT("FinishSelection"), EKeys::LeftMouseButton, &ThisClass::FinishSelectionDrag, ETriggerEvent::Completed);
+	Bind(TEXT("SelectForce1"), EKeys::One, &ThisClass::SelectForce1, ETriggerEvent::Started);
+	Bind(TEXT("SelectForce2"), EKeys::Two, &ThisClass::SelectForce2, ETriggerEvent::Started);
+	Bind(TEXT("SelectForce3"), EKeys::Three, &ThisClass::SelectForce3, ETriggerEvent::Started);
+	Bind(TEXT("SelectForce4"), EKeys::Four, &ThisClass::SelectForce4, ETriggerEvent::Started);
+	Bind(TEXT("SelectForce5"), EKeys::Five, &ThisClass::SelectForce5, ETriggerEvent::Started);
 	Bind(TEXT("CancelPointerMode"), EKeys::RightMouseButton, &ThisClass::CancelPointerMode, ETriggerEvent::Started);
 	Bind(TEXT("FocusAlert"), EKeys::SpaceBar, &ThisClass::FocusAlert, ETriggerEvent::Started);
 	Bind(TEXT("FocusSelection"), EKeys::F, &ThisClass::FocusSelection, ETriggerEvent::Started);
@@ -144,6 +158,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	{
 		PendingPan = FVector2D::ZeroVector;
 		bDragging = false;
+		bSelectionDragging = false;
 		return;
 	}
 	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding))
@@ -151,6 +166,9 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 		SelectedBuilding = nullptr;
 		bAssigningGoal = false;
 	}
+	SelectedForces.RemoveAll([this](const TObjectPtr<AArmyGroup>& Force) { return !IsOwnedForce(Force); });
+	if (InspectedForce && !IsSelectableForce(InspectedForce))
+		InspectedForce = nullptr;
 	if (!PendingPan.IsNearlyZero())
 		bInitialFocusPending = false;
 	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
@@ -261,6 +279,12 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 				FVector2D(Extent.X + 30.f, Extent.Y + 30.f), FColor::Cyan, 3.f);
 		}
 	}
+	for (const AArmyGroup* Force : SelectedForces)
+		if (IsOwnedForce(Force))
+			for (const AArmyUnit* Unit : Force->GetUnits())
+				if (IsValid(Unit) && Unit->IsAlive())
+					Overlay->Square(Unit->GetActorLocation() + FVector(0.f, 0.f, -80.f),
+						FVector2D(55.f, 55.f), FColor::Cyan, 2.f);
 	if (IsValid(SelectedBuilding) && SelectedBuilding->IsProducer()
 		&& SelectedBuilding->HasConfiguredFront())
 	{
@@ -465,6 +489,7 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 	Screen = NewScreen;
 	PendingPan = FVector2D::ZeroVector;
 	bDragging = false;
+	bSelectionDragging = false;
 	// Local menu overlays must never pause a listen host or its remote commanders.
 	if (GetNetMode() == NM_Standalone && !IsMenuWorld())
 		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
@@ -615,6 +640,7 @@ void ACommandPlayerController::CancelMode()
 {
 	bPlacingBuilding = false;
 	bAssigningGoal = false;
+	bSelectionDragging = false;
 	bPlacementPending = false;
 	bHUDExpanded = true;
 }
@@ -655,44 +681,201 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 			Camera->FocusOn(WorldPosition);
 		return true;
 	}
+	if (!bPlacingBuilding && !bAssigningGoal)
+		if (AArmyGroup* Force = HUD->GetForceAtScreenPosition(Position))
+		{
+			SelectForce(Force, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
+			return true;
+		}
 	if (!HUD->IsPanelPoint(Position))
 		return false;
 	HandleHUDAction(HUD->GetActionAtScreenPosition(Position));
 	return true;
 }
 
+bool ACommandPlayerController::IsSelectableForce(const AArmyGroup* Force) const
+{
+	const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
+	if (!IsValid(Force) || Force->IsActorBeingDestroyed() || Force->GetWorld() != GetWorld()
+		|| !IsValid(OwnState) || !IsValid(Force->GetOwningPlayerState()))
+		return false;
+	const ACommandPlayerState* Owner = Force->GetOwningPlayerState();
+	const ACommandBuilding* Producer = Force->GetProductionBuilding();
+	bool bAlive = IsValid(Producer) && Producer->IsAlive();
+	if (!bAlive)
+		for (const AArmyUnit* Unit : Force->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive())
+			{
+				bAlive = true;
+				break;
+			}
+	return ForceSelectionPolicy::ResolveAccess(OwnState->CommanderIndex, Owner->CommanderIndex,
+			   OwnState->TeamIndex == 0 && Force->GetTeamIndex() == OwnState->TeamIndex, bAlive)
+		!= ForceSelectionPolicy::EAccess::None;
+}
+
+bool ACommandPlayerController::IsOwnedForce(const AArmyGroup* Force) const
+{
+	return IsSelectableForce(Force) && Force->GetOwningPlayerState() == GetPlayerState<ACommandPlayerState>();
+}
+
+bool ACommandPlayerController::IsForceSelected(const AArmyGroup* Force) const
+{
+	return IsOwnedForce(Force) && SelectedForces.Contains(Force);
+}
+
+bool ACommandPlayerController::IsForceHighlighted(const AArmyGroup* Force) const
+{
+	return IsForceSelected(Force) || (IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->ForceGroup == Force);
+}
+
+void ACommandPlayerController::SelectForce(AArmyGroup* Force, bool bToggle)
+{
+	if (GetUIScreen() != ECommandScreen::Game || !IsSelectableForce(Force))
+		return;
+	bInitialFocusPending = false;
+	bAssigningGoal = false;
+	bPlacingBuilding = false;
+	bHUDExpanded = true;
+	SelectedBuilding = nullptr;
+	InspectedForce = Force;
+	if (!IsOwnedForce(Force))
+	{
+		if (!bToggle)
+			SelectedForces.Reset();
+		return;
+	}
+	if (!bToggle)
+		SelectedForces.Reset();
+	if (bToggle && SelectedForces.Contains(Force))
+	{
+		SelectedForces.Remove(Force);
+		InspectedForce = SelectedForces.IsEmpty() ? nullptr : SelectedForces.Last().Get();
+	}
+	else
+		SelectedForces.AddUnique(Force);
+	PlayUISound(TEXT("Select"));
+}
+
+void ACommandPlayerController::SelectForceNumber(int32 Number)
+{
+	if (GetUIScreen() != ECommandScreen::Game || !ForceSelectionPolicy::IsNumberAvailable(Number, GetNetMode() == NM_Standalone))
+		return;
+	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		if (IsOwnedForce(*It) && It->ForceNumber == Number)
+		{
+			const double Now = GetWorld()->GetRealTimeSeconds();
+			const bool bFocus = LastForceKey == Number && Now - LastForceKeyTime <= .3 && IsForceSelected(*It);
+			SelectForce(*It);
+			LastForceKey = bFocus ? 0 : Number;
+			LastForceKeyTime = Now;
+			if (bFocus)
+				FocusSelection();
+			return;
+		}
+}
+
+void ACommandPlayerController::SelectForceBox(const FVector2D& Start, const FVector2D& End, bool bAdd)
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
+	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+	if (!HUD)
+		return;
+	TArray<AArmyGroup*> Forces;
+	HUD->GetForcesInScreenBox(Start, End, Forces);
+	bInitialFocusPending = false;
+	SelectedBuilding = nullptr;
+	bAssigningGoal = false;
+	bPlacingBuilding = false;
+	if (!bAdd)
+		SelectedForces.Reset();
+	for (AArmyGroup* Force : Forces)
+		if (IsOwnedForce(Force))
+			SelectedForces.AddUnique(Force);
+	InspectedForce = SelectedForces.IsEmpty() ? nullptr : SelectedForces.Last().Get();
+	bHUDExpanded = true;
+}
+
+void ACommandPlayerController::FinishSelectionDrag()
+{
+	if (!bSelectionDragging)
+		return;
+	bSelectionDragging = false;
+	float X, Y;
+	if (GetMousePosition(X, Y) && FVector2D::DistSquared(SelectionDragStart, FVector2D(X, Y)) > FMath::Square(6.f))
+		SelectForceBox(SelectionDragStart, FVector2D(X, Y), bSelectionDragAdd);
+}
+
+bool ACommandPlayerController::GetSelectionDrag(FVector2D& Start, FVector2D& End) const
+{
+	float X, Y;
+	if (!bSelectionDragging || !GetMousePosition(X, Y))
+		return false;
+	Start = SelectionDragStart;
+	End = FVector2D(X, Y);
+	return FVector2D::DistSquared(Start, End) > FMath::Square(6.f);
+}
+
 void ACommandPlayerController::SelectActor(AActor* Actor)
 {
+	SelectActorWithModifiers(Actor, false, false);
+}
+
+void ACommandPlayerController::SelectActorWithModifiers(AActor* Actor, bool bToggle, bool bDoubleClick)
+{
+	if (GetUIScreen() != ECommandScreen::Game)
+		return;
 	bInitialFocusPending = false;
-	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	if (AArmyGroup* Force = Cast<AArmyGroup>(Actor))
+	{
+		SelectForce(Force, bToggle);
+		return;
+	}
 	if (const AArmyUnit* Unit = Cast<AArmyUnit>(Actor))
 	{
-		const AArmyGroup* Group = Unit->GetGroup();
-		const ACommandPlayerState* OwnState = GetPlayerState<ACommandPlayerState>();
-		if (IsValid(Unit) && Unit->IsAlive() && Unit->GetWorld() == GetWorld()
-			&& Unit->GetTeamIndex() == 0 && IsValid(OwnState) && OwnState->TeamIndex == 0
-			&& IsValid(Group) && Group->GetOwningPlayerState() == OwnState)
-		{
-			Building = Group->GetProductionBuilding();
-			if (!IsOwnedBuilding(Building) || Building->IsActorBeingDestroyed() || !Building->IsProducer())
-			{
-				Building = nullptr;
-				Feedback = TEXT("Barracks destroyed; survivors keep their last front.");
-			}
-		}
+		if (IsValid(Unit) && Unit->IsAlive() && Unit->GetWorld() == GetWorld())
+			SelectForce(Unit->GetGroup(), bToggle);
+		return;
 	}
-	SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
+	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	if (bDoubleClick && IsOwnedBuilding(Building) && Building->IsProducer() && IsSelectableForce(Building->ForceGroup))
+	{
+		SelectForce(Building->ForceGroup, bToggle);
+		return;
+	}
+	if (!bToggle)
+	{
+		SelectedForces.Reset();
+		InspectedForce = nullptr;
+		SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
+		bAssigningGoal = false;
+	}
 	if (SelectedBuilding)
+	{
 		bHUDExpanded = true;
-	if (SelectedBuilding)
 		PlayUISound(TEXT("Select"));
+	}
 }
 
 void ACommandPlayerController::SelectUnderCursor()
 {
 	float MouseX, MouseY;
-	if (GetMousePosition(MouseX, MouseY) && HandleHUDClick(FVector2D(MouseX, MouseY)))
-		return;
+	bSelectionDragging = false;
+	if (GetMousePosition(MouseX, MouseY))
+	{
+		const FVector2D Position(MouseX, MouseY);
+		const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+		bSelectionDragging = GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bAssigningGoal
+			&& (!HUD || !HUD->IsPanelPoint(Position));
+		if (bSelectionDragging)
+		{
+			SelectionDragStart = Position;
+			bSelectionDragAdd = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
+		}
+		if (HandleHUDClick(Position))
+			return;
+	}
 	if (bPlacingBuilding)
 	{
 		if (!CanIssueGameplayCommand() || bPlacementPending)
@@ -720,9 +903,15 @@ void ACommandPlayerController::SelectUnderCursor()
 			Feedback = TEXT("Choose a region on the ground or minimap.");
 		return;
 	}
+	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);
 	FHitResult Hit;
-	if (CursorHit(Hit))
-		SelectActor(Hit.GetActor());
+	AActor* Actor = CursorHit(Hit) ? Hit.GetActor() : nullptr;
+	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	const bool bDoubleClick = Building && LastClickedBuilding == Building && Now - LastBuildingClickTime <= .3;
+	LastClickedBuilding = bDoubleClick ? nullptr : Building;
+	LastBuildingClickTime = Now;
+	SelectActorWithModifiers(Actor, bToggle, bDoubleClick);
 }
 
 void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
@@ -764,6 +953,11 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	if (!IsOwnedBuilding(SelectedBuilding))
 	{
 		Feedback = TEXT("Select your building first.");
+		return;
+	}
+	if (Action == EHUDAction::SelectForce)
+	{
+		SelectForce(SelectedBuilding->ForceGroup);
 		return;
 	}
 	if (Action == EHUDAction::CancelConstruction)
@@ -825,8 +1019,19 @@ void ACommandPlayerController::FocusSelection()
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return;
-	FVector Target;
-	if (IsOwnedBuilding(SelectedBuilding))
+	FVector Target = FVector::ZeroVector;
+	int32 Count = 0;
+	for (const AArmyGroup* Force : SelectedForces)
+		if (IsOwnedForce(Force))
+		{
+			Target += Force->GetCenter();
+			++Count;
+		}
+	if (Count > 0)
+		Target /= Count;
+	else if (IsSelectableForce(InspectedForce))
+		Target = InspectedForce->GetCenter();
+	else if (IsOwnedBuilding(SelectedBuilding))
 		Target = SelectedBuilding->GetActorLocation();
 	else
 	{

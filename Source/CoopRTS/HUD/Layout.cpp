@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "ArmyGroup.h"
 #include "CommandPlayerController.h"
 #include "CommandGameState.h"
 #include "Content/MatchContent.h"
@@ -24,6 +25,8 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	// The controller drops selections that stop being owned, so these are the local commander's.
 	const ACommandBuilding* Building = Controller->GetSelectedBuilding();
 	Context.Building = IsValid(Building) && Building->IsAlive() ? Building : nullptr;
+	const AArmyGroup* Force = Controller->GetInspectedForce();
+	Context.Force = IsValid(Force) ? Force : nullptr;
 	return Context;
 }
 
@@ -153,6 +156,42 @@ FRect ResearchCard(const FRect& Inspector, int32 Index)
 FRect CancelButton(const FRect& Inspector)
 {
 	return { Inspector.Right() - Pad - 230.f, Inspector.Bottom() - Pad - 36.f, 230.f, 36.f };
+}
+
+static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FRect&)> Visit)
+{
+	Visit(Layout.Top);
+	Visit(Layout.Menu);
+	Visit(Layout.Minimap);
+	Visit(Layout.Construction);
+	if (Context.bExpanded)
+		Visit(Layout.Build);
+	Visit(Layout.Bottom);
+	if (Layout.bFeedback)
+		Visit(Layout.Feedback);
+}
+
+bool IsPanelPoint(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint)
+{
+	if (Context.Controller && Context.Controller->GetUIScreen() != ECommandScreen::Game)
+		return true;
+	bool bCovered = false;
+	ForEachPanel(Context, Layout, [&](const FRect& Rect) {
+		bCovered |= Rect.Contains(VirtualPoint);
+	});
+	return bCovered;
+}
+
+bool OverlayClearsPanels(const FContext& Context, const FLayout& Layout, const FRect& Rect)
+{
+	if (!Context.Controller || Context.Controller->GetUIScreen() != ECommandScreen::Game
+		|| Rect.X < 0.f || Rect.Y < 0.f || Rect.Right() > Layout.Width || Rect.Bottom() > Layout.Height)
+		return false;
+	bool bCovered = false;
+	ForEachPanel(Context, Layout, [&](const FRect& Panel) {
+		bCovered |= Rect.Intersects(Panel);
+	});
+	return !bCovered;
 }
 EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint)
 {
