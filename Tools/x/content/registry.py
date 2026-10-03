@@ -89,8 +89,15 @@ GENERATORS = (
         "generate-match-content",
         "unreal",
         "GenerateMatchContent.py",
-        "/Game/Units; /Game/Buildings; /Game/Content/DA_MatchContent",
-        "Create catalogue while preserving tuned combat values.",
+        "/Game/Units; /Game/Content/DA_{Barracks,Outpost,Workshop,MatchContent}",
+        "Write unit and building definitions and the catalogue from Build/Content/{units,buildings}.json.",
+    ),
+    Generator(
+        "generate-gameplay-constants",
+        "python",
+        "GenerateGameplayConstants.py",
+        "Source/CoopRTS/Rules/GameplayConstants.h",
+        "Write the C++ constants header from Build/Content/constants.json.",
     ),
     Generator(
         "generate-menu-map",

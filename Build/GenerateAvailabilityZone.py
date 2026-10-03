@@ -50,6 +50,7 @@ import unreal
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ArtMaterials as art
 import AvailabilityZoneLayout as az
+import ContentText
 import EnvKit
 import MatchLayout
 import TerrainKit
@@ -70,7 +71,7 @@ POOL_OUTER_CONE = 19.0
 POOL_INTENSITY = 320.0
 SUN_COLOR = (235, 238, 250)  # near-neutral cool moonlight
 SKY_COLOR = (180, 200, 245)
-CAPTURE_RADIUS = 430.0
+CAPTURE_RADIUS = float(ContentText.constants()["capture_radius"])
 
 # ---------------------------------------------------------------- the plan (pure Python, proven before Unreal is touched)
 kit_sizes = {}

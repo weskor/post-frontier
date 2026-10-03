@@ -1,0 +1,10 @@
+{
+  "starting_resources": 600,
+  "baseline_income": 2,
+  "normal_deposit_rate": 4,
+  "rich_deposit_rate": 6,
+  "normal_deposit_amount": 2400,
+  "rich_deposit_amount": 3000,
+  "capture_radius": 430.0,
+  "hostile_hq_clearance": 1000.0
+}

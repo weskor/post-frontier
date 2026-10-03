@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Rules/GameplayConstants.h"
 
 // Geometry and ownership only: policies never read actors or world state.
 struct FPlacementRegion
@@ -62,7 +63,7 @@ constexpr float BuildGridCellSize = 50.f;
 int32 FootprintCells(float HalfExtent);
 // Snap XY to whole-cell footprints; preserve terrain height. Ties choose positive XY.
 FVector SnapToBuildGrid(const FVector& Position, float HalfExtent);
-constexpr float HostileHeadquartersClearance = 1000.f;
+constexpr float HostileHeadquartersClearance = GameplayConstants::HostileHqClearance;
 constexpr float DepositSnapRadius = 300.f;
 constexpr float HeadquartersClearance = 210.f;
 constexpr float EnemyTroopClearance = 330.f;

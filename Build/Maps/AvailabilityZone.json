@@ -19,34 +19,18 @@
     "half_height": 1000
   },
   "constants": {
-    "source": "Values mirror Source/CoopRTS; update here if the code moves.",
+    "source": "Map-tool model parameters. capture_radius, hq_exclusion_radius and footprint_radius are added from Build/Content (constants.json, buildings.json) by Build/ContentText.py and must not appear here. The rest mirror C++ literals or v1 design values that have no shared source yet.",
     "unit_speed_cm_s": 420,
-    "capsule_radius": 34,
-    "capsule_half_height": 60,
     "formation_column_spacing": 110,
     "formation_row_spacing": 110,
     "force_width": 180,
     "force_depth_frontline": 290,
-    "capture_radius": 430,
     "capture_seconds": 8,
     "sector_territory_radius": 1000,
     "hq_territory_radius": 900,
-    "hq_exclusion_radius": 1000,
-    "hq_box": [300, 300, 200],
     "jev_intruder_radius": 1500,
     "jev_defend_offset": [-400, -250],
-    "footprint_radius": {
-      "barracks": 125,
-      "outpost": 95,
-      "workshop": 145
-    },
-    "weapon_range": {
-      "frontline": 175,
-      "ranged": 560,
-      "siege": 1150
-    },
     "placement_z_tolerance": 110,
-    "nav_project_extent": [45, 45, 200],
     "click_plane_z": 0,
     "jev_build_z": 5,
     "placement_overlap_box": {
@@ -55,9 +39,6 @@
     },
     "character_max_step_height": 45,
     "nav_agent_max_step_height": 35,
-    "jev_ring": [360, 810],
-    "starting_resources": 600,
-    "baseline_income": 10,
     "sector_income": 6,
     "jev_assault_established_sites": 2,
     "jev_assault_force": 12

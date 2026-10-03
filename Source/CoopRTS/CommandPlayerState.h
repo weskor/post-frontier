@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "Rules/GameplayConstants.h"
 #include "CommandPlayerState.generated.h"
 
 UENUM(BlueprintType)
@@ -21,7 +22,7 @@ public:
 	ACommandPlayerState();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void CopyProperties(APlayerState* NewPlayerState) override;
-	static constexpr int32 InitialResources = 600;
+	static constexpr int32 InitialResources = GameplayConstants::StartingResources;
 	// Per-match slot, independent of the shared friendly TeamIndex.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Commander")
 	int32 CommanderIndex = -1;

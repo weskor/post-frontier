@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Rules/GameplayConstants.h"
 
 struct FExtractorPaymentInput
 {
@@ -16,11 +17,11 @@ struct FExtractorPayment
 
 namespace EconomyPolicy
 {
-constexpr int32 BaselineIncome = 2;
-constexpr int32 NormalDepositRate = 4;
-constexpr int32 RichDepositRate = 6;
-constexpr int32 NormalDepositAmount = 2400;
-constexpr int32 RichDepositAmount = 3000;
+constexpr int32 BaselineIncome = GameplayConstants::BaselineIncome;
+constexpr int32 NormalDepositRate = GameplayConstants::NormalDepositRate;
+constexpr int32 RichDepositRate = GameplayConstants::RichDepositRate;
+constexpr int32 NormalDepositAmount = GameplayConstants::NormalDepositAmount;
+constexpr int32 RichDepositAmount = GameplayConstants::RichDepositAmount;
 
 // Counts below one use solo scaling; each additional human commander adds 30%.
 double JevPlayerCountFactor(int32 HumanCommanders);

@@ -31,7 +31,9 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import Literal, NotRequired, TypedDict, Unpack, cast
+from typing import Any, Literal, NotRequired, TypedDict, Unpack, cast
+
+import ContentText
 
 Point = Sequence[float]
 Polygon = Sequence[Point]
@@ -67,8 +69,6 @@ class PlacementBoxData(TypedDict):
 class ConstantsData(TypedDict):
     source: str
     unit_speed_cm_s: float
-    capsule_radius: float
-    capsule_half_height: float
     formation_column_spacing: float
     formation_row_spacing: float
     force_width: float
@@ -78,21 +78,15 @@ class ConstantsData(TypedDict):
     sector_territory_radius: float
     hq_territory_radius: float
     hq_exclusion_radius: float
-    hq_box: list[float]
     jev_intruder_radius: float
     jev_defend_offset: list[float]
     footprint_radius: dict[str, float]
-    weapon_range: dict[str, float]
     placement_z_tolerance: float
-    nav_project_extent: list[float]
     click_plane_z: float
     jev_build_z: float
     placement_overlap_box: PlacementBoxData
     character_max_step_height: float
     nav_agent_max_step_height: float
-    jev_ring: list[float]
-    starting_resources: float
-    baseline_income: float
     sector_income: float
     jev_assault_established_sites: int
     jev_assault_force: int
@@ -2232,6 +2226,7 @@ def main() -> int:
     args = parser.parse_args()
     with open(args.map) as handle:
         data = cast(MapData, json.load(handle))
+    ContentText.add_shared_constants(cast(dict[str, Any], data["constants"]))
     an = Analysis(data)
     ok = an.run()
     if args.report:

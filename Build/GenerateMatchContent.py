@@ -1,15 +1,20 @@
 """Create or update the match content catalogue: unit and building definitions plus DA_MatchContent.
 
-Build/Content/units.json owns all unit stats, including the preserved serialized
-combat values. Catalogue order is a replicated contract: units frontline=0,
-ranged=1, siege=2; buildings barracks=0, extractor=1, workshop=2.
+Build/Content/units.json and buildings.json own every unit and building field;
+Build/ContentText.py validates them before any asset is written. Catalogue order
+is a replicated contract: units frontline=0, ranged=1, siege=2; buildings
+barracks=0, extractor=1, workshop=2. The output is deterministic: assets are
+written only from those files and the art paths derived from their asset names.
 
 Run through ./x gen generate-match-content.
 """
-import json
-from pathlib import Path
+import os
+import sys
 
 import unreal
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ContentText
 
 assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
 tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -60,64 +65,83 @@ def apply(asset, values):
     require(assets.save_loaded_asset(asset), "Could not save " + asset.get_path_name())
 
 
-unit_art = "/Game/Art/Units/"
-units = []
-with (Path(__file__).parent / "Content" / "units.json").open(encoding="utf-8") as source:
-    unit_definitions = json.load(source)
-# Validate the complete source before writing any asset.
-unit_tags = [
-    (
-        authored_enum(role_type, definition["role"], ("FRONTLINE", "RANGED", "SIEGE")),
-        authored_enum(armor_type, definition["armor_class"], ("LIGHT", "HEAVY", "SHIELDED", "STRUCTURE")),
-        authored_enum(damage_type, definition["damage_type"], ("KINETIC", "PIERCING", "DEMOLITION", "EMP")),
-    )
-    for definition in unit_definitions
-]
-for definition, (role, armor, damage) in zip(unit_definitions, unit_tags):
-    name = definition["asset_name"]
-    unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
-    values = [(key, definition[key]) for key in (
-        "id", "display_name", "max_health", "attack_damage", "range", "interval",
-        "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
-    )]
-    values.extend((
-        ("role", role),
-        ("armor_class", armor),
-        ("damage_type", damage),
-        ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
-        ("human_mesh", mesh(unit_art + "SM_Human_" + name)),
-        ("machine_mesh", mesh(unit_art + "SM_Machine_" + name)),
-    ))
-    apply(unit, values)
-    units.append(unit)
+def build_units():
+    unit_art = "/Game/Art/Units/"
+    definitions = ContentText.unit_definitions()
+    # Validate the complete source before writing any asset.
+    tags = [
+        (
+            authored_enum(role_type, definition["role"], ("FRONTLINE", "RANGED", "SIEGE")),
+            authored_enum(armor_type, definition["armor_class"], ("LIGHT", "HEAVY", "SHIELDED", "STRUCTURE")),
+            authored_enum(damage_type, definition["damage_type"], ("KINETIC", "PIERCING", "DEMOLITION", "EMP")),
+        )
+        for definition in definitions
+    ]
+    units = []
+    for definition, (role, armor, damage) in zip(definitions, tags):
+        name = definition["asset_name"]
+        unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
+        values = [(key, definition[key]) for key in (
+            "id", "display_name", "max_health", "attack_damage", "range", "interval",
+            "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
+        )]
+        values.extend((
+            ("role", role),
+            ("armor_class", armor),
+            ("damage_type", damage),
+            ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
+            ("human_mesh", mesh(unit_art + "SM_Human_" + name)),
+            ("machine_mesh", mesh(unit_art + "SM_Machine_" + name)),
+        ))
+        apply(unit, values)
+        units.append(unit)
+    return units
 
-building_art = "/Game/Art/Buildings/"
-buildings = []
-# Extractor repurposes the existing Outpost definition and art assets; filenames remain stable.
-for name, asset_name, cost, duration, health, footprint, produces, deposit, research, accent in (
-    ("Barracks", "Barracks", 220, 12.0, 500, 125.0, True, False, False, (0.04, 0.50, 1.0)),
-    ("Extractor", "Outpost", 160, 9.0, 350, 95.0, False, True, False, (0.16, 0.85, 0.25)),
-    ("Workshop", "Workshop", 190, 14.0, 400, 145.0, False, False, True, (0.65, 0.25, 1.0)),
-):
-    building = data_asset("/Game/Content/DA_" + asset_name, unreal.BuildingDefinition)
-    # Producer locked-type variants follow catalogue unit order; other buildings have none.
-    role_meshes = {"human": [], "machine": []}
-    if produces:
-        for faction in role_meshes:
-            role_meshes[faction] = [mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), asset_name, unit.get_name()[3:]))
-                                    for unit in units]
-    apply(building, (
-        ("id", name.lower()), ("display_name", name), ("accent", unreal.LinearColor(*accent, 1.0)),
-        ("build_cost", cost), ("max_health", health), ("build_duration", duration), ("footprint_radius", footprint),
-        ("produces_forces", produces), ("requires_deposit", deposit), ("offers_research", research),
-        ("human_mesh", mesh(building_art + "SM_Human_" + asset_name)),
-        ("machine_mesh", mesh(building_art + "SM_Machine_" + asset_name)),
-        ("construction_mesh", mesh(building_art + "SM_Construction_" + asset_name)),
-        ("human_role_meshes", role_meshes["human"]),
-        ("machine_role_meshes", role_meshes["machine"]),
-    ))
-    buildings.append(building)
 
-content = data_asset("/Game/Content/DA_MatchContent", unreal.MatchContent)
-apply(content, (("units", units), ("buildings", buildings)))
-unreal.log("MATCH_CONTENT_READY units=%d buildings=%d" % (len(units), len(buildings)))
+def role_meshes(definition, units):
+    """Producer locked-type variants follow catalogue unit order; other buildings have none."""
+    building_art = "/Game/Art/Buildings/"
+    result = {"human": [], "machine": []}
+    if definition["produces_forces"]:
+        for faction in result:
+            result[faction] = [
+                mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), definition["asset_name"], unit.get_name()[3:]))
+                for unit in units
+            ]
+    return result
+
+
+def build_buildings(units):
+    building_art = "/Game/Art/Buildings/"
+    buildings = []
+    # Extractor repurposes the existing Outpost definition and art assets; filenames remain stable.
+    for definition in ContentText.building_definitions():
+        asset_name = definition["asset_name"]
+        building = data_asset("/Game/Content/DA_" + asset_name, unreal.BuildingDefinition)
+        variants = role_meshes(definition, units)
+        values = [(key, definition[key]) for key in (
+            "id", "display_name", "build_cost", "max_health", "build_duration", "footprint_radius",
+            "produces_forces", "requires_deposit", "offers_research",
+        )]
+        values.extend((
+            ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
+            ("human_mesh", mesh(building_art + "SM_Human_" + asset_name)),
+            ("machine_mesh", mesh(building_art + "SM_Machine_" + asset_name)),
+            ("construction_mesh", mesh(building_art + "SM_Construction_" + asset_name)),
+            ("human_role_meshes", variants["human"]),
+            ("machine_role_meshes", variants["machine"]),
+        ))
+        apply(building, values)
+        buildings.append(building)
+    return buildings
+
+
+def main():
+    units = build_units()
+    buildings = build_buildings(units)
+    content = data_asset("/Game/Content/DA_MatchContent", unreal.MatchContent)
+    apply(content, (("units", units), ("buildings", buildings)))
+    unreal.log("MATCH_CONTENT_READY units=%d buildings=%d" % (len(units), len(buildings)))
+
+
+main()

@@ -38,8 +38,9 @@ import json
 import math
 import os
 import sys
-from typing import ClassVar, NotRequired, TypedDict, TypeVar, cast
+from typing import Any, ClassVar, NotRequired, TypedDict, TypeVar, cast
 
+import ContentText
 import DrawMapLayout
 from DrawMapLayout import Cell, MapData, Point, Polygon, WorldPoint
 import MatchLayout
@@ -154,7 +155,9 @@ class LampData(TowerData):
 
 def load(path: str | os.PathLike[str] | None = None) -> MapData:
     with open(path or MAP_JSON) as handle:
-        return cast(MapData, json.load(handle))
+        data = cast(MapData, json.load(handle))
+    ContentText.add_shared_constants(cast(dict[str, Any], data["constants"]))
+    return data
 
 
 def gameplay_regions(data: MapData | None = None) -> list[MatchLayout.GameplayRegion]:

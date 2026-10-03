@@ -1,0 +1,41 @@
+[
+  {
+    "asset_name": "Barracks",
+    "id": "barracks",
+    "display_name": "Barracks",
+    "build_cost": 220,
+    "build_duration": 12.0,
+    "max_health": 500,
+    "footprint_radius": 125.0,
+    "produces_forces": true,
+    "requires_deposit": false,
+    "offers_research": false,
+    "accent": [0.04, 0.5, 1.0]
+  },
+  {
+    "asset_name": "Outpost",
+    "id": "extractor",
+    "display_name": "Extractor",
+    "build_cost": 160,
+    "build_duration": 9.0,
+    "max_health": 350,
+    "footprint_radius": 95.0,
+    "produces_forces": false,
+    "requires_deposit": true,
+    "offers_research": false,
+    "accent": [0.16, 0.85, 0.25]
+  },
+  {
+    "asset_name": "Workshop",
+    "id": "workshop",
+    "display_name": "Workshop",
+    "build_cost": 190,
+    "build_duration": 14.0,
+    "max_health": 400,
+    "footprint_radius": 145.0,
+    "produces_forces": false,
+    "requires_deposit": false,
+    "offers_research": true,
+    "accent": [0.65, 0.25, 1.0]
+  }
+]

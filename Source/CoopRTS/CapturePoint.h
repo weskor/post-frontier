@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Rules/GameplayConstants.h"
 #include "CapturePoint.generated.h"
 
 class UStaticMeshComponent;
@@ -23,7 +24,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	// A zero-time step refreshes occupancy without advancing capture.
 	void AdvanceCapture(float Seconds);
-	static constexpr float CaptureRadius = 430.f;
+	static constexpr float CaptureRadius = GameplayConstants::CaptureRadius;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Capture, BlueprintReadOnly, Category = "Territory")
 	int32 ControllingTeam = -1;

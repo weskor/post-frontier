@@ -61,6 +61,7 @@ file-length = [
     "Tools/harness/simulate_matches.py", "Tools/harness/simulation_*.py",
     "Tools/harness/hud_*.py", "Tools/harness/verify.py", "Tools/harness/network_desktop.py",
     "Tools/harness/verification_readiness.py",
+    "Build/ContentText.py", "Build/GenerateGameplayConstants.py", "Build/GenerateMatchContent.py",
 ]
 function-length = [
     "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
@@ -76,6 +77,7 @@ function-length = [
     "Tools/harness/network_scenarios.py", "Tools/harness/network_session.py",
     "Tools/harness/simulate_matches.py", "Tools/harness/simulation_*.py",
     "Tools/harness/hud_*.py", "Tools/harness/verification_readiness.py",
+    "Build/ContentText.py", "Build/GenerateGameplayConstants.py", "Build/GenerateMatchContent.py",
 ]
 format = [
     "Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -83,7 +85,7 @@ format = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
-    "Build/RenderAnnouncerVoice.py",
+    "Build/RenderAnnouncerVoice.py", "Build/ContentText.py", "Build/GenerateGameplayConstants.py",
 ]
 ruff = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -91,7 +93,7 @@ ruff = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
-    "Build/RenderAnnouncerVoice.py",
+    "Build/RenderAnnouncerVoice.py", "Build/ContentText.py", "Build/GenerateGameplayConstants.py",
 ]
 mypy = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -99,13 +101,13 @@ mypy = [
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
-    "Build/RenderAnnouncerVoice.py",
+    "Build/RenderAnnouncerVoice.py", "Build/ContentText.py", "Build/GenerateGameplayConstants.py",
 ]
 
 # These modules are imported by Unreal's embedded Python, not only by ./x.
 [python]
 version = "3.11"
-paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py"]
+paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py", "Build/ContentText.py"]
 
 [test-only-symbol]
 identifiers = [
