@@ -417,6 +417,22 @@ private:
 				Front->SetActorLocation(FriendlyPosition, false, nullptr, ETeleportType::TeleportPhysics);
 			}
 		}
+		AHeadquarters* HQ = State->EnemyHeadquarters;
+		if (!Check(IsValid(HQ) && HQ->IsAlive(), TEXT("A live hostile HQ is available for non-primary splash")))
+			return true;
+		const FVector SiegePosition = Siege->GetActorLocation();
+		Victim->SetActorLocation(HQ->GetActorLocation() + FVector(0.f, 100.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
+		Siege->SetActorLocation(Victim->GetActorLocation() + FVector(600.f, 0.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
+		const int32 HQHealth = HQ->Health;
+		Siege->NextAttackTime = 0.f;
+		Siege->FireAt(Victim.Get());
+		Siege->SetActorLocation(SiegePosition, false, nullptr, ETeleportType::TeleportPhysics);
+		const int32 StructureSplash = (Siege->GetDefinition()->AttackDamage * 3 / 2) * 3 / 4;
+		if (!Check(HQ->Health == HQHealth - StructureSplash && HQ->IsAlive(),
+				TEXT("A non-primary hostile HQ receives its Structure bonus then midpoint splash falloff")))
+			return true;
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
 		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter()); // Reset target acquired by the direct range probes.
 		if (!CheckCounterAcquisition(State))

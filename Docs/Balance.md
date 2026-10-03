@@ -126,9 +126,13 @@ The design target remains unmet. Further tuning should distinguish goal/front co
 | Rifle | 5 | 24 | 92 | 24 / 1 | 24 | 550 | 480 |
 | Artillery | 3 | 40 | 160 | 40 / 2.5 | 16 | 1150 | 480 |
 
+[Built] Compared with the starting sheet, Brawler HP changed **150 → 330 (×2.2)** and base DPS **10 → 7 (−30%)**; Artillery HP changed **100 → 160 (+60%)** and base DPS **22 → 16 (−27.3%)**. Rifle HP changed **90 → 92 (+2.2%)**, with base DPS unchanged. These are substantial changes to the Brawler's wall identity, not minor tuning. [New] The unbuilt rows in [units.md](Design/units.md) were sized against the old Brawler and need stat/counter revalidation when added; this acceptance covers only the existing three units.
+
 ### Accepted ordered matrix
 
 [Built] Each row contains **40 fights**; team 0 is left, team 5 right. Draws remain in denominators. Splash and all acceptance definitions, including the revised mirror policy, live in [units.md](Design/units.md).
+
+[Built] At exactly 40 fights the revised mirror rule accepts **14–26 wins per side (35–65%), inclusive**. This is much looser than the former **45–55%** window: non-rejection at 95% does not establish ±5% fairness.
 
 | Left | Right | Team 0 wins | Team 5 wins | Draws |
 | --- | --- | ---: | ---: | ---: |

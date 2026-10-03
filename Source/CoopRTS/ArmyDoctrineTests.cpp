@@ -275,10 +275,24 @@ private:
 		Victim->SetActorLocation(Original, false, nullptr, ETeleportType::TeleportPhysics);
 		Victim->SetActorLocation(Siege->GetActorLocation() + FVector(ProbeRange, 0.f, 0.f),
 			false, nullptr, ETeleportType::TeleportPhysics);
+		AArmyUnit* SplashVictim = Actors.Enemy->GetUnits()[2];
+		if (!Check(IsValid(SplashVictim) && SplashVictim->IsAlive(), TEXT("A live hostile Light neighbour is available for optics splash")))
+			return true;
+		const FVector SplashPosition = SplashVictim->GetActorLocation();
+		const int32 SplashHealth = SplashVictim->GetHealth();
+		// At 144 cm, base damage 40 truncates to 25, then optics gives 18.
+		// Applying optics first would instead truncate 30 * .64 to 19.
+		SplashVictim->SetActorLocation(Victim->GetActorLocation() + FVector(0.f, 144.f, 0.f),
+			false, nullptr, ETeleportType::TeleportPhysics);
 		Siege->NextAttackTime = 0.f;
 		const uint32 Shots = Siege->AttackCount;
 		const int32 Before = Victim->GetHealth();
 		Siege->FireAt(Victim);
+		SplashVictim->SetActorLocation(SplashPosition, false, nullptr, ETeleportType::TeleportPhysics);
+		const int32 SplashOpticsDamage = static_cast<int32>(BaseDamage * .64f) * 3 / 4;
+		if (!Check(SplashVictim->GetHealth() == SplashHealth - SplashOpticsDamage,
+				TEXT("Optics splash truncates distance falloff before applying the outgoing Workshop modifier")))
+			return true;
 		if (!Check(Siege->AttackCount == Shots + 1 && Victim->GetHealth() < Before,
 				TEXT("Optics siege lands a real hit beyond its former range")))
 			return true;
