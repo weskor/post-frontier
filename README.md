@@ -26,7 +26,7 @@ World-space placement cells/grid, selection/front squares, front poles, goal-reg
 
 An unfinished building can be cancelled for `floor(build cost × (1 - construction progress))`; finished buildings cannot be cancelled. Buildings can be attacked and destroyed. Construction stops at match end.
 
-Select a completed barracks, choose **Frontline, Ranged or Siege**, then **Start & Lock**. The first accepted Start permanently fixes the type, even while paused or after a complete wipe. A different composition requires another barracks. Each building owns exactly one persistent force; there is **no shared squad cap or competition for another building's replacement slots**. Siege configuration costs 180 once on first Start, replacing the former level-2 conversion.
+Select a completed barracks, choose **Brawler, Rifle or Artillery**, then **Start & Lock**. The first accepted Start permanently fixes the type, even while paused or after a complete wipe. A different composition requires another barracks. Each building owns exactly one persistent force; there is **no shared squad cap or competition for another building's replacement slots**. Artillery configuration costs 180 once on first Start, replacing the former level-2 conversion.
 
 Each producer receives the lowest unused positive **force number** within its commander's living producers and groups with at least one living unit; the enemy shares its own numbering scope. Building labels, the inspector and living units show that number. Destroying a producer does not free its number while orphan survivors live; reuse is allowed only once neither a living producer nor a living force holds it. Surviving groups retain their number and last front; numbers are not globally unique identities. Click an owned living unit to select its living barracks and change that force's production/goal without returning the camera to base. Orphans clear selection and report “Barracks destroyed; survivors keep their last front.” Selection draws links from barracks to force centre and from centre to a configured front, and outlines the goal region.
 
@@ -38,11 +38,11 @@ HQ/building label backings are 96–220 HUD pixels wide with 4-pixel horizontal 
 
 | Force type | Capacity | Cost per unit | Time per unit | One-time configuration |
 | --- | ---: | ---: | ---: | ---: |
-| Frontline | 6 | 20 | 10/3 s | 0 |
-| Ranged | 4 | 30 | 13/3 s | 0 |
-| Siege | 2 | 50 | 20/3 s | 180 |
+| Brawler | 6 | 20 | 10/3 s | 0 |
+| Rifle | 5 | 24 | 4 s | 0 |
+| Artillery | 3 | 40 | 20/3 s | 180 |
 
-Frontline, Ranged and Siege retain their stable catalogue IDs and now implement the Brawler, Rifle and Artillery armor/weapon profiles in [Docs/Design/units.md](Docs/Design/units.md). Each unit moves at its definition's class speed; combat targeting follows [Docs/Design/forces.md](Docs/Design/forces.md). Existing HP, damage, range, interval and production values are unchanged. All unit stats are authored in [Build/Content/units.json](Build/Content/units.json); shields, EMP shield effects and splash are not implemented.
+Frontline, Ranged and Siege retain their stable catalogue IDs and implement the Brawler, Rifle and Artillery profiles in [Docs/Design/units.md](Docs/Design/units.md), including enemy-only Artillery splash. Each unit moves at its definition's class speed; combat targeting follows [Docs/Design/forces.md](Docs/Design/forces.md). Unit stats are authored in [Build/Content/units.json](Build/Content/units.json); shields and EMP shield effects are not implemented.
 
 Production fills vacancies **one paid unit at a time** and automatically replaces casualties while enabled. A unit is charged only after successful physical deployment from a clear barracks exit. Alive joined members and travelling recruits both count toward that building's capacity; at full capacity no timer or money advances. Pause preserves partial work; starvation waits; blocked deployment retains completed work and retries without charging. Recruits walk to their force's moving formation, not an outdated rally point or a teleport to the front. They remain attackable but cannot fire or receive stationary-Defend protection before joining.
 

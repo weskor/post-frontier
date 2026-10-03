@@ -13,7 +13,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 | Siege ×2 | 220 | 32 | 100 + 180 | 1150 |
 
 - Before the retag, no armor or damage-type modifiers existed and targeting was nearest-first, so Frontline dominated. The three Workshop specializations still work: Siege Optics (×1.25 Siege range, ×0.75 damage), Entrenched Frontline (×0.75 damage taken), and Field Repairs (healing).
-- Without micro, Ranged could not kite to make up for it. The retag adds counters and class speeds without tuning the other combat or production values; balance validation is still required.
+- Without micro, Ranged could not kite to make up for it. The retag added counters and class speeds; the three existing units now use the starting combat and production profiles below while duel tuning proceeds.
 
 ## Counter system [Change] — decided
 
@@ -28,6 +28,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 
 - **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the class bonus applies before the outgoing Siege Optics and incoming Entrenched Frontline modifiers. EMP currently has no HP bonus; its shield rule comes with Shielded units.
 - **Targeting [Built]:** follows the rule in [forces.md](forces.md). That topic owns explicit-target priority, retained-target lifetime, automatic acquisition and the pending force-card presentation.
+- **Artillery splash [Built]:** each impact damages hostile units, buildings and HQs within 200 cm in the ground plane. Damage falls linearly from 100% at the centre to 50% at the inclusive edge, with no damage outside. Each victim's class bonus applies before falloff; fractional HP truncates before Workshop modifiers. Allies are never hit.
 - **Shields [New] — decided:**
   - Shield points absorb damage before HP.
   - They regenerate at 10% per second after 4 s without taking damage.
@@ -44,7 +45,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 - **Force size:** small squads of 2–6 units per barracks, as today. Every unit stays readable and losses feel personal. The Juggernaut is the exception at capacity 1.
 - **Speed by armor class [Change]:** Light is fast and Heavy slow [Built], using the speed bands below. Shielded medium and the faster Raider remain [New]. Every unit moves at its definition's speed; mixed-selection synchronization belongs to [forces.md](forces.md) and is not built here.
 - **Pursuit [Built]:** firing keeps a unit engaged, preventing automatic fronts from reissuing mid-fight; losing the last target returns it to formation. Movement hysteresis compares against the last accepted pursuit endpoint: active paths reissue only after more than **130 cm** of goal drift or a target switch. Leaving weapon range starts movement immediately; an idle path retries at most every **0.5 game seconds** while its target stays unchanged, and target switches bypass that cooldown. Desired standoff is `max(0, min(0.82 × range, range − (capsule radius + 35 cm)))`, reserving the actual moving capsule and path-arrival tolerance.
-- **No friendly fire.** Splash only hits enemies; players can't steer units away from it, so friendly fire would feel unfair.
+- **No friendly fire [Built].** Splash only hits enemies; players can't steer units away from it, so friendly fire would feel unfair.
 - **Unit abilities:** every unit has passive traits. Some also have **auto-cast abilities** that fire on a published rule, e.g. *shield bash when an enemy is in melee range*. The player never casts them.
 
 ## Roster [New] — decided
@@ -55,7 +56,7 @@ Each unit's Human and Machine display names live in [World.md](../World.md#unit-
 |---|---|---|---|---|
 | 1 | Brawler [Built] | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline; balance tuning pending) |
 | 2 | Rifle [Built] | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged; balance tuning pending) |
-| 3 | Artillery [Change] | Light [Built] | Demolition [Built] + splash [New], long range | Breaks buildings; clump damage is [New] (today's Siege) |
+| 3 | Artillery [Built] | Light | Demolition + splash | Breaks buildings and damages clumped squads (today's Siege; balance tuning pending) |
 | 4 | Lancer | Shielded | Piercing beam | Durable assault unit against Heavy |
 | 5 | Scrambler | Light | EMP | Strips shields; an auto-cast pulse stuns buildings |
 | 6 | Raider | Light, fast | Kinetic | Prefers Drill Rigs and isolated targets, captures quickly, cuts supply chains |
@@ -87,7 +88,7 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 
 ## Stat profiles — decided shape, starting values
 
-**Current stats [Built]:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. The retag preserves the serialized HP, damage, range, interval, cost, duration, capacity and configuration fee; only armor, damage type, speed and role display names change. The proposed numbers below are not yet applied.
+**Current stats [Built]:** [Build/Content/units.json](../../Build/Content/units.json) is the text source for every existing unit stat; `GenerateMatchContent.py` writes those values into the cooked data assets. Stable catalogue IDs and asset names remain frontline/ranged/siege. Brawler, Rifle and Artillery now use the starting profiles below; duel tuning is not yet accepted.
 
 **Authored tags [Built]:** the generator accepts only the real role, armor and damage-type names. Hidden `Unset` defaults and unknown names are rejected before any asset is written.
 
@@ -115,7 +116,7 @@ Starting values for tuning in the harness duel matrix:
 - **Rifles beat Brawlers.** Rifles do 180 effective DPS against 900 HP, so they kill the squad in 5.0 s, and they get about 1 s of free fire while Brawlers close the distance. Brawlers do 90 against 450 HP, so they need 5.0 s plus that 1 s.
 - **Lancers beat Brawlers.** 135 effective DPS against 900 HP takes 6.7 s; Brawlers need 9.5 s to kill 570 HP (shield included).
 - **No squad leads on both HP and DPS per Power.** Brawler: 7.5 HP and 0.5 DPS per Power. Rifle: 3.75 HP and 1.0 DPS per Power.
-- These are paper numbers. **Build the harness duel matrix before committing any of them.** Today `MatchSimulationSubsystem` only reports Frontline/Ranged/Siege totals.
+- These are paper numbers. **Validate the harness duel matrix before accepting tuned values.** `MatchSimulationSubsystem` records each runtime definition and ordered encounter.
 
 Production time per unit stays roughly proportional to cost, as today (1/6 to 1/7.5 s per Power).
 

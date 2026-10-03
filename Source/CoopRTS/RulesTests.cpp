@@ -682,6 +682,21 @@ bool FCounterMatrixTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplashFalloffTest, "CoopRTS.Rules.Combat.SplashFalloff",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FSplashFalloffTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("Impact gets full damage"), CombatPolicy::SplashDamage(55, 0.f), 55);
+	TestEqual(TEXT("Half radius gets three-quarter damage, truncated"), CombatPolicy::SplashDamage(55, 100.f), 41);
+	TestEqual(TEXT("Inclusive edge gets half damage, truncated"), CombatPolicy::SplashDamage(55, 200.f), 27);
+	TestEqual(TEXT("Outside radius takes no damage"), CombatPolicy::SplashDamage(55, 200.01f), 0);
+	TestEqual(TEXT("Zero damage stays zero"), CombatPolicy::SplashDamage(0, 100.f), 0);
+	TestEqual(TEXT("Each victim's class bonus precedes falloff"),
+		CombatPolicy::SplashDamage(CombatPolicy::Damage(40, EDamageType::Demolition, EArmorClass::Structure), 100.f), 45);
+	return true;
+}
+
 bool FTargetingOrderTest::RunTest(const FString& Parameters)
 {
 	const EDamageType Types[] = { EDamageType::Kinetic, EDamageType::Piercing, EDamageType::Demolition };

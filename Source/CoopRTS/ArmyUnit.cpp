@@ -1,6 +1,7 @@
 #include "ArmyUnit.h"
 
 #include "ArmyGroup.h"
+#include "CommandBuilding.h"
 #include "CombatTarget.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
@@ -12,6 +13,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "DetourCrowdAIController.h"
+#include "EngineUtils.h"
+#include "Headquarters.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -246,12 +249,38 @@ void AArmyUnit::FireAt(AActor* Victim)
 	++AttackCount;
 	OnRep_Attack();
 	ForceNetUpdate();
-	const int32 CounterDamage = CombatPolicy::Damage(Definition->AttackDamage, GetDamageType(), CombatTarget::ArmorClass(Victim));
-	// Apply the class bonus first, then the existing integer Workshop tradeoff.
-	const int32 Damage = UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics
-		? CounterDamage * 3 / 4
-		: CounterDamage;
-	CombatTarget::ReceiveAttack(Victim, Damage, this);
+	const FVector Impact = Victim->GetActorLocation();
+	const auto Hit = [&](AActor* Other) {
+		if (!CombatTarget::IsAliveHostile(Other, TeamIndex))
+			return;
+		const float DistanceSquared = FVector::DistSquared2D(Impact, Other->GetActorLocation());
+		if (UnitRole == EUnitRole::Siege && DistanceSquared > FMath::Square(CombatPolicy::ArtillerySplashRadius))
+			return;
+		int32 Damage = CombatPolicy::Damage(Definition->AttackDamage, GetDamageType(), CombatTarget::ArmorClass(Other));
+		if (UnitRole == EUnitRole::Siege)
+			Damage = CombatPolicy::SplashDamage(Damage, FMath::Sqrt(DistanceSquared));
+		// Apply each victim's class bonus and falloff before Workshop tradeoffs.
+		if (UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics)
+			Damage = Damage * 3 / 4;
+		CombatTarget::ReceiveAttack(Other, Damage, this);
+	};
+	Hit(Victim);
+	if (UnitRole != EUnitRole::Siege)
+		return;
+	// Actor iteration survives casualties removing members/buildings from registries.
+	for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
+		if (*It != Victim)
+			Hit(*It);
+	for (TActorIterator<ACommandBuilding> It(GetWorld()); It; ++It)
+		if (*It != Victim)
+			Hit(*It);
+	if (State)
+	{
+		if (State->FriendlyHeadquarters != Victim)
+			Hit(State->FriendlyHeadquarters);
+		if (State->EnemyHeadquarters != Victim)
+			Hit(State->EnemyHeadquarters);
+	}
 }
 
 void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)

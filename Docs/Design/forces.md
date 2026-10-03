@@ -8,11 +8,11 @@
 
 | Type | Capacity | Unit cost | Time per unit | One-time fee |
 |---|---:|---:|---:|---:|
-| Frontline | 6 | 20 | 3.33 s | 0 |
-| Ranged | 4 | 30 | 4.33 s | 0 |
-| Siege | 2 | 50 | 6.67 s | 180 |
+| Brawler | 6 | 20 | 3.33 s | 0 |
+| Rifle | 5 | 24 | 4 s | 0 |
+| Artillery | 3 | 40 | 6.67 s | 180 |
 
-- Today's three types become the Brawler, Rifle and Artillery of the roster ([units.md](units.md)). The same lock, refill and upgrade rules apply to the Factory and Lab ([buildings.md](buildings.md)).
+- Combat profiles and tuning live in [units.md](units.md). The same lock, refill and upgrade rules apply to the Factory and Lab ([buildings.md](buildings.md)).
 - The lock is a deliberate commitment. Because battles are short, it never stays sunk for longer than one battle.
 - **Decided:** a finished building can be recycled for 50% of its build cost, so a wrong lock can be undone at a price ([buildings.md](buildings.md)).
 

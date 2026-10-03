@@ -371,6 +371,25 @@ private:
 					TEXT("Weapon cannot hit beyond its own role range")))
 				return true;
 			Victim->SetActorLocation(Shooter->GetActorLocation() + FVector(Shooter->WeaponRange() - 75.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+			FVector SplashPositions[3];
+			int32 SplashHealth[3];
+			const FVector FriendlyPosition = Front->GetActorLocation();
+			const int32 FriendlyHealth = Front->GetHealth();
+			if (Shooter == Siege)
+			{
+				for (int32 Index = 0; Index < 3; ++Index)
+				{
+					AArmyUnit* Neighbour = Enemy->GetUnits()[Index + 2];
+					SplashPositions[Index] = Neighbour->GetActorLocation();
+					SplashHealth[Index] = Neighbour->GetHealth();
+					const float Distance = Index == 0 ? 100.f : Index == 1 ? 200.f
+																		   : 201.f;
+					Neighbour->SetActorLocation(Victim->GetActorLocation() + FVector(0.f, Distance, 0.f),
+						false, nullptr, ETeleportType::TeleportPhysics);
+				}
+				Front->SetActorLocation(Victim->GetActorLocation() + FVector(0.f, -100.f, 0.f),
+					false, nullptr, ETeleportType::TeleportPhysics);
+			}
 			Shooter->FireAt(Victim.Get());
 			const int32 ExpectedDamage = Shooter == Ranged
 				? Shooter->GetDefinition()->AttackDamage * 3 / 2
@@ -378,6 +397,25 @@ private:
 			if (!Check(Victim->GetHealth() == Health - ExpectedDamage && Shooter->AttackCount == Shots + 1,
 					TEXT("Heavy target takes Piercing bonus and neutral Kinetic/Demolition damage within range")))
 				return true;
+			if (Shooter == Siege)
+			{
+				const int32 SplashExpected[] = {
+					Shooter->GetDefinition()->AttackDamage * 3 / 4,
+					Shooter->GetDefinition()->AttackDamage / 2,
+					0
+				};
+				for (int32 Index = 0; Index < 3; ++Index)
+				{
+					AArmyUnit* Neighbour = Enemy->GetUnits()[Index + 2];
+					if (!Check(Neighbour->GetHealth() == SplashHealth[Index] - SplashExpected[Index],
+							TEXT("Artillery hits hostile neighbours with falloff, includes the edge and excludes outside")))
+						return true;
+					Neighbour->SetActorLocation(SplashPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
+				}
+				if (!Check(Front->GetHealth() == FriendlyHealth, TEXT("Artillery splash never damages an ally inside the blast")))
+					return true;
+				Front->SetActorLocation(FriendlyPosition, false, nullptr, ETeleportType::TeleportPhysics);
+			}
 		}
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
 		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter()); // Reset target acquired by the direct range probes.
