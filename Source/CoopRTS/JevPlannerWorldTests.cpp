@@ -6,7 +6,6 @@
 #include "CapturePoint.h"
 #include "DepositSite.h"
 #include "HAL/PlatformTime.h"
-#include "NavigationSystem.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevCommitmentWorldTest, "CoopRTS.Enemy.Planner.Commitment",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -39,7 +38,8 @@ public:
 		UWorld* World = ArmyTestSetup::World();
 		ACommandGameState* State = World ? World->GetGameState<ACommandGameState>() : nullptr;
 		ACommandPlayerController* PC = World ? ArmyTestSetup::Controller(World) : nullptr;
-		if (!ArmyTestSetup::MapReady(State) || !PC || World->GetTimeSeconds() < 3.f)
+		if (!ArmyTestSetup::MapReady(State) || !PC || ArmyTestSetup::GameSeconds(World) < 3.
+			|| (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		if (State->MatchResult != EMatchResult::Ongoing)
 			return Fail(TEXT("Isolated planner fixture must not end the match"));
@@ -47,12 +47,19 @@ public:
 			return Begin(World, State, PC);
 		if (!Planner.IsValid() || !Forces[0].IsValid() || !Forces[1].IsValid())
 			return Fail(TEXT("Both independent producer forces and their tested commander must survive"));
-		UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
-		if (!Nav || Nav->IsNavigationBuildInProgress())
-			return false;
-		const float Now = World->GetTimeSeconds();
+		const float Now = ArmyTestSetup::GameSeconds(World);
 		if (Stage == 1)
 		{
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Forces)
+				if (Force->GetJoinedCount() != 6)
+					return false;
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Forces)
+			{
+				ACommandBuilding* Producer = Force->GetProductionBuilding();
+				FCommandService::ConfigureProduction(State->EnemyCommander, Producer, EUnitRole::Frontline, false);
+				Producer->SetActorTickEnabled(false);
+			}
+			State->EnemyCommander->Resources = 0;
 			Planner->EvaluatePlan();
 			if (!Plan(State, 0) || !Plan(State, 1))
 				return false; // Dynamic navigation may reject the initial real commands.
@@ -192,7 +199,7 @@ private:
 		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
 			It->Destroy();
 		State->bVerificationIncomePaused = true;
-		State->EnemyCommander->Resources = 0;
+		State->EnemyCommander->Resources = 240; // Exactly two six-infantry paid setup rosters; zero during intent proof.
 		for (TActorIterator<ACapturePoint> It(World); It; ++It)
 			It->SetActorTickEnabled(false); // Incidental capture would legally invalidate a held expansion target.
 		const int32 Home = ArmyTestSetup::RegionAt(State, State->EnemyHeadquarters->GetActorLocation());
@@ -223,7 +230,6 @@ private:
 				Anchor + FVector(0.f, -800.f, 5.f));
 			if (!Producer)
 				return Fail(TEXT("Explicit completed producer fixture must spawn"));
-			Producer->SetActorTickEnabled(false); // No paid production/economic noise in intent proof.
 			const FTransform Transform(Assembly);
 			AArmyGroup* Force = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
 				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
@@ -235,10 +241,9 @@ private:
 			Producer->ProductionUnitIndex = ArmyTestSetup::UnitIndex(State, EUnitRole::Frontline);
 			Producer->ProductionRole = EUnitRole::Frontline;
 			Producer->bForceConfigured = true;
-			for (int32 Slot = 0; Slot < 6; ++Slot)
-				if (!Force->SpawnMember(Producer->ProductionUnitIndex,
-						Assembly + FVector((Slot / 2 - 1) * 160.f, Slot % 2 ? 110.f : -110.f, 0.f), Slot))
-					return Fail(TEXT("Six living joined fixture members must spawn into each producer force"));
+			if (!FCommandService::SetRallyPoint(State->EnemyCommander, Producer, Source)
+				|| !FCommandService::ConfigureProduction(State->EnemyCommander, Producer, EUnitRole::Frontline, true))
+				return Fail(TEXT("Independent producer fixtures must accept normal rally and paid production commands"));
 			Forces[Index] = Force;
 		}
 		if (Proof == EJevWorldProof::TargetDestroyed)
@@ -270,6 +275,7 @@ private:
 		{
 			Building->BuildingIndex = Index;
 			Building->OwningPlayerState = Wallet;
+			Building->TeamIndex = Wallet->TeamIndex;
 			Building->ConstructionProgress = 1.f;
 			Building->FinishSpawning(Transform);
 		}

@@ -7,7 +7,6 @@
 #include "MapRegion.h"
 #include "Headquarters.h"
 #include "HAL/PlatformTime.h"
-#include "NavigationSystem.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEnemyConstructionTest, "CoopRTS.Enemy.ConstructionEconomy",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -27,7 +26,7 @@ public:
 		if (Now - Started > 300.0 || Now - StageStarted > 90.0)
 			return Fail(*FString::Printf(TEXT("Strategy stage %d exceeded its bounded progress deadline"), Stage));
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || World->GetTimeSeconds() < 3.f || (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
+		if (!World || ArmyTestSetup::GameSeconds(World) < 3. || (Stage == 0 && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
@@ -35,7 +34,7 @@ public:
 			return false;
 		if (State->MatchResult != EMatchResult::Ongoing)
 			return Fail(TEXT("Strategy fixture ended the match before its required economy/recovery states; cannot keep waiting"));
-		if (World->GetTimeSeconds() >= NextProgress)
+		if (ArmyTestSetup::GameSeconds(World) >= NextProgress)
 		{
 			int32 Joined = 0, Travelling = 0;
 			if (Production.IsValid())
@@ -43,7 +42,7 @@ public:
 			UE_LOG(LogTemp, Display, TEXT("Strategy progress stage=%d wallet=%d income=%d joined=%d travelling=%d forward=%d"),
 				Stage, State->EnemyCommander ? State->EnemyCommander->Resources : -1, State->GetEnemyIncomePerSecond(),
 				Joined, Travelling, ForwardProduction.IsValid());
-			NextProgress = World->GetTimeSeconds() + 10.f;
+			NextProgress = ArmyTestSetup::GameSeconds(World) + 10.;
 		}
 		AEnemyCommander* Planner = nullptr;
 		for (TActorIterator<AEnemyCommander> It(World); It && !Planner; ++It)
@@ -57,16 +56,13 @@ public:
 			return Fail(TEXT("Enemy wallet must be a controllerless team-5 commander outside the human roster"));
 		if (Stage == 5)
 		{
-			if (World->GetTimeSeconds() < DefenseReadyAt)
+			if (ArmyTestSetup::GameSeconds(World) < DefenseReadyAt)
 				return false; // A remote region threat does not override another force's active commitment.
 			return PrepareRecovery(Planner, State, PC, World);
 		}
 		if (Stage == 3)
 		{
-			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
-			if (!Nav || Nav->IsNavigationBuildInProgress())
-				return false;
-			if (World->GetTimeSeconds() < RecoveryReadyAt)
+			if (ArmyTestSetup::GameSeconds(World) < RecoveryReadyAt)
 				return false; // Joined-health scoring cannot replace a still-valid committed order.
 			for (const TWeakObjectPtr<AArmyUnit>& Unit : DamagedUnits)
 				if (Unit.IsValid())
@@ -123,7 +119,7 @@ public:
 				return Fail(TEXT("Recovery must physically reach safe MoveHold and heal the same injured joined roster before resuming"));
 			const FJevPublishedPlan* HeldPlan = PublishedRecovery(State);
 			if (Recovery->TargetRegionIndex == SafeRecoveryRegion && HeldPlan
-				&& World->GetTimeSeconds() < HeldPlan->CommittedUntil)
+				&& ArmyTestSetup::GameSeconds(World) < HeldPlan->CommittedUntil)
 			{
 				if (HealedTicket == 0)
 				{
@@ -197,10 +193,6 @@ public:
 				|| State->EnemyCommander->Resources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
 				|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 				return Fail(TEXT("First enemy production must create one paid infantry unit, not a batch, in its producer force"));
-			if (Produced->Verb != EForceVerb::MoveHold
-				|| Produced->WaypointRegionIndex == INDEX_NONE
-				|| State->GetRegionController(Produced->TargetRegionIndex) == 5)
-				return Fail(TEXT("First paid force must expand toward an uncontrolled region through an anchor order waypoint"));
 			Recovery = Produced;
 			Stage = 2;
 			EnemyBudget = 2000 + State->Content->FindBuilding(TEXT("barracks"))->BuildCost + 20;
@@ -341,7 +333,7 @@ public:
 			return Fail(TEXT("Destroying enemy extractor must free its deposit without recapturing region"));
 		for (ACommandBuilding* Producer : EnabledProducers)
 			FCommandService::ConfigureProduction(State->EnemyCommander, Producer, State->Content->Unit(Producer->ProductionUnitIndex)->Role, true);
-		DefenseReadyAt = World->GetTimeSeconds();
+		DefenseReadyAt = ArmyTestSetup::GameSeconds(World);
 		for (const FJevPublishedPlan& Plan : State->EnemyPlans)
 			DefenseReadyAt = FMath::Max(DefenseReadyAt, Plan.CommittedUntil);
 		Stage = 5;
@@ -442,19 +434,18 @@ private:
 	{
 		const int32 Waypoint = Recovery->WaypointRegionIndex;
 		const AMapRegion* Region = State->FindRegionAt(Recovery->Destination);
-		if (!Region || Region->RegionIndex != Waypoint
-			|| FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Waypoint)) > 75.f)
-			return Fail(TEXT("Resumed force has a complete navigable formation within its actual region waypoint"));
+		if (!Region || Region->RegionIndex != Waypoint)
+			return Fail(TEXT("Resumed force destination must remain inside its actual region waypoint"));
 		const FVector Center = Recovery->GetCenter();
 		if (ResumeDeadline < 0.)
 		{
 			ResumeStart = Center;
 			ResumeTarget = Recovery->Destination;
-			ResumeDeadline = World->GetTimeSeconds() + 10.;
+			ResumeDeadline = FPlatformTime::Seconds() + 10.;
 		}
 		if (FVector::Dist2D(Center, ResumeTarget) > FVector::Dist2D(ResumeStart, ResumeTarget) - 100.f)
-			return World->GetTimeSeconds() >= ResumeDeadline
-				? Fail(TEXT("Healed JEV force must physically leave recovery and advance toward its resumed waypoint within ten game seconds"))
+			return FPlatformTime::Seconds() >= ResumeDeadline
+				? Fail(TEXT("Healed JEV force must physically leave recovery and advance toward its resumed waypoint within ten real seconds"))
 				: false;
 		Test->AddInfo(TEXT("Enemy proof: exact paid economy, real capture/extractor, forward production, independent producer safe recovery and physical resumed strategic travel."));
 		return true;

@@ -354,7 +354,7 @@ void AEnemyCommander::EvaluatePlan()
 		const bool bActualChanged = Force->Verb != OrderVerb(Next.Verb)
 			|| (Next.Verb != JevPlanner::EVerb::Retreat && Force->TargetRegionIndex != Next.Target)
 			|| Force->TargetStructure != Structure || Force->Orders.IsEmpty();
-		const bool bChanged = bDecisionChanged || (bNewCommitment && bActualChanged);
+		const bool bChanged = bActualChanged && (bDecisionChanged || bNewCommitment);
 		if (bChanged && !FCommandService::IssueForceOrder(Commander, Force, OrderVerb(Next.Verb), Next.Verb == JevPlanner::EVerb::Retreat ? INDEX_NONE : Next.Target, Structure))
 			continue;
 		if (bChanged && Next.Verb == JevPlanner::EVerb::Retreat && ValidRegion(Force->GetRetreatRegion()))
@@ -362,6 +362,11 @@ void AEnemyCommander::EvaluatePlan()
 			Next.Target = Force->GetRetreatRegion();
 			Next.EtaSeconds = JevPlanner::TravelSeconds(Summary, Snapshot, Next.Target) / 1.25f;
 		}
+		if (Next.Verb == JevPlanner::EVerb::Retreat && Force->Verb == EForceVerb::Retreat
+			&& ValidRegion(Force->GetRetreatRegion()))
+			if (ACommandBuilding* Producer = Force->GetProductionBuilding(); IsValid(Producer)
+				&& Producer->RallyRegionIndex != Force->GetRetreatRegion())
+				FCommandService::SetRallyPoint(Commander, Producer, Force->GetRetreatRegion());
 		if (!Current)
 		{
 			Current = &CommittedForces.AddDefaulted_GetRef();

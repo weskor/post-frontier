@@ -29,26 +29,28 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
 
 **[Later]** Three more were designed and cut from launch scope: *Deprecate* (it duplicated the Pattern Matcher), *Auto-Scale* (it duplicates waves) and *Terms Change* (Workshop techs are cut).
 
-## Published intent [New]
+## Published intent [Built] — presentation [New]
 
-- **The unit of a published plan is one JEV force:**
+- **[Built] The unit of a published plan is one JEV force:**
   - its source region, target region, size band and ETA;
   - the size band rounds the unit count to the nearest multiple of 2, with a minimum of 2, and reads `~N units`;
   - the ETA is computed from the per-class speeds along the region path;
-  - under fog ([map.md](map.md)), size and composition show only when the source region is visible.
-- **Committed:** a plan is held for **25 s**. During that window the planner may not change that force's order, which also keeps the display from flickering with the 2 s re-planning. Two exceptions:
+  - **[New]** under fog ([map.md](map.md)), size and composition show only when the source region is visible.
+- **[Built] Committed:** a plan is held for **25 s**. During that window the planner may not change that force's order, which also keeps the display from flickering with the 2 s re-planning. Two exceptions:
   - The force's own region is attacked. It may defend, and the plan visibly changes to *Escalated: defending X*.
   - The target becomes invalid: destroyed, or captured by JEV.
-- This commitment is what gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
-- **Today:** `EnemyPlan` is one global text string that's never drawn, and the planner keeps no state between evaluations (`EnemyCommander.h`). Plans per force with a hold window need new planner state.
-- It is written as a corporate memo, for example: `Ticket #4471 · Reallocating ~8 units to West Cut · ETA 0:30`.
-- Commanders and cards can reveal more: composition, the next plan, building queues.
+- **[Built] Execution:** plans use the same Move & Hold, Attack, Retreat, casualty withdrawal, production and whole-region Hold rules as players ([forces.md](forces.md)). Retreat publishes its executor-selected safe endpoint; JEV sets its producer rally there so natural completion holds safety. Completion publishes the resulting Hold without resetting the ticket/deadline; health scoring may choose another order only when commitment expires.
+- **[Built] Published state:** `ACommandGameState::EnemyPlans` replicates each live force's ticket, force identity, verb, source, target/structure, size band, ETA, commitment deadline/remaining time, escalation and memo to every player. Destroyed forces are removed; a completed match clears the active list. The old global debug string is removed.
+- **[New] Disruption:** this commitment gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
+- **[Built] Memo text**, for example: `Ticket #4471 · Move & Hold: reallocating ~8 units to West Cut · ETA 0:30`. Each memo names its actual verb or defending escalation.
+- **[New] Presentation:** timeline, badges and memo drawing; commanders and cards can reveal composition, the next plan and building queues.
 
 ## How JEV decides — decided
 
-- **No LLM runs in the game at launch.** JEV's decisions come from its deterministic planner.
-- **Memos come from writer-made templates** filled from each plan: ticket number, size band, region, ETA and personality-flavoured verbs. A memo can never contradict its plan.
-- **The planner proposes, a chooser picks.** At each decision, the planner produces a few legal candidate plans with scores, and a chooser picks one. The launch chooser is deterministic: the best personality-weighted score. The planner enforces commitment whatever the chooser does.
+- **[Built] No LLM runs in the game at launch.** JEV's decisions come from its deterministic planner.
+- **[Built] Memos come from writer-made templates** in `[JevMemos]` in [DefaultGame.ini](../../Config/DefaultGame.ini), filled from each plan's ticket number, size band, region and ETA. Missing or contradictory templates are rejected; a memo can never contradict its plan. **[New]** personality-flavoured verbs.
+- **[Built] The planner proposes, a chooser picks.** At each decision the pure planner retains the three best legal candidates, and a deterministic chooser picks the highest neutral score with stable region/verb/structure-identity ties. Commitment is enforced separately from choice. **[New]** personality weighting.
+- **[Built] Simulation evidence:** retained creation/escalation events count unique team-5 tickets by their original verb, including short-lived plans between samples. Sampled active plans include memos, ETA and remaining commitment; reports show captures and observed attacks alongside plan counts. Team-0 autopilot does not publish JEV plans.
 - **[Later] LLM chooser experiment:** an optional, host-only, opt-in mode in which an LLM picks among the legal candidates and returns only an index, with a 3 s fallback to the deterministic pick. It would need Steam's live-generated AI disclosure and its own balance runs in the harness, and it must never see player-written text. Only considered once the deterministic JEV passes its own gates.
 - **Why** ([llm-jev.md](../Research/llm-jev.md)):
   - LLM strategists match good scripted AI rather than beat it, and still need a scripted fallback.
