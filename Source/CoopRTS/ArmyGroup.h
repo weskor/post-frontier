@@ -192,7 +192,7 @@ private:
 	TWeakObjectPtr<AActor> AppliedStructure;
 	UPROPERTY(Replicated)
 	TArray<FForceRoute> IntentRoutes;
-	void UpdateIntentRoutes(const uint64* Graph, int32 Count, int32 Source, uint64 Controlled, uint64 Hostiles);
+	void UpdateIntentRoutes(const uint64* Graph, int32 Count, int32 Source, uint64 Controlled, uint64 Hostiles, bool bTargetCompleted);
 	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply = true);
 	void UpdateCombat();
 	void UpdateReinforcements();

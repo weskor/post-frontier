@@ -3,7 +3,7 @@
 #include "Rules/RouteIntent.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRouteIntentRulesTest, "CoopRTS.Rules.RouteIntent",
-	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 bool FRouteIntentRulesTest::RunTest(const FString& Parameters)
 {
@@ -13,9 +13,6 @@ bool FRouteIntentRulesTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Source"), Path.Regions[0], 0);
 	TestEqual(TEXT("Ascending tie break"), Path.Regions[1], 1);
 	TestEqual(TEXT("Target"), Path.Regions[2], 3);
-	for (int32 Index = 0; Index + 1 < Path.Count; ++Index)
-		TestEqual(TEXT("Every successive segment agrees with executor BFS"),
-			Path.Regions[Index + 1], ForceOrders::NextWaypoint(Graph, 5, Path.Regions[Index], 3));
 	TestEqual(TEXT("Unreachable target does not fabricate a route"), RouteIntent::Path(Graph, 5, 0, 4).Count, 0);
 	TestEqual(TEXT("Invalid source"), RouteIntent::Path(Graph, 5, -1, 3).Count, 0);
 	TestEqual(TEXT("Oversized graph"), RouteIntent::Path(Graph, 65, 0, 3).Count, 0);

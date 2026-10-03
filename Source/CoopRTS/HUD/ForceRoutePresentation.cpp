@@ -97,7 +97,7 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 				continue;
 			if (IsValid(Hover.Structure))
 				Render.Line.Points[Render.Line.Count - 1] = Hover.Structure->GetActorLocation();
-			Render.Color = FLinearColor(1.f, .85f, .3f);
+			Render.Color = FLinearColor::White;
 			Render.bSelected = Render.bPreview = true;
 			Render.OrderIndex = bQueue ? Force->Orders.Num() : 0;
 			Render.TargetRegionIndex = Hover.RegionIndex;

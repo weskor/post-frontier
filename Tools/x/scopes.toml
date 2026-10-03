@@ -598,9 +598,10 @@ kind = "lint"
 
 # Route intent supplements existing executor/input scopes, never replaces them.
 "Source/CoopRTS/RouteIntentTests.cpp" = ["route-intent"]
+"Source/CoopRTS/RouteIntentSafetyTests.cpp" = ["route-intent"]
 "Source/CoopRTS/RouteIntentRulesTests.cpp" = ["rules"]
-"Source/CoopRTS/Rules/RouteIntent.*" = ["rules", "route-intent"]
-"Source/CoopRTS/ForceRouteIntent.cpp" = ["route-intent"]
+"Source/CoopRTS/Rules/RouteIntent.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-attack-withdrawal", "force-contested-transit", "force-identity", "force-mixed-speed", "force-move-hold", "force-no-safe-fallback", "force-orphan", "force-queue", "force-rally", "force-retreat", "force-selection", "force-structure-death", "force-structure-withdrawal", "force-threshold-never", "hold-border", "hold-building-edge", "hold-jev", "hold-proportional", "hold-shared-commanders", "hold-timers", "match-loss", "match-win", "movement", "orders", "production", "route-intent", "rules", "simulation-duel", "strategy"]
+"Source/CoopRTS/ForceRouteIntent.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-attack-withdrawal", "force-contested-transit", "force-identity", "force-mixed-speed", "force-move-hold", "force-no-safe-fallback", "force-orphan", "force-queue", "force-rally", "force-retreat", "force-selection", "force-structure-death", "force-structure-withdrawal", "force-threshold-never", "hold-border", "hold-building-edge", "hold-jev", "hold-proportional", "hold-shared-commanders", "hold-timers", "match-loss", "match-win", "movement", "orders", "production", "route-intent", "simulation-duel", "strategy"]
 "Source/CoopRTS/HUD/ForceRoutePresentation.*" = ["route-intent"]
 "Source/CoopRTS/CommandPlayerControllerRouteIntent.cpp" = ["route-intent"]
 "Source/CoopRTS/RouteIntentVerification.*" = ["route-intent"]
