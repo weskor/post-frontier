@@ -61,6 +61,11 @@ kind = "automation"
 filter = "CoopRTS.Selection.Forces"
 map = "default"
 
+[scopes.force-cap]
+kind = "automation"
+filter = "CoopRTS.Construction.ForceCap"
+map = "default"
+
 [scopes.goal-orders]
 kind = "automation"
 filter = "CoopRTS.Construction.GoalOrders"
@@ -390,3 +395,9 @@ kind = "lint"
 "Source/CoopRTS/Commands/ProductionCommands.cpp" = ["hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/HoldPolicyTests.cpp" = ["rules"]
 "Source/CoopRTS/Rules/HoldPolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "goal-orders", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+# Force-cap placement and pure-rule contracts supplement existing scopes.
+"Source/CoopRTS/ForceCapTests.cpp" = ["force-cap"]
+"Source/CoopRTS/ForceCapRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/ForceCap.h" = ["force-cap", "rules"]
+"Source/CoopRTS/Commands/ForceCapState.*" = ["force-cap"]
+"Source/CoopRTS/Commands/CommandService.cpp" = ["force-cap"]

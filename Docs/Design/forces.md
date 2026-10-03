@@ -16,11 +16,12 @@
 - The lock is a deliberate commitment. Because battles are short, it never stays sunk for longer than one battle.
 - **Decided:** a finished building can be recycled for 50% of its build cost, so a wrong lock can be undone at a price ([buildings.md](buildings.md)).
 
-## Force cap [New] — decided
+## Force cap [Built]
 
-- Each commander fields at most **4 forces** at once, or **5 solo**, matching the solo player's extra unit type ([commanders.md](commanders.md)).
-- The cap counts production buildings, since each one owns one force. A fifth needs one recycled first ([buildings.md](buildings.md)). An orphan force doesn't count, but it can't be refilled.
-- Forces grow stronger through tiers and perks rather than multiplying (see "Barracks upgrades" below).
+- Each human commander owns at most **4 production buildings** at once, or **5 solo**, matching the solo player's extra unit type ([commanders.md](commanders.md)). Solo means exactly one human commander in the match roster.
+- Living production buildings count from placement, including construction and unconfigured barracks. Other commanders' buildings, non-producers and orphan forces don't count. An orphan can't be refilled.
+- At the cap, authority rejects another producer without spending Power. Destroying a producer frees its slot. **[New]** The build bar will show the current count/cap and explain blocked placement; recycling will provide another way to free a slot ([buildings.md](buildings.md)).
+- **[New]** Forces grow stronger through tiers and perks rather than multiplying (see "Barracks upgrades" below).
 - **Why:** the designer's note after the 2026-10-01 playtest: "if you have less to control, you feel more in control". Bad North's developers make the same point about a discrete possibility space ([area-defence.md](../Research/area-defence.md)), and Tooth and Tail was built around the attention split between base and battle ([pacing.md](../Research/pacing.md)).
 - JEV isn't bound by this cap; its pressure comes from its budget and player-count scaling ([jev.md](jev.md)).
 
