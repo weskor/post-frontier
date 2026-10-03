@@ -102,6 +102,7 @@ public:
 			Check(!Producer->bProductionEnabled, TEXT("Card pauses its producer without unlocking its unit type"));
 			Teammate(State);
 			Layouts(State);
+			EmptyForceETA(State);
 			return true;
 		}
 		return false;
@@ -336,6 +337,29 @@ private:
 							&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(Layout.ForceBar),
 						TEXT("Visible JEV memos do not overlap the deck, build bar, minimap or cards"));
 			}
+	}
+	// A producer-backed force whose members all died keeps its moving status but has nothing to time.
+	void EmptyForceETA(ACommandGameState* State)
+	{
+		PC->SelectForce(Own.Get());
+		PC->OrderCommands->ServerIssueForceOrder({ Own.Get() }, EForceVerb::Attack, Target, nullptr, false, 0);
+		Own->TickOrders();
+		Own->MarchSpeed = 300.f;
+		const EForceStatus Moving = Own->Status;
+		Check(!Own->GetIntentRoutes().IsEmpty(), TEXT("Control: the reissued Attack has an intent route"));
+		if (!Check(ForceTravelETA::Compute(*Own, *State) >= 0, TEXT("Control: a living marching force has an ETA")))
+			return;
+		const TArray<AArmyUnit*> Units(Own->GetUnits());
+		for (AArmyUnit* Unit : Units)
+			if (IsValid(Unit) && Unit->IsAlive())
+				Unit->ReceiveAttack(Unit->GetHealth(), Hostile->GetUnits()[0]);
+		if (Check(Own->GetAliveCount() == 0 && Own->Status == Moving, TEXT("The emptied force keeps the status that carried an ETA")))
+		{
+			Check(ForceTravelETA::Compute(*Own, *State) == INDEX_NONE, TEXT("A force with no living members has no ETA"));
+			FForceCard Card;
+			ReadForceCard(MakeContext(PC.Get()), *Own, ForceTravelETA::Compute(*Own, *State), Card);
+			Check(!Card.Status.ToView().Contains(TEXT("\u00B7 0:")), TEXT("The card prints no 0:00 countdown for an empty force"));
+		}
 	}
 	bool SelectionAndLayout(ACommandGameState* State)
 	{

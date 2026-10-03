@@ -11,6 +11,9 @@ int32 Compute(const AArmyGroup& Force, const ACommandGameState& State)
 {
 	if (Force.Status != EForceStatus::Marching && Force.Status != EForceStatus::Withdrawing && Force.Status != EForceStatus::Retreating)
 		return INDEX_NONE;
+	// No living member means no slowest member to time; the card shows no countdown.
+	if (Force.GetAliveCount() <= 0)
+		return INDEX_NONE;
 	// The executor already applies the slowest living member, selection cap and Retreat sprint.
 	const float Speed = Force.GetMarchSpeed();
 	if (Speed <= 0.f)
