@@ -88,4 +88,5 @@ def test_scope_map_rejects_unchanged_unmapped_file(repo: Path, task: Path) -> No
     result = invoke(task, "check")
     assert result.returncode == 1
     assert "unmapped.asset:1: scope-map:" in result.stdout
-    assert "check scopes: lint" in result.stdout
+    assert "check scopes:" not in result.stdout
+    assert "check: FAIL (lint; test scopes skipped)" in result.stdout

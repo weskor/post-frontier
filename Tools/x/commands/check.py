@@ -15,6 +15,7 @@ SUMMARY = "Apply formatting, run blocking lint and changed-file test scopes."
 HELP = """./x check [--all]
 
 Apply formatting fixes, print reformatted paths, then run every enabled lint rule.
+A lint failure stops the check before any test scope runs.
 By default inspect changes against main, the index, worktree and untracked files.
 --all lints every tracked file; tests still follow changed paths, including deletions.
 Print each selected scope and the changed paths that selected it.
@@ -30,9 +31,12 @@ and run slow ./x verify extras only when the task brief names them. A routine
 change does not authorize a full gameplay, topology or fault acceptance matrix.
 Compilation, accepted commands and screenshots do not replace live assertions.
 Never weaken assertions to pass. Preserve failed/interrupted runs, separate
-product defects from harness/setup failures, then make a targeted correction
-and rerun ./x check. Inspect exact scope results and limits via ./x runs <id>
-and ./x help test; do not claim untested native, replicated or Steam behavior.
+product defects from harness/setup failures, then make a targeted correction.
+A full check can take tens of minutes: do not rerun it after every fix. Iterate
+with ./x test <failed scopes> (and ./x check again only for lint failures, which
+stop before tests) until those pass, then run ./x check once as the final proof.
+Inspect exact scope results and limits via ./x runs <id> and ./x help test;
+do not claim untested native, replicated or Steam behavior.
 """
 RECORD = True
 
@@ -57,6 +61,10 @@ def check(ctx: Context, *, all_files: bool = False, audit: bool = True) -> Check
         else changed
     )
     result = lint.run(ctx, paths, fix=True)
+    reformatted = ", ".join(map(str, result.reformatted)) or "(none)"
+    if not result.ok:
+        print(f"check: FAIL (lint; test scopes skipped); reformatted: {reformatted}")
+        return CheckResult(False, result.reformatted)
     mapping = load(ctx.repo)
     scopes = mapping.scopes_for(changed)
     reasons: dict[str, list[str]] = {scope: [] for scope in scopes}
@@ -67,11 +75,8 @@ def check(ctx: Context, *, all_files: bool = False, audit: bool = True) -> Check
     for scope, selected in reasons.items():
         print(f"  {scope} selected by: {', '.join(selected)}")
     tests_ok = run_scopes(ctx, scopes)
-    print(
-        f"check: {'PASS' if result.ok and tests_ok else 'FAIL'}; reformatted: "
-        + (", ".join(map(str, result.reformatted)) or "(none)")
-    )
-    return CheckResult(result.ok and tests_ok, result.reformatted)
+    print(f"check: {'PASS' if tests_ok else 'FAIL'}; reformatted: {reformatted}")
+    return CheckResult(tests_ok, result.reformatted)
 
 
 def run(args: argparse.Namespace, ctx: Context) -> int:

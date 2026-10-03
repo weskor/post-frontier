@@ -16,7 +16,8 @@ URL options are accepted; the engine resolves existence. Without --map, each
 scope retains its configured map; only ./x test accepts this override.
 
 Use ./x check for change proof: it selects scopes from Tools/x/scopes.toml.
-Use named tests for a diagnosed failure or a specifically requested baseline;
+Use named tests for a diagnosed failure, to iterate on scopes a check failed
+(then run ./x check once as final proof), or for a requested baseline;
 --list prints the available scope names, kinds and automation filters. Do not
 invent scenarios or duplicate the path-to-test map in documentation.
 Runs every requested scope once and retains per-scope results and logs. Automation

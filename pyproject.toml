@@ -9,7 +9,7 @@ package = false
 
 [dependency-groups]
 dev = [
-    "pytest==8.4.2", "ruff==0.15.7", "mypy==1.19.1",
+    "pytest==8.4.2", "pytest-xdist==3.8.0", "ruff==0.15.7", "mypy==1.19.1",
     "numpy==2.5.3", "scipy==1.18.1", "soundfile==0.14.0",
     "pedalboard==0.9.25", "pyloudnorm==0.2.0", "remotezip==0.12.6",
     "scipy-stubs==1.18.1.1",

@@ -153,7 +153,10 @@ def run_scopes(
                 else (False, "editor build failed")
             )
         elif scope.kind == "pytest":
-            code = ctx.exec(["uv", "run", "--locked", "pytest", *scope.paths], log=name)
+            code = ctx.exec(
+                ["uv", "run", "--locked", "pytest", "-n", "auto", *scope.paths],
+                log=name,
+            )
             ok, details = code == 0, f"pytest exit {code}"
         elif scope.kind == "script":
             ok, details = _scripts(ctx, name, scope)
