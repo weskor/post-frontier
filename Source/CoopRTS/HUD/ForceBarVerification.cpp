@@ -87,6 +87,7 @@ static FString InspectTeammateFixture(UWorld& World, ACommandPlayerController& C
 		return TEXT("teammate fixture player spawn failed");
 	Teammate->CommanderIndex = Own->CommanderIndex == 0 ? 1 : 0;
 	Teammate->TeamIndex = Own->TeamIndex;
+	Teammate->SetPlayerName(TEXT("Fixture teammate"));
 	State->AddPlayerState(Teammate);
 	const FVector Location = ArmyTestSetup::FromFriendlyHQ(State, 900.f, -900.f, 100.f);
 	const FTransform ProducerTransform(Location + FVector(0.f, -450.f, -95.f));
