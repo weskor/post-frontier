@@ -970,8 +970,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	}
 	if (Action == TEXT("routeTeammate"))
 		return PC ? RouteIntentVerification::TeammateFixture(*PC,
-			Request->GetIntegerField(TEXT("targetRegionIndex")), Request->GetBoolField(TEXT("enabled")))
-			: TEXT("route fixture controller unavailable");
+						Request->GetIntegerField(TEXT("targetRegionIndex")), Request->GetBoolField(TEXT("enabled")))
+				  : TEXT("route fixture controller unavailable");
 	if (Action == TEXT("isolate"))
 	{
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It)

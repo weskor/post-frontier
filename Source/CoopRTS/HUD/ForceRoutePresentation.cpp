@@ -12,6 +12,40 @@
 #include "WorldOverlay.h"
 #include <limits>
 
+static void VisitOrders(const AArmyGroup& Force, bool bSelected, TConstArrayView<FVector> Anchors,
+	TFunctionRef<void(const ForceRoutePresentation::FRoute&)> Draw)
+{
+	const FLinearColor Color = AArmyUnit::GetCommanderColor(Force.GetOwningPlayerState()->CommanderIndex);
+	FVector Start = Force.GetCenter();
+	for (int32 Leg = 0; Leg < Force.GetIntentRoutes().Num(); ++Leg)
+	{
+		const FForceRoute& Route = Force.GetIntentRoutes()[Leg];
+		if (Route.Regions.IsEmpty())
+			break;
+		ForceRoutePresentation::FRoute Render;
+		Render.OrderIndex = Route.OrderIndex;
+		Render.TargetRegionIndex = Route.Regions.Last();
+		Render.bActive = Leg == 0;
+		Render.bSelected = bSelected;
+		Render.Color = Color;
+		Render.Line = RouteIntent::Polyline(Start, Route.Regions, Anchors,
+			Leg == 0 && Force.WaypointRegionIndex == Route.Regions[0]);
+		if (Render.Line.Count == 0)
+			break;
+		// Accepted formation destinations and structure targets need not be the region anchor.
+		if (Leg == 0 && Route.Regions.Last() == Force.WaypointRegionIndex)
+			Render.Line.Points[Render.Line.Count - 1] = Force.Destination;
+		if (Force.Orders.IsValidIndex(Route.OrderIndex))
+		{
+			const FForceOrder& Order = Force.Orders[Route.OrderIndex];
+			if (IsValid(Order.Structure) && Route.Regions.Last() == Order.RegionIndex)
+				Render.Line.Points[Render.Line.Count - 1] = Order.Structure->GetActorLocation();
+		}
+		Draw(Render);
+		Start = Render.Line.Points[Render.Line.Count - 1];
+	}
+}
+
 void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, TFunctionRef<void(const FRoute&)> Draw)
 {
 	const ACommandGameState* State = Controller.GetWorld()->GetGameState<ACommandGameState>();
@@ -41,39 +75,11 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 				|| (Force->GetAliveCount() == 0 && !IsValid(Force->GetProductionBuilding())))
 				continue;
 			const bool bSelected = Controller.IsForceSelected(Force);
-			const FLinearColor Color = AArmyUnit::GetCommanderColor(Owner->CommanderIndex);
-			FVector Start = Force->GetCenter();
-			for (int32 Leg = 0; Leg < Force->GetIntentRoutes().Num(); ++Leg)
-			{
-				const FForceRoute& Route = Force->GetIntentRoutes()[Leg];
-				if (Route.Regions.IsEmpty())
-					break;
-				FRoute Render;
-				Render.OrderIndex = Route.OrderIndex;
-				Render.TargetRegionIndex = Route.Regions.Last();
-				Render.bActive = Leg == 0;
-				Render.bSelected = bSelected;
-				Render.Color = Color;
-				Render.Line = RouteIntent::Polyline(Start, Route.Regions, MakeArrayView(Anchors),
-					Leg == 0 && Force->WaypointRegionIndex == Route.Regions[0]);
-				if (Render.Line.Count == 0)
-					break;
-				// Accepted formation destinations and structure targets need not be the region anchor.
-				if (Leg == 0 && Route.Regions.Last() == Force->WaypointRegionIndex)
-					Render.Line.Points[Render.Line.Count - 1] = Force->Destination;
-				if (Force->Orders.IsValidIndex(Route.OrderIndex))
-				{
-					const FForceOrder& Order = Force->Orders[Route.OrderIndex];
-					if (IsValid(Order.Structure) && Route.Regions.Last() == Order.RegionIndex)
-						Render.Line.Points[Render.Line.Count - 1] = Order.Structure->GetActorLocation();
-				}
-				Draw(Render);
-				Start = Render.Line.Points[Render.Line.Count - 1];
-			}
+			VisitOrders(*Force, bSelected, MakeArrayView(Anchors), Draw);
 			if (!bSelected || !bPreview || !ForceOrders::CanQueue(Force->Orders.Num(), bQueue))
 				continue;
 			int32 Source = ForceOrderGraph::SourceRegion(*Force, *State);
-			Start = Force->GetCenter();
+			FVector Start = Force->GetCenter();
 			if (bQueue && !Force->GetIntentRoutes().IsEmpty())
 			{
 				const FForceRoute& Last = Force->GetIntentRoutes().Last();
@@ -105,7 +111,8 @@ void ForceRoutePresentation::DrawWorld(AWorldOverlay& Overlay, const ACommandPla
 	const ACommandGameState* State = Controller.GetWorld()->GetGameState<ACommandGameState>();
 	Visit(Controller, [&Overlay, State](const FRoute& Route) {
 		const FColor Color = Route.Color.ToFColor(true);
-		const float Width = Route.bPreview ? 9.f : Route.bSelected ? 7.f : 4.f;
+		const float Width = Route.bPreview ? 9.f : Route.bSelected ? 7.f
+																   : 4.f;
 		const FVector Lift(0., 0., Route.bPreview ? 24. : 18.);
 		for (int32 Index = 1; Index < Route.Line.Count; ++Index)
 		{

@@ -70,9 +70,7 @@ public:
 		CheckRoutes(*State);
 		Test->TestTrue(TEXT("Manual retreat accepted mid-route"), FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::Retreat).IsAccepted());
 		CheckRoutes(*State);
-		Test->TestTrue(TEXT("Hostile structure Attack accepted"), FCommandService::IssueForceOrder(
-			PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::Attack,
-			INDEX_NONE, State->EnemyHeadquarters).IsAccepted());
+		Test->TestTrue(TEXT("Hostile structure Attack accepted"), FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::Attack, INDEX_NONE, State->EnemyHeadquarters).IsAccepted());
 		bool bStructureHighlight = false;
 		ForceRoutePresentation::Visit(*PC, [&](const ForceRoutePresentation::FRoute& Route) {
 			if (!Route.bPreview && Route.bSelected && Route.OrderIndex == 0 && Route.Line.Count > 0)
