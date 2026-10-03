@@ -36,7 +36,7 @@
 
 **The redesign:**
 
-- **[Built] You select and order forces, not buildings.** The selection model includes living orphan forces, numbered map badges and teammate read-only inspection; order input and camera behaviour live in [ui.md](ui.md#selecting-and-giving-orders-change--decided). Building-inspector order controls are removed. **[New]** Force-bar cards; buildings keep production, upgrades and refits.
+- **[Built] You select and order forces, not buildings.** The selection model includes living orphan forces, numbered map badges, force-bar cards and teammate read-only inspection; order input and camera behaviour live in [ui.md](ui.md#selecting-and-giving-orders-change--decided). Building-inspector order controls are removed; buildings keep production, upgrades and refits.
 - **[Built] Keys 1–4 (solo 1–5)** select a single owned force by its number, including a living orphan. Camera focus and multi-selection inputs are specified in [ui.md](ui.md#selecting-and-giving-orders-change--decided).
 - **Several forces at once:**
   - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md#selecting-and-giving-orders-change--decided). Commands accept several owned forces atomically.
@@ -50,7 +50,7 @@
 | **Attack** | A region or a hostile structure | **[Built]** Push to the target, fighting and capturing along the way, and chase enemies near the target. Below the retreat threshold it makes a **fighting withdrawal**, still firing, to the nearest safe region. With a living producer it **resumes the retained Attack automatically at 80% joined capacity**, rounded upward; travelling recruits do not satisfy this count. An orphan's withdrawal ends on safe arrival, advancing any queued order or becoming Move & Hold there. **When the force has arrived and the region is controlled without hostile units, or the structure is destroyed, the Attack turns into Move & Hold** where it ends unless another order is queued. A target completed during withdrawal does not interrupt the trip to safety; completion is applied on safe arrival. **[New]** The force card shows *Withdrawing · 3/6 → resumes at 5/6*, inferred from the retained Attack verb, Refilling status and withdrawal resume count. |
 | **Retreat** | — | **[Built]** A manual order: sprint (+25% speed) to the nearest safe region **without firing while Retreating**, then refill there with weapons enabled. Arrival ends the sprint. Completing refill yields to the next explicit order; with none queued, Move & Hold defaults to the living producer's rally, or stays at the arrival region for an orphan. |
 
-Move & Hold and Attack have different combat rules on purpose, so players can tell them apart. That was the reported problem #5. **[Change]** Each force card states its current verb's rule in one line; presentation lives in [ui.md](ui.md).
+Move & Hold and Attack have different combat rules on purpose, so players can tell them apart. That was the reported problem #5. **[Built]** Each force card states its current verb's rule in one line; presentation lives in [ui.md](ui.md).
 
 **Definitions:**
 - **[Built] Safe region:** the nearest HQ-connected controlled region with no hostile units inside, preferring the last region the force held when it is eligible. If none exists, manual Retreat and an Attack's withdrawal go to the team's main region (the HQ's region), the last line of defence.
@@ -58,7 +58,7 @@ Move & Hold and Attack have different combat rules on purpose, so players can te
 
 - **[Built] Fighting on the way:** travelling Move & Hold and Attack acquire automatic targets only within their weapon range, rather than the old 800 cm/enemy-ahead acquisition rule, and do not leave the march route to chase. Near-target Attack-phase combat, including a Move & Hold still securing its capture anchor, can pursue within **10.5 m** of the current waypoint destination (`AArmyGroup::PursuitRadius`). Once the region is secured, Move & Hold uses the whole-region [holding rules](#holding-a-region-built), not that local pursuit circle.
 - **[Built] Intermediate capture:** a march waits for uncontested intermediate ground to become controlled. If a hostile contests its capture point, the force continues after physically reaching that waypoint rather than leaving its route to hunt the blocker. The final target still uses the verb's completion rules.
-- **[Built] Order queue:** commands queue up to **3 orders in total, including the active order**, e.g. *Attack Relay → Move & Hold West Cut*. Shift-queue input is built ([ui.md](ui.md)); successive queued legs appear on the path line. Display on the force card remains **[New]**.
+- **[Built] Order queue:** commands queue up to **3 orders in total, including the active order**, e.g. *Attack Relay → Move & Hold West Cut*. Shift-queue input and force-card display are built ([ui.md](ui.md)); successive queued legs appear on the path line.
   - **[Built]** An order yields to the next queued order when it completes. **Move & Hold** completes once the force has arrived, there are no hostile units inside the region and, if capturable, the team controls it. With nothing queued it keeps holding.
   - **[Built] Attack** completes after physical arrival at a controlled, hostile-free target region, or when its target structure is destroyed. It advances to a queued order instead of turning into Move & Hold. A withdrawal already in progress finishes its safe arrival first.
   - **[Built] Retreat** completes once the force has arrived and refilled to full capacity; an orphan completes on arrival because it cannot refill.
@@ -71,7 +71,7 @@ Move & Hold and Attack have different combat rules on purpose, so players can te
   - A force in a cut-off region gets nothing until it's reconnected or retreats.
   - This ties steering to the connectivity rule ([economy.md](economy.md)).
 - **[New] Refit after an upgrade:** in a connected region, old units are swapped for upgraded ones **one at a time**, through the same channel as reinforcements. Nobody walks back to the building.
-- **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. **[Change]** Force-card order-state presentation and the travel estimate are specified in [ui.md](ui.md).
+- **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. Force-card order-state presentation and the travel estimate are specified in [ui.md](ui.md).
 - **[Built] Intent arrows:** every human commander's active route and queued orders are drawn in their commander colour on the shared map and minimap. The authority publishes region lists only for human forces; each client builds the lines from its map anchors. A withdrawal includes the direct safe leg and, only when recovery can resume it, the retained Attack. Queued Retreat predictions advance the last-held region through preceding Move & Hold legs. Selected paths have a target highlight, queued legs are dashed, and an uncommitted hover preview is white. Teammates can read the plan without selecting the force.
 
 ### Holding a region [Built]
@@ -88,12 +88,12 @@ Move & Hold forces with Holding status and a valid held region defend that whole
 - **Border rule:** pursuit stops at the region border. While an attacker outside the border is damaging something inside, the force may strike back up to its weapon range past the border; then it returns.
 - **No flip-flopping:** a responding force keeps its target until the target dies or leaves the leash, commits to an alarm for at least 8 s, and returns to its post 6 s after the region goes quiet. Starting values.
 - **Readable response [Built]:** a line runs from each responder to its threat, and the attributed alert feed logs and voices the start of a player-owned region response episode ([ui.md](ui.md)). JEV responses do not produce that player alert.
-- **Force card [Change]:** shows *Responding · Drill Rig under attack*. Replicated responding, threat-kind, threatened-asset and region state is available for the force bar.
+- **Force card [Built]:** shows the responding state and named threatened asset, including *Responding · Drill Rig under attack*, from replicated hold-alarm state.
 - **JEV holds regions under the same rules.**
 
-## Force settings [Built] — commands; presentation [New]
+## Force settings [Built]
 
-**[Built]** Each force has one owned retreat-threshold setting. **[Change]** It is shown and changed on its force card:
+**[Built]** Each force has one owned retreat-threshold setting, shown and changed on its force card:
 
 | Setting | Options | Default | Applies to |
 |---|---|---|---|

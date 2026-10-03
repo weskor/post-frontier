@@ -32,23 +32,23 @@ Research: [input.md](../Research/input.md).
 **Selecting:**
 - **[Built]** Click a force's numbered, owner-coloured map badge or any living unit to select its force. Shift-click adds or removes an owned force; box-select includes badge centres, with Shift adding to the existing selection. Number keys select by force number ([forces.md](forces.md)). **[Built]** Clicking an owned force-bar card selects that force without moving the camera.
 - **[Built] Selecting never moves the camera.** Double-tap a force's number within 0.3 s, or press F, to centre on the selection; several forces focus their midpoint. Box dragging begins beyond 6 screen pixels. Space jumps to the latest alert (see "Awareness" below).
-- **[Change]** Shift-clicking an owned force card adds it without toggling an existing selection; double-clicking its body focuses that force.
+- **[Built]** Shift-clicking an owned force card adds it without toggling an existing selection; double-clicking its body focuses that force.
 - **[Built] Click a production building** to open its panel and highlight its force's badge and force-bar card without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force.
-- **[Built] Click a teammate's force, unit or producer** to inspect its owner, current order, strength and reinforcing members read-only, never adding it to command selection, with a **Need help here [G]** ping shortcut. You can't command it. **[Change]** The full read-only force card replaces the interim inspector and adds the same ETA and rule summaries, with no command or production controls.
+- **[Built] Click a teammate's force, unit or producer** to inspect its force read-only, never adding it to command selection. The same full force card shows its owner, order, joined and reinforcing members, production, ETA and rule summaries, with **Need help here [G]** as its only control. You can't command it or change its production.
 
 **Giving orders [Built] unless noted:**
 - **[Built] Right-click is the smart order** for all selected owned forces:
   - a region → **Move & Hold**, always, including regions JEV holds;
   - a hostile structure → **Attack**.
   - Ground and minimap use the same target resolver. **[New]** War-table ordering.
-- **[Built] Order keys** cover the rest, for one accepted order each, then the mode ends: **A** then left-click a region = Attack that region; **R** = immediate Retreat. Esc or right-click cancels pending A without issuing a smart order. **[New]** The same buttons sit on the force card.
+- **[Built] Order keys** cover the rest, for one accepted order each, then the mode ends: **A** then left-click a region = Attack that region; **R** = immediate Retreat. Esc or right-click cancels pending A without issuing a smart order. The same actions sit on the force card with their key prompts.
 - **[Built] Cursor preview:** beside the cursor, show Move & Hold, Attack, rally, or not allowed with the reason. Hover and confirmation share one resolver. Pending A shows the left-click Attack preview and the right-click cancellation prompt. **[Built]** Selected-force hover previews allowed Move & Hold or Attack routes before confirmation, including pending Attack and queued routes from the preceding endpoint ([forces.md](forces.md)); rejected orders and building rally input show no force-route preview.
 - **[Built] Shift queues** instead of replacing the current order; the limit is specified in [forces.md](forces.md#steering-forces-change--decided).
 - **[Built] Rally input** (owner decision, 2026-10-03): with a production building selected and no forces, right-click a region on ground or minimap to set that building's rally. Rally behaviour lives in [forces.md](forces.md#steering-forces-change--decided).
 - **[Built] No drag-to-order.** Dragging selects forces only.
 - **[Built] Feedback rules:** a rejected order keeps the mode open and says why, including a server rejection; the mode ends on acceptance, not on sending. Rejected placements also retain their mode. A greyed-out gameplay button explains itself when clicked. Messages hold for **3 s**, then fade over **1 s** (starting values).
 
-**Force bar [Built] — display and production:** one bottom card per owned force, ordered by force number. Each shows its number, unit type, joined strength, current order, status, production state and refill progress with a pause/resume toggle. Travelling recruits are counted separately from joined strength; a force without a producer is labelled as an orphan without reinforcements. **[Change]** The card's Attack and Retreat actions use selected-force order input; threshold and targeting presentation follow [forces.md](forces.md).
+**Force bar [Built] — display and controls:** one bottom card per owned force, ordered by force number. Each shows its number, unit type, joined strength, current order and queue, status, production state and refill progress with a pause/resume toggle. Travelling recruits are counted separately from joined strength; a force without a producer is labelled as an orphan without reinforcements. Attack and Retreat use selected-force order input; threshold and targeting presentation follow [forces.md](forces.md).
 
 **Force-bar layout [Built]:** a full-width bottom row, 188 virtual pixels high, with 10-pixel outer margins, 8-pixel gaps and cards capped at 300 pixels wide. The build bar, command deck and minimap sit above it. Own-force paused-refill and full-strength surfaces have been inspected at 1600×900 and 1280×720.
 
@@ -56,7 +56,7 @@ Research: [input.md](../Research/input.md).
 
 **Force-card future badges [New]:** supply cutoff and upgrade availability arrive with their mechanics in [forces.md](forces.md); neither is shown early.
 
-**Order-state inputs [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: presentation can keep *Withdrawing · 3/6 → resumes at 5/6* while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md); force-card presentation acceptance remains **[Change]**.
+**Order-state presentation [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: the card keeps the withdrawal's joined strength and resume count while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md).
 
 **Building panel:** the rare decisions stay at the building: tier upgrades, perk slots and the unit lock ([forces.md](forces.md)).
 
@@ -73,7 +73,7 @@ Research: [input.md](../Research/input.md).
 - The cursor snaps to regions, structures and badges.
 - **Target-first menu:** select a region or structure and get *Hold here with…* / *Attack with…*, listing your forces with arrival times. It comes with controller support and also works on the war table.
 
-**Today [Built]:** forces are selected and ordered independently of buildings, including survivors without a producer. The production inspector contains production, rally information and a Select force shortcut, not order buttons or building-force region picking. Ground/minimap smart right-click, A/R keys, queue modifiers and cursor feedback use selected forces. Force-bar cards and route/intent presentation remain **[New]**.
+**Today [Built]:** forces are selected and ordered independently of buildings, including survivors without a producer. The production inspector contains production, rally information and a Select force shortcut, not order buttons or building-force region picking. Ground/minimap smart right-click, A/R keys, queue modifiers and cursor feedback use selected forces; force-bar cards expose the same actions.
 
 ## Awareness [Built] / [New] — decided
 
