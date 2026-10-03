@@ -15,7 +15,9 @@ const FDefinition Entries[] = {
 	{ TEXT("enemy_hq_offline"), TEXT("The Lattice is offline."), true, true },
 	{ TEXT("region_captured"), TEXT("Region secured."), true, false },
 	{ TEXT("region_lost"), TEXT("Region lost."), true, false },
-	{ TEXT("drill_rig_lost"), TEXT("Drill Rig lost."), true, false }
+	{ TEXT("drill_rig_lost"), TEXT("Drill Rig lost."), true, false },
+	{ TEXT("ping_look_here"), TEXT("Look here."), true, false },
+	{ TEXT("ping_need_help"), TEXT("Need help here."), true, false }
 };
 }
 

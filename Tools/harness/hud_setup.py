@@ -52,6 +52,12 @@ def place_barracks(
 
 
 def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
+    if label == "pings":
+        from harness.network_pings import pings_hud_scenario
+
+        pings_hud_scenario(run, resolution)
+        run.event("PASS", quick=label, resolutions=[resolution])
+        return
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]

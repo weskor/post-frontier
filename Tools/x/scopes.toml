@@ -117,6 +117,17 @@ commands = [
   ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "pause"],
 ]
 
+[scopes.pings]
+kind = "automation"
+filter = "CoopRTS.Pings.PlacementExpiry"
+map = "default"
+
+[scopes.pings-network]
+kind = "script"
+commands = [
+  ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "pings"],
+]
+
 [scopes.strategy]
 kind = "automation"
 filter = "CoopRTS.Enemy.ConstructionEconomy"
@@ -304,14 +315,14 @@ kind = "lint"
 "Source/CoopRTS/Commands/MatchCommandComponent.h" = ["pause", "pause-network"]
 "Tools/harness/network_pause.py" = ["pause-network", "tools"]
 # Pause contracts supplement, never replace, the existing include-closure scopes.
-"Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network"]
+"Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network", "pings", "pings-network"]
 "Source/CoopRTS/CommandGameState.*" = ["force-selection", "pause", "pause-network", "objective-events"]
 "Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network"]
-"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events"]
-"Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events"]
-"Source/CoopRTS/HUD/*.cpp" = ["pause"]
-"Tools/harness/network_scenarios.py" = ["pause-network", "tools"]
-"Source/CoopRTS/ArmyNetworkVerification.*" = ["pause", "pause-network"]
+"Source/CoopRTS/CommandPlayerController.*" = ["pause", "pause-network", "objective-events", "pings", "pings-network"]
+"Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings"]
+"Source/CoopRTS/HUD/*.cpp" = ["pause", "pings"]
+"Tools/harness/network_scenarios.py" = ["pause-network", "pings-network", "tools"]
+"Source/CoopRTS/ArmyNetworkVerification.*" = ["pause", "pause-network", "pings-network"]
 "Tools/harness/network.py" = ["pause-network", "tools"]
 "Tools/harness/network_session.py" = ["pause-network", "tools"]
 "Tools/harness/network_cli.py" = ["pause-network", "tools"]
@@ -328,3 +339,10 @@ kind = "lint"
 "Source/CoopRTS/CoopAudioSubsystem.*" = ["objective-events", "objective-assets"]
 "Content/Audio/Announcer/**" = ["objective-assets"]
 "Build/Audio/announcer_lines.json" = ["objective-assets"]
+"Source/CoopRTS/Commands/PingCommandComponent.*" = ["pings", "pings-network"]
+"Source/CoopRTS/Commands/PingCommands.cpp" = ["pings", "pings-network"]
+"Source/CoopRTS/Rules/PingPolicy.h" = ["rules", "pings", "pings-network"]
+"Source/CoopRTS/PingRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/PingTests.cpp" = ["pings"]
+"Source/CoopRTS/CommandMinimap.*" = ["pings"]
+"Tools/harness/network_pings.py" = ["pings-network", "tools"]

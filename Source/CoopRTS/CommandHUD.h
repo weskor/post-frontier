@@ -52,7 +52,8 @@ enum class EHUDAction : uint8
 	MapV2 = 41,
 	MapClassic = 42,
 	ActivePause = 43,
-	SelectForce = 44
+	SelectForce = 44,
+	PingTeammateForce = 45
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

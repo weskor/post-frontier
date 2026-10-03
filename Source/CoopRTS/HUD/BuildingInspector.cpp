@@ -1,5 +1,6 @@
 #include "HUDPanels.h"
 #include "ArmyGroup.h"
+#include "ArmyUnit.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "DepositSite.h"
@@ -228,8 +229,9 @@ static void DrawForceSelection(const FPainter& Paint, const FContext& Context, c
 	else
 		Selected.Appendf(TEXT("Commander %d"), Owner + 1);
 	Paint.Text(Selected.ToView(), Selection.X, Row(Selection, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Selection.W);
-	Paint.Text(bOwned ? TEXT("Shift-click / box: select several") : TEXT("Teammate information only"),
-		Selection.X, Row(Selection, 1).Y, 9.f, Palette::Muted, false, EAlign::Left, Selection.W);
+	if (!CanPingInspectedForce(Context))
+		Paint.Text(bOwned ? TEXT("Shift-click / box: select several") : TEXT("Teammate information only"),
+			Selection.X, Row(Selection, 1).Y, 9.f, Palette::Muted, false, EAlign::Left, Selection.W);
 	Paint.DrawKey(Selection.X, Row(Selection, 2).Y, TEXT("F"), TEXT("Centre selection"));
 }
 

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from harness.network import NetworkRun
 from harness.network_economy import expand_and_research
 from harness.network_outcomes import finish, research, restart_and_converge
 from harness.network_ownership import reject_locked_commands
 from harness.network_pause import pause_scenario
 from harness.network_pause_hud import pause_hud_scenario
+from harness.network_pings import pings_hud_scenario, pings_scenario
 from harness.network_production import produce_and_replace
 from harness.network_session import build_barracks, configure_siege, connect, recruit
 
@@ -54,7 +57,15 @@ def construction_scenario(run: NetworkRun) -> None:
     restart_and_converge(run, s, expand_and_research(run, s, index, squad))
 
 
-SCENARIOS = {
+SCENARIOS: dict[str, tuple[Callable[[NetworkRun], None], str]] = {
+    "pings": (
+        pings_scenario,
+        "remote team ping exact location/name, authoritative two-second throttle and six-second expiry",
+    ),
+    "pings-hud": (
+        pings_hud_scenario,
+        "offscreen actual G ground/minimap placement with active map and minimap markers and expiry captures",
+    ),
     "pause": (
         pause_scenario,
         "remote P freezes simulation, shared countdown, host early resume, spent pause rejection",

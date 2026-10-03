@@ -109,7 +109,7 @@ Two voices. The **player announcer** is an Unindexed dispatcher on a radio. The 
 
 ### Scripted objective voice [Built]
 
-The player's first objective set is authored in [announcer_lines.json](../Build/Audio/announcer_lines.json): eleven generic lines for friendly/enemy HQ damage tiers and offline transitions, region capture/loss and Drill Rig loss. Names follow [World.md](World.md). Feed attribution, event triggers and playback belong to the announcer UI, not the asset generator.
+The player's dispatcher set is authored in [announcer_lines.json](../Build/Audio/announcer_lines.json): generic lines for friendly/enemy HQ damage tiers and offline transitions, region capture/loss, Drill Rig loss and team pings. Names follow [World.md](World.md). Feed attribution, event triggers and playback belong to the announcer UI, not the asset generator; ping behavior belongs to [ui.md](Design/ui.md).
 
 `./x gen render-announcer-voice` renders the entire script on a Linux CPU with Piper, then uses the existing Unreal audio importer to create `/Game/Audio/Announcer/VO_<id>` sound waves from `Art/Audio/Announcer/VO_<id>.wav`. Adding a line needs only one `{id, text}` entry and regeneration. Model URLs, SHA-256 pins and commercial-use terms live in [SOURCES.md](../Art/Audio/SOURCES.md); package versions are pinned in [RenderAnnouncerVoice.py](../Build/RenderAnnouncerVoice.py). Generation and audition options live only in [`./x help gen`](../x).
 
@@ -117,7 +117,7 @@ The script is authoritative for both generated folders. After a successful rende
 
 The selected voice is **en_US-ljspeech-high**, a single US-English female narrator. The choice favours a measured human dispatcher over JEV's synthetic corporate persona; this is a tone decision, not human listening approval. Synthesis uses length scale 1.05, generator noise 0, duration noise 0 and 0.12-second sentence gaps. Both stochastic inputs are disabled. A 300–3500 Hz fourth-order radio filter precedes the shared audio finishing stage: -18 LUFS, at most -1 dBTP, 48-kHz/24-bit mono. Waves route directly to the existing master class at gain 1 and priority 4; they do not add mix assets, spatial attenuation or a playback queue.
 
-The model and its phoneme config download once into verified local storage; inference is offline thereafter. Corrupt cached/downloaded files fail closed. The command writes a script-order audition reel with half-second gaps. Unreal import asserts and logs each actual loaded `SoundWave` path before reporting `ANNOUNCER_IMPORTED waves=11`. Rendering/import proof does not establish event playback or human mix approval.
+The model and its phoneme config download once into verified local storage; inference is offline thereafter. Corrupt cached/downloaded files fail closed. The command writes a script-order audition reel with half-second gaps. Unreal import asserts and logs each actual loaded `SoundWave` path before reporting `ANNOUNCER_IMPORTED` with the imported wave count. Rendering/import proof does not establish event playback or human mix approval.
 
 ### Future announcer lines [New]
 

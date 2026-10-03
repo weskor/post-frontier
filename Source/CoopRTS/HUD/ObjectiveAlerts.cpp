@@ -1,6 +1,8 @@
 #include "HUDPanels.h"
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
+#include "CommandPlayerController.h"
+#include "Commands/PingCommandComponent.h"
 #include "Content/MatchContent.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/AnnouncerPolicy.h"
@@ -68,24 +70,32 @@ void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, con
 void ForEachAlert(const FContext& Context, const FLayout& Layout,
 	TFunctionRef<void(const FObjectiveEvent&, const FRect&, float)> Visit)
 {
-	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
-	if (!Announcer || !Context.State)
+	if (!Context.State || !Context.Controller)
 		return;
+	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
+	const UPingCommandComponent* Pings = Context.Controller->PingCommands;
+	static const TArray<FObjectiveEvent> EmptyEvents;
+	const FObjectiveEventView Objectives = Announcer ? Announcer->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
+	const FObjectiveEventView TeamPings = Pings ? Pings->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
-	const auto Events = Announcer->GetEvents();
-	for (int32 Index = Events.Num() - 1; Index >= 0; --Index)
+	int32 ObjectiveIndex = Objectives.Num() - 1;
+	int32 PingIndex = TeamPings.Num() - 1;
+	// Merge the two chronological rings newest-first without copying their events.
+	while (ObjectiveIndex >= 0 || PingIndex >= 0)
 	{
-		const FObjectiveEvent& Event = Events[Index];
+		const bool bPing = PingIndex >= 0 && (ObjectiveIndex < 0 || TeamPings[PingIndex].ServerTime >= Objectives[ObjectiveIndex].ServerTime);
+		const FObjectiveEvent& Event = bPing ? TeamPings[PingIndex--] : Objectives[ObjectiveIndex--];
+		const float Lifetime = bPing ? UPingCommandComponent::Lifetime : UObjectiveAnnouncer::FeedLifetime;
 		const float Age = FMath::Max(0.f, Now - Event.ServerTime);
-		if (Age >= UObjectiveAnnouncer::FeedLifetime)
+		if (Age >= Lifetime)
 			continue;
-		const int32 ForceRows = FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
+		const int32 ForceRows = bPing ? 0 : FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
 		const float Height = 2.f * Pad + AlertLineHeight * (2 + ForceRows);
 		const FRect Rect{ Layout.Alerts.X, Y, Layout.Alerts.W, Height };
 		if (Rect.Bottom() > Layout.Alerts.Bottom())
 			break;
-		const float Alpha = FMath::Clamp((UObjectiveAnnouncer::FeedLifetime - Age)
+		const float Alpha = FMath::Clamp((Lifetime - Age)
 				/ UObjectiveAnnouncer::FadeSeconds,
 			0.f, 1.f);
 		Visit(Event, Rect, Alpha);
@@ -114,13 +124,26 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Fill(Rect, Palette::Panel.CopyWithNewOpacity(Palette::Panel.A * Alpha));
 		Paint.Outline(Rect, Palette::Edge.CopyWithNewOpacity(Palette::Edge.A * Alpha));
 		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
-		Paint.Text(Definition ? Definition->Text : TEXT("Objective update"), Rect.X + Pad, Rect.Y + Pad,
+		const bool bPing = Event.Sequence < 0;
+		TStringBuilder<256> Title;
+		if (bPing && !Event.Forces.IsEmpty())
+			Title << Event.Forces[0].PlayerName << TEXT(": ");
+		Title << (Definition ? Definition->Text : TEXT("Objective update"));
+		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
-		Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
+		if (bPing)
+		{
+			Region << TEXT("Team ping");
+			if (!Event.Forces.IsEmpty() && Event.Forces[0].ForceNumber > 0)
+				Region.Appendf(TEXT("  |  Force %d"), Event.Forces[0].ForceNumber);
+			Region << TEXT("  |  Click to focus");
+		}
+		else
+			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
-		for (int32 Index = 0; Index < Event.Forces.Num(); ++Index)
+		for (int32 Index = 0; !bPing && Index < Event.Forces.Num(); ++Index)
 		{
 			const FObjectiveForce& Force = Event.Forces[Index];
 			const float CellWidth = (Rect.W - 2.f * Pad - Gap) * .5f;

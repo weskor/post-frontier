@@ -121,7 +121,8 @@ static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 	DrawScreenLine(Paint, Panel, TEXT("F or double-tap number: centre. Space: latest / older alert."), 8);
 	DrawScreenLine(Paint, Panel, TEXT("WASD/middle drag: pan. Wheel: zoom. F4: deck. Esc: menu (pauses solo only)."), 9);
 	DrawScreenLine(Paint, Panel, TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
-	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 11, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("G: ping ground / minimap; teammate force: Need help here."), 11, Palette::Friendly);
+	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 12, Palette::Muted);
 }
 
 static void DrawAudioContent(const FPainter& Paint, const FContext& Context, const FRect& Panel)

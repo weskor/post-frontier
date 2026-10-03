@@ -9,7 +9,7 @@ Current-build values come from a source audit on 2026-10-01. README.md and World
 | Structure | Single match; choose a map; no saves | Node-map run in 2 or 3 acts, lives, drafts, auto-save ([run.md](run.md)) |
 | Battle end | Kill the enemy HQ (900 HP, 7.5 s for one full Frontline force); no time limit | Assault, Raid or Sabotage objectives plus JEV escalation every 2 min; Failover Nodes, a fortified opening and a 75 s hold guard both HQs ([battle.md](battle.md)) |
 | Opening | Empty base, 600 Power; everything is built after 0:00 | Planning phase (ready-up, 60 s cap, simulation paused); kit pre-built; 200 Power; JEV starts with a matching base ([battle.md](battle.md)) |
-| Awareness | [Built] Team-wide attributed objective announcer/feed, both-HQ objective strip and Space alert history ([ui.md](ui.md)); F focuses selection without automatic camera jumps | [New] Failover Node/exposure and hold objectives, voiced supply/JEV events, solo slow-down option ([ui.md](ui.md)) |
+| Awareness | [Built] Team-wide attributed objective announcer/feed, both-HQ objective strip, Space objective history, G team pings and read-only teammate-force inspection ([ui.md](ui.md)); F focuses owned selection without automatic camera jumps | [New] Failover Node/exposure and hold objectives, voiced supply/JEV events, solo slow-down option ([ui.md](ui.md)) |
 | Resources | Power only | Power + Data ([economy.md](economy.md)) |
 | Income | Extractor pays only its builder, even after its region is lost | Team pool split evenly; connected chain required; reward regions pay Data ([economy.md](economy.md)) |
 | Gifting | Not possible | Free, unlimited, logged ([economy.md](economy.md)) |

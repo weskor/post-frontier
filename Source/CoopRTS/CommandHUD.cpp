@@ -275,13 +275,15 @@ void ACommandHUD::DrawHUD()
 	DrawSectorOverlays(Paint, Context);
 	DrawForceLabels(Paint, Context, Layout);
 	DrawSelectionBox(Paint, Controller, Layout);
+	DrawPingMarkers(Paint, Context);
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
-	if (Context.bExpanded)
+	if (Context.bExpanded || CanPingInspectedForce(Context))
 	{
-		DrawBuildPanel(Paint, Layout);
+		if (Context.bExpanded)
+			DrawBuildPanel(Paint, Layout);
 		Paint.Panel(Layout.Inspector);
 		if (Context.Building)
 			DrawBuildingInspector(Paint, Context, Layout.Inspector);

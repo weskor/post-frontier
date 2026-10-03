@@ -10,6 +10,7 @@
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "CommandPlayerController.h"
+#include "Commands/PingCommandComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -302,6 +303,21 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 		Map.Diamond(Front, 6.0, Contested);
 		Map.Line(Front - FVector2D(3, 0), Front + FVector2D(3, 0), Contested);
 		Map.Line(Front - FVector2D(0, 3), Front + FVector2D(0, 3), Contested);
+	}
+	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>(); State && Controller->PingCommands)
+	{
+		const float Now = State->GetServerWorldTimeSeconds();
+		for (const FObjectiveEvent& Event : Controller->PingCommands->GetEvents())
+		{
+			FVector2D Point;
+			if (Now - Event.ServerTime >= UPingCommandComponent::Lifetime || Event.Forces.IsEmpty()
+				|| !Map.Point(Event.Location, Point))
+				continue;
+			const FLinearColor Color = AArmyUnit::GetCommanderColor(Event.Forces[0].CommanderIndex);
+			Map.Diamond(Point, 7.0, Color);
+			Map.Line(Point - FVector2D(4, 0), Point + FVector2D(4, 0), Color, 2.f);
+			Map.Line(Point - FVector2D(0, 4), Point + FVector2D(0, 4), Color, 2.f);
+		}
 	}
 	Map.Box(Origin + FVector2D(Size, Size) * .5, Size * .5, Grid);
 	DrawFootprint(Map, Controller);

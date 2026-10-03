@@ -32,7 +32,7 @@ Research: [input.md](../Research/input.md).
 - **[Built]** Click a force's numbered, owner-coloured map badge or any living unit to select its force. Shift-click adds or removes an owned force; box-select includes badge centres, with Shift adding to the existing selection. Number keys select by force number ([forces.md](forces.md)). **[New]** Selection through force-bar cards.
 - **[Built] Selecting never moves the camera.** Double-tap a force's number within 0.3 s, or press F, to centre on the selection; several forces focus their midpoint. Box dragging begins beyond 6 screen pixels. Space jumps to the latest alert (see "Awareness" below).
 - **[Built] Click a production building** to open its panel and highlight its force's badge without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force. **[New]** The associated force-bar card also lights up.
-- **[Built] Click a teammate's force** to inspect its owner, order and strength read-only, never adding it to command selection. **[New]** The full force-bar card adds ETA and a ping shortcut (*need help here*).
+- **[Built] Click a teammate's force, unit or producer** to inspect its owner, current order, strength and reinforcing members read-only, never adding it to command selection, with a **Need help here [G]** ping shortcut. You can't command it. **[New]** The full force-bar card adds ETA with the order verbs.
 
 **Giving orders:**
 - **Right-click is the smart order:**
@@ -74,6 +74,7 @@ Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the onl
 - [Built] **Objective strip:** always on above the battlefield, showing both HQs' health, regions held by each side, and commander-coloured role/force badges for the latest objective event. Economy remains visible above it.
 - [Built] **Alert feed:** newest first; entries last 8 s and fade over their final 2 s. Clicking a visible entry focuses its event location without changing selection.
 - [Built] **Space jumps to the latest alert;** pressing it again steps back through retained history, clamped at the oldest entry. A new event resets the next jump to the newest. The latest 64 events remain navigable after their feed entries fade. Jumping is optional: the strip and announcer carry the state.
+- [Built] **Team pings:** **G** pings at the cursor on the ground or minimap. A teammate's force, or its read-only inspector's ping button, sends **Need help here** at the authoritative force centre; any other spot sends **Look here**. Every connected teammate sees commander-coloured markers on the map and minimap and a feed entry naming the sender for **6 s**, plus a short UI cue and a matching announcer line. Receiving a ping never moves the camera; clicking its feed entry focuses the spot. The command layer delivers only to the sender's human team, never JEV. Each player can send one ping every **2 real-time seconds**; a throttled request explains the limit. Marker/feed lifetime uses synchronized battle time.
 - [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist.
 
 ## JEV intent display

@@ -182,6 +182,13 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
 		Context.State && Context.State->IsActivePaused(), 0 });
 	Visit(FButton{ EHUDAction::Construction, Layout.Construction, EBlock::None, false, 0 });
+	if (CanPingInspectedForce(Context))
+	{
+		EmitButton(Context, Visit, EHUDAction::PingTeammateForce, Row(Column(Layout.Inspector, 0, 3), 1), 0, EBlock::None, false);
+		if (Context.bExpanded)
+			BuildButtons(Context, Layout, Visit);
+		return;
+	}
 	if (!Context.bExpanded)
 		return;
 	BuildButtons(Context, Layout, Visit);

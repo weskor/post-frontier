@@ -30,6 +30,14 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	return Context;
 }
 
+bool CanPingInspectedForce(const FContext& Context)
+{
+	return Context.Controller && IsValid(Context.Wallet)
+		&& Context.Controller->IsSelectableForce(Context.Force)
+		&& Context.Force->GetTeamIndex() == Context.Wallet->TeamIndex
+		&& Context.Force->GetOwningPlayerState() != Context.Wallet;
+}
+
 FForces CountForces(const FContext& Context)
 {
 	FForces Forces;
@@ -105,8 +113,8 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	const float InspectorX = Layout.Build.Right() + Gap;
 	Layout.Inspector = { InspectorX, Layout.Height - Margin - DeckHeight,
 		FMath::Min(InspectorWidth, Layout.Width - InspectorX - Margin), DeckHeight };
-	Layout.Bottom = Context.bExpanded ? Layout.Inspector
-									  : FRect{ InspectorX, Layout.Height - Margin - ModeHeight, Layout.Inspector.W, ModeHeight };
+	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
+																	 : FRect{ InspectorX, Layout.Height - Margin - ModeHeight, Layout.Inspector.W, ModeHeight };
 	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (Announcer && !Announcer->GetEvents().IsEmpty())

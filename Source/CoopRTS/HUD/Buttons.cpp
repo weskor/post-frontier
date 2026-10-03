@@ -24,6 +24,13 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 		Paint.TextIn(Label.ToView(), Button.Rect, 10.f, Button.Available() ? Palette::Text : Palette::Muted, true, EAlign::Center);
 		break;
 	}
+	case EHUDAction::PingTeammateForce:
+		Paint.Fill(Button.Rect, !Button.Available() ? Palette::CardOff : bHover ? Palette::CardHover
+																				: Palette::Card);
+		Paint.Outline(Button.Rect, Palette::Friendly);
+		Paint.TextIn(TEXT("Need help here [G]"), Button.Rect, 11.f,
+			Button.Available() ? Palette::Text : Palette::Muted, true, EAlign::Center);
+		break;
 	case EHUDAction::Construction:
 		Paint.Fill(Button.Rect, bHover ? Palette::CardHover : Palette::Panel);
 		Paint.Outline(Button.Rect, Palette::Friendly);

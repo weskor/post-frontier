@@ -20,6 +20,7 @@ class UConstructionCommandComponent;
 class UProductionCommandComponent;
 class UOrderCommandComponent;
 class UMatchCommandComponent;
+class UPingCommandComponent;
 
 enum class ECommandScreen : uint8
 {
@@ -52,6 +53,7 @@ public:
 	void SelectActorWithModifiers(AActor* Actor, bool bToggle, bool bDoubleClick);
 	bool GetSelectionDrag(FVector2D& Start, FVector2D& End) const;
 	void FocusSelection();
+	bool PingAtScreenPosition(const FVector2D& Position);
 	const FString& GetOrderFeedback() const { return Feedback; }
 	bool IsHUDExpanded() const { return bHUDExpanded; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
@@ -80,6 +82,8 @@ public:
 	TObjectPtr<UOrderCommandComponent> OrderCommands;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UMatchCommandComponent> MatchCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UPingCommandComponent> PingCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
 	void SetPlacementFeedback(const FString& Message, bool bAccepted);
 
@@ -147,6 +151,7 @@ private:
 	void ToggleHUD();
 	void RequestRestart();
 	void ToggleActivePause();
+	void PingAtCursor();
 	void HandleHUDAction(EHUDAction Action);
 	bool IsOwnedBuilding(const ACommandBuilding* Building) const;
 	bool CanIssueGameplayCommand();

@@ -12,6 +12,7 @@
 #include "Commands/ConstructionCommandComponent.h"
 #include "Commands/MatchCommandComponent.h"
 #include "Commands/OrderCommandComponent.h"
+#include "Commands/PingCommandComponent.h"
 #include "Commands/ProductionCommandComponent.h"
 #include "CommandHUD.h"
 #include "ForceGoals.h"
@@ -88,18 +89,25 @@ void AlertSurfaceSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>&
 	const ACommandPlayerController* PC = LocalController(Context->GetWorld());
 	const ACommandHUD* HUD = PC ? Cast<ACommandHUD>(PC->GetHUD()) : nullptr;
 	Number(Result, TEXT("focusedAlertSequence"), PC ? PC->GetFocusedAlertSequence() : 0);
-	if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context); Announcer && HUD)
-		for (const FObjectiveEvent& Event : Announcer->GetEvents())
-		{
+	if (HUD)
+	{
+		auto Append = [&Rows, HUD](const FObjectiveEvent& Event) {
 			FVector2D Position;
 			if (!HUD->FindAlertScreenPosition(Event.Sequence, Position))
-				continue;
+				return;
 			auto Row = Object();
 			Number(Row, TEXT("sequence"), Event.Sequence);
 			Number(Row, TEXT("x"), Position.X);
 			Number(Row, TEXT("y"), Position.Y);
 			Rows.Add(MakeShared<FJsonValueObject>(Row));
-		}
+		};
+		if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context))
+			for (const FObjectiveEvent& Event : Announcer->GetEvents())
+				Append(Event);
+		if (PC->PingCommands)
+			for (const FObjectiveEvent& Event : PC->PingCommands->GetEvents())
+				Append(Event);
+	}
 	Result->SetArrayField(TEXT("uiAlerts"), Rows);
 }
 
@@ -136,6 +144,58 @@ void ObjectiveSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Re
 	AlertSurfaceSnapshot(Context, Result);
 }
 
+void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
+{
+	const ACommandPlayerController* PC = LocalController(World);
+	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	const float Now = State ? State->GetServerWorldTimeSeconds() : 0.f;
+	Number(Result, TEXT("serverTime"), Now);
+	if (PC && PC->PingCommands)
+	{
+		Number(Result, TEXT("pingFeedbackSerial"), PC->PingCommands->PingFeedbackSerial);
+		Result->SetBoolField(TEXT("pingAccepted"), PC->PingCommands->bLastPingAccepted);
+	}
+	TArray<TSharedPtr<FJsonValue>> Events;
+	if (PC && PC->PingCommands)
+		for (const FObjectiveEvent& Event : PC->PingCommands->GetEvents())
+		{
+			auto Entry = Object();
+			Number(Entry, TEXT("sequence"), Event.Sequence);
+			Entry->SetStringField(TEXT("id"), Event.Id.ToString());
+			Number(Entry, TEXT("serverTime"), Event.ServerTime);
+			Vector(Entry, TEXT("position"), Event.Location);
+			Number(Entry, TEXT("affectedTeam"), Event.AffectedTeam);
+			Entry->SetBoolField(TEXT("active"), Now - Event.ServerTime < UPingCommandComponent::Lifetime);
+			TArray<TSharedPtr<FJsonValue>> Forces;
+			for (const FObjectiveForce& Force : Event.Forces)
+			{
+				auto Contributor = Object();
+				Number(Contributor, TEXT("team"), Force.TeamIndex);
+				Number(Contributor, TEXT("owner"), Force.CommanderIndex);
+				Number(Contributor, TEXT("forceNumber"), Force.ForceNumber);
+				Contributor->SetStringField(TEXT("playerName"), Force.PlayerName);
+				Forces.Add(MakeShared<FJsonValueObject>(Contributor));
+			}
+			Entry->SetArrayField(TEXT("forces"), Forces);
+			FVector2D Screen = FVector2D::ZeroVector;
+			Entry->SetBoolField(TEXT("mapProjected"),
+				PC->ProjectWorldLocationToScreen(Event.Location + FVector(0.f, 0.f, 35.f), Screen));
+			Number(Entry, TEXT("mapX"), Screen.X);
+			Number(Entry, TEXT("mapY"), Screen.Y);
+			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
+			FVector2D Origin;
+			float Size;
+			if (HUD && State && IsValid(State->Arena) && HUD->GetMinimapScreenRect(Origin, Size))
+			{
+				const FVector2D Half = State->Arena->HalfExtent;
+				Number(Entry, TEXT("minimapX"), Origin.X + Size * (Event.Location.Y + Half.Y) / (2.f * Half.Y));
+				Number(Entry, TEXT("minimapY"), Origin.Y + Size * (Half.X - Event.Location.X) / (2.f * Half.X));
+			}
+			Events.Add(MakeShared<FJsonValueObject>(Entry));
+		}
+	Result->SetArrayField(TEXT("pingEvents"), Events);
+}
+
 TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 {
 	auto Result = Object();
@@ -157,7 +217,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
 		{
 			TArray<TSharedPtr<FJsonValue>> Buttons;
-			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::SelectForce); ++Index)
+			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::PingTeammateForce); ++Index)
 			{
 				FVector2D Position;
 				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
@@ -205,6 +265,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			continue;
 		auto Entry = Object();
 		Number(Entry, TEXT("index"), Wallet->CommanderIndex);
+		Number(Entry, TEXT("team"), Wallet->TeamIndex);
+		Entry->SetStringField(TEXT("playerName"), Wallet->GetPlayerName());
 		Number(Entry, TEXT("wallet"), Wallet->Resources);
 		Number(Entry, TEXT("income"), State->GetIncomePerSecond(Wallet));
 		Number(Entry, TEXT("doctrine"), static_cast<int32>(Wallet->Doctrine));
@@ -246,6 +308,20 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			It->GetViewportSize(ViewportWidth, ViewportHeight);
 			Number(Result, TEXT("viewportWidth"), ViewportWidth);
 			Number(Result, TEXT("viewportHeight"), ViewportHeight);
+			float CursorX, CursorY;
+			if (It->GetMousePosition(CursorX, CursorY))
+			{
+				const FVector2D Cursor(CursorX, CursorY);
+				Result->SetArrayField(TEXT("cursorScreen"), { MakeShared<FJsonValueNumber>(Cursor.X), MakeShared<FJsonValueNumber>(Cursor.Y) });
+				FVector Origin, Direction;
+				if (It->DeprojectScreenPositionToWorld(Cursor.X, Cursor.Y, Origin, Direction)
+					&& FMath::Abs(Direction.Z) >= KINDA_SMALL_NUMBER)
+				{
+					const double Time = -Origin.Z / Direction.Z;
+					if (Time >= 0.f)
+						Vector(Result, TEXT("cursorWorld"), Origin + Direction * Time);
+				}
+			}
 			if (const auto* PS = It->GetPlayerState<ACommandPlayerState>())
 			{
 				LocalIndex = PS->CommanderIndex;
@@ -420,6 +496,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	if (IsValid(State->EnemyHeadquarters))
 		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
 	ObjectiveSnapshot(State, Result);
+	PingSnapshot(World, Result);
 	return Result;
 }
 AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
@@ -467,6 +544,28 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			PC->MatchCommands->ServerResume();
 		return FString();
 	}
+	if (Action == TEXT("ping") || Action == TEXT("pingAtScreenPosition"))
+	{
+		if (!PC || !Own || Own->CommanderIndex < 0 || !PC->PingCommands)
+			return TEXT("local owning ping controller unavailable");
+		if (Action == TEXT("pingAtScreenPosition"))
+			return PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))))
+				? FString()
+				: TEXT("screen ping placement rejected");
+		AArmyGroup* Target = nullptr;
+		bool bForce = false;
+		Request->TryGetBoolField(TEXT("force"), bForce);
+		if (bForce)
+		{
+			Target = FindArmy(World, Owner, Index);
+			if (!Target)
+				return TEXT("ping target force not replicated locally");
+		}
+		PC->PingCommands->ServerPing(FVector(Request->GetNumberField(TEXT("x")),
+										 Request->GetNumberField(TEXT("y")), Request->GetNumberField(TEXT("z"))),
+			Target);
+		return FString();
+	}
 	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("goal")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
@@ -497,7 +596,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	}
 	// Shared controller/HUD path checks, not native OS input. Commands still use the owning-controller RPCs.
 	if (Action == TEXT("select") || Action == TEXT("hud") || Action == TEXT("hudClick") || Action == TEXT("key")
-		|| Action == TEXT("screenshot") || Action == TEXT("resolution"))
+		|| Action == TEXT("screenshot") || Action == TEXT("resolution") || Action == TEXT("cursor"))
 	{
 		if (!PC)
 			return TEXT("local controller unavailable");
@@ -521,8 +620,18 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 					return TEXT("building not replicated locally");
 				bool bDoubleClick = false;
 				Request->TryGetBoolField(TEXT("doubleClick"), bDoubleClick);
-				PC->SelectActorWithModifiers(State->Buildings[BuildingIndex], false, bDoubleClick);
-				if (!bDoubleClick && PC->GetSelectedBuilding() != State->Buildings[BuildingIndex])
+				ACommandBuilding* Building = State->Buildings[BuildingIndex];
+				PC->SelectActorWithModifiers(Building, false, bDoubleClick);
+				if (Building->OwningPlayerState != Own)
+				{
+					AArmyGroup* Force = Building->ForceGroup;
+					if (!Own || !IsValid(Building->OwningPlayerState)
+						|| Building->OwningPlayerState->TeamIndex != Own->TeamIndex || !Building->IsProducer()
+						|| !IsValid(Force) || PC->GetInspectedForce() != Force
+						|| PC->GetSelectedBuilding() || PC->IsForceSelected(Force))
+						return TEXT("teammate force inspection rejected");
+				}
+				else if (!bDoubleClick && PC->GetSelectedBuilding() != Building)
 					return TEXT("building selection rejected");
 			}
 			else if (Target == TEXT("force") || Target == TEXT("unit") || Target == TEXT("badge"))
@@ -571,6 +680,16 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				return TEXT("unknown selection target");
 			return FString();
 		}
+		if (Action == TEXT("cursor"))
+		{
+			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
+			const double X = Request->GetNumberField(TEXT("x")), Y = Request->GetNumberField(TEXT("y"));
+			if (!Viewport || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
+				|| X < 0 || Y < 0 || X >= Viewport->GetSizeXY().X || Y >= Viewport->GetSizeXY().Y)
+				return TEXT("cursor screen point outside viewport");
+			Viewport->SetMouse(FMath::RoundToInt(X), FMath::RoundToInt(Y));
+			return FString();
+		}
 		if (Action == TEXT("hud"))
 		{
 			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
@@ -600,7 +719,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				&& KeyName != TEXT("One") && KeyName != TEXT("Two") && KeyName != TEXT("Three")
 				&& KeyName != TEXT("Four") && KeyName != TEXT("Five")
 				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P"))
+				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R")
+				&& KeyName != TEXT("P") && KeyName != TEXT("G"))
 				return TEXT("unsupported probe key");
 			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
 			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),

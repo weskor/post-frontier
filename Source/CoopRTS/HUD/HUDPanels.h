@@ -8,6 +8,7 @@ struct FObjectiveForce;
 namespace CommandHUDPanels
 {
 FContext MakeContext(const ACommandPlayerController* Controller);
+bool CanPingInspectedForce(const FContext& Context);
 FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight);
 const UMatchContent* MatchContent(const FContext& Context);
 const UArmyUnitDefinition* ProductionDefinition(const FContext& Context);
@@ -39,6 +40,7 @@ void DrawHeadquartersOverlays(const FPainter& Paint, const FContext& Context);
 void DrawBuildingOverlays(const FPainter& Paint, const FContext& Context);
 void DrawSectorOverlays(const FPainter& Paint, const FContext& Context);
 void DrawForceLabels(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
+void DrawPingMarkers(const FPainter& Paint, const FContext& Context);
 void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout);
 FRect ObjectiveContributors(const FRect& Strip);
 int32 ObjectiveForceColumns(const FRect& Strip);

@@ -8,9 +8,9 @@ Host-only fixtures (isolate, fund, capture, finish) shorten setup and are record
 
 Full run: the whole presentation state sequence (placement, production, starvation, force, casualty,
 research, victory) at the first resolution, selected-barracks captures at the others.
---quick <label>: boot, one placed barracks, deck + inspector captures at one resolution, stop. It proves
-the deck and a selected building's inspector render; it never proves production, starvation, goals,
-research or victory presentation.
+--quick pings: real G ground placement, shared minimap placement, active map/minimap marker captures,
+then a six-second expiry capture. Other --quick labels boot one placed barracks and capture the
+deck + inspector at one resolution; they do not prove production, goals, research or victory.
 """
 
 from __future__ import annotations
@@ -59,8 +59,9 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "--quick",
         type=label,
         metavar="LABEL",
-        help="boot, place and select one barracks, capture <LABEL>-deck and <LABEL>-inspector at the "
-        "first resolution, then stop; no production fill, fronts, research or victory",
+        help="'pings' captures G ground/minimap markers and six-second expiry; other labels boot, "
+        "place and select one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first "
+        "resolution, then stop; no production fill, fronts, research or victory",
     )
     parser.add_argument("--max-fps", type=int, default=30)
 

@@ -33,6 +33,7 @@
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/MatchCommandComponent.h"
 #include "ObjectiveAnnouncer.h"
+#include "Commands/PingCommandComponent.h"
 
 ACommandPlayerController::ACommandPlayerController()
 {
@@ -43,6 +44,7 @@ ACommandPlayerController::ACommandPlayerController()
 	ProductionCommands = CreateDefaultSubobject<UProductionCommandComponent>(TEXT("ProductionCommands"));
 	OrderCommands = CreateDefaultSubobject<UOrderCommandComponent>(TEXT("OrderCommands"));
 	MatchCommands = CreateDefaultSubobject<UMatchCommandComponent>(TEXT("MatchCommands"));
+	PingCommands = CreateDefaultSubobject<UPingCommandComponent>(TEXT("PingCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
@@ -68,6 +70,7 @@ void ACommandPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ACommandPlayerController::ResetLocalMatchView()
 {
+	PingCommands->ResetForMatch();
 	if (!IsLocalController())
 		return;
 	SelectedBuilding = nullptr;
@@ -142,6 +145,7 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("ToggleHUD"), EKeys::F4, &ThisClass::ToggleHUD, ETriggerEvent::Started);
 	Bind(TEXT("Restart"), EKeys::Enter, &ThisClass::RequestRestart, ETriggerEvent::Started);
 	Bind(TEXT("ActivePause"), EKeys::P, &ThisClass::ToggleActivePause, ETriggerEvent::Started);
+	Bind(TEXT("Ping"), EKeys::G, &ThisClass::PingAtCursor, ETriggerEvent::Started);
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		InputSubsystem = Subsystem;
@@ -846,6 +850,12 @@ void ACommandPlayerController::SelectActorWithModifiers(AActor* Actor, bool bTog
 		return;
 	}
 	ACommandBuilding* Building = Cast<ACommandBuilding>(Actor);
+	if (IsValid(Building) && Building->GetWorld() == GetWorld() && Building->IsAlive() && Building->IsProducer()
+		&& IsSelectableForce(Building->ForceGroup) && !IsOwnedForce(Building->ForceGroup))
+	{
+		SelectForce(Building->ForceGroup, bToggle);
+		return;
+	}
 	if (bDoubleClick && IsOwnedBuilding(Building) && Building->IsProducer() && IsSelectableForce(Building->ForceGroup))
 	{
 		SelectForce(Building->ForceGroup, bToggle);
@@ -927,6 +937,12 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	if (Action == EHUDAction::ActivePause)
 	{
 		ToggleActivePause();
+		return;
+	}
+	if (Action == EHUDAction::PingTeammateForce)
+	{
+		if (AArmyGroup* Force = GetInspectedForce(); IsSelectableForce(Force) && !IsOwnedForce(Force))
+			PingCommands->ServerPing(Force->GetCenter(), Force);
 		return;
 	}
 	const bool bGoalAction = Action == EHUDAction::GoalHold || Action == EHUDAction::GoalExpand
@@ -1047,10 +1063,94 @@ void ACommandPlayerController::FocusSelection()
 		Camera->FocusOn(Target);
 }
 
+
+void ACommandPlayerController::PingAtCursor()
+{
+	float X, Y;
+	if (GetMousePosition(X, Y))
+		PingAtScreenPosition(FVector2D(X, Y));
+}
+
+bool ACommandPlayerController::PingAtScreenPosition(const FVector2D& Position)
+{
+	if (!CanIssueGameplayCommand())
+		return false;
+	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+	FVector Location;
+	if (HUD && HUD->GetMinimapWorldPosition(Position, Location))
+	{
+		AArmyGroup* Teammate = nullptr;
+		FVector2D Origin;
+		float Size;
+		const AArenaBounds* Arena = AArenaBounds::Find(GetWorld());
+		if (!Arena || !HUD->GetMinimapScreenRect(Origin, Size))
+			return false;
+		double Nearest = 3.; // Same diamond radius as the force marker in CommandMinimap.
+		const ACommandPlayerState* Viewer = GetPlayerState<ACommandPlayerState>();
+		for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+		{
+			if (It->GetTeamIndex() != Viewer->TeamIndex || !IsValid(It->GetOwningPlayerState())
+				|| It->GetOwningPlayerState() == Viewer)
+				continue;
+			const FVector Delta = It->GetCenter() - Location;
+			const double Distance = Size * (FMath::Abs(Delta.Y) / (2. * Arena->HalfExtent.Y) + FMath::Abs(Delta.X) / (2. * Arena->HalfExtent.X));
+			if (Distance < Nearest)
+			{
+				Nearest = Distance;
+				Teammate = *It;
+			}
+		}
+		PingCommands->ServerPing(Location, Teammate);
+		return true;
+	}
+	if (HUD && HUD->IsPanelPoint(Position))
+	{
+		if (HUD->GetActionAtScreenPosition(Position) == EHUDAction::PingTeammateForce)
+		{
+			HandleHUDAction(EHUDAction::PingTeammateForce);
+			return true;
+		}
+		return false;
+	}
+	FHitResult Hit;
+	GetHitResultAtScreenPosition(Position, ECC_Visibility, true, Hit);
+	AArmyGroup* Force = Cast<AArmyGroup>(Hit.GetActor());
+	if (const AArmyUnit* Unit = Cast<AArmyUnit>(Hit.GetActor()))
+		Force = Unit->IsAlive() ? Unit->GetGroup() : nullptr;
+	if (const ACommandBuilding* Producer = Cast<ACommandBuilding>(Hit.GetActor()))
+		Force = Producer->IsAlive() && Producer->IsProducer() ? Producer->ForceGroup.Get() : nullptr;
+	FVector Origin, Direction;
+	if (!DeprojectScreenPositionToWorld(Position.X, Position.Y, Origin, Direction)
+		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER)
+		return false;
+	const double Time = -Origin.Z / Direction.Z;
+	if (Time <= 0. || !FMath::IsFinite(Time))
+		return false;
+	Location = Origin + Direction * Time;
+	Location.Z = 0.f;
+	PingCommands->ServerPing(Location, Force);
+	return true;
+}
+
 bool ACommandPlayerController::FocusAlertSequence(int32 Sequence)
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return false;
+	if (Sequence < 0)
+	{
+		ACommandCamera* PingCamera = Cast<ACommandCamera>(GetPawn());
+		if (!PingCamera)
+			return false;
+		for (const FObjectiveEvent& Event : PingCommands->GetEvents())
+			if (Event.Sequence == Sequence)
+			{
+				PingCamera->FocusOn(Event.Location);
+				bInitialFocusPending = false;
+				FocusedAlertSequence = Sequence;
+				return true;
+			}
+		return false;
+	}
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this);
 	ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn());
 	if (!Announcer || !Camera)

@@ -9,5 +9,7 @@
   {"id": "enemy_hq_offline", "text": "The Lattice is offline."},
   {"id": "region_captured", "text": "Region secured."},
   {"id": "region_lost", "text": "Region lost."},
-  {"id": "drill_rig_lost", "text": "Drill Rig lost."}
+  {"id": "drill_rig_lost", "text": "Drill Rig lost."},
+  {"id": "ping_look_here", "text": "Look here."},
+  {"id": "ping_need_help", "text": "Need help here."}
 ]

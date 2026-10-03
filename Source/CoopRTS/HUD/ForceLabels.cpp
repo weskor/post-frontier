@@ -3,6 +3,8 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
+#include "Commands/PingCommandComponent.h"
+#include "Rules/AnnouncerPolicy.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -70,6 +72,41 @@ void DrawForceLabels(const FPainter& Paint, const FContext& Context, const FLayo
 		Paint.Fill(Label, FLinearColor(.005f, .008f, .012f, .95f));
 		Paint.Outline(Label, Color);
 		Paint.TextIn(Text.ToView(), Label, 14.f, Color, true, EAlign::Center);
+	}
+}
+
+void DrawPingMarkers(const FPainter& Paint, const FContext& Context)
+{
+	if (!Context.State || !Context.Controller->PingCommands)
+		return;
+	const float Now = Context.State->GetServerWorldTimeSeconds();
+	for (const FObjectiveEvent& Event : Context.Controller->PingCommands->GetEvents())
+	{
+		if (Now - Event.ServerTime >= UPingCommandComponent::Lifetime)
+			continue;
+		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
+		if (!Definition || Event.Forces.IsEmpty())
+			continue;
+		FVector2D Screen;
+		if (!ProjectOverlay(Paint, Context, Event.Location + FVector(0.f, 0.f, 35.f), Screen))
+			continue;
+		const FRect Marker{ Screen.X - 10.f, Screen.Y - 10.f, 20.f, 20.f };
+		if (!OverlayFits(Paint, Marker))
+			continue;
+		const FLinearColor Color = AArmyUnit::GetCommanderColor(Event.Forces[0].CommanderIndex);
+		Paint.Fill({ Screen.X - 10.f, Screen.Y - 1.f, 6.f, 2.f }, Color);
+		Paint.Fill({ Screen.X + 4.f, Screen.Y - 1.f, 6.f, 2.f }, Color);
+		Paint.Fill({ Screen.X - 1.f, Screen.Y - 10.f, 2.f, 6.f }, Color);
+		Paint.Fill({ Screen.X - 1.f, Screen.Y + 4.f, 2.f, 6.f }, Color);
+		const float Width = Paint.TextWidth(Definition->Text, 12.f, true) + 16.f;
+		const float Height = Paint.LineHeight(12.f, true) + 6.f;
+		const FRect Label{ Screen.X - Width * .5f, Marker.Y - Height - 3.f, Width, Height };
+		if (OverlayFits(Paint, Label))
+		{
+			Paint.Fill(Label, Palette::Panel);
+			Paint.Outline(Label, Color);
+			Paint.TextIn(Definition->Text, Label, 12.f, Color, true, EAlign::Center);
+		}
 	}
 }
 
