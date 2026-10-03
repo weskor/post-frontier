@@ -867,7 +867,7 @@ void ACommandPlayerController::SelectForceNumber(int32 Number)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (GetUIScreen() != ECommandScreen::Game || !State
-		|| !ForceSelectionPolicy::IsNumberAvailable(Number, CommandForceCap::HumanCommanderCount(*State) == 1))
+		|| !ForceSelectionPolicy::IsNumberAvailable(Number, CommandForceCap::HumanCommanderCount(*State)))
 		return;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		if (IsOwnedForce(*It) && It->ForceNumber == Number)

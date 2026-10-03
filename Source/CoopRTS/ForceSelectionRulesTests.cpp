@@ -31,16 +31,16 @@ bool FForceSelectionAccessTest::RunTest(const FString&)
 bool FForceSelectionNumbersTest::RunTest(const FString&)
 {
 	using namespace ForceSelectionPolicy;
-	for (const bool bSolo : { false, true })
+	for (const int32 HumanCommanders : { 0, 1, 2, 3, 4, 5 })
 	{
-		const int32 Last = bSolo ? 5 : 4;
-		TestFalse(TEXT("Negative number is not selectable"), IsNumberAvailable(-1, bSolo));
-		TestFalse(TEXT("Zero is not a force number"), IsNumberAvailable(0, bSolo));
+		const int32 Last = HumanCommanders == 1 ? 5 : 4;
+		TestFalse(TEXT("Negative number is not selectable"), IsNumberAvailable(-1, HumanCommanders));
+		TestFalse(TEXT("Zero is not a force number"), IsNumberAvailable(0, HumanCommanders));
 		for (int32 Number = 1; Number <= Last; ++Number)
-			TestTrue(FString::Printf(TEXT("%s force number %d is selectable"), bSolo ? TEXT("Solo") : TEXT("Co-op"), Number),
-				IsNumberAvailable(Number, bSolo));
-		TestFalse(TEXT("First number past mode limit is unavailable"), IsNumberAvailable(Last + 1, bSolo));
-		TestFalse(TEXT("Arbitrary large number is unavailable"), IsNumberAvailable(MAX_int32, bSolo));
+			TestTrue(FString::Printf(TEXT("Roster of %d humans permits force number %d"), HumanCommanders, Number),
+				IsNumberAvailable(Number, HumanCommanders));
+		TestFalse(TEXT("First number past roster limit is unavailable"), IsNumberAvailable(Last + 1, HumanCommanders));
+		TestFalse(TEXT("Arbitrary large number is unavailable"), IsNumberAvailable(MAX_int32, HumanCommanders));
 	}
 	return true;
 }

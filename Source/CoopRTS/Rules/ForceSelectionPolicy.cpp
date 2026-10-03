@@ -1,4 +1,5 @@
 #include "ForceSelectionPolicy.h"
+#include "Rules/ForceCap.h"
 
 ForceSelectionPolicy::EAccess ForceSelectionPolicy::ResolveAccess(
 	int32 LocalCommanderIndex, int32 ForceCommanderIndex, bool bSameTeam, bool bAlive)
@@ -8,9 +9,9 @@ ForceSelectionPolicy::EAccess ForceSelectionPolicy::ResolveAccess(
 	return LocalCommanderIndex == ForceCommanderIndex ? EAccess::Command : EAccess::Inspect;
 }
 
-bool ForceSelectionPolicy::IsNumberAvailable(int32 Number, bool bSolo)
+bool ForceSelectionPolicy::IsNumberAvailable(int32 Number, int32 HumanCommanders)
 {
-	return Number >= 1 && Number <= (bSolo ? 5 : 4);
+	return Number >= 1 && Number <= ForceCap::Limit(HumanCommanders);
 }
 
 bool ForceSelectionPolicy::IsInScreenBox(const FVector2D& Point, const FVector2D& Start, const FVector2D& End)
