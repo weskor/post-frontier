@@ -3,6 +3,7 @@
 #include "AIController.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
+#include "CapturePoint.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CombatTarget.h"
@@ -344,9 +345,13 @@ void AArmyGroup::TickOrders()
 		Status = EForceStatus::Marching;
 		int32 Waypoint = Source;
 		const AMapRegion* Current = ForceOrderGraph::Region(*State, Source);
-		// A captured/pass-through region does not pin a march behind an unrelated
-		// hostile elsewhere in its polygon; combat along the route still runs.
-		if (Source == TargetRegionIndex || (Current && (!Current->Anchor || (Controlled & (uint64(1) << Source)))))
+		// Do not chase off the route to unlock an intermediate waypoint. Capture
+		// uncontested ground; pass a contested anchor only after physical arrival.
+		const bool bContested = Current && Current->Anchor
+			&& (TeamIndex == 0 ? Current->Anchor->bEnemyPresent : Current->Anchor->bFriendlyPresent);
+		if (Source == TargetRegionIndex || (Current && (!Current->Anchor || (Controlled & (uint64(1) << Source))))
+			|| (bContested && AppliedWaypoint != INDEX_NONE
+				&& (AppliedWaypoint != Source || Arrived(*this, *State, Source))))
 			Waypoint = ForceOrders::NextWaypoint(Graph, Count, Source, TargetRegionIndex);
 		if (Waypoint == TargetRegionIndex && TargetStructure)
 			ApplyWaypoint(Waypoint, EArmyOrder::Attack, TargetStructure);

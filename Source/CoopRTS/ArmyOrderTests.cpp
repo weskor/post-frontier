@@ -7,6 +7,7 @@
 #include "ArmyUnit.h"
 #include "CommandPlayerController.h"
 #include "EnemyCommander.h"
+#include "Commands/OrderGraph.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "HAL/PlatformTime.h"
@@ -97,9 +98,19 @@ public:
 			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
 			Replacement = State->GetRegionAnchor(HomeRegion);
 			Serial = Army->OrderSerial;
+			uint64 Graph[ForceOrders::MaxRegions];
+			const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+			const int32 Source = ForceOrderGraph::SourceRegion(*Army, *State);
+			const AMapRegion* Current = ForceOrderGraph::Region(*State, Source);
+			const int32 ReplacementWaypoint = Source == HomeRegion
+					|| (Current && (!Current->Anchor || State->GetRegionController(Source) == Army->GetTeamIndex()))
+				? ForceOrders::NextWaypoint(Graph, Count, Source, HomeRegion)
+				: Source;
 			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, HomeRegion);
 			Test->TestTrue(TEXT("Replacement receives a new order serial"), Army->OrderSerial > Serial);
-			Test->TestTrue(TEXT("Replacement records the new destination"), FVector::Dist2D(Army->Destination, Replacement) < 100.);
+			Test->TestTrue(TEXT("Replacement records its new region and routes through the graph waypoint"),
+				Army->TargetRegionIndex == HomeRegion && Army->WaypointRegionIndex == ReplacementWaypoint
+					&& FVector::Dist2D(Army->Destination, State->GetRegionAnchor(ReplacementWaypoint)) < 100.f);
 			NextStage(Now);
 		}
 		else if (Stage == 2 && Army->Status == EForceStatus::Holding)

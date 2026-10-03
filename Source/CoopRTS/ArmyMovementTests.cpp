@@ -10,6 +10,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "NavigationSystem.h"
 #include "NavigationData.h"
+#include "Components/CapsuleComponent.h"
 
 struct FArmyMovementTestAccess
 {
@@ -33,7 +34,19 @@ public:
 	{
 		const double Now = FPlatformTime::Seconds();
 		if (Now - Started > 90.)
+		{
+			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
+				if (Force.IsValid())
+					for (const AArmyUnit* Unit : Force->GetUnits())
+					{
+						const UPathFollowingComponent* Path = Following(Unit);
+						Test->AddInfo(FString::Printf(TEXT("stage=%d force=%s serial=%u status=%d destination=%s unit=%s position=%s path_status=%d"),
+							Stage, *Force->GetName(), Force->OrderSerial, static_cast<int32>(Force->Status),
+							*Force->Destination.ToString(), *Unit->GetName(), *Unit->GetActorLocation().ToString(),
+							Path ? static_cast<int32>(Path->GetStatus()) : -1));
+					}
 			return Fail(TEXT("TwoGroups timed out before physical region arrival"));
+		}
 		if (!Groups[0].IsValid())
 		{
 			UWorld* World = ArmyTestSetup::World();
@@ -145,13 +158,10 @@ public:
 						return false;
 				}
 			}
+			if (!PlaceCrossingGroups(*State))
+				return Fail(TEXT("Obstacle crossing needs separate, navigable, collision-free starting formations"));
 			for (const TWeakObjectPtr<AArmyGroup>& Force : Groups)
 			{
-				for (AArmyUnit* Unit : Force->GetUnits())
-					Unit->SetActorLocation(State->GetRegionAnchor(CrossingHome)
-							+ FVector((1 - Unit->GetCompositionSlot() / 2) * 220.f,
-								(Unit->GetCompositionSlot() % 2 ? 1.f : -1.f) * 140.f, 100.f),
-						false, nullptr, ETeleportType::TeleportPhysics);
 				if (!FCommandService::IssueForceOrder(Wallet, Force.Get(), EForceVerb::MoveHold, CrossingTarget))
 					return Fail(TEXT("Obstacle crossing accepts a real region verb for each independent force"));
 			}
@@ -193,6 +203,40 @@ private:
 	{
 		const AAIController* AI = Cast<AAIController>(Unit->GetController());
 		return AI ? AI->GetPathFollowingComponent() : nullptr;
+	}
+	bool PlaceCrossingGroups(const ACommandGameState& State)
+	{
+		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(State.GetWorld());
+		if (!Navigation)
+			return false;
+		FVector Starts[2][6];
+		for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
+			for (int32 Index = 0; Index < Groups[GroupIndex]->GetUnits().Num(); ++Index)
+			{
+				const AArmyUnit* Unit = Groups[GroupIndex]->GetUnits()[Index];
+				const FNavAgentProperties& Agent = Unit->GetNavAgentPropertiesRef();
+				const ANavigationData* Data = Navigation->GetNavDataForProps(Agent, Unit->GetNavAgentLocation());
+				const int32 Slot = Unit->GetCompositionSlot();
+				const FVector Candidate = State.GetRegionAnchor(CrossingHome)
+					+ FVector((1 - Slot / 2) * 220.f, (Slot % 2 ? 1.f : -1.f) * 140.f, 0.f)
+					+ SideAxis * (GroupIndex == 0 ? -350.f : 350.f);
+				FNavLocation Ground;
+				if (!Data || !Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(35.f, 35.f, 200.f), Data)
+					|| FVector::Dist2D(Candidate, Ground.Location) > 35.f)
+					return false;
+				Starts[GroupIndex][Index] = Ground.Location
+					+ FVector(0.f, 0.f, Unit->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 5.f);
+				if (State.GetWorld()->OverlapBlockingTestByChannel(Starts[GroupIndex][Index], FQuat::Identity, ECC_Pawn,
+						FCollisionShape::MakeCapsule(Unit->GetSimpleCollisionRadius(), Unit->GetCapsuleComponent()->GetScaledCapsuleHalfHeight())))
+					return false;
+			}
+		// Unswept teleports to identical slots stack opposing capsules above the
+		// floor. Separate the forces and ground every start before issuing paths.
+		for (int32 GroupIndex = 0; GroupIndex < 2; ++GroupIndex)
+			for (int32 Index = 0; Index < Groups[GroupIndex]->GetUnits().Num(); ++Index)
+				Groups[GroupIndex]->GetUnits()[Index]->SetActorLocation(Starts[GroupIndex][Index],
+					false, nullptr, ETeleportType::TeleportPhysics);
+		return true;
 	}
 	bool FindObstacleCircuit(const ACommandGameState& State)
 	{

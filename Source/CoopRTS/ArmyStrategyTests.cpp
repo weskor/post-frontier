@@ -101,8 +101,11 @@ public:
 				return Fail(TEXT("Recovering one force cannot retreat an uninjured independent producer"));
 			if (!Joined || Health / Joined < .8f)
 			{
-				if (!InSafeRecovery(State))
-					return Fail(TEXT("Injured force must retain its controlled safe waypoint while retreating or physically held below 80 percent joined health"));
+				if (!InSafeRecovery(State) || Recovery->WaypointRegionIndex != SafeRecoveryRegion)
+					return Fail(*FString::Printf(TEXT("Injured force must retain its chosen controlled safe waypoint while retreating or physically held below 80 percent joined health (verb=%d status=%d waypoint=%d target=%d safe=%d center=%s destination=%s)"),
+						static_cast<int32>(Recovery->Verb), static_cast<int32>(Recovery->Status),
+						Recovery->WaypointRegionIndex, Recovery->TargetRegionIndex, SafeRecoveryRegion,
+						*Recovery->GetCenter().ToString(), *Recovery->Destination.ToString()));
 				return false;
 			}
 			if (!bObservedSafeHold || Health / Joined <= InitialDamagedHealth)
@@ -401,8 +404,15 @@ private:
 		if (Recovery->Verb == EForceVerb::Retreat)
 			return Recovery->TargetRegionIndex == INDEX_NONE
 				&& (Recovery->Status == EForceStatus::Retreating || Recovery->Status == EForceStatus::Refilling);
-		return Recovery->Verb == EForceVerb::MoveHold && Recovery->Status == EForceStatus::Holding
+		// Replacing the completed Retreat's producer rally starts MoveHold in Marching
+		// until the next executor tick observes arrival. It must already be physically
+		// at the same safe destination; a later real Holding phase is still required.
+		const AMapRegion* PhysicalRegion = State->FindRegionAt(Recovery->GetCenter());
+		return Recovery->Verb == EForceVerb::MoveHold
+			&& (Recovery->Status == EForceStatus::Holding || Recovery->Status == EForceStatus::Marching)
 			&& Recovery->TargetRegionIndex == Recovery->WaypointRegionIndex
+			&& PhysicalRegion && PhysicalRegion->RegionIndex == Recovery->WaypointRegionIndex
+			&& PhysicalRegion->Contains(Recovery->GetCenter())
 			&& FVector::Dist2D(Recovery->GetCenter(), Recovery->Destination) <= 170.f;
 	}
 	ACommandBuilding* PlaceEnemy(ACommandGameState* State, FName Id, const FVector& Center)

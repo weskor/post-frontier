@@ -206,6 +206,7 @@ private:
 		if (!Check(PC && Player, TEXT("Communication controller and wallet fixture spawn")))
 			return nullptr;
 		PC->SetPlayerState(Player);
+		Player->SetOwner(PC);
 		Player->TeamIndex = Team;
 		Player->CommanderIndex = Index;
 		Player->SetPlayerName(Name);

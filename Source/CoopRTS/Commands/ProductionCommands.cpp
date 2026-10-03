@@ -69,7 +69,6 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 		Group->SetActorLocation(Assembly);
 		ForceGroup = Group;
 		bForceConfigured = true;
-		Group->CommitOrder(FForceOrder(EForceVerb::MoveHold, RallyRegionIndex), false, Definition->MoveSpeed);
 	}
 	else if (bEnabled && (!IsValid(ForceGroup) || ForceGroup->IsActorBeingDestroyed()))
 		return false;
@@ -79,6 +78,8 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 	ProductionRole = Definition->Role;
 	bProductionEnabled = bEnabled;
 	ProductionCheckAccumulator = 0.f;
+	if (IsValid(ForceGroup))
+		ForceGroup->TickOrders();
 	ForceNetUpdate();
 	return true;
 }

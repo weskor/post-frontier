@@ -24,7 +24,9 @@ from harness.network import (
 from harness.verify import JsonObject
 
 
-def at_home(state: JsonObject, army: JsonObject, home: JsonObject, deadline: float) -> bool:
+def at_home(
+    state: JsonObject, army: JsonObject, home: JsonObject, deadline: float
+) -> bool:
     require(
         time.monotonic() < deadline,
         "box fixture force failed to return to its home region",
@@ -61,7 +63,9 @@ def prepare_home(
 def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
     army, home = prepare_home(run, capture, owner)
     index = army["producer"]
-    enemy_main = next(r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5)
+    enemy_main = next(
+        r["index"] for r in capture.state()["regions"] if r["homeTeam"] == 5
+    )
     capture.hud(ORDER_ATTACK, "Send the fixture force physically away from safe home")
     capture.pick_region(index, ATTACK, enemy_main)
     departed = capture.wait(
@@ -74,14 +78,17 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         "same force physically departs home before rendered Retreat",
     )
     origin = force(departed, owner, index)["center"]
-    capture.hud(ORDER_RETREAT, "Retreat immediately returns the marching force to safety")
+    capture.hud(
+        ORDER_RETREAT, "Retreat immediately returns the marching force to safety"
+    )
     capture.wait(
         lambda s: (
             not s["assigningOrder"]
             and order_matches(s, index, RETREAT, -1)
             and force(s, owner, index)["status"] == RETREATING
             and force(s, owner, index)["waypointRegionIndex"] == home["index"]
-            and distance2(force(s, owner, index)["destination"], home["anchor"]) <= 75**2
+            and distance2(force(s, owner, index)["destination"], home["anchor"])
+            <= 75**2
             and distance2(force(s, owner, index)["center"], origin) > 200**2
             and distance2(force(s, owner, index)["center"], home["anchor"]) ** 0.5
             < distance2(origin, home["anchor"]) ** 0.5 - 200
@@ -99,10 +106,13 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
                 or order_destination_matches(s, owner, index, home["index"])
             )
             and force(s, owner, index)["waypointRegionIndex"] == home["index"]
-            and distance2(force(s, owner, index)["destination"], home["anchor"]) <= 75**2
+            and distance2(force(s, owner, index)["destination"], home["anchor"])
+            <= 75**2
             and at_home(s, army, home, deadline)
         ),
         "Retreat physically arrives home without an intervening replacement order",
     )
     capture.shot("retreat-arrived-safe")
-    run.phase("rendered Retreat button, safe destination, same-force return movement and arrival")
+    run.phase(
+        "rendered Retreat button, safe destination, same-force return movement and arrival"
+    )

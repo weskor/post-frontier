@@ -336,17 +336,27 @@ void AEnemyCommander::EvaluatePlan()
 			Verb = EForceVerb::Retreat;
 			Target = INDEX_NONE;
 			const AArmyGroup* Force = Building->ForceGroup;
-			const AMapRegion* At = State->FindRegionAt(Force->GetCenter());
+			const FVector Center = Force->GetCenter();
+			const AMapRegion* At = State->FindRegionAt(Center);
 			const int32 Held = At ? At->RegionIndex : INDEX_NONE;
-			// Completed Retreat may default to the producer rally. JEV's private
-			// health recovery explicitly holds the physically reached safe region.
-			if (bWasRecovering && Force->Verb == EForceVerb::MoveHold
-				&& ValidRegion(Held) && Regions[Held] && (ConnectedRecovery & (uint64(1) << Held))
-				&& !Hostiles[Held] && Regions[Held]->Contains(Force->GetCenter())
-				&& FVector::DistSquared2D(Force->GetCenter(), State->GetRegionAnchor(Held)) <= FMath::Square(170.f))
+			if (bWasRecovering && ValidRegion(Held) && Regions[Held]
+				&& (ConnectedRecovery & (uint64(1) << Held)) && !Hostiles[Held]
+				&& Regions[Held]->Contains(Center))
 			{
-				Verb = EForceVerb::MoveHold;
-				Target = Held;
+				// Hold an arrived recovery waypoint before Retreat's full-roster completion,
+				// or reclaim it if completion already selected the producer rally.
+				// Arrival is measured against the projected destination, not the map anchor.
+				const FVector Anchor = State->GetRegionAnchor(Held);
+				const bool bAtRecoveryWaypoint = Force->WaypointRegionIndex == Held
+					&& FVector::DistSquared2D(Center, Force->Destination) <= FMath::Square(170.f)
+					&& FVector::DistSquared2D(Force->Destination, Anchor) <= FMath::Square(75.f);
+				const bool bAtCompletedRecovery = Force->Verb == EForceVerb::MoveHold
+					&& FVector::DistSquared2D(Center, Anchor) <= FMath::Square(170.f + 75.f);
+				if (bAtRecoveryWaypoint || bAtCompletedRecovery)
+				{
+					Verb = EForceVerb::MoveHold;
+					Target = Held;
+				}
 			}
 		}
 		else

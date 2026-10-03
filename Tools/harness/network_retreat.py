@@ -21,7 +21,7 @@ from harness.network_session import Session, converged, hold_at, latched
 
 def begin_retreat_home(run: NetworkRun, s: Session, index: int) -> int:
     state = run.observe("host")
-    home = next(r["index"] for r in state["regions"] if r["homeTeam"] == 0)
+    home = int(next(r["index"] for r in state["regions"] if r["homeTeam"] == 0))
     hold_at(run, s, index, home, "establish home as the force's last held safe region")
     converged(
         run,
@@ -29,7 +29,9 @@ def begin_retreat_home(run: NetworkRun, s: Session, index: int) -> int:
         lambda st: (
             order_destination_matches(st, s.owner, index, home)
             and force(st, s.owner, index)["status"] == HOLDING
-            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"])
+            and distance2(
+                force(st, s.owner, index)["center"], region(st, home)["anchor"]
+            )
             < 150**2
         ),
         "same force physically holds home before its Retreat departure",
@@ -52,7 +54,9 @@ def retreat_from_home(
             force_counts_match(st, s.owner, index)
             and order_matches(st, index, ATTACK, outbound)
             and force(st, s.owner, index)["status"] == MARCHING
-            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"])
+            and distance2(
+                force(st, s.owner, index)["center"], region(st, home)["anchor"]
+            )
             > 1000**2
         ),
         "same force physically departs its safe home before Retreat",
@@ -69,10 +73,15 @@ def retreat_from_home(
             and order_matches(st, index, RETREAT, -1)
             and force(st, s.owner, index)["status"] == RETREATING
             and force(st, s.owner, index)["waypointRegionIndex"] == home
-            and distance2(force(st, s.owner, index)["destination"], region(st, home)["anchor"])
+            and distance2(
+                force(st, s.owner, index)["destination"], region(st, home)["anchor"]
+            )
             <= 75**2
             and distance2(force(st, s.owner, index)["center"], origin) > 200**2
-            and distance2(force(st, s.owner, index)["center"], region(st, home)["anchor"]) ** 0.5
+            and distance2(
+                force(st, s.owner, index)["center"], region(st, home)["anchor"]
+            )
+            ** 0.5
             < distance2(origin, region(st, home)["anchor"]) ** 0.5 - 200
         ),
         "actual Retreat moves the same force toward its safe home on every peer",

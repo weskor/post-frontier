@@ -111,6 +111,16 @@ kind = "automation"
 filter = "CoopRTS.Forces.Verbs.StructureDeath"
 map = "default"
 
+[scopes.force-structure-withdrawal]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.StructureWithdrawal"
+map = "default"
+
+[scopes.force-contested-transit]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.ContestedTransit"
+map = "default"
+
 [scopes.force-retreat]
 kind = "automation"
 filter = "CoopRTS.Forces.Verbs.Retreat"
@@ -351,8 +361,8 @@ kind = "lint"
 "Source/CoopRTS/Rules/ForceSelectionPolicy.h" = ["force-selection", "rules"]
 # Additional selection-world dependencies; matching entries are unioned.
 "Source/CoopRTS/ArenaBounds.*" = ["force-selection"]
-"Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
-"Source/CoopRTS/ArmyUnit.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
+"Source/CoopRTS/ArmyUnit.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/ArmyTestSetup.*" = ["force-selection"]
 "Source/CoopRTS/CombatTarget.*" = ["force-selection"]
 "Source/CoopRTS/CommandBuildingProduction.*" = ["force-selection"]
@@ -360,15 +370,16 @@ kind = "lint"
 "Source/CoopRTS/CommandPlayerState.*" = ["force-selection"]
 "Source/CoopRTS/ConstructionTypes.*" = ["force-selection"]
 "Source/CoopRTS/Content/*" = ["force-selection"]
-"Source/CoopRTS/Commands/*" = ["force-selection"]
+"Source/CoopRTS/Commands/*" = ["force-selection", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/DepositSite.*" = ["force-selection"]
 "Source/CoopRTS/EnemyCommander.*" = ["force-selection"]
-"Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
+"Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/MapRegion.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/SimulationSettings.*" = ["force-selection"]
 "Source/CoopRTS/Headquarters.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/Headquarters.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/VerbOrderTests.cpp" = ["force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback"]
+"Source/CoopRTS/VerbOrderTests.*" = ["force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/JevScalingTests.cpp" = ["jev-scaling"]
 "Source/CoopRTS/MapRegion.cpp" = ["construction", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]
 "Source/CoopRTS/MapRegion.h" = ["construction", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]

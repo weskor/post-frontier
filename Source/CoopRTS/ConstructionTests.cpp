@@ -331,6 +331,7 @@ public:
 						&& Recruit->GetGroup() == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation()) > State->Content->Building(BarracksIndex)->FootprintRadius,
 					TEXT("Paid recruit physically starts outside its owning producer")))
 				return true;
+			FirstRecruitBalance = Wallet->Resources;
 			Stage = 11;
 			return false;
 		}
@@ -341,7 +342,7 @@ public:
 			if (Recruit->IsReinforcing())
 				return false;
 			if (!Check(Squad->GetUnits().Num() == 1 && Squad->GetUnits().Contains(Recruit.Get())
-						&& Squad->GetJoinedCount() == 1 && Alive(Building.Get()) == 1 && Wallet->Resources == 1970,
+						&& Squad->GetJoinedCount() == 1 && Alive(Building.Get()) == 1 && Wallet->Resources == FirstRecruitBalance,
 					TEXT("First recruit joins physically without another spawn or debit")))
 				return true;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
@@ -902,7 +903,7 @@ private:
 	FVector RecruitStart, JoinedStart;
 	int32 OtherRegion = INDEX_NONE, RememberedRegion = INDEX_NONE;
 	EForceVerb OtherVerb = EForceVerb::MoveHold;
-	int32 FillBalance = 0, ReplacementBalance = 0, SurvivorCount = 0;
+	int32 FirstRecruitBalance = 0, FillBalance = 0, ReplacementBalance = 0, SurvivorCount = 0;
 	bool bRecruitMoved = false, bJoinedMoved = false;
 };
 }

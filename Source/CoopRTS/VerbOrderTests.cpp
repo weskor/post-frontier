@@ -20,6 +20,7 @@ using namespace ArmyTestSetup;
 enum class EScenario : uint8
 {
 	MoveHold,
+	ContestedTransit,
 	Withdrawal,
 	StructureDeath,
 	Retreat,
@@ -133,6 +134,8 @@ public:
 		{
 		case EScenario::MoveHold:
 			return MoveHold();
+		case EScenario::ContestedTransit:
+			return ContestedTransit();
 		case EScenario::Withdrawal:
 			return Withdrawal();
 		case EScenario::StructureDeath:
@@ -348,6 +351,7 @@ private:
 		bPaid = Scenario == EScenario::Withdrawal || Scenario == EScenario::Retreat
 			|| Scenario == EScenario::Orphan || Scenario == EScenario::Rally
 			|| Scenario == EScenario::NoSafeRegion || Scenario == EScenario::StructureWithdrawal;
+		bPaid |= Scenario == EScenario::ContestedTransit;
 		if (bPaid)
 		{
 			Producer = Place();
@@ -419,6 +423,37 @@ private:
 			if (FPlatformTime::Seconds() - StageStarted >= 1.)
 				return true;
 		}
+		return false;
+	}
+	bool ContestedTransit()
+	{
+		if (Stage == 0)
+		{
+			// A paid all-Brawler force has no incidental long-range Artillery.
+			// Pick a real navigable point beside the intermediate anchor, inside
+			// capture radius but beyond every member's local weapon reach.
+			const FVector Anchor = State->GetRegionAnchor(Intermediate);
+			const FVector Forward = (State->GetRegionAnchor(Target) - Anchor).GetSafeNormal2D();
+			const FVector Blocker = Anchor + FVector(-Forward.Y, Forward.X, 0.f) * 410.f + FVector(0.f, 0.f, 100.f);
+			if (!Check(Region(State, Intermediate)->Contains(Blocker), TEXT("Contesting hostile stands in the real intermediate polygon")))
+				return true;
+			PutHostile(Blocker);
+			Region(State, Intermediate)->Anchor->AdvanceCapture(0.f);
+			if (!Check(Region(State, Intermediate)->Anchor->bEnemyPresent
+						&& State->GetRegionController(Intermediate) == -1,
+					TEXT("Real living hostile contests the neutral intermediate capture point"))
+				|| !Issue(EForceVerb::MoveHold, Target))
+				return true;
+			StartPosition = Force->GetCenter();
+			RetreatAttackCount = Attacks();
+			SetStage(1);
+		}
+		bVisitedIntermediate |= Occupies(Intermediate);
+		if (Stage == 1 && Holding(Target))
+			return Check(bVisitedIntermediate && State->GetRegionController(Intermediate) != 0
+					&& Hostile->GetUnits()[0]->IsAlive() && Attacks() == RetreatAttackCount
+					&& FVector::Dist2D(StartPosition, Force->GetCenter()) > 500.f,
+				TEXT("MoveHold physically passes a contested out-of-range intermediate without chasing or requiring its capture"));
 		return false;
 	}
 	bool Queue()
@@ -1008,9 +1043,10 @@ private:
 	}
 
 VERB_WORLD_TEST(FVerbMoveHoldTest, "MoveHold", MoveHold)
+VERB_WORLD_TEST(FVerbContestedTransitTest, "ContestedTransit", ContestedTransit)
 VERB_WORLD_TEST(FVerbWithdrawalTest, "AttackWithdrawal", Withdrawal)
 VERB_WORLD_TEST(FVerbStructureDeathTest, "StructureDeath", StructureDeath)
-VERB_WORLD_TEST(FVerbStructureWithdrawalTest, "StructureDeath.Withdrawal", StructureWithdrawal)
+VERB_WORLD_TEST(FVerbStructureWithdrawalTest, "StructureWithdrawal", StructureWithdrawal)
 VERB_WORLD_TEST(FVerbRetreatTest, "Retreat", Retreat)
 VERB_WORLD_TEST(FVerbOrphanTest, "Orphan", Orphan)
 VERB_WORLD_TEST(FVerbQueueTest, "Queue", Queue)

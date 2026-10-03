@@ -412,6 +412,17 @@ private:
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->TargetStructure == HQ && Army->GetUnits()[0]->Target == HQ,
 			TEXT("Explicit structure Attack outranks an automatic unit counter lock"));
+		const AArmyUnit* StructureChaser = Army->GetUnits()[0];
+		const AAIController* ChaseAI = Cast<AAIController>(StructureChaser->GetController());
+		const UPathFollowingComponent* ChasePath = ChaseAI ? ChaseAI->GetPathFollowingComponent() : nullptr;
+		bOk &= Check(FVector::Dist2D(StructureChaser->GetActorLocation(), HQ->GetActorLocation()) > StructureChaser->WeaponRange()
+				&& StructureChaser->bPursuing && ChasePath && ChasePath->GetStatus() == EPathFollowingStatus::Moving
+				&& ChasePath->GetPath().IsValid(),
+			TEXT("Explicit structure Attack starts a real out-of-range frontline chase"));
+		if (ChasePath && ChasePath->GetPath().IsValid())
+			for (const FNavPathPoint& Point : ChasePath->GetPath()->GetPathPoints())
+				bOk &= Check(FVector::Dist2D(Point.Location, Army->Destination) <= Army->PursuitRadius,
+					TEXT("The real structure chase is bounded along its entire navigation path"));
 		// Establish a non-counter lock through normal acquisition, not a seeded Target.
 		// All Light candidates are outside the leash until the Heavy lock is real.
 		const int32 Region = ArmyTestSetup::RegionAt(State, Anchor);
@@ -440,10 +451,23 @@ private:
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Frontline->Target == Light, TEXT("A lock leaving the Attack leash triggers fresh counter acquisition"));
 		for (const AArmyUnit* Unit : Army->GetUnits())
+		{
 			bOk &= Check(Unit->Target != Heavy
-					&& (!Unit->bPursuing || FVector::Dist2D(Unit->PursuitGoal, Army->Destination) <= Army->PursuitRadius)
 					&& FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) <= Army->PursuitRadius + 200.f,
-				TEXT("Attack invalidates a target leaving the pursuit area and never sends members beyond its boundary"));
+				TEXT("Attack invalidates a target leaving the pursuit area and keeps members inside its boundary"));
+			const AAIController* AI = Cast<AAIController>(Unit->GetController());
+			const UPathFollowingComponent* Path = AI ? AI->GetPathFollowingComponent() : nullptr;
+			// bPursuing also denotes an idle, in-range engagement. Its last move
+			// goal is not meaningful there; bound the actual chase request instead.
+			if (Unit->bPursuing && Path && Path->GetStatus() == EPathFollowingStatus::Moving)
+			{
+				bOk &= Check(Path->GetPath().IsValid(), TEXT("A moving Attack chase owns a real navigation path"));
+				if (Path->GetPath().IsValid())
+					for (const FNavPathPoint& Point : Path->GetPath()->GetPathPoints())
+						bOk &= Check(FVector::Dist2D(Point.Location, Army->Destination) <= Army->PursuitRadius,
+							TEXT("Every point of an active Attack chase stays inside the pursuit boundary"));
+			}
+		}
 		for (int32 Index = 0; Index < 6; ++Index)
 		{
 			Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
