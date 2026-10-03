@@ -9,13 +9,6 @@ bool Exists(const FWorld& World, int32 Index)
 	return Index >= 0 && Index < ForceOrders::MaxRegions && World.Regions[Index].bExists;
 }
 
-bool MustDefend(const FWorld& World, const FForce& Force)
-{
-	return !Force.bRetreating && Exists(World, Force.Source)
-		&& World.Regions[Force.Source].Controller == World.Team
-		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked);
-}
-
 struct FPaths
 {
 	int32 Hops[ForceOrders::MaxRegions];
@@ -122,6 +115,13 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FPaths& Rou
 		Offer(Out, Plan, RegionScore(World, Force, Route, Target.Region));
 	}
 }
+}
+
+bool MustDefend(const FWorld& World, const FForce& Force)
+{
+	return !Force.bRetreating && Exists(World, Force.Source)
+		&& World.Regions[Force.Source].Controller == World.Team
+		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked);
 }
 
 int32 SizeBand(int32 UnitCount)

@@ -85,6 +85,8 @@ struct FCandidates
 	int32 Count = 0;
 };
 
+// Shared by commitment decisions and the command-rejection shortcut.
+bool MustDefend(const FWorld& World, const FForce& Force);
 int32 SizeBand(int32 UnitCount);
 // Ascending-index, shortest-hop region path, matching the force order driver.
 float TravelSeconds(const FWorld& World, const FForce& Force, int32 Target);

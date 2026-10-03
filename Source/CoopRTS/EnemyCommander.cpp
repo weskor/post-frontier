@@ -372,7 +372,8 @@ void AEnemyCommander::EvaluatePlan()
 			return Actual;
 		};
 		JevPlanner::FPlan Next;
-		const bool bRejectedCommitment = Current && Current->bCommandsRejected && Now < Current->Plan.CommittedUntil;
+		const bool bRejectedCommitment = Current && Current->bCommandsRejected && Now < Current->Plan.CommittedUntil
+			&& !JevPlanner::MustDefend(Summary, Snapshot);
 		bool bCommandsRejected = bRejectedCommitment;
 		if (bRejectedCommitment)
 			Next = ActualPlan();
@@ -441,7 +442,8 @@ void AEnemyCommander::EvaluatePlan()
 		}
 		const bool bNewCommitment = !Current || Next.CommittedUntil != Current->Plan.CommittedUntil;
 #if !UE_BUILD_SHIPPING
-		const bool bEscalation = Current && !Current->Plan.bEscalated && Next.bEscalated;
+		const bool bEscalation = Current && Next.bEscalated
+			&& (!Current->Plan.bEscalated || Current->Plan.Target != Next.Target);
 #endif
 		if (bChanged && Next.Verb == JevPlanner::EVerb::Retreat && ValidRegion(Force->GetRetreatRegion()))
 		{

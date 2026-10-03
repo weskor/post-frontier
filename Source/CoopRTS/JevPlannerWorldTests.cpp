@@ -90,7 +90,7 @@ public:
 						&& Cast<ACommandBuilding>(Initial[0].TargetStructure),
 					TEXT("Destruction proof must start with an accepted concrete hostile building Attack")))
 				return true;
-			if (Proof == EJevWorldProof::Escalation
+			if ((Proof == EJevWorldProof::Escalation || Proof == EJevWorldProof::RejectedOrder)
 				&& !Check(Initial[0].TargetRegionIndex != Initial[0].SourceRegionIndex,
 					TEXT("Escalation proof must start with a committed order away from its source")))
 				return true;
@@ -224,7 +224,35 @@ public:
 				return true;
 			if (Now - RejectedAt < 2.f)
 				return false;
-			Test->AddInfo(TEXT("JEV rejected order: real ownership rejection, all candidates rejected, live actual-order publication and stable fallback commitment."));
+			AArmyGroup* Force = Forces[0].Get();
+			const int32 Number = Force->ForceNumber;
+			Force->Initialize({ 5, State->EnemyCommander.Get(), Force->GetArmyIndex(),
+				Force->GetProductionBuilding(), Force->GetHomeLocation() });
+			Force->ForceNumber = Number;
+			const int32 Source = Initial[0].SourceRegionIndex;
+			int32 Offset = 0;
+			for (AArmyUnit* Unit : Force->GetUnits())
+				Unit->SetActorLocation(State->GetRegionAnchor(Source) + FVector(60.f * Offset++, 0.f, 100.f));
+			Intruder = ArmyTestSetup::SpawnGroup(World, PC, 44,
+				State->GetRegionAnchor(Source) + FVector(0.f, 350.f, 100.f));
+			if (!Intruder.IsValid())
+				return Fail(TEXT("Rejected-commitment invasion fixture must spawn"));
+			Park(*Intruder);
+			if (!Check(State->GetRegionController(Source) == 5 && State->IsRegionContested(Source, 5),
+					TEXT("Rejected commitment's live source must be an attacked JEV region")))
+				return true;
+			Planner->EvaluatePlan();
+			const FJevPublishedPlan* Defense = Plan(State, 0);
+			if (!PublishedMatches(State, Now)
+				|| !Check(Now < RejectedFallback.CommittedUntil
+						&& Defense->TicketNumber == RejectedFallback.TicketNumber
+						&& Defense->CommittedUntil == RejectedFallback.CommittedUntil && Defense->bEscalated
+						&& Defense->Verb == EForceVerb::MoveHold && Defense->SourceRegionIndex == Source
+						&& Defense->TargetRegionIndex == Source && Force->OrderSerial > InitialSerial[0],
+					TEXT("Forced own-region defense overrides the rejected-order shortcut inside its original commitment"))
+				|| !DefenseHistory(State, Defense->TicketNumber, Source))
+				return true;
+			Test->AddInfo(TEXT("JEV rejected order: real rejection preserves actual-order commitment; restored ownership and real own-region invasion force defense before that commitment expires."));
 			return true;
 		}
 		if (Proof == EJevWorldProof::Commitment)
@@ -286,7 +314,62 @@ public:
 				return true;
 			if (Now - AcceptedAt < 5.f)
 				return false; // Exercise repeated evaluations while the intrusion remains real.
-			Test->AddInfo(TEXT("JEV escalation: real own-source invasion, accepted defense, stable ticket/deadline, unchanged independent force and exact defending memo."));
+			const int32 FirstRegion = InvadedRegion;
+			const uint32 FirstDefenseSerial = Forces[0]->OrderSerial;
+			if (!DefenseHistory(State, Changed->TicketNumber, FirstRegion))
+				return true;
+			Park(*Forces[1]);
+			int32 IndependentOffset = 0;
+			for (AArmyUnit* Unit : Forces[1]->GetUnits())
+				Unit->SetActorLocation(State->GetRegionAnchor(Initial[1].SourceRegionIndex)
+					+ FVector(60.f * IndependentOffset++, 0.f, 100.f));
+			AMapRegion* NextRegion = nullptr;
+			for (AMapRegion* Region : State->Regions)
+				if (IsValid(Region) && IsValid(Region->Anchor) && Region->RegionRole != ERegionRole::Main
+					&& Region->RegionIndex != FirstRegion && Region->RegionIndex != Initial[1].SourceRegionIndex
+					&& Region->RegionIndex != Initial[1].TargetRegionIndex
+					&& Region->RegionIndex != ArmyTestSetup::CurrentRegion(Forces[1].Get()))
+				{
+					NextRegion = Region;
+					break;
+				}
+			if (!NextRegion)
+				return Fail(TEXT("Re-escalation needs a separate anchored region away from the independent force"));
+			NextRegion->Anchor->ControllingTeam = 5;
+			Park(*Forces[0]);
+			int32 Offset = 0;
+			for (AArmyUnit* Unit : Forces[0]->GetUnits())
+				Unit->SetActorLocation(State->GetRegionAnchor(NextRegion->RegionIndex)
+					+ FVector(60.f * Offset++, 0.f, 100.f));
+			Intruder = ArmyTestSetup::SpawnGroup(World, PC, 45,
+				State->GetRegionAnchor(NextRegion->RegionIndex) + FVector(0.f, 350.f, 100.f));
+			if (!Intruder.IsValid())
+				return Fail(TEXT("Second attacked-region intrusion fixture must spawn"));
+			Park(*Intruder);
+			if (!Check(ArmyTestSetup::CurrentRegion(Forces[0].Get()) == NextRegion->RegionIndex
+						&& State->IsRegionContested(NextRegion->RegionIndex, 5),
+					TEXT("Already-escalated force and real hostile members occupy a different attacked JEV region")))
+				return true;
+			Planner->EvaluatePlan();
+			const FJevPublishedPlan* ReEscalated = Plan(State, 0);
+			if (!PublishedMatches(State, Now) || !Unchanged(State, 1)
+				|| !Check(Now < Initial[0].CommittedUntil && ReEscalated->bEscalated
+						&& ReEscalated->TicketNumber == Initial[0].TicketNumber
+						&& ReEscalated->CommittedUntil == Initial[0].CommittedUntil
+						&& ReEscalated->SourceRegionIndex == NextRegion->RegionIndex
+						&& ReEscalated->TargetRegionIndex == NextRegion->RegionIndex
+						&& Forces[0]->OrderSerial > FirstDefenseSerial,
+					TEXT("Re-escalation accepts defense of the new source while preserving the ticket and deadline"))
+				|| !DefenseHistory(State, ReEscalated->TicketNumber, NextRegion->RegionIndex))
+				return true;
+			const uint32 ReEscalatedSerial = Forces[0]->OrderSerial;
+			Planner->EvaluatePlan();
+			if (!Check(Forces[0]->OrderSerial == ReEscalatedSerial,
+					TEXT("Repeated same-region defense must not issue another command"))
+				|| !DefenseHistory(State, Initial[0].TicketNumber, FirstRegion)
+				|| !DefenseHistory(State, Initial[0].TicketNumber, NextRegion->RegionIndex))
+				return true;
+			Test->AddInfo(TEXT("JEV escalation: own-source defense, stable commitment, re-escalation in a different JEV region with one history event per defended region and no repeated command/event."));
 			return true;
 		}
 		if (!Check(Now < Initial[0].CommittedUntil && Changed->TicketNumber != Initial[0].TicketNumber
@@ -476,6 +559,21 @@ private:
 				&& Current->EtaSeconds == Initial[Index].EtaSeconds && Current->Memo == Initial[Index].Memo
 				&& Current->bEscalated == Initial[Index].bEscalated,
 			TEXT("Held force preserves its actual accepted order, stable ticket, full intent, memo and original deadline"));
+	}
+	bool DefenseHistory(const ACommandGameState* State, int32 Ticket, int32 Region)
+	{
+		int32 Count = 0;
+		for (const FJevPlanHistoryEntry& Entry : State->EnemyPlanHistory)
+			if (Entry.bEscalation && Entry.Plan.TicketNumber == Ticket && Entry.Plan.TargetRegionIndex == Region)
+			{
+				if (!Check(Entry.Plan.bEscalated && Entry.Plan.Verb == EForceVerb::MoveHold
+							&& Entry.Plan.SourceRegionIndex == Region && Entry.SourceController == 5
+							&& Entry.bOrderChanged && Entry.ForceNumber == Forces[0]->ForceNumber,
+						TEXT("Defense transition history captures the actual order, defended source and event-time JEV ownership")))
+					return false;
+				++Count;
+			}
+		return Check(Count == 1, TEXT("Each distinct defended region has exactly one escalation history event"));
 	}
 	bool Check(bool bCondition, const TCHAR* Message)
 	{
