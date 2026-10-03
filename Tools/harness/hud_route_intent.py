@@ -115,9 +115,12 @@ def check_structure_preview(capture: Capture, owner: int, barracks: int) -> None
 
 
 def check_queue_rejection(
-    capture: Capture, owner: int, barracks: int, destination: int
+    capture: Capture, owner: int, barracks: int, home: int, destination: int
 ) -> None:
+    # Start a distant live target so the active order cannot finish during setup.
+    issue_force_order(capture.run, "host", barracks, ATTACK, enemy_hq=True)
     issue_force_order(capture.run, "host", barracks, MOVE_HOLD, destination, queue=True)
+    issue_force_order(capture.run, "host", barracks, MOVE_HOLD, home, queue=True)
     state = capture.wait(
         lambda s: len(force(s, owner, barracks)["orders"]) == 3,
         "three-order cap fixture is full",
@@ -181,7 +184,7 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
     capture.shot("route-teammate-intent-map-minimap")
     run.request("host", "routeTeammate", targetRegionIndex=destination, enabled=False)
     check_structure_preview(capture, owner, barracks)
-    check_queue_rejection(capture, owner, barracks, destination)
+    check_queue_rejection(capture, owner, barracks, home, destination)
     for _ in range(4):
         capture.key("MouseScrollUp")
     issue_force_order(
