@@ -105,6 +105,8 @@ public:
 				return true;
 			const auto Context = CommandHUDPanels::MakeContext(PC);
 			const auto Layout = CommandHUDPanels::MakeLayout(Context, 1280.f, 720.f);
+			Check(CommandHUDPanels::IsPanelPoint(Context, Layout, CommandHUDPanels::BuildCard(Layout.Build, 1, 3).Center()),
+				TEXT("Collapsed-deck build bar captures clicks instead of starting world selection"));
 			Check(CommandHUDPanels::HitTest(Context, Layout, CommandHUDPanels::BuildCard(Layout.Build, 1, 3).Center())
 					== EHUDAction::BuildSlot1,
 				TEXT("Build bar remains clickable during placement"));
@@ -131,6 +133,7 @@ public:
 			Check(PC->IsPlacingBuilding() && PC->GetPlacementIndex() == 1, TEXT("B W enters Extractor placement"));
 			// Arrange a network request still in flight when the user cancels.
 			PC->bPlacementPending = true;
+			PC->bSelectionDragging = true;
 			Key(PC, EKeys::RightMouseButton);
 			Stage = 1;
 			return false;
@@ -144,6 +147,8 @@ public:
 				return false;
 			Key(PC, EKeys::RightMouseButton, IE_Released);
 			Check(!PC->IsPlacingBuilding(), TEXT("Right-click cancels Extractor placement"));
+			Check(!PC->bSelectionDragging && PC->bPlacementPending,
+				TEXT("Cancellation stops force box selection while retaining the in-flight placement"));
 			FVector Point;
 			if (!Check(FindPlacement(State, Point), TEXT("A third footprint exists for the late placement result")))
 				return true;

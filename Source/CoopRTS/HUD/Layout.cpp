@@ -175,9 +175,7 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Menu);
 	Visit(Layout.Pause);
 	Visit(Layout.Minimap);
-	Visit(Layout.Construction);
-	if (Context.bExpanded)
-		Visit(Layout.Build);
+	Visit(Layout.Build);
 	Visit(Layout.Bottom);
 	if (Layout.bFeedback)
 		Visit(Layout.Feedback);
