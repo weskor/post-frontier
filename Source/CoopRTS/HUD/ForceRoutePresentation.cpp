@@ -76,7 +76,7 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 				continue;
 			const bool bSelected = Controller.IsForceSelected(Force);
 			VisitOrders(*Force, bSelected, MakeArrayView(Anchors), Draw);
-			if (!bSelected || !bPreview || !ForceOrders::CanQueue(Force->Orders.Num(), bQueue))
+			if (!bSelected || !bPreview)
 				continue;
 			int32 Source = ForceOrderGraph::SourceRegion(*Force, *State);
 			FVector Start = Force->GetCenter();

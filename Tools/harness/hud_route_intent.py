@@ -8,6 +8,8 @@ from harness.network import (
     MOVE_HOLD,
     NetworkRun,
     force,
+    issue_force_order,
+    minimap_world_point,
     region_contains,
     require,
 )
@@ -63,24 +65,8 @@ def publish_queue(
     home: int,
     destination: int,
 ) -> JsonObject:
-    run.request(
-        "host",
-        "order",
-        building=barracks,
-        forceVerb=ATTACK,
-        targetRegionIndex=destination,
-        targetEnemyHQ=False,
-        queue=False,
-    )
-    run.request(
-        "host",
-        "order",
-        building=barracks,
-        forceVerb=MOVE_HOLD,
-        targetRegionIndex=home,
-        targetEnemyHQ=False,
-        queue=True,
-    )
+    issue_force_order(run, "host", barracks, ATTACK, destination)
+    issue_force_order(run, "host", barracks, MOVE_HOLD, home, queue=True)
     state = capture.wait(
         lambda s: (
             len(force(s, owner, barracks)["intentRoutes"]) == 2
@@ -90,7 +76,64 @@ def publish_queue(
         ),
         "active path and successive queued return leg",
     )
+    if state["hudExpanded"]:
+        capture.key("F4")
+        state = capture.wait(
+            lambda s: not s["hudExpanded"], "route inspector collapsed after orders"
+        )
     return state
+
+
+def check_structure_preview(capture: Capture, owner: int, barracks: int) -> None:
+    state = capture.state()
+    orders = force(state, owner, barracks)["orders"]
+    x, y = minimap_world_point(state, state["enemyHQPosition"])
+    capture.run.request("host", "cursor", x=x, y=y)
+    preview = capture.wait(
+        lambda s: s["routePreview"] and s["previewVerb"] == ATTACK,
+        "minimap hostile headquarters previews Attack, not Move & Hold",
+    )
+    require(
+        preview["orderPreview"]["allowed"]
+        and preview["orderPreview"]["structureId"] == preview["enemyHQId"]
+        and preview["previewRegion"] == preview["orderPreview"]["regionIndex"],
+        "route preview loses the minimap hostile-structure target",
+    )
+    capture.begin_attack()
+    pending = capture.wait(
+        lambda s: s["assigningOrder"] and s["routePreview"],
+        "pending A keeps the shared region Attack route",
+    )
+    require(
+        pending["previewVerb"] == ATTACK
+        and pending["orderPreview"]["structureId"] == -1
+        and pending["previewRegion"] == pending["orderPreview"]["regionIndex"]
+        and force(pending, owner, barracks)["orders"] == orders,
+        "pending A targets a structure or hover changes the order queue",
+    )
+    capture.key("Escape")
+
+
+def check_queue_rejection(
+    capture: Capture, owner: int, barracks: int, destination: int
+) -> None:
+    issue_force_order(capture.run, "host", barracks, MOVE_HOLD, destination, queue=True)
+    state = capture.wait(
+        lambda s: len(force(s, owner, barracks)["orders"]) == 3,
+        "three-order cap fixture is full",
+    )
+    x, y = minimap_region_point(state, destination)
+    capture.run.request("host", "cursor", x=x, y=y)
+    capture.run.request("host", "key", key="LeftShift", pressed=True)
+    capture.wait(
+        lambda s: (
+            s["orderPreview"]["rejection"] == 5
+            and not s["orderPreview"]["allowed"]
+            and not s["routePreview"]
+        ),
+        "queue-full cursor rejection suppresses the route preview",
+    )
+    capture.run.request("host", "key", key="LeftShift", pressed=False)
 
 
 def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -> None:
@@ -116,6 +159,13 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
         force(preview, owner, barracks)["orders"] == orders,
         "hover preview committed an order",
     )
+    require(
+        preview["orderPreview"]["allowed"]
+        and preview["orderPreview"]["resolution"] == 1
+        and preview["orderPreview"]["regionIndex"] == preview["previewRegion"]
+        and preview["orderPreview"]["structureId"] == -1,
+        "route preview disagrees with the shared smart-order resolver",
+    )
     capture.shot("route-smart-hover-preview")
     run.request("host", "routeTeammate", targetRegionIndex=destination, enabled=True)
     state = capture.wait(
@@ -130,17 +180,12 @@ def route_intent(run: NetworkRun, capture: Capture, owner: int, barracks: int) -
     )
     capture.shot("route-teammate-intent-map-minimap")
     run.request("host", "routeTeammate", targetRegionIndex=destination, enabled=False)
-    capture.key("F4")
+    check_structure_preview(capture, owner, barracks)
+    check_queue_rejection(capture, owner, barracks, destination)
     for _ in range(4):
         capture.key("MouseScrollUp")
-    run.request(
-        "host",
-        "order",
-        building=barracks,
-        forceVerb=original["forceVerb"],
-        targetRegionIndex=original["targetRegionIndex"],
-        targetEnemyHQ=False,
-        queue=False,
+    issue_force_order(
+        run, "host", barracks, original["forceVerb"], original["targetRegionIndex"]
     )
     run.request("host", "select", target="building", building=barracks)
     run.phase(
