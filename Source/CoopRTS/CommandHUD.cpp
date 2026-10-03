@@ -73,6 +73,16 @@ bool ACommandHUD::IsPanelPoint(const FVector2D& Position) const
 	return CommandHUDPanels::IsPanelPoint(Context, Layout, Position / Layout.Scale);
 }
 
+bool ACommandHUD::IsDeckOpen() const
+{
+	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
+	if (!Controller)
+		return false;
+	int32 Width, Height;
+	Controller->GetViewportSize(Width, Height);
+	return MakeLayout(MakeContext(Controller), Width, Height).bDeck;
+}
+
 EHUDAction ACommandHUD::GetActionAtScreenPosition(const FVector2D& Position) const
 {
 	const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(GetOwningPlayerController());
@@ -258,7 +268,7 @@ static void DrawCommandDeck(const FPainter& Paint, const FContext& Context, cons
 {
 	if (CanPingInspectedForce(Context))
 		return; // The same read-only force card is drawn by DrawForceBar.
-	if (Context.bExpanded)
+	if (Layout.bDeck)
 	{
 		Paint.Panel(Layout.Inspector);
 		if (Context.Building)

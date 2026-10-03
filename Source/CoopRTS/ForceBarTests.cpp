@@ -101,7 +101,7 @@ public:
 			Click(Own.Get(), EHUDAction::ForceCardProduction);
 			Check(!Producer->bProductionEnabled, TEXT("Card pauses its producer without unlocking its unit type"));
 			Teammate(State);
-			MemoLayout(State);
+			Layouts(State);
 			return true;
 		}
 		return false;
@@ -290,29 +290,53 @@ private:
 		Own->MarchSpeed = 300.f;
 		return true;
 	}
-	void MemoLayout(ACommandGameState* State)
+	// Cards, deck and memos at both required resolutions. Where the deck does not fit beside the
+	// cards it starts collapsed and the middle of the screen stays world; F4 pins it open.
+	void Layouts(ACommandGameState* State)
 	{
 		PC->SelectForce(Own.Get());
-		const FString Error = JevIntentFixture::Publish(State->GetWorld(), *State, JevIntentFixture::EStage::Create);
-		if (!Check(Error.IsEmpty(), TEXT("JEV layout fixture publishes real plans")))
-			return;
-		const FContext Context = MakeContext(PC.Get());
-		if (!Check(Context.bExpanded, TEXT("Memo acceptance uses the expanded deck")))
-			return;
-		ObserveJevIntent(Context);
-		FJevIntentModel Model;
-		BuildJevIntentModel(Context, Model);
-		for (const FVector2D& Resolution : { FVector2D(1600.f, 900.f), FVector2D(1280.f, 720.f) })
+		for (JevIntentFixture::EStage Plan : { JevIntentFixture::EStage::Create, JevIntentFixture::EStage::Replace })
 		{
-			const FLayout Layout = MakeLayout(Context, Resolution.X, Resolution.Y);
-			FJevMemoRow Rows[JevIntent::MemoVisible];
-			const int32 Count = JevMemoRows(Context, Layout, Model, Rows);
-			Check(Count >= 2, TEXT("At least two JEV memo rows fit beside the expanded deck at both resolutions"));
-			for (int32 Index = 0; Index < Count; ++Index)
-				Check(!Rows[Index].Rect.Intersects(Layout.Bottom) && !Rows[Index].Rect.Intersects(Layout.Build)
-						&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(ForceBarRect(Layout)),
-					TEXT("Visible JEV memos do not overlap the expanded deck, build bar, minimap or force bar"));
+			if (!Check(JevIntentFixture::Publish(State->GetWorld(), *State, Plan).IsEmpty(), TEXT("JEV layout fixture publishes real plans")))
+				return;
+			ObserveJevIntent(MakeContext(PC.Get()));
 		}
+		const FContext Base = MakeContext(PC.Get());
+		FJevIntentModel Model;
+		BuildJevIntentModel(Base, Model);
+		struct FCase
+		{
+			FVector2D Resolution;
+			int32 Cards;
+			bool bBesideDeck;
+		};
+		const FCase Cases[] = { { { 1600.f, 900.f }, 1, true }, { { 1600.f, 900.f }, 2, true }, { { 1600.f, 900.f }, 5, false },
+			{ { 1280.f, 720.f }, 1, true }, { { 1280.f, 720.f }, 2, false }, { { 1280.f, 720.f }, 5, false } };
+		for (const FCase& Case : Cases)
+			for (const bool bPinned : { false, true })
+			{
+				FContext Context = Base;
+				Context.Forces.Init(Own.Get(), Case.Cards);
+				Context.bDeckPinned = bPinned;
+				const FLayout Layout = MakeLayout(Context, Case.Resolution.X, Case.Resolution.Y);
+				Check(Layout.bDeck == (Case.bBesideDeck || bPinned),
+					TEXT("The deck starts collapsed exactly where it does not fit beside the cards, and F4 pins it open"));
+				Check(bPinned || !IsPanelPoint(Context, Layout, FVector2D(Layout.Width, Layout.Height) * .5f),
+					TEXT("The middle of the screen is never HUD in the default state"));
+				Check(Layout.ForceBar.W <= Case.Cards * ForceCardMaxWidth + (Case.Cards - 1) * Gap + .01f
+						&& Layout.ForceBar.Right() <= Layout.Width - Margin + .01f,
+					TEXT("The card row is only as wide as its cards and stays on screen"));
+				Check(!Layout.bDeck || (!Layout.Inspector.Intersects(Layout.ForceBar) && !Layout.Inspector.Intersects(Layout.Build)
+											  && !Layout.Inspector.Intersects(Layout.Minimap)),
+					TEXT("The deck never overlaps the cards, build bar or minimap"));
+				FJevMemoRow Rows[JevIntent::MemoVisible];
+				const int32 Count = JevMemoRows(Context, Layout, Model, Rows);
+				Check(Count == JevIntent::MemoVisible, TEXT("All three JEV memo rows are visible in every layout"));
+				for (int32 Index = 0; Index < Count; ++Index)
+					Check(!Rows[Index].Rect.Intersects(Layout.Bottom) && !Rows[Index].Rect.Intersects(Layout.Build)
+							&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(Layout.ForceBar),
+						TEXT("Visible JEV memos do not overlap the deck, build bar, minimap or cards"));
+			}
 	}
 	bool SelectionAndLayout(ACommandGameState* State)
 	{

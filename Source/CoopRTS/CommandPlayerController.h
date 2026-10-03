@@ -60,6 +60,7 @@ public:
 	float GetFeedbackOpacity() const;
 	bool IsBuildHotkeyPending() const;
 	bool IsHUDExpanded() const { return bHUDExpanded; }
+	bool IsDeckPinned() const { return bDeckPinned; }
 	bool IsPlacingBuilding() const { return bPlacingBuilding; }
 	int32 GetPlacementIndex() const { return PlacementIndex; }
 	const UBuildingDefinition* GetPlacementDefinition() const;
@@ -145,6 +146,8 @@ private:
 	bool bAssigningOrder = false;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
+	// Keeps the deck open over the world when it does not fit beside the force cards.
+	bool bDeckPinned = false;
 	bool bPlacementPending = false;
 	bool bPlacementCancelled = false;
 	TWeakObjectPtr<ACommandBuilding> PendingPlacedBuilding;

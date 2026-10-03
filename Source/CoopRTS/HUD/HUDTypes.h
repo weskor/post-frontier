@@ -97,7 +97,12 @@ struct FContext
 	bool bTerminal = false;
 	// The frame's JEV display model when the HUD draws; panel queries rebuild one when it is null.
 	const FJevIntentModel* JevIntent = nullptr;
+	// The controller's request: false while Attack targeting or placement needs the world.
 	bool bExpanded = true;
+	// Set by F4 (or a selected building) when the deck does not fit beside the cards.
+	bool bDeckPinned = false;
+	// Own selectable forces in force-number order: one card each.
+	TArray<AArmyGroup*, TInlineAllocator<6>> Forces;
 };
 struct FLayout
 {
@@ -115,6 +120,9 @@ struct FLayout
 	FRect Menu;
 	FRect Pause;
 	FRect Screen;
+	FRect ForceBar;
+	// Whether the deck is actually drawn: requested and either beside the cards or pinned.
+	bool bDeck = true;
 	bool bFeedback = false;
 };
 enum class EBlock : uint8

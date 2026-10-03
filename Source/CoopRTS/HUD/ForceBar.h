@@ -6,6 +6,8 @@
 namespace CommandHUDPanels
 {
 constexpr float ForceBarHeight = 188.f;
+constexpr float ForceCardMaxWidth = 300.f;
+constexpr float TeammateCardWidth = 360.f;
 struct FForceCard
 {
 	const AArmyGroup* Force = nullptr;
@@ -23,7 +25,8 @@ struct FForceCard
 	TStringBuilder<256> Status;
 	TStringBuilder<128> Production;
 };
-FRect ForceBarRect(const FLayout& Layout);
+// Fills Out with the local commander's selectable forces in number order.
+void CollectOwnForces(const FContext& Context, TArray<AArmyGroup*, TInlineAllocator<6>>& Out);
 void ForEachForceCard(const FContext& Context, const FLayout& Layout,
 	TFunctionRef<void(AArmyGroup*, const FRect&)> Visit);
 void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card);

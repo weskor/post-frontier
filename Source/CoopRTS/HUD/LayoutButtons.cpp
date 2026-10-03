@@ -176,7 +176,7 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
 		Context.State && Context.State->IsActivePaused(), 0 });
 	BuildButtons(Context, Layout, Visit);
-	if (!Context.bExpanded)
+	if (!Layout.bDeck)
 		return;
 	const ACommandBuilding* Building = Context.Building;
 	if (!Building)

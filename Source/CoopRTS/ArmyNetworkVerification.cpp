@@ -391,6 +391,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Result->SetStringField(TEXT("orderFeedback"), It->GetOrderFeedback());
 			Number(Result, TEXT("feedbackOpacity"), It->GetFeedbackOpacity());
 			Result->SetBoolField(TEXT("hudExpanded"), It->IsHUDExpanded());
+			const ACommandHUD* DeckHUD = Cast<ACommandHUD>(It->GetHUD());
+			Result->SetBoolField(TEXT("deckOpen"), DeckHUD && DeckHUD->IsDeckOpen());
 			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
 			Result->SetBoolField(TEXT("assigningOrder"), It->IsAssigningOrder());
 			Number(Result, TEXT("pendingVerb"), static_cast<int32>(It->GetPendingVerb()));
@@ -421,6 +423,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			It->GetViewportSize(ViewportWidth, ViewportHeight);
 			Number(Result, TEXT("viewportWidth"), ViewportWidth);
 			Number(Result, TEXT("viewportHeight"), ViewportHeight);
+			Result->SetBoolField(TEXT("centreClear"), DeckHUD && !DeckHUD->IsPanelPoint(FVector2D(ViewportWidth, ViewportHeight) * .5f));
 			float CursorX, CursorY;
 			if (It->GetMousePosition(CursorX, CursorY))
 			{
@@ -1065,12 +1068,14 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		}
 		return TEXT("no free legal JEV deposit");
 	}
-	if (Action == TEXT("destroyExtractor"))
+	// destroyBuilding orphans a barracks' force through the same hostile damage path.
+	if (Action == TEXT("destroyExtractor") || Action == TEXT("destroyBuilding"))
 	{
 		const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
+		const EBuildingKind Expected = Action == TEXT("destroyExtractor") ? EBuildingKind::Extractor : EBuildingKind::Barracks;
 		if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex])
-			|| State->Buildings[BuildingIndex]->Kind != EBuildingKind::Extractor)
-			return TEXT("extractor fixture unavailable");
+			|| State->Buildings[BuildingIndex]->Kind != Expected)
+			return TEXT("building damage fixture unavailable");
 		ACommandBuilding* Extractor = State->Buildings[BuildingIndex];
 		const int32 HostileTeam = Extractor->TeamIndex == 5 ? 0 : 5;
 		ACommandPlayerState* HostileWallet = HostileTeam == 5 ? State->EnemyCommander.Get() : PC->GetPlayerState<ACommandPlayerState>();

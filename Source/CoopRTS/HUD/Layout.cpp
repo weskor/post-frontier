@@ -25,6 +25,8 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 		Context.ForceSlots = CommandForceCap::Read(*Context.State, *Context.Wallet);
 	Context.bTerminal = Context.State && Context.State->MatchResult != EMatchResult::Ongoing;
 	Context.bExpanded = Controller->IsHUDExpanded();
+	Context.bDeckPinned = Controller->IsDeckPinned();
+	CollectOwnForces(Context, Context.Forces);
 	// The controller drops selections that stop being owned, so these are the local commander's.
 	const ACommandBuilding* Building = Controller->GetSelectedBuilding();
 	Context.Building = IsValid(Building) && Building->IsAlive() ? Building : nullptr;
@@ -97,6 +99,49 @@ const UArmyUnitDefinition* ProductionDefinition(const FContext& Context)
 		? Content->Unit(Content->UnitIndexForRole(Context.Building->ProductionRole))
 		: nullptr;
 }
+// Width the build bar had beside the deck at 1600x900; beside the cards it keeps that width.
+constexpr float BuildBarMaxWidth = 700.f;
+constexpr float BuildBarHeight = 88.f;
+
+// The card row owns the bottom edge and is only as wide as its cards. The deck sits beside
+// the cards when it fits there, so the centre of the screen stays world. Otherwise it sits above
+// the row next to the minimap and is drawn only when pinned (F4) or while a building is selected.
+static void PlaceFooter(const FContext& Context, FLayout& Layout)
+{
+	const float RowBottom = Layout.Height - Margin;
+	const float RowTop = RowBottom - ForceBarHeight;
+	const int32 Count = Context.Forces.Num();
+	const float CardWidth = Count > 0
+		? FMath::Min(ForceCardMaxWidth, (Layout.Width - 2.f * Margin - Gap * (Count - 1)) / Count)
+		: 0.f;
+	if (Count > 0)
+		Layout.ForceBar = { Margin, RowTop, Count * CardWidth + (Count - 1) * Gap, ForceBarHeight };
+	const float FooterBottom = RowTop - Gap * .5f;
+	Layout.Minimap = { Margin, FooterBottom - MinimapSize, MinimapSize, MinimapSize };
+	const float FooterX = Layout.Minimap.Right() + Gap;
+	const bool bTeammate = CanPingInspectedForce(Context);
+	const float BesideX = Count > 0 ? Layout.ForceBar.Right() + Gap : Margin;
+	const bool bBeside = !bTeammate && Layout.Width - Margin - BesideX >= InspectorWidth;
+	Layout.bDeck = Context.bExpanded && (bBeside || Context.bDeckPinned || Context.Building);
+	if (bBeside)
+	{
+		Layout.Inspector = { BesideX, RowBottom - DeckHeight, InspectorWidth, DeckHeight };
+		Layout.Build = { FooterX, FooterBottom - BuildBarHeight, FMath::Min(BuildBarMaxWidth, Layout.Width - Margin - FooterX), BuildBarHeight };
+		Layout.Bottom = Layout.bDeck ? Layout.Inspector : FRect{ BesideX, RowBottom - ModeHeight, InspectorWidth, ModeHeight };
+		Layout.Feedback = { Layout.Build.X, Layout.Build.Y - Gap * .5f - FeedbackHeight, Layout.Build.W, FeedbackHeight };
+		return;
+	}
+	// Side-by-side deck and build bar leave the JEV timeline and memo column readable.
+	const float Width = FMath::Min(InspectorWidth, FMath::Max(0.f, Layout.Width - FooterX - Margin - Gap - 430.f));
+	Layout.Inspector = { FooterX, FooterBottom - DeckHeight, Width, DeckHeight };
+	const float BuildX = Layout.Inspector.Right() + Gap;
+	Layout.Build = { BuildX, FooterBottom - BuildBarHeight, Layout.Width - Margin - BuildX, BuildBarHeight };
+	Layout.Bottom = bTeammate ? FRect{ FooterX, Layout.Inspector.Y, TeammateCardWidth, DeckHeight }
+		: Layout.bDeck        ? Layout.Inspector
+                              : FRect{ FooterX, FooterBottom - ModeHeight, Width, ModeHeight };
+	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
+}
+
 FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 {
 	FLayout Layout;
@@ -109,17 +154,7 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Menu = { Layout.Width - Margin - 90.f, Margin, 90.f, TopHeight };
 	Layout.Screen = { (Layout.Width - ScreenWidth) * .5f, (Layout.Height - ScreenHeight) * .5f, ScreenWidth, ScreenHeight };
 	Layout.Pause = { Layout.Menu.Right() - 190.f, Layout.Menu.Bottom() + Gap, 190.f, TopHeight };
-	const FRect ForceBar = ForceBarRect(Layout);
-	const float FooterBottom = ForceBar.Y - Gap * .5f;
-	Layout.Minimap = { Margin, FooterBottom - MinimapSize, MinimapSize, MinimapSize };
-	const float X = Layout.Minimap.Right() + Gap;
-	// Side-by-side deck and build bar leave the JEV timeline and memo column readable.
-	const float Width = FMath::Min(InspectorWidth, FMath::Max(0.f, Layout.Width - X - Margin - Gap - 430.f));
-	Layout.Inspector = { X, FooterBottom - DeckHeight, Width, DeckHeight };
-	const float BuildX = Layout.Inspector.Right() + Gap;
-	Layout.Build = { BuildX, FooterBottom - 88.f, Layout.Width - Margin - BuildX, 88.f };
-	Layout.Bottom = Context.bExpanded || CanPingInspectedForce(Context) ? Layout.Inspector
-																		: FRect{ X, FooterBottom - ModeHeight, Width, ModeHeight };
+	PlaceFooter(Context, Layout);
 	Layout.Objectives = { Margin, Layout.Top.Bottom() + Gap, Layout.Width - 2.f * Margin, ObjectiveHeight };
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (Announcer && !Announcer->GetEvents().IsEmpty())
@@ -134,7 +169,6 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	Layout.Alerts = { AlertX, Layout.Objectives.Bottom() + Gap, AlertWidth,
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
 	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;
-	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };
 	if (Context.Controller && Context.Controller->GetUIScreen() != ECommandScreen::Game)
 		Layout.Feedback = { Layout.Screen.X, FMath::Max(Margin, Layout.Screen.Y - Gap - FeedbackHeight), Layout.Screen.W, FeedbackHeight };
 	return Layout;
@@ -183,7 +217,8 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Minimap);
 	Visit(Layout.Build);
 	Visit(Layout.Bottom);
-	Visit(ForceBarRect(Layout));
+	if (Layout.ForceBar.W > 0.f)
+		Visit(Layout.ForceBar);
 	if (Layout.bFeedback)
 		Visit(Layout.Feedback);
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent&, const FRect& Alert, float) {

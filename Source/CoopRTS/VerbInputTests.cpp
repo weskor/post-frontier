@@ -25,10 +25,12 @@ using namespace ArmyTestSetup;
 class FScenario : public IAutomationLatentCommand
 {
 public:
-	explicit FScenario(FAutomationTestBase* InTest) : Test(InTest), Started(FPlatformTime::Seconds()) {}
+	FScenario(FAutomationTestBase* InTest, FIntPoint InTargetSurface) : Test(InTest), TargetSurface(InTargetSurface) {}
 
 	bool Update() override
 	{
+		if (Started < 0.)
+			Started = FPlatformTime::Seconds();
 		if (FPlatformTime::Seconds() - Started > 45.)
 			return Fail(TEXT("Verb input scenario exceeded 45 seconds"));
 		if (bFailed)
@@ -44,15 +46,15 @@ public:
 				|| !PC->GetPlayerState<ACommandPlayerState>() || PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 				return false;
 			// Automation startup can resize the offscreen window after -ResX/-ResY.
-			// Establish the supported HUD surface before projecting world clicks.
+			// Establish each supported HUD surface before projecting world clicks.
 			int32 Width = 0, Height = 0;
 			PC->GetViewportSize(Width, Height);
-			if (Width != 1600 || Height != 900)
+			if (Width != TargetSurface.X || Height != TargetSurface.Y)
 			{
 				if (!bRequestedViewport)
 				{
-					Test->AddInfo(FString::Printf(TEXT("Setting input fixture viewport from %dx%d to 1600x900"), Width, Height));
-					PC->ConsoleCommand(TEXT("r.SetRes 1600x900w"));
+					Test->AddInfo(FString::Printf(TEXT("Setting input fixture viewport from %dx%d to %dx%d"), Width, Height, TargetSurface.X, TargetSurface.Y));
+					PC->ConsoleCommand(FString::Printf(TEXT("r.SetRes %dx%dw"), TargetSurface.X, TargetSurface.Y));
 					bRequestedViewport = true;
 				}
 				return false;
@@ -68,6 +70,9 @@ public:
 			bRestoreCursor = PC->GetMousePosition(OriginalMouseX, OriginalMouseY);
 			CenterCursor();
 			SelectBoth();
+			// The two selected forces are two cards: the deck sits beside them at 1600x900 and starts collapsed at 1280x720.
+			if (!Check(!HUD->IsPanelPoint(FVector2D(Width, Height) * .5f), TEXT("The middle of the screen is world in the default state")))
+				return true;
 			Camera->FocusOn(State->GetRegionAnchor(Target));
 			++Stage;
 			return false;
@@ -580,8 +585,9 @@ private:
 	}
 
 	FAutomationTestBase* Test;
-	double Started;
+	double Started = -1.;
 	bool bFailed = false;
+	FIntPoint TargetSurface;
 	bool bRequestedViewport = false;
 	int32 Stage = 0;
 	int32 Target = INDEX_NONE, EnemyHome = INDEX_NONE;
@@ -604,7 +610,8 @@ private:
 
 bool FVerbInputWorldTest::RunTest(const FString&)
 {
-	ADD_LATENT_AUTOMATION_COMMAND(VerbInputTests::FScenario(this));
+	for (const FIntPoint Resolution : { FIntPoint(1600, 900), FIntPoint(1280, 720) })
+		ADD_LATENT_AUTOMATION_COMMAND(VerbInputTests::FScenario(this, Resolution));
 	return true;
 }
 #endif

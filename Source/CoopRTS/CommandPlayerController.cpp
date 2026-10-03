@@ -88,6 +88,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
 	bHUDExpanded = true;
+	bDeckPinned = false;
 	bPlacementPending = false;
 	bPlacementCancelled = false;
 	PendingPlacedBuilding.Reset();
@@ -726,6 +727,7 @@ void ACommandPlayerController::CancelMode()
 	bBuildHotkeyPending = false;
 	bRepeatPlacement = false;
 	bHUDExpanded = true;
+	bDeckPinned = false;
 	PendingPlacedBuilding.Reset();
 	PendingPlacedBuildingNetGUID = 0;
 }
@@ -734,7 +736,11 @@ void ACommandPlayerController::ToggleHUD()
 {
 	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningOrder)
 		return;
-	bHUDExpanded = !bHUDExpanded;
+	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
+	const bool bOpen = HUD ? HUD->IsDeckOpen() : bHUDExpanded;
+	// F4 flips what is drawn: it opens a deck the layout left collapsed, and closes an open one.
+	bHUDExpanded = !bOpen;
+	bDeckPinned = !bOpen;
 }
 
 bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)

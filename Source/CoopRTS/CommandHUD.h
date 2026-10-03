@@ -72,6 +72,8 @@ public:
 	virtual void DrawHUD() override;
 	// Drawing and hit testing share one layout computed from the viewport size and local presentation state.
 	bool IsPanelPoint(const FVector2D& Position) const;
+	// Whether the deck is drawn: requested and either beside the force cards or pinned open.
+	bool IsDeckOpen() const;
 	EHUDAction GetActionAtScreenPosition(const FVector2D& Position) const;
 	AArmyGroup* GetForceCardAtScreenPosition(const FVector2D& Position, EHUDAction& OutAction) const;
 	bool FindForceCardScreenPosition(const AArmyGroup* Force, EHUDAction Action, FVector2D& OutPosition) const;

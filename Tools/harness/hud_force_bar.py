@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import cast
 
 from harness.hud_actions import TOGGLE_PRODUCTION
+from harness.hud_force_bar_many import many_states
 from harness.hud_jev import check_display, rects_overlap
 from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
@@ -86,6 +87,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     refill_states(run, capture, resolutions, owner, barracks, number)
     order_states(run, capture, resolutions, owner, barracks, number)
     memo_states(run, capture, resolutions, owner, barracks)
+    many_states(run, capture, resolutions, owner, barracks)
     teammate_states(run, capture, resolutions)
     no_compositor_windows(run, pid)
     run.event(
@@ -235,7 +237,8 @@ def memo_states(
     barracks: int,
 ) -> None:
     run.request("host", "jevPlans", stage="create")
-    run.phase("published JEV plans alongside the expanded deck and force bar")
+    run.request("host", "jevPlans", stage="replace")
+    run.phase("published and replaced JEV plans beside the deck and force bar")
     for width, height in resolutions:
         run.request("host", "resolution", width=width, height=height)
 
@@ -243,15 +246,14 @@ def memo_states(
             return (state["viewportWidth"], state["viewportHeight"]) == (
                 width,
                 height,
-            ) and len(state["jevIntent"]["memos"]) >= 2
+            ) and len(state["jevIntent"]["memos"]) >= 3
 
-        state = capture.wait(
-            ready, f"two memo rows with expanded deck at {width}x{height}"
-        )
-        require(state["hudExpanded"], "memo acceptance requires the expanded deck")
-        check_display(state, f"force bar expanded deck {width}x{height}")
+        state = capture.wait(ready, f"three memo rows beside the deck at {width}x{height}")
+        require(state["deckOpen"], "memo acceptance requires the deck beside the card")
+        require(state["centreClear"], "the middle of the screen is HUD by default")
+        check_display(state, f"force bar deck beside cards {width}x{height}")
         view = card(state, owner, barracks)
-        require(view["clearsPanels"], "force bar overlaps the expanded deck")
+        require(view["clearsPanels"], "force bar overlaps the deck")
         require(
             all(
                 not rects_overlap(view["rect"], memo["rect"])
@@ -259,4 +261,4 @@ def memo_states(
             ),
             "JEV memos overlap the force card",
         )
-        capture.shot(f"force-bar-expanded-deck-two-memos-{width}x{height}")
+        capture.shot(f"force-bar-deck-beside-card-three-memos-{width}x{height}")

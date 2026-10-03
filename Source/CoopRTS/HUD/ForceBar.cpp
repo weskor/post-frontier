@@ -52,26 +52,31 @@ ForceCardPolicy::EState CardState(EForceStatus Status)
 }
 }
 
-FRect ForceBarRect(const FLayout& Layout)
+void CollectOwnForces(const FContext& Context, TArray<AArmyGroup*, TInlineAllocator<6>>& Out)
 {
-	return { Margin, Layout.Height - Margin - ForceBarHeight, Layout.Width - 2.f * Margin, ForceBarHeight };
+	Out.Reset();
+	if (!Context.Controller || !Context.Wallet)
+		return;
+	for (TActorIterator<AArmyGroup> It(Context.Controller->GetWorld()); It; ++It)
+		if (It->GetOwningPlayerState() == Context.Wallet && Context.Controller->IsSelectableForce(*It))
+			Out.Add(*It);
+	Out.Sort([](const AArmyGroup& A, const AArmyGroup& B) { return A.ForceNumber < B.ForceNumber; });
 }
 
 void ForEachForceCard(const FContext& Context, const FLayout& Layout, TFunctionRef<void(AArmyGroup*, const FRect&)> Visit)
 {
 	if (!Context.Controller || !Context.Wallet || !Context.State)
 		return;
-	TArray<AArmyGroup*, TInlineAllocator<5>> Forces;
-	for (TActorIterator<AArmyGroup> It(Context.Controller->GetWorld()); It; ++It)
-		if (It->GetOwningPlayerState() == Context.Wallet && Context.Controller->IsSelectableForce(*It))
-			Forces.Add(*It);
-	Forces.Sort([](const AArmyGroup& A, const AArmyGroup& B) { return A.ForceNumber < B.ForceNumber; });
-	const FRect Bar = ForceBarRect(Layout);
-	const float Width = FMath::Min(300.f, (Bar.W - Gap * (FMath::Max(1, Forces.Num()) - 1)) / FMath::Max(1, Forces.Num()));
-	for (int32 Index = 0; Index < Forces.Num(); ++Index)
-		Visit(Forces[Index], { Bar.X + Index * (Width + Gap), Bar.Y, Width, Bar.H });
+	const int32 Count = Context.Forces.Num();
+	if (Count > 0)
+	{
+		const FRect& Bar = Layout.ForceBar;
+		const float Width = (Bar.W - Gap * (Count - 1)) / Count;
+		for (int32 Index = 0; Index < Count; ++Index)
+			Visit(Context.Forces[Index], { Bar.X + Index * (Width + Gap), Bar.Y, Width, Bar.H });
+	}
 	if (CanPingInspectedForce(Context))
-		Visit(const_cast<AArmyGroup*>(Context.Force), { Layout.Inspector.X, Layout.Inspector.Y, 360.f, ForceBarHeight });
+		Visit(const_cast<AArmyGroup*>(Context.Force), { Layout.Inspector.X, Layout.Inspector.Y, TeammateCardWidth, Layout.Inspector.H });
 }
 
 static void ReadForceStatus(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card)
@@ -222,7 +227,12 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	Paint.Text(ForceVerbRule(Card), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
 	Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(ForceTargetRule(Card.Definition), X, Rect.Y + 87.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
-	Paint.Text(Card.Production.ToView(), X, Rect.Y + 101.f, 8.f, Palette::Muted, false, EAlign::Left, Width - (Card.bOwned && Card.Producer ? 63.f : 0.f));
+	// Narrow cards drop the "Refill: " label before they would clip the travelling count.
+	FStringView Production = Card.Production.ToView();
+	const float ProductionWidth = Width - (Card.bOwned && Card.Producer ? 63.f : 0.f);
+	if (Production.StartsWith(TEXT("Refill: ")) && Paint.TextWidth(Production, 8.f) > ProductionWidth)
+		Production.RightChopInline(8);
+	Paint.Text(Production, X, Rect.Y + 101.f, 8.f, Palette::Muted, false, EAlign::Left, ProductionWidth);
 	Paint.Bar({ X, Rect.Y + 120.f, Width, 3.f }, Card.ProductionProgress, Accent);
 	TStringBuilder<64> Threshold;
 	Threshold << TEXT("Retreat threshold \u00B7 Attack only");
@@ -243,7 +253,7 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 
 void DrawForceBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
-	Paint.Fill(ForceBarRect(Layout), Palette::Card);
+	Paint.Fill(Layout.ForceBar, Palette::Card);
 	FVector2D Mouse(-1.f, -1.f);
 	float X, Y;
 	if (Context.Controller && Context.Controller->GetMousePosition(X, Y))
