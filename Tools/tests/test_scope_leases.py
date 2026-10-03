@@ -5,8 +5,10 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
 import pytest
@@ -24,11 +26,15 @@ from x.context import Context
 from x.runs import Run
 from x.settings import load
 from x.testing import run_scopes
+from x.commands import gen, verify
+import argparse
 
 class ProbeContext(Context):
     def exec(self, argv, **kwargs):
         if kwargs.get('watch') is not None:
             argv = [sys.executable, root / 'editor-probe.py', *argv[1:]]
+        elif kwargs['log'] == 'generate' or kwargs['log'].startswith('verify-'):
+            argv = [sys.executable, root / 'peer-probe.py']
         return super().exec(argv, **kwargs)
 
 repo, root, token, mode, slots, peers = sys.argv[1:]
@@ -40,6 +46,11 @@ ctx = ProbeContext(repo, settings, record, mode)
 if mode in ('scopes', 'scripts'):
     names = ['one', 'two', 'three'] if mode == 'scopes' else ['script']
     code = 0 if run_scopes(ctx, names) else 1
+elif mode == 'gen':
+    code = gen.run(argparse.Namespace(name='generate-command-map', extra=[],
+                                     list=False, describe=False), ctx)
+elif mode == 'verify':
+    code = verify.run(argparse.Namespace(harness='network', mode='editor', clients=1), ctx)
 else:
     manager = ctx.locks.headless(int(peers)) if mode == 'headless' else getattr(ctx.locks, mode)()
     with manager:
@@ -141,6 +152,16 @@ def probes(repo: Path, tmp_path: Path) -> Iterator[Probes]:
         + "[paths]\n"
     )
     (tmp_path / "editor-probe.py").write_text(EDITOR)
+    (tmp_path / "peer-probe.py").write_text(
+        "from pathlib import Path\n"
+        "import os, time\n"
+        "root = Path(os.environ['X_PROBE_ROOT'])\n"
+        "token = os.environ['X_PROBE_TOKEN']\n"
+        "(root / (token + '.entered')).touch()\n"
+        "while not (root / (token + '.release')).exists():\n"
+        "    time.sleep(0.01)\n"
+        "(Path(os.environ['X_RUN_DIR']) / 'unreal.log').write_text('completed')\n"
+    )
     pool = Probes(repo, tmp_path)
     yield pool
     for child in pool.children:
@@ -166,6 +187,9 @@ def test_multi_scope_invocations_interleave_and_record_each_lease(
     probes.scope_release("a.one")
     probes.await_entry("b.one")
     probes.queued_scopes("a", 1)
+    blocked_at = time.monotonic()
+    time.sleep(0.05)
+    blocked_until = time.monotonic()
     probes.scope_release("b.one")
     probes.await_entry("a.two")
     probes.queued_scopes("b", 2)
@@ -178,6 +202,12 @@ def test_multi_scope_invocations_interleave_and_record_each_lease(
     probes.scope_release("a.three")
     probes.await_entry("b.three")
     probes.scope_release("b.three")
+    second_scope_wait = next(
+        row["duration_s"]
+        for row in probes.finish_scopes("a", a)["lock_waits"]
+        if row["lock"] == "scope:two:headless"
+    )
+    assert second_scope_wait >= blocked_until - blocked_at
     for token, child in [("a", a), ("b", b)]:
         record = probes.finish_scopes(token, child)
         leases = [
@@ -186,7 +216,6 @@ def test_multi_scope_invocations_interleave_and_record_each_lease(
         assert [row["lock"] for row in leases] == [
             f"scope:{name}:headless" for name in ("one", "two", "three")
         ]
-        assert leases[1]["duration_s"] > 0
 
 
 def test_exclusive_waiter_enters_between_scopes(probes: Probes) -> None:
@@ -213,11 +242,27 @@ def test_peer_slots_acquired_together_without_partial_reservation(
     network = probes.start("network", "headless", slots=2, peers=peers)
     probes.waiting("network", "pool-0.lock, pool-1.lock")
     assert len(list((probes.root / "locks").glob("pool-*.holder.json"))) == 1
+    # A partial reservation must not retain the free slot while waiting for reader.
+    assert (
+        subprocess.run(
+            ["flock", "-w", "2", str(probes.root / "locks/pool-1.lock"), "true"],
+            check=False,
+        ).returncode
+        == 0
+    )
     later = probes.start("later", "headless", slots=2)
     probes.waiting("later", "turnstile.lock")
     probes.release("reader", reader)
     probes.await_entry("network")
     assert len(list((probes.root / "locks").glob("pool-*.holder.json"))) == 2
+    for index in range(2):
+        assert (
+            subprocess.run(
+                ["flock", "-n", str(probes.root / f"locks/pool-{index}.lock"), "true"],
+                check=False,
+            ).returncode
+            == 1
+        )
     assert not probes.entered("later")
     probes.release("network", network)
     probes.await_entry("later")
@@ -294,3 +339,46 @@ def test_non_unreal_scope_runs_while_exclusive_is_held(probes: Probes) -> None:
     assert record["lock_waits"] == []
     assert holder.poll() is None
     probes.release("holder", holder)
+
+
+def test_same_worktree_module_wait_does_not_block_other_worktree_build(
+    probes: Probes,
+) -> None:
+    other_repo = probes.root / "other-worktree"
+    shutil.copytree(probes.repo, other_repo)
+    other = Probes(other_repo, probes.root, probes.children)
+    a = probes.start("a", "scopes", slots=2)
+    probes.await_entry("a.one")
+    local_build = probes.start("local", "build", slots=2)
+    eventually(
+        lambda: "waiting for module-" in probes.log("local"),
+        "local build did not wait for the active scope",
+    )
+    foreign_build = other.start("foreign", "build", slots=2)
+    probes.await_entry("foreign")
+    assert not probes.entered("local")
+    probes.release("foreign", foreign_build)
+    probes.scope_release("a.one")
+    probes.await_entry("local")
+    probes.release("local", local_build)
+    for name in ("two", "three"):
+        probes.await_entry(f"a.{name}")
+        probes.scope_release(f"a.{name}")
+    probes.finish_scopes("a", a)
+
+
+@pytest.mark.parametrize("mode", ["gen", "verify"])
+def test_editor_consumers_exclude_same_worktree_build(
+    probes: Probes, mode: str
+) -> None:
+    consumer = probes.start("consumer", mode, slots=2)
+    probes.await_entry("consumer")
+    builder = probes.start("builder", "build", slots=2)
+    eventually(
+        lambda: "waiting for module-" in probes.log("builder"),
+        f"build did not wait for {mode}'s module reader",
+    )
+    assert not probes.entered("builder")
+    probes.release("consumer", consumer)
+    probes.await_entry("builder")
+    probes.release("builder", builder)

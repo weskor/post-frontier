@@ -184,8 +184,8 @@ class Locks:
     def build(self) -> Iterator[None]:
         """Wait for UBT's shared state before consuming a headless pool slot."""
         with (
-            self.held(["build.lock"], fcntl.LOCK_EX),
             self.held([self.module_lock], fcntl.LOCK_EX),
+            self.held(["build.lock"], fcntl.LOCK_EX),
             self.headless(),
         ):
             yield

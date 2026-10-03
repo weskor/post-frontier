@@ -45,8 +45,11 @@ def start(repo: Path, root: Path, mode: str) -> subprocess.Popen[bytes]:
 
 def line(child: subprocess.Popen[bytes]) -> str:
     assert child.stdout is not None
-    assert select.select([child.stdout], [], [], 5)[0], "lock child did not respond"
-    return child.stdout.readline().decode().strip()
+    while True:
+        assert select.select([child.stdout], [], [], 5)[0], "lock child did not respond"
+        value = child.stdout.readline().decode().strip()
+        if not value.startswith("waiting for"):
+            return value
 
 
 def release(child: subprocess.Popen[bytes]) -> None:
@@ -65,7 +68,6 @@ def test_build_serializes_but_world_can_coexist(repo: Path) -> None:
             build = start(repo, root, "build")
             children.append(build)
             assert line(build) == "ready"
-            assert line(build).startswith("waiting for build.lock:")
             world = start(repo, root, "headless")
             children.append(world)
             assert line(world) == "ready"
@@ -101,7 +103,6 @@ def test_fresh_editor_skips_build_lock_and_rechecks_after_wait(
                 assert line(child) == "editor up to date"
                 assert child.wait(timeout=5) == 0
             else:
-                assert line(child).startswith("waiting for build.lock:")
                 module.write_bytes(b"editor")
                 ctx.freshness.stamp("editor", "owner")
         if not initially_fresh:

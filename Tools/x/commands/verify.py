@@ -1,6 +1,7 @@
 """The only executable entry point for slow verification harnesses."""
 
 import argparse
+from contextlib import nullcontext
 import importlib
 from pathlib import Path
 import sys
@@ -30,7 +31,8 @@ fresh host/client worlds. Construction is the default continuous acceptance chai
 not a requirement after every change. Use host plus one remote for ordinary
 replicated proof; --clients 0 or 4 and --emulation belong only to requested topology/
 fault checks. Emulation requires observed native PktLag=120/PktLoss=8 on every peer.
-Editor mode ensures a fresh editor build. Packaged mode requires ./x package.
+Editor mode ensures a fresh editor build and holds its module reader lock throughout
+verification. Packaged mode requires ./x package and takes no editor module lock.
 Network leases one headless slot per host/client peer, capped at the configured
 pool size and acquired together. HUD uses one slot. Native/desktop sessions remain
 exclusive; rendered network peers still use the headless pool.
@@ -190,7 +192,10 @@ def run(args: argparse.Namespace, ctx: Context) -> int:
     if args.mode == "editor" and not ensure_editor(ctx):
         return 1
     peers = 1 + args.clients if args.harness == "network" else 1
-    with ctx.locks.headless(peers):
+    with (
+        ctx.locks.module() if args.mode == "editor" else nullcontext(),
+        ctx.locks.headless(peers),
+    ):
         if args.mode == "packaged":
             package_snapshot(ctx.repo)
         return execute(args, ctx, folder)
