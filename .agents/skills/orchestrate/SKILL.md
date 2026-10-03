@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Split a task across parallel agents in herdr tabs. Opus 5.5 orchestrates, up to nine Sol 6.1 workers implement isolated slices in their own worktrees, up to three Opus 5.5 reviewers review, then each slice lands. Use when splitting work across agents, or when you are a worker or reviewer started under this workflow.
+description: Split a task across parallel agents in herdr tabs. Opus 5.5 orchestrates, up to nine Sonnet 5.5 workers implement isolated slices in their own worktrees, up to three Opus 5.5 reviewers review, then each slice lands. Use when splitting work across agents, or when you are a worker or reviewer started under this workflow.
 ---
 
 # Orchestrate parallel agents
@@ -14,11 +14,12 @@ Workers and reviewers read only their own section ([Worker rules](#worker-rules)
 | Role | Agent name | Model | Fallback |
 |---|---|---|---|
 | Orchestrator | the session running this skill | `anthropic/claude-opus-5-5` | `openai-codex/gpt-6.1-sol --thinking xhigh` |
-| Worker | `worker-1` … `worker-9` | `openai-codex/gpt-6.1-sol` | none: stop and tell the user |
+| Worker | `worker-1` … `worker-9` | `anthropic/claude-sonnet-5-5 --thinking high` | `openai-codex/gpt-6.1-sol` |
 | Reviewer | `reviewer-1` … `reviewer-3` | `anthropic/claude-opus-5-5 --thinking medium` | `openai-codex/gpt-6-astra` |
 
 - **Starting the orchestrator:** the user runs `omp --config /home/wes/workspace/game/.agents/omp-agents.yml --model anthropic/claude-opus-5-5` in a herdr pane at the repo root. Fallback: `omp --config /home/wes/workspace/game/.agents/omp-agents.yml --model openai-codex/gpt-6.1-sol --thinking xhigh`.
 - **Model providers: OpenAI (`openai-codex`) and Anthropic only.** No OpenRouter or other model providers. Every start uses the [agent config overlay](../../omp-agents.yml), which pins all model roles and disables `find`. Agents have no `find` tool; briefs must never tell them to use it.
+- **Worker model trial (owner decision 2026-10-03):** workers moved from Sol 6.1 to Sonnet 5.5 because Sol generated about 14 tokens/s and workers spent 76–95% of their time waiting on it. A running worker keeps its model until its slot is restarted: switch a slot when it starts its next slice (`/exit`, then `agent start` with the new model), never mid-slice.
 - **The orchestrator plans, briefs, waits, lands and talks to the user.** It doesn't implement slices itself.
 - **At most 9 workers and 3 reviewers at a time.** `./x` shares Unreal through its headless pool and exclusive lock; the limits are review throughput and the orchestrator's attention.
 
@@ -105,7 +106,7 @@ git -C /home/wes/workspace/game-wt/<worker-n> switch -c task/<slug> main   # whe
 herdr pane run <pane-id> "cd /home/wes/workspace/game-wt/<worker-n> && pwd"
 herdr pane wait-output <pane-id> --regex '^/home/wes/workspace/game-wt/<worker-n>$' --source recent-unwrapped --timeout 10000
 herdr pane get <pane-id>
-herdr agent start <worker-n> --kind omp --pane <pane-id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model openai-codex/gpt-6.1-sol
+herdr agent start <worker-n> --kind omp --pane <pane-id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model anthropic/claude-sonnet-5-5 --thinking high
 ```
 
 Before starting, confirm `.result.pane.foreground_cwd` from `pane get` is the worktree path and the pane is at its shell prompt. For each reviewer, use its `r<n>` pane, set and confirm its shell cwd the same way:
@@ -191,8 +192,6 @@ Switch to the fallback model when `agent start` fails, or a turn ends on a provi
 1. In the same pane, `herdr agent prompt <name> "/exit"`.
 2. Run `herdr agent start <name> --kind omp --pane <pane-id> --timeout 90000 -- --config /home/wes/workspace/game/.agents/omp-agents.yml --model <fallback>`.
 3. Resend the last prompt.
-
-Workers have no fallback: stop and tell the user.
 
 ## Worker rules
 
