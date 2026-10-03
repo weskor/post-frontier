@@ -79,11 +79,13 @@ static void DrawOverviewControls(const FPainter& Paint, const FRect& Controls)
 	ColumnLabel(Paint, Controls, TEXT("CONTROLS"));
 	const float Half = Controls.W * .5f;
 	Paint.DrawKey(Controls.X, Y, TEXT("LMB"), TEXT("Select"));
-	Paint.DrawKey(Controls.X + Half, Y, TEXT("F"), TEXT("Centre"));
+	Paint.DrawKey(Controls.X + Half, Y, TEXT("F"), TEXT("Selection"));
 	Paint.DrawKey(Controls.X, Y + 22.f, TEXT("1-4 / 5"), TEXT("Force (5 solo)"));
 	Paint.DrawKey(Controls.X, Y + 44.f, TEXT("Shift"), TEXT("Toggle"));
 	Paint.DrawKey(Controls.X + Half, Y + 44.f, TEXT("G"), TEXT("Ping"));
+	Paint.DrawKey(Controls.X + Half, Y + 22.f, TEXT("Space"), TEXT("Alerts"));
 	Paint.Text(TEXT("Drag: box badges"), Controls.X, Y + 65.f, 9.f, Palette::Muted, false, EAlign::Left, Controls.W);
+	Paint.DrawKey(Controls.X + Half, Y + 65.f, TEXT("F4"), TEXT("Deck"));
 	Paint.Text(TEXT("Double-tap number: centre"), Controls.X, Y + 85.f, 8.f, Palette::Faint, false, EAlign::Left, Controls.W);
 }
 

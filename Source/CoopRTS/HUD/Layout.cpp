@@ -121,8 +121,11 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 			FMath::DivideAndRoundUp(Announcer->GetEvents().Last().Forces.Num(), Columns));
 		Layout.Objectives.H = FMath::Max(ObjectiveHeight, 27.f + Rows * (21.f + RowGap) - RowGap + Pad);
 	}
-	const float AlertBottom = FMath::Min(Layout.Build.Y, Layout.Bottom.Y) - Gap - FeedbackHeight;
-	Layout.Alerts = { Layout.Width - Margin - AlertWidth, Layout.Objectives.Bottom() + Gap, AlertWidth,
+	const float AlertX = Layout.Width - Margin - AlertWidth;
+	const float AlertBottom = AlertX < Layout.Bottom.Right()
+		? Layout.Bottom.Y - Gap - FeedbackHeight
+		: Layout.Height - Margin;
+	Layout.Alerts = { AlertX, Layout.Objectives.Bottom() + Gap, AlertWidth,
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
 	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;
 	Layout.Feedback = { Layout.Bottom.X, Layout.Bottom.Y - Gap * .5f - FeedbackHeight, Layout.Bottom.W, FeedbackHeight };

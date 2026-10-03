@@ -2,6 +2,7 @@
 
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
+#include "CommandCamera.h"
 #include "Commands/ConstructionCommandComponent.h"
 #include "HUD/HUDPanels.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
@@ -82,6 +83,19 @@ public:
 			Key(PC, EKeys::W);
 			Check(!PC->IsPlacingBuilding(), TEXT("W after a non-grid key remains a camera key"));
 			Key(PC, EKeys::W, IE_Released);
+			ACommandCamera* Camera = Cast<ACommandCamera>(PC->GetPawn());
+			if (!Check(IsValid(Camera), TEXT("Local commander has a camera")))
+				return true;
+			const FVector FocusTarget = State->FriendlyHeadquarters->GetActorLocation();
+			PC->bInitialFocusPending = false;
+			Camera->SetActorLocation(FocusTarget + FVector(500.f, 500.f, 0.f));
+			Key(PC, EKeys::B);
+			Key(PC, EKeys::F);
+			PC->PlayerTick(0.f);
+			Check(!PC->IsBuildHotkeyPending() && !PC->IsPlacingBuilding()
+					&& FVector::DistSquared2D(Camera->GetActorLocation(), FocusTarget) < 1.f,
+				TEXT("F during pending B cancels the prefix and focuses the camera on the HQ"));
+			Key(PC, EKeys::F, IE_Released);
 			Key(PC, EKeys::B);
 			Key(PC, EKeys::B);
 			Check(!PC->IsBuildHotkeyPending(), TEXT("A second B ends the pending prefix"));
