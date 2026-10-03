@@ -267,7 +267,7 @@ private:
 		Own->TickOrders();
 		Own->MarchSpeed = 300.f;
 		if (!Check(Own->Status == EForceStatus::Marching && Own->GetIntentRoutes().Num() == 2,
-			TEXT("ETA fixture has an issued active Attack route and a queued Retreat")))
+				TEXT("ETA fixture has an issued active Attack route and a queued Retreat")))
 			return false;
 		double Distance = -1.;
 		ForceRoutePresentation::Visit(*PC, [&](const ForceRoutePresentation::FRoute& Route) {
@@ -310,7 +310,7 @@ private:
 			Check(Count >= 2, TEXT("At least two JEV memo rows fit beside the expanded deck at both resolutions"));
 			for (int32 Index = 0; Index < Count; ++Index)
 				Check(!Rows[Index].Rect.Intersects(Layout.Bottom) && !Rows[Index].Rect.Intersects(Layout.Build)
-					&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(ForceBarRect(Layout)),
+						&& !Rows[Index].Rect.Intersects(Layout.Minimap) && !Rows[Index].Rect.Intersects(ForceBarRect(Layout)),
 					TEXT("Visible JEV memos do not overlap the expanded deck, build bar, minimap or force bar"));
 		}
 	}

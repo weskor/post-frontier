@@ -8,7 +8,7 @@ from typing import cast
 from harness.hud_actions import TOGGLE_PRODUCTION
 from harness.hud_jev import check_display, rects_overlap
 from harness.hud_setup import boot, place_barracks
-from harness.hud_surface import Capture, minimap_region_point, no_compositor_windows
+from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
     ATTACK,
     BARRACKS,
@@ -16,6 +16,7 @@ from harness.network import (
     alive_units,
     building,
     force,
+    minimap_region_point,
     owned_buildings,
     require,
     select_order_region,
@@ -209,12 +210,19 @@ def teammate_states(
     for width, height in resolutions:
         run.request("host", "resolution", width=width, height=height)
 
-        def viewport_matches(state: JsonObject, width: int = width, height: int = height) -> bool:
+        def viewport_matches(
+            state: JsonObject, width: int = width, height: int = height
+        ) -> bool:
             return (state["viewportWidth"], state["viewportHeight"]) == (width, height)
 
-        state = capture.wait(viewport_matches, f"teammate card viewport {width}x{height}")
+        state = capture.wait(
+            viewport_matches, f"teammate card viewport {width}x{height}"
+        )
         view = inspected_teammate(state)["forceCard"]
-        require(not view["owned"] and not state["selectedForces"], "teammate card became commandable")
+        require(
+            not view["owned"] and not state["selectedForces"],
+            "teammate card became commandable",
+        )
         require(view["clearsPanels"], "teammate card overlaps build bar/minimap")
         capture.shot(f"force-bar-teammate-read-only-{width}x{height}")
 
@@ -232,12 +240,14 @@ def memo_states(
         run.request("host", "resolution", width=width, height=height)
 
         def ready(state: JsonObject, width: int = width, height: int = height) -> bool:
-            return (
-                (state["viewportWidth"], state["viewportHeight"]) == (width, height)
-                and len(state["jevIntent"]["memos"]) >= 2
-            )
+            return (state["viewportWidth"], state["viewportHeight"]) == (
+                width,
+                height,
+            ) and len(state["jevIntent"]["memos"]) >= 2
 
-        state = capture.wait(ready, f"two memo rows with expanded deck at {width}x{height}")
+        state = capture.wait(
+            ready, f"two memo rows with expanded deck at {width}x{height}"
+        )
         require(state["hudExpanded"], "memo acceptance requires the expanded deck")
         check_display(state, f"force bar expanded deck {width}x{height}")
         view = card(state, owner, barracks)
