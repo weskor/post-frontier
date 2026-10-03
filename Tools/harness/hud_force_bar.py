@@ -69,7 +69,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     pid, state = boot(run, capture, resolutions[0])
     owner = state["localIndex"]
     run.request("host", "income", paused=True)
-    run.request("host", "fund", owner=owner, amount=4000)
+    run.request("host", "fund", owner=owner, amount=1000)
     state = place_barracks(run, capture, owner, 1, "force bar producer placed")
     barracks = owned_buildings(state, owner, BARRACKS)[0]["index"]
     capture.wait(
@@ -102,6 +102,7 @@ def refill_states(
             0
             < building(s, barracks)["productionSeconds"]
             < building(s, barracks)["unitTime"]
+            and building(s, barracks)["joined"] > 0
         ),
         "force bar refill progressing",
     )
@@ -142,7 +143,8 @@ def order_states(
     state = capture.state()
     target = select_order_region(state, barracks)["index"]
     click(run, owner, number, "attack")
-    state = capture.wait(lambda s: s["assigningOrder"], "card opens Attack mode")
+    state = capture.state()
+    require(state["assigningOrder"], "card did not open selected-force Attack mode")
     x, y = minimap_region_point(state, target)
     run.request("host", "hudClick", x=x, y=y)
     capture.wait(
