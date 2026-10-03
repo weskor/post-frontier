@@ -9,7 +9,7 @@
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
-#include "GoalGraph.h"
+#include "OrderGraph.h"
 
 namespace
 {
@@ -84,50 +84,88 @@ FCommandResult FCommandService::ConfigureProduction(ACommandPlayerState* Command
 	return Verdict(bAccepted, bAccepted ? FString::Printf(TEXT("%s: %s"), bEnabled ? TEXT("Enabled") : TEXT("Paused"), *StateName) : FString::Printf(TEXT("Production rejected: %s"), *StateName));
 }
 
-FCommandResult FCommandService::AssignGoal(ACommandPlayerState* Commander, ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex)
+FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, AArmyGroup* Force, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue)
 {
-	if (!OwnsBuilding(Commander, Building))
-		return Verdict(false, TEXT("Goal rejected: requires your completed, locked barracks in an ongoing match."), ECommandRejection::InvalidOwner);
-	if (!Building->IsProducer() || !Building->IsComplete() || !Building->bForceConfigured || !IsValid(Building->ForceGroup))
-		return Verdict(false, TEXT("Goal rejected: requires your completed, locked barracks in an ongoing match."), ECommandRejection::InvalidRequest);
+	AArmyGroup* const Selection[] = { Force };
+	return IssueForceOrder(Commander, Selection, Verb, RegionIndex, Structure, bQueue);
+}
+
+FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue)
+{
 	const ACommandGameState* State = CommandState(Commander);
-	const auto Reject = [] { return Verdict(false, TEXT("Goal rejected: invalid or unreachable region, enemy main, or unavailable force.")); };
-	if (Building->ForceGroup->IsActorBeingDestroyed()
-		|| (Goal != EForceGoal::Hold && Goal != EForceGoal::Expand && Goal != EForceGoal::Assault && Goal != EForceGoal::FallBack))
-		return Reject();
-	const int32 Source = CommandGoalGraph::SourceRegion(*Building, *State);
-	if (Goal == EForceGoal::Assault || Goal == EForceGoal::FallBack)
+	if (!State || Forces.IsEmpty() || (Verb != EForceVerb::MoveHold && Verb != EForceVerb::Attack && Verb != EForceVerb::Retreat))
+		return Verdict(false, TEXT("Order rejected: unavailable force or invalid verb."));
+	if (Structure && (Verb != EForceVerb::Attack || !IsValid(Structure) || Structure->GetWorld() != Commander->GetWorld() || Cast<AArmyUnit>(Structure) || !CombatTarget::IsAliveHostile(Structure, Commander->TeamIndex)))
+		return Verdict(false, TEXT("Attack requires a living hostile structure."));
+	if (Structure)
 	{
-		if (RegionIndex != INDEX_NONE)
-			return Reject();
-		const AMapRegion* Home = State->FindRegionAt(Building->GetActorLocation());
-		RegionIndex = Goal == EForceGoal::Assault ? CommandGoalGraph::EnemyMain(*State, Building->TeamIndex)
-			: Home                                ? Home->RegionIndex
-												  : INDEX_NONE;
+		const AMapRegion* Region = State->FindRegionAt(Structure->GetActorLocation());
+		RegionIndex = Region ? Region->RegionIndex : INDEX_NONE;
 	}
-	const AMapRegion* Target = CommandGoalGraph::Region(*State, RegionIndex);
-	if (!Target || Source == INDEX_NONE || (Goal != EForceGoal::Assault && Target->RegionRole == ERegionRole::Main && Target->HomeTeam != Building->TeamIndex))
-		return Reject();
-	uint64 Graph[ForceGoals::MaxRegions];
-	const int32 Count = CommandGoalGraph::ReadGraph(*State, Graph);
-	if (Goal != EForceGoal::FallBack && ForceGoals::NextWaypoint(Graph, Count, Source, RegionIndex) == INDEX_NONE)
-		return Reject();
-	Building->CommitGoal(Goal, RegionIndex, Source, Graph, Count);
-	return Verdict(true, TEXT("Goal assigned to this building's force."));
+	if ((Verb == EForceVerb::Retreat && (RegionIndex != INDEX_NONE || Structure))
+		|| (Verb != EForceVerb::Retreat && !ForceOrderGraph::Region(*State, RegionIndex)))
+		return Verdict(false, TEXT("Order rejected: choose a valid region."));
+	uint64 Graph[ForceOrders::MaxRegions];
+	const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+	float Speed = TNumericLimits<float>::Max();
+	for (int32 Index = 0; Index < Forces.Num(); ++Index)
+	{
+		AArmyGroup* Force = Forces[Index];
+		if (!OwnsArmy(Commander, Force))
+			return Verdict(false, TEXT("Order rejected: every selected force must belong to you."), ECommandRejection::InvalidOwner);
+		for (int32 Previous = 0; Previous < Index; ++Previous)
+			if (Forces[Previous] == Force)
+				return Verdict(false, TEXT("Order rejected: duplicate selected force."));
+		if (!ForceOrders::CanQueue(Force->Orders.Num(), bQueue))
+			return Verdict(false, TEXT("Order rejected: three orders maximum, including the active order."));
+		const int32 Source = ForceOrderGraph::SourceRegion(*Force, *State);
+		const int32 Target = Verb == EForceVerb::Retreat ? ForceOrderGraph::TeamMain(*State, Commander->TeamIndex) : RegionIndex;
+		if (ForceOrders::NextWaypoint(Graph, Count, Source, Target) == INDEX_NONE)
+			return Verdict(false, TEXT("Order rejected: region is unreachable."));
+		const float BaseSpeed = Force->GetBaseMarchSpeed();
+		const float Speeds[] = { Index == 0 ? BaseSpeed : Speed, BaseSpeed };
+		Speed = ForceOrders::SlowestSpeed(Speeds);
+	}
+	for (AArmyGroup* Force : Forces)
+		Force->CommitOrder(FForceOrder(Verb, RegionIndex, Structure), bQueue, Speed);
+	return Verdict(true, TEXT("Force order accepted."));
 }
 
-FCommandResult FCommandService::AssignFront(ACommandPlayerState* Commander, ACommandBuilding* Building, EFrontOrder Order, const FVector& Location)
+FCommandResult FCommandService::SetRetreatThreshold(ACommandPlayerState* Commander, AArmyGroup* Force, ERetreatThreshold Threshold)
 {
-	if (!OwnsBuilding(Commander, Building))
-		return Verdict(false, TEXT("Front rejected: not your living building or match ended."), ECommandRejection::InvalidOwner);
-	const bool bAccepted = Building->ApplyFront(Order, Location);
-	return Verdict(bAccepted, bAccepted ? TEXT("Front assigned to this building's force.") : TEXT("Front rejected: select a completed barracks and valid ground inside the arena."));
+	AArmyGroup* const Selection[] = { Force };
+	return SetRetreatThreshold(Commander, Selection, Threshold);
 }
 
-FCommandResult FCommandService::AssignFront(ACommandPlayerState* Commander, AArmyGroup* Army, EFrontOrder Order, const FVector& Location)
+FCommandResult FCommandService::SetRetreatThreshold(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, ERetreatThreshold Threshold)
 {
-	const bool bAccepted = OwnsArmy(Commander, Army) && Army->AssignFront(Order, Location);
-	return Verdict(bAccepted, bAccepted ? TEXT("Front assigned to this building's force.") : TEXT("Front rejected: select a completed barracks and valid ground inside the arena."));
+	if (Forces.IsEmpty() || (Threshold != ERetreatThreshold::Never && Threshold != ERetreatThreshold::Percent25 && Threshold != ERetreatThreshold::Percent40 && Threshold != ERetreatThreshold::Percent60))
+		return Verdict(false, TEXT("Retreat threshold rejected: invalid setting."));
+	for (const AArmyGroup* Force : Forces)
+		if (!OwnsArmy(Commander, Force))
+			return Verdict(false, TEXT("Retreat threshold rejected: not your force."), ECommandRejection::InvalidOwner);
+	for (AArmyGroup* Force : Forces)
+	{
+		Force->RetreatThreshold = Threshold;
+		Force->ForceNetUpdate();
+	}
+	return Verdict(true, TEXT("Attack retreat threshold set."));
+}
+
+FCommandResult FCommandService::SetRallyPoint(ACommandPlayerState* Commander, ACommandBuilding* Building, int32 RegionIndex)
+{
+	if (!OwnsBuilding(Commander, Building) || !Building->IsProducer())
+		return Verdict(false, TEXT("Rally rejected: not your production building."), ECommandRejection::InvalidOwner);
+	const ACommandGameState* State = CommandState(Commander);
+	const AMapRegion* Source = State->FindRegionAt(Building->GetActorLocation());
+	uint64 Graph[ForceOrders::MaxRegions];
+	const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+	if (!Source || !ForceOrderGraph::Region(*State, RegionIndex)
+		|| ForceOrders::NextWaypoint(Graph, Count, Source->RegionIndex, RegionIndex) == INDEX_NONE)
+		return Verdict(false, TEXT("Rally rejected: invalid or unreachable region."));
+	Building->RallyRegionIndex = RegionIndex;
+	Building->ForceNetUpdate();
+	return Verdict(true, TEXT("Production rally point set."));
 }
 
 FCommandResult FCommandService::Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice)
@@ -183,49 +221,4 @@ FCommandResult FCommandService::Resume(ACommandPlayerController* Controller)
 		return Verdict(false, TEXT("Resume unavailable: no ongoing battle."), ECommandRejection::Unavailable);
 	const bool bAccepted = State->ApplyPause(Controller, false);
 	return Verdict(bAccepted, bAccepted ? TEXT("Battle resumed.") : TEXT("Battle is not actively paused."));
-}
-
-FCommandResult FCommandService::IssueOrder(ACommandPlayerState* Commander, AArmyGroup* Army, EArmyOrder Order, const FVector& Destination)
-{
-	const ACommandGameState* State = CommandState(Commander);
-	bool bAccepted = false;
-	if (State && OwnsArmy(Commander, Army) && IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
-	{
-		switch (Order)
-		{
-		case EArmyOrder::Move:
-			bAccepted = Army->IssueTravel(Order, Destination);
-			break;
-		case EArmyOrder::Hold:
-			bAccepted = !Army->GetUnits().IsEmpty() && Army->ApplyHold();
-			break;
-		case EArmyOrder::Retreat:
-			bAccepted = Army->IssueTravel(Order, Army->GetHomeLocation());
-			break;
-		default:
-			break;
-		}
-	}
-	return Verdict(bAccepted, bAccepted ? TEXT("Manual order accepted; automatic front disabled for this squad.") : TEXT("Order rejected: choose reachable ground inside the arena."));
-}
-
-FCommandResult FCommandService::IssueAttack(ACommandPlayerState* Commander, AArmyGroup* Army, FVector Destination, AActor* Target)
-{
-	const ACommandGameState* State = CommandState(Commander);
-	bool bAccepted = false;
-	if (State && OwnsArmy(Commander, Army))
-	{
-		bool bValidTarget = !Target;
-		if (Target && IsValid(Target) && Target->GetWorld() == Commander->GetWorld())
-		{
-			bValidTarget = CombatTarget::IsAliveHostile(Target, Army->GetTeamIndex());
-			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Target); bValidTarget && Unit)
-				bValidTarget = Unit->GetGroup()->GetWorld() == Commander->GetWorld();
-			if (bValidTarget)
-				Destination = Target->GetActorLocation();
-		}
-		if (bValidTarget && IsValid(State->Arena) && State->Arena->ContainsTravel(Destination))
-			bAccepted = Army->ApplyAttack(Destination, Target);
-	}
-	return Verdict(bAccepted, bAccepted ? TEXT("Attack order accepted; manual order overrides automatic front.") : TEXT("Attack rejected: choose a live enemy unit, building, HQ or reachable ground."));
 }

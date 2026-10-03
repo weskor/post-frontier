@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from harness.network import NetworkRun
-from harness.network_economy import expand_and_research
+from harness.network_economy import capture_and_research
 from harness.network_outcomes import finish, research, restart_and_converge
 from harness.network_ownership import reject_locked_commands
 from harness.network_pause import pause_scenario
@@ -33,7 +33,7 @@ def economy_scenario(run: NetworkRun) -> None:
     squad = configure_siege(run, s, index)
     recruit(run, s, index, 1, "first siege recruit joins on all peers")
     recruit(run, s, index, 2, "second siege recruit joins on all peers")
-    expand_and_research(run, s, index, squad)
+    capture_and_research(run, s, index, squad)
 
 
 def restart_scenario(run: NetworkRun) -> None:
@@ -54,7 +54,7 @@ def construction_scenario(run: NetworkRun) -> None:
     squad = configure_siege(run, s, index)
     reject_locked_commands(run, s, index, squad)
     produce_and_replace(run, s, index, squad)
-    restart_and_converge(run, s, expand_and_research(run, s, index, squad))
+    restart_and_converge(run, s, capture_and_research(run, s, index, squad))
 
 
 SCENARIOS: dict[str, tuple[Callable[[NetworkRun], None], str]] = {

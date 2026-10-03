@@ -14,7 +14,7 @@ from harness.hud_actions import (
     TOGGLE_PRODUCTION,
 )
 from harness.hud_build import deck_controls
-from harness.hud_goals import assign_goals, cancel_goals
+from harness.hud_orders import assign_orders, cancel_orders
 from harness.hud_production import (
     fill_force,
     paid_replacement,
@@ -25,7 +25,7 @@ from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
 from harness.network import (
     BARRACKS,
-    FALL_BACK,
+    MOVE_HOLD,
     SIEGE,
     WORKSHOP,
     NetworkRun,
@@ -337,22 +337,32 @@ def recall_box_fixture(run: NetworkRun, capture: Capture, owner: int) -> None:
         for a in capture.state()["armies"]
         if a["owner"] == owner and any(u["health"] > 0 for u in a["units"])
     )
-    run.request("host", "goal", building=army["producer"], goal=FALL_BACK, region=-1)
+    home = next(r for r in capture.state()["regions"] if r["homeTeam"] == 0)
+    run.request(
+        "host",
+        "order",
+        building=army["producer"],
+        forceVerb=MOVE_HOLD,
+        targetRegionIndex=home["index"],
+    )
     deadline = time.monotonic() + 90
 
     def at_home(state: JsonObject) -> bool:
-        require(time.monotonic() < deadline, "box fixture force failed to return home")
+        require(
+            time.monotonic() < deadline,
+            "box fixture force failed to return to its home region",
+        )
         current = next(a for a in state["armies"] if a["actorId"] == army["actorId"])
         return (
             sum(
-                (float(current["center"][i]) - float(current["home"][i])) ** 2
+                (float(current["center"][i]) - float(home["anchor"][i])) ** 2
                 for i in range(2)
             )
             < 150**2
         )
 
     capture.wait(
-        at_home, "ranged force physically returns to its home for nearby box targets"
+        at_home, "ranged force physically returns to its home region for nearby box targets"
     )
 
 
@@ -430,8 +440,8 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     deck_controls(run, capture)
     barracks = primary_barracks(run, capture, owner)
     start_and_starve(run, capture, owner, barracks)
-    cancel_goals(capture, barracks)
-    target = assign_goals(capture, barracks)
+    cancel_orders(capture, barracks)
+    target = assign_orders(capture, barracks)
     state, squad = fill_force(run, capture, owner, barracks, target)
     force_selection(run, capture, owner, barracks)
     recruit, origin = paid_replacement(run, capture, owner, barracks, squad, state)

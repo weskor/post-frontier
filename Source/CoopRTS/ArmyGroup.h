@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "ConstructionTypes.h"
 #include "Rules/HoldPolicy.h"
+#include "ForceOrders.h"
 #include "ArmyGroup.generated.h"
 
 class AArmyUnit;
@@ -74,6 +75,32 @@ public:
 	void SettleMatch();
 	FVector GetCenter() const;
 	EArmyDoctrine GetDoctrine() const;
+
+	void TickOrders();
+	int32 GetCapacity() const;
+	int32 GetAliveCount() const;
+	int32 GetJoinedCount() const;
+	float GetBaseMarchSpeed() const;
+	float GetMarchSpeed() const;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	EForceVerb Verb = EForceVerb::MoveHold;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	int32 TargetRegionIndex = INDEX_NONE;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	TObjectPtr<AActor> TargetStructure;
+	// Active order is the first entry; bounded to three by the command layer.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	TArray<FForceOrder> Orders;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	EForceStatus Status = EForceStatus::Holding;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	ERetreatThreshold RetreatThreshold = ERetreatThreshold::Percent40;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	float MarchSpeed = 0.f;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	int32 WaypointRegionIndex = INDEX_NONE;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	int32 ResumeCount = 0;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
 	EArmyOrder Order = EArmyOrder::Hold;
@@ -148,15 +175,22 @@ private:
 	void UpdateHoldMovement(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation,
 		const FVector& Goal, float Now);
 	void UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation, float Now);
-	bool AssignFront(EFrontOrder InOrder, const FVector& InLocation);
-	bool ApplyAttack(FVector InDestination, AActor* InTarget);
-	bool ApplyHold();
-	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination);
+	bool CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed);
+	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
+	void CompleteOrder(int32 EndRegion);
+	void UpdateMarchSpeed();
+	int32 LastHeldRegionIndex = INDEX_NONE;
+	int32 WithdrawalRegionIndex = INDEX_NONE;
+	bool bWithdrawing = false;
+	bool bStructureAttack = false;
+	int32 AppliedWaypoint = INDEX_NONE;
+	EArmyOrder AppliedPhase = EArmyOrder::Hold;
+	TWeakObjectPtr<AActor> AppliedStructure;
+	bool IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply = true);
 	void UpdateCombat();
 	void UpdateReinforcements();
 	FVector ReinforcementTarget(const AArmyUnit& Unit) const;
 	float CombatAccumulator = 0.f;
-	float FrontMaintenanceSeconds = 0.f;
 	// Stable composition slots retain retry clocks through unit-array compaction.
 	TArray<float, TInlineAllocator<6>> NextPursuitAttempts;
 	bool bProducedGroup = false;

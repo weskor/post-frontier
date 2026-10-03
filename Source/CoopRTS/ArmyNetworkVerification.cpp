@@ -13,9 +13,10 @@
 #include "Commands/MatchCommandComponent.h"
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/OrderGraph.h"
 #include "Commands/ProductionCommandComponent.h"
 #include "CommandHUD.h"
-#include "ForceGoals.h"
+#include "ForceOrders.h"
 #include "MapRegion.h"
 #include "DepositSite.h"
 #include "Content/MatchContent.h"
@@ -282,8 +283,8 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 			Number(Result, TEXT("feedbackOpacity"), It->GetFeedbackOpacity());
 			Result->SetBoolField(TEXT("hudExpanded"), It->IsHUDExpanded());
 			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
-			Result->SetBoolField(TEXT("assigningGoal"), It->IsAssigningGoal());
-			Number(Result, TEXT("pendingGoal"), static_cast<int32>(It->GetPendingGoal()));
+			Result->SetBoolField(TEXT("assigningOrder"), It->IsAssigningOrder());
+			Number(Result, TEXT("pendingVerb"), static_cast<int32>(It->GetPendingVerb()));
 			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
 			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
 			TArray<TSharedPtr<FJsonValue>> Selected;
@@ -342,12 +343,26 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("team"), Group->GetTeamIndex());
 		Number(Entry, TEXT("army"), Group->GetArmyIndex());
 		Number(Entry, TEXT("forceNumber"), Group->ForceNumber);
-		Number(Entry, TEXT("order"), static_cast<int32>(Group->Order));
 		Number(Entry, TEXT("serial"), Group->OrderSerial);
 		Number(Entry, TEXT("doctrine"), static_cast<int32>(Group->GetDoctrine()));
-		Number(Entry, TEXT("frontOrder"), static_cast<int32>(Group->FrontOrder));
+		Number(Entry, TEXT("forceVerb"), static_cast<int32>(Group->Verb));
+		Number(Entry, TEXT("targetRegionIndex"), Group->TargetRegionIndex);
+		Number(Entry, TEXT("targetStructureId"), IsValid(Group->TargetStructure) ? LifetimeId(Group->TargetStructure) : -1);
+		Number(Entry, TEXT("status"), static_cast<int32>(Group->Status));
+		Number(Entry, TEXT("retreatThreshold"), static_cast<int32>(Group->RetreatThreshold));
+		Number(Entry, TEXT("waypointRegionIndex"), Group->WaypointRegionIndex);
+		Number(Entry, TEXT("marchSpeed"), Group->GetMarchSpeed());
+		TArray<TSharedPtr<FJsonValue>> Orders;
+		for (const FForceOrder& Order : Group->Orders)
+		{
+			auto OrderEntry = Object();
+			Number(OrderEntry, TEXT("forceVerb"), static_cast<int32>(Order.Verb));
+			Number(OrderEntry, TEXT("targetRegionIndex"), Order.RegionIndex);
+			Number(OrderEntry, TEXT("targetStructureId"), IsValid(Order.Structure) ? LifetimeId(Order.Structure) : -1);
+			Orders.Add(MakeShared<FJsonValueObject>(OrderEntry));
+		}
+		Entry->SetArrayField(TEXT("orders"), Orders);
 		Number(Entry, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
-		Entry->SetBoolField(TEXT("automaticFront"), Group->bAutomaticFront);
 		Vector(Entry, TEXT("front"), Group->FrontLocation);
 		Vector(Entry, TEXT("center"), Group->GetCenter());
 		Vector(Entry, TEXT("destination"), Group->Destination);
@@ -410,14 +425,17 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Number(Entry, TEXT("constructionProgress"), Building->ConstructionProgress);
 		Number(Entry, TEXT("recipe"), static_cast<int32>(Building->ProductionRole));
 		Number(Entry, TEXT("productionSeconds"), Building->ProductionProgressSeconds);
-		Number(Entry, TEXT("frontOrder"), static_cast<int32>(Building->FrontOrder));
-		Number(Entry, TEXT("forceGoal"), static_cast<int32>(Building->ForceGoal));
-		Number(Entry, TEXT("goalRegionIndex"), Building->GoalRegionIndex);
+		const AArmyGroup* Force = Building->ForceGroup;
+		Number(Entry, TEXT("forceVerb"), IsValid(Force) ? static_cast<int32>(Force->Verb) : -1);
+		Number(Entry, TEXT("targetRegionIndex"), IsValid(Force) ? Force->TargetRegionIndex : INDEX_NONE);
+		Number(Entry, TEXT("targetStructureId"), IsValid(Force) && IsValid(Force->TargetStructure) ? LifetimeId(Force->TargetStructure) : -1);
+		Number(Entry, TEXT("status"), IsValid(Force) ? static_cast<int32>(Force->Status) : -1);
+		Number(Entry, TEXT("rallyRegionIndex"), Building->RallyRegionIndex);
 		Entry->SetBoolField(TEXT("enabled"), Building->bProductionEnabled);
 		Entry->SetStringField(TEXT("productionState"),
 			StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState())));
 		Vector(Entry, TEXT("position"), Building->GetActorLocation());
-		Vector(Entry, TEXT("front"), Building->FrontLocation);
+		Vector(Entry, TEXT("front"), IsValid(Force) ? Force->FrontLocation : Building->GetActorLocation());
 		Buildings.Add(MakeShared<FJsonValueObject>(Entry));
 	}
 	Result->SetArrayField(TEXT("buildings"), Buildings);
@@ -580,7 +598,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			Target);
 		return FString();
 	}
-	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("goal")
+	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("order")
 		|| Action == TEXT("cancel") || Action == TEXT("research"))
 	{
 		if (!Own || Own->CommanderIndex < 0 || !State)
@@ -597,10 +615,16 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 			if (Action == TEXT("production"))
 				PC->ProductionCommands->ServerConfigureProduction(Building,
 					static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
-			else if (Action == TEXT("goal"))
-				PC->OrderCommands->ServerAssignGoal(Building,
-					static_cast<EForceGoal>(Request->GetIntegerField(TEXT("goal"))),
-					static_cast<int32>(Request->GetIntegerField(TEXT("region"))));
+			else if (Action == TEXT("order"))
+			{
+				if (!IsValid(Building->ForceGroup))
+					return TEXT("force not replicated locally");
+				PC->OrderCommands->ServerIssueForceOrder({ Building->ForceGroup },
+					static_cast<EForceVerb>(Request->GetIntegerField(TEXT("forceVerb"))),
+					static_cast<int32>(Request->GetIntegerField(TEXT("targetRegionIndex"))),
+					Request->GetBoolField(TEXT("targetEnemyHQ")) ? State->EnemyHeadquarters.Get() : nullptr,
+					Request->GetBoolField(TEXT("queue")));
+			}
 			else if (Action == TEXT("cancel"))
 				PC->ConstructionCommands->ServerCancelBuilding(Building);
 			else
@@ -781,10 +805,10 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (Action == TEXT("isolate"))
 	{
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-			It->Destroy();
+			It->SetActorTickEnabled(false);
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 5)
-				FCommandService::IssueOrder(It->GetOwningPlayerState(), *It, EArmyOrder::Hold, FVector::ZeroVector);
+				FCommandService::IssueForceOrder(It->GetOwningPlayerState(), *It, EForceVerb::MoveHold, ForceOrderGraph::TeamMain(*State, 5));
 		for (ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
 				FCommandService::ConfigureProduction(State->EnemyCommander, Building,
@@ -962,11 +986,11 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		Unit->ForceNetUpdate();
 		return FString();
 	}
-	if (Action == TEXT("assaultSetup"))
+	if (Action == TEXT("attackSetup"))
 	{
 		if (!IsValid(State->EnemyHeadquarters) || Army->GetUnits().IsEmpty() || Army->GetTeamIndex() != 0)
 			return TEXT("objective friendly army or enemy HQ unavailable");
-		if (!FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army, EArmyOrder::Hold, FVector::ZeroVector))
+		if (!FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army, EForceVerb::MoveHold, ForceOrderGraph::SourceRegion(*Army, *State)))
 			return TEXT("objective friendly army could not hold");
 		const FVector Anchor = State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 700.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
@@ -1017,7 +1041,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 				Hostile->Destroy();
 				return TEXT("hostile casualty fixture spawn failed");
 			}
-			FCommandService::IssueOrder(State->EnemyCommander, Hostile, EArmyOrder::Hold, FVector::ZeroVector);
+			FCommandService::IssueForceOrder(State->EnemyCommander, Hostile, EForceVerb::MoveHold, ForceOrderGraph::TeamMain(*State, 5));
 			Hostile->SetActorTickEnabled(false);
 			for (AArmyUnit* Unit : Hostile->GetUnits())
 				Unit->SetActorTickEnabled(false);

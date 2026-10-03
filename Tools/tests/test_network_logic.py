@@ -7,7 +7,7 @@ from harness.network import (
     army,
     force_counts_match,
     reachable_regions,
-    select_goal_region,
+    select_order_region,
     wallet,
 )
 from harness.network_outcomes import reset_matches
@@ -144,14 +144,14 @@ def test_region_traversal_is_deterministic_with_cycles_and_missing_edges() -> No
         reachable_regions(state, 99)
 
 
-def test_goal_selection_rejects_boundary_home_excluded_and_unreachable_regions() -> (
+def test_order_selection_rejects_boundary_home_excluded_and_unreachable_regions() -> (
     None
 ):
     state = region_snapshot()
-    assert select_goal_region(state, 8)["index"] == 20
-    assert select_goal_region(state, 8, min_distance=1499)["index"] == 10
+    assert select_order_region(state, 8)["index"] == 20
+    assert select_order_region(state, 8, min_distance=1499)["index"] == 10
     with pytest.raises(AssertionError, match="no reachable, non-main region"):
-        select_goal_region(state, 8, exclude=(20,))
+        select_order_region(state, 8, exclude=(20,))
 
 
 def test_reply_reader_waits_for_complete_current_request(tmp_path: Path) -> None:
@@ -177,6 +177,8 @@ def reset_snapshot() -> tuple[JsonObject, Session, dict[str, JsonObject]]:
         "result": 0,
         "enemyHQ": 900,
         "friendlyHQ": 900,
+        "assigningOrder": False,
+        "buildingSelected": False,
         "armies": [{"team": 5}],
         "buildings": [{"team": 5}],
         "players": [
@@ -207,6 +209,8 @@ def test_fresh_reset_allows_enemy_fixture_and_baseline_wallet() -> None:
         ("result", 1),
         ("enemyHQ", 899),
         ("friendlyHQ", 899),
+        ("assigningOrder", True),
+        ("buildingSelected", True),
     ],
 )
 def test_reset_rejects_stale_world_identity_and_result(field: str, value: int) -> None:

@@ -27,7 +27,7 @@ static void DrawConstructionInspector(const FPainter& Paint, const FContext& Con
 		Status.Appendf(TEXT("%d%%  \u00B7  %.0fs remaining"), FMath::FloorToInt(Progress * 100.f),
 			FMath::CeilToFloat((1.f - Progress) * (Building->GetDefinition() ? Building->GetDefinition()->BuildDuration : 0.f)));
 	Paint.Text(Status.ToView(), Bar.X, Bar.Bottom() + 7.f, 11.f, Palette::Text, true);
-	Paint.Text(Building->IsProducer()                    ? TEXT("When complete: choose a permanent force type, Start and set a goal.")
+	Paint.Text(Building->IsProducer()                    ? TEXT("When complete: choose a permanent force type, Start and issue an order.")
 			: Definition && Definition->bRequiresDeposit ? TEXT("When complete: extracts finite Power for your wallet only.")
 			: Definition && Definition->bOffersResearch  ? TEXT("When complete: buy one specialization for your forces.")
 														 : TEXT(""),
@@ -77,7 +77,7 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 		Building->Health, Building->MaxHealth(), Status, StatusColor);
 	const FRect Recipes = Column(Inspector, 0, 3);
 	const FRect Production = Column(Inspector, 1, 3);
-	const FRect Goals = Column(Inspector, 2, 3);
+	const FRect Orders = Column(Inspector, 2, 3);
 	ColumnLabel(Paint, Recipes, TEXT("FORCE TYPE"), Building->bForceConfigured ? TEXT("LOCKED") : TEXT("choose before Start"));
 	int32 Joined = 0, Travelling = 0;
 	Building->GetForceCounts(Joined, Travelling);
@@ -87,7 +87,9 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	TStringBuilder<32> ForceCounts;
 	ForceCounts.Appendf(TEXT("joined %d/%d"), Joined, Capacity);
 	ColumnLabel(Paint, Production, TEXT("FORCE"), ForceCounts.ToView());
-	ColumnLabel(Paint, Goals, TEXT("GOAL"), GoalTitle(Building->ForceGoal), GoalColor(Building->ForceGoal));
+	const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
+	ColumnLabel(Paint, Orders, TEXT("ORDER"), Force ? ForceStatusTitle(Force->Status) : TEXT("UNCONFIGURED"),
+		Force ? OrderColor(Force->Verb) : Palette::Muted);
 
 	const FRect Progress = Row(Production, 0);
 	const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
@@ -162,11 +164,12 @@ void DrawBuildingInspector(const FPainter& Paint, const FContext& Context, const
 	TStringBuilder<256> Subtitle;
 	if (Building->IsProducer())
 	{
-		Subtitle.Appendf(TEXT("C%d  \u00B7  %s  \u00B7  "), Owner + 1, GoalTitle(Building->ForceGoal));
+		const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
+		Subtitle.Appendf(TEXT("C%d  \u00B7  %s  \u00B7  "), Owner + 1, Force ? OrderTitle(Force->Verb) : TEXT("NO FORCE"));
 		const AMapRegion* Target = nullptr;
-		if (Context.State)
+		if (Context.State && Force)
 			for (const AMapRegion* Region : Context.State->Regions)
-				if (IsValid(Region) && Region->RegionIndex == Building->GoalRegionIndex)
+				if (IsValid(Region) && Region->RegionIndex == Force->TargetRegionIndex)
 				{
 					Target = Region;
 					break;
@@ -191,21 +194,6 @@ void DrawBuildingInspector(const FPainter& Paint, const FContext& Context, const
 			Building->Health, Building->MaxHealth(), FStringView(), Palette::Muted);
 }
 
-static const TCHAR* ForceOrderTitle(EArmyOrder Order)
-{
-	switch (Order)
-	{
-	case EArmyOrder::Hold:
-		return TEXT("HOLDING");
-	case EArmyOrder::Move:
-		return TEXT("MOVING");
-	case EArmyOrder::Attack:
-		return TEXT("ATTACKING");
-	case EArmyOrder::Retreat:
-		return TEXT("RETREATING");
-	}
-	return TEXT("");
-}
 
 static void DrawForceSelection(const FPainter& Paint, const FContext& Context, const FRect& Selection, bool bOwned, int32 Owner)
 {
@@ -285,25 +273,20 @@ void DrawForceInspector(const FPainter& Paint, const FContext& Context, const FR
 	DrawForceSelection(Paint, Context, Selection, bOwned, Owner);
 	ColumnLabel(Paint, Orders, TEXT("ORDER"));
 
-	Paint.Text(ForceOrderTitle(Force->Order), Orders.X, Row(Orders, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Orders.W);
-	if (bHasProducer)
-	{
-		Paint.Text(GoalTitle(Producer->ForceGoal), Orders.X, Row(Orders, 1).Y, 10.f,
-			GoalColor(Producer->ForceGoal), true, EAlign::Left, Orders.W);
-		if (Context.State)
-			for (const AMapRegion* Region : Context.State->Regions)
-				if (IsValid(Region) && Region->RegionIndex == Producer->GoalRegionIndex)
-				{
-					Paint.Text(Region->DisplayName.ToString(), Orders.X, Row(Orders, 2).Y, 9.f,
-						Palette::Muted, false, EAlign::Left, Orders.W);
-					break;
-				}
-	}
-	else
-		Paint.Text(TEXT("Last order retained"), Orders.X, Row(Orders, 1).Y, 9.f, Palette::Muted, false, EAlign::Left, Orders.W);
+	Paint.Text(ForceStatusTitle(Force->Status), Orders.X, Row(Orders, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Orders.W);
+	Paint.Text(OrderTitle(Force->Verb), Orders.X, Row(Orders, 1).Y, 10.f,
+		OrderColor(Force->Verb), true, EAlign::Left, Orders.W);
+	if (Context.State)
+		for (const AMapRegion* Region : Context.State->Regions)
+			if (IsValid(Region) && Region->RegionIndex == Force->TargetRegionIndex)
+			{
+				Paint.Text(Region->DisplayName.ToString(), Orders.X, Row(Orders, 2).Y, 9.f,
+					Palette::Muted, false, EAlign::Left, Orders.W);
+				break;
+			}
 
 	DrawForceStrength(Paint, Force, Strength);
-	Paint.Text(bHasProducer ? TEXT("Building panel keeps production and goals.") : TEXT("Survivors remain selectable without a building."),
+	Paint.Text(bHasProducer ? TEXT("Building panel keeps production and orders.") : TEXT("Survivors retain their order and remain selectable."),
 		Inspector.X + Pad, Inspector.Bottom() - 22.f, 10.f, Palette::Muted, false, EAlign::Left, Inspector.W - 2.f * Pad);
 }
 

@@ -101,7 +101,7 @@ static void DrawMainMenuContent(const FPainter& Paint, const FRect& Panel)
 	const float Center = Panel.Center().X;
 
 	Paint.Text(TEXT("SOLO OR STEAM CO-OP  /  AVAILABILITY ZONE"), Center, Panel.Y + 82.f, 12.f, Palette::Friendly, true, EAlign::Center);
-	DrawScreenLine(Paint, Panel, TEXT("Build a base. Give your forces goals. Break JEV's headquarters."), 1);
+	DrawScreenLine(Paint, Panel, TEXT("Build a base. Give your forces orders. Break JEV's headquarters."), 1);
 	DrawScreenLine(Paint, Panel, TEXT("Choose v2 (15 regions) or classic. Solo needs no connection."), 2, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Start with 600 resources; your baseline income is +2 per second."), 3, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Choose your map below, then play solo or host on Steam."), 4, Palette::Muted);
@@ -112,15 +112,15 @@ static void DrawControlsContent(const FPainter& Paint, const FRect& Panel)
 
 	DrawScreenLine(Paint, Panel, TEXT("1  Build a Barracks on green grid preview cells (220 resources)."), 0);
 	DrawScreenLine(Paint, Panel, TEXT("2  Select it when complete. Choose a force type, then Start."), 1);
-	DrawScreenLine(Paint, Panel, TEXT("3  Choose Hold or Expand; click a region on ground or minimap."), 2);
+	DrawScreenLine(Paint, Panel, TEXT("3  Choose Move & Hold or Attack; pick a region on ground or minimap."), 2);
 	DrawScreenLine(Paint, Panel, TEXT("4  Controlled regions allow building. Extractors (160) earn private Power."), 3);
 	DrawScreenLine(Paint, Panel, TEXT("5  Build a Workshop (190), buy one specialization (150)."), 4);
-	DrawScreenLine(Paint, Panel, TEXT("6  Assault pushes to JEV's HQ; Fall Back regroups at your barracks."), 5, Palette::Gold);
-	DrawScreenLine(Paint, Panel, TEXT("Click badge/unit: force. Building: panel; double-click: force."), 6, Palette::Friendly);
+	DrawScreenLine(Paint, Panel, TEXT("6  Attack advances to your region; Retreat regroups in safe territory."), 5, Palette::Gold);
+	DrawScreenLine(Paint, Panel, TEXT("Click badge/unit: force. Building: orders; double-click: force."), 6, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Shift-click: toggle. Drag box: badges. 1-4 (solo 1-5): force."), 7);
 	DrawScreenLine(Paint, Panel, TEXT("F or double-tap number: centre. Space: latest / older alert."), 8);
 	DrawScreenLine(Paint, Panel, TEXT("WASD/middle drag: pan. Wheel: zoom. F4: deck. Esc: menu (pauses solo only)."), 9);
-	DrawScreenLine(Paint, Panel, TEXT("Expand captures then Holds; Assault retreats below 40% strength."), 10, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Attack takes regions; it withdraws below 40% strength and refills."), 10, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("G: ping ground / minimap; teammate force: Need help here."), 11, Palette::Friendly);
 	DrawScreenLine(Paint, Panel, TEXT("Siege costs 180 once to configure; replacements cost per unit."), 12, Palette::Muted);
 }
@@ -144,7 +144,7 @@ static void DrawPauseContent(const FPainter& Paint, const FContext& Context, con
 
 	DrawScreenLine(Paint, Panel, Context.Controller->GetWorld()->IsPaused() ? TEXT("Solo match paused. JEV and your economy are stopped.") : TEXT("Online match continues while this menu is open."),
 		1, Palette::Friendly);
-	DrawScreenLine(Paint, Panel, TEXT("Resume keeps your buildings, goals and progress."), 3, Palette::Muted);
+	DrawScreenLine(Paint, Panel, TEXT("Resume keeps your buildings, orders and progress."), 3, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Leaving discards this match. There is no save / load yet."), 4, Palette::Warn);
 }
 

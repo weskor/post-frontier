@@ -513,64 +513,8 @@ void AArmyGroup::StopAllUnits()
 		Unit->bHasReinforcementPath = false;
 	}
 }
-bool AArmyGroup::AssignFront(EFrontOrder InOrder, const FVector& InLocation)
-{
-	if (InOrder != EFrontOrder::Secure && InOrder != EFrontOrder::Defend
-		&& InOrder != EFrontOrder::FallBack)
-		return false;
-	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const AMapRegion* Region = InOrder == EFrontOrder::Defend && State ? State->FindRegionAt(InLocation) : nullptr;
-	if (InOrder == EFrontOrder::Defend && !Region)
-		return false;
-	const EArmyOrder Travel = InOrder == EFrontOrder::FallBack ? EArmyOrder::Retreat : EArmyOrder::Attack;
-	if (!IssueTravel(Travel, InLocation))
-		return false;
-	FrontOrder = InOrder;
-	FrontLocation = Destination;
-	bAutomaticFront = true;
-	if (InOrder == EFrontOrder::Defend)
-		HoldRegionIndex = Region->RegionIndex;
-	FrontMaintenanceSeconds = 0.f;
-	ForceNetUpdate();
-	return true;
-}
 
-bool AArmyGroup::ApplyHold()
-{
-	StopAllUnits();
-	ResetHoldState();
-	AttackTarget = nullptr;
-	Order = EArmyOrder::Hold;
-	Destination = GetCenter();
-	bAutomaticFront = false;
-	++OrderSerial;
-	ForceNetUpdate();
-	LogOrder();
-	return true;
-}
-
-bool AArmyGroup::ApplyAttack(FVector InDestination, AActor* InTarget)
-{
-	FVector Anchor = InDestination;
-	if (InTarget)
-	{
-		// Targeted attacks approach a firing position instead of ordering the
-		// formation into the occupied target.
-		FVector FromTarget = GetCenter() - InTarget->GetActorLocation();
-		FromTarget.Z = 0.f;
-		if (!FromTarget.Normalize())
-			FromTarget = FVector(-1.f, 0.f, 0.f);
-		Anchor = InTarget->GetActorLocation() + FromTarget * 650.f;
-		Anchor.Z = 0.f;
-	}
-	if (!IssueTravel(EArmyOrder::Attack, Anchor))
-		return false;
-	AttackTarget = InTarget;
-	ForceNetUpdate();
-	return true;
-}
-
-bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
+bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, bool bApply)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || (Units.IsEmpty() && !IsValid(ProductionBuilding) && !bProducedGroup)
@@ -642,6 +586,8 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination)
 			return false;
 		ProjectedCenter = Projected.Location;
 	}
+	if (!bApply)
+		return true;
 
 	StopAllUnits();
 	ResetHoldState();
@@ -665,7 +611,6 @@ void AArmyGroup::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (!HasAuthority() || (CombatAccumulator += DeltaSeconds) < .25f)
 		return;
-	const float Elapsed = CombatAccumulator;
 	CombatAccumulator = 0.f;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	Units.RemoveAll([](const TObjectPtr<AArmyUnit>& Unit) { return !IsValid(Unit) || !Unit->IsAlive(); });
@@ -677,38 +622,13 @@ void AArmyGroup::Tick(float DeltaSeconds)
 	if (!State || State->MatchResult != EMatchResult::Ongoing)
 		return;
 	UpdateReinforcements();
-	if (bAutomaticFront && !IsHoldingRegion() && !Units.IsEmpty() && (FrontMaintenanceSeconds += Elapsed) >= 2.f)
-	{
-		FrontMaintenanceSeconds = 0.f;
-		const bool bDisplaced = FVector::DistSquared2D(GetCenter(), FrontLocation) > FMath::Square(170.f);
-		bool bMovingOrEngaged = false;
-		for (AArmyUnit* Unit : Units)
-		{
-			if (!IsValid(Unit) || !Unit->IsAlive() || Unit->bReinforcing)
-				continue;
-			const AAIController* AI = Cast<AAIController>(Unit->GetController());
-			if (Unit->bPursuing || (AI && AI->GetMoveStatus() != EPathFollowingStatus::Idle))
-			{
-				bMovingOrEngaged = true;
-				break;
-			}
-		}
-		if (!bMovingOrEngaged)
-		{
-			if (IsValid(ProductionBuilding) && ProductionBuilding->HasConfiguredFront()
-				&& (FrontOrder != ProductionBuilding->FrontOrder
-					|| !FrontLocation.Equals(ProductionBuilding->FrontLocation, 1.f)))
-				AssignFront(ProductionBuilding->FrontOrder, ProductionBuilding->FrontLocation);
-			else if (bDisplaced)
-				AssignFront(FrontOrder, FrontLocation);
-		}
-	}
+	TickOrders();
 	UpdateCombat();
 }
 
 bool AArmyGroup::IsHoldingRegion() const
 {
-	return bAutomaticFront && FrontOrder == EFrontOrder::Defend && HoldRegionIndex != INDEX_NONE;
+	return Verb == EForceVerb::MoveHold && Status == EForceStatus::Holding && HoldRegionIndex != INDEX_NONE;
 }
 
 void AArmyGroup::ResetHoldState()
@@ -918,9 +838,7 @@ void AArmyGroup::UpdateCombat()
 				&& FVector::DistSquared2D(Unit->GetActorLocation(), Destination) <= FMath::Square(PursuitRadius);
 			const bool bEnRoute = bAutomaticFront && FrontOrder == EFrontOrder::Secure
 				&& FVector::DistSquared2D(Unit->GetActorLocation(), Destination) > FMath::Square(PursuitRadius)
-				&& Distance <= FMath::Square(800.f)
-				&& FVector::Dist2D(Enemy->GetActorLocation(), Destination)
-					<= FVector::Dist2D(Unit->GetActorLocation(), Destination) + 250.f;
+				&& Distance <= FMath::Square(Unit->WeaponRange());
 			return (bNearAnchor && Distance <= FMath::Square(1450.f)) || bEnRoute;
 		};
 		AActor* Chosen = Permitted(AttackTarget.Get()) ? AttackTarget.Get()
@@ -962,7 +880,8 @@ void AArmyGroup::UpdateCombat()
 			}
 			continue;
 		}
-		if (Order == EArmyOrder::Attack && AI)
+		if (Order == EArmyOrder::Attack && AI
+			&& (Status == EForceStatus::Holding || FVector::DistSquared2D(Unit->GetActorLocation(), Destination) <= FMath::Square(PursuitRadius)))
 		{
 			const int32 Slot = Unit->CompositionSlot;
 			if (NextPursuitAttempts.Num() <= Slot)
@@ -1057,6 +976,15 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, Order);
 	DOREPLIFETIME(AArmyGroup, Destination);
 	DOREPLIFETIME(AArmyGroup, OrderSerial);
+	DOREPLIFETIME(AArmyGroup, Verb);
+	DOREPLIFETIME(AArmyGroup, TargetRegionIndex);
+	DOREPLIFETIME(AArmyGroup, TargetStructure);
+	DOREPLIFETIME(AArmyGroup, Orders);
+	DOREPLIFETIME(AArmyGroup, Status);
+	DOREPLIFETIME(AArmyGroup, RetreatThreshold);
+	DOREPLIFETIME(AArmyGroup, MarchSpeed);
+	DOREPLIFETIME(AArmyGroup, WaypointRegionIndex);
+	DOREPLIFETIME(AArmyGroup, ResumeCount);
 	DOREPLIFETIME(AArmyGroup, Units);
 	DOREPLIFETIME(AArmyGroup, HomeLocation);
 	DOREPLIFETIME(AArmyGroup, TeamIndex);

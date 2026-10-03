@@ -10,7 +10,9 @@
 #include "Headquarters.h"
 #include "NavigationSystem.h"
 #include "Rules/PlacementPolicy.h"
+#include "Commands/OrderGraph.h"
 #include "Components/BoxComponent.h"
+#include "HAL/PlatformTime.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConstructionLifecycleTest, "CoopRTS.Construction.Lifecycle",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -65,43 +67,27 @@ bool FindPlacement(ACommandGameState* State, int32 BuildingIndex, const FVector&
 		}
 	return false;
 }
-bool AssignNavigableFront(ACommandPlayerController* PC, ACommandBuilding* Producer,
-	EFrontOrder Order, const FVector& Requested)
+int32 FindForceRegion(ACommandGameState* State, AArmyGroup* Force, const FVector& Preferred,
+	const TArray<int32, TInlineAllocator<4>>& Reserved)
 {
-	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Producer->GetWorld());
-	if (!Navigation)
-		return false;
-	// Projection alone may pick a disconnected island. The owning command also validates the complete route.
-	for (int32 Ring = 0; Ring <= 6; ++Ring)
-		for (int32 Direction = 0; Direction < (Ring == 0 ? 1 : 12); ++Direction)
+	uint64 Graph[ForceOrders::MaxRegions];
+	const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+	const int32 Source = ForceOrderGraph::SourceRegion(*Force, *State);
+	int32 Best = INDEX_NONE;
+	float Distance = TNumericLimits<float>::Max();
+	for (const AMapRegion* Region : State->Regions)
+	{
+		if (!IsValid(Region) || Region->RegionRole == ERegionRole::Main || Reserved.Contains(Region->RegionIndex)
+			|| ForceOrders::NextWaypoint(Graph, Count, Source, Region->RegionIndex) == INDEX_NONE)
+			continue;
+		const float Candidate = FVector::DistSquared2D(Preferred, State->GetRegionAnchor(Region->RegionIndex));
+		if (Candidate < Distance)
 		{
-			const float Angle = Direction * PI / 6.f;
-			const FVector Candidate = Requested + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (Ring * 200.f);
-			FNavLocation Ground;
-			if (!Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(75.f, 75.f, 200.f))
-				|| !AArenaBounds::IsTravelLocation(Producer->GetWorld(), Ground.Location))
-				continue;
-			bool bClearFormation = true;
-			for (int32 X = -4; X <= 4 && bClearFormation; ++X)
-				for (int32 Y = -4; Y <= 4; ++Y)
-				{
-					const FVector Sample = Ground.Location + FVector(X * 50.f, Y * 50.f, 0.f);
-					FNavLocation Clear;
-					if (!Navigation->ProjectPointToNavigation(Sample, Clear, FVector(15.f, 15.f, 100.f))
-						|| FVector::DistSquared2D(Sample, Clear.Location) > FMath::Square(15.f))
-					{
-						bClearFormation = false;
-						break;
-					}
-				}
-			if (!bClearFormation)
-				continue;
-			FCommandService::AssignFront(PC->GetPlayerState<ACommandPlayerState>(), Producer, Order, Ground.Location);
-			if (Producer->FrontOrder == Order && Producer->HasConfiguredFront()
-				&& Producer->FrontLocation.Equals(Ground.Location, 1.f))
-				return true;
+			Distance = Candidate;
+			Best = Region->RegionIndex;
 		}
-	return false;
+	}
+	return Best;
 }
 class FConstructionScenario : public IAutomationLatentCommand
 {
@@ -109,6 +95,27 @@ public:
 	FConstructionScenario(FAutomationTestBase* InTest, bool bInProduction) : Test(InTest), bProduction(bInProduction) {}
 	bool Update() override
 	{
+		const double Now = FPlatformTime::Seconds();
+		if (TimedStage != Stage)
+		{
+			TimedStage = Stage;
+			StageStarted = Now;
+		}
+		if (Now - Started > 300.0 || Now - StageStarted > 90.0)
+		{
+			for (const auto& Entry : Forces)
+				if (const AArmyGroup* Force = Entry.Get(); IsValid(Force))
+				{
+					UE_LOG(LogTemp, Error, TEXT("Production deadline stage=%d force=%s joined=%d alive=%d target=%d waypoint=%d destination=%s"),
+						Stage, *Force->GetName(), Force->GetJoinedCount(), Force->GetAliveCount(),
+						Force->TargetRegionIndex, Force->WaypointRegionIndex, *Force->Destination.ToString());
+					for (const AArmyUnit* Unit : Force->GetUnits())
+						if (IsValid(Unit) && Unit->IsAlive())
+							UE_LOG(LogTemp, Error, TEXT("Production member slot=%d reinforcing=%d position=%s"),
+								Unit->GetCompositionSlot(), Unit->IsReinforcing(), *Unit->GetActorLocation().ToString());
+				}
+			return Fail(*FString::Printf(TEXT("Construction stage %d exceeded its bounded progress deadline"), Stage));
+		}
 		UWorld* World = ArmyTestSetup::World();
 		if (!World || World->GetTimeSeconds() < 3.f)
 			return false;
@@ -117,6 +124,8 @@ public:
 		ACommandPlayerState* Wallet = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
 		if (!PC || !State || !Wallet || Wallet->CommanderIndex < 0 || !MapReady(State) || !State->Content)
 			return false;
+		if (bProduction && Stage >= 2 && (!Attacker.IsValid() || Attacker->GetAliveCount() == 0))
+			return Fail(TEXT("Hostile damage fixture lost its living attacker before production damage assertions"));
 		if (Stage == 0)
 		{
 			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
@@ -207,7 +216,7 @@ public:
 			Stage = 1;
 			return false; // Let the real dynamic navmesh incorporate the new blocker before deployment.
 		}
-		if (Stage < 8 && !Building.IsValid())
+		if ((Stage < 8 || Stage == 11) && !Building.IsValid())
 			return Fail(TEXT("Production building disappeared"));
 		if (Stage == 1)
 		{
@@ -232,10 +241,11 @@ public:
 			UnrelatedWallet->CommanderIndex = 1;
 			UnrelatedWallet->Resources = 777;
 			State->AddPlayerState(UnrelatedWallet.Get());
-			Attacker = SpawnGroup(World, nullptr, -1, HostileStaging(State));
+			Attacker = SpawnGroup(World, nullptr, -1, FromEnemyHQ(State, 0.f, 0.f, 100.f));
 			if (!Attacker.IsValid())
 				return Fail(TEXT("Hostile damage fixture failed"));
-			FCommandService::IssueOrder(State->EnemyCommander, Attacker.Get(), EArmyOrder::Hold, Attacker->GetCenter());
+			if (!FCommandService::IssueForceOrder(State->EnemyCommander, Attacker.Get(), EForceVerb::MoveHold, ForceOrderGraph::TeamMain(*State, 5)))
+				return Fail(TEXT("Hostile damage fixture must remain inside its own HQ region"));
 			Attacker->SetActorTickEnabled(false);
 			for (AArmyUnit* Unit : Attacker->GetUnits())
 				Unit->SetActorTickEnabled(false);
@@ -312,13 +322,27 @@ public:
 			Building->TickProduction(Building->GetProductionDuration());
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 			Squad = Building->ForceGroup;
-			if (!Check(Alive(Building.Get()) == 1 && Wallet->Resources == 2000 - Building->GetProductionDefinition()->UnitCost,
-					TEXT("One completed slot produces one unit, not a batch, and charges its definition's unit cost")))
+			if (!Check(Alive(Building.Get()) == 1 && Squad.IsValid() && Squad->GetJoinedCount() == 0
+						&& Wallet->Resources == 2000 - Building->GetProductionDefinition()->UnitCost,
+					TEXT("One completed slot produces one travelling recruit and charges its definition's unit cost")))
 				return true;
-			Recruit = Squad->GetUnits()[0];
-			if (!Check(Recruit->GetUnitRole() == EUnitRole::Ranged && Recruit->GetCommanderIndex() == Wallet->CommanderIndex
+			Recruit = TravellingRecruit(Squad.Get());
+			if (!Check(Recruit.IsValid() && Recruit->GetUnitRole() == EUnitRole::Ranged && Recruit->GetCommanderIndex() == Wallet->CommanderIndex
 						&& Recruit->GetGroup() == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation()) > State->Content->Building(BarracksIndex)->FootprintRadius,
 					TEXT("Paid recruit physically starts outside its owning producer")))
+				return true;
+			Stage = 11;
+			return false;
+		}
+		if (Stage == 11)
+		{
+			if (!Check(Recruit.IsValid() && Recruit->IsAlive(), TEXT("First paid recruit survives its real route to the force")))
+				return true;
+			if (Recruit->IsReinforcing())
+				return false;
+			if (!Check(Squad->GetUnits().Num() == 1 && Squad->GetUnits().Contains(Recruit.Get())
+						&& Squad->GetJoinedCount() == 1 && Alive(Building.Get()) == 1 && Wallet->Resources == 1970,
+					TEXT("First recruit joins physically without another spawn or debit")))
 				return true;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
 			Building->TickProduction(Building->GetProductionDuration() * .25f);
@@ -331,16 +355,15 @@ public:
 					TEXT("Pause preserves partially completed unit work and wallet")))
 				return true;
 			FillBalance = Wallet->Resources;
+			TArray<int32, TInlineAllocator<4>> ReservedRegions;
 			for (int32 Index = 0; Index < Producers.Num(); ++Index)
 			{
 				ACommandBuilding* Producer = Producers[Index].Get();
-				// Fronts are HQ-relative: the first force east-south of the HQ, the others
-				// further north, out of the recruit's later travel corridor; this scenario
-				// proves ownership/refill, not crowd-grid escape.
-				const FVector RequestedFront = Index == 0 ? FromFriendlyHQ(State, 1700.f, -1100.f, 5.f)
-														  : FromFriendlyHQ(State, 1000.f, 1900.f + Index * 400.f, 5.f);
-				if (!AssignNavigableFront(PC, Producer, EFrontOrder::Defend, RequestedFront))
-					return Fail(*FString::Printf(TEXT("Independent force %d has no reachable front near %s"), Index, *RequestedFront.ToString()));
+				const FVector Preferred = FromFriendlyHQ(State, 1700.f, Index * 1200.f, 5.f);
+				const int32 Region = FindForceRegion(State, Producer->ForceGroup, Preferred, ReservedRegions);
+				if (Region == INDEX_NONE || !FCommandService::IssueForceOrder(Wallet, Producer->ForceGroup, EForceVerb::MoveHold, Region))
+					return Fail(TEXT("Independent producer needs its own reachable polygon anchor"));
+				ReservedRegions.Add(Region);
 				FCommandService::ConfigureProduction(Wallet, Producer, State->Content->Unit(Producer->ProductionUnitIndex)->Role, true);
 			}
 			Stage = 3;
@@ -367,7 +390,7 @@ public:
 				if (bReportProgress)
 					UE_LOG(LogTemp, Display, TEXT("Production fixture filling force=%d joined=%d travelling=%d state=%d front=%s"),
 						Index, Joined, Travelling, static_cast<int32>(Producers[Index]->GetProductionState()),
-						*Producers[Index]->FrontLocation.ToString());
+						*Producers[Index]->ForceGroup->Destination.ToString());
 			}
 			if (!Check(Wallet->Resources == FillBalance - ExpectedDebit, TEXT("Each produced unit charges only its own role price")))
 				return true;
@@ -385,11 +408,12 @@ public:
 						TEXT("Explicit pause takes presentation priority even on a full force")))
 					return true;
 			}
-			OtherFront = Forces[1]->FrontLocation;
-			OtherOrder = Forces[1]->FrontOrder;
-			FCommandService::AssignFront(Wallet, Building.Get(), EFrontOrder::Secure, FromFriendlyHQ(State, 1700.f, -1100.f, 5.f));
-			if (!Check(Forces[1]->FrontLocation == OtherFront && Forces[1]->FrontOrder == OtherOrder,
-					TEXT("An owning commander's front change affects only the selected producer")))
+			OtherRegion = Forces[1]->TargetRegionIndex;
+			OtherVerb = Forces[1]->Verb;
+			if (!FCommandService::IssueForceOrder(Wallet, Squad.Get(), EForceVerb::Attack, Squad->TargetRegionIndex))
+				return Fail(TEXT("Owned force can replace its held region with an Attack"));
+			if (!Check(Forces[1]->TargetRegionIndex == OtherRegion && Forces[1]->Verb == OtherVerb,
+					TEXT("An owning commander's force order affects only the selected force")))
 				return true;
 			AArmyUnit* Victim = Squad->GetUnits()[0];
 			Victim->ReceiveAttack(Victim->GetHealth(), Attacker->GetUnits()[0]);
@@ -403,9 +427,7 @@ public:
 		}
 		if (Stage == 4)
 		{
-			for (AArmyUnit* Unit : Squad->GetUnits())
-				if (IsValid(Unit) && Unit->IsAlive() && Unit->IsReinforcing())
-					Recruit = Unit;
+			Recruit = TravellingRecruit(Squad.Get());
 			if (!Recruit.IsValid() || !Recruit->IsReinforcing())
 				return false;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
@@ -420,8 +442,12 @@ public:
 						&& FVector::Dist2D(RecruitStart, JoinedStart) > 500.f && JoinedCenterMatches(Squad.Get()),
 					TEXT("Replacement leaves producer rather than spawning at force; center excludes travellers")))
 				return true;
-			if (!AssignNavigableFront(PC, Building.Get(), EFrontOrder::Defend, FromFriendlyHQ(State, 1700.f, 3100.f, 5.f)))
-				return Fail(TEXT("Replacement front needs a complete navigable route"));
+			TArray<int32, TInlineAllocator<4>> ReservedRegions;
+			ReservedRegions.Add(Squad->TargetRegionIndex);
+			ReservedRegions.Add(OtherRegion);
+			const int32 Region = FindForceRegion(State, Squad.Get(), State->EnemyHeadquarters->GetActorLocation(), ReservedRegions);
+			if (Region == INDEX_NONE || !FCommandService::IssueForceOrder(Wallet, Squad.Get(), EForceVerb::MoveHold, Region))
+				return Fail(TEXT("Replacement order needs a different reachable region"));
 			Stage = 5;
 			return false;
 		}
@@ -434,9 +460,10 @@ public:
 			bJoinedMoved |= FVector::Dist2D(JoinedStart, Squad->GetCenter()) > 200.f;
 			if (Recruit->IsReinforcing() || !bRecruitMoved || !bJoinedMoved)
 				return false;
-			if (!Check(FVector::Dist2D(Recruit->GetActorLocation(), Squad->GetCenter()) < 500.f
-						&& Forces[1]->FrontLocation == OtherFront && Forces[1]->FrontOrder == OtherOrder,
-					TEXT("Recruit follows moving force to physical arrival without altering the other front")))
+			if (!Check(Squad->GetUnits().Contains(Recruit.Get())
+						&& FVector::Dist2D(Recruit->GetActorLocation(), Squad->GetCenter()) < 500.f
+						&& Forces[1]->TargetRegionIndex == OtherRegion && Forces[1]->Verb == OtherVerb,
+					TEXT("Recruit follows moving force to physical arrival without altering the other force")))
 				return true;
 			while (!Squad->GetUnits().IsEmpty())
 			{
@@ -448,7 +475,7 @@ public:
 			if (!Check(IsValid(Building->ForceGroup) && Building->ForceGroup == Squad.Get() && Alive(Building.Get()) == 0,
 					TEXT("Complete wipe retains the same empty force identity")))
 				return true;
-			RememberedFront = Building->FrontLocation;
+			RememberedRegion = Squad->TargetRegionIndex;
 			ReplacementBalance = Wallet->Resources;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
 			Stage = 6;
@@ -459,10 +486,11 @@ public:
 			if (Alive(Building.Get()) == 0)
 				return false;
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
-			Recruit = Squad->GetUnits()[0];
-			if (!Check(Recruit->IsReinforcing() && Building->ForceGroup == Squad.Get()
-						&& Squad->FrontLocation == RememberedFront && Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost,
-					TEXT("Wiped force refills its remembered front under the original identity")))
+			Recruit = TravellingRecruit(Squad.Get());
+			if (!Check(Recruit.IsValid() && Recruit->IsReinforcing() && Building->ForceGroup == Squad.Get()
+						&& Squad->GetJoinedCount() == 0 && Squad->TargetRegionIndex == RememberedRegion
+						&& Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost,
+					TEXT("Wiped force refills its remembered region under the original identity")))
 				return true;
 			Recruit->ReceiveAttack(Recruit->GetHealth(), Attacker->GetUnits()[0]);
 			if (!Check(!Recruit->IsAlive() && Alive(Building.Get()) == 0,
@@ -480,9 +508,14 @@ public:
 			FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 			if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost, TEXT("Dead traveller replacement charges again")))
 				return true;
+			if (Squad->GetJoinedCount() == 0)
+				return false;
+			if (!Check(Squad->GetJoinedCount() == 1 && !Squad->GetUnits()[0]->IsReinforcing(),
+					TEXT("Paid dead-traveller replacement physically joins before producer destruction")))
+				return true;
 			Building->ReceiveAttack(Building->Health, Attacker->GetUnits()[0]);
-			if (!Check(Squad.IsValid() && !IsValid(Squad->GetProductionBuilding()) && Squad->FrontLocation == RememberedFront,
-					TEXT("Destroyed producer leaves survivors on their last front with no producer transfer")))
+			if (!Check(Squad.IsValid() && !IsValid(Squad->GetProductionBuilding()) && Squad->TargetRegionIndex == RememberedRegion,
+					TEXT("Destroyed producer leaves survivors on their last region order with no producer transfer")))
 				return true;
 			SurvivorCount = Squad->GetUnits().Num();
 			ReplacementBalance = Wallet->Resources;
@@ -552,12 +585,12 @@ public:
 			State->SetMatchResult(EMatchResult::Victory); // Terminal guard fixture, not outcome proof.
 			const float Progress = Producers[2]->ProductionProgressSeconds;
 			FCommandService::ConfigureProduction(Wallet, Producers[2].Get(), EUnitRole::Siege, true);
-			FCommandService::AssignFront(Wallet, Producers[1].Get(), EFrontOrder::FallBack, FromFriendlyHQ(State, 1700.f, 600.f, 5.f));
+			FCommandService::IssueForceOrder(Wallet, Forces[1].Get(), EForceVerb::Retreat);
 			Producers[2]->TickProduction(60.f);
 			if (!Check(!Producers[2]->bProductionEnabled && Producers[2]->ProductionProgressSeconds == Progress
-						&& Wallet->Resources == ReplacementBalance && Forces[1]->FrontLocation == OtherFront
+						&& Wallet->Resources == ReplacementBalance && Forces[1]->TargetRegionIndex == OtherRegion
 						&& Squad->GetUnits().Num() == SurvivorCount && !IsValid(Squad->GetProductionBuilding()),
-					TEXT("Terminal freezes production/front commands; orphan survivors receive no free refill or transfer")))
+					TEXT("Terminal freezes production/force commands; orphan survivors receive no free refill or transfer")))
 				return true;
 			Test->AddInfo(TEXT("Fixed-force proof: one paid unit, permanent role, siege charge, 4/6/2 independent capacities, travel/arrival, casualty and traveller replacement, wipe identity, pause/starve/block/terminal and producer destruction."));
 			return true;
@@ -582,6 +615,13 @@ private:
 		Producer->GetForceCounts(Joined, Travelling);
 		return Joined + Travelling;
 	}
+	static AArmyUnit* TravellingRecruit(const AArmyGroup* Force)
+	{
+		for (TActorIterator<AArmyUnit> It(Force->GetWorld()); It; ++It)
+			if (It->IsAlive() && It->IsReinforcing() && It->GetGroup() == Force)
+				return *It;
+		return nullptr;
+	}
 	static bool JoinedCenterMatches(const AArmyGroup* Force)
 	{
 		FVector Sum = FVector::ZeroVector;
@@ -597,18 +637,21 @@ private:
 	static bool ValidMembers(const ACommandBuilding* Producer, int32 Capacity)
 	{
 		uint32 Slots = 0;
-		for (const AArmyUnit* Unit : Producer->ForceGroup->GetUnits())
+		int32 Count = 0;
+		for (TActorIterator<AArmyUnit> It(Producer->GetWorld()); It; ++It)
 		{
-			if (!IsValid(Unit) || !Unit->IsAlive())
+			const AArmyUnit* Unit = *It;
+			if (!Unit->IsAlive() || Unit->GetGroup() != Producer->ForceGroup)
 				continue;
-			if (Unit->GetUnitRole() != Producer->ProductionRole || Unit->GetGroup() != Producer->ForceGroup
+			++Count;
+			if (Unit->GetUnitRole() != Producer->ProductionRole
 				|| Unit->GetCommanderIndex() != Producer->OwningPlayerState->CommanderIndex
 				|| Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity
 				|| (Slots & (1u << Unit->GetCompositionSlot())))
 				return false;
 			Slots |= 1u << Unit->GetCompositionSlot();
 		}
-		return true;
+		return Count == Alive(Producer);
 	}
 	bool Lifecycle(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet)
 	{
@@ -623,10 +666,11 @@ private:
 		const int32 Before = Wallet->Resources;
 		FCommandService::ConfigureProduction(OtherWallet, Building.Get(), EUnitRole::Ranged, true);
 		FCommandService::CancelBuilding(OtherWallet, Building.Get());
-		FCommandService::AssignFront(OtherWallet, Building.Get(), EFrontOrder::FallBack, FromFriendlyHQ(State, 1700.f, 600.f, 5.f));
+		const int32 Rally = Building->RallyRegionIndex;
+		FCommandService::SetRallyPoint(OtherWallet, Building.Get(), ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation()));
 		if (!Check(Building.IsValid() && !Building->bForceConfigured && !Building->bProductionEnabled
-					&& !Building->HasConfiguredFront() && Wallet->Resources == Before && OtherWallet->Resources == 777,
-				TEXT("Same-team foreign role/front/cancel commands change neither building nor either wallet")))
+					&& Building->RallyRegionIndex == Rally && Wallet->Resources == Before && OtherWallet->Resources == 777,
+				TEXT("Same-team foreign role/rally/cancel commands change neither building nor either wallet")))
 			return true;
 		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
 		FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
@@ -825,6 +869,9 @@ private:
 	FAutomationTestBase* Test;
 	bool bProduction;
 	int32 Stage = 0;
+	int32 TimedStage = 0;
+	double Started = FPlatformTime::Seconds();
+	double StageStarted = Started;
 	float LastProgressReport = 0.f;
 	TWeakObjectPtr<ACommandBuilding> Building;
 	TWeakObjectPtr<AArmyGroup> Squad;
@@ -835,8 +882,9 @@ private:
 	TWeakObjectPtr<AArmyUnit> Recruit;
 	TWeakObjectPtr<AActor> Blocker;
 	TWeakObjectPtr<ACommandPlayerState> UnrelatedWallet;
-	FVector RecruitStart, JoinedStart, OtherFront, RememberedFront;
-	EFrontOrder OtherOrder = EFrontOrder::Defend;
+	FVector RecruitStart, JoinedStart;
+	int32 OtherRegion = INDEX_NONE, RememberedRegion = INDEX_NONE;
+	EForceVerb OtherVerb = EForceVerb::MoveHold;
 	int32 FillBalance = 0, ReplacementBalance = 0, SurvivorCount = 0;
 	bool bRecruitMoved = false, bJoinedMoved = false;
 };

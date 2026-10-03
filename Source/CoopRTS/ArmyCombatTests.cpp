@@ -45,204 +45,80 @@ public:
 		}
 		if (Stage == 0)
 			return Begin(Now);
-		if (Stage == 7)
-		{
-			if (!Army.IsValid() || !Enemy.IsValid() || !Victim.IsValid())
-			{
-				Test->AddError(TEXT("Encounter disappeared before Attack was accepted"));
-				return true;
-			}
-			AArmyUnit* Frontline = Army->GetUnits()[0];
-			AArmyUnit* CounterTarget = Enemy->GetUnits()[2];
-			const FVector CounterPosition = CounterTarget->GetActorLocation();
-			CounterTarget->SetActorLocation(Frontline->GetActorLocation() + FVector(100.f, 0.f, 0.f),
-				false, nullptr, ETeleportType::TeleportPhysics);
-			for (AArmyUnit* Unit : Army->GetUnits())
-				Unit->NextAttackTime = TNumericLimits<float>::Max();
-			static_cast<AActor*>(Army.Get())->Tick(.25f);
-			if (!Check(Frontline->Target == CounterTarget,
-					TEXT("Automatic acquisition establishes a living Light counter lock before the targeted order")))
-				return true;
-			if (!FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()))
-			{
-				CounterTarget->SetActorLocation(CounterPosition, false, nullptr, ETeleportType::TeleportPhysics);
-				return false;
-			}
-			if (!Check(Army->Order == EArmyOrder::Attack && Army->AttackTarget == Victim.Get(),
-					TEXT("Accepted Attack records the explicit enemy and location")))
-				return true;
-			static_cast<AActor*>(Army.Get())->Tick(.25f);
-			if (!Check(Frontline->Target == Victim.Get(),
-					TEXT("Real targeted IssueAttack interrupts the prior counter lock and selects explicit Heavy under Attack")))
-				return true;
-			// Remove the explicit hint to probe retained-target eligibility under Attack,
-			// beyond melee range but still inside the real order's pursuit leash.
-			Army->AttackTarget = nullptr;
-			CounterTarget->SetActorLocation(Frontline->GetActorLocation() + FVector(75.f, 0.f, 0.f),
-				false, nullptr, ETeleportType::TeleportPhysics);
-			static_cast<AActor*>(Army.Get())->Tick(.25f);
-			if (!Check(Army->Order == EArmyOrder::Attack && Frontline->Target == Victim.Get()
-						&& FVector::Dist2D(Frontline->GetActorLocation(), Victim->GetActorLocation()) > Frontline->WeaponRange()
-						&& FVector::Dist2D(Victim->GetActorLocation(), Army->Destination) < Army->PursuitRadius,
-					TEXT("Attack retains its eligible non-counter lock inside the leash despite a closer counter in melee range")))
-				return true;
-			Army->AttackTarget = Victim.Get();
-			CounterTarget->SetActorLocation(CounterPosition, false, nullptr, ETeleportType::TeleportPhysics);
-			for (AArmyUnit* Unit : Army->GetUnits())
-				Unit->NextAttackTime = 0.f;
-			EncounterAttacks = TotalAttacks();
-			SetStage(1, Now);
-			return false;
-		}
 		if (!Check(Army.IsValid() && Enemy.IsValid() && Controller.IsValid(), TEXT("Encounter groups and owner remain valid")))
 			return true;
-
-		switch (Stage)
+		if (Stage == 1)
 		{
-		case 1: // Attack is a real encounter; pursuit is bounded around the accepted destination.
-			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) <= Army->PursuitRadius + 200.f,
-						TEXT("Attack member remains inside its pursuit boundary")))
-					return true;
-			if (Now - StageStarted < 3.)
-				break;
-			if (!Check(TotalAttacks() > EncounterAttacks,
-					TEXT("Live encounter causes a weapon attack, not just a recorded order")))
+			if (Now - StageStarted < 1.)
+				return false;
+			if (!Check(TotalAttacks() > EncounterAttacks, TEXT("Region Attack acquires a nearby hostile and fires a real weapon")))
 				return true;
 			Victim = Enemy->GetUnits().Last();
-			if (!Check(Victim.IsValid() && Victim->IsAlive(), TEXT("Boundary probe has a live hostile")))
+			const int32 Count = Enemy->GetUnits().Num();
+			Victim->ReceiveAttack(Victim->GetHealth(), Army->GetUnits()[0]);
+			if (!Check(!Victim->IsAlive() && Victim->GetHealth() == 0 && Enemy->GetUnits().Num() == Count - 1,
+					TEXT("Server lethal damage removes a dead member from its force")))
 				return true;
-			Victim->SetActorLocation(Army->Destination + FVector(700.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->Destination, Victim.Get()).IsAccepted(), TEXT("Boundary probe accepts a targeted Attack")))
-				return true;
-			Victim->SetActorLocation(Army->Destination + FVector(0.f, Army->PursuitRadius + 700.f, 0.f),
-				false, nullptr, ETeleportType::TeleportPhysics);
-			SetStage(8, Now);
-			break;
-		case 8:
-			if (Now - StageStarted < .7)
-				break;
-			if (!Check(!Army->AttackTarget, TEXT("Target leaving pursuit area is invalidated")))
-				return true;
+			static_cast<AActor*>(Army.Get())->Tick(.25f);
+			for (const AArmyUnit* Unit : Army->GetUnits())
+				if (!Check(Unit->Target != Victim.Get(), TEXT("Acquisition never retains a dead hostile")))
+					return true;
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			const FVector RetreatStart = State->GetRegionAnchor(ArmyTestSetup::RegionAt(State, State->EnemyHeadquarters->GetActorLocation()));
 			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(Unit->Target != Victim.Get()
-							&& FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) <= Army->PursuitRadius + 200.f,
-						TEXT("Members do not follow a target beyond Attack boundary")))
-					return true;
-			{
-				const uint32 Serial = Army->OrderSerial;
-				const FVector MoveGoal = Army->GetHomeLocation() + FVector(0.f, -600.f, 0.f);
-				FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, MoveGoal);
-				if (!Check(Army->Order == EArmyOrder::Move && Army->OrderSerial > Serial && !Army->AttackTarget,
-						TEXT("Move replaces Attack and clears the explicit target")))
-					return true;
-				for (AArmyUnit* Unit : Army->GetUnits())
-					if (!Check(!Unit->Target, TEXT("Move clears each unit's stale attack target immediately")))
-						return true;
-				// Leave a live defender within siege range but off the Move route.
-				if (!Check(Enemy->GetUnits().Num() >= 3, TEXT("Move probe has a live defender")))
-					return true;
-				Enemy->GetUnits()[2]->SetActorLocation(Army->GetHomeLocation() + FVector(950.f, 450.f, 0.f),
+				Unit->SetActorLocation(RetreatStart + FVector(1200.f, Unit->GetCompositionSlot() * 100.f, 0.f),
 					false, nullptr, ETeleportType::TeleportPhysics);
-				MoveStart = Army->GetCenter();
-				SetStage(2, Now);
-			}
-			break;
-		case 2:
-			if (Now - StageStarted < 2.)
-				break;
-			if (!Check(FVector::Dist2D(Army->GetCenter(), Army->Destination) + 70.f < FVector::Dist2D(MoveStart, Army->Destination),
-					TEXT("Move follows its destination rather than pursuing the encounter")))
+			if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Retreat).IsAccepted(),
+					TEXT("Retreat replaces the region attack")))
 				return true;
-			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(FVector::Dist2D(Unit->GetActorLocation(), Army->Destination) < 750.f,
-						TEXT("Every Move member stays with its ordered route instead of chasing a nearby enemy")))
+			for (const AArmyUnit* Unit : Army->GetUnits())
+				if (!Check(!Unit->Target, TEXT("Retreat immediately clears each combat target")))
 					return true;
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
-			if (!Check(Army->Order == EArmyOrder::Hold, TEXT("Hold replaces Move during the encounter")))
+			if (!Check(Army->Verb == EForceVerb::Retreat && Army->Status == EForceStatus::Retreating,
+					TEXT("Distant orphan begins active Retreat motion")))
 				return true;
-			HeldPositions.Reset();
+			RetreatCenter = Army->GetCenter();
 			for (AArmyUnit* Unit : Army->GetUnits())
-				HeldPositions.Add(Unit->GetActorLocation());
-			SetStage(3, Now);
-			break;
-		case 3:
-			if (Now - StageStarted < 1.)
-				break;
-			if (!Check(Army->GetUnits().Num() == HeldPositions.Num(), TEXT("Hold retains the living formation")))
-				return true;
-			for (int32 Index = 0; Index < HeldPositions.Num(); ++Index)
-				if (!Check(FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 6.f,
-						TEXT("Hold remains position-bound while a hostile army is nearby")))
-					return true;
-			if (!Check(Enemy->GetUnits().Num() >= 3, TEXT("A live hostile remains for a replacement Attack")))
-				return true;
-			Victim = Enemy->GetUnits()[2];
-			Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()).IsAccepted(),
-					TEXT("Attack can replace Hold with a live hostile target")))
-				return true;
-			SetStage(4, Now);
-			break;
-		case 4:
-			if (Now - StageStarted < 1.)
-				break;
-			if (!Check(Army->Order == EArmyOrder::Attack, TEXT("Army is engaging before Retreat")))
-				return true;
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
-			if (!Check(Army->Order == EArmyOrder::Retreat && !Army->AttackTarget,
-					TEXT("Retreat replaces combat and clears the group target")))
-				return true;
-			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(!Unit->Target, TEXT("Retreat clears every unit's combat target")))
-					return true;
-			RetreatAttacks = TotalAttacks();
-			SetStage(5, Now);
-			break;
-		case 5:
-			if (Now - StageStarted < 3.5)
-				break; // Longer than even the siege attack interval.
-			if (!Check(TotalAttacks() == RetreatAttacks && Army->Order == EArmyOrder::Retreat,
-					TEXT("Retreat prevents all combat attacks even with an enemy in range")))
-				return true;
-			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(!Unit->Target, TEXT("No retreating member reacquires a target")))
-					return true;
-			// Kill a live enemy via the same server damage entry point as a weapon.
-			Victim = Enemy->GetUnits().Last();
-			if (!Check(Victim.IsValid() && Victim->IsAlive(), TEXT("A live opposing unit is available for death check")))
-				return true;
-			Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-			if (!Check(FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Army->GetHomeLocation() + FVector(400.f, 0.f, 0.f), Victim.Get()).IsAccepted()
-						&& Army->AttackTarget == Victim.Get(),
-					TEXT("Targeted Attack records a live enemy")))
-				return true;
+				Unit->NextAttackTime = 0.f;
+			for (AArmyUnit* Unit : Enemy->GetUnits())
 			{
-				AArmyUnit* Shooter = Army->GetUnits()[0];
-				Victim->ReceiveAttack(Victim->GetHealth(), Shooter);
-				if (!Check(!Victim->IsAlive() && Victim->GetHealth() == 0 && !Enemy->GetUnits().Contains(Victim.Get()),
-						TEXT("Server lethal damage removes the dead unit from its group")))
-					return true;
+				Unit->NextAttackTime = TNumericLimits<float>::Max();
+				Unit->SetActorLocation(Army->GetUnits()[0]->GetActorLocation() + FVector(100.f, 0.f, 0.f),
+					false, nullptr, ETeleportType::TeleportPhysics);
 			}
-			SetStage(6, Now);
-			break;
-		case 6:
-			if (Now - StageStarted < .6)
-				break;
-			if (!Check(!Army->AttackTarget, TEXT("Dead explicit target is invalidated on the next acquisition")))
-				return true;
-			for (AArmyUnit* Unit : Army->GetUnits())
-				if (!Check(Unit->Target != Victim.Get(), TEXT("No unit retains a dead target")))
-					return true;
-			FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
-			if (!RejectUnregisteredTargets())
-				return true;
-			Test->AddInfo(TEXT("Live combat passed: role-specific effective range, server damage/death, target invalidation, bounded Attack, Move and Hold boundaries, Retreat override and stale-intent replacement."));
-			return true;
-		default:
-			break;
+			RetreatAttacks = TotalAttacks();
+			SetStage(2, Now);
+			return false;
 		}
-		return false;
+		if (Army->Verb == EForceVerb::Retreat && Army->Status == EForceStatus::Retreating)
+		{
+			if (!Check(TotalAttacks() == RetreatAttacks,
+					TEXT("Active Retreat suppresses weapon fire while a living hostile remains in range")))
+				return true;
+			bObservedRetreatMotion |= FVector::Dist2D(RetreatCenter, Army->GetCenter()) > 200.f;
+			// Follow the retreat with living hostiles, without extending suppression
+			// into the completed MoveHold's normal defensive combat.
+			for (AArmyUnit* Unit : Enemy->GetUnits())
+				Unit->SetActorLocation(Army->GetUnits()[0]->GetActorLocation() + FVector(100.f, 0.f, 0.f),
+					false, nullptr, ETeleportType::TeleportPhysics);
+			if (Now - StageStarted < 3.5 || !bObservedRetreatMotion)
+				return false;
+		}
+		else
+		{
+			if (Army->Verb == EForceVerb::MoveHold && Army->Status == EForceStatus::Marching)
+				return false; // Completion can still assemble the safe-region formation.
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			if (!Check(bObservedRetreatMotion && Army->Verb == EForceVerb::MoveHold
+						&& Army->Status == EForceStatus::Holding
+						&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(Army->TargetRegionIndex)) < 500.f,
+					TEXT("Physically moving orphan Retreat completes into MoveHold at its safe region")))
+				return true;
+		}
+		if (!RejectUnregisteredTargets())
+			return true;
+		Test->AddInfo(TEXT("Live combat passed: role-specific weapon range/damage, automatic counter acquisition, region Attack, server death and Retreat fire suppression."));
+		return true;
 	}
 
 private:
@@ -272,9 +148,9 @@ private:
 		const uint32 Serial = Army->OrderSerial;
 		const FVector Destination = Army->Destination;
 		const auto Rejected = [&](AActor* Target) {
-			const FCommandResult Result = FCommandService::IssueAttack(Army->GetOwningPlayerState(), Army.Get(), Target->GetActorLocation(), Target);
-			return !Result.IsAccepted() && Army->OrderSerial == Serial && Army->Order == EArmyOrder::Hold
-				&& Army->Destination == Destination && !Army->AttackTarget;
+			const FCommandResult Result = FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack, INDEX_NONE, Target);
+			return !Result.IsAccepted() && Army->OrderSerial == Serial
+				&& Army->Destination == Destination && !Army->TargetStructure;
 		};
 		AArmyUnit* Detached = nullptr;
 		for (AArmyUnit* Unit : Enemy->GetUnits())
@@ -288,13 +164,13 @@ private:
 		Enemy->OnMemberDied(Detached); // Membership fixture: health and the back-pointer remain live.
 		const bool bUnitRejected = Rejected(Detached);
 		Detached->Destroy();
-		if (!Check(bUnitRejected, TEXT("A live unit absent from its group rejects Attack without changing Hold")))
+		if (!Check(bUnitRejected, TEXT("A live unit absent from its group rejects Attack without changing accepted intent")))
 			return false;
 		AHeadquarters* HQ = State->EnemyHeadquarters;
 		State->EnemyHeadquarters = nullptr;
 		const bool bHQRejected = Rejected(HQ);
 		State->EnemyHeadquarters = HQ;
-		if (!Check(bHQRejected, TEXT("An unregistered live hostile HQ rejects Attack without changing Hold")))
+		if (!Check(bHQRejected, TEXT("An unregistered live hostile HQ rejects Attack without changing accepted intent")))
 			return false;
 		const FTransform Transform(State->EnemyHeadquarters->GetActorLocation() + FVector(900.f, 0.f, 65.f));
 		ACommandBuilding* Building = Army->GetWorld()->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(),
@@ -308,7 +184,7 @@ private:
 		State->Buildings.Remove(Building);
 		const bool bBuildingRejected = Building->IsAlive() && Rejected(Building);
 		Building->Destroy();
-		return Check(bBuildingRejected, TEXT("An unregistered live hostile building rejects Attack without changing Hold"));
+		return Check(bBuildingRejected, TEXT("An unregistered live hostile building rejects Attack without changing accepted intent"));
 	}
 
 	bool Begin(double Now)
@@ -434,14 +310,20 @@ private:
 				TEXT("A non-primary hostile HQ receives its Structure bonus then midpoint splash falloff")))
 			return true;
 		Victim->SetActorLocation(OriginalPosition, false, nullptr, ETeleportType::TeleportPhysics);
-		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter()); // Reset target acquired by the direct range probes.
+		FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(Army.Get()));
 		if (!CheckCounterAcquisition(State))
 			return true;
-		Victim = Enemy->GetUnits()[1]; // Fresh defender: range probes do not pre-damage the encounter target.
-		// Bring one frontline defender into the friendly HQ-derived approach,
-		// leaving the other defenders at their enemy HQ-derived fixture spawn.
-		Victim->SetActorLocation(Army->GetHomeLocation() + FVector(850.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-		SetStage(7, Now); // A rejected request while dynamic navigation starts is safe to retry.
+		Victim = Enemy->GetUnits()[1];
+		const int32 Region = ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation());
+		if (!Check(FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack, Region).IsAccepted(),
+				TEXT("An owned region attack is accepted")))
+			return true;
+		const FVector Approach = (Army->Destination - Army->GetCenter()).GetSafeNormal2D();
+		for (AArmyUnit* Unit : Enemy->GetUnits())
+			Unit->SetActorLocation(Army->GetUnits()[0]->GetActorLocation() + Approach * 100.f,
+				false, nullptr, ETeleportType::TeleportPhysics);
+		EncounterAttacks = TotalAttacks();
+		SetStage(1, Now);
 		return false;
 	}
 
@@ -461,7 +343,7 @@ private:
 		const FVector Anchor = HQ->GetActorLocation() + FVector(900.f, 0.f, 0.f);
 		for (AArmyUnit* Unit : Army->GetUnits())
 			Unit->SetActorLocation(Anchor, false, nullptr, ETeleportType::TeleportPhysics);
-		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+		FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::Attack, ArmyTestSetup::RegionAt(State, Anchor));
 		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(50.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(100.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		Enemy->GetUnits()[4]->SetActorLocation(Anchor + FVector(150.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
@@ -475,16 +357,7 @@ private:
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[2],
 			TEXT("A live in-range target stays selected when a nearer matching-class enemy appears"));
-		// Explicit player intent overrides a retained automatic counter target.
-		Army->AttackTarget = Enemy->GetUnits()[0];
-		static_cast<AActor*>(Army.Get())->Tick(.25f);
-		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[0],
-			TEXT("Explicit AttackTarget outranks a retained target and automatic counter preference"));
-		Army->AttackTarget = nullptr;
-		static_cast<AActor*>(Army.Get())->Tick(.25f);
-		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[0],
-			TEXT("An eligible non-counter target is retained even when a counter target is available"));
-		Enemy->GetUnits()[0]->SetActorLocation(Anchor + FVector(400.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		Enemy->GetUnits()[2]->SetActorLocation(Anchor + FVector(400.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
 		static_cast<AActor*>(Army.Get())->Tick(.25f);
 		bOk &= Check(Army->GetUnits()[0]->Target == Enemy->GetUnits()[4],
 			TEXT("A target leaving weapon range triggers fresh nearest-counter acquisition"));
@@ -494,7 +367,7 @@ private:
 			Enemy->GetUnits()[Index]->SetActorLocation(HostilePositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
 			Army->GetUnits()[Index]->NextAttackTime = 0.f;
 		}
-		FCommandService::IssueOrder(Army->GetOwningPlayerState(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+		FCommandService::IssueForceOrder(Army->GetOwningPlayerState(), Army.Get(), EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(Army.Get()));
 		return bOk;
 	}
 
@@ -503,10 +376,10 @@ private:
 	TWeakObjectPtr<AArmyGroup> Army;
 	TWeakObjectPtr<AArmyGroup> Enemy;
 	TWeakObjectPtr<AArmyUnit> Victim;
-	TArray<FVector> HeldPositions;
-	FVector MoveStart = FVector::ZeroVector;
 	uint32 EncounterAttacks = 0;
 	uint32 RetreatAttacks = 0;
+	FVector RetreatCenter = FVector::ZeroVector;
+	bool bObservedRetreatMotion = false;
 	int32 Stage = 0;
 	bool bIsolated = false;
 	double Started;

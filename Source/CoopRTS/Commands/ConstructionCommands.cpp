@@ -82,7 +82,6 @@ ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const F
 		Deposit->ForceNetUpdate();
 	}
 	Building->Health = Building->MaxHealth();
-	Building->FrontLocation = Ground.Location;
 	Building->FinishSpawning(Transform);
 	if (!IsValid(Building) || !Building->IsAlive())
 	{

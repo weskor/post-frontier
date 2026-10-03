@@ -7,19 +7,17 @@ from typing import NamedTuple, cast
 
 from harness.network import (
     BARRACKS,
-    HOLD,
+    MOVE_HOLD,
     RANGED,
     SIEGE,
     NetworkRun,
     building,
-    distance2,
     force,
     force_counts_match,
-    goal_matches,
+    order_matches,
     owned_buildings,
-    region,
     require,
-    select_goal_region,
+    select_order_region,
     wallet,
 )
 from harness.verify import JsonObject
@@ -68,21 +66,25 @@ def latched(
 def hold_at(
     run: NetworkRun, s: Session, index: int, target: int, description: str
 ) -> dict[str, JsonObject]:
-    run.request(s.peer, "goal", building=index, goal=HOLD, region=target)
+    run.request(
+        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=target
+    )
     return converged(
         run,
         s.names,
         lambda st: (
-            goal_matches(st, index, HOLD, target)
-            and building(st, index)["frontOrder"] == 1
+            order_matches(st, index, MOVE_HOLD, target)
             and force_counts_match(st, s.owner, index)
-            and force(st, s.owner, index)["frontOrder"] == 1
-            and distance2(
-                force(st, s.owner, index)["front"], region(st, target)["anchor"]
-            )
-            < 1
-            and distance2(building(st, index)["front"], region(st, target)["anchor"])
-            < 1
+            and force(st, s.owner, index)["forceVerb"] == MOVE_HOLD
+            and force(st, s.owner, index)["targetRegionIndex"] == target
+            and force(st, s.owner, index)["orders"]
+            == [
+                {
+                    "forceVerb": MOVE_HOLD,
+                    "targetRegionIndex": target,
+                    "targetStructureId": -1,
+                }
+            ]
         ),
         description,
     )
@@ -236,13 +238,13 @@ def configure_siege(run: NetworkRun, s: Session, index: int) -> int:
         lambda st: not building(st, index)["enabled"],
         "configuration pause",
     )
-    target = select_goal_region(states["host"], index)["index"]
+    target = select_order_region(states["host"], index)["index"]
     hold_at(
         run,
         s,
         index,
         target,
-        "owned Hold goal and region anchor replicate after configuration",
+        "owned Move + Hold order and target replicate after configuration",
     )
     return cast(int, producer["forceID"])
 

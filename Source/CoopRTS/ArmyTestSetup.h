@@ -11,6 +11,8 @@
 #include "Commands/CommandService.h"
 #include "EnemyCommander.h"
 #include "Headquarters.h"
+#include "MapRegion.h"
+#include "Rules/ForceOrderPolicy.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -47,6 +49,38 @@ inline FVector HostileStaging(const ACommandGameState* State) { return FromEnemy
 inline FVector OutsideArena(const ACommandGameState* State)
 {
 	return FVector(State->Arena->HalfExtent.X * 2.f, State->Arena->HalfExtent.Y * 2.f, 5.f);
+}
+inline int32 RegionAt(const ACommandGameState* State, const FVector& Location)
+{
+	const AMapRegion* Region = State ? State->FindRegionAt(Location) : nullptr;
+	return Region ? Region->RegionIndex : INDEX_NONE;
+}
+inline int32 CurrentRegion(const AArmyGroup* Force)
+{
+	return Force ? RegionAt(Force->GetWorld()->GetGameState<ACommandGameState>(), Force->GetCenter()) : INDEX_NONE;
+}
+// Choose a reachable neighbouring polygon, rather than manufacturing a ground destination.
+inline int32 TravelRegion(const AArmyGroup* Force, const FVector& Preferred)
+{
+	const ACommandGameState* State = Force ? Force->GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	const AMapRegion* Current = State ? State->FindRegionAt(Force->GetCenter()) : nullptr;
+	if (!Current)
+		return INDEX_NONE;
+	int32 Best = INDEX_NONE;
+	float Distance = TNumericLimits<float>::Max();
+	for (const AMapRegion* Region : State->Regions)
+	{
+		if (!IsValid(Region) || !Current->Neighbours.Contains(Region->RegionIndex)
+			|| (Region->RegionRole == ERegionRole::Main && Region->HomeTeam != Force->GetTeamIndex()))
+			continue;
+		const float Candidate = FVector::DistSquared2D(State->GetRegionAnchor(Region->RegionIndex), Preferred);
+		if (Candidate < Distance || (Candidate == Distance && Region->RegionIndex < Best))
+		{
+			Distance = Candidate;
+			Best = Region->RegionIndex;
+		}
+	}
+	return Best;
 }
 inline UWorld* World()
 {

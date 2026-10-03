@@ -25,7 +25,7 @@ void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover)
 															  : TEXT("Frontline takes -25% damage");
 	const TCHAR* Second = Choice == EArmyDoctrine::SiegeOptics ? TEXT("Outgoing damage -25%")
 		: Choice == EArmyDoctrine::FieldRepairs                ? TEXT("5 s without move/fire/damage")
-															   : TEXT("while stationary at a Defend front");
+															   : TEXT("while stationary and holding");
 	Paint.Text(First, Rect.X + 10.f, Rect.Y + 30.f, 9.f, Palette::Muted, false, EAlign::Left, Inner);
 	Paint.Text(Second, Rect.X + 10.f, Rect.Y + 45.f, 9.f, Palette::Muted, false, EAlign::Left, Inner);
 	const float Baseline = Rect.Bottom() - 11.f;

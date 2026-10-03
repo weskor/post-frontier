@@ -5,6 +5,7 @@
 #include "ArmyUnit.h"
 #include "AIController.h"
 #include "MapRegion.h"
+#include "CapturePoint.h"
 #include "ObjectiveAnnouncer.h"
 #include "NavigationData.h"
 #include "Navigation/PathFollowingComponent.h"
@@ -81,6 +82,9 @@ public:
 		{
 			if (!Check(Holder.IsValid() && Power(*Holder) > 0., TEXT("Every holder retains living Power")))
 				return true;
+			if (Stage == EStage::Posts
+				&& FVector::Dist2D(Holder->GetCenter(), State->GetRegionAnchor(Region->RegionIndex)) <= ACapturePoint::CaptureRadius)
+				ReachedAnchors.Add(Holder.Get());
 			if (Holder->bHoldResponding && FVector::Dist2D(Holder->GetCenter(), InitialCenters[Holders.IndexOfByKey(Holder)]) > 100.)
 				MovedHolders.Add(Holder.Get());
 			if (Case == ECase::Border && Threats[0].IsValid() && Threats[0]->IsAlive())
@@ -117,7 +121,7 @@ public:
 				&& (!Check(Region->Contains(Holders[0]->GetCenter())
 							&& FVector::Dist2D(Holders[0]->GetCenter(), OutsideEntryStart) > 500.,
 						TEXT("A holder starting outside the region physically enters and reaches its assigned post"))
-					|| !CheckRegionlessDefend()))
+					|| !CheckRegionlessMoveHold()))
 				return true;
 			InitialCenters.Reset();
 			for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
@@ -351,24 +355,24 @@ public:
 				if (!Check(bQuietObserved && Now - Quiet >= 6., TEXT("Responder returns only after six uninterrupted quiet game seconds")))
 					return true;
 			}
-			if (!SetupEngagedFront())
+			if (!SetupEngagedAttack())
 				return true;
-			SetStage(EStage::FrontAcquire, Now);
+			SetStage(EStage::AttackAcquire, Now);
 			break;
-		case EStage::FrontAcquire:
+		case EStage::AttackAcquire:
 			if (!IsStationaryEngaged())
 				break;
-			EngagedOrderSerial = FrontProbe->OrderSerial;
-			SetStage(EStage::FrontEngaged, Now);
+			EngagedOrderSerial = AttackProbe->OrderSerial;
+			SetStage(EStage::AttackEngaged, Now);
 			break;
-		case EStage::FrontEngaged:
-			if (!Check(FrontProbe->OrderSerial == EngagedOrderSerial,
-					TEXT("Front maintenance does not re-issue accepted moves while a stationary unit is engaged"))
-				|| !Check(IsStationaryEngaged(), TEXT("The live target remains engaged throughout two front-maintenance periods")))
+		case EStage::AttackEngaged:
+			if (!Check(AttackProbe->OrderSerial == EngagedOrderSerial,
+					TEXT("Attack request caching does not re-issue accepted travel while a stationary unit is engaged"))
+				|| !Check(IsStationaryEngaged(), TEXT("The live target remains engaged throughout two order-maintenance periods")))
 				return true;
 			if (Now - StageStarted < 4.25)
 				break;
-			Test->AddInfo(TEXT("Automatic Secure front preserved its order serial while a displaced unit engaged a living target at weapon range."));
+			Test->AddInfo(TEXT("The real Attack retained its order serial while a displaced unit engaged a living target at weapon range."));
 			return Finish();
 		default:
 			break;
@@ -392,8 +396,8 @@ private:
 		StickyDeath,
 		StickyReacquire,
 		LateQuiet,
-		FrontAcquire,
-		FrontEngaged
+		AttackAcquire,
+		AttackEngaged
 	};
 
 	bool Check(bool Condition, const TCHAR* Message)
@@ -599,8 +603,8 @@ private:
 				return true;
 			Holder->ForceNumber = Index + 1;
 			Holder->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
-			if (!Check(FCommandService::AssignFront(Wallet, Holder, EFrontOrder::Defend, Anchor).IsAccepted(),
-					TEXT("Real Defend front accepts the complete region hold")))
+			if (!Check(FCommandService::IssueForceOrder(Wallet, Holder, EForceVerb::MoveHold, Region->RegionIndex).IsAccepted(),
+					TEXT("Real MoveHold accepts travel to the region anchor followed by regional Hold")))
 				return true;
 		}
 		if (Case == ECase::BuildingEdge)
@@ -629,8 +633,8 @@ private:
 			Unit->NextAttackTime = TNumericLimits<float>::Max();
 			Threats.Add(Unit);
 		}
-		if (!Check(FCommandService::IssueOrder(ThreatWallet, Enemy.Get(), EArmyOrder::Hold, FVector::ZeroVector).IsAccepted(),
-				TEXT("Explicit fixture Hold stops in place without assigning a region")))
+		if (!Check(Enemy->Orders.IsEmpty() && Enemy->HoldRegionIndex == INDEX_NONE,
+				TEXT("The scripted idle orphan has no explicit region order or assigned Hold post")))
 			return true;
 		Enemy->SetActorTickEnabled(false); // Scripted stationary feint/shooter, no unrelated acquisition.
 		if (Case == ECase::BuildingEdge || Case == ECase::Border || Case == ECase::Jev)
@@ -663,15 +667,26 @@ private:
 				return false;
 		return true;
 	}
-	bool CheckRegionlessDefend()
+	bool CheckRegionlessMoveHold()
 	{
 		AArmyGroup& Holder = *Holders[0];
 		const EArmyOrder AcceptedOrder = Holder.Order;
 		const FVector AcceptedDestination = Holder.Destination;
 		const uint32 AcceptedSerial = Holder.OrderSerial;
-		const EFrontOrder AcceptedFront = Holder.FrontOrder;
-		const FVector AcceptedFrontLocation = Holder.FrontLocation;
-		const bool bAcceptedAutomatic = Holder.bAutomaticFront;
+		const EForceVerb AcceptedVerb = Holder.Verb;
+		const EForceStatus AcceptedStatus = Holder.Status;
+		const int32 AcceptedTarget = Holder.TargetRegionIndex, AcceptedWaypoint = Holder.WaypointRegionIndex;
+		const AActor* AcceptedStructure = Holder.TargetStructure;
+		const TArray<FForceOrder> AcceptedOrders = Holder.Orders;
+		const float AcceptedMarchSpeed = Holder.MarchSpeed;
+		const AArmyUnit* Member = Holder.GetUnits()[0];
+		const FVector AcceptedPosition = Member->GetActorLocation(), AcceptedVelocity = Member->GetVelocity();
+		const FVector AcceptedPursuitGoal = Member->PursuitGoal;
+		const bool bAcceptedPursuing = Member->bPursuing;
+		const AAIController* AI = Cast<AAIController>(Member->GetController());
+		if (!Check(AI != nullptr, TEXT("The accepted holder retains its real movement controller")))
+			return false;
+		const EPathFollowingStatus::Type AcceptedMoveStatus = AI->GetMoveStatus();
 		const int32 AcceptedRegion = Holder.HoldRegionIndex, AcceptedPost = Holder.HoldPostIndex;
 		const FVector AcceptedPostLocation = Holder.HoldPostLocation;
 		const bool bAcceptedResponding = Holder.bHoldResponding;
@@ -680,34 +695,62 @@ private:
 		const EHoldThreatKind AcceptedKind = Holder.HoldThreatKind;
 		const double AcceptedStarted = Holder.GetHoldResponseStarted(), AcceptedQuiet = Holder.GetHoldQuietSince();
 		const FVector Ground = State->GetRegionAnchor(Region->RegionIndex);
-		// Keep real navigable ground and the live accepted command. Temporarily
-		// omit its region from discovery, without allowing a world tick in between.
+		// Omit the actual target region without allowing a world tick between
+		// the rejected command and restoration of the live map.
 		const int32 RegionSlot = State->Regions.IndexOfByKey(Region.Get());
-		if (!Check(RegionSlot != INDEX_NONE && State->FindRegionAt(Ground) == Region.Get(),
-				TEXT("The rejection fixture begins with a mapped, accepted Defend front")))
+		if (!Check(RegionSlot != INDEX_NONE && State->FindRegionAt(Ground) == Region.Get()
+					&& AcceptedVerb == EForceVerb::MoveHold && AcceptedStatus == EForceStatus::Holding
+					&& AcceptedTarget == Region->RegionIndex && !AcceptedOrders.IsEmpty(),
+				TEXT("The rejection fixture begins with an accepted active regional MoveHold")))
 			return false;
 		State->Regions.RemoveAt(RegionSlot);
 		const bool bRegionless = State->FindRegionAt(Ground) == nullptr;
-		const FCommandResult Result = FCommandService::AssignFront(Holder.GetOwningPlayerState(), &Holder, EFrontOrder::Defend, Ground);
+		const FCommandResult Result = FCommandService::IssueForceOrder(Holder.GetOwningPlayerState(), &Holder,
+			EForceVerb::MoveHold, Region->RegionIndex);
 		State->Regions.Insert(Region.Get(), RegionSlot);
-		return Check(bRegionless && !Result.IsAccepted(), TEXT("A real automatic Defend rejects navigable ground with no mapped region"))
-			&& Check(Holder.Order == AcceptedOrder && Holder.Destination.Equals(AcceptedDestination, 1.)
-					&& Holder.OrderSerial == AcceptedSerial && Holder.FrontOrder == AcceptedFront
-					&& Holder.FrontLocation.Equals(AcceptedFrontLocation, 1.) && Holder.bAutomaticFront == bAcceptedAutomatic
+		if (!Check(bRegionless && !Result.IsAccepted(), TEXT("MoveHold rejects its missing target region"))
+			|| !Check(Holder.Orders.Num() == AcceptedOrders.Num(), TEXT("Rejected MoveHold preserves the accepted order queue")))
+			return false;
+		for (int32 Index = 0; Index < AcceptedOrders.Num(); ++Index)
+		{
+			const FForceOrder& Before = AcceptedOrders[Index];
+			const FForceOrder& After = Holder.Orders[Index];
+			if (!Check(After.Verb == Before.Verb && After.RegionIndex == Before.RegionIndex
+						&& After.Structure == Before.Structure && After.SelectionSpeed == Before.SelectionSpeed
+						&& After.bStructureTarget == Before.bStructureTarget,
+					TEXT("Rejected MoveHold preserves every accepted active and queued order")))
+				return false;
+		}
+		return Check(Holder.Order == AcceptedOrder && Holder.Destination.Equals(AcceptedDestination, 1.)
+					&& Holder.OrderSerial == AcceptedSerial && Holder.Verb == AcceptedVerb && Holder.Status == AcceptedStatus
+					&& Holder.TargetRegionIndex == AcceptedTarget && Holder.TargetStructure == AcceptedStructure
+					&& Holder.WaypointRegionIndex == AcceptedWaypoint && Holder.MarchSpeed == AcceptedMarchSpeed
+					&& Member->GetActorLocation() == AcceptedPosition && Member->GetVelocity() == AcceptedVelocity
+					&& Member->PursuitGoal == AcceptedPursuitGoal && Member->bPursuing == bAcceptedPursuing
+					&& AI->GetMoveStatus() == AcceptedMoveStatus
 					&& Holder.HoldRegionIndex == AcceptedRegion && Holder.HoldPostIndex == AcceptedPost
 					&& Holder.HoldPostLocation.Equals(AcceptedPostLocation, 1.) && Holder.bHoldResponding == bAcceptedResponding
 					&& Holder.HoldThreat == AcceptedThreat && Holder.HoldThreatenedAsset == AcceptedAsset && Holder.HoldThreatKind == AcceptedKind
 					&& Holder.GetHoldResponseStarted() == AcceptedStarted && Holder.GetHoldQuietSince() == AcceptedQuiet,
-				TEXT("Rejected regionless Defend preserves the prior accepted movement, front, serial and complete Hold intent"));
+				TEXT("Rejected regionless MoveHold preserves accepted verb, status, target, movement and complete Hold state"));
 	}
 	bool CheckPosts()
 	{
+		if (!Check(!Region->Anchor || State->GetRegionController(Region->RegionIndex) == Holders[0]->GetTeamIndex(),
+				TEXT("A capturable target is secured by live anchor occupancy before holders settle at posts")))
+			return false;
 		TArray<int32> Occupancy;
 		Occupancy.Init(0, Region->GetDefendPosts().Num());
 		Posts.Reset();
 		for (int32 Index = 0; Index < Holders.Num(); ++Index)
 		{
 			const AArmyGroup* Holder = Holders[Index].Get();
+			if (!Check(ReachedAnchors.Contains(Holders[Index].Get()) && Holder->Verb == EForceVerb::MoveHold
+						&& Holder->Status == EForceStatus::Holding && Holder->TargetRegionIndex == Region->RegionIndex
+						&& Holder->Orders.Num() == 1 && Holder->Orders[0].Verb == EForceVerb::MoveHold
+						&& Holder->Orders[0].RegionIndex == Region->RegionIndex,
+					TEXT("Every accepted MoveHold physically reaches its target anchor before occupying regional posts")))
+				return false;
 			if (!Check(!Holder->bHoldResponding && Occupancy.IsValidIndex(Holder->HoldPostIndex), TEXT("Idle holders occupy real authored defend posts")))
 				return false;
 			++Occupancy[Holder->HoldPostIndex];
@@ -925,59 +968,68 @@ private:
 		return true;
 	}
 
-	bool SetupEngagedFront()
+	bool SetupEngagedAttack()
 	{
-		// A non-Hold front exercises the maintenance guard itself; regional
-		// Hold bypasses maintenance. Keep this duel outside the held region.
+		// A non-Hold Attack exercises accepted travel request caching. Its
+		// one-member fixture must not withdraw before combat stops the move.
 		const AHeadquarters* HQ = State->EnemyHeadquarters.Get();
 		const AMapRegion* Home = HQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
 		if (!Check(Home && Home != Region.Get() && Threats[1].IsValid() && Threats[1]->IsAlive(),
-				TEXT("A separate enemy home supplies the engaged-front fixture")))
+				TEXT("A separate enemy home supplies the stationary Attack encounter")))
 			return false;
-		// The ranged probe's engagement radius, not the melee challenger's.
 		const double Range = Holders[0]->GetUnits()[0]->WeaponRange();
+		const FVector Anchor = State->GetRegionAnchor(Home->RegionIndex);
 		FVector Start, Target;
 		bool bFound = false;
-		const FVector Directions[] = { FVector::ForwardVector, -FVector::ForwardVector, FVector::RightVector, -FVector::RightVector };
-		for (const FVector& Post : Home->GetDefendPosts())
+		for (int32 DirectionIndex = 0; DirectionIndex < 8 && !bFound; ++DirectionIndex)
 		{
-			for (const FVector& Direction : Directions)
-				if (Project(Post + Direction * 400., Start) && Project(Start + Direction * (Range * .75), Target)
+			const double Angle = DirectionIndex * PI / 4.;
+			const FVector Direction(FMath::Cos(Angle), FMath::Sin(Angle), 0.);
+			const FVector Lateral(-Direction.Y, Direction.X, 0.);
+			for (double Radius : { 1000., 900., 800., 700., 600., 500., 400., 300. })
+				if (Project(Anchor + Direction * Radius, Start)
+					&& Project(Start + Lateral * (Range * .6), Target)
 					&& Home->Contains(Start) && Home->Contains(Target)
+					&& FVector::Dist2D(Start, Anchor) <= 1050. && FVector::Dist2D(Target, Anchor) <= 1050.
 					&& FVector::Dist2D(Start, HQ->GetActorLocation()) > Range + 200.
-					&& FVector::Dist2D(Start, Target) > 170.
-					&& FVector::Dist2D(Start, Target) < Range)
+					&& FVector::Dist2D(Start, Anchor) > 170.
+					&& FVector::Dist2D(Start, Target) > 170. && FVector::Dist2D(Start, Target) < Range
+					&& Reachable(Start, Anchor))
 				{
 					bFound = true;
 					break;
 				}
-			if (bFound)
-				break;
 		}
-		if (!Check(bFound, TEXT("Map-derived navigation provides a displaced in-range encounter away from the HQ")))
+		if (!Check(bFound, TEXT("Map navigation supplies an in-range duel within the target anchor's acquisition radius and outside HQ weapon range")))
 			return false;
 		ACommandPlayerState* Wallet = ArmyTestSetup::Controller(State->GetWorld())->GetPlayerState<ACommandPlayerState>();
-		FrontProbe = Spawn(Wallet, 50, Start);
-		if (!Check(FrontProbe.IsValid() && FrontProbe->SpawnMember(UnitIndex, Start, 2),
-				TEXT("A real automatic-front combat unit spawns")))
+		AttackProbe = Spawn(Wallet, 50, Start);
+		if (!Check(AttackProbe.IsValid() && AttackProbe->SpawnMember(UnitIndex, Start, 2),
+				TEXT("A real region-Attack combat unit spawns")))
 			return false;
-		// Isolate maintenance from target death; ordinary combat still acquires,
-		// locks and stops at weapon range while its cooldown is held.
-		FrontProbe->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
+		// Ordinary combat acquires and stops at weapon range, while the held
+		// cooldown keeps the living target available throughout the observation.
+		AttackProbe->GetUnits()[0]->NextAttackTime = TNumericLimits<float>::Max();
 		Teleport(Threats[1].Get(), Target);
-		return Check(FCommandService::AssignFront(Wallet, FrontProbe.Get(), EFrontOrder::Secure, Target).IsAccepted(),
-			TEXT("The normal command service accepts the automatic Secure front"));
+		return Check(FCommandService::SetRetreatThreshold(Wallet, AttackProbe.Get(), ERetreatThreshold::Never).IsAccepted()
+				&& FCommandService::IssueForceOrder(Wallet, AttackProbe.Get(), EForceVerb::Attack, Home->RegionIndex).IsAccepted()
+				&& AttackProbe->Verb == EForceVerb::Attack && AttackProbe->Status == EForceStatus::Marching
+				&& AttackProbe->TargetRegionIndex == Home->RegionIndex
+				&& FVector::Dist2D(AttackProbe->GetCenter(), AttackProbe->Destination) > 170.,
+			TEXT("The command service accepts a displaced region Attack with Never retreat threshold"));
 	}
 	bool IsStationaryEngaged() const
 	{
-		if (!FrontProbe.IsValid() || FrontProbe->GetUnits().IsEmpty() || !Threats[1].IsValid() || !Threats[1]->IsAlive())
+		if (!AttackProbe.IsValid() || AttackProbe->GetUnits().IsEmpty() || !Threats[1].IsValid() || !Threats[1]->IsAlive())
 			return false;
-		const AArmyUnit* Unit = FrontProbe->GetUnits()[0];
+		const AArmyUnit* Unit = AttackProbe->GetUnits()[0];
 		const AAIController* AI = Cast<AAIController>(Unit->GetController());
-		return FrontProbe->bAutomaticFront && !FrontProbe->IsHoldingRegion()
+		return AttackProbe->Verb == EForceVerb::Attack && AttackProbe->Status == EForceStatus::Marching
+			&& AttackProbe->RetreatThreshold == ERetreatThreshold::Never && !AttackProbe->IsHoldingRegion()
 			&& Unit->Target == Threats[1].Get() && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle
+			&& Unit->GetVelocity().SizeSquared2D() <= 1.
 			&& FVector::Dist2D(Unit->GetActorLocation(), Threats[1]->GetActorLocation()) <= Unit->WeaponRange()
-			&& FVector::Dist2D(FrontProbe->GetCenter(), FrontProbe->FrontLocation) > 170.;
+			&& FVector::Dist2D(AttackProbe->GetCenter(), AttackProbe->Destination) > 170.;
 	}
 
 	bool Finish()
@@ -1008,7 +1060,7 @@ private:
 	TWeakObjectPtr<ACommandGameState> State;
 	TWeakObjectPtr<AMapRegion> Region;
 	TWeakObjectPtr<ACommandPlayerState> SecondCommander;
-	TWeakObjectPtr<AArmyGroup> Enemy, StickyHolder, FrontProbe;
+	TWeakObjectPtr<AArmyGroup> Enemy, StickyHolder, AttackProbe;
 	TWeakObjectPtr<ACommandBuilding> Building;
 	TWeakObjectPtr<AArmyUnit> FirstTarget;
 	TArray<TWeakObjectPtr<AArmyGroup>> Holders;
@@ -1017,6 +1069,7 @@ private:
 	TArray<int32> ExpectedNearest, FirstResponders;
 	TMap<AArmyGroup*, uint32> BorderAttacks;
 	TSet<AArmyGroup*> MovedHolders;
+	TSet<AArmyGroup*> ReachedAnchors;
 	FVector Intrusion = FVector::ZeroVector, BuildingLocation = FVector::ZeroVector;
 	FVector Outside = FVector::ZeroVector, FarOutside = FVector::ZeroVector, Side = FVector::RightVector;
 	FVector OutsideEntryStart = FVector::ZeroVector, CounterLocation = FVector::ZeroVector;

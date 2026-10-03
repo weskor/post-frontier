@@ -12,7 +12,11 @@ class COOPRTS_API UOrderCommandComponent : public UActorComponent
 public:
 	UOrderCommandComponent();
 	UFUNCTION(Server, Reliable)
-	void ServerAssignGoal(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex);
+	void ServerIssueForceOrder(const TArray<AArmyGroup*>& Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue);
+	UFUNCTION(Server, Reliable)
+	void ServerSetRetreatThreshold(const TArray<AArmyGroup*>& Forces, ERetreatThreshold Threshold);
+	UFUNCTION(Server, Reliable)
+	void ServerSetRallyPoint(ACommandBuilding* Building, int32 RegionIndex);
 	UFUNCTION(Client, Reliable)
 	void ClientConstructionFeedback(const FString& Message, bool bAccepted);
 };

@@ -1,18 +1,18 @@
-"""Atomic rejection of locked, invalid and foreign production/goal commands."""
+"""Atomic rejection of locked, invalid and foreign production/order commands."""
 
 from __future__ import annotations
 
 from harness.network import (
-    ASSAULT,
-    EXPAND,
-    FALL_BACK,
+    ATTACK,
     FRONTLINE,
-    HOLD,
+    MOVE_HOLD,
     RANGED,
+    RETREAT,
     SIEGE,
     NetworkRun,
     building,
-    goal_matches,
+    force,
+    order_matches,
     require,
     wallet,
 )
@@ -24,26 +24,40 @@ def issue_rejected_commands(run: NetworkRun, s: Session, index: int) -> JsonObje
     before = run.observe("host")
     run.request(s.peer, "production", building=index, recipe=RANGED, enabled=True)
     run.request(s.peer, "production", building=index, recipe=255, enabled=True)
-    enemy_main = next(r["index"] for r in before["regions"] if r["homeTeam"] == 5)
     invalid_region = max(r["index"] for r in before["regions"]) + 1
     run.request(
         s.peer,
-        "goal",
+        "order",
         building=index,
-        goal=255,
-        region=building(before, index)["goalRegionIndex"],
+        forceVerb=255,
+        targetRegionIndex=building(before, index)["targetRegionIndex"],
     )
-    for goal in (HOLD, EXPAND):
-        run.request(s.peer, "goal", building=index, goal=goal, region=invalid_region)
-        run.request(s.peer, "goal", building=index, goal=goal, region=enemy_main)
-    for goal in (ASSAULT, FALL_BACK):
-        run.request(s.peer, "goal", building=index, goal=goal, region=enemy_main)
+    for verb in (MOVE_HOLD, ATTACK):
+        run.request(
+            s.peer,
+            "order",
+            building=index,
+            forceVerb=verb,
+            targetRegionIndex=invalid_region,
+        )
+        run.request(
+            s.peer, "order", building=index, forceVerb=verb, targetRegionIndex=-1
+        )
+    run.request(
+        s.peer,
+        "order",
+        building=index,
+        forceVerb=RETREAT,
+        targetRegionIndex=invalid_region,
+    )
     if s.peer != "host":
         foreign_before = wallet(before, s.identities["host"])["wallet"]
         run.request(
             "host", "production", building=index, recipe=FRONTLINE, enabled=True
         )
-        run.request("host", "goal", building=index, goal=FALL_BACK, region=-1)
+        run.request(
+            "host", "order", building=index, forceVerb=RETREAT, targetRegionIndex=-1
+        )
         require(
             wallet(run.observe("host"), s.identities["host"])["wallet"]
             == foreign_before,
@@ -111,13 +125,17 @@ def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) 
             not building(st, index)["enabled"]
             and building(st, index)["recipe"] == SIEGE
             and building(st, index)["front"] == building(before, index)["front"]
-            and building(st, index)["frontOrder"]
-            == building(before, index)["frontOrder"]
-            and goal_matches(
+            and force(st, s.owner, index)["orders"]
+            == force(before, s.owner, index)["orders"]
+            and force(st, s.owner, index)["status"]
+            == force(before, s.owner, index)["status"]
+            and force(st, s.owner, index)["waypointRegionIndex"]
+            == force(before, s.owner, index)["waypointRegionIndex"]
+            and order_matches(
                 st,
                 index,
-                building(before, index)["forceGoal"],
-                building(before, index)["goalRegionIndex"],
+                building(before, index)["forceVerb"],
+                building(before, index)["targetRegionIndex"],
             )
             and building(st, index)["forceID"] == squad
             and building(st, index)["productionSeconds"]
@@ -125,9 +143,9 @@ def reject_locked_commands(run: NetworkRun, s: Session, index: int, squad: int) 
             and wallet(st, s.owner)["wallet"] == 0
             for st in states.values()
         ),
-        "locked/invalid/foreign commands changed force configuration, progress, goal, waypoint or wallet",
+        "locked/invalid/foreign commands changed force configuration, progress, order, waypoint or wallet",
     )
     run.phase(
-        "owner RPCs, permanent siege configuration and atomic rejection of invalid/foreign goals and locked types"
+        "owner RPCs, permanent siege configuration and atomic rejection of invalid/foreign orders and locked types"
     )
     verify_force_ownership(run, s, index)

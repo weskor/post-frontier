@@ -32,54 +32,66 @@ const TCHAR* StatusText(EProductionState State)
 		return TEXT("PRODUCING");
 	}
 }
-const TCHAR* GoalTitle(EForceGoal Goal)
+const TCHAR* OrderTitle(EForceVerb Verb)
 {
-	switch (Goal)
+	switch (Verb)
 	{
-	case EForceGoal::Hold:
-		return TEXT("HOLD");
-	case EForceGoal::Expand:
-		return TEXT("EXPAND");
-	case EForceGoal::Assault:
-		return TEXT("ASSAULT");
-	case EForceGoal::FallBack:
-		return TEXT("FALL BACK");
+	case EForceVerb::MoveHold:
+		return TEXT("MOVE & HOLD");
+	case EForceVerb::Attack:
+		return TEXT("ATTACK");
+	case EForceVerb::Retreat:
+		return TEXT("RETREAT");
 	default:
 		return TEXT("UNKNOWN");
 	}
 }
 
-const TCHAR* GoalPurpose(EForceGoal Goal)
+const TCHAR* OrderPurpose(EForceVerb Verb)
 {
-	switch (Goal)
+	switch (Verb)
 	{
-	case EForceGoal::Hold:
+	case EForceVerb::MoveHold:
+	case EForceVerb::Attack:
 		return TEXT("pick region");
-	case EForceGoal::Expand:
-		return TEXT("capture region");
-	case EForceGoal::Assault:
-		return TEXT("enemy main");
-	case EForceGoal::FallBack:
+	case EForceVerb::Retreat:
 		return TEXT("regroup");
 	default:
 		return TEXT("");
 	}
 }
 
-FLinearColor GoalColor(EForceGoal Goal)
+FLinearColor OrderColor(EForceVerb Verb)
 {
-	switch (Goal)
+	switch (Verb)
 	{
-	case EForceGoal::Hold:
+	case EForceVerb::MoveHold:
 		return FLinearColor(.38f, .92f, .48f);
-	case EForceGoal::Expand:
-		return FLinearColor(.32f, .80f, 1.f);
-	case EForceGoal::Assault:
+	case EForceVerb::Attack:
 		return FLinearColor(1.f, .36f, .30f);
-	case EForceGoal::FallBack:
+	case EForceVerb::Retreat:
 		return FLinearColor(1.f, .86f, .32f);
 	default:
 		return Palette::Muted;
+	}
+}
+
+const TCHAR* ForceStatusTitle(EForceStatus Status)
+{
+	switch (Status)
+	{
+	case EForceStatus::Marching:
+		return TEXT("MARCHING");
+	case EForceStatus::Holding:
+		return TEXT("HOLDING");
+	case EForceStatus::Withdrawing:
+		return TEXT("WITHDRAWING");
+	case EForceStatus::Retreating:
+		return TEXT("RETREATING");
+	case EForceStatus::Refilling:
+		return TEXT("REFILLING");
+	default:
+		return TEXT("UNKNOWN");
 	}
 }
 

@@ -41,16 +41,16 @@ static void DrawPlacementMode(const FPainter& Paint, const FContext& Context, co
 	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("Shift+LMB"), TEXT("places another"));
 }
 
-static void DrawGoalMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
+static void DrawOrderMode(const FPainter& Paint, const FContext& Context, const FRect& Mode, const FModeGeometry& Geometry)
 {
 	const ACommandPlayerController* Controller = Context.Controller;
 	const auto& [X, Row1, Row2, KeysRight, KeysWidth, TextWidth] = Geometry;
-	const EForceGoal Goal = Controller->GetPendingGoal();
-	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, GoalColor(Goal));
+	const EForceVerb Verb = Controller->GetPendingVerb();
+	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, OrderColor(Verb));
 	TStringBuilder<32> Title;
-	Title.Appendf(TEXT("SET %s GOAL"), GoalTitle(Goal));
+	Title.Appendf(TEXT("ISSUE %s"), OrderTitle(Verb));
 	Paint.Text(Title.ToView(), X, Row1, 12.5f, Palette::Text, true);
-	Paint.Text(TEXT("Pick a region on ground or minimap; this barracks' force follows its goal."), X, Row2, 10.f,
+	Paint.Text(TEXT("Pick a region on ground or minimap for this barracks' force."), X, Row2, 10.f,
 		Palette::Muted, false, EAlign::Left, TextWidth);
 	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Assign"));
 	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
@@ -106,8 +106,8 @@ void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& 
 	const FModeGeometry Geometry{ X, Row1, Row2, KeysRight, KeysWidth, TextWidth };
 	if (Controller->IsPlacingBuilding())
 		DrawPlacementMode(Paint, Context, Mode, Geometry);
-	else if (Controller->IsAssigningGoal())
-		DrawGoalMode(Paint, Context, Mode, Geometry);
+	else if (Controller->IsAssigningOrder())
+		DrawOrderMode(Paint, Context, Mode, Geometry);
 	else
 		DrawHiddenMode(Paint, Context, Mode, Geometry);
 }

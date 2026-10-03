@@ -140,7 +140,10 @@ FLinearColor AArmyUnit::GetCommanderColor(int32 InCommanderIndex)
 void AArmyUnit::OnRep_Appearance()
 {
 	if (Definition)
-		GetCharacterMovement()->MaxWalkSpeed = Definition->MoveSpeed;
+	{
+		const float OrderSpeed = IsValid(Group) ? Group->GetMarchSpeed() : 0.f;
+		GetCharacterMovement()->MaxWalkSpeed = OrderSpeed > 0.f ? OrderSpeed : Definition->MoveSpeed;
+	}
 	const bool bTookDamage = bAudioStateInitialized && Health < LastAudioHealth;
 	const bool bDied = bTookDamage && LastAudioHealth > 0 && Health <= 0 && !bDeathAudioPlayed;
 	LastAudioHealth = Health;
@@ -237,6 +240,7 @@ void AArmyUnit::FireAt(AActor* Victim)
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (!HasAuthority() || !IsAlive() || bReinforcing || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
+		|| (IsValid(Group) && Group->Verb == EForceVerb::Retreat)
 		|| !CombatTarget::IsAliveHostile(Victim, TeamIndex)
 		|| FVector::Dist2D(GetActorLocation(), Victim->GetActorLocation()) > WeaponRange())
 		return;

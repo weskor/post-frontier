@@ -6,10 +6,12 @@
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "Commands/CommandService.h"
+#include "Commands/OrderGraph.h"
 #include "DepositSite.h"
 #include "MapRegion.h"
 #include "Content/MatchContent.h"
 #include "Headquarters.h"
+#include "Rules/ForceOrderPolicy.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -29,23 +31,23 @@ bool HasCapability(const ACommandBuilding& Building, bool UBuildingDefinition::*
 	return Definition && Definition->*Capability;
 }
 
-bool ValidRegion(int32 Index) { return Index >= 0 && Index < ForceGoals::MaxRegions; }
+bool ValidRegion(int32 Index) { return Index >= 0 && Index < ForceOrders::MaxRegions; }
 
-// Graph distances also exclude unreachable expansion targets. Fixed storage matches the goal driver.
+// Graph distances also exclude unreachable expansion targets.
 void Distances(const AMapRegion* const* Regions, int32 Source, int32* Distance)
 {
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 		Distance[Index] = INDEX_NONE;
 	if (!ValidRegion(Source) || !Regions[Source])
 		return;
-	int32 Queue[ForceGoals::MaxRegions];
+	int32 Queue[ForceOrders::MaxRegions];
 	int32 Read = 0, Write = 0;
 	Queue[Write++] = Source;
 	Distance[Source] = 0;
 	while (Read < Write)
 	{
 		const int32 Current = Queue[Read++];
-		for (int32 Next = 0; Next < ForceGoals::MaxRegions; ++Next)
+		for (int32 Next = 0; Next < ForceOrders::MaxRegions; ++Next)
 			if (Regions[Next] && Distance[Next] == INDEX_NONE && Regions[Current]->Neighbours.Contains(Next))
 			{
 				Distance[Next] = Distance[Current] + 1;
@@ -146,12 +148,12 @@ void AEnemyCommander::EvaluatePlan()
 	const UArmyUnitDefinition& Infantry = *Content.Unit(FrontlineIndex);
 	const FVector Home = (TeamIndex == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters)->GetActorLocation();
 	const FVector EnemyHome = (TeamIndex == 5 ? State->FriendlyHeadquarters : State->EnemyHeadquarters)->GetActorLocation();
-	const AMapRegion* Regions[ForceGoals::MaxRegions] = {};
-	int32 Controllers[ForceGoals::MaxRegions];
-	int32 Hostiles[ForceGoals::MaxRegions] = {};
-	int32 DepositValue[ForceGoals::MaxRegions] = {};
-	bool Claimed[ForceGoals::MaxRegions] = {};
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+	const AMapRegion* Regions[ForceOrders::MaxRegions] = {};
+	int32 Controllers[ForceOrders::MaxRegions];
+	int32 Hostiles[ForceOrders::MaxRegions] = {};
+	int32 DepositValue[ForceOrders::MaxRegions] = {};
+	bool Claimed[ForceOrders::MaxRegions] = {};
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 		Controllers[Index] = -1;
 	for (const AMapRegion* Region : State->Regions)
 		if (IsValid(Region) && ValidRegion(Region->RegionIndex))
@@ -162,6 +164,20 @@ void AEnemyCommander::EvaluatePlan()
 	const AMapRegion* HomeRegion = State->FindRegionAt(Home);
 	if (!HomeRegion || !ValidRegion(HomeRegion->RegionIndex))
 		return;
+	RecoveringForces.RemoveAllSwap([](const TWeakObjectPtr<AArmyGroup>& Force) {
+		return !Force.IsValid() || !IsValid(Force->GetProductionBuilding());
+	});
+	uint64 ConnectedRecovery = 0;
+	if (!RecoveringForces.IsEmpty())
+	{
+		uint64 Graph[ForceOrders::MaxRegions];
+		const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+		uint64 Controlled = 0;
+		for (int32 Index = 0; Index < Count; ++Index)
+			if (Controllers[Index] == TeamIndex)
+				Controlled |= uint64(1) << Index;
+		ConnectedRecovery = ForceOrders::ConnectedMask(Graph, Count, HomeRegion->RegionIndex, Controlled);
+	}
 	TArray<ACommandBuilding*, TInlineAllocator<8>> Barracks;
 	ACommandBuilding* Workshop = nullptr;
 	int32 Roles[3] = {};
@@ -241,9 +257,9 @@ void AEnemyCommander::EvaluatePlan()
 				break;
 	}
 
-	ACommandBuilding* Defenders[ForceGoals::MaxRegions] = {};
+	ACommandBuilding* Defenders[ForceOrders::MaxRegions] = {};
 	bool bThreatened = false;
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 	{
 		if (!Regions[Index] || Controllers[Index] != TeamIndex || !Hostiles[Index])
 			continue;
@@ -251,7 +267,7 @@ void AEnemyCommander::EvaluatePlan()
 		float Nearest = TNumericLimits<float>::Max();
 		for (ACommandBuilding* Building : Barracks)
 		{
-			if (!Building->IsComplete() || !IsValid(Building->ForceGroup) || Building->ForceGoal == EForceGoal::FallBack)
+			if (!Building->IsComplete() || !IsValid(Building->ForceGroup) || RecoveringForces.Contains(Building->ForceGroup.Get()))
 				continue;
 			bool bAssigned = false;
 			for (const ACommandBuilding* Defender : Defenders)
@@ -306,19 +322,35 @@ void AEnemyCommander::EvaluatePlan()
 				Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 				++Living;
 			}
+		const bool bWasRecovering = RecoveringForces.Contains(Building->ForceGroup.Get());
 		const bool bRecover = (Living > 0 && Health / Living < .35f)
-			|| (Building->ForceGoal == EForceGoal::FallBack && (!Living || Health / Living < .8f));
-		EForceGoal Goal = EForceGoal::Hold;
+			|| (bWasRecovering && (!Living || Health / Living < .8f));
+		if (bRecover)
+			RecoveringForces.AddUnique(Building->ForceGroup.Get());
+		else
+			RecoveringForces.RemoveSwap(Building->ForceGroup.Get());
+		EForceVerb Verb = EForceVerb::MoveHold;
 		int32 Target = HomeRegion->RegionIndex;
 		if (bRecover)
 		{
-			Goal = EForceGoal::FallBack;
+			Verb = EForceVerb::Retreat;
 			Target = INDEX_NONE;
+			const AArmyGroup* Force = Building->ForceGroup;
+			const int32 Held = Force->TargetRegionIndex;
+			// Retreat refills capacity, not health. Keep its completed safe hold
+			// until the existing planner's 80-percent health recovery is satisfied.
+			if (bWasRecovering && Force->Verb == EForceVerb::MoveHold && Force->Status == EForceStatus::Holding
+				&& ValidRegion(Held) && Regions[Held] && (ConnectedRecovery & (uint64(1) << Held))
+				&& !Hostiles[Held] && Regions[Held]->Contains(Force->GetCenter()))
+			{
+				Verb = EForceVerb::MoveHold;
+				Target = Held;
+			}
 		}
 		else
 		{
 			bool bDefend = false;
-			for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+			for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 				if (Defenders[Index] == Building)
 				{
 					Target = Index;
@@ -330,11 +362,11 @@ void AEnemyCommander::EvaluatePlan()
 				const AMapRegion* Source = State->FindRegionAt(Building->ForceGroup->GetCenter());
 				if (!Source)
 					Source = State->FindRegionAt(Building->GetActorLocation());
-				int32 Distance[ForceGoals::MaxRegions];
+				int32 Distance[ForceOrders::MaxRegions];
 				Distances(Regions, Source ? Source->RegionIndex : INDEX_NONE, Distance);
 				const FVector Center = Building->ForceGroup->GetCenter();
 				float Best = -TNumericLimits<float>::Max();
-				for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+				for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 				{
 					if (!Regions[Index] || Regions[Index]->RegionRole == ERegionRole::Main || Controllers[Index] == TeamIndex
 						|| Distance[Index] == INDEX_NONE || Claimed[Index])
@@ -342,33 +374,34 @@ void AEnemyCommander::EvaluatePlan()
 					const float Score = 8.f + DepositValue[Index] * 2.f - Distance[Index] * 5.f - Hostiles[Index] * 4.f
 						- FVector::DistSquared2D(Center, State->GetRegionAnchor(Index)) / FMath::Square(4000.f)
 						- (Controllers[Index] == EnemyTeam ? 3.f : 0.f)
-						+ (Building->ForceGoal == EForceGoal::Expand && Building->GoalRegionIndex == Index ? 4.f : 0.f);
+						+ (Building->ForceGroup->Verb == EForceVerb::MoveHold && Building->ForceGroup->TargetRegionIndex == Index ? 4.f : 0.f);
 					if (Score > Best)
 					{
 						Best = Score;
 						Target = Index;
-						Goal = EForceGoal::Expand;
 					}
 				}
-				// Preserve the goal driver's own casualty-refill state; do not reissue identical Assault goals.
-				if ((!bThreatened && bAdvantage) || Goal == EForceGoal::Hold)
+				// Do not replace an identical Attack: its casualty-refill state belongs to the force.
+				if ((!bThreatened && bAdvantage) || Best == -TNumericLimits<float>::Max())
 				{
-					Goal = EForceGoal::Assault;
-					Target = INDEX_NONE;
+					Verb = EForceVerb::Attack;
+					const AMapRegion* EnemyMain = State->FindRegionAt(EnemyHome);
+					Target = EnemyMain ? EnemyMain->RegionIndex : INDEX_NONE;
 				}
 				else
 					Claimed[Target] = true;
 			}
 		}
-		if (Building->ForceGoal != Goal || (Target != INDEX_NONE && Building->GoalRegionIndex != Target)
-			|| !Building->HasConfiguredFront())
-			FCommandService::AssignGoal(Commander, Building, Goal, Target);
+		AArmyGroup* Force = Building->ForceGroup;
+		if (Force->Verb != Verb || (Target != INDEX_NONE && Force->TargetRegionIndex != Target)
+			|| Force->Orders.IsEmpty())
+			FCommandService::IssueForceOrder(Commander, Force, Verb, Target);
 	}
 
 	// Prefer the safest controlled forward anchor. Never construct on a contested region.
 	FVector BuildCenter = Home;
 	float BestForward = -TNumericLimits<float>::Max();
-	for (int32 Index = 0; Index < ForceGoals::MaxRegions; ++Index)
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
 	{
 		if (!Regions[Index] || Regions[Index]->RegionRole == ERegionRole::Main || Controllers[Index] != TeamIndex
 			|| State->IsRegionContested(Index, TeamIndex))

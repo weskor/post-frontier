@@ -153,7 +153,7 @@ void ACommandBuilding::BeginPlay()
 				}
 			}
 			State->Buildings.AddUnique(this);
-			TickGoal();
+			InitializeRallyPoint();
 			State->ForceNetUpdate();
 		}
 	}
@@ -182,7 +182,7 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 		}
 		else
 			TickProduction(DeltaSeconds);
-		TickGoal();
+		InitializeRallyPoint();
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -484,11 +484,7 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ACommandBuilding, ForceGroup);
 	DOREPLIFETIME(ACommandBuilding, bProductionEnabled);
 	DOREPLIFETIME(ACommandBuilding, ProductionProgressSeconds);
-	DOREPLIFETIME(ACommandBuilding, FrontOrder);
-	DOREPLIFETIME(ACommandBuilding, FrontLocation);
-	DOREPLIFETIME(ACommandBuilding, bHasConfiguredFront);
-	DOREPLIFETIME(ACommandBuilding, ForceGoal);
-	DOREPLIFETIME(ACommandBuilding, GoalRegionIndex);
+	DOREPLIFETIME(ACommandBuilding, RallyRegionIndex);
 	DOREPLIFETIME(ACommandBuilding, PlacementCommittedServerTime);
 	DOREPLIFETIME(ACommandBuilding, DeploymentCount);
 	DOREPLIFETIME(ACommandBuilding, ResearchCount);

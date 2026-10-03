@@ -6,6 +6,8 @@
 #include "DepositSite.h"
 #include "MapRegion.h"
 #include "Headquarters.h"
+#include "HAL/PlatformTime.h"
+#include "NavigationSystem.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEnemyConstructionTest, "CoopRTS.Enemy.ConstructionEconomy",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -16,6 +18,14 @@ public:
 	explicit FEnemyConstructionScenario(FAutomationTestBase* InTest) : Test(InTest) {}
 	bool Update() override
 	{
+		const double Now = FPlatformTime::Seconds();
+		if (TimedStage != Stage)
+		{
+			TimedStage = Stage;
+			StageStarted = Now;
+		}
+		if (Now - Started > 300.0 || Now - StageStarted > 90.0)
+			return Fail(*FString::Printf(TEXT("Strategy stage %d exceeded its bounded progress deadline"), Stage));
 		UWorld* World = ArmyTestSetup::World();
 		if (!World || World->GetTimeSeconds() < 3.f)
 			return false;
@@ -47,6 +57,26 @@ public:
 			return Fail(TEXT("Enemy wallet must be a controllerless team-5 commander outside the human roster"));
 		if (Stage == 3)
 		{
+			UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+			if (!Nav || Nav->IsNavigationBuildInProgress())
+				return false;
+			Planner->EvaluatePlan();
+			const bool bSafe = InSafeRecovery(State);
+			if (!bSafe && Recovery->Verb != EForceVerb::Retreat)
+				return Fail(TEXT("Below-35-percent joined health must issue Retreat before recovery movement"));
+			if (!bSafe)
+				return false; // Await the real force tick applying its route after navigation becomes ready.
+			SafeRecoveryRegion = Recovery->WaypointRegionIndex;
+			if (Recovery->GetProductionBuilding() != Production.Get() || Production->ForceGroup != Recovery.Get())
+				return Fail(TEXT("Retreat cannot detach or replace the injured force's owning producer"));
+			if (OtherForce->Verb == EForceVerb::Retreat)
+				return Fail(TEXT("Damage to the original producer cannot retreat the healthy forward producer"));
+			Planner->SetActorTickEnabled(false); // Explicit evaluations below observe natural return and repair ticks.
+			Stage = 4;
+			return false;
+		}
+		if (Stage == 4)
+		{
 			if (!Recovery.IsValid() || !Production.IsValid() || Production->ForceGroup != Recovery.Get()
 				|| Recovery->GetProductionBuilding() != Production.Get())
 				return Fail(TEXT("Recovery must retain its living producer and stable force backlink"));
@@ -60,28 +90,29 @@ public:
 				Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 				++Joined;
 			}
+			if (Recovery->Verb == EForceVerb::MoveHold && Recovery->Status == EForceStatus::Holding
+				&& InSafeRecovery(State))
+				bObservedSafeHold = true;
 			Planner->EvaluatePlan();
 			if (!OtherProduction.IsValid() || !OtherForce.IsValid() || OtherProduction->ForceGroup != OtherForce.Get()
 				|| OtherForce->GetProductionBuilding() != OtherProduction.Get())
 				return Fail(TEXT("Independent producer must retain its own living force during another producer's recovery"));
-			if (OtherProduction->ForceGoal == EForceGoal::FallBack || OtherProduction->FrontOrder == EFrontOrder::FallBack)
+			if (OtherForce->Verb == EForceVerb::Retreat)
 				return Fail(TEXT("Recovering one force cannot retreat an uninjured independent producer"));
 			if (!Joined || Health / Joined < .8f)
 			{
-				if (Production->ForceGoal != EForceGoal::FallBack)
-					return Fail(TEXT("Injured producer must retain its fallback goal below 80 percent joined health"));
-				if (Production->FrontOrder != EFrontOrder::FallBack)
-					return Fail(TEXT("Fallback goal must retain the injured producer's fallback front"));
-				if (Recovery->FrontOrder != EFrontOrder::FallBack)
-					return Fail(TEXT("Injured force must keep its producer's accepted fallback front while naturally healing"));
+				if (!InSafeRecovery(State))
+					return Fail(TEXT("Injured force must retain its controlled safe waypoint while retreating or physically held below 80 percent joined health"));
 				return false;
 			}
-			if (Production->ForceGoal == EForceGoal::FallBack)
-				return Fail(TEXT("Naturally healed joined recruits must release their producer's fallback goal"));
-			if (Production->FrontOrder == EFrontOrder::FallBack || Recovery->FrontOrder == EFrontOrder::FallBack
-				|| Production->GetGoalWaypointRegionIndex() == INDEX_NONE)
-				return Fail(TEXT("Naturally healed force must resume an accepted strategic region goal and front"));
-			return ObserveResumedTravel(State, World);
+			if (!bObservedSafeHold || Health / Joined <= InitialDamagedHealth)
+				return Fail(TEXT("Recovery must physically reach safe MoveHold and heal the same injured joined roster before resuming"));
+			if ((Recovery->Verb != EForceVerb::MoveHold && Recovery->Verb != EForceVerb::Attack)
+				|| Recovery->Orders.IsEmpty() || Recovery->WaypointRegionIndex == INDEX_NONE
+				|| Recovery->TargetRegionIndex == SafeRecoveryRegion)
+				return Fail(TEXT("Naturally healed joined recruits must resume accepted strategic travel beyond their recovery region"));
+			Test->AddInfo(TEXT("Enemy proof: exact per-unit paid economy, real polygon capture/extractor, paid forward barracks construction, region expansion/nearest defense goals, JEV-only finite payments/depletion/freeing and producer-scoped natural repair recovery."));
+			return true;
 		}
 		if (Stage == 0)
 		{
@@ -135,14 +166,14 @@ public:
 			Production->GetForceCounts(Joined, Travelling);
 			const int32 Count = Joined + Travelling;
 			if (Count != 1 || !Production->bForceConfigured || Produced->GetProductionBuilding() != Production.Get()
-				|| !Produced->bAutomaticFront || Produced->FrontOrder != EFrontOrder::Secure
+				|| Produced->Verb != EForceVerb::MoveHold
 				|| Produced->GetOwningPlayerState() != State->EnemyCommander
 				|| State->EnemyCommander->Resources != 600 - State->Content->FindBuilding(TEXT("barracks"))->BuildCost - 20
 				|| PC->GetPlayerState<ACommandPlayerState>()->Resources != HumanBalance)
 				return Fail(TEXT("First enemy production must create one paid infantry unit, not a batch, in its producer force"));
-			if (Production->ForceGoal != EForceGoal::Expand
-				|| Production->GetGoalWaypointRegionIndex() == INDEX_NONE
-				|| State->GetRegionController(Production->GoalRegionIndex) == 5)
+			if (Produced->Verb != EForceVerb::MoveHold
+				|| Produced->WaypointRegionIndex == INDEX_NONE
+				|| State->GetRegionController(Produced->TargetRegionIndex) == 5)
 				return Fail(TEXT("First paid force must expand toward an uncontrolled region through an anchor goal waypoint"));
 			Recovery = Produced;
 			Stage = 2;
@@ -157,12 +188,11 @@ public:
 		Production->GetForceCounts(Joined, Travelling);
 		const int32 Count = Joined + Travelling;
 		const AMapRegion* HomeRegion = State->FindRegionAt(Production->GetActorLocation());
-		if (Joined > 0 && HomeRegion && Production->GetGoalWaypointRegionIndex() != HomeRegion->RegionIndex
-			&& (Production->ForceGoal == EForceGoal::Expand || Production->ForceGoal == EForceGoal::Hold)
-			&& FVector::Dist2D(Production->FrontLocation,
-				   State->GetRegionAnchor(Production->GetGoalWaypointRegionIndex()))
-				<= 75.f
-			&& Recovery->bAutomaticFront)
+		if (Joined > 0 && HomeRegion && Recovery->WaypointRegionIndex != HomeRegion->RegionIndex
+			&& Recovery->Verb == EForceVerb::MoveHold
+			&& FVector::Dist2D(Recovery->Destination,
+				   State->GetRegionAnchor(Recovery->WaypointRegionIndex))
+				<= 75.f)
 			bObservedRegionAdvance = true;
 		int32 ConstructionSpend = 0, ProductionSpend = 0;
 		for (ACommandBuilding* Building : State->Buildings)
@@ -306,13 +336,11 @@ public:
 		if (!State->IsRegionContested(ForwardRegion->RegionIndex, 5))
 			return Fail(TEXT("Defense fixture must place real hostile units inside the captured forward region"));
 		Planner->EvaluatePlan();
-		if (!NearestDefender || NearestDefender->ForceGoal != EForceGoal::Hold
-			|| NearestDefender->GoalRegionIndex != ForwardRegion->RegionIndex)
-			return Fail(TEXT("Nearest producer force must receive a Hold goal on the actually threatened controlled region"));
-		if (NearestDefender->FrontOrder != EFrontOrder::Defend
-			|| NearestDefender->ForceGroup->FrontOrder != EFrontOrder::Defend
-			|| FVector::Dist2D(NearestDefender->FrontLocation, ThreatAnchor) > 75.f)
-			return Fail(TEXT("Threatened-region Hold goal must produce an accepted defensive front at that region's anchor"));
+		if (!NearestDefender || NearestDefender->ForceGroup->Verb != EForceVerb::MoveHold
+			|| NearestDefender->ForceGroup->TargetRegionIndex != ForwardRegion->RegionIndex)
+			return Fail(TEXT("Nearest producer force must receive MoveHold on the actually threatened controlled region"));
+		if (NearestDefender->ForceGroup->Orders.IsEmpty())
+			return Fail(TEXT("Threatened-region defense must retain an accepted active force order"));
 		if (!Production.IsValid() || Production->ForceGroup != Recovery.Get()
 			|| Recovery->GetProductionBuilding() != Production.Get())
 			return Fail(TEXT("Recovery fixture must use the real producer-owned force"));
@@ -330,6 +358,7 @@ public:
 			}
 		if (DamagedUnits.Num() != DamageJoined || DamagedHealth / DamageJoined >= .35f)
 			return Fail(TEXT("Real hostile damage must reduce the observed joined roster below the 35 percent recovery threshold"));
+		InitialDamagedHealth = DamagedHealth / DamageJoined;
 		Threat->Destroy();
 		State->EnemyCommander->Resources = 2000; // Paid repairs setup, not asserted income.
 		OtherProduction = ForwardProduction;
@@ -353,49 +382,28 @@ public:
 		else if (State->EnemyCommander->Doctrine != EArmyDoctrine::FieldRepairs
 			|| FCommandService::Research(State->EnemyCommander, Workshop, EArmyDoctrine::FieldRepairs).IsAccepted() || State->EnemyCommander->Resources != ResearchBefore)
 			return Fail(TEXT("Naturally purchased repairs must stay locked and reject a second charge"));
-		Planner->EvaluatePlan();
-		if (Production->ForceGoal != EForceGoal::FallBack)
-			return Fail(TEXT("Observed damage below 35 percent joined health must put the injured producer into a fallback goal"));
-		if (Production->FrontOrder != EFrontOrder::FallBack)
-			return Fail(TEXT("Injured producer's fallback goal must accept a navigable fallback front"));
-		if (Recovery->FrontOrder != EFrontOrder::FallBack)
-			return Fail(TEXT("Real producer-owned injured force must accept its producer's fallback travel"));
-		if (Recovery->GetProductionBuilding() != Production.Get() || Production->ForceGroup != Recovery.Get())
-			return Fail(TEXT("Retreat cannot detach or replace the injured force's owning producer"));
-		if (OtherProduction->ForceGoal == EForceGoal::FallBack || OtherProduction->FrontOrder == EFrontOrder::FallBack)
-			return Fail(TEXT("Damage to the original producer cannot retreat the healthy forward producer"));
-		Planner->SetActorTickEnabled(false); // Explicit evaluations below observe natural return and repair ticks.
 		Stage = 3;
 		return false;
 	}
 private:
-	bool ObserveResumedTravel(const ACommandGameState* State, const UWorld* World)
-	{
-		const int32 Waypoint = Production->GetGoalWaypointRegionIndex();
-		const AMapRegion* Region = State->FindRegionAt(Production->FrontLocation);
-		if (!Region || Region->RegionIndex != Waypoint
-			|| FVector::Dist2D(Production->FrontLocation, State->GetRegionAnchor(Waypoint)) > 75.f
-			|| Production->FrontOrder != Recovery->FrontOrder
-			|| !Production->FrontLocation.Equals(Recovery->FrontLocation, 1.f))
-			return Fail(TEXT("Resumed producer and force must agree on a navigable front within the actual region waypoint"));
-		const FVector Center = Recovery->GetCenter();
-		if (ResumeDeadline < 0.)
-		{
-			ResumeStart = Center;
-			ResumeTarget = Recovery->Destination;
-			ResumeDeadline = World->GetTimeSeconds() + 10.;
-		}
-		if (FVector::Dist2D(Center, ResumeTarget) > FVector::Dist2D(ResumeStart, ResumeTarget) - 100.f)
-			return World->GetTimeSeconds() >= ResumeDeadline
-				? Fail(TEXT("Healed JEV force must physically leave recovery and advance toward its resumed front"))
-				: false;
-		Test->AddInfo(TEXT("Enemy proof: exact paid economy, real capture/extractor, forward production, independent producer recovery and physical resumed strategic travel."));
-		return true;
-	}
 	bool Fail(const TCHAR* Message)
 	{
 		Test->AddError(Message);
 		return true;
+	}
+	bool InSafeRecovery(const ACommandGameState* State) const
+	{
+		if (Recovery->WaypointRegionIndex == INDEX_NONE
+			|| State->GetRegionController(Recovery->WaypointRegionIndex) != 5
+			|| State->IsRegionContested(Recovery->WaypointRegionIndex, 5)
+			|| FVector::Dist2D(Recovery->Destination, State->GetRegionAnchor(Recovery->WaypointRegionIndex)) > 75.f)
+			return false;
+		if (Recovery->Verb == EForceVerb::Retreat)
+			return Recovery->TargetRegionIndex == INDEX_NONE
+				&& (Recovery->Status == EForceStatus::Retreating || Recovery->Status == EForceStatus::Refilling);
+		return Recovery->Verb == EForceVerb::MoveHold && Recovery->Status == EForceStatus::Holding
+			&& Recovery->TargetRegionIndex == Recovery->WaypointRegionIndex
+			&& FVector::Dist2D(Recovery->GetCenter(), Recovery->Destination) <= 170.f;
 	}
 	ACommandBuilding* PlaceEnemy(ACommandGameState* State, FName Id, const FVector& Center)
 	{
@@ -423,13 +431,16 @@ private:
 	TWeakObjectPtr<AArmyGroup> OtherForce;
 	TArray<TWeakObjectPtr<AArmyUnit>> DamagedUnits;
 	bool bObservedRegionAdvance = false;
+	bool bObservedSafeHold = false;
+	int32 SafeRecoveryRegion = INDEX_NONE;
+	float InitialDamagedHealth = 0.f;
 	int32 Stage = 0;
 	int32 HumanBalance = 0;
 	int32 EnemyBudget = 600;
 	double NextProgress = 0.;
-	FVector ResumeStart = FVector::ZeroVector;
-	FVector ResumeTarget = FVector::ZeroVector;
-	double ResumeDeadline = -1.;
+	int32 TimedStage = -1;
+	double Started = FPlatformTime::Seconds();
+	double StageStarted = Started;
 };
 bool FEnemyConstructionTest::RunTest(const FString&)
 {

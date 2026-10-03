@@ -5,6 +5,7 @@
 #include "EnemyCommander.generated.h"
 
 class ACommandBuilding;
+class AArmyGroup;
 class ACommandGameState;
 class ACommandPlayerState;
 
@@ -23,5 +24,7 @@ public:
 	TObjectPtr<ACommandPlayerState> Commander;
 private:
 	ACommandBuilding* BuildNear(ACommandGameState* State, int32 BuildingIndex, const FVector& Center);
+	// Retreat execution can finish before Field Repairs reaches the planner's 80% health release.
+	TArray<TWeakObjectPtr<AArmyGroup>, TInlineAllocator<8>> RecoveringForces;
 	float EvaluateElapsed = 0.f;
 };

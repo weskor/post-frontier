@@ -10,7 +10,7 @@ import struct
 import subprocess
 from typing import cast
 
-from harness.network import NetworkRun, goal_matches, region, require
+from harness.network import NetworkRun, order_matches, region, require
 from harness.verify import JsonObject
 
 
@@ -100,8 +100,8 @@ class Capture:
     def minimap(self, horizontal: float, vertical: float) -> None:
         before = self.state()
         require(
-            not before["assigningGoal"],
-            "camera-only minimap check cannot run while picking a goal",
+            not before["assigningOrder"],
+            "camera-only minimap check cannot run while picking an order target",
         )
         origin = before["minimapOrigin"]
         size = before["minimapSize"]
@@ -126,40 +126,40 @@ class Capture:
             f"minimap camera focus at {expected}",
         )
         require(
-            (after["placing"], after["assigningGoal"])
-            == (before["placing"], before["assigningGoal"]),
-            "minimap camera click changed active placement/goal mode",
+            (after["placing"], after["assigningOrder"])
+            == (before["placing"], before["assigningOrder"]),
+            "minimap camera click changed active placement/order mode",
         )
         require(
             [
-                (b["actorId"], b["forceGoal"], b["goalRegionIndex"])
+                (b["actorId"], b["forceVerb"], b["targetRegionIndex"])
                 for b in after["buildings"]
             ]
             == [
-                (b["actorId"], b["forceGoal"], b["goalRegionIndex"])
+                (b["actorId"], b["forceVerb"], b["targetRegionIndex"])
                 for b in before["buildings"]
             ],
-            "minimap camera click placed a building or reassigned a goal",
+            "minimap camera click placed a building or reassigned a force order",
         )
         self.run.phase(f"minimap camera-only click at {horizontal:.2f},{vertical:.2f}")
 
-    def pick_region(self, index: int, goal: int, target: int) -> None:
+    def pick_region(self, index: int, verb: int, target: int) -> None:
         before = self.state()
         require(
-            before["assigningGoal"] and before["pendingGoal"] == goal,
-            "requested goal pick mode is inactive",
+            before["assigningOrder"] and before["pendingVerb"] == verb,
+            "requested order pick mode is inactive",
         )
         x, y = minimap_region_point(before, target)
         self.run.request("host", "hudClick", x=x, y=y)
         self.wait(
             lambda s: (
-                not s["assigningGoal"]
+                not s["assigningOrder"]
                 and s["hudExpanded"]
-                and goal_matches(s, index, goal, target)
+                and order_matches(s, index, verb, target)
             ),
-            "minimap submits selected region goal",
+            "minimap submits selected region order",
         )
-        self.run.phase(f"minimap selected region {target} for goal {goal}")
+        self.run.phase(f"minimap selected region {target} for verb {verb}")
 
     def shot(self, label: str) -> Path:
         state = self.state()
@@ -193,7 +193,7 @@ class Capture:
             height=height,
             hudExpanded=state["hudExpanded"],
             placing=state["placing"],
-            assigningGoal=state["assigningGoal"],
+            assigningOrder=state["assigningOrder"],
             feedback=state.get("orderFeedback", ""),
         )
         print(f"Captured {path} ({width}x{height})", flush=True)

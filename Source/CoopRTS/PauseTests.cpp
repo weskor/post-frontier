@@ -66,7 +66,8 @@ public:
 			Army = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(Match, 1700.f, 600.f, 100.f));
 			if (!Army.IsValid())
 				return Fail(TEXT("Pause fixture army could not spawn"));
-			Destination = Army->GetHomeLocation() + FVector(0.f, 1200.f, 0.f);
+			TargetRegion = ArmyTestSetup::TravelRegion(Army.Get(), Match->EnemyHeadquarters->GetActorLocation());
+			Destination = Match->GetRegionAnchor(TargetRegion);
 			StageStarted = Now;
 			return false;
 		}
@@ -77,9 +78,9 @@ public:
 		if (Stage == 0 && Now - StageStarted >= 3.)
 		{
 			// Wait for real navmesh readiness before pausing; path queries still run while paused.
-			if (!FCommandService::IssueOrder(Wallet, Army.Get(), EArmyOrder::Move, Destination))
+			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
 				return false;
-			FCommandService::IssueOrder(Wallet, Army.Get(), EArmyOrder::Hold, Army->GetCenter());
+			FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(Army.Get()));
 			Controller->ServerPause();
 			Test->TestFalse(TEXT("Engine pause RPC cannot bypass the command budget"), World->IsPaused());
 			if (!FCommandService::Pause(Controller.Get()))
@@ -90,9 +91,9 @@ public:
 			SimulationTime = World->GetTimeSeconds();
 			Balance = Wallet->Resources;
 			Center = Army->GetCenter();
-			if (!FCommandService::IssueOrder(Wallet, Army.Get(), EArmyOrder::Move, Destination))
+			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
 				return Fail(TEXT("Order given during pause rejected"));
-			Test->TestTrue(TEXT("Order intent applies immediately while paused"), Army->Order == EArmyOrder::Move && FVector::Dist2D(Army->Destination, Destination) < 100.);
+			Test->TestTrue(TEXT("Order intent applies immediately while paused"), Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == TargetRegion);
 			Next(Now);
 		}
 		else if (Stage == 1 && Now - StageStarted >= 1.)
@@ -140,6 +141,7 @@ private:
 	double SimulationTime = 0.;
 	int32 Stage = 0;
 	int32 Balance = 0;
+	int32 TargetRegion = INDEX_NONE;
 	FVector Destination = FVector::ZeroVector;
 	FVector Center = FVector::ZeroVector;
 };

@@ -135,13 +135,13 @@ public:
 			PC->SelectActor(SecondUnit.Get());
 			if (!Check(!PC->IsForceSelected(Second->ForceGroup), TEXT("A dead owned recruit cannot select its living force")))
 				return true;
-			RememberedFront = SurvivorForce->FrontLocation;
-			RememberedOrder = SurvivorForce->FrontOrder;
+			RememberedRegion = SurvivorForce->TargetRegionIndex;
+			RememberedVerb = SurvivorForce->Verb;
 			First->ReceiveAttack(First->MaxHealth(), EnemyUnit.Get());
 			if (!Check(!First.IsValid() && SurvivorForce.IsValid() && OwnedUnit->IsAlive()
 						&& !IsValid(SurvivorForce->GetProductionBuilding()) && SurvivorForce->ForceNumber == 1
-						&& SurvivorForce->FrontLocation == RememberedFront && SurvivorForce->FrontOrder == RememberedOrder,
-					TEXT("Destroying producer 1 leaves a living orphan force with number 1 and its last front")))
+						&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
+					TEXT("Destroying producer 1 leaves a living orphan force with number 1 and its last region order")))
 				return true;
 			PC->SelectActor(Second.Get());
 			PC->SelectActor(OwnedUnit.Get());
@@ -178,8 +178,8 @@ public:
 			if (!Check(Replacement->ForceGroup != SurvivorForce.Get() && Replacement->ForceGroup->ForceNumber == 2
 						&& Replacement->ForceGroup->GetUnits().IsEmpty() && OwnedUnit->GetGroup() == SurvivorForce.Get()
 						&& SurvivorForce->ForceNumber == 1 && !IsValid(SurvivorForce->GetProductionBuilding())
-						&& SurvivorForce->FrontLocation == RememberedFront && SurvivorForce->FrontOrder == RememberedOrder,
-					TEXT("New force 2 does not adopt orphan survivors or change their number and front")))
+						&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
+					TEXT("New force 2 does not adopt orphan survivors or change their number and order")))
 				return true;
 			PC->SelectActor(Replacement.Get());
 			PC->SelectActor(OwnedUnit.Get());
@@ -267,8 +267,8 @@ private:
 	TWeakObjectPtr<ACommandBuilding> First, Second, Foreign, Enemy, Workshop, Replacement;
 	TWeakObjectPtr<AArmyUnit> OwnedUnit, SecondUnit, ForeignUnit, EnemyUnit;
 	TWeakObjectPtr<AArmyGroup> SurvivorForce;
-	FVector RememberedFront;
-	EFrontOrder RememberedOrder = EFrontOrder::Defend;
+	int32 RememberedRegion = INDEX_NONE;
+	EForceVerb RememberedVerb = EForceVerb::MoveHold;
 };
 }
 bool FConstructionForceIdentityTest::RunTest(const FString&)

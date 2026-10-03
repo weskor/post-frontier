@@ -2,6 +2,7 @@
 
 #include "HUDTypes.h"
 #include "InputCoreTypes.h"
+#include "ForceOrders.h"
 
 struct FObjectiveEvent;
 struct FObjectiveForce;
@@ -34,9 +35,10 @@ void ForEachForceBadge(const FPainter& Paint, const FContext& Context, const FLa
 	TFunctionRef<void(AArmyGroup*, const FRect&)> Visit);
 void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FButton&)> Visit);
 EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint);
-const TCHAR* GoalTitle(EForceGoal Goal);
-const TCHAR* GoalPurpose(EForceGoal Goal);
-FLinearColor GoalColor(EForceGoal Goal);
+const TCHAR* OrderTitle(EForceVerb Verb);
+const TCHAR* OrderPurpose(EForceVerb Verb);
+FLinearColor OrderColor(EForceVerb Verb);
+const TCHAR* ForceStatusTitle(EForceStatus Status);
 const TCHAR* ResearchName(EArmyDoctrine Doctrine);
 FLinearColor Tint(const FLinearColor& Accent, float Amount, float Alpha);
 bool ProjectOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position, FVector2D& Screen);

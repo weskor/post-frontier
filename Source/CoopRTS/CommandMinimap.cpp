@@ -297,8 +297,8 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 	}
 	const ACommandBuilding* Selected = Controller->GetSelectedBuilding();
 	FVector2D Front;
-	if (IsValid(Selected) && Selected->IsAlive() && Selected->Kind == EBuildingKind::Barracks
-		&& Selected->HasConfiguredFront() && Map.Point(Selected->FrontLocation, Front))
+	if (IsValid(Selected) && Selected->IsAlive() && IsValid(Selected->ForceGroup)
+		&& Map.Point(Selected->ForceGroup->Destination, Front))
 	{
 		Map.Diamond(Front, 6.0, Contested);
 		Map.Line(Front - FVector2D(3, 0), Front + FVector2D(3, 0), Contested);

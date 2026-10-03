@@ -6,10 +6,24 @@ UOrderCommandComponent::UOrderCommandComponent()
 	SetIsReplicatedByDefault(true);
 }
 
-void UOrderCommandComponent::ServerAssignGoal_Implementation(ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex)
+void UOrderCommandComponent::ServerIssueForceOrder_Implementation(const TArray<AArmyGroup*>& Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue)
 {
 	ACommandPlayerController* Controller = CastChecked<ACommandPlayerController>(GetOwner());
-	const FCommandResult Result = FCommandService::AssignGoal(Controller->GetPlayerState<ACommandPlayerState>(), Building, Goal, RegionIndex);
+	const FCommandResult Result = FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Forces, Verb, RegionIndex, Structure, bQueue);
+	ClientConstructionFeedback(Result.Message, Result.IsAccepted());
+}
+
+void UOrderCommandComponent::ServerSetRetreatThreshold_Implementation(const TArray<AArmyGroup*>& Forces, ERetreatThreshold Threshold)
+{
+	ACommandPlayerController* Controller = CastChecked<ACommandPlayerController>(GetOwner());
+	const FCommandResult Result = FCommandService::SetRetreatThreshold(Controller->GetPlayerState<ACommandPlayerState>(), Forces, Threshold);
+	ClientConstructionFeedback(Result.Message, Result.IsAccepted());
+}
+
+void UOrderCommandComponent::ServerSetRallyPoint_Implementation(ACommandBuilding* Building, int32 RegionIndex)
+{
+	ACommandPlayerController* Controller = CastChecked<ACommandPlayerController>(GetOwner());
+	const FCommandResult Result = FCommandService::SetRallyPoint(Controller->GetPlayerState<ACommandPlayerState>(), Building, RegionIndex);
 	ClientConstructionFeedback(Result.Message, Result.IsAccepted());
 }
 

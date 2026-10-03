@@ -1,9 +1,8 @@
 #include "CommandService.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
-#include "ArenaBounds.h"
 #include "Content/MatchContent.h"
-#include "NavigationSystem.h"
+#include "MapRegion.h"
 #include "Engine/World.h"
 #include "Engine/Level.h"
 
@@ -33,6 +32,7 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 		|| !IsValid(OwningPlayerState) || (bForceConfigured && ProductionUnitIndex != UnitIndex))
 		return false;
 	const int32 Balance = OwningPlayerState->Resources;
+	InitializeRallyPoint();
 	if (bEnabled && !bForceConfigured)
 	{
 		const int32 ConfigurationCost = GetConfigurationCost(*Definition);
@@ -48,17 +48,19 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 			return false;
 		Group->Initialize({ TeamIndex, OwningPlayerState.Get(), NextArmyIndex(*GetWorld()), this, Assembly });
 		Group->FinishSpawning(Transform);
-		bool bAcceptedFront = false;
+		bool bAcceptedOrder = false;
 		if (IsValid(Group))
 		{
+			Group->ForceCapacity = Definition->Capacity;
+			Group->bProducedGroup = true;
 			do
 			{
 				Group->SetAssemblyLocation(Assembly);
-				bAcceptedFront = Group->AssignFront(FrontOrder, bHasConfiguredFront ? FrontLocation : Assembly);
+				bAcceptedOrder = Group->IssueTravel(EArmyOrder::Move, State->GetRegionAnchor(RallyRegionIndex), false);
 			}
-			while (!bAcceptedFront && FindProductionExit(Assembly, ExitCursor));
+			while (!bAcceptedOrder && FindProductionExit(Assembly, ExitCursor));
 		}
-		if (!bAcceptedFront || (ConfigurationCost > 0 && !TrySpend(ConfigurationCost)))
+		if (!bAcceptedOrder || (ConfigurationCost > 0 && !TrySpend(ConfigurationCost)))
 		{
 			if (IsValid(Group))
 				Group->Destroy();
@@ -67,6 +69,7 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 		Group->SetActorLocation(Assembly);
 		ForceGroup = Group;
 		bForceConfigured = true;
+		Group->CommitOrder(FForceOrder(EForceVerb::MoveHold, RallyRegionIndex), false, Definition->MoveSpeed);
 	}
 	else if (bEnabled && (!IsValid(ForceGroup) || ForceGroup->IsActorBeingDestroyed()))
 		return false;
@@ -80,30 +83,14 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 	return true;
 }
 
-bool ACommandBuilding::ApplyFront(EFrontOrder Order, const FVector& Location)
+void ACommandBuilding::InitializeRallyPoint()
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
-	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
-		|| !IsProducer() || !IsAlive() || !IsComplete()
-		|| (Order != EFrontOrder::Secure && Order != EFrontOrder::Defend && Order != EFrontOrder::FallBack)
-		|| !AArenaBounds::IsTravelLocation(GetWorld(), Location)
-		|| (Order == EFrontOrder::Defend && !State->FindRegionAt(Location)))
-		return false;
-	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	FNavLocation Projected;
-	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Projected, FVector(75.f, 75.f, 200.f))
-		|| !AArenaBounds::IsTravelLocation(GetWorld(), Projected.Location)
-		|| FVector::DistSquared2D(Location, Projected.Location) > FMath::Square(75.f)
-		|| FMath::Abs(Location.Z - Projected.Location.Z) > 110.f
-		|| (Order == EFrontOrder::Defend && !State->FindRegionAt(Projected.Location)))
-		return false;
-	if (IsValid(ForceGroup) && !ForceGroup->AssignFront(Order, Projected.Location))
-		return false;
-	FrontOrder = Order;
-	FrontLocation = Projected.Location;
-	bHasConfiguredFront = true;
-	// Internal AI/fixture fronts remain authoritative until a player submits a new region goal.
-	GoalDriver.bEnabled = false;
-	ForceNetUpdate();
-	return true;
+	if (!HasAuthority() || !State || !IsProducer() || RallyRegionIndex != INDEX_NONE)
+		return;
+	if (const AMapRegion* Region = State->FindRegionAt(GetActorLocation()))
+	{
+		RallyRegionIndex = Region->RegionIndex;
+		ForceNetUpdate();
+	}
 }

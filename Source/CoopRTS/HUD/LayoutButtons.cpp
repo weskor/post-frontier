@@ -129,10 +129,10 @@ static void ProducerButtons(const FContext& Context, const FLayout& Layout, TFun
 	const UMatchContent* Content = MatchContent(Context);
 	const FRect Recipes = Column(Layout.Inspector, 0, 3);
 	const FRect Production = Column(Layout.Inspector, 1, 3);
-	FRect Goals = Column(Layout.Inspector, 2, 3);
-	// Leave the footer button and an eight-pixel gap below the goal rows.
+	FRect Orders = Column(Layout.Inspector, 2, 3);
+	// Leave the footer button and an eight-pixel gap below the order rows.
 	if (IsValid(Building->ForceGroup))
-		Goals.H -= 12.f;
+		Orders.H -= 12.f;
 	const EBlock RoleLock = Building->bForceConfigured ? EBlock::ForceLocked : EBlock::None;
 	const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
 	const int32 RecipeCount = Content ? FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))) : 0;
@@ -145,14 +145,12 @@ static void ProducerButtons(const FContext& Context, const FLayout& Layout, TFun
 	EmitButton(Context, Visit, EHUDAction::ToggleProduction, Row(Production, 1),
 		Building->bForceConfigured || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
 		EBlock::None, Building->bProductionEnabled);
-	const EBlock GoalLock = Building->bForceConfigured && IsValid(Building->ForceGroup)
-		? EBlock::None
-		: EBlock::ForceUnconfigured;
-	EmitButton(Context, Visit, EHUDAction::GoalHold, Row(Goals, 0, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Hold);
-	EmitButton(Context, Visit, EHUDAction::GoalExpand, Row(Goals, 1, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Expand);
-	EmitButton(Context, Visit, EHUDAction::GoalAssault, Row(Goals, 2, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::Assault);
-	EmitButton(Context, Visit, EHUDAction::GoalFallBack, Row(Goals, 3, 4), 0, GoalLock, Building->ForceGoal == EForceGoal::FallBack);
-	if (IsValid(Building->ForceGroup))
+	const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
+	const EBlock OrderLock = Building->bForceConfigured && Force ? EBlock::None : EBlock::ForceUnconfigured;
+	EmitButton(Context, Visit, EHUDAction::OrderMoveHold, Row(Orders, 0), 0, OrderLock, Force && Force->Verb == EForceVerb::MoveHold);
+	EmitButton(Context, Visit, EHUDAction::OrderAttack, Row(Orders, 1), 0, OrderLock, Force && Force->Verb == EForceVerb::Attack);
+	EmitButton(Context, Visit, EHUDAction::OrderRetreat, Row(Orders, 2), 0, OrderLock, Force && Force->Verb == EForceVerb::Retreat);
+	if (Force)
 		Visit(FButton{ EHUDAction::SelectForce,
 			{ Layout.Inspector.Right() - Pad - 150.f, Layout.Inspector.Bottom() - Pad - 22.f, 150.f, 22.f },
 			EBlock::None, false, 0 });

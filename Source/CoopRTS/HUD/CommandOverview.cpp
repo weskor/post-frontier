@@ -21,7 +21,7 @@ static void DrawNextStep(const FPainter& Paint, const FContext& Context, const F
 	else if (Forces.CompletedBarracks == 0)
 	{
 		First = TEXT("Barracks under construction.");
-		Second = TEXT("Plan its force type and goal.");
+		Second = TEXT("Plan its force type and order.");
 	}
 	else if (Forces.ConfiguredForces == 0)
 	{
@@ -35,7 +35,7 @@ static void DrawNextStep(const FPainter& Paint, const FContext& Context, const F
 	}
 	else if (Forces.ControlledRegions <= 1)
 	{
-		First = TEXT("Choose Expand and pick");
+		First = TEXT("Choose Attack and pick");
 		Second = TEXT("a region to capture it.");
 	}
 	else if (Forces.Workshops == 0)
@@ -45,7 +45,7 @@ static void DrawNextStep(const FPainter& Paint, const FContext& Context, const F
 	}
 	else
 	{
-		First = TEXT("Set Barracks goals and push");
+		First = TEXT("Issue force orders and push");
 		Second = TEXT("toward the enemy HQ.");
 	}
 	ColumnLabel(Paint, Next, TEXT("NEXT STEP"));

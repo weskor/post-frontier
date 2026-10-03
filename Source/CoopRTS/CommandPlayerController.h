@@ -6,7 +6,7 @@
 #include "ArmyUnit.h"
 #include "ConstructionTypes.h"
 #include "CommandPlayerState.h"
-#include "ForceGoals.h"
+#include "ForceOrders.h"
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
@@ -65,8 +65,8 @@ public:
 	bool GetPlacementPreview(FVector& Location, FString& Reason, bool& bCanPlace) const;
 	bool CanPlaceBuildingAt(int32 BuildingIndex, const FVector& Location, FString& Reason) const;
 	void PlaceBuildingAt(const FVector& Location, bool bRepeat);
-	bool IsAssigningGoal() const { return bAssigningGoal; }
-	EForceGoal GetPendingGoal() const { return PendingGoal; }
+	bool IsAssigningOrder() const { return bAssigningOrder; }
+	EForceVerb GetPendingVerb() const { return PendingVerb; }
 	// Left-click entry points shared by real input and the Development verification probe.
 	// Returns true for a HUD panel or force badge; the consumed click never reaches the world trace.
 	bool HandleHUDClick(const FVector2D& Position);
@@ -127,13 +127,13 @@ private:
 	bool bRepeatPlacement = false;
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;
-	bool bAssigningGoal = false;
+	bool bAssigningOrder = false;
 	bool bHUDExpanded = true;
 	bool bPlacementPending = false;
 	bool bPlacementCancelled = false;
 	TWeakObjectPtr<ACommandBuilding> PendingPlacedBuilding;
 	uint64 PendingPlacedBuildingNetGUID = 0;
-	EForceGoal PendingGoal = EForceGoal::Hold;
+	EForceVerb PendingVerb = EForceVerb::MoveHold;
 	bool bInitialFocusPending = true;
 	FVector2D PreviousDragPosition = FVector2D::ZeroVector;
 	bool bDragging = false;
@@ -174,8 +174,8 @@ private:
 	bool CursorHit(FHitResult& Hit) const;
 	bool HandleScreenAction(EHUDAction Action);
 	bool CursorGround(FVector& Location) const;
-	const AMapRegion* CursorGoalRegion() const;
-	void AssignGoalAt(const FVector& Location);
+	const AMapRegion* CursorOrderRegion() const;
+	void IssueOrderAt(const FVector& Location);
 	void ResetLocalMatchView();
 	void SelectPlacedBuilding();
 };

@@ -1,25 +1,24 @@
-"""Region capture, finite private/JEV extractors and Assault outcome sequence."""
+"""Region capture, finite private/JEV extractors and Attack outcome sequence."""
 
 from __future__ import annotations
 
 from typing import cast
 
 from harness.network import (
-    ASSAULT,
-    EXPAND,
+    ATTACK,
     EXTRACTOR,
-    FALL_BACK,
-    HOLD,
+    HOLDING,
+    MOVE_HOLD,
     NetworkRun,
     alive_units,
     building,
     distance2,
     force,
-    goal_matches,
     near,
+    order_matches,
     region,
     require,
-    select_goal_region,
+    select_order_region,
     wallet,
 )
 from harness.network_outcomes import finish, objective_event, research
@@ -59,21 +58,23 @@ def capture_region(
         for r in state["regions"]
         if r["controller"] == 0 or r["index"] not in deposit_regions
     )
-    target = select_goal_region(state, index, exclude=excluded)["index"]
+    target = select_order_region(state, index, exclude=excluded)["index"]
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
-    run.request(s.peer, "goal", building=index, goal=EXPAND, region=target)
+    run.request(
+        s.peer, "order", building=index, forceVerb=ATTACK, targetRegionIndex=target
+    )
     states = converged(
         run,
         s.names,
         lambda st: (
             region(st, target)["controller"] == 0
-            and goal_matches(st, index, HOLD, target)
-            and building(st, index)["frontOrder"] == 1
+            and order_matches(st, index, MOVE_HOLD, target)
+            and building(st, index)["status"] == HOLDING
             and distance2(building(st, index)["front"], region(st, target)["anchor"])
             < 1
         ),
-        "produced force completes Expand by securing and holding the target region",
+        "produced force completes Attack by securing and holding the target region",
     )
     require(
         all(all(p["income"] == 2 for p in st["players"]) for st in states.values()),
@@ -105,7 +106,10 @@ def clear_deposit(
         free["rate"] == rate and free["remaining"] == total,
         "deposit kind has incorrect rate or finite reserve",
     )
-    run.request(s.peer, "goal", building=index, goal=FALL_BACK, region=-1)
+    home = next(r["index"] for r in states["host"]["regions"] if r["homeTeam"] == 0)
+    run.request(
+        s.peer, "order", building=index, forceVerb=MOVE_HOLD, targetRegionIndex=home
+    )
     states = converged(
         run,
         s.names,
@@ -114,7 +118,8 @@ def clear_deposit(
             and not next(site for site in st["sites"] if site["index"] == target)[
                 "friendlyPresent"
             ]
-            and building(st, index)["forceGoal"] == FALL_BACK
+            and order_matches(st, index, MOVE_HOLD, home)
+            and building(st, index)["status"] == HOLDING
             and all(
                 distance2(u["position"], free["position"]) > 500**2
                 for u in alive_units(force(st, s.owner, index))
@@ -356,7 +361,7 @@ def deplete_enemy_deposit(
     )
 
 
-def assault_and_finish(
+def attack_and_finish(
     run: NetworkRun, s: Session, index: int, squad: int
 ) -> dict[str, JsonObject]:
     research(run, s)
@@ -366,12 +371,19 @@ def assault_and_finish(
     state = run.observe("host")
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
-    run.request(s.peer, "goal", building=index, goal=ASSAULT, region=-1)
+    run.request(
+        s.peer,
+        "order",
+        building=index,
+        forceVerb=ATTACK,
+        targetRegionIndex=enemy_main,
+        targetEnemyHQ=True,
+    )
     converged(
         run,
         s.names,
-        lambda st: goal_matches(st, index, ASSAULT, enemy_main),
-        "Assault resolves the enemy main server-side on every peer",
+        lambda st: order_matches(st, index, ATTACK, enemy_main),
+        "Attack targets the enemy headquarters on every peer",
     )
     objective_event(
         run,
@@ -386,14 +398,14 @@ def assault_and_finish(
         run,
         s.names,
         lambda st: st["enemyHQ"] <= 225,
-        "Assault crosses both HQ damage tiers through actual weapon damage",
+        "Attack crosses both HQ damage tiers through actual weapon damage",
     )
     for event_id in ("enemy_hq_half", "enemy_hq_critical"):
         objective_event(run, s, event_id, enemy_main, s.owner, force_number, after)
-    return finish_assault(run, s, squad, enemy_main, force_number, after)
+    return finish_attack(run, s, squad, enemy_main, force_number, after)
 
 
-def finish_assault(
+def finish_attack(
     run: NetworkRun,
     s: Session,
     squad: int,
@@ -427,14 +439,14 @@ def finish_assault(
         ),
         "repeat research changed choice or charged twice",
     )
-    run.phase("research, Assault-goal weapon damage and victory")
+    run.phase("research, Attack-order weapon damage and victory")
     return states
 
 
-def expand_and_research(
+def capture_and_research(
     run: NetworkRun, s: Session, index: int, squad: int
 ) -> dict[str, JsonObject]:
-    """Natural polygon capture, private finite extractors, research and Assault-goal HQ damage."""
+    """Natural polygon capture, private finite extractors, research and Attack-order HQ damage."""
     target, states = capture_region(run, s, index)
     free = clear_deposit(run, s, index, target, states)
     extractor, states = build_extractor(run, s, free)
@@ -443,4 +455,4 @@ def expand_and_research(
     enemy_deposit, states = build_enemy_extractor(run, s)
     states = pay_enemy_income(run, s, enemy_deposit, states)
     deplete_enemy_deposit(run, s, enemy_deposit, states)
-    return assault_and_finish(run, s, index, squad)
+    return attack_and_finish(run, s, index, squad)

@@ -5,7 +5,8 @@ from __future__ import annotations
 from harness.hud_actions import RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION
 from harness.hud_surface import Capture
 from harness.network import (
-    HOLD,
+    HOLDING,
+    MOVE_HOLD,
     RANGED,
     NetworkRun,
     alive_units,
@@ -13,10 +14,9 @@ from harness.network import (
     distance2,
     force,
     force_counts_match,
-    goal_matches,
-    region,
+    order_matches,
     require,
-    select_goal_region,
+    select_order_region,
     wallet,
 )
 from harness.verify import JsonObject
@@ -97,7 +97,7 @@ def fill_force(
         lambda s: (
             building(s, barracks)["travelling"] > 0
             and force_counts_match(s, owner, barracks)
-            and goal_matches(s, barracks, HOLD, target)
+            and order_matches(s, barracks, MOVE_HOLD, target)
         ),
         "paid unit travelling from producer to held region",
     )
@@ -111,10 +111,17 @@ def fill_force(
             and building(s, barracks)["productionState"] == "ForceComplete"
             and building(s, barracks)["capacity"] == capacity
             and wallet(s, owner)["wallet"] == 0
+            and building(s, barracks)["status"] == HOLDING
+            and order_matches(s, barracks, MOVE_HOLD, target)
         ),
         "paid ranged units physically join and fill their own force",
     )
     capture.shot("barracks-force-complete")
+    check_full_capacity_controls(capture, owner, barracks)
+    return state, squad
+
+
+def check_full_capacity_controls(capture: Capture, owner: int, barracks: int) -> None:
     capture.hud(TOGGLE_PRODUCTION, "Pause full force")
     capture.wait(
         lambda s: (
@@ -134,7 +141,6 @@ def fill_force(
         ),
         "enabled full force reports automatic capacity waiting, without charging",
     )
-    return state, squad
 
 
 def paid_replacement(
@@ -190,18 +196,18 @@ def retarget_replacement(
     recruit: JsonObject,
     origin: list[float],
 ) -> None:
-    moved_target = select_goal_region(capture.state(), barracks, exclude=(target,))[
+    moved_target = select_order_region(capture.state(), barracks, exclude=(target,))[
         "index"
     ]
-    run.request("host", "goal", building=barracks, goal=HOLD, region=moved_target)
+    run.request(
+        "host",
+        "order",
+        building=barracks,
+        forceVerb=MOVE_HOLD,
+        targetRegionIndex=moved_target,
+    )
     capture.wait(
-        lambda s: (
-            goal_matches(s, barracks, HOLD, moved_target)
-            and distance2(
-                building(s, barracks)["front"], region(s, moved_target)["anchor"]
-            )
-            < 1
-        ),
+        lambda s: order_matches(s, barracks, MOVE_HOLD, moved_target),
         "replacement force retargets to the new held region",
     )
     capture.wait(
@@ -216,6 +222,8 @@ def retarget_replacement(
             building(s, barracks)["joined"] == building(s, barracks)["capacity"]
             and building(s, barracks)["travelling"] == 0
             and force_counts_match(s, owner, barracks)
+            and building(s, barracks)["status"] == HOLDING
+            and order_matches(s, barracks, MOVE_HOLD, moved_target)
         ),
         "replacement physically arrives",
     )
@@ -238,6 +246,4 @@ def retarget_replacement(
         "removed manual squad keys changed automatic squad orders",
     )
     require(state["buildingSelected"], "removed Tab binding changed building selection")
-    run.phase(
-        "former squad-control keys preserve automatic goals and building selection"
-    )
+    run.phase("former squad-control keys preserve force orders and building selection")

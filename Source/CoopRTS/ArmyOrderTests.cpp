@@ -3,12 +3,14 @@
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
 #include "ArmyGroup.h"
+#include "AIController.h"
 #include "ArmyUnit.h"
 #include "CommandPlayerController.h"
 #include "EnemyCommander.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
 #include "HAL/PlatformTime.h"
+#include "Navigation/PathFollowingComponent.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyReplacementTest, "CoopRTS.Orders.ReplaceHoldRetreat",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -34,7 +36,7 @@ public:
 					}
 		}
 		const double Now = FPlatformTime::Seconds();
-		if (Now - Started > 35.)
+		if (Now - Started > 90.)
 		{
 			if (RejectedInitialTarget.IsSet())
 				Test->AddError(FString::Printf(TEXT("Timed out waiting for live army navigation: initial Move rejected at %s"),
@@ -69,8 +71,11 @@ public:
 				return false;
 			StartCenter = Army->GetCenter();
 			Serial = Army->OrderSerial;
-			const FVector InitialTarget = Army->GetHomeLocation() + FVector(0.f, 1800.f, 0.f);
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, InitialTarget);
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			HomeRegion = ArmyTestSetup::CurrentRegion(Army.Get());
+			const int32 InitialRegion = ArmyTestSetup::TravelRegion(Army.Get(), State->EnemyHeadquarters->GetActorLocation());
+			const FVector InitialTarget = State->GetRegionAnchor(InitialRegion);
+			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, InitialRegion);
 			if (Army->OrderSerial == Serial)
 			{
 				RejectedInitialTarget = InitialTarget;
@@ -89,47 +94,71 @@ public:
 		{
 			Test->TestTrue(TEXT("Units actually move under the initial order"), FVector::Dist2D(StartCenter, Army->GetCenter()) > 100.);
 			StartCenter = Army->GetCenter();
-			Replacement = Army->GetHomeLocation() + FVector(-1200.f, -1500.f, 0.f);
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			Replacement = State->GetRegionAnchor(HomeRegion);
 			Serial = Army->OrderSerial;
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, Replacement);
+			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, HomeRegion);
 			Test->TestTrue(TEXT("Replacement receives a new order serial"), Army->OrderSerial > Serial);
 			Test->TestTrue(TEXT("Replacement records the new destination"), FVector::Dist2D(Army->Destination, Replacement) < 100.);
 			NextStage(Now);
 		}
-		else if (Stage == 2 && Now - StageStarted >= 1.5)
+		else if (Stage == 2 && Army->Status == EForceStatus::Holding)
 		{
-			Test->TestTrue(TEXT("Units approach the replacement rather than stale intent"), FVector::Dist2D(Army->GetCenter(), Replacement) + 100. < FVector::Dist2D(StartCenter, Replacement));
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
-			Test->TestTrue(TEXT("Hold replaces movement state"), Army->Order == EArmyOrder::Hold);
+			Test->TestTrue(TEXT("Units physically reach the replacement region rather than stale intent"), FVector::Dist2D(Army->GetCenter(), Replacement) < 500.f);
 			NextStage(Now);
 		}
-		else if (Stage == 3 && Now - StageStarted >= .5)
+		else if (Stage == 3)
 		{
+			if (!HoldingSettled())
+			{
+				StageStarted = Now;
+				return false;
+			}
+			if (Now - StageStarted < .5)
+				return false;
+			HeldPositions.Reset();
 			for (AArmyUnit* Unit : Army->GetUnits())
 				HeldPositions.Add(Unit->GetActorLocation());
 			Serial = Army->OrderSerial;
-			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Move, ArmyTestSetup::OutsideArena(State));
-			Test->TestEqual(TEXT("Out-of-bounds request preserves the accepted order"), Army->OrderSerial, Serial);
+			FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::MoveHold, ForceOrders::MaxRegions + 1);
+			Test->TestEqual(TEXT("Invalid region preserves the accepted order"), Army->OrderSerial, Serial);
 			NextStage(Now);
 		}
 		else if (Stage == 4 && Now - StageStarted >= 1.)
 		{
+			Test->TestTrue(TEXT("MoveHold persists at the settled replacement region"),
+				Army->Verb == EForceVerb::MoveHold && Army->Status == EForceStatus::Holding
+					&& Army->TargetRegionIndex == HomeRegion && HoldingSettled());
 			for (int32 Index = 0; Index < Army->GetUnits().Num(); ++Index)
-				Test->TestTrue(TEXT("Every unit stays stopped after Hold"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Retreat, Army->GetCenter());
-			Test->TestTrue(TEXT("Retreat replaces Hold"), Army->Order == EArmyOrder::Retreat);
+				Test->TestTrue(TEXT("Every unit stays stopped after Hold assembly settles"), FVector::Dist2D(Army->GetUnits()[Index]->GetActorLocation(), HeldPositions[Index]) < 5.);
+			Test->TestTrue(TEXT("Retreat is accepted from a held region"), FCommandService::IssueForceOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EForceVerb::Retreat).IsAccepted());
 			NextStage(Now);
 		}
-		else if (Stage == 5 && FVector::Dist2D(Army->GetCenter(), Army->GetHomeLocation()) < 150.)
+		else if (Stage == 5 && Army->Status == EForceStatus::Holding && HoldingSettled())
 		{
-			FCommandService::IssueOrder(Controller->GetPlayerState<ACommandPlayerState>(), Army.Get(), EArmyOrder::Hold, Army->GetCenter());
-			Test->AddInfo(TEXT("Live navigation passed: initial move, replacement, individual unit Hold, invalid destination, retreat home."));
+			const ACommandGameState* State = Army->GetWorld()->GetGameState<ACommandGameState>();
+			Test->TestTrue(TEXT("Orphan retreat finishes as MoveHold physically at its safe region"),
+				Army->Verb == EForceVerb::MoveHold
+					&& FVector::Dist2D(Army->GetCenter(), State->GetRegionAnchor(Army->TargetRegionIndex)) < 500.f);
+			Test->AddInfo(TEXT("Live navigation passed: region travel, replacement, physical Hold arrival, atomic invalid region and safe Retreat completion."));
 			return true;
 		}
 		return false;
 	}
 private:
+	bool HoldingSettled() const
+	{
+		if (Army->Verb != EForceVerb::MoveHold || Army->Status != EForceStatus::Holding)
+			return false;
+		for (const AArmyUnit* Unit : Army->GetUnits())
+		{
+			const AAIController* AI = Cast<AAIController>(Unit->GetController());
+			if (!AI || AI->GetMoveStatus() != EPathFollowingStatus::Idle
+				|| Unit->GetVelocity().Size2D() > 1.f)
+				return false;
+		}
+		return true;
+	}
 	void NextStage(double Now)
 	{
 		++Stage;
@@ -144,6 +173,7 @@ private:
 	TOptional<FVector> RejectedInitialTarget;
 	uint32 Serial = 0;
 	int32 Stage = 0;
+	int32 HomeRegion = INDEX_NONE;
 	bool bIsolated = false;
 	double Started;
 	double StageStarted = 0;

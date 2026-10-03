@@ -17,12 +17,11 @@ from x.scopes import map_package
 
 # Stable public API shared with the rendered HUD harness.
 __all__ = [
-    "ASSAULT",
+    "ATTACK",
     "BARRACKS",
-    "EXPAND",
-    "FALL_BACK",
-    "HOLD",
+    "MOVE_HOLD",
     "RANGED",
+    "RETREAT",
     "SIEGE",
     "WORKSHOP",
     "NetworkRun",
@@ -31,11 +30,11 @@ __all__ = [
     "distance2",
     "force",
     "force_counts_match",
-    "goal_matches",
+    "order_matches",
     "owned_buildings",
     "region",
     "require",
-    "select_goal_region",
+    "select_order_region",
     "wallet",
 ]
 
@@ -239,7 +238,7 @@ def reachable_regions(state: JsonObject, source: int) -> list[JsonObject]:
     return result
 
 
-def select_goal_region(
+def select_order_region(
     state: JsonObject,
     index: int,
     exclude: Sequence[int] = (),
@@ -263,17 +262,19 @@ def select_goal_region(
     return candidates[0]
 
 
-def goal_matches(state: JsonObject, index: int, goal: int, target: int) -> bool:
+def order_matches(state: JsonObject, index: int, verb: int, target: int) -> bool:
     producer = building(state, index)
     return cast(
-        bool, producer["forceGoal"] == goal and producer["goalRegionIndex"] == target
+        bool, producer["forceVerb"] == verb and producer["targetRegionIndex"] == target
     )
 
 
 # Building definition indices (DA_MatchContent order) and EUnitRole recipes used by the probe.
 BARRACKS, EXTRACTOR, WORKSHOP = 0, 1, 2
 FRONTLINE, RANGED, SIEGE = 0, 1, 2
-HOLD, EXPAND, ASSAULT, FALL_BACK = 0, 1, 2, 3
+MOVE_HOLD, ATTACK, RETREAT = 0, 1, 2
+# EForceStatus ordinals used for physical order-completion assertions.
+HOLDING = 1
 
 
 def configure(parser: argparse.ArgumentParser) -> None:

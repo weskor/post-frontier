@@ -36,46 +36,45 @@
 
 **The redesign:**
 
-- **[Built] You select forces, not buildings.** The selection model includes living orphan forces; input and camera behaviour live in [ui.md](ui.md). **[Change]** Force-bar cards and force order verbs replace the building's goal controls; buildings then only produce, upgrade and refit.
+- **[Built] You select forces, not buildings.** The selection model includes living orphan forces, numbered map badges and teammate read-only inspection; input and camera behaviour live in [ui.md](ui.md#selecting-and-giving-orders-change--decided). **[Change]** Force-bar cards and selected-force order input replace the temporary building-inspector order controls; buildings then only produce, upgrade and refit.
 - **Several forces at once:**
-  - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md). **[Change]** One order applies to the whole selection.
+  - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md#selecting-and-giving-orders-change--decided). Commands accept several owned forces atomically.
   - **[Built]** Keys **1–4** (solo **1–5**, using the roster definition above) select a single force by its force number.
-  - A mixed selection marches at its slowest member's speed.
+  - **[Built]** Each issued mixed-force command caps march speed at the slowest living member's positive authored speed; empty orphan forces and zero-speed members do not lower the cap. The cap belongs to that command and expires when it completes.
   - **[Later]** Saved control groups (Ctrl+1–9). Cut from launch scope in the design review; box-select, Shift-select and the order queue cover multi-force orders.
-- **Three verbs** replace Hold, Expand, Assault and Fall Back:
+- **[Built] Three verbs** replace Hold, Expand, Assault and Fall Back in the command layer, executor, JEV, simulation and verification. Until selected-force order input lands, the building inspector offers Move & Hold and Attack with region picking, and immediate Retreat for that building's force.
 
 | Verb | Target | Behaviour |
 |---|---|---|
-| **Move & Hold** | A region | Travel there, fighting what it meets on the way and capturing as it goes. Once there it **holds the whole region**: it waits at a defend post and answers any alarm in that region (see "Holding a region" below). It strikes back at most weapon range past the border, and **never auto-retreats**. Your own main is a valid target; today's Hold already allows that. |
-| **Attack** | A region or a structure (HQ, Drill Rig, relay, core) | Push to the target, fighting and capturing along the way, and chase enemies near the target. Below the retreat threshold it makes a **fighting withdrawal**, still firing, to the nearest safe region. It **resumes the Attack automatically at 80% strength**. The force card shows *Withdrawing · 3/6 → resumes at 5/6*. **When the region is taken or the structure destroyed, the Attack turns into Move & Hold** in the region it ends in. |
-| **Retreat** | — | A manual order: sprint (+25% speed) to the nearest safe region **without firing**, and refill there. |
+| **Move & Hold** | A region | **[Built]** Travel there, fighting what it meets in range and capturing as it goes; then hold the whole region at shared defend posts, responding to alarms under the rules below. It **never auto-retreats**; either main is a valid reachable target. Authored posts and ground markers are built ([map.md](map.md#region-size-and-defend-posts-built-unless-noted)). |
+| **Attack** | A region or a hostile structure | **[Built]** Push to the target, fighting and capturing along the way, and chase enemies near the target. Below the retreat threshold it makes a **fighting withdrawal**, still firing, to the nearest safe region. It **resumes the retained Attack automatically at 80% joined capacity**, rounded upward; travelling recruits do not satisfy this count. An orphan cannot refill, so its withdrawal turns into Move & Hold on safe arrival. **When the region is taken without hostile units or the structure destroyed, the Attack turns into Move & Hold** in the region it ends in, unless another order is queued. **[New]** The force card shows *Withdrawing · 3/6 → resumes at 5/6*, inferred from the retained Attack verb, Refilling status and withdrawal resume count. |
+| **Retreat** | — | **[Built]** A manual order: sprint (+25% speed) to the nearest safe region **without firing during the sprint**, and refill there. Arrival ends the sprint and allows firing while refilling; completing refill yields to the next order or Move & Hold. An orphan completes on arrival because it cannot refill. |
 
-The two attack verbs have different rules on purpose, so players can tell them apart. That was today's problem #5. The force card states each rule in one line.
+Move & Hold and Attack have different combat rules on purpose, so players can tell them apart. That was the reported problem #5. **[New]** The force card states each rule in one line.
 
 **Definitions:**
-- **Safe region:** the nearest connected region with no hostiles inside, preferring the last region the force held.
-- **Orphan forces [Built]:** a force outlives its production building and stays selectable; it receives no more reinforcements or refits. **[Change]** It remains commandable after the building is gone.
-  - Today an orphan still keeps its last front and can't be given new orders. That's the measured cause of the stalled draws ([battle.md](battle.md)).
-- **Today [Built]:**
-  - Auto-retreat exists for Assault only. It uses a Defend front and keeps firing, and resumes only at full strength.
-  - Fall Back goes to the barracks and doesn't fire.
+- **[Built] Safe region:** the nearest HQ-connected controlled region with no hostile units inside, preferring the last region the force held when it is eligible. If none exists, manual Retreat and an Attack's withdrawal go to the team's main region (the HQ's region), the last line of defence.
+- **[Built] Orphan forces:** a force outlives its production building, stays selectable and accepts owned force commands; it receives no more reinforcements or refits. Selection behaviour lives in [ui.md](ui.md#selecting-and-giving-orders-change--decided).
 
-- **Fighting on the way:** both Move & Hold and Attack fight whatever they meet in range while travelling, which keeps them predictable.
-- **Order queue:** Shift-queue up to **3 orders**, e.g. *Attack Relay → Move & Hold West Cut*. The queue shows on the force card and the path line.
-- **Rally point:** each production building has one; it defaults to its own region. New and idle forces Move & Hold there automatically.
-- **Routing:** the shortest path is the default and is **previewed before you confirm**. **[Later]** Alt-click waypoints, cut from launch scope.
+- **[Built] Fighting on the way:** both Move & Hold and Attack fight whatever they meet in range while travelling, without leaving their route to pursue.
+- **[Built] Order queue:** commands queue up to **3 orders in total, including the active order**, e.g. *Attack Relay → Move & Hold West Cut*. **[New]** Shift-queue input and display on the force card and path line.
+  - **[Built]** An order yields to the next queued order when it completes. **Move & Hold** completes once the force has arrived, there are no hostile units inside the region and, if capturable, the team controls it. With nothing queued it keeps holding.
+  - **[Built] Attack** completes when the region is taken without hostile units or the structure destroyed. It advances to a queued order instead of turning into Move & Hold.
+  - **[Built] Retreat** completes once the force has arrived and refilled to full capacity; an orphan completes on arrival because it cannot refill.
+- **[Built] Rally point:** each production building has one; it defaults to its own region. New and idle forces with a producer and no explicit or queued order Move & Hold there automatically. An idle orphan with no explicit or queued order stays at its physical position, without assignment to a defend post. The owned rally command is available to input and verification.
+- **[Built] Routing:** the shortest graph path is the default. **[New]** Preview before confirmation. **[Later]** Alt-click waypoints, cut from launch scope.
 - **Region-goal formation placement [Built]:** only complete formation paths are accepted. If a structure blocks a slot at the capture anchor, the centre may shift by at most 75 cm within that same region; precise point orders still reject obstructed formations.
-- **Reinforcements travel along the supply chain:**
+- **[Change] Reinforcements travel along the supply chain:**
   - A force standing in a **connected** region receives its replacements after a travel delay. They arrive *at the force*; nobody trickles across the map on their own.
   - A force in a cut-off region gets nothing until it's reconnected or retreats.
   - This ties steering to the connectivity rule ([economy.md](economy.md)).
-- **Refit after an upgrade:** in a connected region, old units are swapped for upgraded ones **one at a time**, through the same channel as reinforcements. Nobody walks back to the building.
-- **The executor is dumb and obedient.** It never overrides the player, and its rules (retreat threshold, targeting rule, pathing) are visible on the force card.
-- **Intent arrows:** every commander's orders are drawn as coloured arrows on the shared map and minimap, so your orders tell your teammates your plan.
+- **[New] Refit after an upgrade:** in a connected region, old units are swapped for upgraded ones **one at a time**, through the same channel as reinforcements. Nobody walks back to the building.
+- **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. **[New]** These rules and ETA inputs appear on the force card.
+- **[New] Intent arrows:** every commander's orders are drawn as coloured arrows on the shared map and minimap, so your orders tell your teammates your plan.
 
 ### Holding a region [Built]
 
-Automatic Hold/Defend goals defend the target region rather than a capture-point reaction circle. The earlier playtest gap and layout measurements are recorded in [area-defence.md](../Research/area-defence.md).
+Move & Hold forces with Holding status and a valid held region defend that whole region rather than a capture-point reaction circle. Once Holding, the region alarm controls destinations at posts and threats; a new explicit command clears that hold state. Idle orphans without an explicit order do not join this system. The earlier playtest gap and layout measurements are recorded in [area-defence.md](../Research/area-defence.md).
 
 **Rules:**
 - **Region alarm.** An alarm fires when a hostile unit enters the region, or when anything you own in it (a building or a force) takes damage. Every force holding that region hears it. Units still fight at their normal weapon range and keep their own automatic targets independently of the force's movement/overlay threat; the alarm only decides *where they go*.
@@ -88,17 +87,17 @@ Automatic Hold/Defend goals defend the target region rather than a capture-point
 - **Force card [Change]:** shows *Responding · Drill Rig under attack*. Replicated responding, threat-kind, threatened-asset and region state is available for the force bar.
 - **JEV holds regions under the same rules.**
 
-## Force settings [New] — decided
+## Force settings [Built] — commands; presentation [New]
 
-Each force has **one setting**, shown and changed on its force card:
+**[Built]** Each force has one owned retreat-threshold setting. **[New]** It is shown and changed on its force card:
 
 | Setting | Options | Default | Applies to |
 |---|---|---|---|
-| Retreat threshold | Never / 25% / 40% / 60% of capacity alive | 40% (today's value) | Attack only |
+| Retreat threshold [Built] | Never / 25% / 40% / 60% of capacity alive | 40% | Attack only |
 
-- **Never** allows suicide pushes and last stands, which suits a Juggernaut breaking an HQ.
+- **[Built] Never** allows suicide pushes and last stands, which suits a Juggernaut breaking an HQ.
 - **The targeting rule replaces the target-priority setting [Built]:**
-  - An eligible explicit AttackTarget keeps priority over automatic targeting.
+  - An eligible explicit hostile-structure Attack order keeps priority over automatic targeting.
   - A unit keeps its current target until it dies or leaves weapon range/the pursuit leash. A newly available counter-class or nearer enemy does not interrupt that lock.
   - The counter preference applies only when a unit acquires a new automatic target: prefer enemies of the armor class it deals bonus damage against, then the nearest eligible enemy.
   - Demolition units prefer structures on new automatic acquisition.

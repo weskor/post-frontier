@@ -6,7 +6,6 @@
 #include "ConstructionTypes.h"
 #include "Content/BuildingDefinition.h"
 #include "Rules/ProductionPolicy.h"
-#include "ForceGoals.h"
 #include "GameFramework/Actor.h"
 #include "CommandBuilding.generated.h"
 class ADepositSite;
@@ -62,7 +61,6 @@ public:
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	void NotifyPlacementCommitted();
 	bool TrySpend(int32 Cost);
-	bool HasConfiguredFront() const { return bHasConfiguredFront; }
 
 	// Production implementation lives in CommandBuildingProduction.cpp.
 	int32 GetProductionCost() const;
@@ -70,10 +68,7 @@ public:
 	EProductionState GetProductionState() const;
 	void GetForceCounts(int32& OutJoined, int32& OutTravelling) const;
 	void TickProduction(float DeltaSeconds);
-	// Goal driver implementation lives in ForceGoals.cpp.
-	void TickGoal();
-	int32 GetGoalWaypointRegionIndex() const { return GoalDriver.Waypoint; }
-	bool IsGoalRefilling() const { return GoalDriver.bRefilling; }
+	void InitializeRallyPoint();
 
 	// Index into Content->Buildings; the identity spawners set. Kind is derived from it on the server.
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
@@ -109,24 +104,15 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
 	float ProductionProgressSeconds = 0.f;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
-	EFrontOrder FrontOrder = EFrontOrder::Defend;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
-	FVector FrontLocation = FVector::ZeroVector;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Goal")
-	EForceGoal ForceGoal = EForceGoal::Hold;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Goal")
-	int32 GoalRegionIndex = INDEX_NONE;
+	int32 RallyRegionIndex = INDEX_NONE;
 
 private:
 	friend class FCommandService;
 	bool ApplyCancellation();
 	bool ApplyResearch(EArmyDoctrine Choice);
 	bool ApplyProduction(int32 UnitIndex, bool bEnabled);
-	bool ApplyFront(EFrontOrder Order, const FVector& Location);
-	bool ApplyRegionFront(EFrontOrder Order, const AMapRegion& Region);
-	void CommitGoal(EForceGoal Goal, int32 RegionIndex, int32 Source, const uint64* Graph, int32 Count);
+
 	bool FindProductionExit(FVector& OutLocation, int32& Cursor) const;
-	FForceGoalDriver GoalDriver;
 	float ProductionCheckAccumulator = 0.f;
 	UPROPERTY(ReplicatedUsing = OnRep_PlacementCommitted)
 	double PlacementCommittedServerTime = -1.;
@@ -155,9 +141,6 @@ private:
 	void OnRep_ResearchCount();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastTerminalState(const FCommandBuildingTerminalSnapshot& Snapshot);
-	// Replicated so owners' HUDs distinguish an assigned front from the placement-time default location.
-	UPROPERTY(Replicated)
-	bool bHasConfiguredFront = false;
 	UPROPERTY(VisibleAnywhere, Category = "Building")
 	TObjectPtr<UBoxComponent> Footprint;
 	UPROPERTY(VisibleAnywhere, Category = "Building")

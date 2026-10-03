@@ -7,7 +7,8 @@ from typing import cast
 
 from harness.network import (
     BARRACKS,
-    HOLD,
+    HOLDING,
+    MOVE_HOLD,
     RANGED,
     SIEGE,
     NetworkRun,
@@ -16,11 +17,10 @@ from harness.network import (
     distance2,
     force,
     force_counts_match,
-    goal_matches,
+    order_matches,
     owned_buildings,
-    region,
     require,
-    select_goal_region,
+    select_order_region,
     wallet,
 )
 from harness.network_session import (
@@ -126,7 +126,7 @@ def fill_siege_force(run: NetworkRun, s: Session, index: int) -> None:
 
 
 def create_second_force(run: NetworkRun, s: Session, index: int, squad: int) -> int:
-    # Same commander, second producer: no shared slots and no global goal scope.
+    # Same commander, second producer: no shared slots and no global order scope.
     fund(run, s, 1000, "second producer budget")
     place_barracks(run, s, 2, "second owned producer replicates")
     states = converged(
@@ -163,7 +163,7 @@ def create_second_force(run: NetworkRun, s: Session, index: int, squad: int) -> 
         s.names,
         lambda st: (
             building(st, second)["joined"] == recipe["capacity"]
-            and building(st, second)["forceGoal"] == HOLD
+            and building(st, second)["forceVerb"] == MOVE_HOLD
             and building(st, second)["travelling"] == 0
             and force_counts_match(st, s.owner, second)
             and wallet(st, s.owner)["wallet"] == 0
@@ -199,9 +199,9 @@ def retarget_and_open_vacancy(
         "second producer paused",
     )
     second_front = building(states["host"], second)["front"]
-    second_target = building(states["host"], second)["goalRegionIndex"]
-    original_target = building(states["host"], index)["goalRegionIndex"]
-    moved_target = select_goal_region(
+    second_target = building(states["host"], second)["targetRegionIndex"]
+    original_target = building(states["host"], index)["targetRegionIndex"]
+    moved_target = select_order_region(
         states["host"], index, exclude=(original_target,)
     )["index"]
     hold_at(run, s, index, moved_target, "replacement Hold target region replicates")
@@ -209,11 +209,11 @@ def retarget_and_open_vacancy(
         run,
         s.names,
         lambda st: (
-            goal_matches(st, second, HOLD, second_target)
+            order_matches(st, second, MOVE_HOLD, second_target)
             and building(st, second)["front"] == second_front
-            and building(st, second)["frontOrder"] == 1
+            and building(st, second)["status"] == HOLDING
         ),
-        "building-only goal scope replicates without moving other force",
+        "force-only order scope replicates without moving other force",
     )
     victim = alive_units(force(run.observe("host"), s.owner, index))[0]
     capacity = building(run.observe("host"), index)["capacity"]
@@ -255,19 +255,20 @@ def replace_vacancy(
     )
     origin = replacement["position"]
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
-    run.request(s.peer, "goal", building=index, goal=HOLD, region=original_target)
+    run.request(
+        s.peer,
+        "order",
+        building=index,
+        forceVerb=MOVE_HOLD,
+        targetRegionIndex=original_target,
+    )
     # Arrival may precede a delayed peer's next sample; retain the same replacement
     # slot's movement evidence rather than requiring another transient reinforcing flag.
     latched(
         run,
         s.names,
         lambda st: (
-            goal_matches(st, index, HOLD, original_target)
-            and distance2(
-                force(st, s.owner, index)["front"],
-                region(st, original_target)["anchor"],
-            )
-            < 1
+            order_matches(st, index, MOVE_HOLD, original_target)
             and any(
                 u["slot"] == replacement["slot"]
                 and distance2(u["position"], origin) > 200**2
@@ -283,6 +284,8 @@ def replace_vacancy(
             building(st, index)["joined"] == recipe["capacity"]
             and building(st, index)["travelling"] == 0
             and force_counts_match(st, s.owner, index)
+            and building(st, index)["status"] == HOLDING
+            and order_matches(st, index, MOVE_HOLD, original_target)
         ),
         "replacement physically arrives and joins moving force",
     )
@@ -303,13 +306,13 @@ def produce_and_replace(run: NetworkRun, s: Session, index: int, squad: int) -> 
         all(
             building(st, second)["joined"] == building(st, second)["capacity"]
             and building(st, second)["front"] == second_front
-            and goal_matches(st, index, HOLD, original_target)
-            and goal_matches(st, second, HOLD, second_target)
+            and order_matches(st, index, MOVE_HOLD, original_target)
+            and order_matches(st, second, MOVE_HOLD, second_target)
             and wallet(st, s.owner)["wallet"] == 0
             for st in states.values()
         ),
-        "replacement stole another force's capacity/goal or charged more than one unit",
+        "replacement stole another force's capacity/order or charged more than one unit",
     )
     run.phase(
-        "per-unit debit, independent region goals and causal replacement travel/arrival"
+        "per-unit debit, independent region orders and causal replacement travel/arrival"
     )

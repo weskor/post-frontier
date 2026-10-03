@@ -80,10 +80,10 @@ public:
 				BeforeShots += Unit->AttackCount;
 			}
 			if (bVictory)
-				FCommandService::IssueAttack(Wallet, Attacker, Target->GetActorLocation(), Target);
+				FCommandService::IssueForceOrder(Wallet, Attacker, EForceVerb::Attack, INDEX_NONE, Target);
 			else
-				FCommandService::IssueAttack(State->EnemyCommander, Attacker, Target->GetActorLocation(), Target);
-			if (Attacker->Order != EArmyOrder::Attack || Attacker->AttackTarget != Target)
+				FCommandService::IssueForceOrder(State->EnemyCommander, Attacker, EForceVerb::Attack, INDEX_NONE, Target);
+			if (Attacker->Verb != EForceVerb::Attack || Attacker->TargetStructure != Target)
 				return Fail(TEXT("A targeted HQ attack must be accepted without a shield prerequisite"));
 			OldState = State;
 			OldWorld = World;
@@ -120,7 +120,7 @@ public:
 			const uint32 Serial = Friendly->OrderSerial;
 			const int32 Balance = Wallet->Resources;
 			const int32 Buildings = State->Buildings.Num();
-			FCommandService::IssueOrder(Wallet, Friendly.Get(), EArmyOrder::Move, MoveLocation);
+			FCommandService::IssueForceOrder(Wallet, Friendly.Get(), EForceVerb::MoveHold, ArmyTestSetup::RegionAt(State, MoveLocation));
 			FCommandService::PlaceBuilding(Wallet, ArmyTestSetup::BarracksIndex, BuildingLocation);
 			ArmyTestSetup::Research(PC, EArmyDoctrine::FieldRepairs);
 			State->bVerificationIncomePaused = false; // Terminal state, not the fixture pause, must stop income.

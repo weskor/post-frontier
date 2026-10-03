@@ -222,11 +222,10 @@ bool FSimulationDuelRunner::FindGround()
 		Error = TEXT("Duel map navigation is unavailable");
 		return false;
 	}
-	const FVector2D Extent = State->Arena->HalfExtent;
 	TArray<FVector> Candidates;
-	for (float X = -Extent.X + DuelClearance; X <= Extent.X - DuelClearance; X += 400.f)
-		for (float Y = -Extent.Y + DuelClearance; Y <= Extent.Y - DuelClearance; Y += 400.f)
-			Candidates.Add(FVector(X, Y, 0.f));
+	for (const AMapRegion* Region : State->Regions)
+		if (IsValid(Region) && Region->RegionRole != ERegionRole::Main && IsValid(Region->Anchor))
+			Candidates.Add(State->GetRegionAnchor(Region->RegionIndex));
 	Candidates.Sort([](const FVector& A, const FVector& B) { return A.SizeSquared2D() < B.SizeSquared2D(); });
 	for (const FVector& Candidate : Candidates)
 	{
@@ -332,8 +331,11 @@ bool FSimulationDuelRunner::StartPair()
 			Spawns[Side].Add(MakeShared<FJsonValueArray>(Position(Unit->GetActorLocation())));
 		}
 	}
+	const AMapRegion* TargetRegion = State->FindRegionAt(Center);
 	for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
-		if (!FCommandService::IssueAttack(Group->GetOwningPlayerState(), Group.Get(), Center, nullptr))
+		if (!TargetRegion
+			|| !FCommandService::SetRetreatThreshold(Group->GetOwningPlayerState(), Group.Get(), ERetreatThreshold::Never)
+			|| !FCommandService::IssueForceOrder(Group->GetOwningPlayerState(), Group.Get(), EForceVerb::Attack, TargetRegion->RegionIndex))
 		{
 			Error = TEXT("Duel group rejected its real Attack order");
 			return false;
@@ -881,9 +883,10 @@ void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 			Detail->SetNumberField(TEXT("production_state"), static_cast<uint8>(Building->GetProductionState()));
 			Detail->SetNumberField(TEXT("production_progress_seconds"), Building->ProductionProgressSeconds);
 			Detail->SetNumberField(TEXT("unit_index"), Building->ProductionUnitIndex);
-			Detail->SetNumberField(TEXT("goal"), static_cast<uint8>(Building->ForceGoal));
-			Detail->SetNumberField(TEXT("goal_region"), Building->GoalRegionIndex);
-			Detail->SetNumberField(TEXT("waypoint_region"), Building->GetGoalWaypointRegionIndex());
+			const AArmyGroup* Force = Building->ForceGroup;
+			Detail->SetNumberField(TEXT("verb"), IsValid(Force) ? static_cast<uint8>(Force->Verb) : -1);
+			Detail->SetNumberField(TEXT("target_region"), IsValid(Force) ? Force->TargetRegionIndex : INDEX_NONE);
+			Detail->SetNumberField(TEXT("waypoint_region"), IsValid(Force) ? Force->WaypointRegionIndex : INDEX_NONE);
 			Buildings.Add(MakeShared<FJsonValueObject>(Detail));
 		}
 		for (const AMapRegion* Region : State.Regions)

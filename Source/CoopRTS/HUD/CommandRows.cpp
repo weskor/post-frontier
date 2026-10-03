@@ -46,16 +46,15 @@ static void ProductionText(const FContext& Context, const FButton& Button, FComm
 	Text.RightColor = Palette::Muted;
 }
 
-static void GoalText(const FButton& Button, FCommandText& Text)
+static void OrderText(const FButton& Button, FCommandText& Text)
 {
-	const EForceGoal Goal = Button.Action == EHUDAction::GoalHold ? EForceGoal::Hold
-		: Button.Action == EHUDAction::GoalExpand                 ? EForceGoal::Expand
-		: Button.Action == EHUDAction::GoalAssault                ? EForceGoal::Assault
-																  : EForceGoal::FallBack;
-	Text.Left << GoalTitle(Goal);
-	Text.Accent = GoalColor(Goal);
+	const EForceVerb Verb = Button.Action == EHUDAction::OrderMoveHold ? EForceVerb::MoveHold
+		: Button.Action == EHUDAction::OrderAttack                     ? EForceVerb::Attack
+																	   : EForceVerb::Retreat;
+	Text.Left << OrderTitle(Verb);
+	Text.Accent = OrderColor(Verb);
 	if (Button.Available())
-		Text.Right << (Button.bActive ? TEXT("CURRENT") : GoalPurpose(Goal));
+		Text.Right << (Button.bActive ? TEXT("CURRENT") : OrderPurpose(Verb));
 	Text.RightColor = Button.bActive ? Text.Accent : Palette::Faint;
 }
 
@@ -74,11 +73,10 @@ static bool CommandText(const FContext& Context, const FButton& Button, FCommand
 	case EHUDAction::ToggleProduction:
 		ProductionText(Context, Button, Text);
 		break;
-	case EHUDAction::GoalHold:
-	case EHUDAction::GoalExpand:
-	case EHUDAction::GoalAssault:
-	case EHUDAction::GoalFallBack:
-		GoalText(Button, Text);
+	case EHUDAction::OrderMoveHold:
+	case EHUDAction::OrderAttack:
+	case EHUDAction::OrderRetreat:
+		OrderText(Button, Text);
 		break;
 	case EHUDAction::CancelConstruction:
 		Text.Left << TEXT("CANCEL BUILD");
@@ -102,13 +100,13 @@ void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButto
 	const FRect& Rect = Button.Rect;
 	const float TextScale = FMath::Min(1.f, Rect.H / RowHeight);
 	const bool bOn = Button.Available();
-	const bool bActiveRecipeOrGoal = Button.bActive && Button.Action != EHUDAction::ToggleProduction;
-	Paint.Fill(Rect, bActiveRecipeOrGoal ? Tint(Text.Accent, .2f, .96f) : !bOn ? Palette::CardOff
-			: bHover                                                           ? Palette::CardHover
-																			   : Palette::Card);
+	const bool bActiveRecipeOrOrder = Button.bActive && Button.Action != EHUDAction::ToggleProduction;
+	Paint.Fill(Rect, bActiveRecipeOrOrder ? Tint(Text.Accent, .2f, .96f) : !bOn ? Palette::CardOff
+			: bHover                                                            ? Palette::CardHover
+																				: Palette::Card);
 	Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, Text.Accent.CopyWithNewOpacity(bOn || Button.bActive ? 1.f : .3f));
-	Paint.Outline(Rect, bActiveRecipeOrGoal ? Text.Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Text.Accent.CopyWithNewOpacity(.7f)
-																								   : Palette::Edge);
+	Paint.Outline(Rect, bActiveRecipeOrOrder ? Text.Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Text.Accent.CopyWithNewOpacity(.7f)
+																									: Palette::Edge);
 	float RightWidth = 0.f;
 	if (Text.Right.Len() > 0)
 		RightWidth = Paint.TextIn(Text.Right.ToView(), Rect, 9.f * TextScale, Text.RightColor, false, EAlign::Right, 9.f);

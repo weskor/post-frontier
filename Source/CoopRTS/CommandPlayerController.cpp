@@ -86,7 +86,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	LastForceKeyTime = -1.;
 	bSelectionDragging = false;
 	bPlacingBuilding = false;
-	bAssigningGoal = false;
+	bAssigningOrder = false;
 	bHUDExpanded = true;
 	bPlacementPending = false;
 	bPlacementCancelled = false;
@@ -247,7 +247,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	if (SelectedBuilding && !IsOwnedBuilding(SelectedBuilding))
 	{
 		SelectedBuilding = nullptr;
-		bAssigningGoal = false;
+		bAssigningOrder = false;
 	}
 	SelectedForces.RemoveAll([this](const TObjectPtr<AArmyGroup>& Force) { return !IsOwnedForce(Force); });
 	if (InspectedForce && !IsSelectableForce(InspectedForce))
@@ -337,18 +337,17 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 			Overlay->Line(FVector(A.X, A.Y, 13.f), FVector(B.X, B.Y, 13.f), Color, 3.f);
 		}
 	};
-	const AMapRegion* HoveredRegion = bAssigningGoal && IsOwnedBuilding(SelectedBuilding) ? CursorGoalRegion() : nullptr;
-	if (IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer())
+	const AMapRegion* HoveredRegion = bAssigningOrder && IsOwnedBuilding(SelectedBuilding) ? CursorOrderRegion() : nullptr;
+	if (IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer() && IsValid(SelectedBuilding->ForceGroup))
 	{
 		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 		if (State)
 			for (const AMapRegion* Region : State->Regions)
-				if (IsValid(Region) && Region->RegionIndex == SelectedBuilding->GoalRegionIndex)
+				if (IsValid(Region) && Region->RegionIndex == SelectedBuilding->ForceGroup->TargetRegionIndex)
 				{
 					if (Region != HoveredRegion)
-						OutlineRegion(Region, SelectedBuilding->ForceGoal == EForceGoal::Assault ? FColor::Red : SelectedBuilding->ForceGoal == EForceGoal::FallBack ? FColor::Yellow
-								: SelectedBuilding->ForceGoal == EForceGoal::Expand                                                                                  ? FColor(82, 204, 255)
-																																									 : FColor::Green);
+						OutlineRegion(Region, SelectedBuilding->ForceGroup->Verb == EForceVerb::Attack ? FColor::Red : SelectedBuilding->ForceGroup->Verb == EForceVerb::Retreat ? FColor::Yellow
+																																												 : FColor::Green);
 					break;
 				}
 	}
@@ -368,27 +367,19 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 				if (IsValid(Unit) && Unit->IsAlive())
 					Overlay->Square(Unit->GetActorLocation() + FVector(0.f, 0.f, -80.f),
 						FVector2D(55.f, 55.f), FColor::Cyan, 2.f);
-	if (IsValid(SelectedBuilding) && SelectedBuilding->IsProducer()
-		&& SelectedBuilding->HasConfiguredFront())
-	{
-		const FVector Base = SelectedBuilding->FrontLocation + FVector(0.f, 0.f, 16.f);
-		const FColor Color = SelectedBuilding->FrontOrder == EFrontOrder::Secure ? FColor::Red
-			: SelectedBuilding->FrontOrder == EFrontOrder::Defend                ? FColor::Green
-																				 : FColor::Yellow;
-		Overlay->Line(Base, Base + FVector(0.f, 0.f, 250.f), Color, 3.f);
-		Overlay->Square(Base, FVector2D(75.f, 75.f), Color, 3.f);
-	}
 	if (GetNetMode() != NM_DedicatedServer && IsOwnedBuilding(SelectedBuilding)
 		&& SelectedBuilding->IsProducer() && IsValid(SelectedBuilding->ForceGroup))
 	{
 		const FVector Center = SelectedBuilding->ForceGroup->GetCenter() + FVector(0.f, 0.f, 24.f);
 		Overlay->Line(SelectedBuilding->GetActorLocation() + FVector(0.f, 0.f, 24.f),
 			Center, FColor::Cyan, 2.f);
-		if (SelectedBuilding->HasConfiguredFront())
-			Overlay->Line(Center, SelectedBuilding->FrontLocation + FVector(0.f, 0.f, 24.f),
-				SelectedBuilding->FrontOrder == EFrontOrder::Secure       ? FColor::Red
-					: SelectedBuilding->FrontOrder == EFrontOrder::Defend ? FColor::Green
-																		  : FColor::Yellow,
+		const AArmyGroup* Force = SelectedBuilding->ForceGroup;
+		const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+		if (State && Force->TargetRegionIndex != INDEX_NONE)
+			Overlay->Line(Center, State->GetRegionAnchor(Force->TargetRegionIndex) + FVector(0.f, 0.f, 24.f),
+				Force->Verb == EForceVerb::Attack        ? FColor::Red
+					: Force->Verb == EForceVerb::Retreat ? FColor::Yellow
+														 : FColor::Green,
 				2.f);
 	}
 }
@@ -450,7 +441,7 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	return !Location.ContainsNaN();
 }
 
-const AMapRegion* ACommandPlayerController::CursorGoalRegion() const
+const AMapRegion* ACommandPlayerController::CursorOrderRegion() const
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
@@ -466,9 +457,9 @@ const AMapRegion* ACommandPlayerController::CursorGoalRegion() const
 	return CursorGround(Location) ? State->FindRegionAt(Location) : nullptr;
 }
 
-void ACommandPlayerController::AssignGoalAt(const FVector& Location)
+void ACommandPlayerController::IssueOrderAt(const FVector& Location)
 {
-	if (!CanIssueGameplayCommand() || !IsOwnedBuilding(SelectedBuilding))
+	if (!CanIssueGameplayCommand() || !IsOwnedBuilding(SelectedBuilding) || !IsValid(SelectedBuilding->ForceGroup))
 		return;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const AMapRegion* Region = State ? State->FindRegionAt(Location) : nullptr;
@@ -478,10 +469,10 @@ void ACommandPlayerController::AssignGoalAt(const FVector& Location)
 		PlayUISound(TEXT("Reject"));
 		return;
 	}
-	bAssigningGoal = false;
+	bAssigningOrder = false;
 	bHUDExpanded = true;
-	SetFeedback(TEXT("Goal sent; awaiting server."));
-	OrderCommands->ServerAssignGoal(SelectedBuilding, PendingGoal, Region->RegionIndex);
+	SetFeedback(TEXT("Order sent; awaiting server."));
+	OrderCommands->ServerIssueForceOrder({ SelectedBuilding->ForceGroup.Get() }, PendingVerb, Region->RegionIndex, nullptr, false);
 }
 
 const UBuildingDefinition* ACommandPlayerController::GetPlacementDefinition() const
@@ -598,7 +589,7 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 
 void ACommandPlayerController::Escape()
 {
-	if (bPlacingBuilding || bAssigningGoal || bBuildHotkeyPending)
+	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending)
 	{
 		CancelPointerMode();
 		return;
@@ -740,7 +731,7 @@ void ACommandPlayerController::CancelMode()
 	if (bPlacementPending)
 		bPlacementCancelled = true;
 	bPlacingBuilding = false;
-	bAssigningGoal = false;
+	bAssigningOrder = false;
 	bSelectionDragging = false;
 	bBuildHotkeyPending = false;
 	bRepeatPlacement = false;
@@ -775,9 +766,9 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 	}
 	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
 	{
-		if (bAssigningGoal)
+		if (bAssigningOrder)
 		{
-			AssignGoalAt(WorldPosition);
+			IssueOrderAt(WorldPosition);
 			return true;
 		}
 		bInitialFocusPending = false;
@@ -785,7 +776,7 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 			Camera->FocusOn(WorldPosition);
 		return true;
 	}
-	if (!bPlacingBuilding && !bAssigningGoal)
+	if (!bPlacingBuilding && !bAssigningOrder)
 		if (AArmyGroup* Force = HUD->GetForceAtScreenPosition(Position))
 		{
 			SelectForce(Force, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
@@ -840,7 +831,7 @@ void ACommandPlayerController::SelectForce(AArmyGroup* Force, bool bToggle)
 	bInitialFocusPending = false;
 	PendingPlacedBuilding.Reset();
 	PendingPlacedBuildingNetGUID = 0;
-	bAssigningGoal = false;
+	bAssigningOrder = false;
 	bPlacingBuilding = false;
 	bHUDExpanded = true;
 	SelectedBuilding = nullptr;
@@ -896,7 +887,7 @@ void ACommandPlayerController::SelectForceBox(const FVector2D& Start, const FVec
 	HUD->GetForcesInScreenBox(Start, End, Forces);
 	bInitialFocusPending = false;
 	SelectedBuilding = nullptr;
-	bAssigningGoal = false;
+	bAssigningOrder = false;
 	bPlacingBuilding = false;
 	if (!bAdd)
 		SelectedForces.Reset();
@@ -974,7 +965,7 @@ void ACommandPlayerController::SelectActorWithModifiers(AActor* Actor, bool bTog
 		SelectedForces.Reset();
 		InspectedForce = nullptr;
 		SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
-		bAssigningGoal = false;
+		bAssigningOrder = false;
 	}
 	if (SelectedBuilding)
 	{
@@ -991,7 +982,7 @@ void ACommandPlayerController::SelectUnderCursor()
 	{
 		const FVector2D Position(MouseX, MouseY);
 		const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
-		bSelectionDragging = GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bAssigningGoal
+		bSelectionDragging = GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bAssigningOrder
 			&& (!HUD || !HUD->IsPanelPoint(Position));
 		if (bSelectionDragging)
 		{
@@ -1015,11 +1006,11 @@ void ACommandPlayerController::SelectUnderCursor()
 		PlaceBuildingAt(Location, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
 		return;
 	}
-	if (bAssigningGoal)
+	if (bAssigningOrder)
 	{
 		FVector Location;
 		if (CursorGround(Location))
-			AssignGoalAt(Location);
+			IssueOrderAt(Location);
 		else
 			SetFeedback(TEXT("Choose a region on the ground or minimap."));
 		return;
@@ -1085,9 +1076,14 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		PlayUISound(TEXT("Reject"));
 		return;
 	}
-	const bool bGoalAction = Action == EHUDAction::GoalHold || Action == EHUDAction::GoalExpand
-		|| Action == EHUDAction::GoalAssault || Action == EHUDAction::GoalFallBack;
-	PlayUISound(bGoalAction ? TEXT("Front") : TEXT("Click"));
+	const bool bOrderAction = Action == EHUDAction::OrderMoveHold || Action == EHUDAction::OrderAttack
+		|| Action == EHUDAction::OrderRetreat;
+	PlayUISound(bOrderAction ? TEXT("Front") : TEXT("Click"));
+	if (Action == EHUDAction::Construction)
+	{
+		CancelMode();
+		return;
+	}
 	if (!CanIssueGameplayCommand())
 		return;
 	const int32 BuildIndex = BuildSlot(Action);
@@ -1106,7 +1102,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		PlacementIndex = BuildIndex;
 		bPlacingBuilding = true;
 		bBuildHotkeyPending = false;
-		bAssigningGoal = false;
+		bAssigningOrder = false;
 		bHUDExpanded = false;
 		SetFeedback(TEXT("Left-click valid ground; Shift+LMB places another; right-click/Esc cancels."));
 		return;
@@ -1134,29 +1130,29 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 	}
 	if (!SelectedBuilding->IsProducer())
 		return;
-	if (bGoalAction)
+	if (bOrderAction)
 	{
 		if (!SelectedBuilding->IsComplete() || !SelectedBuilding->bForceConfigured || !IsValid(SelectedBuilding->ForceGroup))
 		{
-			SetFeedback(TEXT("Complete this barracks and Start & Lock its force before assigning a goal."));
+			SetFeedback(TEXT("Complete this barracks and Start & Lock its force before issuing an order."));
 			PlayUISound(TEXT("Reject"));
 			return;
 		}
 		PendingPlacedBuilding.Reset();
 		PendingPlacedBuildingNetGUID = 0;
-		PendingGoal = Action == EHUDAction::GoalHold ? EForceGoal::Hold
-			: Action == EHUDAction::GoalExpand       ? EForceGoal::Expand
-			: Action == EHUDAction::GoalAssault      ? EForceGoal::Assault
-													 : EForceGoal::FallBack;
+		PendingVerb = Action == EHUDAction::OrderMoveHold ? EForceVerb::MoveHold
+			: Action == EHUDAction::OrderAttack           ? EForceVerb::Attack
+														  : EForceVerb::Retreat;
 		bPlacingBuilding = false;
-		if (PendingGoal == EForceGoal::Assault || PendingGoal == EForceGoal::FallBack)
+		if (PendingVerb == EForceVerb::Retreat)
 		{
-			bAssigningGoal = false;
+			bAssigningOrder = false;
 			bHUDExpanded = true;
-			OrderCommands->ServerAssignGoal(SelectedBuilding, PendingGoal, INDEX_NONE);
+			Feedback = TEXT("Retreat sent; awaiting server.");
+			OrderCommands->ServerIssueForceOrder({ SelectedBuilding->ForceGroup.Get() }, PendingVerb, INDEX_NONE, nullptr, false);
 			return;
 		}
-		bAssigningGoal = true;
+		bAssigningOrder = true;
 		bHUDExpanded = false;
 		SetFeedback(TEXT("Choose a region on ground or minimap; right-click/Esc cancels."));
 		return;
@@ -1338,7 +1334,7 @@ void ACommandPlayerController::FocusAlert()
 
 void ACommandPlayerController::CancelPointerMode()
 {
-	if (bPlacingBuilding || bAssigningGoal || bBuildHotkeyPending)
+	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending)
 	{
 		CancelMode();
 		SetFeedback(TEXT("Mode cancelled."));

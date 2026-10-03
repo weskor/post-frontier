@@ -10,7 +10,7 @@ Full run: the whole presentation state sequence (placement, production, starvati
 research, victory) at the first resolution, selected-barracks captures at the others.
 --quick pings: real G ground placement, shared minimap placement, active map/minimap marker captures,
 then a six-second expiry capture. Other --quick labels boot one placed barracks and capture the
-deck + inspector at one resolution; they do not prove production, goals, research or victory.
+deck + inspector at one resolution; they do not prove production, orders, research or victory.
 """
 
 from __future__ import annotations

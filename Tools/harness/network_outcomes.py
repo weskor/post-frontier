@@ -56,6 +56,8 @@ def reset_matches(
         and state["result"] == 0
         and state["enemyHQ"] == 900
         and state["friendlyHQ"] == 900
+        and not state["assigningOrder"]
+        and not state["buildingSelected"]
         and not any(a["team"] == 0 for a in state["armies"])
         and not any(b["team"] == 0 for b in state["buildings"])
         and all(p["doctrine"] == 0 and p["wallet"] >= 600 for p in state["players"])
@@ -92,7 +94,7 @@ def restart_and_converge(
             f"{name}: fresh world or preserved connection missing",
         )
     run.phase(
-        "fresh empty bases, all map sectors neutral, research reset and preserved socket identities"
+        "fresh empty bases, force orders and selection cleared, neutral map sectors, research reset and preserved socket identities"
     )
 
 

@@ -5,7 +5,7 @@
 #include "ArmyUnit.h"
 #include "CommandPlayerState.h"
 #include "ConstructionTypes.h"
-#include "ForceGoals.h"
+#include "ForceOrders.h"
 
 class ACommandBuilding;
 class ACommandPlayerController;
@@ -35,14 +35,14 @@ public:
 	static FCommandResult PlaceBuilding(ACommandPlayerState* Commander, int32 BuildingIndex, const FVector& Location);
 	static FCommandResult CancelBuilding(ACommandPlayerState* Commander, ACommandBuilding* Building);
 	static FCommandResult ConfigureProduction(ACommandPlayerState* Commander, ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled);
-	static FCommandResult AssignGoal(ACommandPlayerState* Commander, ACommandBuilding* Building, EForceGoal Goal, int32 RegionIndex);
-	static FCommandResult AssignFront(ACommandPlayerState* Commander, ACommandBuilding* Building, EFrontOrder Order, const FVector& Location);
-	static FCommandResult AssignFront(ACommandPlayerState* Commander, AArmyGroup* Army, EFrontOrder Order, const FVector& Location);
+	static FCommandResult IssueForceOrder(ACommandPlayerState* Commander, AArmyGroup* Force, EForceVerb Verb, int32 RegionIndex = INDEX_NONE, AActor* Structure = nullptr, bool bQueue = false);
+	static FCommandResult IssueForceOrder(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, EForceVerb Verb, int32 RegionIndex = INDEX_NONE, AActor* Structure = nullptr, bool bQueue = false);
+	static FCommandResult SetRetreatThreshold(ACommandPlayerState* Commander, AArmyGroup* Force, ERetreatThreshold Threshold);
+	static FCommandResult SetRetreatThreshold(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, ERetreatThreshold Threshold);
+	static FCommandResult SetRallyPoint(ACommandPlayerState* Commander, ACommandBuilding* Building, int32 RegionIndex);
 	static FCommandResult Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice);
 	static FCommandResult Restart(ACommandPlayerController* Controller);
 	static FCommandResult Pause(ACommandPlayerController* Controller);
 	static FCommandResult Resume(ACommandPlayerController* Controller);
 	static FCommandResult Ping(ACommandPlayerController* Controller, const FVector& Location, AArmyGroup* Force = nullptr);
-	static FCommandResult IssueOrder(ACommandPlayerState* Commander, AArmyGroup* Army, EArmyOrder Order, const FVector& Destination);
-	static FCommandResult IssueAttack(ACommandPlayerState* Commander, AArmyGroup* Army, FVector Destination, AActor* Target);
 };
