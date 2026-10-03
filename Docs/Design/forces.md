@@ -18,7 +18,7 @@
 
 ## Force cap [Built]
 
-- Each human commander owns at most **4 production buildings** at once, or **5 solo**, matching the solo player's extra unit type ([commanders.md](commanders.md)). Solo means exactly one human commander in the match roster.
+- Each human commander owns at most **4 production buildings** at once, or **5 solo**, matching the solo player's extra unit type ([commanders.md](commanders.md)). For both this cap and the force-number keys, **solo means exactly one human commander in the match roster**, regardless of network mode.
 - Living production buildings count from placement, including construction and unconfigured barracks. Other commanders' buildings, non-producers and orphan forces don't count. An orphan can't be refilled.
 - At the cap, authority rejects another producer without spending Power; the build bar greys its button, shows the current count/cap and explains blocked placement when clicked. Destroying a producer frees its slot. **[New]** Recycling will provide another way to free a slot ([buildings.md](buildings.md)).
 - **[New]** Forces grow stronger through tiers and perks rather than multiplying (see "Barracks upgrades" below).
@@ -39,7 +39,7 @@
 - **[Built] You select forces, not buildings.** The selection model includes living orphan forces; input and camera behaviour live in [ui.md](ui.md). **[Change]** Force-bar cards and force order verbs replace the building's goal controls; buildings then only produce, upgrade and refit.
 - **Several forces at once:**
   - **[Built]** Several owned forces can be selected together; see [ui.md](ui.md). **[Change]** One order applies to the whole selection.
-  - **[Built]** Keys **1–4** (solo **1–5**) select a single force by its force number.
+  - **[Built]** Keys **1–4** (solo **1–5**, using the roster definition above) select a single force by its force number.
   - A mixed selection marches at its slowest member's speed.
   - **[Later]** Saved control groups (Ctrl+1–9). Cut from launch scope in the design review; box-select, Shift-select and the order queue cover multi-force orders.
 - **Three verbs** replace Hold, Expand, Assault and Fall Back:

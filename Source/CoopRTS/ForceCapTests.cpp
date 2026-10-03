@@ -108,17 +108,42 @@ public:
 		}
 		if (Stage == 2)
 		{
-			if (!Place(State, Wallet, BarracksIndex))
+			Replacement = Place(State, Wallet, BarracksIndex);
+			if (!Replacement.IsValid())
+				return true;
+			Replacement->Tick(60.f);
+			Stage = 3;
+			return false;
+		}
+		if (Stage == 3)
+		{
+			if (!Check(Replacement.IsValid() && Replacement->ForceNumber == 5
+						&& FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, true).IsAccepted(),
+					TEXT("Living orphan reserves number one, so the paid co-op replacement receives force number five")))
+				return true;
+			Replacement->TickProduction(Replacement->GetProductionDuration());
+			FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, false);
+			const AArmyGroup* Fifth = Replacement->ForceGroup;
+			if (!Check(IsValid(Fifth) && Fifth->GetUnits().Num() == 1, TEXT("Replacement force five has a real paid recruit")))
 				return true;
 			if (!Check(Orphan.IsValid() && Survivor.IsValid() && Survivor->IsAlive()
 						&& CommandForceCap::Read(*State, *Wallet).Count == 4,
 					TEXT("Paid replacement fills the freed slot without counting the surviving orphan"))
 				|| !Rejected(State, Wallet, 4))
 				return true;
+			PC->SelectForce(Orphan.Get());
+			PC->SelectForceNumber(5);
+			if (!Check(PC->GetInspectedForce() == Orphan.Get() && !PC->IsForceSelected(Fifth),
+					TEXT("Two humans disable key five even in a standalone fixture world")))
+				return true;
 			State->RemovePlayerState(Foreign.Get());
 			Foreign->Destroy();
 			if (!Check(CommandForceCap::Read(*State, *Wallet).Limit == 5, TEXT("One human roster entry restores the solo cap"))
 				|| !HUDState(PC, 4, 5, false))
+				return true;
+			PC->SelectForceNumber(5);
+			if (!Check(PC->GetInspectedForce() == Fifth && PC->IsForceSelected(Fifth),
+					TEXT("Removing the second human enables key five without changing network mode")))
 				return true;
 			if (!Place(State, Wallet, BarracksIndex))
 				return true;
@@ -233,6 +258,7 @@ private:
 	int32 Stage = 0;
 	TWeakObjectPtr<ACommandPlayerState> Foreign;
 	TWeakObjectPtr<ACommandBuilding> First;
+	TWeakObjectPtr<ACommandBuilding> Replacement;
 	TWeakObjectPtr<AArmyGroup> Orphan;
 	TWeakObjectPtr<AArmyUnit> Survivor;
 };

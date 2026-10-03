@@ -37,6 +37,7 @@
 #include "Commands/MatchCommandComponent.h"
 #include "ObjectiveAnnouncer.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/ForceCapState.h"
 
 ACommandPlayerController::ACommandPlayerController()
 {
@@ -864,7 +865,9 @@ void ACommandPlayerController::SelectForce(AArmyGroup* Force, bool bToggle)
 
 void ACommandPlayerController::SelectForceNumber(int32 Number)
 {
-	if (GetUIScreen() != ECommandScreen::Game || !ForceSelectionPolicy::IsNumberAvailable(Number, GetNetMode() == NM_Standalone))
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (GetUIScreen() != ECommandScreen::Game || !State
+		|| !ForceSelectionPolicy::IsNumberAvailable(Number, CommandForceCap::HumanCommanderCount(*State) == 1))
 		return;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		if (IsOwnedForce(*It) && It->ForceNumber == Number)
@@ -1072,7 +1075,7 @@ void ACommandPlayerController::HandleHUDAction(EHUDAction Action)
 		if (Button.Action == Action && !Button.Available())
 		{
 			bBlocked = true;
-			TStringBuilder<64> Reason;
+			TStringBuilder<128> Reason;
 			CommandHUDPanels::BlockReason(Button, Reason);
 			SetFeedback(Reason.ToString());
 		}

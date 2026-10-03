@@ -137,7 +137,7 @@ void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 		Reason << TEXT("Specialization locked: one per commander.");
 		break;
 	case EBlock::ForceCap:
-		Reason << TEXT("Force cap reached. A producer must be gone first.");
+		Reason << TEXT("Force cap reached. A production building must be gone before adding another.");
 		break;
 	default:
 		break;
@@ -147,7 +147,7 @@ void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 float DrawBlockReason(const FPainter& Paint, const FButton& Button, float X, float Y, float Size, float MaxWidth,
 	EAlign Align)
 {
-	TStringBuilder<64> Reason;
+	TStringBuilder<128> Reason;
 	BlockReason(Button, Reason);
 	return Paint.Text(Reason.ToView(), X, Y, Size, Button.Block == EBlock::Funds ? Palette::Warn : Palette::Faint, false, Align, MaxWidth);
 }
