@@ -1,5 +1,6 @@
 #pragma once
 
+#include "JevIntentView.h"
 #include "HUDTypes.h"
 #include "InputCoreTypes.h"
 #include "ForceOrders.h"
@@ -82,4 +83,33 @@ void DrawScreen(const FPainter& Paint, const FContext& Context, const FLayout& L
 void DrawScreenLine(const FPainter& Paint, const FRect& Panel, const TCHAR* Text, int32 Index, const FLinearColor& Color = Palette::Text);
 void DrawResult(const FPainter& Paint, const FContext& Context, const FRect& Panel);
 void DrawMinimap(const FPainter& Paint, ACommandPlayerController* Controller, const FLayout& Layout);
+
+// JEV intent display (timeline bar, memo feed, region badges); every value derives from the replicated plans.
+struct FJevIntentModel
+{
+	JevIntentView::FPlans Plans;
+	JevIntent::FTimeline Timeline;
+	JevIntent::FBadges Badges;
+	float Now = 0.f;
+};
+struct FJevMemoRow
+{
+	FRect Rect;
+	const JevIntent::FMemo* Memo = nullptr;
+	float Alpha = 1.f;
+};
+void BuildJevIntentModel(const FContext& Context, FJevIntentModel& Model);
+// Posts memos for plans that appeared or changed since the last observation.
+void ObserveJevIntent(const FContext& Context);
+// Empty (zero width) while no plan is published.
+FRect JevTimelineRect(const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model);
+// Rows that fit between the timeline and the feedback strip, newest first.
+int32 JevMemoRows(const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model,
+	FJevMemoRow (&Rows)[JevIntent::MemoVisible]);
+void ForEachJevIntentPanel(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FRect&)> Visit);
+const TCHAR* JevVerbTag(JevPlanner::EVerb Verb, bool bEscalated);
+// Text of a world-map badge: "JEV  Attack  0:20" or "JEV  Escalated: defending X".
+void JevBadgeLabel(const FContext& Context, const JevIntent::FRegionBadge& Badge, FStringBuilderBase& Label);
+void DrawJevIntent(const FPainter& Paint, const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model);
+void DrawJevRegionBadges(const FPainter& Paint, const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model);
 }

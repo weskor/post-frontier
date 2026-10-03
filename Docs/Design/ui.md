@@ -82,11 +82,13 @@ Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the onl
 - [Built] **Team pings:** **G** pings at the cursor on the ground or minimap. A teammate's force, or its read-only inspector's ping button, sends **Need help here** at the authoritative force centre; any other spot sends **Look here**. Every connected teammate sees commander-coloured markers on the map and minimap and a feed entry naming the sender for **6 s** (starting value), plus a short UI cue. Need-help rows also name the target force's owner. Matching announcer speech plays only when speech is idle with no pending lines; busy pings drop their voice line rather than delaying or evicting objective speech, without suppressing their cue or feed entry. Receiving a ping never moves the camera; clicking its feed entry focuses the spot. The command layer delivers only to the sender's human team, never JEV. Each player can send one ping every **2 real-time seconds** (starting value); a throttled request explains the limit. Marker/feed lifetime uses synchronized battle time.
 - [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist.
 
-## JEV intent display
+## JEV intent display [Built] / [New]
 
-- **Timeline bar:** shows upcoming JEV plans, version releases and JEV calldowns, each with a countdown.
-- **Region badges:** show which regions each plan targets.
-- **Memo feed:** the Machine's voice and the jokes.
+Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent-built)). Nothing is computed on the client that could disagree with a plan.
+
+- **[Built] Timeline bar:** under the objective strip, left of the alert feed, so it never covers the strip, the alerts, the build bar or the deck. Up to 4 cells, soonest arrival first. Each cell shows the plan's verb (*ESCALATED* for a defense), target region, size band (`~8 units`) and a countdown. The countdown runs from the server time the planner computed the ETA, which is published with the plan; it stops at 0:00 and then reads *ARRIVED*. More plans than cells show *+N more*. The bar takes no space while JEV has no plan. **[New]** Version releases and JEV calldowns join the bar in step 1b ([battle.md](battle.md)); an entry is a kind plus a countdown, so they slot in beside plans.
+- **[Built] Region badges:** every region a plan targets carries a badge above its region label on the world map (`JEV  Attack  0:20`) and a marker with its countdown on the minimap (`ESC` while defending). Two plans on one region show the sooner one and `x2`. An escalated plan reads *Escalated: defending X* in place of a countdown.
+- **[Built] Memo feed:** below the timeline bar, separate from the team announcer's alerts, in the Machine's voice: the Machine colours of [STYLE.md](../../Art/UI/STYLE.md) (pearl text, cyan trim, red lens) and a `JEV` tag, never the team panels' blue-grey. A plan posts its memo (the [jev.md](jev.md) template text, verbatim) when it is first published or when its ticket, verb, target, structure, size band or escalation changes; ETA drift alone posts nothing. Newest first, 3 rows, each held for 12 s and faded over 2 s (starting values); the feed remembers the latest 8.
 
 ## Feedback and presentation — decided
 

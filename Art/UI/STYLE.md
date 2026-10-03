@@ -113,7 +113,7 @@ Line height 1.25 (body 13.5 in tooltips). Text is drawn top-aligned in boxes of 
 
 The trim, the commander swatch, the selected-slot ring and the minimap pips use the local commander's colour. `bad`, `warn` and `ok` override it when a state must be shouted.
 
-### Machine skin (enemy intel only)
+### Machine skin (JEV information only)
 
 | Token | Hex | Use |
 | --- | --- | --- |
@@ -140,7 +140,7 @@ The trim, the commander swatch, the selected-slot ring and the minimap pips use 
 
 **Offline skin** (`frames/panel_*`, `btn_*`, `slot_*`, `portrait_*`, `minimap_*`, `strip_*`, `banner_*`): industrial gunmetal. Anatomy from outside in: 1.4 texel near-black silhouette, a bevel ring lit by edge normal (upper-left edges light, lower-right dark, chamfers brightest and darkest), 1.2 texel groove, translucent `panel` fill with a 22-texel top sheen and a bottom shadow. Corners are chamfered (large cut top-left and bottom-right, small cut on the other two) with rivets; the panel carries one hazard-stripe tab on the lower left. The trim is a separate white glow line inset from the bevel, tinted at draw time.
 
-**Machine skin** (`machine_panel_*`, `machine_btn_*`): pearl shell with rounded corners, a floating second ring separated by a dark gap, cyan trim, and the single red lens in the top-left corner. No hazard stripes, no rivets. It appears on the enemy intel panel and on any scouted enemy building panel, and nowhere else.
+**Machine skin** (`machine_panel_*`, `machine_btn_*`): pearl shell with rounded corners, a floating second ring separated by a dark gap, cyan trim, and the single red lens in the top-left corner. No hazard stripes, no rivets. It appears on the enemy intel panel, on the JEV timeline bar, region badges and memo feed (drawn flat with these tokens until the frames exist), and on any scouted enemy building panel, and nowhere else.
 
 Bevel lighting is baked per edge, so a 9-slice can stretch the middle strips without gradients. Texture layers: `*_base` carries metal and fill, `*_trim` is white and tinted with the state or player colour.
 
@@ -206,7 +206,7 @@ The Reinforce command-card button is the "fill every open slot" shortcut (`R`) a
 - **Command-card labels are the plain function word only** (`Secure`, `Defend`, `Fall Back`, `Start`, `Pause`, `Reinforce`). Themed tags appear in the tooltip title and the mode bar: `SECURE — Take It Offline`, `DEFEND — Hold the Line`, `FALL BACK — Soft Reboot`, `START PRODUCTION · Clock In`, `PAUSE PRODUCTION · Smoke Break`.
 - Objective `OBJECTIVE · UNPLUG THE CLUSTER`; terminal label `VICTORY · MODEL DEPRECATED · ENTER` and `DEFEAT · SESSION EXPIRED · ENTER`; banner copy `Model deprecated.` and `Your session has expired. Humanity has been sunset.`; restart `Regenerate response? · commands are locked`; nothing-selected-after-end `SESSION ENDED.`
 - Currency is **Power** (World.md: the single resource is Power). The glyph `power` precedes every cost.
-- Machine lines are always `Thinking… <line>` with `Thought for Ns` next to it, in the mono face, and the plan chip (`ESTABLISH BASE`, `EXPAND TERRITORY`, `ASSAULT HQ`, `DEFEND BASE`) beside it.
+- Machine lines are always `Thinking… <line>` with `Thought for Ns` next to it, in the mono face, and the plan chip (the published plan's verb: `MOVE & HOLD`, `ATTACK`, `RETREAT`, or `ESCALATED` for a defense) beside it. The JEV memo feed shows the plan's template memo instead, verbatim.
 - There is no `LEVEL 2`, `UPGRADE TO L2`, `Needs level 2` or `Night Shift` anywhere. World.md and the README still describe level 2; the design follows the current rule (one permanent type per Barracks).
 
 ## 9. Icons and portraits

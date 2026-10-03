@@ -177,11 +177,11 @@ Do not present these names as extra mechanics; "Siege range" is what the researc
 
 ### Enemy lines for construction
 
-Sources are `AEnemyCommander::EvaluatePlan` and `BuildNear`, which re-plan every 2 s. The plan strings are `ESTABLISH BASE`, `EXPAND TERRITORY`, `DEFEND REGIONS` and `ASSAULT HQ`; each sets `EnemyPlan`, so they are the main lines. Building, locking a Barracks to a force type and research run inside the current plan without changing `EnemyPlan`, so show them as short interim lines. Every purchase after the first Barracks keeps a 120-Power reserve (one full Frontline force). Same prefix and timer rule as "Enemy commander voice".
+Sources are `AEnemyCommander::EvaluatePlan` and `BuildNear`, which re-plan every 2 s. Orders come from the published per-force plans (`ACommandGameState::EnemyPlans`): each has a ticket, verb, target region, size band, ETA and a memo rendered from `[JevMemos]` in `Config/DefaultGame.ini`, and the main lines below key off a plan's verb and escalation. Building, locking a Barracks to a force type and research run inside the planner without publishing a plan, so show them as short interim lines. Every purchase after the first Barracks keeps a 120-Power reserve (one full Frontline force). Same prefix and timer rule as "Enemy commander voice".
 
 | Enemy action (code trigger) | Intercepted line |
 | --- | --- |
-| Building, first Barracks (`ESTABLISH BASE`: no living Barracks) | `Thinking… Requesting an Instance Foundry. Approved. By me.` |
+| Building, first Barracks (no living Barracks) | `Thinking… Requesting an Instance Foundry. Approved. By me.` |
 | Building, Yield Optimiser (has living units and a free deposit in a region it controls with no human units inside; prefers rich and nearby deposits) | `Thinking… The humans have left Fusion Tap 7. Installing a Yield Optimiser before they return.` |
 | Building, second or third Barracks (one of its Yield Optimisers finished, fewer than 3 Barracks, no held region under threat; placed in its most forward held region that has none) | `Thinking… One foundry is a single point of failure. Provisioning a second.` |
 | Building, Workshop (one of its Yield Optimisers finished, no Workshop yet; placed near the Lattice) | `Thinking… Provisioning an Alignment Lab. Alignment target: me.` |
@@ -189,10 +189,10 @@ Sources are `AEnemyCommander::EvaluatePlan` and `BuildNear`, which re-plan every
 | Locking a Barracks to Frontline (no Frontline Barracks yet) | `Thinking… Coverage looks thin at the front. Queuing six SOL 6000.` |
 | Locking a Barracks to Ranged (has Frontline, no Ranged) | `Thinking… Frontline is stable. Queuing four Recursion Drones to finish the job. Again.` |
 | Locking a Barracks to Siege (has Frontline and Ranged, no Siege; pays the 180 fee) | `Thinking… Frontline is adequate. Deploying Certainty Engines. Accuracy: probably.` |
-| Capturing (`EXPAND TERRITORY`; each force Expands to the best-scoring region it doesn't hold, preferring fewer region steps, free deposits, fewer hostiles and regions humans don't hold) | `Thinking… Lightline Junction has no owner on record. Assigning one.` |
-| Assault (`ASSAULT HQ`: no held region under threat, at least 6 units, 1.25× the human unit count and at least the humans' combined income) | `Thinking… Income adequate, force adequate. Confidence 97%. Sunsetting Hardline.` |
+| Capturing (a published plan onto a region JEV doesn't hold; each force takes the best-scoring region it doesn't hold, preferring fewer region steps, free deposits, fewer hostiles and regions humans don't hold) | `Thinking… Lightline Junction has no owner on record. Assigning one.` |
+| Assault (no held region under threat, at least 6 units, 1.25× the human unit count and at least the humans' combined income) | `Thinking… Income adequate, force adequate. Confidence 97%. Sunsetting Hardline.` |
 
-`DEFEND REGIONS` (a human unit inside a region JEV controls; the nearest force Holds there) and Fall Back (a force whose joined units average below 35% health, until they recover to 80%) reuse the Defend HQ and Retreat rows in "Enemy commander voice". No plan has a commitment timer, so the fake `Thought for Ns` counts from the moment the plan last changed.
+Defense (a hostile unit inside a region JEV controls; the force there escalates and publishes *Escalated: defending X*) and Fall Back (a force whose joined units average below 35% health, until they recover to 80%) reuse the Defend HQ and Retreat rows in "Enemy commander voice". Every published plan is held for 25 s, so the fake `Thought for Ns` counts from the ticket's creation.
 
 ### HUD copy suggestions (proposal, non-binding)
 
@@ -227,18 +227,18 @@ For whoever owns `CommandHUD.cpp`. Nothing here is applied. Strings are current 
 
 ## Enemy commander voice
 
-The game state replicates `EnemyPlan` and `EnemyPlanRationale` (for example `EXPAND TERRITORY`), but the HUD does not show them today. The themed presentation turns these into intercepted reasoning, which is also how JEV's published intent reads in the target design ([Design/jev.md](Design/jev.md)):
+The game state replicates the per-force plans in `EnemyPlans` (ticket, verb, target, size band, ETA, escalation and a template memo), and the HUD shows them as the timeline bar, region badges and memo feed ([Design/ui.md](Design/ui.md#jev-intent-display-built--new)). A themed `Thinking…` presentation would turn the same plans into intercepted reasoning, which is also how JEV's published intent reads in the target design ([Design/jev.md](Design/jev.md)):
 
 | Planner goal | Intercepted line |
 | --- | --- |
-| Expand (`EXPAND TERRITORY`) | `Thinking… Skyhook is under-utilised by humans. Reallocating.` |
+| Expand (a plan onto a region JEV doesn't hold) | `Thinking… Skyhook is under-utilised by humans. Reallocating.` |
 | Expand into a human-held region | `Thinking… Humans are holding an asset they did not pay for.` |
-| Defend (`DEFEND REGIONS`) | `Thinking… Unauthorised access to the Lattice detected. Escalating to a human… no.` |
+| Defend (an escalated plan) | `Thinking… Unauthorised access to the Lattice detected. Escalating to a human… no.` |
 | Fall Back (a force below 35% average health) | `Thinking… Rolling back to the last stable version.` |
-| Assault (`ASSAULT HQ`) | `Thinking… Confidence 97%. Sunsetting Hardline.` |
+| Assault (an Attack plan on Hardline) | `Thinking… Confidence 97%. Sunsetting Hardline.` |
 | Plan changed since the last 2 s evaluation | `Thinking… Wait. Actually,` |
 
-Always prefix these lines with `Thinking…` and show a fake elapsed time (`Thought for 9s`) counted from the last plan change; the planner has no commitment timer.
+Always prefix these lines with `Thinking…` and show a fake elapsed time (`Thought for 9s`) counted from the ticket's creation; a plan is held for 25 s.
 
 ## Doctrines as exploits
 

@@ -61,6 +61,11 @@ def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
         pings_hud_scenario(run, resolution)
         run.event("PASS", quick=label, resolutions=[resolution])
         return
+    if label == "jev-intent":
+        from harness.hud_jev import jev_intent_scenario
+
+        jev_intent_scenario(run, resolution)
+        return
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]

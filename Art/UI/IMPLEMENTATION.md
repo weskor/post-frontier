@@ -128,7 +128,7 @@ The current `ForEachButton` visit at the end of `DrawHUD` (line 1133) already dr
 | `DrawModeBar`, hidden (995) | Collapsed Construct restore button plus a mode bar with `COMMAND DECK HIDDEN` | Same text as now |
 | `DrawFeedback` | Feedback strip | Border colour `warn`, or `bad` for funds |
 | `DrawBanner` (1020) | Banner (`09`, `10`) | `banner_base` 9-slice, trim `ok`/`bad`, `SESSION ENDED` H3, 72 px title, one-line message, hazard divider, optional stats row, `Enter` key + `Regenerate response? · commands are locked` |
-| Enemy plan debug strings (`EnemyPlan`, `EnemyPlanRationale`, both replicated on `ACommandGameState`) | Enemy intel panel (`08`) | See section 9 |
+| Published per-force JEV plans (`ACommandGameState::EnemyPlans`: ticket, verb, target, size band, ETA, escalation, memo) | Timeline bar, region badges and memo feed in the Machine skin (`HUD/JevIntentPanels.cpp`); the enemy intel panel (`08`) stays a proposal | See section 9 |
 | `CommandMinimap::Draw` | Minimap interior | Unchanged; only the frame is new |
 
 **Strings** (current → proposed; all from `Docs/World.md`, "HUD copy suggestions", non-binding):
@@ -203,10 +203,10 @@ The design needs only data the current build already replicates, plus one new ac
 
 `08-enemy-intel` has two Machine-skinned surfaces:
 
-1. **Intel panel** (top right, 402 × 196). Header `ENEMY INTEL` + `SCOUTED` pill; `PLAN` chip with `EnemyPlan` (`ESTABLISH BASE`, `EXPAND TERRITORY`, `ASSAULT HQ`, `DEFEND BASE`); mono console with one or two faded previous lines and the live line prefixed `›` with a blinking cursor; `Thought for Ns`; a thin `COMMIT` bar for the 12 s commitment. Line text comes from the `Docs/World.md` "Enemy lines" tables keyed off the plan and `EnemyPlanRationale`.
+1. **Intel panel** (top right, 402 × 196). Header `ENEMY INTEL` + `SCOUTED` pill; `PLAN` chip with the verb of the force's published plan (`MOVE & HOLD`, `ATTACK`, `RETREAT`, or `ESCALATED` for a defense); mono console with one or two faded previous lines and the live line prefixed `›` with a blinking cursor; `Thought for Ns`; a thin `COMMIT` bar for the 25 s commitment (`CommittedUntil`, `RemainingCommitment`). Line text comes from the `Docs/World.md` "Enemy lines" tables keyed off the plan's verb and escalation; the plan's own memo is already shown by the memo feed.
 2. **Scouted building** in the info panel and an empty command card (`No command access`). Roster shows machine unit portraits, `?` slots for units not seen, `SEEN 3 / 6`.
 
-Gap to close: the interim lines (building a farm, queuing SOL 6000, provisioning a second farm) are chosen inside `AEnemyCommander::EvaluatePlan` / `BuildNear` and do not change `EnemyPlan`, so they are **not replicated today**. Only `EnemyPlan` and `EnemyPlanRationale` are. Options: replicate a short `EnemyIntent` string or enum from the commander, or map only the plan-level lines (Capture, Contest, Defend HQ, Retreat, Attack HQ, Emergency interrupt) and leave the construction lines out until then.
+Gap to close: the interim lines (building a farm, queuing SOL 6000, provisioning a second farm) are chosen inside `AEnemyCommander::EvaluatePlan` / `BuildNear` and are not part of a published plan, so they are **not replicated today**. Only the per-force plans in `EnemyPlans` are. Options: replicate a short `EnemyIntent` string or enum from the commander, or map only the plan-level lines (Capture, Contest, Defend HQ, Retreat, Attack HQ, Emergency interrupt) and leave the construction lines out until then.
 
 When to show it: only while the local player has scouting on the enemy (an owned unit or building near an enemy building). [INFERENCE] No fog of war or scouting mechanic appears in the README or the HUD code, so a simple rule such as "any of my units within N m of a Machine building" is enough. **This visibility rule is a design decision the gameplay team needs to make.**
 

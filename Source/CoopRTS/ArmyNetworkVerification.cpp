@@ -15,6 +15,8 @@
 #include "Commands/PingCommandComponent.h"
 #include "Commands/OrderGraph.h"
 #include "Commands/ProductionCommandComponent.h"
+#include "HUD/HUDPanels.h"
+#include "JevIntentFixture.h"
 #include "CommandHUD.h"
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
@@ -197,6 +199,97 @@ void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
 			Events.Add(MakeShared<FJsonValueObject>(Entry));
 		}
 	Result->SetArrayField(TEXT("pingEvents"), Events);
+}
+
+TSharedPtr<FJsonValue> Rect(const CommandHUDPanels::FRect& Value, float Scale)
+{
+	TArray<TSharedPtr<FJsonValue>> Edges;
+	for (const float Edge : { Value.X, Value.Y, Value.W, Value.H })
+		Edges.Add(MakeShared<FJsonValueNumber>(Edge * Scale));
+	return MakeShared<FJsonValueArray>(Edges);
+}
+
+// Published plans next to what the HUD derives from them, in screen pixels.
+void JevIntentSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
+{
+	using namespace CommandHUDPanels;
+	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	if (!State)
+		return;
+	TArray<TSharedPtr<FJsonValue>> Plans;
+	for (const FJevPublishedPlan& Plan : State->EnemyPlans)
+	{
+		auto Entry = Object();
+		Number(Entry, TEXT("ticket"), Plan.TicketNumber);
+		Number(Entry, TEXT("forceNumber"), Plan.ForceNumber);
+		Number(Entry, TEXT("verb"), static_cast<int32>(Plan.Verb));
+		Number(Entry, TEXT("source"), Plan.SourceRegionIndex);
+		Number(Entry, TEXT("target"), Plan.TargetRegionIndex);
+		Number(Entry, TEXT("sizeBand"), Plan.SizeBand);
+		Number(Entry, TEXT("eta"), Plan.EtaSeconds);
+		Number(Entry, TEXT("etaIssuedAt"), Plan.EtaIssuedAt);
+		Entry->SetBoolField(TEXT("escalated"), Plan.bEscalated);
+		Entry->SetStringField(TEXT("memo"), Plan.Memo);
+		Plans.Add(MakeShared<FJsonValueObject>(Entry));
+	}
+	Result->SetArrayField(TEXT("jevPlans"), Plans);
+	ACommandPlayerController* PC = LocalController(World);
+	int32 Width = 0, Height = 0;
+	if (PC)
+		PC->GetViewportSize(Width, Height);
+	const FContext Context = MakeContext(PC);
+	const FLayout Layout = MakeLayout(Context, Width, Height);
+	if (!PC || Layout.Scale <= 0.f)
+		return;
+	FJevIntentModel Model;
+	BuildJevIntentModel(Context, Model);
+	auto Intent = Object();
+	const FRect Timeline = JevTimelineRect(Context, Layout, Model);
+	if (Timeline.W > 0.f)
+		Intent->SetField(TEXT("timelineRect"), Rect(Timeline, Layout.Scale));
+	TArray<TSharedPtr<FJsonValue>> Entries;
+	for (const JevIntent::FTimelineEntry& Entry : Model.Timeline)
+	{
+		auto Row = Object();
+		Number(Row, TEXT("ticket"), Entry.Ticket);
+		Number(Row, TEXT("forceNumber"), Entry.ForceNumber);
+		Number(Row, TEXT("target"), Entry.Target);
+		Number(Row, TEXT("sizeBand"), Entry.SizeBand);
+		Number(Row, TEXT("seconds"), Entry.Seconds);
+		Row->SetBoolField(TEXT("escalated"), Entry.bEscalated);
+		Entries.Add(MakeShared<FJsonValueObject>(Row));
+	}
+	Intent->SetArrayField(TEXT("entries"), Entries);
+	TArray<TSharedPtr<FJsonValue>> Badges;
+	for (const JevIntent::FRegionBadge& Badge : Model.Badges)
+	{
+		auto Row = Object();
+		Number(Row, TEXT("region"), Badge.Region);
+		Number(Row, TEXT("seconds"), Badge.Seconds);
+		Number(Row, TEXT("plans"), Badge.Plans);
+		Row->SetBoolField(TEXT("escalated"), Badge.bEscalated);
+		TStringBuilder<128> Label;
+		JevBadgeLabel(Context, Badge, Label);
+		Row->SetStringField(TEXT("label"), Label.ToString());
+		FVector2D Screen;
+		const bool bProjected = PC->ProjectWorldLocationToScreen(State->GetRegionAnchor(Badge.Region) + FVector(0.f, 0.f, 110.f), Screen);
+		Row->SetBoolField(TEXT("onScreen"), bProjected && Screen.X >= 0.f && Screen.Y >= 0.f && Screen.X < Width && Screen.Y < Height);
+		Badges.Add(MakeShared<FJsonValueObject>(Row));
+	}
+	Intent->SetArrayField(TEXT("badges"), Badges);
+	TArray<TSharedPtr<FJsonValue>> Memos;
+	FJevMemoRow Rows[JevIntent::MemoVisible];
+	const int32 Count = JevMemoRows(Context, Layout, Model, Rows);
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		auto Row = Object();
+		Row->SetStringField(TEXT("text"), Rows[Index].Memo->Text);
+		Number(Row, TEXT("alpha"), Rows[Index].Alpha);
+		Row->SetField(TEXT("rect"), Rect(Rows[Index].Rect, Layout.Scale));
+		Memos.Add(MakeShared<FJsonValueObject>(Row));
+	}
+	Intent->SetArrayField(TEXT("memos"), Memos);
+	Result->SetObjectField(TEXT("jevIntent"), Intent);
 }
 
 void HoldSnapshot(const AArmyGroup& Group, const TSharedPtr<FJsonObject>& Entry)
@@ -547,6 +640,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
 	ObjectiveSnapshot(State, Result);
 	PingSnapshot(World, Result);
+	JevIntentSnapshot(World, Result);
 	return Result;
 }
 AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
@@ -858,6 +952,18 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (!State)
 		return TEXT("server fixture state unavailable");
 	AArmyGroup* Army = FindArmy(World, Owner, Index);
+	if (Action == TEXT("jevPlans"))
+	{
+		FString Stage;
+		Request->TryGetStringField(TEXT("stage"), Stage);
+		if (Stage == TEXT("create"))
+			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Create);
+		if (Stage == TEXT("escalate"))
+			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Escalate);
+		if (Stage == TEXT("replace"))
+			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Replace);
+		return TEXT("unknown JEV plan stage");
+	}
 	if (Action == TEXT("isolate"))
 	{
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
@@ -1158,7 +1264,8 @@ bool Tick(float)
 	Reply->SetObjectField(TEXT("state"), Snapshot(World));
 	FString Output;
 	FJsonSerializer::Serialize(Reply.ToSharedRef(), TJsonWriterFactory<>::Create(&Output));
-	FFileHelper::SaveStringToFile(Output, *(Directory / TEXT("reply.tmp")));
+	// Memos carry non-ASCII text; AutoDetect would write UTF-16, which the harness cannot parse.
+	FFileHelper::SaveStringToFile(Output, *(Directory / TEXT("reply.tmp")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 	FPlatformFileManager::Get().GetPlatformFile().MoveFile(*(Directory / TEXT("reply.json")), *(Directory / TEXT("reply.tmp")));
 	UE_LOG(LogTemp, Display, TEXT("Network verification peer=%s id=%d error=%s"), *Peer, Id, *Error);
 	return true;

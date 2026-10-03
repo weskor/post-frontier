@@ -184,6 +184,7 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent&, const FRect& Alert, float) {
 		Visit(Alert);
 	});
+	ForEachJevIntentPanel(Context, Layout, Visit);
 }
 
 bool IsPanelPoint(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint)

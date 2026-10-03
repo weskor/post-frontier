@@ -29,7 +29,7 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
 
 **[Later]** Three more were designed and cut from launch scope: *Deprecate* (it duplicated the Pattern Matcher), *Auto-Scale* (it duplicates waves) and *Terms Change* (Workshop techs are cut).
 
-## Published intent [Built] — presentation [New]
+## Published intent [Built]
 
 - **[Built] The unit of a published plan is one JEV force:**
   - its source region, target region, size band and ETA;
@@ -40,10 +40,10 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
   - The force stands in a JEV-controlled region that is attacked: hostile units are inside it, or JEV-owned assets in it are damaged. It deterministically defends that region and publishes *Escalated: defending X*, retaining its ticket and deadline. An actively Retreating force keeps retreating. Neutral and player-controlled regions never trigger escalation. A plan created to defend its own attacked region is already escalated; it does not flip labels on the next evaluation.
   - The target becomes invalid: destroyed, or captured by JEV.
 - **[Built] Execution:** plans use the same Move & Hold, Attack, Retreat, casualty withdrawal, production and whole-region Hold rules as players ([forces.md](forces.md)). Retreat publishes its executor-selected safe endpoint; JEV sets its producer rally there so natural completion holds safety. Completion publishes the resulting Hold without resetting the ticket/deadline; health scoring may choose another order only when commitment expires. Executor completions can precede publication by up to one planner evaluation interval.
-- **[Built] Published state:** `ACommandGameState::EnemyPlans` replicates each live force's ticket, force identity, verb, source, target/structure, size band, ETA, commitment deadline/remaining time, escalation and memo to every player. Destroyed forces are removed; a completed match clears the active list. The old global debug string is removed.
+- **[Built] Published state:** `ACommandGameState::EnemyPlans` replicates each live force's ticket, force identity, verb, source, target/structure, size band, ETA with the server time it was computed (`EtaIssuedAt`, so every peer counts down from the same moment), commitment deadline/remaining time, escalation and memo to every player. The ETA is recomputed, and `EtaIssuedAt` restarts, when the ticket, verb, target or escalation changes; a size-band change alone keeps it. Destroyed forces are removed; a completed match clears the active list. The old global debug string is removed.
 - **[New] Disruption:** this commitment gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
 - **[Built] Memo text**, for example: `Ticket #4471 · Move & Hold: reallocating ~8 units to West Cut · ETA 0:30`. Each memo names its actual verb or defending escalation.
-- **[New] Presentation:** timeline, badges and memo drawing; commanders and cards can reveal composition, the next plan and building queues.
+- **[Built] Presentation:** the timeline bar, region badges and memo feed read this state and nothing else ([ui.md](ui.md#jev-intent-display-built--new)). **[New]** Commanders and cards can reveal composition, the next plan and building queues.
 
 ## How JEV decides — decided
 

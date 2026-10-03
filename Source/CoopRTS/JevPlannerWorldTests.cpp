@@ -538,6 +538,7 @@ private:
 			const int32 Eta = FMath::CeilToInt(Published->EtaSeconds);
 			if (!Check(!Name.IsEmpty() && Published->TicketNumber > 0 && Published->SizeBand == 6
 						&& FMath::IsFinite(Published->EtaSeconds) && Published->EtaSeconds >= 0.f
+						&& Published->EtaIssuedAt >= 0.f && Published->EtaIssuedAt <= Now
 						&& FMath::IsNearlyEqual(Published->RemainingCommitment, FMath::Max(0.f, Published->CommittedUntil - Now), .01f)
 						&& Published->Memo == Templates.Format(MemoPlan, Published->TicketNumber, Name)
 						&& Published->Memo.Contains(FString::Printf(TEXT("Ticket #%d"), Published->TicketNumber))
@@ -556,7 +557,8 @@ private:
 				&& Current->TargetRegionIndex == Initial[Index].TargetRegionIndex
 				&& Current->TargetStructure == Initial[Index].TargetStructure
 				&& Current->CommittedUntil == Initial[Index].CommittedUntil
-				&& Current->EtaSeconds == Initial[Index].EtaSeconds && Current->Memo == Initial[Index].Memo
+				&& Current->EtaSeconds == Initial[Index].EtaSeconds && Current->EtaIssuedAt == Initial[Index].EtaIssuedAt
+				&& Current->Memo == Initial[Index].Memo
 				&& Current->bEscalated == Initial[Index].bEscalated,
 			TEXT("Held force preserves its actual accepted order, stable ticket, full intent, memo and original deadline"));
 	}

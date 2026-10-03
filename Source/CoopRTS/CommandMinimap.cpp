@@ -17,6 +17,7 @@
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "Headquarters.h"
+#include "JevIntentView.h"
 
 namespace
 {
@@ -180,6 +181,42 @@ void DrawFootprint(const FMap& Map, ACommandPlayerController* Controller)
 	for (int32 Index = 0; Index < Count; ++Index)
 		Map.Line(Buffers[Current][Index], Buffers[Current][(Index + 1) % Count], View);
 }
+
+// A region a JEV plan targets: red box with its countdown, amber with ESC while the plan defends it.
+void DrawJevBadges(const FMap& Map, const ACommandGameState& State)
+{
+	JevIntentView::FPlans Plans;
+	JevIntentView::Snapshot(State, Plans);
+	JevIntent::FBadges Badges;
+	JevIntent::BuildBadges(Plans, JevIntentView::Now(State), Badges);
+	if (Badges.IsEmpty() || !GEngine || !GEngine->GetSmallFont())
+		return;
+	const float TextScale = FMath::Clamp(Map.Size / 210.f, .65f, 1.f);
+	const FSlateFontInfo Font(GEngine->GetSmallFont(), 9.f * TextScale, FName(TEXT("Bold")));
+	for (const JevIntent::FRegionBadge& Badge : Badges)
+	{
+		FVector2D Point;
+		if (!Map.Point(State.GetRegionAnchor(Badge.Region), Point))
+			continue;
+		const FLinearColor Color = Badge.bEscalated ? Contested : Hostile;
+		const FLinearColor TextColor = Badge.bEscalated ? FLinearColor(1.f, .86f, .5f) : FLinearColor(1.f, .62f, .56f);
+		TStringBuilder<16> Label;
+		if (Badge.bEscalated)
+			Label << TEXT("ESC");
+		else
+			JevIntent::AppendCountdown(Label, Badge.Seconds);
+		Map.Box(Point, 5.5, Color);
+		const double Width = Label.Len() * 5.2 * TextScale;
+		const double Height = 10.0 * TextScale;
+		double Left = Point.X + 8.0;
+		if (Left + Width > Map.Origin.X + Map.Size)
+			Left = Point.X - 8.0 - Width;
+		const double Top = FMath::Clamp<double>(Point.Y - Height * .5, Map.Origin.Y, Map.Origin.Y + Map.Size - Height);
+		Map.Fill(FVector2D(Left - 1.0, Top), FVector2D(Width + 2.0, Height), FLinearColor(.01f, .015f, .02f, .82f));
+		FCanvasTextStringViewItem Text(FVector2D(Left, Top), Label.ToView(), Font, TextColor);
+		Map.Canvas->DrawItem(Text);
+	}
+}
 }
 
 bool CommandMinimap::ScreenToWorld(const AArenaBounds* Arena, FVector2D Position, FVector2D Origin, float Size, FVector& OutWorld)
@@ -295,6 +332,8 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 			}
 		}
 	}
+	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>())
+		DrawJevBadges(Map, *State);
 	const ACommandBuilding* Selected = Controller->GetSelectedBuilding();
 	FVector2D Front;
 	if (IsValid(Selected) && Selected->IsAlive() && IsValid(Selected->ForceGroup)

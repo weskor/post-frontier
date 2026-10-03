@@ -279,6 +279,7 @@ void ACommandHUD::DrawHUD()
 	if (!Controller)
 		return;
 	const FContext Context = MakeContext(Controller);
+	ObserveJevIntent(Context);
 	const FLayout Layout = MakeLayout(Context, Canvas->ClipX, Canvas->ClipY);
 	const UFont* Font = GEngine->GetSmallFont();
 	if (Layout.Scale <= 0.f || !Font || !FEngineFontServices::IsInitialized())
@@ -299,11 +300,15 @@ void ACommandHUD::DrawHUD()
 		return;
 	}
 	const FForces Forces = CountForces(Context);
+	FJevIntentModel Intent;
+	BuildJevIntentModel(Context, Intent);
 	DrawWorldOverlays(Paint, Context, Layout);
+	DrawJevRegionBadges(Paint, Context, Layout, Intent);
 
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
+	DrawJevIntent(Paint, Context, Layout, Intent);
 	DrawBuildPanel(Paint, Context, Layout);
 	DrawCommandDeck(Paint, Context, Forces, Layout);
 	ForEachButton(Context, Layout, [&Paint, &Context, Hover](const FButton& Button) {

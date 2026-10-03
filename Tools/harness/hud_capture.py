@@ -11,7 +11,8 @@ Host-only fixtures (isolate, fund, capture, finish) shorten setup and are record
 Full run: the whole presentation state sequence (placement, production, starvation, force, casualty,
 research, victory) at the first resolution, selected-barracks captures at the others.
 --quick pings: real G ground placement, shared minimap placement, active map/minimap marker captures,
-then a six-second expiry capture. Other --quick labels boot one placed barracks and capture the
+then a six-second expiry capture. --quick jev-intent: publishes controlled JEV plans (create, escalate, replace) on an
+isolated host and captures the timeline bar, region badge and memo feed after each. Other --quick labels boot one placed barracks and capture the
 deck + inspector at one resolution; they do not prove production, orders, research or victory.
 """
 
@@ -61,7 +62,8 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "--quick",
         type=label,
         metavar="LABEL",
-        help="'pings' captures G ground/minimap markers and six-second expiry; other labels boot, "
+        help="'pings' captures G ground/minimap markers and six-second expiry; 'jev-intent' captures the JEV "
+        "timeline, badges and memos through plan creation, escalation and replacement; other labels boot, "
         "place and select one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first "
         "resolution, then stop; no production fill, fronts, research or victory",
     )

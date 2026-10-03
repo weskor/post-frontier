@@ -44,6 +44,9 @@ struct FJevPublishedPlan
 	int32 SizeBand = 2;
 	UPROPERTY(BlueprintReadOnly)
 	float EtaSeconds = 0.f;
+	// Server world time at which EtaSeconds was computed: the countdown runs from here.
+	UPROPERTY(BlueprintReadOnly)
+	float EtaIssuedAt = 0.f;
 	UPROPERTY(BlueprintReadOnly)
 	float CommittedUntil = 0.f;
 	UPROPERTY(BlueprintReadOnly)

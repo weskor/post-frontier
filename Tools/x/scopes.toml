@@ -270,6 +270,11 @@ kind = "automation"
 filter = "CoopRTS.Jev.MemoData"
 map = "default"
 
+[scopes.jev-intent-ui]
+kind = "automation"
+filter = "CoopRTS.HUD.JevIntent"
+map = "default"
+
 [scopes.simulation-duel]
 kind = "automation"
 filter = "CoopRTS.Simulation.Duel"
@@ -573,3 +578,16 @@ kind = "lint"
 "Content/Maps/AvailabilityZoneV2.*" = ["telemetry"]
 "Content/Content/*" = ["telemetry"]
 "CoopRTS.uproject*" = ["telemetry"]
+
+# JEV intent display: timeline bar, region badges and memo feed read the replicated plans.
+"Source/CoopRTS/JevIntentUiTests.cpp" = ["jev-intent-ui"]
+"Source/CoopRTS/JevIntentRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/JevIntent.*" = ["rules", "jev-intent-ui"]
+"Source/CoopRTS/JevIntentView.*" = ["jev-intent-ui"]
+"Source/CoopRTS/JevIntentFixture.*" = ["jev-intent-ui"]
+"Source/CoopRTS/HUD/**/*.[ch]*" = ["jev-intent-ui"]
+"Source/CoopRTS/CommandHUD.[ch]*" = ["jev-intent-ui"]
+"Source/CoopRTS/CommandMinimap.[ch]*" = ["jev-intent-ui"]
+"Source/CoopRTS/CommandGameState.[h]" = ["jev-intent-ui"]
+"Source/CoopRTS/ArmyNetworkVerification.[c]pp" = ["jev-intent-ui"]
+

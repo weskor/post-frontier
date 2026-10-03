@@ -488,10 +488,11 @@ void AEnemyCommander::EvaluatePlan()
 		{
 			FJevPublishedPlan* Existing = State->EnemyPlans.FindByPredicate(
 				[&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
-			const bool bMemoChanged = !Existing || Existing->TicketNumber != Current->TicketNumber
+			// The ETA is a duration from the moment it was computed; a size-band change alone keeps it.
+			const bool bEtaRestarted = !Existing || Existing->TicketNumber != Current->TicketNumber
 				|| Existing->Verb != OrderVerb(DisplayPlan.Verb) || Existing->TargetRegionIndex != DisplayPlan.Target
-				|| Existing->SizeBand != DisplayPlan.SizeBand || Existing->EtaSeconds != DisplayPlan.EtaSeconds
-				|| Existing->bEscalated != DisplayPlan.bEscalated;
+				|| Existing->EtaSeconds != DisplayPlan.EtaSeconds || Existing->bEscalated != DisplayPlan.bEscalated;
+			const bool bMemoChanged = bEtaRestarted || Existing->SizeBand != DisplayPlan.SizeBand;
 			FJevPublishedPlan& Published = Existing ? *Existing : State->EnemyPlans.AddDefaulted_GetRef();
 			Published.TicketNumber = Current->TicketNumber;
 			Published.Force = Force;
@@ -502,6 +503,8 @@ void AEnemyCommander::EvaluatePlan()
 			Published.TargetStructure = Structure;
 			Published.SizeBand = DisplayPlan.SizeBand;
 			Published.EtaSeconds = DisplayPlan.EtaSeconds;
+			if (bEtaRestarted)
+				Published.EtaIssuedAt = Now;
 			Published.CommittedUntil = Next.CommittedUntil;
 			Published.RemainingCommitment = JevPlanner::Remaining(Next, Now);
 			Published.bEscalated = DisplayPlan.bEscalated;
