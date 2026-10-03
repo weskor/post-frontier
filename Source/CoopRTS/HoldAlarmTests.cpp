@@ -3,6 +3,7 @@
 #include "Misc/AutomationTest.h"
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
+#include "AIController.h"
 #include "MapRegion.h"
 #include "NavigationData.h"
 #include "NavigationSystem.h"
@@ -55,6 +56,18 @@ public:
 						*Holder->GetName(), Holder->HoldRegionIndex, Holder->HoldPostIndex, Holder->bHoldResponding,
 						*Holder->GetCenter().ToCompactString(), *Holder->HoldPostLocation.ToCompactString(),
 						*GetNameSafe(Holder->HoldThreat), Holder->GetHoldResponseStarted(), Holder->GetHoldQuietSince()));
+			for (const TWeakObjectPtr<AArmyGroup>& Holder : Holders)
+				if (Holder.IsValid())
+					for (const AArmyUnit* Unit : Holder->GetUnits())
+					{
+						const AAIController* AI = Cast<AAIController>(Unit->GetController());
+						Test->AddInfo(FString::Printf(TEXT("Hold member %s pos=%s velocity=%s pursuing=%d goal=%s move=%d attacks=%u next=%.2f target=%s targetPos=%s targetHP=%d"),
+							*Unit->GetName(), *Unit->GetActorLocation().ToCompactString(), *Unit->GetVelocity().ToCompactString(),
+							Unit->bPursuing, *Unit->PursuitGoal.ToCompactString(), AI ? static_cast<int32>(AI->GetMoveStatus()) : -1,
+							Unit->AttackCount, Unit->NextAttackTime, *GetNameSafe(Unit->Target),
+							Unit->Target ? *Unit->Target->GetActorLocation().ToCompactString() : TEXT("none"),
+							Cast<AArmyUnit>(Unit->Target) ? Cast<AArmyUnit>(Unit->Target)->GetHealth() : -1));
+					}
 			return true;
 		}
 		if (Stage == EStage::Setup)
@@ -218,7 +231,10 @@ public:
 			{
 				FVector Closer;
 				const FVector TowardTarget = (FirstTarget->GetActorLocation() - StickyHolder->GetCenter()).GetSafeNormal2D();
-				if (!Check(Project(StickyHolder->GetCenter() + TowardTarget * 120., Closer) && Region->Contains(Closer),
+				// Keep the nearer challenger off the original pursuit corridor:
+				// this scenario isolates target retention, not pawn-body obstruction.
+				const FVector Lateral(-TowardTarget.Y, TowardTarget.X, 0.);
+				if (!Check(Project(StickyHolder->GetCenter() + Lateral * 300., Closer) && Region->Contains(Closer),
 						TEXT("Sticky challenger has a navigable point inside the held region")))
 					return true;
 				Teleport(Threats[1].Get(), Closer);
@@ -525,6 +541,7 @@ private:
 			Building->BuildingIndex = ArmyTestSetup::ExtractorIndex;
 			Building->OwningPlayerState = HolderWallet;
 			Building->ConstructionProgress = 1.f;
+			Building->TeamIndex = HolderWallet->TeamIndex;
 			Building->FinishSpawning(Transform);
 			BuildingInitialHealth = Building->Health;
 			if (!Check(Region->Contains(Building->GetActorLocation()) && FVector::Dist2D(Building->GetActorLocation(), Anchor) > 1050.,

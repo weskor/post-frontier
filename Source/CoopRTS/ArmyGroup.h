@@ -106,8 +106,10 @@ public:
 	EHoldThreatKind HoldThreatKind = EHoldThreatKind::Intrusion;
 	bool IsHoldingRegion() const;
 	bool IsHoldTargetPermitted(const AArmyUnit& Target) const;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	double GetHoldResponseStarted() const { return HoldClock.Started; }
 	double GetHoldQuietSince() const { return HoldClock.QuietSince; }
+#endif
 
 	static constexpr float PursuitRadius = 1050.f;
 
