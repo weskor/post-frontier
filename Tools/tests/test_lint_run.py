@@ -20,8 +20,15 @@ from x.settings import load
 @pytest.fixture
 def lint_repo(repo: Path) -> Path:
     root = Path(__file__).parents[2]
-    shutil.copytree(root / "Tools/x", repo / "Tools/x", dirs_exist_ok=True)
+    shutil.copytree(
+        root / "Tools/x",
+        repo / "Tools/x",
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
     shutil.copytree(root / "Tools/hooks", repo / "Tools/hooks")
+    with (repo / ".gitignore").open("a") as ignore:
+        ignore.write("__pycache__/\n")
     shutil.copyfile(root / "x", repo / "x")
     shutil.copyfile(root / "pyproject.toml", repo / "pyproject.toml")
     shutil.copyfile(root / "uv.lock", repo / "uv.lock")
