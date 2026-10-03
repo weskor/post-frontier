@@ -50,6 +50,8 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 					break;
 				FRoute Render;
 				Render.OrderIndex = Route.OrderIndex;
+				Render.TargetRegionIndex = Route.Regions.Last();
+				Render.bActive = Leg == 0;
 				Render.bSelected = bSelected;
 				Render.Color = Color;
 				Render.Line = RouteIntent::Polyline(Start, Route.Regions, MakeArrayView(Anchors),
@@ -92,6 +94,7 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 			Render.Color = FLinearColor(1.f, .85f, .3f);
 			Render.bSelected = Render.bPreview = true;
 			Render.OrderIndex = bQueue ? Force->Orders.Num() : 0;
+			Render.TargetRegionIndex = Hover.RegionIndex;
 			Draw(Render);
 		}
 	}
@@ -99,7 +102,8 @@ void ForceRoutePresentation::Visit(const ACommandPlayerController& Controller, T
 
 void ForceRoutePresentation::DrawWorld(AWorldOverlay& Overlay, const ACommandPlayerController& Controller)
 {
-	Visit(Controller, [&Overlay](const FRoute& Route) {
+	const ACommandGameState* State = Controller.GetWorld()->GetGameState<ACommandGameState>();
+	Visit(Controller, [&Overlay, State](const FRoute& Route) {
 		const FColor Color = Route.Color.ToFColor(true);
 		const float Width = Route.bPreview ? 9.f : Route.bSelected ? 7.f : 4.f;
 		const FVector Lift(0., 0., Route.bPreview ? 24. : 18.);
@@ -116,10 +120,23 @@ void ForceRoutePresentation::DrawWorld(AWorldOverlay& Overlay, const ACommandPla
 			}
 			else
 				Overlay.Line(A, B, Color, Width);
-			Overlay.Line(B, B - Direction * 90. + Side * 45., Color, Width);
-			Overlay.Line(B, B - Direction * 90. - Side * 45., Color, Width);
+			// Keep direction visible when the destination sits beneath a structure.
+			const FVector Tip = FVector::DistSquared2D(A, B) > FMath::Square(180.) ? FMath::Lerp(A, B, .6) : B;
+			Overlay.Line(Tip, Tip - Direction * 90. + Side * 45., Color, Width);
+			Overlay.Line(Tip, Tip - Direction * 90. - Side * 45., Color, Width);
 		}
 		if (Route.Line.Count > 0 && (Route.bSelected || Route.bPreview))
 			Overlay.Ring(Route.Line.Points[Route.Line.Count - 1] + Lift, Route.OrderIndex == 0 ? 110.f : 65.f, Color);
+		if (State && ((Route.bSelected && Route.bActive) || Route.bPreview))
+			if (const AMapRegion* Region = ForceOrderGraph::Region(*State, Route.TargetRegionIndex))
+			{
+				const double Z = State->GetRegionAnchor(Region->RegionIndex).Z + Lift.Z;
+				for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
+				{
+					const FVector2D& A = Region->Polygon[Index];
+					const FVector2D& B = Region->Polygon[(Index + 1) % Region->Polygon.Num()];
+					Overlay.Line(FVector(A.X, A.Y, Z), FVector(B.X, B.Y, Z), Color, Width);
+				}
+			}
 	});
 }

@@ -13,6 +13,8 @@ struct FRoute
 	RouteIntent::FPolyline Line;
 	FLinearColor Color;
 	int32 OrderIndex = 0;
+	int32 TargetRegionIndex = INDEX_NONE;
+	bool bActive = false;
 	bool bSelected = false;
 	bool bPreview = false;
 };

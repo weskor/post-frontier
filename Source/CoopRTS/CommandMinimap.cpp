@@ -351,8 +351,9 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 			}
 			else
 				Map.Line(A, B, Color, Width);
-			Map.Line(B, B - Direction * 5. + Side * 3., Color, Width);
-			Map.Line(B, B - Direction * 5. - Side * 3., Color, Width);
+			const FVector2D Tip = FVector2D::DistSquared(A, B) > 100. ? FMath::Lerp(A, B, .6) : B;
+			Map.Line(Tip, Tip - Direction * 5. + Side * 3., Color, Width);
+			Map.Line(Tip, Tip - Direction * 5. - Side * 3., Color, Width);
 		}
 		if (Route.Line.Count > 0 && (Route.bSelected || Route.bPreview))
 			Map.Diamond(Map.Project(Route.Line.Points[Route.Line.Count - 1]), Route.OrderIndex == 0 ? 7. : 4., Color);

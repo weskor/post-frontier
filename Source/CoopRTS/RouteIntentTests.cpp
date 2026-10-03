@@ -21,7 +21,8 @@ public:
 			return true;
 		}
 		UWorld* World = ArmyTestSetup::World();
-		if (!World || !ArmyTestSetup::CombatActors(World))
+		if (!World || !ArmyTestSetup::CombatActors(World)
+			|| (!Force.IsValid() && !ArmyTestSetup::NavigationReady(World)))
 			return false;
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		const ACommandGameState* State = World->GetGameState<ACommandGameState>();
