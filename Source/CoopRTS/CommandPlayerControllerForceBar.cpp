@@ -49,11 +49,20 @@ void ACommandPlayerController::HandleForceCardClick(AArmyGroup* Force, EHUDActio
 	ERetreatThreshold Threshold;
 	switch (Action)
 	{
-	case EHUDAction::ForceCardNever: Threshold = ERetreatThreshold::Never; break;
-	case EHUDAction::ForceCard25: Threshold = ERetreatThreshold::Percent25; break;
-	case EHUDAction::ForceCard40: Threshold = ERetreatThreshold::Percent40; break;
-	case EHUDAction::ForceCard60: Threshold = ERetreatThreshold::Percent60; break;
-	default: return;
+	case EHUDAction::ForceCardNever:
+		Threshold = ERetreatThreshold::Never;
+		break;
+	case EHUDAction::ForceCard25:
+		Threshold = ERetreatThreshold::Percent25;
+		break;
+	case EHUDAction::ForceCard40:
+		Threshold = ERetreatThreshold::Percent40;
+		break;
+	case EHUDAction::ForceCard60:
+		Threshold = ERetreatThreshold::Percent60;
+		break;
+	default:
+		return;
 	}
 	OrderCommands->ServerSetRetreatThreshold({ Force }, Threshold);
 }

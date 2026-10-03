@@ -1,10 +1,17 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "Misc/StringBuilder.h"
 
 namespace ForceCardPolicy
 {
-enum class EState : uint8 { Marching, Holding, Withdrawing, Retreating, Refilling, Responding };
+enum class EState : uint8
+{
+	Marching,
+	Holding,
+	Withdrawing,
+	Retreating,
+	Refilling,
+	Responding
+};
 struct FState
 {
 	EState State = EState::Holding;
@@ -17,5 +24,5 @@ struct FState
 };
 // Negative means an unavailable estimate, never an instantaneous arrival.
 int32 TravelSeconds(double PathLength, float SlowestSpeed);
-void Status(const FState& State, FStringBuilderBase& Text);
+EState ResolveState(EState Status, bool bAttack, bool bResponding, int32 ResumeCount);
 }

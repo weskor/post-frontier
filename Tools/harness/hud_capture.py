@@ -92,7 +92,9 @@ def main() -> None:
             from harness.hud_force_bar import scenario as force_bar_scenario
 
             force_bar_scenario(run, resolutions)
-            print(f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}")
+            print(
+                f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}"
+            )
         elif args.quick:
             quick(run, args.quick, resolutions[0])
             print(

@@ -16,4 +16,24 @@ bool FForceCardETATest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Long travel saturates without integer overflow"), ForceCardPolicy::TravelSeconds(1.e30, 1.f), MAX_int32);
 	return true;
 }
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FForceCardStateTest, "CoopRTS.Rules.ForceCardState",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+bool FForceCardStateTest::RunTest(const FString& Parameters)
+{
+	using namespace ForceCardPolicy;
+	TestEqual(TEXT("Automatic Attack recovery keeps the withdrawal presentation"),
+		ResolveState(EState::Refilling, true, false, 5), EState::Withdrawing);
+	TestEqual(TEXT("Manual Retreat refill never borrows a retained Attack resume count"),
+		ResolveState(EState::Refilling, false, false, 5), EState::Refilling);
+	TestEqual(TEXT("Refill without a resume count is not automatic withdrawal"),
+		ResolveState(EState::Refilling, true, false, 0), EState::Refilling);
+	TestEqual(TEXT("Region response takes precedence over passive Holding"),
+		ResolveState(EState::Holding, false, true, 0), EState::Responding);
+	TestEqual(TEXT("A quiet holder has no lingering response label"),
+		ResolveState(EState::Holding, false, false, 0), EState::Holding);
+	TestEqual(TEXT("A marching Attack is not labelled withdrawing merely because it retains a resume count"),
+		ResolveState(EState::Marching, true, false, 5), EState::Marching);
+	return true;
+}
 #endif

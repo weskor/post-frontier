@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 from harness.hud_actions import TOGGLE_PRODUCTION
 from harness.hud_setup import boot, place_barracks
@@ -24,7 +25,7 @@ from harness.verify import JsonObject
 def card(state: JsonObject, owner: int, barracks: int) -> JsonObject:
     group = force(state, owner, barracks)
     require("forceCard" in group, "force bar card was not visible")
-    return group["forceCard"]
+    return cast(JsonObject, group["forceCard"])
 
 
 def click(run: NetworkRun, owner: int, number: int, control: str) -> None:
@@ -42,12 +43,11 @@ def capture_states(
 ) -> None:
     for width, height in resolutions:
         run.request("host", "resolution", width=width, height=height)
+        def viewport_matches(state: JsonObject, width: int = width, height: int = height) -> bool:
+            return (state["viewportWidth"], state["viewportHeight"]) == (width, height)
+
         state = capture.wait(
-            lambda s, width=width, height=height: (
-                s["viewportWidth"],
-                s["viewportHeight"],
-            )
-            == (width, height),
+            viewport_matches,
             f"force bar viewport {width}x{height}",
         )
         view = card(state, owner, barracks)
@@ -81,7 +81,9 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     refill_states(run, capture, resolutions, owner, barracks, number)
     order_states(run, capture, resolutions, owner, barracks, number)
     no_compositor_windows(run, pid)
-    run.event("PASS", captures=capture.count, resolutions=resolutions, scenario="force-bar")
+    run.event(
+        "PASS", captures=capture.count, resolutions=resolutions, scenario="force-bar"
+    )
 
 
 def refill_states(
@@ -93,8 +95,11 @@ def refill_states(
     number: int,
 ) -> None:
     capture.wait(
-        lambda s: 0 < building(s, barracks)["productionSeconds"]
-        < building(s, barracks)["unitTime"],
+        lambda s: (
+            0
+            < building(s, barracks)["productionSeconds"]
+            < building(s, barracks)["unitTime"]
+        ),
         "force bar refill progressing",
     )
     click(run, owner, number, "production")
@@ -108,8 +113,10 @@ def refill_states(
     capture_states(run, capture, resolutions, "paused-refill", owner, barracks)
     click(run, owner, number, "production")
     capture.wait(
-        lambda s: building(s, barracks)["joined"] == building(s, barracks)["capacity"]
-        and building(s, barracks)["travelling"] == 0,
+        lambda s: (
+            building(s, barracks)["joined"] == building(s, barracks)["capacity"]
+            and building(s, barracks)["travelling"] == 0
+        ),
         "force bar paid members join to full strength",
     )
     click(run, owner, number, "select")
@@ -136,9 +143,11 @@ def order_states(
     x, y = minimap_region_point(state, target)
     run.request("host", "hudClick", x=x, y=y)
     capture.wait(
-        lambda s: force(s, owner, barracks)["forceVerb"] == ATTACK
-        and force(s, owner, barracks)["targetRegionIndex"] == target
-        and force(s, owner, barracks)["status"] == 0,
+        lambda s: (
+            force(s, owner, barracks)["forceVerb"] == ATTACK
+            and force(s, owner, barracks)["targetRegionIndex"] == target
+            and force(s, owner, barracks)["status"] == 0
+        ),
         "card Attack marches on confirmed region",
     )
     capture_states(run, capture, resolutions, "marching", owner, barracks)
@@ -147,11 +156,15 @@ def order_states(
     state = capture.state()
     group = force(state, owner, barracks)
     for victim in alive_units(group)[:3]:
-        run.request("host", "kill", owner=owner, army=group["army"], slot=victim["slot"])
+        run.request(
+            "host", "kill", owner=owner, army=group["army"], slot=victim["slot"]
+        )
     capture.wait(
-        lambda s: card(s, owner, barracks)["presentationState"] == 2
-        and card(s, owner, barracks)["joined"] == 3
-        and force(s, owner, barracks)["resumeCount"] == 5,
+        lambda s: (
+            card(s, owner, barracks)["presentationState"] == 2
+            and card(s, owner, barracks)["joined"] == 3
+            and force(s, owner, barracks)["resumeCount"] == 5
+        ),
         "three casualties trigger fighting withdrawal that resumes at five joined",
     )
     capture_states(run, capture, resolutions, "withdrawing-3-of-6", owner, barracks)

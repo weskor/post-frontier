@@ -619,3 +619,4 @@ map = "default"
 "Source/CoopRTS/HUD/ForceETA.*" = ["force-bar"]
 "Source/CoopRTS/CommandPlayerControllerForceBar.cpp" = ["force-bar"]
 "Source/CoopRTS/HUD/Layout*" = ["force-bar"]
+"Source/CoopRTS/HUD/ForceCardText.cpp" = ["force-bar"]

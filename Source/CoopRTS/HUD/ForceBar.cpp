@@ -38,11 +38,16 @@ ForceCardPolicy::EState CardState(EForceStatus Status)
 {
 	switch (Status)
 	{
-	case EForceStatus::Marching: return ForceCardPolicy::EState::Marching;
-	case EForceStatus::Withdrawing: return ForceCardPolicy::EState::Withdrawing;
-	case EForceStatus::Retreating: return ForceCardPolicy::EState::Retreating;
-	case EForceStatus::Refilling: return ForceCardPolicy::EState::Refilling;
-	default: return ForceCardPolicy::EState::Holding;
+	case EForceStatus::Marching:
+		return ForceCardPolicy::EState::Marching;
+	case EForceStatus::Withdrawing:
+		return ForceCardPolicy::EState::Withdrawing;
+	case EForceStatus::Retreating:
+		return ForceCardPolicy::EState::Retreating;
+	case EForceStatus::Refilling:
+		return ForceCardPolicy::EState::Refilling;
+	default:
+		return ForceCardPolicy::EState::Holding;
 	}
 }
 }
@@ -72,11 +77,8 @@ void ForEachForceCard(const FContext& Context, const FLayout& Layout, TFunctionR
 static void ReadForceStatus(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card)
 {
 	TStringBuilder<128> Target, Threat;
-	const bool bWithdrawal = Force.Status == EForceStatus::Withdrawing
-		|| (Force.Verb == EForceVerb::Attack && Force.Status == EForceStatus::Refilling && Force.ResumeCount > 0);
-	Card.State = Force.bHoldResponding ? ForceCardPolicy::EState::Responding
-		: bWithdrawal ? ForceCardPolicy::EState::Withdrawing
-		: CardState(Force.Status);
+	Card.State = ForceCardPolicy::ResolveState(CardState(Force.Status), Force.Verb == EForceVerb::Attack, Force.bHoldResponding, Force.ResumeCount);
+	const bool bWithdrawal = Card.State == ForceCardPolicy::EState::Withdrawing;
 	const int32 Arrival = bWithdrawal || Force.Status == EForceStatus::Retreating ? Force.WaypointRegionIndex : Force.TargetRegionIndex;
 	TargetName(Context.State, Arrival, Target);
 	if (const ACommandBuilding* Asset = Cast<ACommandBuilding>(Force.HoldThreatenedAsset); IsValid(Asset) && Asset->GetDefinition())
@@ -93,7 +95,7 @@ static void ReadForceStatus(const FContext& Context, const AArmyGroup& Force, in
 		Threat << TEXT("Force under attack");
 	else
 		Threat << TEXT("Hostiles in region");
-	ForceCardPolicy::Status({ Card.State, Card.Joined, Card.Capacity, Force.ResumeCount, ETA, Target.ToView(), Threat.ToView() }, Card.Status);
+	FormatForceCardStatus({ Card.State, Card.Joined, Card.Capacity, Force.ResumeCount, ETA, Target.ToView(), Threat.ToView() }, Card.Status);
 }
 
 void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card)
@@ -143,13 +145,16 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 		Card.Production << TEXT("Orphan \u00B7 no reinforcements");
 }
 
-const TCHAR* ForceVerbRule(EForceVerb Verb)
+const TCHAR* ForceVerbRule(EForceVerb Verb, bool bHasProducer)
 {
 	switch (Verb)
 	{
-	case EForceVerb::Attack: return TEXT("Fight + chase; withdraw; resume at 80%.");
-	case EForceVerb::Retreat: return TEXT("+25% sprint, no fire; refill then hold.");
-	default: return TEXT("Fight en route; hold; never auto-retreat.");
+	case EForceVerb::Attack:
+		return bHasProducer ? TEXT("Fight + chase; withdraw; resume at 80%.") : TEXT("Fight + chase; withdraw to safety; no refill.");
+	case EForceVerb::Retreat:
+		return bHasProducer ? TEXT("+25% sprint, no fire; refill, then next order.") : TEXT("+25% sprint, no fire; then next order.");
+	default:
+		return TEXT("Fight en route; hold; never auto-retreat.");
 	}
 }
 const TCHAR* ForceTargetRule(const UArmyUnitDefinition* Definition)
@@ -168,9 +173,11 @@ void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect, TFunction
 		return;
 	}
 	Visit({ EHUDAction::ForceCardAttack, { X, Rect.Y + 125.f, (Width - 4.f) * .5f, 22.f }, EBlock::None,
-		Card.Force->Verb == EForceVerb::Attack, 0 }, TEXT("Attack [A]"));
+			  Card.Force->Verb == EForceVerb::Attack, 0 },
+		TEXT("Attack [A]"));
 	Visit({ EHUDAction::ForceCardRetreat, { X + (Width + 4.f) * .5f, Rect.Y + 125.f, (Width - 4.f) * .5f, 22.f }, EBlock::None,
-		Card.Force->Verb == EForceVerb::Retreat, 0 }, TEXT("Retreat [R]"));
+			  Card.Force->Verb == EForceVerb::Retreat, 0 },
+		TEXT("Retreat [R]"));
 	if (Card.Producer)
 		Visit({ EHUDAction::ForceCardProduction, { Rect.Right() - 65.f, Rect.Y + 101.f, 59.f, 18.f }, EBlock::None, false, 0 },
 			Card.Producer->bProductionEnabled ? TEXT("Pause") : TEXT("Resume"));
@@ -179,7 +186,8 @@ void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect, TFunction
 	const TCHAR* Labels[] = { TEXT("Never"), TEXT("25%"), TEXT("40%"), TEXT("60%") };
 	for (int32 Index = 0; Index < 4; ++Index)
 		Visit({ Actions[Index], { X + Index * (Width + 4.f) * .25f, Rect.Y + 164.f, (Width - 12.f) * .25f, 18.f }, EBlock::None,
-			Card.Force->RetreatThreshold == Values[Index], 0 }, Labels[Index]);
+				  Card.Force->RetreatThreshold == Values[Index], 0 },
+			Labels[Index]);
 }
 
 EHUDAction HitTestForceCard(const FForceCard& Card, const FRect& Rect, const FVector2D& Point)
@@ -206,7 +214,7 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	Paint.Text(Card.Order.ToView(), X, Rect.Y + 24.f, 9.f, OrderColor(Card.Force->Verb), true, EAlign::Left, Width);
 	Paint.Text(Card.Status.ToView(), X, Rect.Y + 42.f, 8.f, Card.State == ForceCardPolicy::EState::Withdrawing ? Palette::Warn : Palette::Text,
 		false, EAlign::Left, Width);
-	Paint.Text(ForceVerbRule(Card.Force->Verb), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
+	Paint.Text(ForceVerbRule(Card.Force->Verb, Card.Producer != nullptr), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
 	Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(ForceTargetRule(Card.Definition), X, Rect.Y + 87.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(Card.Production.ToView(), X, Rect.Y + 101.f, 8.f, Palette::Muted, false, EAlign::Left, Width - (Card.bOwned && Card.Producer ? 63.f : 0.f));

@@ -38,17 +38,19 @@ void Snapshot(const ACommandPlayerController& Controller, const AArmyGroup& Forc
 	ForEachForceCard(Context, Layout, [&](AArmyGroup* Candidate, const FRect& Rect) {
 		if (Candidate != &Force)
 			return;
-		Result->SetBoolField(TEXT("clearsPanels"), !Rect.Intersects(Layout.Build) && !Rect.Intersects(Layout.Minimap)
-			&& (!Card.bOwned || !Rect.Intersects(Layout.Bottom)));
-		Result->SetArrayField(TEXT("rect"), { MakeShared<FJsonValueNumber>(Rect.X * Layout.Scale), MakeShared<FJsonValueNumber>(Rect.Y * Layout.Scale),
-			MakeShared<FJsonValueNumber>(Rect.W * Layout.Scale), MakeShared<FJsonValueNumber>(Rect.H * Layout.Scale) });
+		Result->SetBoolField(TEXT("clearsPanels"), !Rect.Intersects(Layout.Build) && !Rect.Intersects(Layout.Minimap) && (!Card.bOwned || !Rect.Intersects(Layout.Bottom)));
+		Result->SetArrayField(TEXT("rect"), { MakeShared<FJsonValueNumber>(Rect.X * Layout.Scale), MakeShared<FJsonValueNumber>(Rect.Y * Layout.Scale), MakeShared<FJsonValueNumber>(Rect.W * Layout.Scale), MakeShared<FJsonValueNumber>(Rect.H * Layout.Scale) });
 	});
 	Entry->SetObjectField(TEXT("forceCard"), Result);
 }
 
 static bool ControlAction(FStringView Control, EHUDAction& Action)
 {
-	struct FControl { FStringView Name; EHUDAction Action; };
+	struct FControl
+	{
+		FStringView Name;
+		EHUDAction Action;
+	};
 	static const FControl Controls[] = {
 		{ TEXT("select"), EHUDAction::None },
 		{ TEXT("attack"), EHUDAction::ForceCardAttack },

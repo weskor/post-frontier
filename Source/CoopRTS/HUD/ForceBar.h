@@ -27,7 +27,8 @@ FRect ForceBarRect(const FLayout& Layout);
 void ForEachForceCard(const FContext& Context, const FLayout& Layout,
 	TFunctionRef<void(AArmyGroup*, const FRect&)> Visit);
 void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card);
-const TCHAR* ForceVerbRule(EForceVerb Verb);
+void FormatForceCardStatus(const ForceCardPolicy::FState& State, FStringBuilderBase& Text);
+const TCHAR* ForceVerbRule(EForceVerb Verb, bool bHasProducer);
 const TCHAR* ForceTargetRule(const UArmyUnitDefinition* Definition);
 void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect,
 	TFunctionRef<void(const FButton&, FStringView)> Visit);

@@ -10,7 +10,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "InputKeyEventArgs.h"
-#include "NavigationSystem.h"
 #include "HAL/PlatformTime.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FForceBarWorldTest, "CoopRTS.HUD.ForceBar",
@@ -39,11 +38,10 @@ public:
 		if (!PC.IsValid() || !MapReady(State) || !State->Content || !PC->GetPlayerState<ACommandPlayerState>()
 			|| PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 			return false;
-		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
-		if (!Navigation || Navigation->IsNavigationBuildInProgress())
-			return false;
 		if (Stage == 0)
 		{
+			if (!ArmyTestSetup::NavigationReady(World))
+				return false;
 			if (!Prepare(World, State) || !States(State) || !SelectionAndLayout(State))
 				return true;
 			PC->SelectForce(Own.Get());
@@ -72,8 +70,7 @@ public:
 			if (!Check(HUD && HUD->GetMinimapScreenRect(Origin, Size), TEXT("Attack card has a live minimap target surface")))
 				return true;
 			const FVector Anchor = State->GetRegionAnchor(Target);
-			Point = Origin + FVector2D((Anchor.Y + State->Arena->HalfExtent.Y) / (2.f * State->Arena->HalfExtent.Y),
-				(State->Arena->HalfExtent.X - Anchor.X) / (2.f * State->Arena->HalfExtent.X)) * Size;
+			Point = Origin + FVector2D((Anchor.Y + State->Arena->HalfExtent.Y) / (2.f * State->Arena->HalfExtent.Y), (State->Arena->HalfExtent.X - Anchor.X) / (2.f * State->Arena->HalfExtent.X)) * Size;
 			PC->HandleHUDClick(Point);
 			Check(Own->Verb == EForceVerb::Attack && Own->TargetRegionIndex == Target && !PC->IsAssigningOrder(),
 				TEXT("Card Attack confirms a real owned Attack through the shared target input"));
@@ -123,7 +120,7 @@ private:
 		FVector2D Point;
 		EHUDAction Hit;
 		return Check(HUD && HUD->FindForceCardScreenPosition(Force, Action, Point)
-			&& HUD->GetForceCardAtScreenPosition(Point, Hit) == Force && Hit == Action && PC->HandleHUDClick(Point),
+				&& HUD->GetForceCardAtScreenPosition(Point, Hit) == Force && Hit == Action && PC->HandleHUDClick(Point),
 			TEXT("Force card's drawn control uses shared screen geometry and the real click path"));
 	}
 	AArmyGroup* MakeForce(UWorld* World, ACommandPlayerState* Wallet, int32 Number, const FVector& Location, ACommandBuilding* Building = nullptr)
