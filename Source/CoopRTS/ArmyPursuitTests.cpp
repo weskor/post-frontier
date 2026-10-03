@@ -161,7 +161,9 @@ private:
 	void Arm(AArmyGroup* Group)
 	{
 		Group->Order = EArmyOrder::Attack;
-		Group->Destination = Anchor + FVector(200.f, 0.f, 0.f);
+		// Every surviving slot must have real formation travel after contact;
+		// no replacement order is issued when the last target dies.
+		Group->Destination = Anchor + FVector(-400.f, 0.f, 0.f);
 	}
 
 	static void RemoveGroup(AArmyGroup* Group)
