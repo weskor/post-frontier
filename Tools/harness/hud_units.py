@@ -52,7 +52,11 @@ def scenario(run: NetworkRun, resolution: tuple[int, int], support_first: bool) 
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]
-    order = [(SUPPORT, "scrambler"), (ASSAULT, "lancer")] if support_first else [(ASSAULT, "lancer"), (SUPPORT, "scrambler")]
+    order = (
+        [(SUPPORT, "scrambler"), (ASSAULT, "lancer")]
+        if support_first
+        else [(ASSAULT, "lancer"), (SUPPORT, "scrambler")]
+    )
     for count, (role, label) in enumerate(order, start=1):
         produce_squad(run, capture, owner, count, role, label)
     capture.shot("both-squads")
