@@ -78,25 +78,38 @@ def build_units():
         for definition in definitions
     ]
     units = []
+    art_names = {definition["id"]: definition["asset_name"] for definition in definitions}
     for definition, (role, armor, damage) in zip(definitions, tags):
         name = definition["asset_name"]
+        # A branch wears its base's art.
+        art = art_names.get(definition["branch_of"], name)
         unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
         values = [(key, definition[key]) for key in (
             "id", "display_name", "max_health", "attack_damage", "range", "interval",
             "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
             "max_shield", "pulse_interval", "pulse_radius", "pulse_building_stun_seconds",
+            "branch_of", "branch_summary",
         )]
         values.extend((
             ("role", role),
             ("armor_class", armor),
             ("damage_type", damage),
             ("accent", unreal.LinearColor(*definition["accent"], 1.0)),
-            ("human_mesh", mesh(unit_art + "SM_Human_" + name)),
-            ("machine_mesh", mesh(unit_art + "SM_Machine_" + name)),
+            ("human_mesh", mesh(unit_art + "SM_Human_" + art)),
+            ("machine_mesh", mesh(unit_art + "SM_Machine_" + art)),
         ))
         apply(unit, values)
         units.append(unit)
     return units
+
+
+def producer_art(unit, units):
+    """Asset stem of the producer variant for a unit; a branch uses its base's."""
+    base = str(unit.get_editor_property("branch_of"))
+    for other in units:
+        if base != "None" and str(other.get_editor_property("id")) == base:
+            return other.get_name()[3:]
+    return unit.get_name()[3:]
 
 
 def role_meshes(definition, units):
@@ -106,7 +119,7 @@ def role_meshes(definition, units):
     if definition["produces_forces"]:
         for faction in result:
             result[faction] = [
-                mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), definition["asset_name"], unit.get_name()[3:]))
+                mesh(building_art + "SM_%s_%s_%s" % (faction.capitalize(), definition["asset_name"], producer_art(unit, units)))
                 for unit in units
             ]
     return result

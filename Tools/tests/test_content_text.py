@@ -113,3 +113,40 @@ def test_constants_reject_non_numbers(content: Path) -> None:
     )
     with pytest.raises(ValueError, match="human_baseline_income"):
         ContentText.constants()
+
+
+def by_id() -> dict[str, dict[str, Any]]:
+    return {unit["id"]: unit for unit in ContentText.unit_definitions()}
+
+
+def test_branches_carry_the_documented_one_b_effects() -> None:
+    units = by_id()
+    assert units["warden"]["max_health"] == round(units["frontline"]["max_health"] * 1.3)
+    assert units["marksman"]["range"] == pytest.approx(units["ranged"]["range"] * 1.2)
+    assert units["bulwark"]["max_shield"] == round(units["lancer"]["max_shield"] * 1.5)
+    assert units["bulwark"]["move_speed"] == pytest.approx(units["lancer"]["move_speed"] * 0.9)
+    assert units["jammer"]["pulse_building_stun_seconds"] == 5.0
+    # Everything else about a branch is its base's.
+    for branch, base in (("warden", "frontline"), ("marksman", "ranged"), ("bulwark", "lancer"), ("jammer", "scrambler")):
+        assert units[branch]["branch_of"] == base
+        assert units[branch]["branch_summary"]
+
+
+@pytest.mark.parametrize(
+    ("edit", "message"),
+    [
+        (lambda data: data[5].update(unit_cost=99), "keeps its base"),
+        (lambda data: data[5].update(capacity=2), "keeps its base"),
+        (lambda data: data[5].update(branch_summary=""), "needs a summary"),
+        (lambda data: data[5].update(branch_of="nobody"), "must name a base unit"),
+        (lambda data: data[5].update(branch_of="marksman"), "must name a base unit"),
+        (lambda data: data[0].update(branch_summary="+1"), "only a branch"),
+        (lambda data: data[6].update(branch_of="frontline"), "one branch"),
+    ],
+)
+def test_branch_rows_must_stay_derived_from_their_base(
+    content: Path, edit: Edit, message: str
+) -> None:
+    rewrite(content / "units.json", edit)
+    with pytest.raises(ValueError, match=message):
+        ContentText.unit_definitions()

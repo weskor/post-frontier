@@ -892,3 +892,6 @@ rendered = true
 "Source/CoopRTS/HUD/HUDPanels.h" = ["branch-card"]
 "Source/CoopRTS/HUD/HUDTypes.h" = ["branch-card"]
 "Source/CoopRTS/CommandHUD.[h]" = ["branch-card"]
+"Source/CoopRTS/BranchContentTests.cpp" = ["branch"]
+"Build/Content/units.json" = ["branch", "branch-card", "tools"]
+"Source/CoopRTS/MatchSimulationDuelRunner.cpp" = ["branch"]

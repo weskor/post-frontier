@@ -15,11 +15,17 @@
     "unit_duration": 3.3333332538604736,
     "capacity": 6,
     "configuration_cost": 0,
-    "accent": [0.85, 0.85, 0.85],
+    "accent": [
+      0.85,
+      0.85,
+      0.85
+    ],
     "max_shield": 0,
     "pulse_interval": 0.0,
     "pulse_radius": 0.0,
-    "pulse_building_stun_seconds": 0.0
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "",
+    "branch_summary": ""
   },
   {
     "asset_name": "Ranged",
@@ -37,11 +43,17 @@
     "unit_duration": 4.0,
     "capacity": 5,
     "configuration_cost": 0,
-    "accent": [0.55, 0.85, 1.0],
+    "accent": [
+      0.55,
+      0.85,
+      1.0
+    ],
     "max_shield": 0,
     "pulse_interval": 0.0,
     "pulse_radius": 0.0,
-    "pulse_building_stun_seconds": 0.0
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "",
+    "branch_summary": ""
   },
   {
     "asset_name": "Siege",
@@ -59,11 +71,17 @@
     "unit_duration": 6.666666666666667,
     "capacity": 3,
     "configuration_cost": 180,
-    "accent": [1.0, 0.65, 0.25],
+    "accent": [
+      1.0,
+      0.65,
+      0.25
+    ],
     "max_shield": 0,
     "pulse_interval": 0.0,
     "pulse_radius": 0.0,
-    "pulse_building_stun_seconds": 0.0
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "",
+    "branch_summary": ""
   },
   {
     "asset_name": "Lancer",
@@ -81,11 +99,17 @@
     "unit_duration": 4.0,
     "capacity": 3,
     "configuration_cost": 0,
-    "accent": [0.45, 0.75, 1.0],
+    "accent": [
+      0.45,
+      0.75,
+      1.0
+    ],
     "max_shield": 60,
     "pulse_interval": 0.0,
     "pulse_radius": 0.0,
-    "pulse_building_stun_seconds": 0.0
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "",
+    "branch_summary": ""
   },
   {
     "asset_name": "Scrambler",
@@ -103,10 +127,128 @@
     "unit_duration": 4.0,
     "capacity": 3,
     "configuration_cost": 0,
-    "accent": [0.75, 0.45, 1.0],
+    "accent": [
+      0.75,
+      0.45,
+      1.0
+    ],
     "max_shield": 0,
     "pulse_interval": 10.0,
     "pulse_radius": 600.0,
-    "pulse_building_stun_seconds": 3.0
+    "pulse_building_stun_seconds": 3.0,
+    "branch_of": "",
+    "branch_summary": ""
+  },
+  {
+    "asset_name": "Warden",
+    "id": "warden",
+    "display_name": "Warden",
+    "role": "FRONTLINE",
+    "armor_class": "HEAVY",
+    "damage_type": "KINETIC",
+    "move_speed": 360.0,
+    "max_health": 429,
+    "attack_damage": 7,
+    "range": 175.0,
+    "interval": 1.0,
+    "unit_cost": 20,
+    "unit_duration": 3.3333332538604736,
+    "capacity": 6,
+    "configuration_cost": 0,
+    "accent": [
+      0.85,
+      0.85,
+      0.85
+    ],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "frontline",
+    "branch_summary": "+30% HP"
+  },
+  {
+    "asset_name": "Marksman",
+    "id": "marksman",
+    "display_name": "Marksman",
+    "role": "RANGED",
+    "armor_class": "LIGHT",
+    "damage_type": "PIERCING",
+    "move_speed": 480.0,
+    "max_health": 92,
+    "attack_damage": 24,
+    "range": 660.0,
+    "interval": 1.0,
+    "unit_cost": 24,
+    "unit_duration": 4.0,
+    "capacity": 5,
+    "configuration_cost": 0,
+    "accent": [
+      0.55,
+      0.85,
+      1.0
+    ],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "ranged",
+    "branch_summary": "+20% range"
+  },
+  {
+    "asset_name": "Bulwark",
+    "id": "bulwark",
+    "display_name": "Bulwark",
+    "role": "ASSAULT",
+    "armor_class": "SHIELDED",
+    "damage_type": "PIERCING",
+    "move_speed": 378.0,
+    "max_health": 36,
+    "attack_damage": 24,
+    "range": 550.0,
+    "interval": 1.0,
+    "unit_cost": 24,
+    "unit_duration": 4.0,
+    "capacity": 3,
+    "configuration_cost": 0,
+    "accent": [
+      0.45,
+      0.75,
+      1.0
+    ],
+    "max_shield": 90,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "lancer",
+    "branch_summary": "+50% shield, -10% speed"
+  },
+  {
+    "asset_name": "Jammer",
+    "id": "jammer",
+    "display_name": "Jammer",
+    "role": "SUPPORT",
+    "armor_class": "LIGHT",
+    "damage_type": "EMP",
+    "move_speed": 480.0,
+    "max_health": 80,
+    "attack_damage": 12,
+    "range": 550.0,
+    "interval": 1.0,
+    "unit_cost": 24,
+    "unit_duration": 4.0,
+    "capacity": 3,
+    "configuration_cost": 0,
+    "accent": [
+      0.75,
+      0.45,
+      1.0
+    ],
+    "max_shield": 0,
+    "pulse_interval": 10.0,
+    "pulse_radius": 600.0,
+    "pulse_building_stun_seconds": 5.0,
+    "branch_of": "scrambler",
+    "branch_summary": "5 s building stun"
   }
 ]

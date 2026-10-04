@@ -1,4 +1,5 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "MatchSimulationDuelRunner.h"
 #include "MatchSimulationSubsystem.h"
 
 #include "ArenaBounds.h"
@@ -163,7 +164,8 @@ bool FSimulationDuelRunner::CollectDefinitions(ACommandGameState& InState, TArra
 	for (int32 Index = 0; Index < InState.Content->Units.Num(); ++Index)
 	{
 		const UArmyUnitDefinition* Definition = InState.Content->Unit(Index);
-		if (!IsValid(Definition))
+		// Tier-2 branches are bought per building, never produced alone, so the duel matrix covers base types only.
+		if (!IsValid(Definition) || Definition->IsBranch())
 			continue;
 		if (!ValidDefinition(*Definition, Ids))
 		{

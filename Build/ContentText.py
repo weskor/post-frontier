@@ -35,7 +35,20 @@ UNIT_FIELDS = (
     "pulse_interval",
     "pulse_radius",
     "pulse_building_stun_seconds",
+    "branch_of",
+    "branch_summary",
     "accent",
+)
+# A tier-2 branch is derived from its base (forces.md): the price, the force size and the damage identity stay
+# the base's, so only combat stats may differ.
+BRANCH_SHARED = (
+    "role",
+    "armor_class",
+    "damage_type",
+    "unit_cost",
+    "unit_duration",
+    "capacity",
+    "configuration_cost",
 )
 BUILDING_FIELDS = (
     "asset_name",
@@ -52,7 +65,17 @@ BUILDING_FIELDS = (
 )
 # Catalogue order is a replicated contract (see MatchContent.h).
 BUILDING_ORDER = ("barracks", "extractor", "workshop")
-UNIT_ORDER = ("frontline", "ranged", "siege", "lancer", "scrambler")
+UNIT_ORDER = (
+    "frontline",
+    "ranged",
+    "siege",
+    "lancer",
+    "scrambler",
+    "warden",
+    "marksman",
+    "bulwark",
+    "jammer",
+)
 
 
 def load_json(name: str) -> object:
@@ -77,7 +100,29 @@ def validated(
 
 
 def unit_definitions() -> list[dict[str, Any]]:
-    return validated("unit", "units.json", UNIT_FIELDS, UNIT_ORDER)
+    definitions = validated("unit", "units.json", UNIT_FIELDS, UNIT_ORDER)
+    by_id = {definition["id"]: definition for definition in definitions}
+    branched = [d["branch_of"] for d in definitions if d["branch_of"]]
+    if len(branched) != len(set(branched)):
+        raise ValueError("each unit offers one branch in step 1b")
+    for definition in definitions:
+        base = by_id.get(definition["branch_of"])
+        if not definition["branch_of"]:
+            if definition["branch_summary"]:
+                raise ValueError(f"unit {definition['id']!r}: only a branch has a summary")
+            continue
+        if base is None or base["branch_of"]:
+            raise ValueError(
+                f"unit {definition['id']!r}: branch_of must name a base unit"
+            )
+        if not definition["branch_summary"]:
+            raise ValueError(f"unit {definition['id']!r}: a branch needs a summary")
+        changed = [f for f in BRANCH_SHARED if definition[f] != base[f]]
+        if changed:
+            raise ValueError(
+                f"unit {definition['id']!r}: a branch keeps its base's {changed}"
+            )
+    return definitions
 
 
 def building_definitions() -> list[dict[str, Any]]:

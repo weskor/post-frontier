@@ -7,32 +7,19 @@
 
 namespace BranchTests
 {
-// The supply scenario (main - Neck - Far, one paid Frontline Barracks, JEV gone) with one test-only branch of
-// the Brawler appended to the catalogue: the Warden, +30% HP, same price and capacity. Real branch definitions
-// come from Build/Content/units.json; this one keeps the purchase, pause and refit scenarios independent of them.
+// The supply scenario (main - Neck - Far, one paid Frontline Barracks, JEV gone) whose Brawler branch is the real
+// Warden of Build/Content/units.json: +30% HP, same price and capacity.
 class FBranchScenario : public SupplyTests::FScenarioBase
 {
 public:
 	using FScenarioBase::FScenarioBase;
-	~FBranchScenario() override
-	{
-		if (IsValid(Warden) && State && IsValid(State->Content))
-			State->Content->Units.Remove(Warden);
-	}
 
 protected:
 	ACommandBuilding* SpawnProducer() override
 	{
-		const UArmyUnitDefinition* Base = State->Content->Unit(ArmyTestSetup::UnitIndex(State, EUnitRole::Frontline));
-		if (!Check(Base != nullptr, TEXT("The catalogue has a Brawler to branch")))
+		Warden = const_cast<UArmyUnitDefinition*>(State->Content->FindUnit(TEXT("warden")));
+		if (!Check(Warden != nullptr, TEXT("The catalogue has the Warden")))
 			return nullptr;
-		Warden = DuplicateObject<UArmyUnitDefinition>(Base, State->Content);
-		Warden->Id = TEXT("warden-test");
-		Warden->DisplayName = FText::FromString(TEXT("Warden"));
-		Warden->BranchOf = Base->Id;
-		Warden->BranchSummary = FText::FromString(TEXT("+30% HP"));
-		Warden->MaxHealth = Base->MaxHealth * 13 / 10;
-		State->Content->Units.Add(Warden);
 		return SupplyTests::FScenarioBase::SpawnProducer();
 	}
 
