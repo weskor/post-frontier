@@ -99,9 +99,9 @@ Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent
 
 ## Step 1b surfaces [New] — decided (orchestrator 2026-10-04)
 
-Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 2026-10-04)**; mechanics, costs and durations live in the topic files they link, never here. Layout numbers are virtual pixels at HUD scale 1.0 (1600×900 and 1280×720 are both 1.0). They follow the binding rules above: no drag-only actions, no hover-only information, an on-screen prompt for every key, large snap targets (28 px minimum for any button), and state is never carried by colour alone (each state has a glyph or a word).
+Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 2026-10-04)**; mechanics, costs and durations live in the topic files they link, never here, so quoted numbers in strings are examples and real values come from data. Layout numbers are virtual pixels at HUD scale 1.0 (1600×900 and 1280×720 are both 1.0). They follow the binding rules above: no drag-only actions, no hover-only information, an on-screen prompt for every key, large snap targets (28 px minimum for any clickable target; a chip's hit area may be larger than its drawing), and state is never carried by colour alone (each state has a glyph or a word).
 
-**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which only restarts on the Result screen). Esc cancels the armed mode first, then closes the Team panel, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
+**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which restarts only on the Result screen and starts Play Solo on the Main Menu; neither screen overlaps planning). Esc cancels the armed mode first, then closes the Team panel, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
 
 | Key | Action | Where it also sits on screen |
 |---|---|---|
@@ -113,13 +113,13 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 - **Top bar text:** `C1  604 Power +2/s   40 Data +1/s   Forces 2   Regions 4/5`. Power stays gold. Data is white with a chip glyph and the word, because [STYLE.md](../../Art/UI/STYLE.md) has no Data colour (art may choose one).
 - **Rates:** each figure shows **your own** share of the team pool ([economy.md](economy.md)), with one decimal only when it is fractional. Teammates' rates and the pool total are in the Team panel (surface 3).
-- **Supply-cut state:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. Clicking it focuses the first cut region; repeated clicks cycle.
+- **Supply-cut state:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. Clicking it focuses the first cut region; repeated clicks cycle. Its hit area is the full 32 px bar height.
 - **Why:** the top bar leaves about 540 px free at every window size, so nothing else moves, and the chip is a glyph plus words.
 
 ### 2. Supply cuts on the map and the force card [New]
 
 - **World:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut.
-- **Region and Drill Rigs:** the region's chip row (surface 4) gets a **CUT OFF** chip. Its Drill Rigs go greyscale with a chain glyph, and their deposit label reads `POWER 1200 · OFFLINE` in place of the rate.
+- **Region and Drill Rigs:** the region's chip row (surface 7's stack) gets a **CUT OFF** chip. Its Drill Rigs go greyscale with a chain glyph, and their deposit label reads `POWER 1200 · OFFLINE` in place of the rate.
 - **Minimap:** the node gets a red hatched outline.
 - **Feed:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline`; clicking it focuses the region. It is a team row (see surface 3).
 - **Force card:** a **CUT OFF** chip in the header between unit type and strength, and the refill line reads `Refill: HELD · cut off · 1 recruit waiting` ([forces.md](forces.md)). A card shows at most two chips (CUT OFF, REFIT n/m, `▲ T2`), then `+N`.
@@ -127,13 +127,13 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 ### 3. Gifting and the Team panel [New]
 
 - **Opening:** the **TEAM [Tab]** button (96×32) sits left of the Pause button; Tab toggles. A gold dot marks an unseen gift. The panel is 390 px wide and **replaces the alert feed column while open**; the strip, timeline and announcer keep working.
-- **Rows:** teammates only (up to four, 28 px high, the whole row is the target): colour swatch, `C2`, Power with rate, Data with rate, and a `FORTIFY ready` / `FORTIFY 0:47` chip, which is each commander's cooldown display.
+- **Rows:** teammates only (a team has at most four commanders, so up to three rows; 28 px high, the whole row is the target): colour swatch, `C2`, Power with rate, Data with rate, and a `FORTIFY ready` / `FORTIFY 0:47` chip, which is each commander's cooldown display.
 - **Gift flow:** click a teammate; click the `POWER` or `DATA` toggle; click a preset (Power 50 / 100 / 200 / ALL, Data 10 / 25 / 50 / ALL) or `−` / `+` (Power ±10, Data ±5); click the full-width `SEND 100 Power to C2` button. A teammate's read-only force card gets a `Gift…` button that opens the panel with them selected.
 - **Rejections** show inline under Send with the existing 3 s hold and 1 s fade, and a disabled Send still explains itself on click: `Not enough Power: you have 340`, `Pick an amount above 0`, `C2 left the team`, `Gifting opens at 0:00`.
-- **Log:** the last 20 gifts ([economy.md](economy.md)) in the panel, three rows with ▲ / ▼ buttons so scrolling never needs the wheel. An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
+- **Log:** the team gift log ([economy.md](economy.md)) in the panel, three rows with 28 px ▲ / ▼ buttons stacked beside them, so scrolling never needs the wheel. An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
 - **Team rows in the feed:** gifts, Fortify casts and supply cuts rank below objective rows and above ping rows, and stay out of Space history.
 - **Controller [Later]:** focus order rows → toggle → presets → stepper → Send; the D-pad moves, A activates.
-- **Why:** no drag, hover or typing; four teammates need 297 px, inside the 296–304 px column at 1280×720.
+- **Why:** no drag, hover or typing; three teammates need about 285 px, inside the 296 px column at 1280×720.
 
 ### 4. Fortify [New]
 
@@ -149,8 +149,8 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Placement:** once a Barracks' unit type is locked, its FORCE TYPE column shows the locked row and a 30 px `TIER 2 BRANCH` button below it, e.g. `MARKSMAN +20% range · 100 Power + 50 Data · 20 s`, with the text taken from the unit data ([forces.md](forces.md), [units.md](units.md)). No hotkey: it is a rare, costly decision.
 - **States:** `Lock a type first`; unaffordable and greyed, `Need 50 more Data` (a click explains); `Opens at 0:00` during planning; buying, a bar `Upgrading to Marksman 12 / 20 s` with an amber `UPGRADING` header pill; done, a static `✓ MARKSMAN +20% range`.
 - **Paused production:** the FORCE column reads `Production paused while upgrading` and its pause / resume toggle is disabled with that reason.
-- **Force card:** an amber `REFIT 2/5` chip and the refill line `Refit 2/5 → Marksman · cut-off members keep old form`. A `▲ T2` chip shows while the branch is affordable; clicking it selects the producer and opens the deck.
-- **Unit type picker:** an unlocked Barracks lists five types in a two-column grid of 26 px chips, because `Layout::Row` would shrink a five-row list to about 14 px.
+- **Force card:** an amber `REFIT 2/5` chip and the refill line `Refit 2/5 → Marksman · cut-off members keep old form`. A `▲ T2` chip shows while the branch is affordable. It is information only; the existing click on the producer opens its panel.
+- **Unit type picker:** an unlocked Barracks lists five types in a two-column grid of 28 px chips, three rows, because `Layout::Row` would shrink a five-row list to about 14 px.
 - **Why:** the 720 px deck keeps three columns; progress shows both where the player looks (the card) and where they decided (the panel).
 
 ### 6. Shields, Scrambler pulse and building stun [New]
@@ -163,32 +163,32 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 ### 7. Region trait icons [New]
 
-- **World:** a 14 px glyph left of the name on the region label plate, and the trait word in 7.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)).
+- **World:** a 20 px glyph left of the name on the label plate, and the trait word in 9 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
 - **Stack above a region anchor,** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
-- **Minimap:** an 8 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node.
+- **Minimap:** a 10 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node. 10 px is under STYLE.md's 20 px glyph rule because the minimap is 144 px wide; the world plate carries the full glyph and word, and if art cannot make the four silhouettes readable at 10 px the minimap falls back to one-letter pips (`H`, `C`, `O`, `!`).
 - **War-table zoom:** the plate collapses to a 24 px glyph plus the name.
 - **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
 
 ### 8. JEV timeline and the battle clock [New]
 
 - **Always drawn:** the timeline bar keeps its 40 px even with no plans, so the memo feed never jumps. Empty text: `No JEV plans · next release v1.1 in 1:42`.
-- **Release cell:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +15% SPEED`, `OVERRUN`.
+- **Release cell:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +<n>% SPEED`, `OVERRUN`.
 - **Waves:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. Clicking a cell focuses its target (a release focuses JEV's main).
 - **Battle clock:** the top bar's right end, `JEV v1.1  4:12`, minutes and seconds counting up, frozen while paused.
-- **Why:** [battle.md](battle.md) says the HUD counts down to the next release and [jev.md](jev.md) says the cell appears 30 s ahead; the empty text and the cell are both true.
+- **Why:** [battle.md](battle.md) says the HUD counts down to the next release and [jev.md](jev.md) gives each release cell a lead time before it happens; the empty text and the cell are both true.
 
 ### 9. Guarded HQs and the objective strip [New]
 
 - **Nodes row:** under each HQ bar, `Nodes ◆◆` (filled standing, hollow lost, a double outline while the plating lasts, [buildings.md](buildings.md)). While a node stands the HQ bar is hatched with a shield glyph, its world label reads `LATTICE HQ 900/900 · immune (2 nodes)`, and the Attack cursor chip warns `Attack Lattice HQ · immune while Nodes stand` (allowed). A node loss posts `Hardline Failover Node lost · 1 left`.
-- **Offline hold:** the HQ bar becomes the hold bar, same 225×20: `HARDLINE OFFLINE … 0:38 / 1:15`, with a tick at 50%. The state line under it: `▲ JEV HOLDING THE MAIN` (red), `‖ PAUSED: defenders in the main` (amber), `▼ DECAYING: main is clear` (green). For the Lattice: `THE LATTICE OFFLINE`, `▲ UPLINK HELD`, `‖ PAUSED: JEV in the main`, `▼ DECAYING: send a force in`. Back online posts `Hardline HQ back online at 25%`. The solo slow-down is not part of 1b, so no tick marks it.
+- **Offline hold:** the HQ bar becomes the hold bar, same 225×20: `HARDLINE OFFLINE … 0:38 / 1:15` (progress over the full hold, from data), a plain fill with no tick marks. The state line under it: `▲ JEV HOLDING THE MAIN` (red), `‖ PAUSED: defenders in the main` (amber), `▼ DECAYING: main is clear` (green). For the Lattice: `THE LATTICE OFFLINE`, `▲ UPLINK HELD`, `‖ PAUSED: JEV in the main`, `▼ DECAYING: send a force in`. Back online posts `Hardline HQ back online at <restore %> HP`.
 - **Emergency wave:** the latest-event title reads `Hardline HQ offline. Emergency forces deployed.` and its forces carry an `EMERGENCY` badge.
-- **Standing sentence** replaces `No objective alerts yet`: `Objective: break the Lattice's Failover Nodes, take its HQ offline, then hold the uplink 1:15`; once the nodes are gone, `Destroy the Lattice HQ to take it offline.` ([battle.md](battle.md)).
+- **Standing sentence** replaces `No objective alerts yet`: `Objective: break the Lattice's Failover Nodes, take its HQ offline, then hold the uplink <hold duration>`; once the nodes are gone, `Destroy the Lattice HQ to take it offline.` ([battle.md](battle.md)).
 - **Why:** it reuses the strip's two bars, so the hold is a state of the bar, not a new panel.
 
 ### 10. Planning phase [New]
 
 - **Clock slot:** `PLANNING 0:47`, an amber real-time countdown that pulses in its last 10 s. The battle clock stays hidden until 0:00, so there is only one clock. The timeline shows JEV's first plans with muted countdowns and `frozen: starts 0:00`.
-- **Ready:** the Pause button slot becomes **READY (1/3)** with an **Enter** prompt; P explains `Nothing runs during planning`. The strip shows roster chips: `C1 PLACING`, `C2 ✓ READY`, `C3 AI · READY`. Enter toggles Ready and un-Ready; Ready locks kit and unit-type edits until un-Ready; with an unplaced kit one line asks `Barracks not placed: default spot. Press Enter again`.
+- **Ready:** the Pause button slot becomes **READY (1/2)** with an **Enter** prompt; the counter counts humans only, because planning ends when every human is Ready ([battle.md](battle.md)). P explains `Nothing runs during planning`. The strip shows roster chips: `C1 PLACING`, `C2 ✓ READY`, and an AI adjutant as `C3 AI · READY` (shown, not counted). Enter toggles Ready and un-Ready; Ready locks kit and unit-type edits until un-Ready; with an unplaced kit one line asks `Barracks not placed: default spot. Press Enter again`.
 - **Kit placement:** the build bar becomes a KIT bar with Barracks (`B Q`) and Drill Rig (`B W`): `FREE KIT · place`, then `PLACED · click to move`; the Workshop is greyed `after 0:00`. Placement is the existing placement mode. An unplaced kit shows a dashed default-spot ghost, `auto-placed at 0:00 if unplaced`.
 - **Planning panel:** it takes the deck slot, 720×186, pinned open: place Barracks, place Drill Rig, unit type (five chips, 104×30, one row), first order (the existing RMB, A and Shift input; the panel lists the queue), and a `LOOK AT JEV BASE` button. Kit and unit type stay editable until Ready or 0:00.
 - **Why:** every control reuses a slot that is free before the first force exists; only Enter is new.
