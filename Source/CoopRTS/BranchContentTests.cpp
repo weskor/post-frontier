@@ -43,8 +43,8 @@ protected:
 		Lancer = Find(State, TEXT("lancer"));
 		Bulwark = Find(State, TEXT("bulwark"));
 		return Check(Brawler >= 0 && Warden >= 0 && Rifle >= 0 && Marksman >= 0 && Lancer >= 0 && Bulwark >= 0
-					&& Content.BranchIndexOf(Brawler) == Warden && Content.BranchIndexOf(Rifle) == Marksman && Content.BranchIndexOf(Lancer) == Bulwark
-					&& Content.UnitIndexForRole(EUnitRole::Frontline) == Brawler && Content.UnitIndexForRole(EUnitRole::Ranged) == Rifle,
+				&& Content.BranchIndexOf(Brawler) == Warden && Content.BranchIndexOf(Rifle) == Marksman && Content.BranchIndexOf(Lancer) == Bulwark
+				&& Content.UnitIndexForRole(EUnitRole::Frontline) == Brawler && Content.UnitIndexForRole(EUnitRole::Ranged) == Rifle,
 			TEXT("The catalogue pairs each base with its branch and role lookups still find the base"));
 	}
 

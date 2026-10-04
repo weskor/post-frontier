@@ -121,13 +121,22 @@ def by_id() -> dict[str, dict[str, Any]]:
 
 def test_branches_carry_the_documented_one_b_effects() -> None:
     units = by_id()
-    assert units["warden"]["max_health"] == round(units["frontline"]["max_health"] * 1.3)
+    assert units["warden"]["max_health"] == round(
+        units["frontline"]["max_health"] * 1.3
+    )
     assert units["marksman"]["range"] == pytest.approx(units["ranged"]["range"] * 1.2)
     assert units["bulwark"]["max_shield"] == round(units["lancer"]["max_shield"] * 1.5)
-    assert units["bulwark"]["move_speed"] == pytest.approx(units["lancer"]["move_speed"] * 0.9)
+    assert units["bulwark"]["move_speed"] == pytest.approx(
+        units["lancer"]["move_speed"] * 0.9
+    )
     assert units["jammer"]["pulse_building_stun_seconds"] == 5.0
     # Everything else about a branch is its base's.
-    for branch, base in (("warden", "frontline"), ("marksman", "ranged"), ("bulwark", "lancer"), ("jammer", "scrambler")):
+    for branch, base in (
+        ("warden", "frontline"),
+        ("marksman", "ranged"),
+        ("bulwark", "lancer"),
+        ("jammer", "scrambler"),
+    ):
         assert units[branch]["branch_of"] == base
         assert units[branch]["branch_summary"]
 

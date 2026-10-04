@@ -109,7 +109,9 @@ def unit_definitions() -> list[dict[str, Any]]:
         base = by_id.get(definition["branch_of"])
         if not definition["branch_of"]:
             if definition["branch_summary"]:
-                raise ValueError(f"unit {definition['id']!r}: only a branch has a summary")
+                raise ValueError(
+                    f"unit {definition['id']!r}: only a branch has a summary"
+                )
             continue
         if base is None or base["branch_of"]:
             raise ValueError(
