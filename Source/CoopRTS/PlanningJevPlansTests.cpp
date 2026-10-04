@@ -30,6 +30,8 @@ public:
 private:
 	bool Step() override
 	{
+		if (bWatching && !Continuous())
+			return Done();
 		switch (Stage)
 		{
 		case 0:
@@ -119,6 +121,21 @@ private:
 		return true;
 	}
 
+	// Sampled on every tick from the last Ready through 0:00 and the first units: each kit force's plan never leaves
+	// the published list, under its recorded ticket (the planning-ui diagnosis: it vanished for ~3 s after 0:00).
+	bool Continuous()
+	{
+		for (const FRecorded& Was : Plans)
+		{
+			const FJevPublishedPlan* Now = Was.Force.IsValid() ? PlanOf(Was.Force.Get()) : nullptr;
+			if (!Check(Now && Now->TicketNumber == Was.Ticket,
+					FString::Printf(TEXT("Force %d's ticket %d stays published on every tick (%s, game %.2f s, units %d)"), Was.Force.IsValid() ? Was.Force->ForceNumber : -1,
+						Was.Ticket, State->IsPlanning() ? TEXT("planning") : TEXT("after 0:00"), World->GetTimeSeconds(), Was.Force.IsValid() ? Was.Force->GetAliveCount() : -1)))
+				return false;
+		}
+		return true;
+	}
+
 	bool FirstPlans()
 	{
 		if (!WaitForPlans(2, TEXT("two humans")))
@@ -173,6 +190,7 @@ private:
 		for (ACommandPlayerState* Human : Humans)
 			if (!Check(FPlanningCommands::SetReady(Human, true).IsAccepted(), TEXT("Ready is accepted")))
 				return Done();
+		bWatching = true;
 		Enter(4);
 		return false;
 	}
@@ -232,6 +250,7 @@ private:
 				Victim = Was.Force.Get();
 		if (!Check(Victim && PlanOf(Victim), TEXT("A fielded kit force has a plan before it is wiped out")))
 			return Done();
+		bWatching = false;
 		const TArray<TObjectPtr<AArmyUnit>> Units = Victim->GetUnits();
 		for (AArmyUnit* Unit : Units)
 			if (IsValid(Unit))
@@ -257,6 +276,7 @@ private:
 	TWeakObjectPtr<ACommandPlayerState> ThirdPtr;
 	float PlanningClock = 0.f;
 	float ZeroClock = 0.f;
+	bool bWatching = false;
 
 	void Cleanup() override
 	{

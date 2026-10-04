@@ -102,9 +102,9 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		return;
 	if (!HasAuthority() || MatchResult != EMatchResult::Ongoing)
 		return;
-	if (EnemyPlans.RemoveAll([](const FJevPublishedPlan& Plan) {
-			return !IsValid(Plan.Force) || Plan.Force->GetAliveCount() == 0;
-		}))
+	// A plan whose force is gone goes at once. An emptied force's plan is the commander's rule (AEnemyCommander::BeginTurn):
+	// a producer-backed force that has never fielded a unit keeps its plan, a wiped-out one loses it.
+	if (EnemyPlans.RemoveAll([](const FJevPublishedPlan& Plan) { return !IsValid(Plan.Force); }))
 		ForceNetUpdate();
 	if ((HoldAlarmElapsed += DeltaSeconds) >= .25f)
 	{
