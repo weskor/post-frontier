@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "PressurePanels.h"
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
@@ -13,16 +14,23 @@ static void DrawConstructionInspector(const FPainter& Paint, const FContext& Con
 	const ACommandBuilding* Building = Context.Building;
 	const UBuildingDefinition* Definition = Building->GetDefinition();
 	const float Progress = FMath::Clamp(Building->ConstructionProgress, 0.f, 1.f);
+	// A stun freezes construction: the status words give way to the yellow pill and the bar to grey.
+	const bool bStunned = !Context.bTerminal && BuildingStun(Context, *Building).bShown;
 	DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle, Owner,
-		Building->Health, Building->MaxHealth(), Context.bTerminal ? TEXT("HALTED") : TEXT("UNDER CONSTRUCTION"),
+		Building->Health, Building->MaxHealth(), bStunned ? FStringView() : Context.bTerminal ? FStringView(TEXT("HALTED"))
+																							  : FStringView(TEXT("UNDER CONSTRUCTION")),
 		Context.bTerminal ? Palette::Faint : Palette::Warn);
+	if (bStunned)
+		DrawStunPill(Paint, Inspector);
 	const float Top = BodyTop(Inspector);
 	const FRect Bar{ Inspector.X + Pad, Top + LabelHeight + 2.f, CancelButton(Inspector).X - Inspector.X - 2.f * Pad - 12.f, 14.f };
 	Paint.Text(TEXT("CONSTRUCTION"), Bar.X, Top, 8.5f, Palette::Muted, true);
-	Paint.Bar(Bar, Progress, Accent.CopyWithNewOpacity(.85f));
+	Paint.Bar(Bar, Progress, bStunned ? Palette::Faint : Accent.CopyWithNewOpacity(.85f));
 	TStringBuilder<64> Status;
 	if (Context.bTerminal)
 		Status.Appendf(TEXT("%d%%  \u00B7  halted: match over"), FMath::FloorToInt(Progress * 100.f));
+	else if (bStunned)
+		Status.Appendf(TEXT("%d%%  \u00B7  frozen: stunned"), FMath::FloorToInt(Progress * 100.f));
 	else
 		Status.Appendf(TEXT("%d%%  \u00B7  %.0fs remaining"), FMath::FloorToInt(Progress * 100.f),
 			FMath::CeilToFloat((1.f - Progress) * (Building->GetDefinition() ? Building->GetDefinition()->BuildDuration : 0.f)));
@@ -110,11 +118,15 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	const FLinearColor StatusColor = ProductionState == EProductionState::Producing || ProductionState == EProductionState::ForceComplete ? Palette::Good
 		: ProductionState == EProductionState::Paused || ProductionState == EProductionState::MatchFinished                               ? Palette::Muted
 																																		  : Palette::Warn;
-	// An upgrade replaces the status text with an amber pill: production is paused for it, and the words carry that.
+	// An upgrade or a stun replaces the status text with a pill: production is paused for it, and the words carry that.
+	// A stun wins: it freezes the upgrade timer too.
 	const bool bUpgrading = Building->IsUpgrading();
+	const bool bStunned = BuildingStun(Context, *Building).bShown;
 	DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle, Owner,
-		Building->Health, Building->MaxHealth(), bUpgrading ? FStringView() : FStringView(Status), StatusColor);
-	if (bUpgrading)
+		Building->Health, Building->MaxHealth(), bUpgrading || bStunned ? FStringView() : FStringView(Status), StatusColor);
+	if (bStunned)
+		DrawStunPill(Paint, Inspector);
+	else if (bUpgrading)
 		DrawUpgradePill(Paint, Inspector);
 	const FRect Recipes = Column(Inspector, 0, 3);
 	const FRect Production = Column(Inspector, 1, 3);
@@ -133,8 +145,10 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 
 	const FRect Progress = Row(Production, 0);
 	const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
-	Paint.Bar({ Progress.X, Progress.Y, Progress.W, 5.f }, Building->ProductionProgressSeconds / Duration, StatusColor);
-	if (bUpgrading)
+	Paint.Bar({ Progress.X, Progress.Y, Progress.W, 5.f }, Building->ProductionProgressSeconds / Duration, bStunned ? Palette::Faint : StatusColor);
+	if (bStunned)
+		Paint.Text(TEXT("Production frozen: stunned"), Progress.X, Progress.Y + 7.f, 9.f, Palette::Warn, true, EAlign::Left, Progress.W);
+	else if (bUpgrading)
 		Paint.Text(TEXT("Production paused while upgrading"), Progress.X, Progress.Y + 7.f, 9.f, Palette::Warn, true, EAlign::Left, Progress.W);
 	else
 	{
@@ -158,9 +172,14 @@ static void DrawResearchInspector(const FPainter& Paint, const FContext& Context
 {
 	const ACommandBuilding* Building = Context.Building;
 	const EArmyDoctrine Owned = Context.Wallet ? Context.Wallet->Doctrine : EArmyDoctrine::None;
+	const bool bStunned = BuildingStun(Context, *Building).bShown;
 	DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle, Owner,
-		Building->Health, Building->MaxHealth(), Owned == EArmyDoctrine::None ? TEXT("RESEARCH AVAILABLE") : TEXT("SPECIALIZED"),
+		Building->Health, Building->MaxHealth(),
+		bStunned ? FStringView() : Owned == EArmyDoctrine::None ? FStringView(TEXT("RESEARCH AVAILABLE"))
+																: FStringView(TEXT("SPECIALIZED")),
 		Owned == EArmyDoctrine::None ? Palette::Good : Palette::Muted);
+	if (bStunned)
+		DrawStunPill(Paint, Inspector);
 	TStringBuilder<64> Detail;
 	if (Owned == EArmyDoctrine::None)
 		Detail.Appendf(TEXT("one per commander  \u00B7  %d each  \u00B7  applies to all your forces"), ACommandBuilding::ResearchCost);

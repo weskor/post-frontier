@@ -26,8 +26,6 @@ constexpr float ChipCharWidth = 6.2f;
 constexpr float ChipInset = 34.f;
 constexpr float StunChipWidth = 84.f;
 constexpr float StunChipHeight = 18.f;
-// An offline rig's glyph tile hangs this far left of its deposit label (MapChips: centred 16 px out, 24 px wide).
-constexpr float OfflineGlyphReach = 28.f;
 constexpr float SeparationGap = 2.f;
 
 // Two links with a gap between them.
@@ -211,6 +209,15 @@ void DrawStunChip(const FPainter& Paint, const FRect& Plate, const PressureHud::
 	Paint.Bar({ Chip.X + 2.f, Chip.Bottom() - 4.f, Chip.W - 4.f, 2.f }, Stun.Drain, StunYellow);
 }
 
+void DrawStunPill(const FPainter& Paint, const FRect& Inspector)
+{
+	const float Width = Paint.TextWidth(TEXT("STUNNED"), 9.f, true) + 16.f;
+	const FRect Pill{ Inspector.Right() - Pad - Width, Inspector.Y + Pad - 3.f, Width, 16.f };
+	Paint.Fill(Pill, StunBack);
+	Paint.Outline(Pill, StunYellow);
+	Paint.TextIn(TEXT("STUNNED"), Pill, 9.f, StunYellow, true, EAlign::Center);
+}
+
 PressureHud::FStunChip BuildingStun(const FContext& Context, const ACommandBuilding& Building)
 {
 	if (!Context.State)
@@ -220,21 +227,26 @@ PressureHud::FStunChip BuildingStun(const FContext& Context, const ACommandBuild
 		View ? View->Stuns().Peak(Building.GetUniqueID()) : 0.f);
 }
 
+bool DepositLabelRect(const FPainter& Paint, const FContext& Context, const ADepositSite& Deposit, FRect& Out)
+{
+	FVector2D Screen;
+	if (!ProjectOverlay(Paint, Context, Deposit.GetActorLocation() + FVector(0.f, 0.f, 100.f), Screen))
+		return false;
+	Out = { Screen.X - DepositLabelWidth * .5f, Screen.Y, DepositLabelWidth, Paint.LineHeight(10.f, true) + 16.f };
+	return OverlayFits(Paint, Out);
+}
+
 void DepositLabelRects(const FPainter& Paint, const FContext& Context, TArray<FRect, TInlineAllocator<16>>& Out)
 {
 	Out.Reset();
 	if (!Context.State)
 		return;
-	const float Line = Paint.LineHeight(10.f, true);
 	for (const ADepositSite* Deposit : Context.State->Deposits)
 	{
-		FVector2D Screen;
-		if (!IsValid(Deposit) || !ProjectOverlay(Paint, Context, Deposit->GetActorLocation() + FVector(0.f, 0.f, 100.f), Screen))
+		FRect Back;
+		if (!IsValid(Deposit) || !DepositLabelRect(Paint, Context, *Deposit, Back))
 			continue;
-		// The plate SectorOverlays fills for this deposit, and the offline rig's glyph hanging off its left edge.
-		FRect Back{ Screen.X - 74.f, Screen.Y, 148.f, Line + 16.f };
-		if (!OverlayFits(Paint, Back))
-			continue;
+		// The offline rig's glyph hangs off the label's left edge.
 		if (MapView::IsRigOffline(*Context.State, *Deposit))
 		{
 			Back.X -= OfflineGlyphReach;

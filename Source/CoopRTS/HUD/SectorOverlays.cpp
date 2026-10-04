@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "PressurePanels.h"
 #include "CapturePoint.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
@@ -76,16 +77,10 @@ void DrawCaptureSites(const FPainter& Paint, const FContext& Context)
 
 void DrawDeposits(const FPainter& Paint, const FContext& Context)
 {
-	const float Line = Paint.LineHeight(10.f, true);
 	for (const ADepositSite* Deposit : Context.State->Deposits)
 	{
-		if (!IsValid(Deposit))
-			continue;
-		FVector2D Screen;
-		if (!ProjectOverlay(Paint, Context, Deposit->GetActorLocation() + FVector(0.f, 0.f, 100.f), Screen))
-			continue;
-		const FRect Back{ Screen.X - 74.f, Screen.Y, 148.f, Line + 16.f };
-		if (!OverlayFits(Paint, Back))
+		FRect Back;
+		if (!IsValid(Deposit) || !DepositLabelRect(Paint, Context, *Deposit, Back))
 			continue;
 		const bool bTaken = IsValid(Deposit->Extractor);
 		const bool bEmpty = Deposit->Remaining <= 0;
@@ -105,7 +100,7 @@ void DrawDeposits(const FPainter& Paint, const FContext& Context)
 		Paint.TextIn(Label.ToView(), Back, 8.f, Color, true, EAlign::Center);
 		// Beside the label, clear of the structure's own name and health bar above the rig.
 		if (bOffline)
-			DrawOfflineRigGlyph(Paint, FVector2D(Back.X - 16.f, Back.Y + Back.H * .5f));
+			DrawOfflineRigGlyph(Paint, FVector2D(Back.X - OfflineGlyphOffset, Back.Y + Back.H * .5f));
 	}
 }
 

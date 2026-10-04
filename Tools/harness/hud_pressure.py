@@ -24,7 +24,14 @@ from harness.hud_map_presentation import (
 )
 from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
-from harness.network import BARRACKS, NetworkRun, building, owned_buildings, require
+from harness.network import (
+    BARRACKS,
+    NetworkRun,
+    building,
+    owned_buildings,
+    region,
+    require,
+)
 
 # JEV's schedule (decisions J1): v1.1 at 120 s shows 30 s ahead, from 90 s.
 RELEASE_WINDOW = 95
@@ -86,8 +93,8 @@ def stunned_barracks(
 def line_cut(
     run: NetworkRun, capture: Capture, resolutions: Sequence[tuple[int, int]]
 ) -> None:
-    for region in (NECK, FAR):
-        set_control(run, capture, region, 0)
+    for index in (NECK, FAR):
+        set_control(run, capture, index, 0)
     run.request("host", "mapPresRig", region=FAR)
     set_control(run, capture, NECK, 5)
     at_each(run, capture, resolutions, "line-cut")
@@ -148,6 +155,40 @@ def clock_frozen_by_pause(run: NetworkRun, capture: Capture) -> None:
     capture.wait(lambda s: not s["worldPaused"], "resumed")
 
 
+def near(position: Sequence[float], anchor: Sequence[float]) -> bool:
+    return abs(position[0] - anchor[0]) < 100 and abs(position[1] - anchor[1]) < 100
+
+
+def click_focus(run: NetworkRun, capture: Capture) -> None:
+    """A click on the LINE CUT chip and on a plan cell moves the camera to what each points at."""
+    state = capture.state()
+    require(
+        state["viewportWidth"] >= 1280 and state["viewportHeight"] >= 720,
+        "click positions assume HUD scale 1.0",
+    )
+    set_control(run, capture, NECK, 5)
+    anchor = region(capture.state(), FAR)["anchor"]
+    # The chip sits at the top bar's fixed slot (Top.X + Pad + 400 + Gap), its full 32 px height clickable.
+    run.request("host", "hudClick", x=553, y=26)
+    capture.wait(
+        lambda s: near(s["cameraPosition"], anchor), "camera on the cut region"
+    )
+    capture.shot("click-cut-chip")
+    set_control(run, capture, NECK, 0)
+    state = capture.state()
+    entries = state["jevIntent"]["entries"]
+    cell = next(i for i, entry in enumerate(entries) if entry["target"] >= 0)
+    bar = state["jevIntent"]["timelineRect"]
+    cell_width = (bar[2] - 88) / 4
+    x = bar[0] + 84 + (cell + 0.5) * cell_width
+    run.request("host", "hudClick", x=x, y=bar[1] + bar[3] / 2)
+    target = region(state, entries[cell]["target"])["anchor"]
+    capture.wait(
+        lambda s: near(s["cameraPosition"], target), "camera on the plan's target"
+    )
+    capture.shot("click-plan-cell")
+
+
 def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     capture = Capture(run)
     pid, state = boot(run, capture, resolutions[0], isolate=False)
@@ -161,6 +202,7 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     timed(run, capture, resolutions, WAVE_AFTER, "wave-cell", True)
     badge_beside_deposit(run, capture, resolutions)
     clock_frozen_by_pause(run, capture)
+    click_focus(run, capture)
     no_compositor_windows(run, pid)
     run.event(
         "PASS",

@@ -109,11 +109,11 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 | **Tab** | Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
 | **Enter** | Ready / un-ready | The **READY** button, planning only |
 
-### 1. Data, rates and supply-cut state [Built] (chip click [New])
+### 1. Data, rates and supply-cut state [Built]
 
 - **[Built] Top bar text:** `C1  604 Power +2/s   40 Data +1/s   Forces 2   Regions 4/5`. Power stays gold. Data is white with a chip glyph and the word, because [STYLE.md](../../Art/UI/STYLE.md) has no Data colour (art may choose one). The text clips at a fixed 400 px so the chip after it has one slot at every window size.
 - **[Built] Rates:** each figure shows **your own** share of the team pool ([economy.md](economy.md)), with one decimal only when it is fractional. Teammates' rates and the pool total are in the Team panel (surface 3).
-- **Supply-cut state [Built]:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. The Power figure is your share of the offline Drill Rigs' extraction (the pool splits evenly among the roster) and the Data figure is one second's worth per cut reward region; a fallen main is the end of the battle, not a cut. Its hit area is the full 32 px bar height. **[New]** Clicking it focuses the first cut region; repeated clicks cycle.
+- **Supply-cut state [Built]:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. The Power figure is your share of the offline Drill Rigs' extraction (the pool splits evenly among the roster) and the Data figure is one second's worth per cut reward region; a fallen main is the end of the battle, not a cut. Its hit area is the full 32 px bar height. Clicking it focuses the first cut region; repeated clicks cycle (the controller reads `PressureFocusTarget`, which remembers the last region).
 - **Why:** the top bar leaves about 540 px free at every window size, so nothing else moves, and the chip is a glyph plus words.
 
 ### 2. Supply cuts on the map and the force card [New]
@@ -153,13 +153,13 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Unit type picker:** an unlocked Barracks lists five types in a two-column grid of 28 px chips, three rows, because `Layout::Row` would shrink a five-row list to about 14 px.
 - **Why:** the 720 px deck keeps three columns; progress shows both where the player looks (the card) and where they decided (the panel).
 
-### 6. Shields, Scrambler pulse and building stun [Built] (panel pill and bars [New])
+### 6. Shields, Scrambler pulse and building stun [Built]
 
 - **Unit bar (36 px):** a 3 px shield bar above the 5 px HP bar, pale cyan for both teams. The existing show rule applies (damaged or in a highlighted force); a unit with no shield draws none.
 - **Pulse on units:** the shield bar flashes white for 0.25 s, then shows an empty outline for the regeneration delay; regeneration refills it ([units.md](units.md)).
 - **Pulse cue [Built]:** a ring expanding to the pulse radius over 0.4 s at the Scrambler, and a spark on each hit shield bar or building; no numbers. There is no pulse cooldown display (orchestrator 2026-10-04).
 - **Stun [Built]:** a yellow `STUN 2.4s` chip (bolt glyph, drain bar) beside the building's name plate on the world overlay (the force badge sits above the plate), refreshed by a new stun. The wire carries only the stun's end time, so the drain bar runs from the length this client first saw; enemy buildings show the chip too. A stunned building's construction bar freezes to a desaturated grey. Your own buildings post `Barracks 1 stunned by a Scrambler` (at most one per 5 s per building) as a local feed row.
-- **Stun [New]:** its production and research bars freeze and desaturate, and the panel header reads `STUNNED` (the building inspector, with the tier-2 branches).
+- **Stun panel [Built]:** the inspector's status slot reads a yellow `STUNNED` pill (it wins over `UPGRADING`, since a stun freezes the upgrade timer), and the construction and production bars freeze and desaturate to grey with `frozen: stunned` / `Production frozen: stunned` under them. Research has no bar, so a research building shows the pill alone; an Extractor shows neither, since extraction is unaffected.
 - **Why:** the HP bar keeps its position; the ring and the chip both appear at t = 0, so it reads within 1 s.
 
 ### 7. Region trait icons [New]
@@ -170,11 +170,11 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **War-table zoom [New]:** the plate collapses to a 24 px glyph plus the name.
 - **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
 
-### 8. JEV timeline and the battle clock [Built] (cell clicks [New])
+### 8. JEV timeline and the battle clock [Built]
 
 - **Always drawn [Built]:** the timeline bar keeps its 40 px even with no plans, so the memo feed never jumps. Empty text: `No JEV plans · next release v1.1 in 1:42`.
 - **Release cell [Built]:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +<n>% SPEED`, `OVERRUN`. `<ARMOR>` is the humans' most numerous armor class, counted by each client twice a second until the wave launches; it reads plain `ARMOR` with no human unit alive. A release also posts one local feed row, `JEV v1.1 released: <tag>`. There is no voiced release line: the announcer's Raise runs on the server, in JEV's wave code ([status.md](status.md)).
-- **Waves [Built]:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. **[New]** Clicking a cell focuses its target (a release focuses JEV's main).
+- **Waves [Built]:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. Clicking a cell focuses its target (a release focuses JEV's main).
 - **Battle clock [Built]:** the top bar's right end, left of the key hint, `JEV v1.1  4:12`, minutes and seconds counting up, frozen while paused.
 - **Why:** [battle.md](battle.md) says the HUD counts down to the next release and [jev.md](jev.md) gives each release cell a lead time before it happens; the empty text and the cell are both true.
 

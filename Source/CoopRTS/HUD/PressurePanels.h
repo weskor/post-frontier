@@ -3,6 +3,8 @@
 #include "HUDPanels.h"
 #include "Rules/PressureHud.h"
 
+class ADepositSite;
+
 // The economy and pressure surfaces of step 1b (Design/ui.md surfaces 1, 6 and 8): the top bar's supply-cut chip
 // and battle clock, a building's stun chip, and the clicks that focus what they point at. Layout is a function of the
 // window alone, so drawing and hit testing agree without measuring text.
@@ -37,8 +39,16 @@ bool PressureFocusTarget(const FContext& Context, EHUDAction Action, FVector& Wo
 void DrawStunChip(const FPainter& Paint, const FRect& Plate, const PressureHud::FStunChip& Stun);
 // The stun a building's overlay shows (hidden when it has none).
 PressureHud::FStunChip BuildingStun(const FContext& Context, const ACommandBuilding& Building);
+// The yellow STUNNED pill in an inspector header's status slot (where UPGRADING sits).
+void DrawStunPill(const FPainter& Paint, const FRect& Inspector);
 
-// The deposit labels on screen, as SectorOverlays fills them (plus the offline rig's glyph): world text a badge must not cover.
+// The plate a deposit's label sits on, in virtual pixels; false when it is off screen. DrawDeposits fills exactly this rect.
+constexpr float DepositLabelWidth = 148.f;
+// The offline rig's glyph tile is centred this far left of the plate's left edge and reaches this far.
+constexpr float OfflineGlyphOffset = 16.f;
+constexpr float OfflineGlyphReach = 28.f;
+bool DepositLabelRect(const FPainter& Paint, const FContext& Context, const ADepositSite& Deposit, FRect& Out);
+// Every deposit label on screen (plus the offline glyphs): world text a badge must not cover.
 void DepositLabelRects(const FPainter& Paint, const FContext& Context, TArray<FRect, TInlineAllocator<16>>& Out);
 // Rect moved off every obstacle it covers and kept where Fits holds: straight up first, then beside the first obstacle,
 // else where it was.

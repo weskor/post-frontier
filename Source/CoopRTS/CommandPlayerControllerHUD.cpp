@@ -11,6 +11,7 @@
 #include "Content/MatchContent.h"
 #include "HUD/HUDPanels.h"
 #include "InputCoreTypes.h"
+#include "HUD/PressurePanels.h"
 
 void ACommandPlayerController::ToggleHUD()
 {
@@ -77,6 +78,18 @@ bool ACommandPlayerController::HandleGlobalHUDAction(EHUDAction Action)
 	if (Action == EHUDAction::Fortify)
 	{
 		ToggleFortifyTargeting();
+		return true;
+	}
+	if (Action >= EHUDAction::JevCutChip && Action <= EHUDAction::JevTimelineCell3)
+	{
+		FVector Target;
+		ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn());
+		if (Camera && CommandHUDPanels::PressureFocusTarget(CommandHUDPanels::MakeContext(this), Action, Target))
+		{
+			bInitialFocusPending = false;
+			Camera->FocusOn(Target);
+			PlayUISound(TEXT("Click"));
+		}
 		return true;
 	}
 	if (Action != EHUDAction::PingTeammateForce)
