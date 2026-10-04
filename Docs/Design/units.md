@@ -47,7 +47,7 @@ One shared policy orders every modifier. Each hit runs these steps in order (sta
 4. **Shield absorption:** shield damage is the damage × 2 for EMP and × 1 otherwise. Excess shield damage converts back to HP damage, divided by the same factor.
 5. **HP:** the remainder after shield absorption.
 
-[Built] Every fractional step still truncates where it did before (falloff, Workshop, the combined incoming multiplier), so today's units deal and take identical damage; only the shield step is new, and it works in whole points.
+[Built] Fractional damage truncates at each step, in whole points: the class bonus (×1.5), splash falloff and the Workshop multiplier each truncate as before, and the incoming multipliers (Cover, Entrenched Frontline, later Fortify) are multiplied together and truncated once. Today's units therefore deal and take identical damage, except that Cover combined with Entrenched Frontline truncates once rather than twice; the shield step is new and works in whole points.
 
 ## Unit rules — decided
 
@@ -136,6 +136,7 @@ Both are built in step 1b with the table rows above as starting values (orchestr
 
 **Scrambler pulse.** Starting values, orchestrator 2026-10-04:
 - **Trigger:** automatic. It fires when it is ready and at least one hostile unit with shield above 0, or one hostile building (not the HQ, not a Failover Node), is within **400 cm** of the Scrambler. The **10 s** cooldown starts at the cast, and the first pulse is ready at spawn.
+- **Retreating:** a Scrambler does not pulse while its force is Retreating, matching Retreat's no-firing rule (approved by the orchestrator, 2026-10-04).
 - **Units:** hostile units in the radius lose all current shield, with no HP damage, and their shield regen delay restarts.
 - **Buildings:** hostile buildings in the radius are stunned for **3 s**. Production, construction and research progress pause; extraction and capture are unaffected. A new stun refreshes to 3 s; stuns never stack.
 
