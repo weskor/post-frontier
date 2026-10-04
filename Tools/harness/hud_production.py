@@ -210,10 +210,7 @@ def retarget_replacement(
     capture.wait(
         lambda s: (
             order_destination_matches(s, owner, barracks, moved_target)
-            and any(
-                u["slot"] == vacant
-                for u in alive_units(force(s, owner, barracks))
-            )
+            and any(u["slot"] == vacant for u in alive_units(force(s, owner, barracks)))
         ),
         "paid replacement appears in the vacated slot of the retargeted force",
     )
