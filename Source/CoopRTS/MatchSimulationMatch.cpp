@@ -172,13 +172,14 @@ void FMatchSimulation::ObserveRush(ACommandGameState& State)
 			Row->SetNumberField(TEXT("force"), It->ForceNumber);
 			Row->SetNumberField(TEXT("target_region"), It->TargetRegionIndex);
 			Row->SetNumberField(TEXT("status"), static_cast<uint8>(It->Status));
-			Row->SetNumberField(TEXT("resume_count"), It->ResumeCount);
+			// The size at which a withdrawal resumes, not a count of resumes.
+			Row->SetNumberField(TEXT("resume_threshold"), It->ResumeCount);
 		};
 		const TWeakObjectPtr<AArmyGroup> Key(*It);
 		FRushForce* Rush = RushForces.Find(Key);
 		if (!Rush)
 		{
-			Rush = &RushForces.Add(Key, FRushForce{ false, false, false, It->ResumeCount });
+			Rush = &RushForces.Add(Key, FRushForce{});
 			Record(TEXT("rush_force_seen"));
 		}
 		if (!Rush->bAttacking && It->Verb == EForceVerb::Attack && It->TargetRegionIndex == RushTargetRegion)
@@ -186,8 +187,9 @@ void FMatchSimulation::ObserveRush(ACommandGameState& State)
 			Rush->bAttacking = true;
 			Record(TEXT("rush_force_attacking"));
 		}
-		// A rush never issues Retreat: any of these events is a defect. Withdrawing and refilling are the
-		// force's own casualty withdrawal, and a resume is its automatic return to the standing Attack.
+		// A rush never issues Retreat: that event is a defect. Withdrawing and refilling are the force's own
+		// casualty withdrawal under the standing Attack; it resumes by leaving them with the verb still Attack
+		// (ResumeCount is the resume threshold, which does not change on a resume).
 		const bool bRetreating = It->Verb == EForceVerb::Retreat;
 		if (bRetreating && !Rush->bRetreating)
 			Record(TEXT("rush_force_retreat"));
@@ -195,12 +197,9 @@ void FMatchSimulation::ObserveRush(ACommandGameState& State)
 		const bool bWithdrawn = It->Status == EForceStatus::Withdrawing || It->Status == EForceStatus::Refilling;
 		if (bWithdrawn && !Rush->bWithdrawn)
 			Record(TEXT("rush_force_withdrawing"));
-		Rush->bWithdrawn = bWithdrawn;
-		if (It->ResumeCount > Rush->Resumes)
-		{
-			Rush->Resumes = It->ResumeCount;
+		if (!bWithdrawn && Rush->bWithdrawn && It->Verb == EForceVerb::Attack)
 			Record(TEXT("rush_force_resumed"));
-		}
+		Rush->bWithdrawn = bWithdrawn;
 	}
 }
 #endif

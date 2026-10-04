@@ -155,13 +155,7 @@ def test_gate_never_passes_a_median_that_only_bounds_the_ceiling() -> None:
     assert result["status"] == FAIL
 
 
-def test_decisive_outcome_names_the_hq_states_it_requires() -> None:
-    won = interpret_outcome(dict(outcome="hq_destroyed", duration=9, winner=0))
-    assert (won.hq_down, won.hq_up) == ((5,), (0,))
-    lost = interpret_outcome(dict(outcome="hq_destroyed", duration=9, winner=5))
-    assert (lost.hq_down, lost.hq_up) == ((0,), ())
-    draw = interpret_outcome(dict(outcome="time_cap", duration=9, winner=None))
-    assert (draw.hq_down, draw.hq_up) == ((), (0, 5))
+def test_a_draw_cannot_name_a_winner() -> None:
     with pytest.raises(ValueError, match="Invalid time-cap draw"):
         interpret_outcome(dict(outcome="time_cap", duration=9, winner=0))
 

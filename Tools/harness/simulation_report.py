@@ -341,7 +341,7 @@ def _rush_line(variant: str, rush: JsonObject) -> str:
     return (
         f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
         f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}. "
-        f"Own casualty cycle: {rush['withdrawals']} withdrawals/refills, {rush['resumes']} resumes. "
+        f"Casualty-rule cycle under the Attack: {rush['withdrawals']} withdrawals, {rush['resumes']} resumes. "
         f"Retreat events (a defect, expected 0): {rush['retreats']}."
     )
 

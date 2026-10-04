@@ -127,7 +127,6 @@ private:
 		bool bAttacking = false;
 		bool bRetreating = false;
 		bool bWithdrawn = false;
-		int32 Resumes = 0;
 	};
 	bool Start(ACommandGameState& State);
 	bool StartDuel(ACommandGameState& State);
