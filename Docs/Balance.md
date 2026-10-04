@@ -266,6 +266,24 @@ Lancer results for X1 (wins of the Lancer): Brawler 78/78, Rifle 29/78, Artiller
 
 The composition rule is not binding: with a Scrambler of cost 24 (one Scrambler plus four Rifles at the 120 Power budget) and radius 600 the pulse lands as the fight starts and X1 gains 41 points; with the starting Scrambler (cost 35, radius 400) the gain stayed at or below 0 in every earlier screen.
 
+### X1 adopted — committed-values run and open owner decision
+
+[Built] X1 is committed in [Build/Content/units.json](../Build/Content/units.json) (orchestrator decision 2026-10-04): Lancer cost 24, 36 HP + 60 shield, 24 damage per 1.0 s, 550 range, 420 speed (4.0 s per unit); Scrambler cost 24, 80 HP, 12 EMP damage, pulse radius **600 cm** (cooldown 10 s, stun 3 s unchanged). Evidence run **`20261004-124942-sim-0ec9`** on commit **`911928f`** (`dirty: True` only for the locally generated `.uasset`s built from that text): V2, seeds 1–40, 300 game seconds per fight; **40/40 seed processes valid, 1000 pair and 160 composition fights all wiped, zero stalled, failed or missing.**
+
+| Rule | Verdict | Measured |
+| --- | --- | --- |
+| Brawler prey Artillery / predator Rifle / predator Lancer | pass | 73/80, 3/80, 0/80 |
+| Rifle prey Brawler / predator Artillery | pass | 77/80, 9/80 |
+| Artillery prey Rifle / predator Brawler | pass | 71/80, 7/80 |
+| Lancer prey Brawler | pass | 80/80 |
+| Mirrors (40 fights each, five units) | pass | Brawler 20–20, Rifle 18–22, Artillery 17–23, Lancer 23–17, Scrambler 22–18 |
+| Scrambler composition (+20 points) | pass | five Rifles 42/80 (52.5%); one Scrambler plus four Rifles 80/80 (100%); +47.5 points |
+| No HP-plus-shield and DPS per Power dominance | pass | none |
+| Runtime counter-table coverage | pass | five ids, Scrambler flagged support |
+| **Roster worth ratio (at most 1.25)** | **fail, open owner decision** | Brawler 0.370, Rifle 0.490, Artillery 0.605, Lancer 0.535; ratio **1.634** |
+
+Lancer wins over both ordered sides: Brawler 80/80, Rifle 37/80 (46%), Artillery 10/80. The rule itself is unchanged. **Owner decision:** the derivation above shows the ratio cannot be met by Lancer or Scrambler stats under the prey rule (the Brawler would need to score about 0.44 against the Lancer while losing 65% of fights, and the Artillery is already 1.23 times the Brawler without a Lancer). Options: relax the limit, or change the worth opponent set (for example, count only each unit's prey and predator opponents, or include the Scrambler as an opponent; the latter lowered the ratio only from 1.59 to 1.56 on the X1 screen).
+
 ## Verification and failure history
 
 - Final `CoopRTSEditor Linux Development` build succeeded under the shared lock. The initial incomplete-`AArenaBounds` compile failure was fixed with the missing include.
