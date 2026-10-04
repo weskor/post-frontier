@@ -19,7 +19,7 @@
 [[generated]]
 name = "match-content"
 gen = ["generate-match-content"]
-sources = ["Build/GenerateMatchContent.py", "Build/Content/**"]
+sources = ["Build/GenerateMatchContent.py", "Build/ContentText.py", "Build/Content/**"]
 outputs = ["Content/Units/**", "Content/Content/**"]
 
 [[generated]]
@@ -66,6 +66,8 @@ sources = [
   "Build/DrawMapLayout.py",
   "Build/MatchLayout.py",
   "Build/ArtMaterials.py",
+  "Build/ContentText.py",
+  "Build/Content/constants.json",
   "Build/Maps/AvailabilityZone.json",
   "Art/Terrain/*.fbx",
 ]
@@ -97,6 +99,8 @@ sources = [
   "Build/MatchLayout.py",
   "Build/EnvKit.py",
   "Build/ArtMaterials.py",
+  "Build/ContentText.py",
+  "Build/Content/constants.json",
 ]
 outputs = [
   "Content/Maps/CampusZero.umap",
@@ -134,6 +138,8 @@ sources = [
   "Build/TerrainKit.py",
   "Build/EnvKit.py",
   "Build/ArtMaterials.py",
+  "Build/ContentText.py",
+  "Build/Content/constants.json",
   "Build/Maps/AvailabilityZone.json",
 ]
 outputs = ["Content/Maps/AvailabilityZone.umap", "Content/Art/Materials/MI_AZ_*.uasset"]

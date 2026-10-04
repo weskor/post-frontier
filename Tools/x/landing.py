@@ -369,10 +369,13 @@ def land(ctx: Context) -> int:
         if not rebase(ctx):
             return 1
         head = gitinfo.commit(ctx.repo)
+        main_head = gitinfo.commit(main)
         refusal = regenerate(ctx)
         if refusal is not None:
             return refuse(ctx, refusal)
         code = check_and_merge(ctx, main, branch)
         if code != 0:
-            undo_regeneration(ctx.repo, head)
+            # A merge that moved main must leave the branch matching what main received.
+            if gitinfo.commit(main) == main_head:
+                undo_regeneration(ctx.repo, head)
         return code
