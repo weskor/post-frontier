@@ -176,13 +176,11 @@ def build_extractor(
                 for b in st["buildings"]
             )
             and wallet(st, s.owner)["wallet"] == 0
-            and wallet(st, s.owner)["income"] == 2 + rate
             and all(
-                p["income"] == (2 + rate if p["index"] == s.owner else 2)
-                for p in st["players"]
+                p["income"] == 2 + rate // len(st["players"]) for p in st["players"]
             )
         ),
-        "paid extractor snaps exact deposit XY, reserves it, and belongs only to builder",
+        "paid extractor snaps exact deposit XY, reserves it, and raises every commander's share",
     )
     extractor = deposit(states["host"], deposit_index)["extractor"]
     return extractor, states
