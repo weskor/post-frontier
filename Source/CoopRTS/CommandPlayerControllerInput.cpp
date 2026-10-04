@@ -136,8 +136,13 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	float X, Y;
 	FVector Origin, Direction;
 	if (!GetMousePosition(X, Y) || !DeprojectScreenPositionToWorld(X, Y, Origin, Direction)
-		|| !ControllerInputPolicy::GroundPoint(Origin, Direction, Location))
+		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER)
 		return false;
+	// Single precision, as before the controller was split; the shared GroundPoint rule is double.
+	const float Time = -Origin.Z / Direction.Z;
+	if (Time <= 0.f || !FMath::IsFinite(Time))
+		return false;
+	Location = Origin + Direction * Time;
 	Location.Z = 0.f;
 	return !Location.ContainsNaN();
 }
