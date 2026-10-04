@@ -289,9 +289,8 @@ void DrawFortifyRings(const FMap& Map, const ACommandGameState& State)
 	for (const AMapRegion* Region : State.Regions)
 	{
 		FVector2D Point;
-		if (!IsValid(Region) || !Region->IsFortifyActive() || !Map.Point(State.GetRegionAnchor(Region->RegionIndex), Point))
-			continue;
-		DrawFortifyRing(Map, *Region, Point);
+		if (IsValid(Region) && Region->IsFortifyActive() && Map.Point(State.GetRegionAnchor(Region->RegionIndex), Point))
+			DrawFortifyRing(Map, *Region, Point);
 	}
 }
 
@@ -444,7 +443,7 @@ void DrawCaption(UCanvas* Canvas, const ACommandPlayerController& Controller, FV
 		bFortify ? 8.f * FMath::Clamp(Size / 144.f, .78f, 1.f) : 9.f * TextScale,
 		FName(bFortify ? TEXT("Bold") : TEXT("Regular")));
 	FCanvasTextStringViewItem Header(Origin - FVector2D(0, 29.f * TextScale),
-		FStringView(bFortify                      ? TEXT("LMB FORTIFY / RMB CANCEL")
+		FStringView(bFortify                    ? TEXT("LMB FORTIFY / RMB CANCEL")
 				: Controller.IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL")
 												: TEXT("ARENA / LMB PAN / RMB ORDER")),
 		HeaderFont, bFortify ? FLinearColor(.46f, .94f, .56f) : View);
