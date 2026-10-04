@@ -176,8 +176,8 @@ outputs = ["Content/Audio/Human/**", "Content/Audio/Machine/**", "Content/Audio/
 
 [[generated]]
 name = "announcer-audio"
-gen = ["import-audio"]
-sources = ["Build/ImportAudio.py", "Build/Audio/announcer_lines.json", "Art/Audio/Announcer/*.wav"]
+gen = ["render-announcer-voice"]
+sources = ["Build/ImportAudio.py", "Build/RenderAnnouncerVoice.py", "Build/Audio/announcer_lines.json", "Art/Audio/Announcer/*.wav"]
 outputs = ["Content/Audio/Announcer/**"]
 
 [[authored]]
