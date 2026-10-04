@@ -166,7 +166,11 @@ def spawn(actor_class, label, location, rotation=unreal.Rotator()):
     return actor
 
 
-floor_material = art.surface("MI_GalleryFloor", (0.045, 0.048, 0.055), 0.9)  # same asset and values as Build/BuildArtGallery.py
+# MI_GalleryFloor is owned by Build/BuildArtGallery.py (Tools/x/generated.toml); reuse it so this importer writes only its
+# own outputs, and create it with the same values only when the Art Gallery has not run yet.
+FLOOR_PATH = "/Game/Art/Materials/MI_GalleryFloor"
+floor_material = (assets.load_asset(FLOOR_PATH) if assets.does_asset_exist(FLOOR_PATH)
+                  else art.surface("MI_GalleryFloor", (0.045, 0.048, 0.055), 0.9))
 floor = spawn(unreal.StaticMeshActor, "Floor", (0, 0, -50))
 floor.static_mesh_component.set_static_mesh(cube)
 floor.static_mesh_component.set_material(0, floor_material)
