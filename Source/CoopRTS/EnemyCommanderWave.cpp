@@ -8,6 +8,8 @@
 #include "Content/MatchContent.h"
 #include "EngineUtils.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogJevRelease, Log, All);
+
 // A release's free wave: what it buys, where it assembles and which order it carries.
 // The schedule and its published state are EnemyCommanderRelease.cpp.
 
@@ -129,4 +131,6 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
+	UE_LOG(LogJevRelease, Display, TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d"),
+		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, WaveCarry);
 }

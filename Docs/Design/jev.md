@@ -8,7 +8,8 @@
 - **[New] Matching start:** JEV starts each battle with a pre-built base matching the players' kits, so its first release still matters ([battle.md](battle.md)).
 - **[New] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
 - **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
-- **Waves are free spawns** at JEV's main, paid from a per-release budget rather than JEV's wallet. That is what reliably ends stalls ([battle.md](battle.md)). Each wave gets an Attack order with a published plan. Until personalities arrive (step 4), its composition follows the per-release behaviour below; afterwards it follows the personality.
+- **[Built] Supply chain:** JEV builds and counts a Drill Rig only in a region its main reaches through regions it controls (`ForceOrders::ConnectedMask`, the one connectivity rule), so it never pays for a disconnected rig and resumes investing once the chain is retaken. Its planner values an expansion or Move & Hold that restores connected income, counts an isolated deposit as worth nothing, and values holding a region that connected income depends on.
+- **[Built] Waves are free spawns** at JEV's main, paid from a per-release budget rather than JEV's wallet. That is what reliably ends stalls ([battle.md](battle.md)). Each wave gets an Attack order with a published plan. Until personalities arrive (step 4), its composition follows the per-release behaviour below; afterwards it follows the personality.
 
 **Releases [Change].** The visible version schedule. Each release adds a behaviour and a wave. Starting values, orchestrator 2026-10-04:
 
@@ -21,10 +22,11 @@
 | `v2.1` | 8:00 | 600 | Wave units get +15% speed |
 | Overrun | every 60 s from 10:00 | 300 each | Sustained pressure designed to overrun a team that is stalling |
 
-- **Budgets:** multiplied by the player-count factor (see Scaling below). Node depth is 1 in step 1b; depth scaling (×1.15 per node depth) arrives with the run layer.
-- **Spending:** each budget buys whole units, and the leftover carries to the next wave.
-- **Spawning:** a wave spawns free, with no wallet change and no extraction, as forces of up to 6 units at JEV's main, each with an Attack order and a published plan.
-- **Timeline:** each release appears on JEV's timeline 30 s before it happens.
+- **[Built] Budgets:** multiplied by the player-count factor (see Scaling below). Node depth is 1 in step 1b; depth scaling (×1.15 per node depth) arrives with the run layer.
+- **[Built] Spending:** each budget buys whole units of today's roster, and the leftover carries to the next wave. A raid wave buys the cheapest unit; from `v1.2` it buys the cheapest unit strong against the humans' most numerous armor class, then fills the rest with the cheapest unit (the cheapest alone when nothing counters that class). Forces split a wave evenly, at most 6 units each.
+- **[Built] Spawning:** a wave spawns free, with no wallet change and no extraction, as forces of up to 6 units at JEV's main, each with an Attack order and a published plan. From `v2.0` every other JEV force takes the wave's Attack order and a fresh ticket too, except a force defending its attacked region, retreating or recovering.
+- **[Built] Timeline:** each release appears on JEV's timeline 30 s before it happens. The schedule, the release in force, the next release time, whether it is within 30 s and the last 8 wave events replicate on `AEnemyCommander::Release`; match time comes from one function, `GetMatchSeconds`, and stops while paused or after the match ends. The HUD drawing is [New] ([ui.md](ui.md)).
+- **[Change] `v2.1` speed:** the +15% wave speed is chosen by the release policy but not yet applied; it needs a march-speed multiplier on `AArmyGroup`.
 - Calldowns stay in step 4. **[Later]** Target timing for step 4: the first calldown comes with `v2.0`, and calldowns get faster at `v2.1`. All values are starting values for the harness.
 
 - **[New] Calldowns:** two at launch. Each is **announced 20 s ahead** on the timeline and gives teams a reason to spread out:
@@ -74,7 +76,7 @@ The visible version schedule is the Releases table above; the HUD timeline count
 ## Scaling with player count [Change]
 
 - **[Built] Baseline income:** JEV's baseline is multiplied by ×(1 + 0.3 × (N − 1)). N counts human player states with a valid commander slot in the current match roster, read at each payment, so joining or leaving changes the rate. Counts below one use N = 1. Fractional credits carry between integer-wallet payments, including across roster changes; extraction income is not multiplied. **[Change]** The base value becomes JEV's own constant ([economy.md](economy.md#resources-change--decided)).
-- **[New] Wave budget:** uses the same player-count factor. Node depth multiplies on top.
+- **[Built] Wave budget:** uses the same player-count factor, read at each release. **[Later]** Node depth multiplies on top.
 - **[Built] Solo:** uses the same formula with N = 1, including single-commander simulation matches.
 - **[New] Solo relief:** comes from the secondary commander ([commanders.md](commanders.md)) and active pause ([ui.md](ui.md)).
 - **[Candidate] Separate solo factor:** added only if playtests show it's needed.
