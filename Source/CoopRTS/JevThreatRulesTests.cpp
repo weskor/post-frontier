@@ -217,15 +217,30 @@ bool FJevThreatTargetsTest::RunTest(const FString&)
 bool FJevThreatUnitsTest::RunTest(const FString&)
 {
 	using namespace JevThreat;
-	TestEqual(TEXT("A cut force is five Lancers"), ForceUnits, 5);
-	TestEqual(TEXT("Two commanders' 260 buys ten Lancers at 24 Power; the force takes five"), UnitsFor(ForceBudget(2), 24), 5);
-	TestEqual(TEXT("Solo's 200 buys eight; the force takes five"), UnitsFor(ForceBudget(1), 24), 5);
-	TestEqual(TEXT("120 is exactly five"), UnitsFor(120, 24), 5);
-	TestEqual(TEXT("119 buys four whole units"), UnitsFor(119, 24), 4);
-	TestEqual(TEXT("A budget under one unit buys none"), UnitsFor(23, 24), 0);
-	TestEqual(TEXT("A budget below zero buys none"), UnitsFor(-50, 24), 0);
-	TestEqual(TEXT("A unit that costs nothing is never bought"), UnitsFor(260, 0), 0);
-	TestEqual(TEXT("nor one with a negative cost"), UnitsFor(260, -24), 0);
+	// The catalogue: Lancer 24 Power in squads of three, Brawler 20.
+	FComposition Bought = Compose(ForceBudget(2), 24, 3, 20);
+	TestTrue(TEXT("Two commanders' 260 buys a full Lancer squad and the Brawler escort"), Bought.Assault == 3 && Bought.Escort == 1 && Bought.Units() == 4);
+	Bought = Compose(ForceBudget(1), 24, 3, 20);
+	TestTrue(TEXT("Solo's 200 buys the same force"), Bought.Assault == 3 && Bought.Escort == 1);
+	Bought = Compose(92, 24, 3, 20);
+	TestTrue(TEXT("92 is exactly three Lancers and a Brawler"), Bought.Assault == 3 && Bought.Escort == 1);
+	Bought = Compose(91, 24, 3, 20);
+	TestTrue(TEXT("91 leaves no escort: the Lancers come first"), Bought.Assault == 3 && Bought.Escort == 0);
+	Bought = Compose(50, 24, 3, 20);
+	TestTrue(TEXT("50 buys two Lancers and, with 2 left, no escort"), Bought.Assault == 2 && Bought.Escort == 0);
+	Bought = Compose(68, 24, 3, 20);
+	TestTrue(TEXT("68 buys two Lancers and the escort"), Bought.Assault == 2 && Bought.Escort == 1);
+	Bought = Compose(10000, 24, 3, 20);
+	TestTrue(TEXT("A rich budget never grows the force: one squad, one escort"), Bought.Assault == 3 && Bought.Escort == EscortUnits);
+	Bought = Compose(23, 24, 3, 20);
+	TestTrue(TEXT("A budget under a Lancer buys the escort alone"), Bought.Assault == 0 && Bought.Escort == 1);
+	Bought = Compose(-50, 24, 3, 20);
+	TestEqual(TEXT("A budget below zero buys nothing"), Bought.Units(), 0);
+	Bought = Compose(260, 0, 3, 20);
+	TestTrue(TEXT("A Lancer that costs nothing is never bought, the escort still is"), Bought.Assault == 0 && Bought.Escort == 1);
+	Bought = Compose(260, 24, 3, 0);
+	TestTrue(TEXT("An escort that costs nothing is never bought"), Bought.Assault == 3 && Bought.Escort == 0);
+	TestEqual(TEXT("A squad size of zero buys no Lancers"), Compose(260, 24, 0, 20).Assault, 0);
 	return true;
 }
 

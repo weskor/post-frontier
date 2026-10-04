@@ -11,6 +11,9 @@
 #include "Rules/MapPresentationPolicy.h"
 #include "PressureView.h"
 #include "TeamPanelFeed.h"
+#include "EnemyCommander.h"
+#include "EngineUtils.h"
+#include "MapRegion.h"
 
 namespace CommandHUDPanels
 {
@@ -205,6 +208,23 @@ static void AlertSubtitle(const FObjectiveEvent& Event, bool bPing, bool bGift, 
 		Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 }
 
+// A Split-Brain Cut row names every region its published plans target, not only the first one the announcer pinned the
+// row to. False once the plans have given way to their forces (the row then reads as an ordinary objective row).
+static bool AppendCutTargets(const FContext& Context, FStringBuilderBase& Out)
+{
+	int32 Named = 0;
+	for (TActorIterator<AEnemyCommander> It(Context.State->GetWorld()); It; ++It)
+		if (It->TeamIndex == 5)
+			for (const FJevCutPlan& Cut : It->Release.Cuts)
+				for (const AMapRegion* Region : Context.State->Regions)
+					if (IsValid(Region) && Region->RegionIndex == Cut.Target)
+					{
+						const FString Name = Region->DisplayName.ToString();
+						Out << (Named++ ? TEXT(" + ") : TEXT("")) << ObjectiveRegionName(Name);
+					}
+	return Named > 0;
+}
+
 void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float Alpha) {
@@ -234,7 +254,10 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
-		AlertSubtitle(Event, bPing, bGift, bLocal, bAbility, Region);
+		if (Event.Id != FName(JevThreat::AnnouncerId) || !AppendCutTargets(Context, Region))
+			AlertSubtitle(Event, bPing, bGift, bLocal, bAbility, Region);
+		else
+			Region << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
 		for (int32 Index = 0; !bPing && !bAbility && !bLocal && !bGift && Index < Event.Forces.Num(); ++Index)

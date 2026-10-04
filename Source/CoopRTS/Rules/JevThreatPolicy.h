@@ -17,10 +17,11 @@ constexpr int32 CoopCommanders = 2;
 constexpr int32 MaxTargets = 2;
 constexpr int32 MaxPairs = 8;
 constexpr float LeadSeconds = JevRelease::TimelineLeadSeconds;
-// A cut force is a squad of the Assault unit (the Lancer), JEV's assault force: five of them. Five is the strength tuned
-// so that one full Brawler squad holding a neck loses it without Fortify and keeps it with Fortify (four Lancers lose to
-// the squad, six beat it even fortified; Docs/Balance.md). The funded budget is a ceiling that buys whole units.
-constexpr int32 ForceUnits = 5;
+// A cut force is JEV's assault squad: one full squad of the Assault unit (the Lancer, three) with a Frontline escort of
+// EscortUnits (one Brawler). The mix is the strength tuned so that one full Brawler squad (six, tier 1) holding a neck
+// loses it without Fortify and keeps it with Fortify; the measured sweep is in Docs/Design/battle.md. The funded budget is
+// a ceiling that buys whole units.
+constexpr int32 EscortUnits = 1;
 // What the threat is called on the timeline, in the feed and in the log.
 inline constexpr const TCHAR* Name = TEXT("Split-Brain Cut");
 // The announcer event raised when the plans are published (Rules/AnnouncerPolicy).
@@ -110,11 +111,17 @@ struct FTargets
 // nearer their main, else A.
 FTargets ChooseTargets(const JevPlanner::FWorld& World, const FPair& Pair, int32 HumanCommanders);
 
-// Lancers one cut force buys: the Budget's whole units at UnitCost, at most ForceUnits; whatever the budget does not buy
-// is not carried. Zero for a unit that costs nothing.
-int32 UnitsFor(int32 Budget, int32 UnitCost);
+// What one cut force buys with Budget: Lancers first, up to AssaultSquad (the catalogue squad size), then the escort from
+// what is left. Whatever the budget does not buy is not carried. A unit that costs nothing is never bought.
+struct FComposition
+{
+	int32 Assault = 0;
+	int32 Escort = 0;
+	int32 Units() const { return Assault + Escort; }
+};
+FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost);
 
-// The memo the feed posts for a published cut: "Ticket #12 · Attack: Split-Brain Cut sends ~6 units to West Cut · ETA 1:05".
+// The memo the feed posts for a published cut: "Ticket #12 · Attack: Split-Brain Cut sends ~4 units to West Cut · ETA 1:05".
 // Region is the target's display name; EtaSeconds counts from the moment of publication.
 void AppendMemo(FStringBuilderBase& Out, int32 Ticket, int32 SizeBand, FStringView Region, float EtaSeconds);
 }

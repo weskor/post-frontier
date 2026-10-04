@@ -87,8 +87,24 @@ The same rules apply to **both HQs**, the Lattice and Hardline (starting values,
 
 ## Two-commander threat [New]
 
-**Split-Brain Cut**, in co-op only (starting values, orchestrator 2026-10-04):
-- **The threat:** at the `v2.0` release, JEV sends two extra free assault forces at the same moment to two authored, non-adjacent human supply-neck regions ([map.md](map.md#region-traits-new--decided)). Each force is funded with half the `v2.0` budget ([jev.md](jev.md#how-jev-plays-change--decided)). Both plans are published 30 s ahead.
-- **Tuning:** one holding force loses its region without Fortify and keeps it with Fortify ([commanders.md](commanders.md)).
-- **Solo:** one target only.
-- **Failure:** costs the regions (real supply cuts), with no special fail state.
+**Split-Brain Cut [Built]**, in co-op only (starting values, orchestrator 2026-10-04):
+- **The threat:** at the `v2.0` release (6:00), JEV sends two extra free assault forces at the same moment to two authored, non-adjacent human supply-neck regions ([map.md](map.md#region-traits-new--decided)), on top of the normal `v2.0` wave. Each force is funded with half the `v2.0` budget ([jev.md](jev.md#how-jev-plays-change--decided)): 260 Power-equivalent for two commanders, 200 alone. Both plans are published 30 s ahead, with an alert row and a voiced line ("Split-Brain Cut in thirty seconds. Hold your supply necks."); the row names every target.
+- **Targets:** [Built] the map authors the eligible pairs; on Habitable Zone v2 they are Skyhook with Reactor Yard and West Cut with Reactor Yard. A neck is a non-main region nearer the humans' main than JEV's whose loss lengthens or cuts the humans' shortest hop path to some other region; the map audit checks that every pair is two distinct, non-adjacent necks. JEV takes the pair the humans hold most of, else the pair nearest their main, and skips the threat with a logged reason when every pair is malformed or holds a region JEV controls.
+- **Composition [Built]:** a cut force is one full Lancer squad (three) with one Brawler as escort, four units, bought in that order from the force's budget. The budget is a ceiling and a rich budget never grows the force, so two or more commanders do not make it stronger. The force keeps its Attack order until it has arrived and fights to the end.
+- **Tuning [Built]:** one holding force loses its region without Fortify and keeps it with Fortify ([commanders.md](commanders.md)). The world test runs the real threat from the real `v2.0` schedule against six Brawlers (a full tier-1 squad) on Skyhook and Reactor Yard, with and without the cast (cast when the force is within 20 m of the region's anchor), and the runs are exactly repeatable: without Fortify both regions fall (the squad dies and JEV captures; the force keeps 263 of 618 and 97 of 618 durability); with it both hold (the force dies; the squad keeps 244 and 657 of 1980). The mix was chosen from this sweep, every row two commanders and six Brawlers per region:
+
+| Cut force | Unfortified | Fortified |
+|---|---|---|
+| 2 Lancers | held | held |
+| 3 Lancers | held (264, 630 left) | held |
+| 4 Lancers | lost | one region lost, one held with 33 durability left |
+| **3 Lancers and a Brawler** | **lost** | **held** |
+| 3 Lancers and a Rifle | lost | held (195, 504 left) |
+| 3 Lancers and a Scrambler | held | held |
+| 3 Lancers and an Artillery | lost | one region lost |
+| 4 Rifles | held | held |
+| 5 Rifles | lost | one region lost |
+
+  The window is one unit wide, so Fortify's ×0.75 decides the fight only in a narrow band. Other squads are outside the tuning: a Rifle squad beats the force without help, and a three-unit Lancer or Scrambler squad loses to it fortified or not.
+- **Solo [Built]:** one target only: the region of the chosen pair the human holds, else the one nearer their main.
+- **Failure:** costs the regions (real supply cuts through the normal capture), with no special fail state.

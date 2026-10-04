@@ -229,9 +229,18 @@ FTargets ChooseTargets(const FWorld& World, const FPair& Pair, int32 HumanComman
 	return Targets;
 }
 
-int32 UnitsFor(int32 Budget, int32 UnitCost)
+FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost)
 {
-	return UnitCost > 0 ? FMath::Clamp(Budget / UnitCost, 0, ForceUnits) : 0;
+	FComposition Out;
+	int32 Left = FMath::Max(0, Budget);
+	if (AssaultCost > 0)
+	{
+		Out.Assault = FMath::Clamp(Left / AssaultCost, 0, FMath::Max(0, AssaultSquad));
+		Left -= Out.Assault * AssaultCost;
+	}
+	if (EscortCost > 0)
+		Out.Escort = FMath::Min(EscortUnits, Left / EscortCost);
+	return Out;
 }
 
 void AppendMemo(FStringBuilderBase& Out, int32 Ticket, int32 SizeBand, FStringView Region, float EtaSeconds)

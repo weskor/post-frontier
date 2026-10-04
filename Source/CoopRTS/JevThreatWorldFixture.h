@@ -6,6 +6,7 @@
 
 #include "CapturePoint.h"
 #include "JevReleaseWorldFixture.h"
+#include "ObjectiveAnnouncer.h"
 #include "Rules/JevThreatPolicy.h"
 
 // Split-Brain Cut world scenarios on Habitable Zone v2, over the quarantined JEV of JevReleaseWorldFixture.h. The threat
@@ -98,6 +99,10 @@ protected:
 				Region->FortifyExpiresAt = 0.f;
 			}
 		Kit.Wallet->FortifyReadyAt = 0.f;
+		SequenceBase = 0;
+		if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Kit.State))
+			for (const FObjectiveEvent& Event : Announcer->GetEvents())
+				SequenceBase = FMath::Max(SequenceBase, Event.Sequence);
 		JevMain = ArmyTestSetup::RegionAt(Kit.State, Kit.State->EnemyHeadquarters->GetActorLocation());
 		return true;
 	}
@@ -117,6 +122,17 @@ protected:
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (Pick(**It))
 				It->Destroy();
+	}
+
+	// Announcer events with this id raised since Arrange, oldest first.
+	TArray<const FObjectiveEvent*> NewEvents(FName Id) const
+	{
+		TArray<const FObjectiveEvent*> Out;
+		if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Kit.State))
+			for (const FObjectiveEvent& Event : Announcer->GetEvents())
+				if (Event.Sequence > SequenceBase && Event.Id == Id)
+					Out.Add(&Event);
+		return Out;
 	}
 
 	const FJevCutPlan* CutAt(int32 Region) const
@@ -141,6 +157,8 @@ protected:
 	bool bCoop;
 	ACommandPlayerState* Other = nullptr;
 	int32 JevMain = INDEX_NONE;
+	// The newest announcer event before Arrange; the ring is shared by every scenario in the world.
+	int32 SequenceBase = 0;
 
 private:
 	// Neutral regions, no Fortify, no second commander and no force: what the next scenario expects of the shared world.

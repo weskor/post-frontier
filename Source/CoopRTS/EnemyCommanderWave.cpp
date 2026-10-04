@@ -154,6 +154,25 @@ void AnnounceCut(const FJevTurn& Turn, int32 Region)
 	if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Turn.State))
 		Announcer->Raise(FName(JevThreat::AnnouncerId), 0, GameStateTerritory::RegionAnchor(*Turn.State, Region), {});
 }
+
+// The catalogue index of each unit one cut force buys with Budget (JevThreat::Compose); empty when the catalogue has no
+// Assault unit or the budget buys none.
+TArray<int32> CutRoster(const FJevTurn& Turn, int32 Budget)
+{
+	const int32 Assault = Turn.Content->UnitIndexForRole(EUnitRole::Assault);
+	const int32 Escort = Turn.Content->UnitIndexForRole(EUnitRole::Frontline);
+	const UArmyUnitDefinition* AssaultUnit = Turn.Content->Unit(Assault);
+	const UArmyUnitDefinition* EscortUnit = Turn.Content->Unit(Escort);
+	TArray<int32> Roster;
+	if (!AssaultUnit)
+		return Roster;
+	const JevThreat::FComposition Bought = JevThreat::Compose(Budget, AssaultUnit->UnitCost, AssaultUnit->Capacity,
+		EscortUnit ? EscortUnit->UnitCost : 0);
+	Roster.Init(Assault, Bought.Assault);
+	for (int32 Count = 0; Count < Bought.Escort; ++Count)
+		Roster.Add(Escort);
+	return Roster;
+}
 }
 
 void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmergency)
@@ -255,10 +274,8 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 		return;
 	}
 	const JevThreat::FTargets Targets = JevThreat::ChooseTargets(Turn.Summary, Choice.Pair, Humans);
-	const int32 Assault = Turn.Content->UnitIndexForRole(EUnitRole::Assault);
-	const UArmyUnitDefinition* AssaultUnit = Turn.Content->Unit(Assault);
 	const int32 Budget = JevThreat::ForceBudget(Humans);
-	const int32 Units = AssaultUnit ? JevThreat::UnitsFor(Budget, AssaultUnit->UnitCost) : 0;
+	const TArray<int32> Roster = CutRoster(Turn, Budget);
 	const float Lead = FMath::Max(0.f, JevThreat::LaunchTime() - GetMatchSeconds());
 	const float SpeedFactor = JevRelease::BehaviourFor(JevThreat::TriggerRelease).SpeedFactor;
 	for (int32 Index = 0; Index < Targets.Count; ++Index)
@@ -266,7 +283,7 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 		FPendingCut Cut;
 		Cut.Target = Targets.Region[Index];
 		Cut.Budget = Budget;
-		Cut.Roster.Init(Assault, Units);
+		Cut.Roster = Roster;
 		const float March = Cut.Roster.IsEmpty() ? -1.f : MarchSeconds(Turn, Cut.Roster, SpeedFactor, Cut.Target);
 		if (March < 0.f)
 		{

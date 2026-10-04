@@ -56,6 +56,7 @@ private:
 	bool Place() override
 	{
 		Lancer = ArmyTestSetup::UnitIndex(Kit.State, EUnitRole::Assault);
+		Brawler = ArmyTestSetup::UnitIndex(Kit.State, EUnitRole::Frontline);
 		return Arrange({ 3, 8 });
 	}
 
@@ -71,8 +72,8 @@ private:
 			return true;
 		Check(First->Ticket > 0 && Second->Ticket > 0 && First->Ticket != Second->Ticket, TEXT("Each plan has its own ticket"));
 		Check(First->Source == JevMain && Second->Source == JevMain, TEXT("Both march from JEV's main"));
-		Check(First->SizeBand == JevPlanner::SizeBand(JevThreat::ForceUnits) && Second->SizeBand == First->SizeBand,
-			TEXT("Both publish the size band of five Lancers"));
+		Check(First->SizeBand == JevPlanner::SizeBand(4) && Second->SizeBand == First->SizeBand,
+			TEXT("Both publish the size band of four units"));
 		for (const FJevCutPlan* Cut : { First, Second })
 		{
 			Check(Cut->EtaSeconds > JevThreat::LaunchTime() - PublishedAt + 10.f,
@@ -90,18 +91,11 @@ private:
 	// One alert event, raised once when the plans publish, at the first target (the announcer pipeline voices it).
 	bool Announced()
 	{
-		const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Kit.State);
-		if (!Check(Announcer != nullptr, TEXT("The announcer exists")))
-			return true;
-		int32 Count = 0;
-		for (const FObjectiveEvent& Event : Announcer->GetEvents())
-			if (Event.Id == FName(JevThreat::AnnouncerId))
-			{
-				++Count;
-				Check(Event.RegionIndex == 3 && Event.AffectedTeam == 0 && !Event.RegionName.IsEmpty(),
-					TEXT("The alert row points at the first target region and is the humans' team's"));
-			}
-		Check(Count == 1, *FString::Printf(TEXT("The threat is announced exactly once (%d events)"), Count));
+		const TArray<const FObjectiveEvent*> Events = NewEvents(FName(JevThreat::AnnouncerId));
+		Check(Events.Num() == 1, *FString::Printf(TEXT("The threat is announced exactly once (%d events)"), Events.Num()));
+		if (!Events.IsEmpty())
+			Check(Events[0]->RegionIndex == 3 && Events[0]->AffectedTeam == 0 && !Events[0]->RegionName.IsEmpty(),
+				TEXT("The alert row points at the first target region and is the humans' team's"));
 		return false;
 	}
 
@@ -120,15 +114,15 @@ private:
 		for (const int32 Region : { 3, 8 })
 		{
 			const FJevWaveEvent* Event = CutEvent(Region);
-			Check(Event && Event->Release == 3 && Event->Budget == 260 && Event->Units == 5 && Event->Forces == 1,
-				TEXT("Each force is funded with half of v2.0's 400 x 1.3: 260, and buys five Lancers"));
+			Check(Event && Event->Release == 3 && Event->Budget == 260 && Event->Units == 4 && Event->Forces == 1,
+				TEXT("Each force is funded with half of v2.0's 400 x 1.3: 260, and buys four units"));
 			const TArray<AArmyGroup*> Forces = ForcesTargeting({ Region });
 			if (!Check(Forces.Num() == 1, TEXT("One force attacks each region")))
 				continue;
 			const AArmyGroup* Force = Forces[0];
 			const FJevPublishedPlan* Plan = PlanOf(Force);
-			Check(CountUnits(Forces, Lancer) == 5 && ArmyTestSetup::CurrentRegion(Force) == JevMain,
-				TEXT("It is five Lancers, spawned in JEV's main"));
+			Check(CountUnits(Forces, Lancer) == 3 && CountUnits(Forces, Brawler) == 1 && ArmyTestSetup::CurrentRegion(Force) == JevMain,
+				TEXT("It is three Lancers and a Brawler, spawned in JEV's main"));
 			Check(Force->RetreatThreshold == ERetreatThreshold::Never && Force->SpeedFactor == 1.f,
 				TEXT("It fights to the end at ordinary speed"));
 			Check(Plan && Plan->Verb == EForceVerb::Attack && Plan->TargetRegionIndex == Region && Plan->TicketNumber > 0
@@ -140,7 +134,7 @@ private:
 		return true;
 	}
 
-	int32 Lancer = INDEX_NONE;
+	int32 Lancer = INDEX_NONE, Brawler = INDEX_NONE;
 };
 
 // Alone, JEV sends one force, to the region of the pair the human holds.
@@ -160,8 +154,8 @@ private:
 	bool OnLaunched() override
 	{
 		const FJevWaveEvent* Event = CutEvent(8);
-		Check(CutEvents() == 1 && Event && Event->Budget == 200 && Event->Units == 5,
-			TEXT("Solo: one force funded with half of v2.0's 400: 200, five Lancers"));
+		Check(CutEvents() == 1 && Event && Event->Budget == 200 && Event->Units == 4,
+			TEXT("Solo: one force funded with half of v2.0's 400: 200, four units"));
 		Check(ForcesTargeting({ 8 }).Num() == 1 && ForcesTargeting({ 3 }).IsEmpty(), TEXT("Solo: only the held region is attacked"));
 		return true;
 	}
@@ -198,9 +192,7 @@ private:
 	bool OnPublished(bool bSeen) override
 	{
 		Check(!bSeen && Release().Cuts.IsEmpty(), TEXT("No eligible pair: nothing is published"));
-		const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Kit.State);
-		for (const FObjectiveEvent& Event : Announcer->GetEvents())
-			Check(Event.Id != FName(JevThreat::AnnouncerId), TEXT("and nothing is announced"));
+		Check(NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(), TEXT("and nothing is announced"));
 		return false;
 	}
 
