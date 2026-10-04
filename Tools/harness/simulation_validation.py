@@ -270,13 +270,21 @@ def validate_plans(report: JsonObject) -> None:
 
 
 def validate_teams(snapshot: JsonObject) -> None:
+    # The role count is the game's EUnitRole enum; the validator only requires both teams to agree on it.
+    role_counts = {
+        len(team["units_by_role"])
+        for team in snapshot["teams"]
+        if isinstance(team.get("units_by_role"), list)
+    }
+    if len(role_counts) > 1:
+        raise ValueError("Role counts differ between teams")
     for team in snapshot["teams"]:
         for field in TEAM_FIELDS:
             if number(team.get(field), field) < 0:
                 raise ValueError(f"Negative telemetry {field}")
         if (
             not isinstance(team.get("units_by_role"), list)
-            or len(team["units_by_role"]) != 3
+            or not team["units_by_role"]
         ):
             raise ValueError("Missing role counts")
         if (

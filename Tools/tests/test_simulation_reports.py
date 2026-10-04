@@ -19,7 +19,7 @@ def telemetry_team(index: int) -> JsonObject:
         team=index,
         hq_health=100,
         units_alive=12,
-        units_by_role=[12, 0, 0],
+        units_by_role=[12, 0, 0, 0, 0],
         units_produced=12,
         attacks_observed=2,
         largest_region_unit_share=0.5,
@@ -155,6 +155,13 @@ def test_results_revalidate_relocated_evidence_and_exclude_nonzero_exit(
     assert failed[1] == pending
 
 
+def test_role_counts_must_agree_between_teams() -> None:
+    job, report = telemetry()
+    report["snapshots"][1]["teams"][0]["units_by_role"] = [12, 0, 0]
+    with pytest.raises(ValueError, match="Role counts differ"):
+        validate_report(report, job)
+
+
 @pytest.mark.parametrize("damage", ["sample", "roles", "outcome"])
 def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
     job, report = telemetry()
@@ -162,7 +169,7 @@ def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
         del report["snapshots"][1]
         message = "Missing 30-second sample"
     elif damage == "roles":
-        report["snapshots"][1]["teams"][0]["units_by_role"] = [1, 0, 0]
+        report["snapshots"][1]["teams"][0]["units_by_role"] = [1, 0, 0, 0, 0]
         message = "Role counts disagree"
     else:
         report["winner"] = 0

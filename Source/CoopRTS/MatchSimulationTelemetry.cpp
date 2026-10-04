@@ -165,6 +165,9 @@ void FMatchSimulation::DescribeRegions(ACommandGameState& State)
 
 namespace
 {
+// One telemetry slot per unit role, derived from the enum (Unset is the sentinel after the last role).
+constexpr int32 RoleCount = static_cast<int32>(EUnitRole::Unset);
+
 struct FTeamCounts
 {
 	int32 Barracks = 0;
@@ -173,7 +176,7 @@ struct FTeamCounts
 	int32 Alive = 0;
 	int32 Reinforcing = 0;
 	int32 Controlled = 0;
-	int32 Roles[3] = {};
+	int32 Roles[RoleCount] = {};
 	int64 Remaining = 0;
 	TMap<int32, int32> UnitRegions;
 };
@@ -240,7 +243,7 @@ void CountUnits(UWorld& World, ACommandGameState& State, int32 Team, FTeamCounts
 			continue;
 		++Counts.Alive;
 		const int32 Role = static_cast<uint8>(It->GetUnitRole());
-		if (Role < 3)
+		if (Role < RoleCount)
 			++Counts.Roles[Role];
 		const AMapRegion* Region = State.FindRegionAt(It->GetActorLocation());
 		++Counts.UnitRegions.FindOrAdd(Region ? Region->RegionIndex : INDEX_NONE);
@@ -359,7 +362,10 @@ TSharedRef<FJsonObject> FMatchSimulation::SnapshotTeam(ACommandGameState& State,
 	Summary->SetNumberField(TEXT("units_reinforcing"), Counts.Reinforcing);
 	Summary->SetNumberField(TEXT("regions_controlled"), Counts.Controlled);
 	Summary->SetArrayField(TEXT("region_indices"), MoveTemp(OwnedRegions));
-	Summary->SetArrayField(TEXT("units_by_role"), { MakeShared<FJsonValueNumber>(Counts.Roles[0]), MakeShared<FJsonValueNumber>(Counts.Roles[1]), MakeShared<FJsonValueNumber>(Counts.Roles[2]) });
+	TArray<TSharedPtr<FJsonValue>> RoleCounts;
+	for (const int32 Count : Counts.Roles)
+		RoleCounts.Add(MakeShared<FJsonValueNumber>(Count));
+	Summary->SetArrayField(TEXT("units_by_role"), MoveTemp(RoleCounts));
 	Summary->SetObjectField(TEXT("units_by_region"), Concentration);
 	Summary->SetNumberField(TEXT("largest_region_unit_share"), Counts.Alive ? static_cast<double>(Largest) / Counts.Alive : 0.);
 	Summary->SetArrayField(TEXT("buildings"), MoveTemp(Buildings));
