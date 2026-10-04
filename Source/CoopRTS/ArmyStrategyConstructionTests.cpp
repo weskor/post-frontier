@@ -70,6 +70,8 @@ bool FEnemyConstructionScenario::Stage0(UWorld* World, ACommandGameState* State,
 	for (TActorIterator<AArmyGroup> It(World); It; ++It)
 		if (It->GetTeamIndex() == 5)
 			It->Destroy();
+	// This fixture is about economy and recovery; release waves are covered by CoopRTS.Enemy.Release.
+	Planner->SkipClock(-1000.f);
 	State->bVerificationIncomePaused = true;
 	State->EnemyCommander->Resources = 600;
 	HumanBalance = PC->GetPlayerState<ACommandPlayerState>()->Resources;
