@@ -44,14 +44,22 @@ BEAM = (
 )
 ELECTRIC = "Hear and Now Sound - High Voltage Electricity - The Essential Collection"
 SERVO = ("MatiasMacSD - THE MACHINES - ROBOTIC SOUNDS", "Robot_Servo_006.wav")
-METAL = ("BluezoneCorp - Demolisher - Robot", "Bluezone_BC0290_demolisher_metal_impact_002.wav")
-GLASS = ("Chris Skyes - Shards Broken Glass", "Window,Small,Crack,Medium Impact,Bright.wav")
+METAL = (
+    "BluezoneCorp - Demolisher - Robot",
+    "Bluezone_BC0290_demolisher_metal_impact_002.wav",
+)
+GLASS = (
+    "Chris Skyes - Shards Broken Glass",
+    "Window,Small,Crack,Medium Impact,Bright.wav",
+)
 VOICE = ("Gamemaster Audio -  Human Vocalizations", "voice_male_b_death_low_09.wav")
 
 
 def lancer_fire(v: int) -> list[Layer]:
     beam = event(*BEAM, length=0.5)
-    weld = event(ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.12 + v * 0.18, length=0.48)
+    weld = event(
+        ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.12 + v * 0.18, length=0.48
+    )
     servo = event(*SERVO, skip=0.12 + v * 0.08, length=0.15)
     return [
         Layer("Cutter beam", clip(dark(pitch(beam, -4.0 + v * 0.25), 6200)), 0.045),
@@ -61,7 +69,9 @@ def lancer_fire(v: int) -> list[Layer]:
 
 
 def lancer_impact(v: int) -> list[Layer]:
-    shock = event(ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.25, length=0.25)
+    shock = event(
+        ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.25, length=0.25
+    )
     metal = event(*METAL, length=0.35)
     return [
         Layer("Contact arc", clip(dark(pitch(shock, -1.0 + v * 0.3), 5200))),
@@ -81,7 +91,9 @@ def lancer_death(v: int) -> list[Layer]:
 
 
 def shield_break(v: int) -> list[Layer]:
-    shock = event(ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.3, length=0.45)
+    shock = event(
+        ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.3, length=0.45
+    )
     glass = event(*GLASS, length=0.35)
     return [
         Layer("Shield rupture", clip(dark(pitch(shock, -6.0 + v * 0.5), 4700))),
@@ -93,9 +105,14 @@ UNIT = Unit(
     "Human",
     "Lancer",
     tracks=[
-        ("Cutter beam", 0.0), ("Welding crackle", -8.0), ("Frame servo", -13.0),
-        ("Contact arc", -2.0), ("Frame collapse", -8.0), ("Operator", -7.0),
-        ("Shield rupture", 0.0), ("Shield shards", -7.0),
+        ("Cutter beam", 0.0),
+        ("Welding crackle", -8.0),
+        ("Frame servo", -13.0),
+        ("Contact arc", -2.0),
+        ("Frame collapse", -8.0),
+        ("Operator", -7.0),
+        ("Shield rupture", 0.0),
+        ("Shield shards", -7.0),
     ],
     events=[
         Event("Fire", 4, 0.9, -20.0, lancer_fire),

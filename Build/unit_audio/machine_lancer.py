@@ -41,12 +41,27 @@ BEAM = (
     "Shapeforms Audio - Sci-Fi Weapons Cyberpunk Arsenal",
     "LASRMisc_Beam Transient_04_SFRMS_SCIWPNS.wav",
 )
-SNAP = ("Cinematic Sound Design - Interface & Infographics", "Interface Accept Glassy Snap.wav")
-CHIME = ("Sound Ex Machina - UI SOUNDS - MUSICAL", "Notification_Bridge Operation 01.wav")
+SNAP = (
+    "Cinematic Sound Design - Interface & Infographics",
+    "Interface Accept Glassy Snap.wav",
+)
+CHIME = (
+    "Sound Ex Machina - UI SOUNDS - MUSICAL",
+    "Notification_Bridge Operation 01.wav",
+)
 GLITCH = ("Glitchedtones - Data Disruption", "Medium Glitch 18.wav")
-GLASS = ("Chris Skyes - Shards Broken Glass", "Window,Small,Crack,Medium Impact,Bright.wav")
-ARC = ("Sound Spark LLC - Electric Arcs and Energy", "Electric_Arc_Reverberant_Shock_Long_05.wav")
-METAL = ("BluezoneCorp - Demolisher - Robot", "Bluezone_BC0290_demolisher_metal_impact_002.wav")
+GLASS = (
+    "Chris Skyes - Shards Broken Glass",
+    "Window,Small,Crack,Medium Impact,Bright.wav",
+)
+ARC = (
+    "Sound Spark LLC - Electric Arcs and Energy",
+    "Electric_Arc_Reverberant_Shock_Long_05.wav",
+)
+METAL = (
+    "BluezoneCorp - Demolisher - Robot",
+    "Bluezone_BC0290_demolisher_metal_impact_002.wav",
+)
 
 
 def lancer_fire(v: int) -> list[Layer]:
@@ -62,7 +77,10 @@ def lancer_impact(v: int) -> list[Layer]:
     arc = event(*ARC, length=0.35)
     glass = event(*GLASS, length=0.25)
     return [
-        Layer("Contact arc", clip(filt(pitch(arc, 1.0 + v * 0.4), "bandpass", (450, 6500)))),
+        Layer(
+            "Contact arc",
+            clip(filt(pitch(arc, 1.0 + v * 0.4), "bandpass", (450, 6500))),
+        ),
         Layer("Glass fracture", clip(dark(pitch(glass, -1.0 + v * 0.3), 5500)), 0.02),
     ]
 
@@ -93,9 +111,14 @@ UNIT = Unit(
     "Machine",
     "Lancer",
     tracks=[
-        ("Correction tone", -5.0), ("Precision beam", 0.0), ("Contact arc", -3.0),
-        ("Glass fracture", -8.0), ("Power down", -5.0), ("Fault", -12.0),
-        ("Shell collapse", -7.0), ("Shield rupture", 0.0),
+        ("Correction tone", -5.0),
+        ("Precision beam", 0.0),
+        ("Contact arc", -3.0),
+        ("Glass fracture", -8.0),
+        ("Power down", -5.0),
+        ("Fault", -12.0),
+        ("Shell collapse", -7.0),
+        ("Shield rupture", 0.0),
     ],
     events=[
         Event("Fire", 4, 0.9, -20.0, lancer_fire),

@@ -42,13 +42,20 @@ ENERGY = "Sound Spark LLC - Electric Arcs and Energy"
 ARC = (ENERGY, "Electric_Arc_Reverberant_Shock_Long_05.wav")
 CHARGE = (ENERGY, "Electric_Energy_Bit_Erosion_Blast_Powerup_01.wav")
 SERVO = ("MatiasMacSD - THE MACHINES - ROBOTIC SOUNDS", "Robot_Servo_006.wav")
-METAL = ("BluezoneCorp - Demolisher - Robot", "Bluezone_BC0290_demolisher_metal_impact_002.wav")
+METAL = (
+    "BluezoneCorp - Demolisher - Robot",
+    "Bluezone_BC0290_demolisher_metal_impact_002.wav",
+)
 VOICE = ("Gamemaster Audio -  Human Vocalizations", "voice_male_b_death_low_09.wav")
 
 
 def scrambler_fire(v: int) -> list[Layer]:
-    shock = event(ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.18, length=0.3)
-    weld = event(ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.1 + v * 0.2, length=0.25)
+    shock = event(
+        ELECTRIC, "Damp Electric Shock 8.wav", skip=0.1 + v * 0.18, length=0.3
+    )
+    weld = event(
+        ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.1 + v * 0.2, length=0.25
+    )
     servo = event(*SERVO, skip=0.1 + v * 0.1, length=0.12)
     return [
         Layer("EMP discharge", clip(dark(pitch(shock, -3.0 + v * 0.4), 5000))),
@@ -59,9 +66,14 @@ def scrambler_fire(v: int) -> list[Layer]:
 
 def scrambler_impact(v: int) -> list[Layer]:
     arc = event(*ARC, length=0.3)
-    shock = event(ELECTRIC, "Damp Electric Shock 8.wav", skip=0.2 + v * 0.2, length=0.18)
+    shock = event(
+        ELECTRIC, "Damp Electric Shock 8.wav", skip=0.2 + v * 0.2, length=0.18
+    )
     return [
-        Layer("Contact arc", clip(filt(pitch(arc, 2.0 + v * 0.4), "bandpass", (700, 6000)))),
+        Layer(
+            "Contact arc",
+            clip(filt(pitch(arc, 2.0 + v * 0.4), "bandpass", (700, 6000))),
+        ),
         Layer("Pack crackle", clip(dark(shock, 5000)), 0.02),
     ]
 
@@ -80,7 +92,9 @@ def scrambler_death(v: int) -> list[Layer]:
 def emp_pulse(v: int) -> list[Layer]:
     charge = event(*CHARGE, length=0.35)
     arc = event(*ARC, length=0.6)
-    weld = event(ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.15 + v * 0.3, length=0.55)
+    weld = event(
+        ELECTRIC, "Arc Weld Electrical Sparks 3.wav", skip=0.15 + v * 0.3, length=0.55
+    )
     return [
         Layer("Pulse charge", clip(dark(pitch(charge[::-1], 2.0 + v * 0.3), 4500))),
         Layer("Pulse body", clip(dark(pitch(arc, -8.0 + v * 0.4), 2600)), 0.18),
@@ -92,9 +106,14 @@ UNIT = Unit(
     "Human",
     "Scrambler",
     tracks=[
-        ("EMP discharge", 0.0), ("Pack crackle", -7.0), ("Pack relay", -13.0),
-        ("Contact arc", -2.0), ("Operator", -6.0), ("Pack drop", -9.0),
-        ("Pulse charge", -9.0), ("Pulse body", 0.0),
+        ("EMP discharge", 0.0),
+        ("Pack crackle", -7.0),
+        ("Pack relay", -13.0),
+        ("Contact arc", -2.0),
+        ("Operator", -6.0),
+        ("Pack drop", -9.0),
+        ("Pulse charge", -9.0),
+        ("Pulse body", 0.0),
     ],
     events=[
         Event("Fire", 4, 0.8, -20.0, scrambler_fire),
