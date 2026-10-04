@@ -496,4 +496,5 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ACommandBuilding, DeploymentCount);
 	DOREPLIFETIME(ACommandBuilding, ResearchCount);
 	DOREPLIFETIME(ACommandBuilding, StunEndServerTime);
+	DOREPLIFETIME(ACommandBuilding, Branch);
 }

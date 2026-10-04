@@ -55,7 +55,9 @@ enum class EHUDAction : uint8
 	ForceCard25 = 50,
 	ForceCard40 = 51,
 	ForceCard60 = 52,
-	Fortify = 53
+	Fortify = 53,
+	// The production panel's TIER 2 BRANCH button. Every click goes to the server, whose reason explains a refusal.
+	BranchPurchase = 54
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

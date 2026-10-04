@@ -24,10 +24,10 @@ enum class ERoute : uint8
 ERoute Route(bool bForceEmpty, int32 Hops);
 
 // A paid recruit that has not joined its force yet. A waiting recruit is at the producer;
-// otherwise it is in transit and arrives at ReadyAt.
+// otherwise it is in transit and arrives at ReadyAt. Its form is decided on arrival: the producer's
+// recruit unit at that moment (a branch bought meanwhile applies).
 struct FRecruit
 {
-	int32 UnitIndex = INDEX_NONE;
 	int32 Paid = 0;
 	double ReadyAt = 0.;
 	bool bWaiting = true;

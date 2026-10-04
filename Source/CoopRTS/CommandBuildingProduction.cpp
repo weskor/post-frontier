@@ -35,7 +35,8 @@ FProductionInput MakeProductionInput(const ACommandBuilding& Building, const ACo
 	In.bAlive = Building.IsAlive();
 	In.bConfigured = Building.bForceConfigured;
 	In.bForceValid = IsValid(Building.ForceGroup);
-	In.bEnabled = Building.bProductionEnabled;
+	// An upgrade pauses the building's production like an explicit pause, so every reader sees one state.
+	In.bEnabled = Building.bProductionEnabled && !BranchPolicy::PausesProduction(Building.Branch.Phase);
 	Building.GetForceCounts(In.Joined, In.Travelling);
 	In.Waiting = IsValid(Building.ForceGroup) ? Building.ForceGroup->RecruitsWaiting : 0;
 	const UArmyUnitDefinition* Unit = Building.GetProductionDefinition();
@@ -95,7 +96,7 @@ bool DeployAtExit(const ACommandBuilding& Building, TFunctionRef<bool(const FVec
 // Spawn first, debit second: a failed debit removes only this new candidate, never the force's members.
 bool SpawnPaidAtExit(ACommandBuilding& Building, const FVector& Exit)
 {
-	if (!Building.ForceGroup->SpawnReinforcement(Building.ProductionUnitIndex, Exit))
+	if (!Building.ForceGroup->SpawnReinforcement(Building.RecruitUnitIndex(), Exit))
 		return false;
 	if (Building.TrySpend(Building.GetProductionCost()))
 		return true;
@@ -107,6 +108,39 @@ bool SpawnPaidAtExit(ACommandBuilding& Building, const FVector& Exit)
 bool ACommandBuilding::FindProductionExit(FVector& OutLocation, int32& Cursor) const
 {
 	return FindExit(*this, OutLocation, Cursor);
+}
+
+int32 ACommandBuilding::GetBranchUnitIndex() const
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && State->Content && bForceConfigured ? State->Content->BranchIndexOf(ProductionUnitIndex) : INDEX_NONE;
+}
+
+const UArmyUnitDefinition* ACommandBuilding::GetBranchDefinition() const
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && State->Content ? State->Content->Unit(GetBranchUnitIndex()) : nullptr;
+}
+
+int32 ACommandBuilding::RecruitUnitIndex() const
+{
+	const int32 BranchIndex = Branch.Phase == EBranchPhase::Done ? GetBranchUnitIndex() : INDEX_NONE;
+	return BranchIndex != INDEX_NONE ? BranchIndex : ProductionUnitIndex;
+}
+
+void ACommandBuilding::StartBranchUpgrade()
+{
+	Branch = { EBranchPhase::Upgrading, 0.f };
+	ForceNetUpdate();
+}
+
+void ACommandBuilding::TickBranch(float DeltaSeconds)
+{
+	if (!IsUpgrading())
+		return;
+	const BranchPolicy::FUpgradeStep Step = BranchPolicy::Advance(Branch.ProgressSeconds, DeltaSeconds, IsStunned());
+	Branch = { Step.bCompleted ? EBranchPhase::Done : EBranchPhase::Upgrading, Step.Progress };
+	ForceNetUpdate();
 }
 
 void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) const
@@ -129,6 +163,7 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 {
 	if (!HasAuthority() || !FMath::IsFinite(DeltaSeconds) || DeltaSeconds <= 0.f)
 		return;
+	TickBranch(DeltaSeconds);
 	// A wiped force's paid recruits leave this exit whatever the production state: they are already paid for.
 	if (IsValid(ForceGroup) && ForceGroup->ClaimExitAttempt())
 		DeployAtExit(*this, [&](const FVector& Exit) { return ForceGroup->SpawnRecruitForExit(Exit); });
@@ -147,7 +182,7 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 	ProductionCheckAccumulator = 0.f;
 	// A force with living members gets its recruit along the supply chain; an empty one at the exit.
 	const bool bAccepted = ForceGroup->GetAliveCount() > 0
-		? ForceGroup->QueueRecruit(ProductionUnitIndex)
+		? ForceGroup->QueueRecruit(RecruitUnitIndex())
 		: DeployAtExit(*this, [&](const FVector& Exit) { return SpawnPaidAtExit(*this, Exit); });
 	if (!bAccepted)
 		return;

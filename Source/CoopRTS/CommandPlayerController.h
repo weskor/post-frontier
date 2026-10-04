@@ -27,6 +27,7 @@ class UOrderCommandComponent;
 class UMatchCommandComponent;
 class UPingCommandComponent;
 class UAbilityCommandComponent;
+class UBranchCommandComponent;
 
 enum class ECommandScreen : uint8
 {
@@ -107,6 +108,8 @@ public:
 	TObjectPtr<UPingCommandComponent> PingCommands;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UAbilityCommandComponent> AbilityCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UBranchCommandComponent> BranchCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
 	void SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
 	// Fortify targeting (CommandPlayerControllerFortify.cpp): H or the dock arms it, LMB on ground or minimap casts,

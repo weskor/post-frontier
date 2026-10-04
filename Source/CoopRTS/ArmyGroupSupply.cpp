@@ -90,13 +90,12 @@ bool AArmyGroup::QueueRecruit(int32 UnitIndex)
 	const int32 Capacity = Definition ? ACommandBuilding::GetForceCapacity(*Definition) : 0;
 	if (!CanAcceptRecruit(State, UnitIndex, Capacity) || GetAliveCount() == 0
 		|| GetAliveCount() + PendingRecruits.Num() >= Capacity
-		|| VacantReinforcementSlot(Units, UnitIndex, Capacity) == INDEX_NONE)
+		|| VacantReinforcementSlot(Units, UnitIndex, ProductionBuilding->ProductionUnitIndex, Capacity) == INDEX_NONE)
 		return false;
 	const int32 Cost = ProductionBuilding->GetProductionCost();
 	if (!ProductionBuilding->TrySpend(Cost))
 		return false;
 	SupplyDelivery::FRecruit& Recruit = PendingRecruits.AddDefaulted_GetRef();
-	Recruit.UnitIndex = UnitIndex;
 	Recruit.Paid = Cost;
 	// Start the delay now rather than at the next group tick.
 	UpdateSupply();
@@ -114,7 +113,8 @@ bool AArmyGroup::ClaimExitAttempt()
 
 bool AArmyGroup::SpawnRecruitForExit(const FVector& Exit)
 {
-	if (PendingRecruits.IsEmpty() || GetAliveCount() > 0 || !SpawnReinforcement(PendingRecruits[0].UnitIndex, Exit))
+	if (PendingRecruits.IsEmpty() || GetAliveCount() > 0 || !IsValid(ProductionBuilding)
+		|| !SpawnReinforcement(ProductionBuilding->RecruitUnitIndex(), Exit))
 		return false;
 	PendingRecruits.RemoveAt(0);
 	SyncSupplyCounts(false);
@@ -173,22 +173,25 @@ void AArmyGroup::UpdateSupply()
 	{
 		const bool bArrived = SupplyDelivery::Advance(PendingRecruits[Index], Route, Hops, Now) == SupplyDelivery::EOutcome::Arrive;
 		// A refused delivery stays due and is retried on the next tick.
-		if (bArrived && DeliverRecruit(PendingRecruits[Index]))
+		if (bArrived && DeliverRecruit())
 			PendingRecruits.RemoveAt(Index);
 		else
 			++Index;
 	}
+	UpdateRefit(Route, Hops, Now);
 	SyncSupplyCounts(Route == SupplyDelivery::ERoute::CutOff);
 }
 
-bool AArmyGroup::DeliverRecruit(const SupplyDelivery::FRecruit& Recruit)
+bool AArmyGroup::DeliverRecruit()
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(Recruit.UnitIndex) : nullptr;
+	// The recruit takes the producer's current form: a branch bought while it travelled applies.
+	const int32 UnitIndex = ProductionBuilding->RecruitUnitIndex();
+	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	const int32 Capacity = Definition ? ACommandBuilding::GetForceCapacity(*Definition) : 0;
-	const int32 Slot = Definition ? VacantReinforcementSlot(Units, Recruit.UnitIndex, Capacity) : INDEX_NONE;
-	if (!Navigation || Slot == INDEX_NONE || !CanAcceptRecruit(State, Recruit.UnitIndex, Capacity))
+	const int32 Slot = Definition ? VacantReinforcementSlot(Units, UnitIndex, ProductionBuilding->ProductionUnitIndex, Capacity) : INDEX_NONE;
+	if (!Navigation || Slot == INDEX_NONE || !CanAcceptRecruit(State, UnitIndex, Capacity))
 		return false;
 	// The slot offsets depend on the produced shape; a refused delivery puts the old shape back.
 	const bool bWasProduced = bProducedGroup;
@@ -207,7 +210,7 @@ bool AArmyGroup::DeliverRecruit(const SupplyDelivery::FRecruit& Recruit)
 			const FVector Wanted = Attempt == 0 ? Goal : Goal + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * 120.f;
 			FVector Ground;
 			if (FreeGround(*Navigation, Wanted, Ground))
-				Unit = SpawnJoined(*Definition, Recruit.UnitIndex, Slot, Ground);
+				Unit = SpawnJoined(*Definition, UnitIndex, Slot, Ground);
 		}
 	}
 	if (!Unit)
@@ -220,4 +223,54 @@ bool AArmyGroup::DeliverRecruit(const SupplyDelivery::FRecruit& Recruit)
 		JoinFormation(*Unit, *AI, *Navigation);
 	Unit->ForceNetUpdate();
 	return true;
+}
+
+// Existing members refit one at a time through the same channel as a replacement: the lowest composition slot in
+// the base form waits the delivery delay, then takes the branch's definition. A cut-off force restarts the delay
+// and an orphan never gets here, so both keep the old form.
+void AArmyGroup::UpdateRefit(SupplyDelivery::ERoute Route, int32 Hops, double Now)
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const int32 BaseIndex = ProductionBuilding->ProductionUnitIndex;
+	const int32 BranchIndex = ProductionBuilding->Branch.Phase == EBranchPhase::Done ? ProductionBuilding->GetBranchUnitIndex() : INDEX_NONE;
+	const UArmyUnitDefinition* Branch = State && State->Content ? State->Content->Unit(BranchIndex) : nullptr;
+	if (!Branch)
+	{
+		RefitSlot = INDEX_NONE;
+		return;
+	}
+	TArray<BranchPolicy::FMember, TInlineAllocator<6>> Living;
+	for (const AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive())
+			Living.Add({ Unit->GetCompositionSlot(), Unit->GetUnitIndex() });
+	// The member in line may have died: the next one starts a fresh delay.
+	if (!Living.ContainsByPredicate([&](const BranchPolicy::FMember& Member) { return Member.Slot == RefitSlot && Member.UnitIndex == BaseIndex; }))
+	{
+		RefitSlot = BranchPolicy::NextRefit(Living, BaseIndex);
+		RefitTimer = {};
+	}
+	if (RefitSlot == INDEX_NONE || SupplyDelivery::Advance(RefitTimer, Route, Hops, Now) != SupplyDelivery::EOutcome::Arrive)
+		return;
+	for (AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == RefitSlot)
+			ApplyRefit(*Unit, BranchIndex, *Branch);
+	RefitSlot = INDEX_NONE;
+	RefitTimer = {};
+}
+
+// The unit keeps its place, target and the fraction of its HP and shield; only its definition changes, so every
+// combat read sees the branch's stats from here on.
+void AArmyGroup::ApplyRefit(AArmyUnit& Unit, int32 BranchIndex, const UArmyUnitDefinition& Branch)
+{
+	const int32 OldHealth = Unit.MaxHealth();
+	const int32 OldShield = Unit.MaxShield();
+	Unit.UnitIndex = BranchIndex;
+	Unit.Definition = const_cast<UArmyUnitDefinition*>(&Branch);
+	Unit.UnitRole = Branch.Role;
+	Unit.Health = BranchPolicy::ScaleDurability(Unit.Health, OldHealth, Unit.MaxHealth());
+	Unit.Shield = BranchPolicy::ScaleDurability(Unit.Shield, OldShield, Unit.MaxShield());
+	// A refit is not damage: the impact cue reads the health baseline.
+	Unit.LastAudioHealth = Unit.Health;
+	Unit.OnRep_Appearance();
+	Unit.ForceNetUpdate();
 }

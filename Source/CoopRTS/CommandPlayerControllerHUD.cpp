@@ -5,6 +5,7 @@
 #include "CommandGameState.h"
 #include "CommandHUD.h"
 #include "Commands/ConstructionCommandComponent.h"
+#include "Commands/BranchCommandComponent.h"
 #include "Commands/PingCommandComponent.h"
 #include "Commands/ProductionCommandComponent.h"
 #include "Content/MatchContent.h"
@@ -149,6 +150,11 @@ void ACommandPlayerController::HandleBuildingAction(EHUDAction Action)
 	if (Action == EHUDAction::CancelConstruction)
 	{
 		ConstructionCommands->ServerCancelBuilding(SelectedBuilding);
+		return;
+	}
+	if (Action == EHUDAction::BranchPurchase)
+	{
+		BranchCommands->ServerPurchaseBranch(SelectedBuilding);
 		return;
 	}
 	if (Action == EHUDAction::ResearchSiege || Action == EHUDAction::ResearchRepairs || Action == EHUDAction::ResearchEntrenched)

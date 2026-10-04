@@ -28,8 +28,9 @@ bool PrepareMove(UNavigationSystemV1& Navigation, const FNavAgentProperties& Age
 bool StartPreparedMove(const FPreparedMove& Move);
 void DestroyUnit(AArmyUnit* Unit);
 // Lowest free composition slot for a producer's force; INDEX_NONE when full or when a living member
-// does not belong to this producer's unit and capacity.
-int32 VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 Capacity);
+// does not belong to this producer's unit and capacity. A member belongs when it is UnitIndex, the form
+// recruits take, or FormerIndex, the locked type's own form that a branch refit has not reached yet.
+int32 VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 FormerIndex, int32 Capacity);
 // A standing unit's capsule and the height of its centre above the floor at spawn, both read from the
 // unit class default so a capsule change moves recruit placement with it.
 FCollisionShape UnitCapsule();

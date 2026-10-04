@@ -253,7 +253,12 @@ private:
 	int32 SupplyHops(const ACommandGameState& State, bool bForceEmpty);
 	void SyncSupplyCounts(bool bCutOff);
 	void CancelRecruits();
-	bool DeliverRecruit(const SupplyDelivery::FRecruit& Recruit);
+	// Branch refit of the member in line: its composition slot and the delivery delay it is waiting out.
+	void UpdateRefit(SupplyDelivery::ERoute Route, int32 Hops, double Now);
+	void ApplyRefit(AArmyUnit& Unit, int32 BranchIndex, const UArmyUnitDefinition& Branch);
+	int32 RefitSlot = INDEX_NONE;
+	SupplyDelivery::FRecruit RefitTimer;
+	bool DeliverRecruit();
 	void JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation);
 	bool FormationSlotGoal(int32 Slot, FVector& Goal) const;
 	bool CanAcceptRecruit(const ACommandGameState* State, int32 UnitIndex, int32 Capacity) const;

@@ -25,10 +25,12 @@ public:
 	int32 IndexOf(const UArmyUnitDefinition* Definition) const;
 	int32 IndexOf(const UBuildingDefinition* Definition) const;
 	int32 UnitIndexOf(FName Id) const;
+	// Catalogue index of the tier-2 branch derived from the base unit at BaseIndex; -1 when it has none.
+	int32 BranchIndexOf(int32 BaseIndex) const;
 	int32 BuildingIndexOf(FName Id) const;
 	const UArmyUnitDefinition* FindUnit(FName Id) const { return Unit(UnitIndexOf(Id)); }
 	const UBuildingDefinition* FindBuilding(FName Id) const { return Building(BuildingIndexOf(Id)); }
-	// Migration-only: first definition matching a legacy enum; -1 when absent.
+	// Migration-only: first base (non-branch) definition matching a legacy enum; -1 when absent.
 	int32 UnitIndexForRole(EUnitRole Role) const;
 	int32 BuildingIndexForKind(EBuildingKind Kind) const;
 };

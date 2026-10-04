@@ -20,9 +20,17 @@ int32 UMatchContent::BuildingIndexOf(FName Id) const
 	return Buildings.IndexOfByPredicate([Id](const UBuildingDefinition* Building) { return Building && Building->Id == Id; });
 }
 
+int32 UMatchContent::BranchIndexOf(int32 BaseIndex) const
+{
+	const UArmyUnitDefinition* Base = Unit(BaseIndex);
+	if (!Base || Base->IsBranch())
+		return INDEX_NONE;
+	return Units.IndexOfByPredicate([Base](const UArmyUnitDefinition* Candidate) { return Candidate && Candidate->BranchOf == Base->Id; });
+}
+
 int32 UMatchContent::UnitIndexForRole(EUnitRole Role) const
 {
-	return Units.IndexOfByPredicate([Role](const UArmyUnitDefinition* Unit) { return Unit && Unit->Role == Role; });
+	return Units.IndexOfByPredicate([Role](const UArmyUnitDefinition* Unit) { return Unit && !Unit->IsBranch() && Unit->Role == Role; });
 }
 
 int32 UMatchContent::BuildingIndexForKind(EBuildingKind Kind) const

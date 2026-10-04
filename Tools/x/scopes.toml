@@ -407,6 +407,17 @@ kind = "automation"
 filter = "CoopRTS.Content.ShieldedSquad"
 map = "default"
 
+[scopes.branch]
+kind = "automation"
+filter = "CoopRTS.Forces.Branch"
+map = "default"
+
+[scopes.branch-card]
+kind = "automation"
+filter = "CoopRTS.HUD.Branch"
+map = "default"
+rendered = true
+
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
 "*.md" = ["lint"]
@@ -805,7 +816,7 @@ map = "default"
 "Source/CoopRTS/ArmyUnitRegion.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit", "simulation-duel", "shields", "pulse-stun", "region-traits"]
 # Existing runtime files these fixtures exercise; matching entries are unioned.
 "Source/CoopRTS/ArmyUnit.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
-"Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
+"Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "shielded-squad", "branch"]
 "Source/CoopRTS/Headquarters.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "guarded-hq", "objective-events", "doctrine-repairs", "doctrine-restart", "telemetry"]
 "Source/CoopRTS/MapRegion.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "fortify-network"]
 "Source/CoopRTS/Content/UnitDefinition.[h]" = ["shields", "pulse-stun", "region-traits", "shielded-squad"]
@@ -831,8 +842,8 @@ map = "default"
 "Source/CoopRTS/SupplyCardTests.cpp" = ["supply-card"]
 "Source/CoopRTS/Rules/SupplyDeliveryPolicy.*" = ["rules", "production", "construction", "supply-delivery", "supply-card"]
 "Source/CoopRTS/Rules/ProductionPolicy.[ch]*" = ["supply-delivery", "supply-card"]
-"Source/CoopRTS/ArmyGroup*.[ch]*" = ["supply-delivery", "supply-card"]
-"Source/CoopRTS/CommandBuildingProduction.c*" = ["supply-delivery"]
+"Source/CoopRTS/ArmyGroup*.[ch]*" = ["supply-delivery", "supply-card", "branch"]
+"Source/CoopRTS/CommandBuildingProduction.c*" = ["supply-delivery", "branch"]
 "Source/CoopRTS/HUD/ForceBar*.cpp" = ["supply-card"]
 "Source/CoopRTS/HUD/BuildingInspector.cpp" = ["supply-card"]
 
@@ -860,3 +871,14 @@ map = "default"
 "Source/CoopRTS/GuardedHqFixture.h" = ["guarded-hq"]
 "Source/CoopRTS/GuardedHqTargetTests.cpp" = ["guarded-hq"]
 "Source/CoopRTS/HUD/GuardedHqPanels.*" = ["guarded-hq-view"]
+# Tier-2 branches: pure rules, the purchase, pause and refit scenarios on real producers and forces, and the rendered panel and card.
+"Source/CoopRTS/BranchRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/BranchWorldTests.cpp" = ["branch"]
+"Source/CoopRTS/BranchRefitTests.cpp" = ["branch"]
+"Source/CoopRTS/BranchFixture.h" = ["branch"]
+"Source/CoopRTS/Rules/BranchPolicy.*" = ["rules", "branch", "branch-card"]
+"Source/CoopRTS/Commands/Branch*" = ["branch"]
+"Source/CoopRTS/Content/UnitDefinition.*" = ["branch"]
+"Source/CoopRTS/Content/MatchContent.*" = ["branch"]
+"Source/CoopRTS/CommandPlayerController.[ch]*" = ["branch"]
+"Source/CoopRTS/CommandPlayerControllerHUD.cpp" = ["branch"]

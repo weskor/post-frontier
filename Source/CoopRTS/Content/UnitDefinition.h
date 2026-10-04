@@ -42,6 +42,13 @@ public:
 	int32 ConfigurationCost = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Production")
 	float UnitDuration = 0.f;
+	// Tier-2 branch: Id of the base unit this definition derives from (same cost, capacity and duration, changed
+	// combat stats), None for a base type. A branch is bought per production building, never produced on its own.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Branch")
+	FName BranchOf;
+	// What the branch changes, as the production panel prints it, e.g. "+20% range".
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Branch")
+	FText BranchSummary;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Appearance")
 	TSoftObjectPtr<UStaticMesh> HumanMesh;
@@ -75,4 +82,6 @@ public:
 	float PulseBuildingStunSeconds = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement")
 	float MoveSpeed = 0.f;
+
+	bool IsBranch() const { return !BranchOf.IsNone(); }
 };

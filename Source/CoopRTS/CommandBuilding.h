@@ -6,6 +6,7 @@
 #include "ConstructionTypes.h"
 #include "Content/BuildingDefinition.h"
 #include "Rules/ProductionPolicy.h"
+#include "Rules/BranchPolicy.h"
 #include "GameFramework/Actor.h"
 #include "CommandBuilding.generated.h"
 class ADepositSite;
@@ -75,6 +76,15 @@ public:
 	void TickProduction(float DeltaSeconds);
 	void InitializeRallyPoint();
 
+	// Tier-2 branch (Rules/BranchPolicy.h, commands in Commands/BranchCommands.cpp); implementation in
+	// CommandBuildingProduction.cpp.
+	bool IsUpgrading() const { return Branch.Phase == EBranchPhase::Upgrading; }
+	// Catalogue index of the branch of the locked type; INDEX_NONE until it is locked or when it has none.
+	int32 GetBranchUnitIndex() const;
+	const UArmyUnitDefinition* GetBranchDefinition() const;
+	// The unit new recruits are made of: the branch once its upgrade is done, else the locked type.
+	int32 RecruitUnitIndex() const;
+
 	// Index into Content->Buildings; the identity spawners set. Kind is derived from it on the server.
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance, BlueprintReadOnly, Category = "Building")
 	int32 BuildingIndex = -1;
@@ -113,12 +123,19 @@ public:
 	// Server time until which construction and production are paused (Scrambler pulse); extraction and capture continue.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Building")
 	double StunEndServerTime = -1.;
+	// Tier-2 branch purchase, once per battle per building; a new battle spawns every building at None.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
+	FBranchState Branch;
 
 private:
 	friend class FCommandService;
+	friend struct FBranchCommands;
 	bool ApplyCancellation();
 	bool ApplyResearch(EArmyDoctrine Choice);
 	bool ApplyProduction(int32 UnitIndex, bool bEnabled);
+	// Starts the upgrade; the caller has paid and checked eligibility.
+	void StartBranchUpgrade();
+	void TickBranch(float DeltaSeconds);
 
 	bool FindProductionExit(FVector& OutLocation, int32& Cursor) const;
 	bool IsForceNumberReserved(const ACommandGameState& State, int32 Number) const;

@@ -41,7 +41,7 @@ bool ReinforcementExitValid(UNavigationSystemV1& Navigation, const ACommandBuild
 }
 }
 
-int32 ArmyGroupInternal::VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 Capacity)
+int32 ArmyGroupInternal::VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 FormerIndex, int32 Capacity)
 {
 	uint32 Occupied = 0;
 	int32 Living = 0;
@@ -49,7 +49,8 @@ int32 ArmyGroupInternal::VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUn
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
-		if (Unit->GetUnitIndex() != UnitIndex || Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity)
+		if ((Unit->GetUnitIndex() != UnitIndex && Unit->GetUnitIndex() != FormerIndex)
+			|| Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity)
 			return INDEX_NONE;
 		Occupied |= 1u << Unit->GetCompositionSlot();
 		++Living;
@@ -233,7 +234,7 @@ bool AArmyGroup::CanAcceptRecruit(const ACommandGameState* State, int32 UnitInde
 	return HasAuthority() && !IsActorBeingDestroyed() && State && State->MatchResult == EMatchResult::Ongoing
 		&& IsValid(ProductionBuilding) && ProductionBuilding->IsAlive() && ProductionBuilding->IsComplete()
 		&& ProductionBuilding->IsProducer() && ProductionBuilding->bForceConfigured
-		&& ProductionBuilding->ForceGroup == this && ProductionBuilding->ProductionUnitIndex == UnitIndex
+		&& ProductionBuilding->ForceGroup == this && ProductionBuilding->RecruitUnitIndex() == UnitIndex
 		&& ProductionBuilding->TeamIndex == TeamIndex && ProductionBuilding->OwningPlayerState == OwningPlayerState
 		&& HasPermittedOwner(*State) && Capacity != 0;
 }
@@ -245,7 +246,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	const int32 Capacity = Definition ? ACommandBuilding::GetForceCapacity(*Definition) : 0;
 	if (!CanAcceptRecruit(State, UnitIndex, Capacity) || !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation))
 		return false;
-	const int32 Slot = VacantReinforcementSlot(Units, UnitIndex, Capacity);
+	const int32 Slot = VacantReinforcementSlot(Units, UnitIndex, ProductionBuilding->ProductionUnitIndex, Capacity);
 	if (Slot == INDEX_NONE)
 		return false;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());

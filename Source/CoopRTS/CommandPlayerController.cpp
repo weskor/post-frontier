@@ -7,6 +7,7 @@
 #include "Commands/MatchCommandComponent.h"
 #include "Commands/PingCommandComponent.h"
 #include "Commands/AbilityCommandComponent.h"
+#include "Commands/BranchCommandComponent.h"
 #include "WorldOverlay.h"
 
 ACommandPlayerController::ACommandPlayerController()
@@ -20,6 +21,7 @@ ACommandPlayerController::ACommandPlayerController()
 	MatchCommands = CreateDefaultSubobject<UMatchCommandComponent>(TEXT("MatchCommands"));
 	PingCommands = CreateDefaultSubobject<UPingCommandComponent>(TEXT("PingCommands"));
 	AbilityCommands = CreateDefaultSubobject<UAbilityCommandComponent>(TEXT("AbilityCommands"));
+	BranchCommands = CreateDefaultSubobject<UBranchCommandComponent>(TEXT("BranchCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
