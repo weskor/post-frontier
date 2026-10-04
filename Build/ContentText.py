@@ -40,16 +40,23 @@ UNIT_FIELDS = (
     "branch_summary",
     "accent",
 )
-# A tier-2 branch is derived from its base (forces.md): the price, the force size and the damage identity stay
-# the base's, so only combat stats may differ.
-BRANCH_SHARED = (
-    "role",
-    "armor_class",
-    "damage_type",
-    "unit_cost",
-    "unit_duration",
-    "capacity",
-    "configuration_cost",
+# A tier-2 branch is derived from its base (forces.md): every field except these identity and effect fields stays
+# the base's, so a branch changes exactly what its summary says.
+BRANCH_DELTAS = frozenset(
+    (
+        "asset_name",
+        "id",
+        "display_name",
+        "accent",
+        "branch_of",
+        "branch_summary",
+        "max_health",
+        "range",
+        "max_shield",
+        "move_speed",
+        "pulse_building_stun_seconds",
+        "structure_damage_multiplier",
+    )
 )
 BUILDING_FIELDS = (
     "asset_name",
@@ -121,7 +128,9 @@ def unit_definitions() -> list[dict[str, Any]]:
             )
         if not definition["branch_summary"]:
             raise ValueError(f"unit {definition['id']!r}: a branch needs a summary")
-        changed = [f for f in BRANCH_SHARED if definition[f] != base[f]]
+        changed = [
+            f for f in UNIT_FIELDS if f not in BRANCH_DELTAS and definition[f] != base[f]
+        ]
         if changed:
             raise ValueError(
                 f"unit {definition['id']!r}: a branch keeps its base's {changed}"

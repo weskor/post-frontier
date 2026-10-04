@@ -136,16 +136,24 @@ def test_branches_carry_the_documented_one_b_effects() -> None:
         for unit in units.values()
         if unit["id"] != "demolisher"
     )
-    # Everything else about a branch is its base's.
-    for branch, base in (
-        ("warden", "frontline"),
-        ("marksman", "ranged"),
-        ("bulwark", "lancer"),
-        ("jammer", "scrambler"),
-        ("demolisher", "siege"),
-    ):
+    # Each branch changes exactly its documented stats and nothing else about its base.
+    changes = {
+        "warden": ("frontline", {"max_health"}),
+        "marksman": ("ranged", {"range"}),
+        "bulwark": ("lancer", {"max_shield", "move_speed"}),
+        "jammer": ("scrambler", {"pulse_building_stun_seconds"}),
+        "demolisher": ("siege", {"structure_damage_multiplier"}),
+    }
+    for branch, (base, stats) in changes.items():
         assert units[branch]["branch_of"] == base
         assert units[branch]["branch_summary"]
+        identity = {"asset_name", "id", "display_name", "accent", "branch_of", "branch_summary"}
+        differing = {
+            field
+            for field in ContentText.UNIT_FIELDS
+            if field not in identity and units[branch][field] != units[base][field]
+        }
+        assert differing == stats, branch
 
 
 @pytest.mark.parametrize(
@@ -153,6 +161,9 @@ def test_branches_carry_the_documented_one_b_effects() -> None:
     [
         (lambda data: data[5].update(unit_cost=99), "keeps its base"),
         (lambda data: data[5].update(capacity=2), "keeps its base"),
+        (lambda data: data[5].update(attack_damage=99), "keeps its base"),
+        (lambda data: data[6].update(interval=2.0), "keeps its base"),
+        (lambda data: data[8].update(pulse_radius=1.0), "keeps its base"),
         (lambda data: data[5].update(branch_summary=""), "needs a summary"),
         (lambda data: data[5].update(branch_of="nobody"), "must name a base unit"),
         (lambda data: data[5].update(branch_of="marksman"), "must name a base unit"),

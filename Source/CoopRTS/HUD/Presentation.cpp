@@ -137,7 +137,7 @@ void BlockReason(const FButton& Button, FStringBuilderBase& Reason)
 		Reason << TEXT("Force cap reached. A production building must be gone before adding another.");
 		break;
 	case EBlock::Upgrading:
-		Reason << TEXT("Paused: upgrading.");
+		Reason << TEXT("Production paused while upgrading");
 		break;
 	default:
 		break;

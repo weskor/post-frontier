@@ -121,7 +121,6 @@ static void AppendRefillLine(const AArmyGroup& Force, EProductionState State, FS
 // bought now. Information only; the producer's panel is where it is bought.
 static void ReadBranch(const FContext& Context, const AArmyGroup& Force, FForceCard& Card)
 {
-	Card.RefitLine.Reset();
 	Card.bRefitting = false;
 	Card.bBranchAffordable = false;
 	const ACommandBuilding* Producer = Card.Producer;
@@ -136,8 +135,12 @@ static void ReadBranch(const FContext& Context, const AArmyGroup& Force, FForceC
 				Living.Add({ Unit->GetCompositionSlot(), Unit->GetUnitIndex() });
 		Card.Refit = BranchPolicy::RefitProgress(Living, Producer->GetBranchUnitIndex());
 		Card.bRefitting = !Card.Refit.IsComplete();
-		if (Card.bRefitting)
-			BranchPolicy::AppendRefitLine(Card.RefitLine, Card.Refit, Branch->DisplayName.ToString());
+		// ui.md: the refit text takes the refill line, unless a recruit is held, which matters more.
+		if (Card.bRefitting && Force.RecruitsWaiting == 0)
+		{
+			Card.Production.Reset();
+			BranchPolicy::AppendRefitLine(Card.Production, Card.Refit, Branch->DisplayName.ToString());
+		}
 	}
 	Card.bBranchAffordable = Card.bOwned && BranchPolicy::Evaluate(FBranchCommands::MakeInput(*Producer, Context.Wallet)).IsAccepted();
 }
@@ -298,17 +301,18 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	Paint.Text(Card.Status.ToView(), X, Rect.Y + 42.f, 8.f, Card.State == ForceCardPolicy::EState::Withdrawing ? Palette::Warn : Palette::Text,
 		false, EAlign::Left, Width);
 	Paint.Text(ForceVerbRule(Card), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
-	if (Card.bRefitting)
-		Paint.Text(Card.RefitLine.ToView(), X, Rect.Y + 74.f, 7.8f, Palette::Warn, false, EAlign::Left, Width);
-	else
-		Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
+	Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(ForceTargetRule(Card.Definition), X, Rect.Y + 87.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	// Narrow cards drop the "Refill: " label before they would clip the travelling count.
 	FStringView Production = Card.Production.ToView();
 	const float ProductionWidth = Width - (Card.bOwned && Card.Producer ? 63.f : 0.f);
 	if (Production.StartsWith(TEXT("Refill: ")) && Paint.TextWidth(Production, 8.f) > ProductionWidth)
 		Production.RightChopInline(8);
-	Paint.Text(Production, X, Rect.Y + 101.f, 8.f, Palette::Muted, false, EAlign::Left, ProductionWidth);
+	// ...and a refit line drops its count, which the REFIT chip already carries.
+	int32 Arrow = INDEX_NONE;
+	if (Production.StartsWith(TEXT("Refit ")) && Paint.TextWidth(Production, 8.f) > ProductionWidth && Production.FindChar(TEXT('\u2192'), Arrow))
+		Production.RightChopInline(Arrow);
+	Paint.Text(Production, X, Rect.Y + 101.f, 8.f, Card.bRefitting && Card.Force->RecruitsWaiting == 0 ? Palette::Warn : Palette::Muted, false, EAlign::Left, ProductionWidth);
 	Paint.Bar({ X, Rect.Y + 120.f, Width, 3.f }, Card.ProductionProgress, Accent);
 	TStringBuilder<64> Threshold;
 	Threshold << TEXT("Retreat threshold \u00B7 Attack only");

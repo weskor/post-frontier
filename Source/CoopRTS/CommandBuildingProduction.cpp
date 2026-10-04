@@ -140,7 +140,9 @@ void ACommandBuilding::TickBranch(float DeltaSeconds)
 		return;
 	const BranchPolicy::FUpgradeStep Step = BranchPolicy::Advance(Branch.ProgressSeconds, DeltaSeconds, IsStunned());
 	Branch = { Step.bCompleted ? EBranchPhase::Done : EBranchPhase::Upgrading, Step.Progress };
-	ForceNetUpdate();
+	// The progress replicates with the property; only the finish is worth forcing.
+	if (Step.bCompleted)
+		ForceNetUpdate();
 }
 
 void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) const

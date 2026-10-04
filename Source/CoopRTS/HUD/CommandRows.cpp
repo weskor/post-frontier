@@ -104,7 +104,7 @@ void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButto
 	else if (!bOn)
 	{
 		const float Y = Rect.Y + (Rect.H - Paint.LineHeight(9.f * TextScale)) * .5f;
-		RightWidth = DrawBlockReason(Paint, Button, Rect.Right() - 9.f, Y, 9.f * TextScale, Rect.W * .5f, EAlign::Right);
+		RightWidth = DrawBlockReason(Paint, Button, Rect.Right() - 9.f, Y, 8.f * TextScale, Rect.W * .64f, EAlign::Right);
 	}
 	Paint.TextIn(Text.Left.ToView(), Rect, 10.f * TextScale, bOn || Button.bActive ? Palette::Text : Palette::Muted, true, EAlign::Left, 11.f,
 		Rect.W - 22.f - RightWidth - 8.f);

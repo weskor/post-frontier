@@ -24,7 +24,6 @@ struct FForceCard
 	bool bRefitting = false;
 	bool bBranchAffordable = false;
 	BranchPolicy::FRefitProgress Refit;
-	TStringBuilder<96> RefitLine;
 	ForceCardPolicy::EState State = ForceCardPolicy::EState::Holding;
 	TStringBuilder<128> Title;
 	TStringBuilder<256> Order;

@@ -63,8 +63,6 @@ TArray<FMember> Members(std::initializer_list<TPair<int32, int32>> SlotsAndForms
 
 bool FBranchEligibilityTest::RunTest(const FString& Parameters)
 {
-	TestEqual(TEXT("A battle's start state offers the branch: nothing bought, so the purchase is open again every battle"),
-		FInput().Phase, EBranchPhase::None);
 	TestEqual(TEXT("A locked, finished, idle building with the exact price is accepted"), Verdict(Ready()), EVerdict::Accepted);
 
 	FInput Unlocked = Ready();

@@ -166,7 +166,7 @@ private:
 			return !Check(StageSeconds() < 40., TEXT("The upgrade finishes and the first member refits"));
 		FForceCard Card;
 		ReadForceCard(MakeContext(PC), *Force, INDEX_NONE, Card);
-		if (!Check(Card.bRefitting && FString(Card.RefitLine.ToView()).StartsWith(TEXT("Refit 1/3 \u2192 Warden")), TEXT("The card reads the refit line with its progress")))
+		if (!Check(Card.bRefitting && FString(Card.Production.ToView()).StartsWith(TEXT("Refit 1/3 \u2192 Warden")), TEXT("The card reads the refit line with its progress")))
 			return true;
 		if (!Shot(TEXT("branch-refit")))
 			return false;
