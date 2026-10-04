@@ -10,7 +10,7 @@
 - **Sharing [New]:** support, intel and logistics buildings benefit **the whole team**, so building one is a gift to your friends. Production buildings, their upgrades and their settings stay with the owner.
 - **Start set [New]:** every commander starts a run with Barracks, Drill Rig and Workshop, plus 1–2 buildings of its own ([commanders.md](commanders.md)). Other buildings are drafted as Unlock cards ([cards.md](cards.md)).
 - **Armor:** every building has the Structure armor class ([units.md](units.md)).
-- **Structure HP is doubled** from today, so raids need commitment and Demolition units have a clear job: HQ 1800, Barracks 1000, Drill Rig 700, Workshop 800. New buildings start at similar values. Demolition keeps its ×1.5 bonus.
+- **Structure HP is doubled [Later]** from today, so raids need commitment and Demolition units have a clear job: HQ 1800, Barracks 1000, Drill Rig 700, Workshop 800. New buildings start at similar values. Demolition keeps its ×1.5 bonus. **Not part of build step 1b** (orchestrator 2026-10-04): every building keeps its current HP, including the Drill Rig ([economy.md](economy.md#deposits-change)).
 
 ## Building list
 
@@ -18,7 +18,7 @@ Costs are starting values for tuning. Built costs are today's values.
 
 | Category | Building | Cost | What it does |
 |---|---|---:|---|
-| Production | **Barracks** [Built, Change] | 220 | Brawler, Rifle, Scrambler, Repair crew |
+| Production | **Barracks** [Built, Change] | 220 | Brawler, Rifle, Scrambler, Repair crew; the Lancer too in step 1b |
 | Production | **Factory** [New] | 280 | Artillery, Raider, Juggernaut |
 | Production | **Lab** [New] | 300 | Lancer, Shield projector |
 | Economy | **Drill Rig** [Built, Change] | 160 | Mines a deposit and pays into the team pool while connected ([economy.md](economy.md)) |
@@ -33,10 +33,12 @@ Costs are starting values for tuning. Built costs are today's values.
 
 Each production building still locks to one of its units on first Start and grows through tiers and perks ([forces.md](forces.md)). Different units need different buildings, so *where* you build a Factory is part of your composition plan, and raiding one is a real blow.
 
+**[Change] Step 1b:** the Barracks produces the Lancer, so the Shielded triangle exists before the Lab. The Lab stays in step 2, and producer recipe restrictions arrive with it (orchestrator 2026-10-04).
+
 ## HQ
 
-- **[Built]** Passive: no attack, 900 HP today, 1800 in the target (structure HP doubled); losing it loses the battle.
-- **[New]** Two Failover Nodes guard each HQ, and a destroyed HQ goes offline for a hold rather than dying at once ([battle.md](battle.md)).
+- **[Built]** Passive: no attack, 900 HP today, 1800 once structure HP doubles (not in step 1b). **[Change]** Today losing it loses the battle at once; with the hold, the battle is lost when the hold completes ([battle.md](battle.md#guarding-the-hqs-change--decided)).
+- **[New] Failover Nodes:** two guard each HQ, pre-built, **1000 HP** each, at the authored sites ([map.md](map.md#maps-new--decided)). The HQ takes no damage while either node stands. Nodes take 90% less damage until the `v1.2` release ([jev.md](jev.md#how-jev-plays-change--decided)). In step 1b nodes can't be repaired or rebuilt (the target allows repair, never rebuilding), and every node loss is announced to all. A destroyed HQ goes offline for a hold rather than dying at once ([battle.md](battle.md#guarding-the-hqs-change--decided)). Starting values, orchestrator 2026-10-04.
 - **[Later]** HQ tiers and team calldowns. Cut from launch scope ([economy.md](economy.md)). The designed set, kept for later:
 
 | Tier | Calldown | Effect |

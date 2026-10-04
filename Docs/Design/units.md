@@ -26,16 +26,28 @@ A full barracks of each type was worth very different amounts. Before the step 1
 | Shielded [New] | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
 | Structure | Buildings and HQs | Demolition |
 
-- **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the class bonus applies before the outgoing Siege Optics and incoming Entrenched Frontline modifiers. EMP currently has no HP bonus; its shield rule comes with Shielded units.
+- **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the [damage pipeline](#damage-pipeline-change) orders the class bonus against every other modifier. EMP has no HP bonus against any class; its shield rule is below.
 - **Targeting [Built]:** follows the rule in [forces.md](forces.md). That topic owns explicit-target priority, retained-target lifetime, automatic acquisition and the pending force-card presentation.
-- **Artillery splash [Built]:** each impact damages hostile units, buildings and HQs within 200 cm in the ground plane. Damage falls linearly from 100% at the centre to 50% at the inclusive edge, with no damage outside. Each victim's class bonus applies before falloff; fractional HP truncates before Workshop modifiers. Allies are never hit.
+- **Artillery splash [Built]:** each impact damages hostile units, buildings and HQs within 200 cm in the ground plane. Damage falls linearly from 100% at the centre to 50% at the inclusive edge, with no damage outside. Each victim's class bonus applies before falloff. Allies are never hit.
 - **Shields [New] — decided:**
   - Shield points absorb damage before HP.
-  - They regenerate at 10% per second after 4 s without taking damage.
-  - **EMP deals ×2 to shield points**; this replaces EMP's ×1.5 class bonus.
+  - Any damage taken, to shield or HP, and any Scrambler pulse restarts the **4 s** regen delay. Regen is **10% of max shield per second** with fractional carry, capped at max (carry and pulse restart: starting value, orchestrator 2026-10-04).
+  - **EMP deals ×2 to shield points**; this replaces EMP's ×1.5 class bonus. EMP is "strong against" Shielded for target preference, and has no HP bonus against any class (starting value, orchestrator 2026-10-04).
   - Shields reward pulling back and rotating, and EMP strips them fast.
 - **Triangle:** each unit carries its own damage type (see the roster below). The roster guarantees **at least two answers to every armor class**.
 - **Air [Later]:** an unlockable layer once ground play is proven. It will need its own anti-air answers, and it bypasses region paths.
+
+## Damage pipeline [Change]
+
+One shared policy orders every modifier. Each hit runs these steps in order (starting value, orchestrator 2026-10-04):
+
+1. **Base damage.**
+2. **Outgoing multipliers:** class bonus, splash falloff and Workshop modifiers.
+3. **Incoming multipliers:** region Cover ([map.md](map.md#region-traits-new--decided)), Fortify ([commanders.md](commanders.md)) and Entrenched Frontline. They multiply together.
+4. **Shield absorption:** shield damage is the damage × 2 for EMP and × 1 otherwise. Excess shield damage converts back to HP damage, divided by the same factor.
+5. **HP:** truncated per the existing rule.
+
+Today [Built] fractional HP truncates before the Workshop modifiers. The order above moves truncation to the end.
 
 ## Unit rules — decided
 
@@ -57,8 +69,8 @@ Each unit's Human and Machine display names live in [World.md](../World.md#unit-
 | 1 | Brawler [Built] | Heavy | Kinetic, melee | **A wall, not a killer:** holds the line and catches Light backline units in melee (today's Frontline) |
 | 2 | Rifle [Built] | Light | Piercing, mid range | Steady damage against Heavy (today's Ranged) |
 | 3 | Artillery [Built] | Light | Demolition + splash | Breaks buildings and damages clumped squads (today's Siege) |
-| 4 | Lancer | Shielded | Piercing beam | Durable assault unit against Heavy |
-| 5 | Scrambler | Light | EMP | Strips shields; an auto-cast pulse stuns buildings |
+| 4 | Lancer [New] | Shielded | Piercing, single-target shot | Durable assault unit against Heavy |
+| 5 | Scrambler [New] | Light | EMP | Strips shields; an auto-cast pulse stuns buildings |
 | 6 | Raider | Light, fast | Kinetic | Prefers Drill Rigs and isolated targets, captures quickly, cuts supply chains |
 | 7 | Repair crew | Heavy | none | Auto-repairs units and buildings |
 | 8 | Shield projector | Shielded | Kinetic, weak | Projects shields onto nearby allies |
@@ -106,7 +118,7 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 | Rifle | 5 | 24 | 120 | 92 | 24 | mid | fast | — |
 | Artillery | 3 | 40 | 120 | 160 | 16 splash | long | fast | — |
 | Lancer | 3 | 45 | 135 | 110 + 80 shield | 30 | mid | medium | — |
-| Scrambler | 3 | 35 | 105 | 80 | 12 EMP | mid | fast | EMP pulse every 10 s: strips shields, stuns buildings 3 s |
+| Scrambler | 3 | 35 | 105 | 80 | 12 EMP | mid | fast | EMP pulse, see [Scrambler pulse](#lancer-and-scrambler-in-step-1b-new) |
 | Raider | 4 | 25 | 100 | 85 | 16 | short | very fast | — (passive: 2× capture speed) |
 | Repair crew | 2 | 40 | 80 | 160 | — | heals at 400 | slow | Heals the most damaged ally, 30 HP/s |
 | Shield projector | 2 | 45 | 90 | 90 + 120 shield | 6 | short | medium | 100-point regenerating shield bubble on allies within 500 |
@@ -117,6 +129,15 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 [Built] The dated runtime matrix in [Balance.md](../Balance.md) replaces the former paper starting-value comparisons. Counter outcomes include range, pursuit, targeting and splash; isolated squad DPS arithmetic is not acceptance evidence.
 
 [Built] Existing-unit production time is proportional to cost at 1/6 s per Power. Per-unit durations and the unchanged one-time Artillery fee live in [forces.md](forces.md).
+
+## Lancer and Scrambler in step 1b [New]
+
+Both are built in step 1b with the table rows above as starting values (orchestrator 2026-10-04). Each fires one shot per 1.0 s, so the DPS column is the damage per shot. The Lancer's shot is single-target. Both are produced at the Barracks ([buildings.md](buildings.md#building-list)); production time and fee follow [forces.md](forces.md#barracks-built).
+
+**Scrambler pulse.** Starting values, orchestrator 2026-10-04:
+- **Trigger:** automatic. It fires when it is ready and at least one hostile unit with shield above 0, or one hostile building (not the HQ, not a Failover Node), is within **400 cm** of the Scrambler. The **10 s** cooldown starts at the cast, and the first pulse is ready at spawn.
+- **Units:** hostile units in the radius lose all current shield, with no HP damage, and their shield regen delay restarts.
+- **Buildings:** hostile buildings in the radius are stunned for **3 s**. Production, construction and research progress pause; extraction and capture are unaffected. A new stun refreshes to 3 s; stuns never stack.
 
 ## Branches and masteries — decided starting set
 
@@ -133,6 +154,16 @@ Two branches per unit; each branch is a card ([cards.md](cards.md)). Each branch
 | Repair crew | Field Medic: heals units in combat | Engineer: repairs buildings and auto-fortifies anchors |
 | Shield projector | Dome: bigger radius | Reflector: reflects part of the damage taken |
 | Juggernaut | Siege Walker: long-range Demolition | Crusher: melee trample splash against Light |
+
+**Branch effects built in step 1b [New].** Each unit type offers one branch in 1b, available from battle 1 and bought per production building ([forces.md](forces.md#barracks-upgrades-new--decided)); drafting arrives with the run layer. Starting values, orchestrator 2026-10-04. The other branch of each unit waits for drafting.
+
+| Unit | Branch | 1b effect |
+|---|---|---|
+| Brawler | Warden | +30% HP. The taunt comes later |
+| Rifle | Marksman | +20% range |
+| Artillery | Demolisher | ×1.5 damage against Structure, on top of the Demolition bonus |
+| Lancer | Bulwark | +50% shield and −10% speed |
+| Scrambler | Jammer | Building stun of 5 s instead of the base stun |
 
 | Branch | Tier-3 mastery |
 |---|---|
@@ -177,13 +208,15 @@ Groundbreaker's 3rd branch comes in the first unlock batch.
 [Built] The combat duel harness runs every ordered pair of runtime combat definitions, including mirrors, in verified open ground on the requested map. Fresh squads use real Attack combat through the shared authoritative command service, without JEV, production, income, capture, HQ targets or Workshop specializations; each fight ends on a wipe, its game-time cap or an invalid stall. Seeds vary spawn jitter and orientation. [New] Support composition scenarios remain required before support stats are committed.
 
 - [Change] **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix. [Built] The report combines both ordered sides against the opponent; draws remain in the denominator and are not half-wins.
+- [Change] **Scrambler:** excluded from the 1-vs-1 prey and predator rules above, whatever the matrix lists; the support composition rule below tests it (starting value, orchestrator 2026-10-04).
+- [Change] **Shields in acceptance:** wherever a rule uses durability, durability is HP plus shield (starting value, orchestrator 2026-10-04).
 - [New] **Support units:** tested in compositions, e.g. Scrambler + Rifle against Lancer at equal cost. Adding the support unit must raise the win rate against its target by ≥20 points.
 - [Built] **Mirror acceptance (2026-10-03):** measure at least **40 fights per mirror**, recording both sides separately. Each side passes when a **two-sided exact binomial test** cannot reject a 50% win probability at the **95% level** (`p ≥ 0.05`). At exactly 40 fights, the effective inclusive window is **14–26 wins per side (35–65%)**, much looser than the old **45–55%** window; non-rejection is not evidence of that old ±5% precision. A fight is one trial, not two independent trials for its two sides; draws remain in each side's trial denominator and are not wins. Reports include sample counts and both p-values. The former 50% ±5% screen on ten fights is superseded; one result moved that estimate by ten percentage points.
 - [Built] **Side-order neutralisation:** odd seeds create team 0 first; even seeds create team 5 first. Left/right identities remain team 0/team 5, and each fight records the first-created team. An odd-sized or parity-unbalanced seed set is not a fully balanced ordering sample.
 - [Change] No full squad of one type is worth more than 1.25× another at equal cost, and **no squad leads on both HP and DPS per Power**.
 - [Built] **Operational budget:** 120 Power per side, whole units only (`floor(120 / unit cost)`); one-time configuration fees are excluded. Unspent remainder is not converted into units or damage. The report records actual spent Power and survivors' full unit-cost value, not HP-weighted value.
 - [Built] **Operational worth:** each side's duel score is `(1 + own surviving Power / own spent Power − enemy surviving Power / enemy spent Power) / 2`. A unit's worth is its mean score over all non-mirror opponents, both ordered sides and seeds. The roster rule passes when maximum worth / minimum worth ≤1.25; zero minimum worth fails. This is an overall roster comparison, not a restriction on counter-matchup margins.
-- [Built] **Definition check:** HP per Power is maximum HP / unit cost; DPS per Power is damage / attack interval / unit cost. Strictly leading on both metrics fails; a tie on either does not.
+- [Built] **Definition check:** DPS per Power is damage / attack interval / unit cost. [Change] HP per Power is maximum HP plus maximum shield, divided by unit cost. Strictly leading on both metrics fails; a tie on either does not.
 - [Built] **Stall validity:** the no-damage clock starts at the first observed attack or HP loss, not during approach. Before contact, the game-time cap still bounds the fight. After contact, when neither side removes HP while both sides survive for `max(30 seconds, 10 × the slower weapon's attack interval)`, the fight is `stalled` and the matrix is invalid, not a draw. A wipe takes precedence. Stall telemetry is retained outside the accepted duel rows; no rule may pass on that incomplete matrix.
 - [Built] **Seed geometry:** member spacing is 160 cm with independent seeded offsets of ±40 cm per horizontal axis. This avoids overlap at the jitter extremes. Wider offsets and alternating creation order do not prove independent samples.
 - [Built] **Cap default:** duel fights default to 300 game seconds; ordinary matches retain their existing cap. An explicit cap overrides the duel default. Cap outcomes remain censored draws only when the runtime has not detected a stall.

@@ -7,18 +7,25 @@
 - **[Built]** A deterministic planner that re-plans every 2 s and follows the same economy, placement and production rules as the players.
 - **[New] Matching start:** JEV starts each battle with a pre-built base matching the players' kits, so its first release still matters ([battle.md](battle.md)).
 - **[New] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
-- **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release ([battle.md](battle.md)) sends a **scheduled wave**.
-- **Waves are free spawns** at JEV's main, paid from a per-release budget rather than JEV's wallet. That is what reliably ends stalls ([battle.md](battle.md)). Each wave gets an Attack order with a published plan, and its composition follows the personality.
+- **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
+- **Waves are free spawns** at JEV's main, paid from a per-release budget rather than JEV's wallet. That is what reliably ends stalls ([battle.md](battle.md)). Each wave gets an Attack order with a published plan. Until personalities arrive (step 4), its composition follows the per-release behaviour below; afterwards it follows the personality.
 
-| Release | Wave budget (Power-equivalent, N = 1, act depth 1) |
-|---|---:|
-| `v1.1` | 150 |
-| `v1.2` | 250 |
-| `v2.0` | 400 |
-| `v2.1` | 600 |
-| Overrun (from ~10:00) | 300 every 60 s |
+**Releases [Change].** The visible version schedule. Each release adds a behaviour and a wave. Starting values, orchestrator 2026-10-04:
 
-Wave budgets scale with player count (see Scaling below) and by ×1.15 per node depth. All values are starting values for the harness.
+| Release | At | Wave budget (Power-equivalent, N = 1, node depth 1) | Behaviour added |
+|---|---|---:|---|
+| `v1.0` | 0:00 | none | Base behaviour: builds, expands, defends |
+| `v1.1` | 2:00 | 150 | The wave raids the nearest connected human Drill Rig region, using the cheapest units |
+| `v1.2` | 4:00 | 250 | The wave counters the humans' most numerous armor class |
+| `v2.0` | 6:00 | 400 | The wave and every JEV force attack together |
+| `v2.1` | 8:00 | 600 | Wave units get +15% speed |
+| Overrun | every 60 s from 10:00 | 300 each | Sustained pressure designed to overrun a team that is stalling |
+
+- **Budgets:** multiplied by the player-count factor (see Scaling below). Node depth is 1 in step 1b; depth scaling (×1.15 per node depth) arrives with the run layer.
+- **Spending:** each budget buys whole units, and the leftover carries to the next wave.
+- **Spawning:** a wave spawns free, with no wallet change and no extraction, as forces of up to 6 units at JEV's main, each with an Attack order and a published plan.
+- **Timeline:** each release appears on JEV's timeline 30 s before it happens.
+- Calldowns stay in step 4. All values are starting values for the harness.
 
 - **[New] Calldowns:** two at launch. Each is **announced 20 s ahead** on the timeline and gives teams a reason to spread out:
 
@@ -51,6 +58,7 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
 - **[Built] Memos come from writer-made templates** in `[JevMemos]` in [DefaultGame.ini](../../Config/DefaultGame.ini), filled from each plan's ticket number, size band, region and ETA. Missing or contradictory templates are rejected; a memo can never contradict its plan. **[New]** personality-flavoured verbs.
 - **[Built] The planner proposes, a chooser picks.** At each decision the pure planner retains the three best legal candidates, and a deterministic chooser picks the highest neutral score with stable region/verb/structure-identity ties. Commitment is enforced separately from choice. **[New]** personality weighting.
 - **[Built] Reservations and command rejection:** all valid committed unowned destinations are reserved before any force chooses, independent of force-number evaluation order. A rejected fresh choice tries the remaining legal candidates. If none is accepted, the live actual order stays published and committed instead of repeatedly issuing the same rejected proposal each evaluation; forced defense still overrides this rejection shortcut, and a held defense cannot fall back to an unrelated order.
+- **[New] No Fortify in 1b:** JEV has no Fortify ([commanders.md](commanders.md)). Its planner scores a Fortified hostile region's defence × 1.33 (starting value, orchestrator 2026-10-04).
 - **[Built] Simulation evidence:** retained creation/escalation events count unique team-5 tickets by their original verb, including short-lived plans between samples. Events capture source-region ownership and whether a command changed at creation/transition time; re-escalation of the same ticket to another defended region writes another event, while repeated publication of the same defense does not. Reports separate already-escalated creation defense, order-changing transitions and label-only transitions by JEV/neutral/player control. Sampled active plans include memos, ETA and remaining commitment; reports show captures and observed attacks alongside plan counts. Team-0 autopilot does not publish JEV plans.
 - **[Later] LLM chooser experiment:** an optional, host-only, opt-in mode in which an LLM picks among the legal candidates and returns only an index, with a 3 s fallback to the deterministic pick. It would need Steam's live-generated AI disclosure and its own balance runs in the harness, and it must never see player-written text. Only considered once the deterministic JEV passes its own gates.
 - **Why** ([llm-jev.md](../Research/llm-jev.md)):
@@ -61,11 +69,11 @@ Wave budgets scale with player count (see Scaling below) and by ×1.15 per node 
 
 ## Escalation [New]
 
-The visible version schedule described in [battle.md](battle.md). Each release adds a behaviour and a scheduled wave.
+The visible version schedule is the Releases table above; the HUD timeline counts down to each release ([battle.md](battle.md#no-clock-jev-escalates)). Each release adds a behaviour and a scheduled wave.
 
 ## Scaling with player count [Change]
 
-- **[Built] Baseline income:** JEV's baseline is multiplied by ×(1 + 0.3 × (N − 1)). N counts human player states with a valid commander slot in the current match roster, read at each payment, so joining or leaving changes the rate. Counts below one use N = 1. Fractional credits carry between integer-wallet payments, including across roster changes; extraction income is not multiplied.
+- **[Built] Baseline income:** JEV's baseline is multiplied by ×(1 + 0.3 × (N − 1)). N counts human player states with a valid commander slot in the current match roster, read at each payment, so joining or leaving changes the rate. Counts below one use N = 1. Fractional credits carry between integer-wallet payments, including across roster changes; extraction income is not multiplied. **[Change]** The base value becomes JEV's own constant ([economy.md](economy.md#resources-change--decided)).
 - **[New] Wave budget:** uses the same player-count factor. Node depth multiplies on top.
 - **[Built] Solo:** uses the same formula with N = 1, including single-commander simulation matches.
 - **[New] Solo relief:** comes from the secondary commander ([commanders.md](commanders.md)) and active pause ([ui.md](ui.md)).

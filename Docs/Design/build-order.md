@@ -23,11 +23,11 @@ The battle has to be fun before a run layer can help it.
      - **Data with something to buy:** reward regions and structure kills, plus tier-2 branches as the first purchase.
      - **Pre-built start and planning phase,** with a generic kit (Barracks plus a Drill Rig) until commanders exist; lower starting Power; JEV's matching start ([battle.md](battle.md)). It shortens every battle, so it belongs before the battle-length gate.
      - **Guarding the HQs:** Failover Nodes, the fortified opening, the hold and the final protocol for both HQs ([battle.md](battle.md)).
-     - At least one two-commander threat ([open-questions.md](open-questions.md)).
+     - **A two-commander threat:** Split-Brain Cut ([battle.md](battle.md#two-commander-threat-new)). A second design stays open ([open-questions.md](open-questions.md)).
      - **Where and how to fight (moved from step 4 and step 3, owner decision 2026-10-04):**
        - **Region traits** on fixed regions of Habitable Zone v2. Each trait's terrain matches it: high ground sits on raised plateaus with ramps, and cover has visible cover. The map also gets narrow necks and 2–3 real routes between fronts that cost different things, so routes stop being straight lines ([map.md](map.md)).
        - **One region ability, Fortify, for every commander** until commanders exist. It is paid with Data plus a cooldown ([commanders.md](commanders.md)).
-     - **Gate:** harness median battle length is inside 8–12 min, and a scripted rush (every force on Attack from the start, nobody watching) never wins before 6 min; the playtest shows the decision budget is met and no unit type dominates.
+     - **Gate:** the harness gate in [Balance.md](../Balance.md#step-1b-gate-new) (median battle length and a scripted rush); the playtest shows the decision budget is met and no unit type dominates.
 2. **Depth inside a battle:**
    - Tier 3, perks, Factory and Lab, Workshop as the tier-3 gate.
    - Turret, Repair Bay, Shield Generator, Relay Tower, Conduit.

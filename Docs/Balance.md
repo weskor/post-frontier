@@ -31,6 +31,15 @@ Higher-dilation equivalence has **not** been established. A paired sample withou
 
 Runtime numeric bounds are baseline/rates **0–10000**, amounts **0–100000000**, seed **0–2147483647**, cap **1–86400 s**, requested dilation **1–32** (effective engine clamping is rejected as a request mismatch). The runtime requires an absolute output path; the runner owns it. Defaults are unchanged without opt-in.
 
+### Step 1b gate [New]
+
+The method for the build step 1b gate ([build-order.md](Design/build-order.md)). It records the procedure only; no result is claimed here until a run exists (starting values, orchestrator 2026-10-04).
+
+- **Rush scenario:** the team-0 autopilot gives every force Attack along the path to JEV's HQ at spawn and after every refill, and never retreats except through casualty withdrawal. It uses the normal economy: the pre-built kit plus extra Barracks.
+- **Seeds and cap:** at least 20 seeds per baseline variant (2/s and 1/s, [economy.md](Design/economy.md#resources-change--decided)), each with a 1200 s cap.
+- **Pass:** no rush victory before 360 s, and a median battle length inside the length target ([battle.md](Design/battle.md)).
+- **Reporting:** decisive matches and censored (capped) matches are reported separately, per variant, with the sample counts. A censored match is not a decisive length.
+
 ### Time, determinism and dilation
 
 The world uses a **fixed 1/60 second game step**. `FApp::SetUseFixedTimeStep(true)` and `SetFixedDeltaTime(1/(60 × effective dilation))` scale the virtual undilated step inversely to world dilation; frame clamps preserve that game step. This avoids coarse actor deltas silently changing single-action-per-tick combat and production. Headless frames are uncapped and run as fast as the CPU/navigation allows at **both** 1× and higher dilation. Larger dilation does not reduce the number of gameplay frames or promise a wall-clock speedup; `wall_duration` records real `FPlatformTime` elapsed seconds rather than the engine's virtual clock.
