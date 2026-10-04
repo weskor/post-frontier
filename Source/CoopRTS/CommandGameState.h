@@ -187,6 +187,8 @@ public:
 	// Opens a fresh planning phase: pauses the world, resets wallets to the opening and gives every human a
 	// kit slot and JEV its matching start. Server only.
 	void BeginPlanning();
+	// Opens the phase when this game state next ticks (the mode calls it at BeginPlay). Server only.
+	void OpenPlanningOnNextTick() { bPlanningPending = true; }
 	// After 0:00 a joining commander gets a finished kit at default spots, with production started. Server only.
 	void GrantLateKit(ACommandPlayerState* Commander);
 	int32 GetPlanningEndCount() const { return PlanningEndCount; }
@@ -307,6 +309,7 @@ private:
 	bool PlaceDefaultRig(FPlanningKit& Kit);
 	void DestroyKit(FPlanningKit& Kit);
 	void SyncWorldPause(ACommandPlayerController* Controller);
+	bool bPlanningPending = false;
 	double JevKitRetryAt = 0.;
 	double PlanningDeadline = 0.;
 	double PlanningStartedReal = 0.;

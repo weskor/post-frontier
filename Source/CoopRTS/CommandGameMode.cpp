@@ -188,7 +188,8 @@ void ACommandGameMode::BeginPlay()
 		return;
 	EnemyCommander = GetWorld()->SpawnActor<AEnemyCommander>();
 	State->ForceNetUpdate();
-	State->BeginPlanning();
+	// Opens on the game state's first tick, so the world's first frame runs as it always did.
+	State->OpenPlanningOnNextTick();
 }
 
 void ACommandGameMode::PreLogin(const FString& Options, const FString& Address,

@@ -76,6 +76,11 @@ void ACommandGameState::RefreshSoloMenuPause(ACommandPlayerController* Controlle
 void ACommandGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bPlanningPending && HasAuthority())
+	{
+		bPlanningPending = false;
+		BeginPlanning();
+	}
 	if (HasAuthority() && Planning.bActive)
 	{
 		TickPlanning(); // Real-time bookkeeping while the world stands still, never income.
