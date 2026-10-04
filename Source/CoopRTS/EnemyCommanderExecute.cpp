@@ -163,6 +163,26 @@ void RallyRetreat(const FJevTurn& Turn, const FJevForceStep& Step)
 	if (IsValid(Producer) && Producer->RallyRegionIndex != Force.GetRetreatRegion())
 		FCommandService::SetRallyPoint(Turn.Commander, Producer, Force.GetRetreatRegion());
 }
+
+// The Attack plan a release gives a force, under a fresh commitment.
+JevPlanner::FPlan WavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int32 Target)
+{
+	JevPlanner::FPlan Plan;
+	Plan.Verb = JevPlanner::EVerb::Attack;
+	Plan.Source = Step.Snapshot.Source;
+	Plan.Target = Target;
+	Plan.SizeBand = JevPlanner::SizeBand(Step.Snapshot.UnitCount);
+	Plan.EtaSeconds = FMath::Max(0.f, JevPlanner::TravelSeconds(Turn.Summary, Step.Snapshot, Target));
+	Plan.CommittedUntil = Turn.Now + JevPlanner::CommitmentSeconds;
+	Plan.bRequiresUnownedTarget = Turn.Summary.Regions[Target].Controller != Turn.Team;
+	return Plan;
+}
+
+// A force already in the field joins a wave unless it is retreating, recovering or holding its attacked region.
+bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
+{
+	return !Step.bRecovering && !Step.Snapshot.bRetreating && !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
+}
 }
 
 void AEnemyCommander::ExecuteForces(FJevTurn& Turn)
@@ -186,6 +206,21 @@ void AEnemyCommander::ExecuteForce(FJevTurn& Turn, AArmyGroup* Force)
 		Turn.Summary.Regions[Step.Current->Plan.Target].bClaimed = --Turn.Reservations[Step.Current->Plan.Target] > 0;
 	SnapshotForce(Turn, Step);
 	if (!ChoosePlan(Turn, Step) || !IssueOrder(Turn, Step))
+		return;
+	Commit(Turn, Step);
+	Publish(Turn, Step);
+}
+
+void AEnemyCommander::ExecuteWaveForce(FJevTurn& Turn, AArmyGroup* Force, int32 Target, bool bJoining)
+{
+	FJevForceStep Step;
+	Step.Force = Force;
+	Step.Current = CommittedForces.FindByPredicate([&](const FJevCommittedForce& Entry) { return Entry.Force == Force; });
+	SnapshotForce(Turn, Step);
+	if ((bJoining && !JoinsWave(Turn, Step)) || !JevExecution::ValidRegion(Target))
+		return;
+	Step.Next = WavePlan(Turn, Step, Target);
+	if (!IssueOrder(Turn, Step))
 		return;
 	Commit(Turn, Step);
 	Publish(Turn, Step);

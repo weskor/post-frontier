@@ -99,6 +99,7 @@ bool AArmyGroup::SpawnUnits()
 	ForceNetUpdate();
 	return true;
 }
+#endif
 
 AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot)
 {
@@ -134,7 +135,58 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 	ForceNetUpdate();
 	return Unit;
 }
-#endif
+
+AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
+	TConstArrayView<int32> UnitIndices, int32 InForceNumber)
+{
+	ACommandGameState* State = World.GetGameState<ACommandGameState>();
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&World);
+	if (!State || !Navigation || State->MatchResult != EMatchResult::Ongoing || &Owner != State->EnemyCommander
+		|| UnitIndices.IsEmpty() || UnitIndices.Num() > MaxUnitCount)
+		return nullptr;
+	const FTransform Transform(Anchor);
+	AArmyGroup* Group = World.SpawnActorDeferred<AArmyGroup>(StaticClass(), Transform, nullptr, nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Group)
+		return nullptr;
+	Group->Initialize({ 5, &Owner, -1, nullptr, Anchor });
+	Group->ForceNumber = InForceNumber;
+	Group->FinishSpawning(Transform);
+	// Each member takes the nearest navigable point around the anchor, ring by ring, that no
+	// earlier member occupies and where a unit fits.
+	constexpr float RingSpacing = 170.f;
+	constexpr float MemberSpacing = 130.f;
+	TArray<FVector, TInlineAllocator<MaxUnitCount>> Placed;
+	const auto Place = [&](int32 Slot) {
+		for (int32 Ring = 0; Ring < 6; ++Ring)
+			for (int32 Step = 0, Steps = FMath::Max(1, 6 * Ring); Step < Steps; ++Step)
+			{
+				const float Angle = 2.f * PI * Step / Steps;
+				const FVector Candidate = Anchor + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (Ring * RingSpacing);
+				FNavLocation Ground;
+				if (!Navigation->ProjectPointToNavigation(Candidate, Ground, FVector(60.f, 60.f, 200.f))
+					|| Placed.ContainsByPredicate([&](const FVector& Other) {
+						   return FVector::DistSquared2D(Other, Ground.Location) < FMath::Square(MemberSpacing);
+					   }))
+					continue;
+				if (Group->SpawnMember(UnitIndices[Slot], Ground.Location, Slot))
+				{
+					Placed.Add(Ground.Location);
+					return;
+				}
+			}
+	};
+	for (int32 Slot = 0; Slot < UnitIndices.Num(); ++Slot)
+		Place(Slot);
+	if (Group->Units.IsEmpty())
+	{
+		Group->Destroy();
+		return nullptr;
+	}
+	Group->Destination = Group->GetCenter();
+	Group->ForceNetUpdate();
+	return Group;
+}
 
 bool AArmyGroup::CanSpawnReinforcement(const ACommandGameState* State, int32 UnitIndex, int32 Capacity,
 	const FVector& SpawnLocation)

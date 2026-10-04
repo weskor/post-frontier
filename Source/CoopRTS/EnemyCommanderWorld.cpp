@@ -50,6 +50,24 @@ int32 EnemyIncome(const FJevTurn& Turn)
 			Income += Turn.State->GetIncomePerSecond(Human);
 	return Income;
 }
+
+// A built Drill Rig. JEV counts its own only where its main reaches the region; every rig
+// still tells the planner what income it would restore or what a raid would hit.
+void ScanExtractor(FJevTurn& Turn, const ADepositSite& Deposit)
+{
+	const ACommandBuilding& Extractor = *Deposit.Extractor;
+	if (!Extractor.IsAlive() || !Extractor.IsComplete())
+		return;
+	JevPlanner::FRegion& Region = Turn.Summary.Regions[Deposit.RegionIndex];
+	if (Extractor.OwningPlayerState != Turn.Commander)
+	{
+		++Region.HostileRigs;
+		return;
+	}
+	Region.IncomeValue += Deposit.RatePerSecond();
+	if (Turn.Connected & (uint64(1) << Deposit.RegionIndex))
+		++Turn.Established;
+}
 }
 
 namespace JevWorld
@@ -74,6 +92,8 @@ bool SummariseRegions(FJevTurn& Turn)
 	Turn.HomeRegion = State.FindRegionAt(Turn.Home);
 	if (!Turn.HomeRegion || !ValidRegion(Turn.HomeRegion->RegionIndex))
 		return false;
+	Turn.Summary.Home = Turn.HomeRegion->RegionIndex;
+	Turn.Connected = JevPlanner::ConnectedRegions(Turn.Summary);
 	const AMapRegion* EnemyMain = State.FindRegionAt(Turn.EnemyHome);
 	Turn.Summary.EnemyHome = EnemyMain ? EnemyMain->RegionIndex : INDEX_NONE;
 	return true;
@@ -123,6 +143,8 @@ void ScanUnits(FJevTurn& Turn)
 			continue;
 		}
 		++Turn.EnemyStrength;
+		if (const int32 Armor = static_cast<int32>(It->GetArmorClass()); Armor >= 0 && Armor < 4)
+			++Turn.EnemyArmor.Count[Armor];
 		const AMapRegion* Region = Turn.State->FindRegionAt(It->GetActorLocation());
 		if (Region && ValidRegion(Region->RegionIndex))
 			++Turn.Summary.Regions[Region->RegionIndex].Hostiles;
@@ -140,14 +162,13 @@ void ScanDeposits(FJevTurn& Turn)
 			continue;
 		if (IsValid(Deposit->Extractor))
 		{
-			if (Deposit->Extractor->IsAlive() && Deposit->Extractor->IsComplete()
-				&& Deposit->Extractor->OwningPlayerState == Turn.Commander)
-				++Turn.Established;
+			ScanExtractor(Turn, *Deposit);
 			continue;
 		}
 		JevPlanner::FRegion& Region = Turn.Summary.Regions[Deposit->RegionIndex];
 		Region.DepositValue += Deposit->RatePerSecond();
-		if (Region.Controller != Turn.Team || Turn.State->IsRegionContested(Deposit->RegionIndex, Turn.Team))
+		if (Region.Controller != Turn.Team || !(Turn.Connected & (uint64(1) << Deposit->RegionIndex))
+			|| Turn.State->IsRegionContested(Deposit->RegionIndex, Turn.Team))
 			continue;
 		const float Score = JevExecution::DepositScore(Deposit->RatePerSecond(), FVector::Dist2D(Turn.Home, Deposit->GetActorLocation()));
 		Turn.EligibleDeposits.Add({ Deposit, Score });

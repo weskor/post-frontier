@@ -91,16 +91,74 @@ void Offer(FCandidates& Out, const FPlan& Plan, float Score)
 	Out.Values[At] = Candidate;
 }
 
-float RegionScore(const FWorld& World, const FForce& Force, const FPaths& Route, int32 Index)
+// The team's supply chain: which regions its main reaches through regions it controls.
+struct FChain
+{
+	bool bActive = false;
+	int32 Home = INDEX_NONE;
+	uint64 Neighbours[ForceOrders::MaxRegions] = {};
+	uint64 Controlled = 0;
+	uint64 Connected = 0;
+
+	uint64 Reach(uint64 ControlledMask) const
+	{
+		return ForceOrders::ConnectedMask(Neighbours, ForceOrders::MaxRegions, Home, ControlledMask);
+	}
+};
+
+FChain MakeChain(const FWorld& World)
+{
+	FChain Chain;
+	if (!Exists(World, World.Home))
+		return Chain;
+	Chain.bActive = true;
+	Chain.Home = World.Home;
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
+		if (Exists(World, Index))
+		{
+			Chain.Neighbours[Index] = World.Regions[Index].Neighbours;
+			if (World.Regions[Index].Controller == World.Team)
+				Chain.Controlled |= uint64(1) << Index;
+		}
+	Chain.Controlled |= uint64(1) << World.Home;
+	Chain.Connected = Chain.Reach(Chain.Controlled);
+	return Chain;
+}
+
+int32 IncomeIn(const FWorld& World, uint64 Mask)
+{
+	int32 Income = 0;
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
+		if (Mask & (uint64(1) << Index))
+			Income += World.Regions[Index].IncomeValue;
+	return Income;
+}
+
+// What the supply chain adds to taking an unowned region, or to holding an owned one.
+// Taking: an isolated deposit is worth nothing, and income the capture reconnects is worth
+// ChainIncomeWeight per Power/s. Holding: the connected income that depends on the region.
+float ChainScore(const FWorld& World, const FChain& Chain, int32 Index)
+{
+	if (!Chain.bActive)
+		return 0.f;
+	const uint64 Bit = uint64(1) << Index;
+	if (Chain.Controlled & Bit)
+		return ChainIncomeWeight * IncomeIn(World, Chain.Connected & ~Chain.Reach(Chain.Controlled & ~Bit));
+	const uint64 After = Chain.Reach(Chain.Controlled | Bit);
+	const float Isolated = (After & Bit) ? 0.f : -2.f * World.Regions[Index].DepositValue;
+	return Isolated + ChainIncomeWeight * IncomeIn(World, After & ~Chain.Connected & ~Bit);
+}
+
+float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, int32 Index)
 {
 	const FRegion& Region = World.Regions[Index];
 	return Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
 									: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
 			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
-			- (Region.Controller != INDEX_NONE ? 3.f : 0.f);
+			- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
 }
 
-void OfferStructures(const FWorld& World, const FForce& Force, const FPaths& Route, FCandidates& Out)
+void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, FCandidates& Out)
 {
 	for (const FTarget& Target : World.Targets)
 	{
@@ -112,7 +170,7 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FPaths& Rou
 			continue;
 		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
 		Plan.TargetIdentity = Target.Identity;
-		Offer(Out, Plan, RegionScore(World, Force, Route, Target.Region));
+		Offer(Out, Plan, RegionScore(World, Force, Chain, Route, Target.Region));
 	}
 }
 }
@@ -122,6 +180,11 @@ bool MustDefend(const FWorld& World, const FForce& Force)
 	return !Force.bRetreating && Exists(World, Force.Source)
 		&& World.Regions[Force.Source].Controller == World.Team
 		&& (World.Regions[Force.Source].Hostiles > 0 || World.Regions[Force.Source].bAttacked);
+}
+
+uint64 ConnectedRegions(const FWorld& World)
+{
+	return MakeChain(World).Connected;
 }
 
 int32 SizeBand(int32 UnitCount)
@@ -144,6 +207,7 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 	if (!Exists(World, Force.Source) || Force.UnitCount <= 0 || SlowestSpeed(Force) <= 0.f)
 		return Out;
 	const FPaths Route = Paths(World, Force);
+	const FChain Chain = MakeChain(World);
 	if (Force.bRetreating)
 	{
 		// An in-flight Retreat remains Retreat even after its planning window
@@ -176,15 +240,16 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		{
 			if (Region.Hostiles > 0 || Region.bAttacked || Index == Force.Source)
 				Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Index, Route.Length[Index]),
-					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f : -100.f);
+					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f + ChainScore(World, Chain, Index)
+															: -100.f);
 			continue;
 		}
 		if (Region.bMain && Index != World.EnemyHome)
 			continue;
 		const EVerb Verb = Region.Controller == INDEX_NONE ? EVerb::MoveAndHold : EVerb::Attack;
-		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Route, Index));
+		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Chain, Route, Index));
 	}
-	OfferStructures(World, Force, Route, Out);
+	OfferStructures(World, Force, Chain, Route, Out);
 	return Out;
 }
 

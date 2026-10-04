@@ -8,6 +8,7 @@
 #include "Content/MatchContent.h"
 #include "Headquarters.h"
 #include "Engine/World.h"
+#include "Net/UnrealNetwork.h"
 
 namespace
 {
@@ -41,14 +42,30 @@ bool ResolveContent(FJevTurn& Turn)
 AEnemyCommander::AEnemyCommander()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	bReplicates = false;
+	// Replicated only for the release schedule clients read; planning stays on the server.
+	bReplicates = true;
+	bAlwaysRelevant = true;
+	SetNetUpdateFrequency(10.f);
+	Release.NextAt = JevRelease::ReleaseTime(Release.Next);
+}
+
+void AEnemyCommander::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AEnemyCommander, Release);
 }
 
 void AEnemyCommander::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (!HasAuthority() || (EvaluateElapsed += DeltaSeconds) < 2.f)
+	if (!HasAuthority())
 		return;
+	// A due release evaluates at once, retrying while an evaluation cannot launch it.
+	ReleaseRetryElapsed += DeltaSeconds;
+	const bool bReleaseDue = TickRelease() && ReleaseRetryElapsed >= .25f;
+	if ((EvaluateElapsed += DeltaSeconds) < 2.f && !bReleaseDue)
+		return;
+	ReleaseRetryElapsed = 0.f;
 	EvaluateElapsed = FMath::Fmod(EvaluateElapsed, 2.f);
 	EvaluatePlan();
 }
@@ -105,6 +122,8 @@ void AEnemyCommander::EvaluatePlan()
 	JevWorld::Finish(Turn);
 	JevEconomy::ConfigureProduction(Turn);
 	ExecuteForces(Turn);
+	if (TeamIndex == 5)
+		AdvanceReleases(Turn);
 	JevEconomy::BuildNext(Turn);
 	if (TeamIndex == 5)
 		Turn.State->ForceNetUpdate();

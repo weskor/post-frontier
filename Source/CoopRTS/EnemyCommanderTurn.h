@@ -5,6 +5,7 @@
 #include "ForceOrders.h"
 #include "Rules/JevExecution.h"
 #include "Rules/JevPlanner.h"
+#include "Rules/JevReleasePolicy.h"
 
 class ACommandBuilding;
 class ACommandGameState;
@@ -49,6 +50,10 @@ struct FJevTurn
 	const AMapRegion* Regions[ForceOrders::MaxRegions] = {};
 	const AMapRegion* HomeRegion = nullptr;
 	JevPlanner::FWorld Summary;
+	// Regions this team's main reaches through regions it controls (JevPlanner::ConnectedRegions).
+	uint64 Connected = 0;
+	// The hostile team's living units per armor class.
+	JevRelease::FArmorCounts EnemyArmor;
 	TArray<ACommandBuilding*, TInlineAllocator<8>> Barracks;
 	ACommandBuilding* Workshop = nullptr;
 	// Configured producers per role slot.
@@ -57,7 +62,7 @@ struct FJevTurn
 	uint64 ForceRegions = 0;
 	int32 FriendlyStrength = 0;
 	int32 EnemyStrength = 0;
-	// Complete, living extractors this commander owns.
+	// Complete, living Drill Rigs this commander owns in regions connected to its main.
 	int32 Established = 0;
 	TArray<FDepositCandidate, TInlineAllocator<16>> EligibleDeposits;
 	TArray<JevPlanner::FTarget, TInlineAllocator<32>> Targets;

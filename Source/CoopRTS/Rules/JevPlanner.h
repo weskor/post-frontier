@@ -7,6 +7,8 @@ namespace JevPlanner
 {
 constexpr float CommitmentSeconds = 25.f;
 constexpr int32 MaxCandidates = 3;
+// Score per Power/s of connected income an expansion or hold restores or keeps.
+constexpr float ChainIncomeWeight = 4.f;
 
 enum class EVerb : uint8
 {
@@ -24,6 +26,10 @@ struct FRegion
 	int32 Controller = INDEX_NONE;
 	int32 Hostiles = 0;
 	int32 DepositValue = 0;
+	// Power/s of JEV's own completed Drill Rigs here, whether or not the region is connected.
+	int32 IncomeValue = 0;
+	// Completed Drill Rigs here that JEV does not own.
+	int32 HostileRigs = 0;
 	uint64 Neighbours = 0;
 	FVector Position = FVector::ZeroVector;
 };
@@ -41,6 +47,8 @@ struct FWorld
 	FRegion Regions[ForceOrders::MaxRegions];
 	TConstArrayView<FTarget> Targets;
 	int32 Team = 5;
+	// This team's main. Without it no region is known to be connected and the chain term is off.
+	int32 Home = INDEX_NONE;
 	int32 EnemyHome = INDEX_NONE;
 	bool bAdvantage = false;
 	bool bThreatened = false;
@@ -88,6 +96,9 @@ struct FCandidates
 // Shared by commitment decisions and the command-rejection shortcut.
 bool MustDefend(const FWorld& World, const FForce& Force);
 int32 SizeBand(int32 UnitCount);
+// Regions linked to Home through regions the team controls (Home counts as controlled while
+// it exists): ForceOrders::ConnectedMask, the one connectivity rule. Zero without a valid Home.
+uint64 ConnectedRegions(const FWorld& World);
 // Ascending-index, shortest-hop region path, matching the force order driver.
 float TravelSeconds(const FWorld& World, const FForce& Force, int32 Target);
 FCandidates Propose(const FWorld& World, const FForce& Force);

@@ -73,11 +73,16 @@ public:
 	const TArray<TObjectPtr<AArmyUnit>>& GetUnits() const { return Units; }
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	bool SpawnUnits();
+	friend struct FArmyMovementTestAccess;
+#endif
 	// Authority-owned encounters may create joined members without a producer.
 	// Paid reinforcement continues to use SpawnReinforcement exclusively.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
-	friend struct FArmyMovementTestAccess;
-#endif
+	// A free force for the enemy commander: a producerless group holding the listed catalogue
+	// units (at most six), placed on free navigable ground around Anchor. It touches no wallet
+	// and no extraction. Null when nothing could be placed.
+	static AArmyGroup* SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
+		TConstArrayView<int32> UnitIndices, int32 InForceNumber);
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	void SettleMatch();
 	FVector GetCenter() const;
