@@ -65,6 +65,8 @@ void AArmyUnit::CastPulse(const ACommandGameState& State)
 	if (!bTriggered)
 		return;
 	NextPulseReadyAt = ShieldPolicy::NextPulseReadyAt(GetWorld()->GetTimeSeconds(), Definition->PulseInterval);
+	LastPulseServerTime = State.GetServerWorldTimeSeconds();
+	ForceNetUpdate();
 	for (AArmyUnit* Other : Units)
 		Other->StripShield();
 	for (ACommandBuilding* Building : Buildings)

@@ -119,7 +119,7 @@ bool FPulseScenario::Step(double Now)
 		// the Barracks is far away. Wait for production to be under way too.
 		if (!After(Now, 1.) || Barracks->ProductionProgressSeconds < .5f)
 			return false;
-		if (!Check(Shielded->GetShield() == 80 && !Barracks->IsStunned(),
+		if (!Check(Shielded->GetShield() == 80 && Shielded->MaxShield() == 80 && Scrambler->GetLastPulseServerTime() < 0. && !Barracks->IsStunned(),
 				TEXT("No pulse while only a shieldless unit is in range and the shielded unit is outside it")))
 			return true;
 		Arena.Place(Shielded.Get(), Offset(150.f));
@@ -128,7 +128,9 @@ bool FPulseScenario::Step(double Now)
 	case 1:
 		if (Shielded->GetShield() > 0)
 			return !Check(!After(Now, 1.5), TEXT("A shielded hostile in range makes the Scrambler pulse"));
-		FirstPulse = Now;
+		FirstPulse = Scrambler->GetLastPulseServerTime();
+		if (!Check(FirstPulse > 0. && FirstPulse <= Now && Now - FirstPulse < 1.5, TEXT("The Scrambler publishes the server time of the cast for clients to draw")))
+			return true;
 		if (!Check(Shielded->GetHealth() == 110 && Plain->GetHealth() == 100 && !Barracks->IsStunned(),
 				TEXT("The pulse empties the shield without HP damage and stuns nothing out of range")))
 			return true;
@@ -151,7 +153,9 @@ bool FPulseScenario::Step(double Now)
 	case 3:
 		if (!Barracks->IsStunned())
 			return !Check(Now - FirstPulse < 11.5, TEXT("A building in range triggers the next pulse when the cooldown ends"));
-		if (!Check(Now - FirstPulse >= 9.5, TEXT("The cooldown held for 10 s from the first cast")))
+		if (!Check(Scrambler->GetLastPulseServerTime() - FirstPulse >= 10. - 1e-3
+					&& FMath::IsNearlyEqual(Barracks->StunEndServerTime, Scrambler->GetLastPulseServerTime() + 3., .01),
+				TEXT("The next pulse comes 10 s after the first cast, and the replicated stun end is 3 s after it")))
 			return true;
 		StunStart = Now;
 		FrozenProgress = Barracks->ProductionProgressSeconds;

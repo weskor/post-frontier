@@ -26,6 +26,9 @@ float RangeMultiplier(ERegionTrait Trait);
 // One entry of the incoming-multiplier list (see DamagePolicy); 1 when the trait takes no damage off.
 float IncomingMultiplier(ERegionTrait Trait);
 float SpeedMultiplier(ERegionTrait Trait);
+// A force keeps formation by moving at one speed: the Open bonus applies only while every member
+// stands in Open ground. An empty force gets nothing.
+float ForceSpeedMultiplier(TConstArrayView<ERegionTrait> MemberTraits);
 // Advances the time spent inside a Hazard region and returns the whole ticks due. Leaving
 // (any other trait) resets the clock, so re-entering waits a full tick.
 int32 AdvanceHazard(ERegionTrait Trait, float& InsideSeconds, float DeltaSeconds);

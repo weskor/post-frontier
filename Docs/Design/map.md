@@ -56,6 +56,7 @@ Traits make *where* to fight a decision, and they combine with Move & Hold.
 
 - **Who is affected:** units standing inside the region, on both teams including JEV. Buildings are unaffected.
 - **Stacking:** Cover and the other incoming multipliers multiply together ([units.md](units.md#damage-pipeline-change)). Open's speed bonus composes with Retreat's sprint and the selection speed cap ([forces.md](forces.md#steering-forces-change--decided)) without breaking formation cohesion.
+- **Effects [Built]:** every region carries a replicated trait that the map generator will set; the four effects above work on units in a region today, with the region cached per unit and re-read on a short clock. Open speed applies only while every joined member of a force stands in Open ground, so a force straddling the border keeps one speed. The fixed layout and terrain below remain [Change].
 
 **[Change] Built in step 1b** on a fixed layout of Habitable Zone v2; the seed shuffles traits from step 4 ([build-order.md](build-order.md)). Layout rules (starting values, orchestrator 2026-10-04):
 - **Placement:** neither main has a trait, and no reward region has Hazard. At least 2 regions have High ground, 3 Cover, 2 Open and 1 Hazard, and at most 10 of the 15 regions carry a trait.

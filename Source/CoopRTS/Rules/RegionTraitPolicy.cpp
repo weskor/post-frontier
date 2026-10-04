@@ -27,3 +27,13 @@ int32 RegionTraitPolicy::AdvanceHazard(ERegionTrait Trait, float& InsideSeconds,
 	InsideSeconds -= Ticks * HazardTickSeconds;
 	return Ticks;
 }
+
+float RegionTraitPolicy::ForceSpeedMultiplier(TConstArrayView<ERegionTrait> MemberTraits)
+{
+	if (MemberTraits.IsEmpty())
+		return 1.f;
+	for (const ERegionTrait Trait : MemberTraits)
+		if (Trait != ERegionTrait::Open)
+			return 1.f;
+	return OpenSpeedMultiplier;
+}

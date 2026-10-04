@@ -40,6 +40,8 @@ public:
 	int32 AddUnit(const FUnitSpec& Spec);
 	// Spawns a one-unit group on navigable NavGround, then teleports the unit to Where (a point at unit height).
 	AArmyUnit* Spawn(bool bHostile, int32 UnitIndex, const FVector& NavGround, const FVector& Where);
+	// Spawns another member into Sibling's group, same placement rule as Spawn.
+	AArmyUnit* Join(AArmyUnit* Sibling, int32 UnitIndex, const FVector& NavGround, const FVector& Where);
 	// Teleports a unit and re-reads its region, as a move across a border would on the next refresh.
 	void Place(AArmyUnit* Unit, const FVector& Location) const;
 	// Two roomy, navigable non-main regions whose polygons hold a 1200 cm strip around the anchor.
@@ -147,6 +149,14 @@ inline AArmyUnit* FArena::Spawn(bool bHostile, int32 UnitIndex, const FVector& N
 	if (!Unit)
 		Group->Destroy();
 	else
+		Place(Unit, Where);
+	return Unit;
+}
+
+inline AArmyUnit* FArena::Join(AArmyUnit* Sibling, int32 UnitIndex, const FVector& NavGround, const FVector& Where)
+{
+	AArmyUnit* Unit = Sibling->GetGroup()->SpawnMember(UnitIndex, NavGround, Sibling->GetGroup()->GetUnits().Num());
+	if (Unit)
 		Place(Unit, Where);
 	return Unit;
 }

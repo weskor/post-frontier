@@ -1,5 +1,6 @@
 #include "ArmyUnit.h"
 
+#include "ArmyGroup.h"
 #include "CommandGameState.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
@@ -19,6 +20,22 @@ void AArmyUnit::RefreshRegion()
 	const AMapRegion* Region = CurrentRegion.Get();
 	if (!Region || !Region->Contains(Location))
 		CurrentRegion = State->FindRegionAt(Location);
+	UpdateTraitSpeed();
+}
+
+void AArmyUnit::UpdateTraitSpeed()
+{
+	UArmyUnitMovement* Movement = Cast<UArmyUnitMovement>(GetCharacterMovement());
+	if (!Movement)
+		return;
+	// A force moves at one speed to keep its formation: Open applies only while every joined member is in Open ground.
+	TArray<ERegionTrait, TInlineAllocator<8>> Traits;
+	if (!bReinforcing && IsValid(Group))
+		for (const AArmyUnit* Member : Group->GetUnits())
+			if (IsValid(Member) && Member->IsAlive() && !Member->IsReinforcing())
+				Traits.Add(Member->GetRegionTrait());
+	Movement->TraitSpeedMultiplier = Traits.IsEmpty() ? RegionTraitPolicy::SpeedMultiplier(GetRegionTrait())
+													  : RegionTraitPolicy::ForceSpeedMultiplier(Traits);
 }
 
 ERegionTrait AArmyUnit::GetRegionTrait() const

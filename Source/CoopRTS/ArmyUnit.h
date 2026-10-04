@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Content/UnitDefinition.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Rules/DamagePolicy.h"
 #include "Rules/RegionTraitPolicy.h"
 #include "Rules/ShieldPolicy.h"
@@ -15,13 +16,25 @@ class AMapRegion;
 class ACommandGameState;
 class UStaticMesh;
 
+// Walking speed with the standing region's bonus (Open) on top of whatever speed the force order set.
+UCLASS()
+class COOPRTS_API UArmyUnitMovement : public UCharacterMovementComponent
+{
+	GENERATED_BODY()
+
+public:
+	virtual float GetMaxSpeed() const override { return Super::GetMaxSpeed() * TraitSpeedMultiplier; }
+
+	// Server-set from the force's region traits; 1 outside Open ground.
+	float TraitSpeedMultiplier = 1.f;
+};
 UCLASS()
 class COOPRTS_API AArmyUnit : public ACharacter
 {
 	GENERATED_BODY()
 
 public:
-	AArmyUnit();
+	explicit AArmyUnit(const FObjectInitializer& ObjectInitializer);
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InCommanderIndex,
@@ -51,6 +64,7 @@ public:
 	bool IsAlive() const { return Health > 0; }
 	int32 GetShield() const { return Shield; }
 	int32 MaxShield() const;
+	double GetLastPulseServerTime() const { return LastPulseServerTime; }
 	// Wipes the shield without HP damage and restarts regen (the Scrambler pulse).
 	void StripShield();
 	// Attacker-independent damage (Hazard): shield first, then HP, no class or incoming multipliers.
@@ -112,6 +126,9 @@ private:
 	// Current shield points; 0 for unshielded units. Regenerates 4 s after the last damage.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	int32 Shield = 0;
+	// Server time of the last pulse cast, -1 before the first; clients draw the pulse ring from changes to it.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Pulse", meta = (AllowPrivateAccess = "true"))
+	double LastPulseServerTime = -1.;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army", meta = (AllowPrivateAccess = "true"))
 	bool bReinforcing = false;
 	// Authority-only desired rendezvous and its accepted navigation projection.
@@ -139,6 +156,7 @@ private:
 	void ApplyDurabilityLoss(const DamagePolicy::FResult& Result, const AArmyUnit* Killer);
 	void TickShield(float DeltaSeconds);
 	void TickRegion(float DeltaSeconds);
+	void UpdateTraitSpeed();
 	void TickPulse();
 	void CastPulse(const ACommandGameState& State);
 

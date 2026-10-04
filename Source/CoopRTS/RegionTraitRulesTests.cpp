@@ -28,6 +28,11 @@ bool FRegionTraitEffectsTest::RunTest(const FString& Parameters)
 		TestEqual(Label + TEXT(" damage taken"), RegionTraitPolicy::IncomingMultiplier(Traits[Index]), Incoming[Index]);
 		TestEqual(Label + TEXT(" speed"), RegionTraitPolicy::SpeedMultiplier(Traits[Index]), Speed[Index]);
 	}
+	const ERegionTrait AllOpen[] = { ERegionTrait::Open, ERegionTrait::Open, ERegionTrait::Open };
+	const ERegionTrait Straddling[] = { ERegionTrait::Open, ERegionTrait::None, ERegionTrait::Open };
+	TestEqual(TEXT("A force wholly in Open ground gets +15% speed"), RegionTraitPolicy::ForceSpeedMultiplier(AllOpen), 1.15f);
+	TestEqual(TEXT("A force straddling the border keeps one speed to hold formation"), RegionTraitPolicy::ForceSpeedMultiplier(Straddling), 1.f);
+	TestEqual(TEXT("An empty force gets nothing"), RegionTraitPolicy::ForceSpeedMultiplier({}), 1.f);
 	return true;
 }
 

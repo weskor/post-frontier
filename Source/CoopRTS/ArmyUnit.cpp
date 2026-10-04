@@ -21,7 +21,8 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
-AArmyUnit::AArmyUnit()
+AArmyUnit::AArmyUnit(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UArmyUnitMovement>(ACharacter::CharacterMovementComponentName))
 {
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -387,6 +388,7 @@ void AArmyUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(AArmyUnit, bReinforcing);
 	DOREPLIFETIME(AArmyUnit, Health);
 	DOREPLIFETIME(AArmyUnit, Shield);
+	DOREPLIFETIME(AArmyUnit, LastPulseServerTime);
 	DOREPLIFETIME(AArmyUnit, Target);
 	DOREPLIFETIME(AArmyUnit, AttackCount);
 }
