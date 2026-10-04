@@ -74,6 +74,7 @@ This table is also the single source for the distributable playtest's generated 
 | HUD Build Barracks / Extractor / Workshop, then left-click ground | Enter grid placement mode (Extractor: near a free deposit); request a building at snapped XY after preview and server checks |
 | Right-click with forces selected, on ground or minimap | Region: Move & Hold (even hostile regions); hostile structure: Attack. Cursor preview shows the resolved order or rejection reason |
 | A, then left-click a region / R | Attack that region / Retreat immediately, for all selected forces; one accepted order ends A mode |
+| H / Fortify dock button, then left-click a region on ground or minimap | Arm Fortify targeting; a click casts it on a region your team controls (contested regions and your main allowed) for 40 Data with a 90 s cooldown: its anchor can't be captured and your units and buildings there take 25% less damage for 60 s. A teammate's cast refreshes it. The mode ends on acceptance and stays open on rejection; H again, right-click or Esc cancels ([Fortify rules](Docs/Design/commanders.md)) |
 | Shift while issuing an order | Queue instead of replace, subject to the [order-queue limit](Docs/Design/forces.md#steering-forces-change--decided) |
 | Right-click a region with a production building selected and no forces | Set its rally point |
 | Right-click or Esc during placement/order targeting | Cancel that mode without placing/assigning |

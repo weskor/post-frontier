@@ -109,7 +109,7 @@ Two voices. The **player announcer** is an Unindexed dispatcher on a radio. The 
 
 ### Scripted objective voice [Built]
 
-The player's dispatcher set is authored in [announcer_lines.json](../Build/Audio/announcer_lines.json): generic lines for friendly/enemy HQ damage tiers and offline transitions, region capture/loss, Drill Rig loss and team pings. Names follow [World.md](World.md). Feed attribution, event triggers and playback belong to the announcer UI, not the asset generator; ping behavior belongs to [ui.md](Design/ui.md).
+The player's dispatcher set is authored in [announcer_lines.json](../Build/Audio/announcer_lines.json): generic lines for friendly/enemy HQ damage tiers and offline transitions, region capture/loss, Drill Rig loss, team pings and a team's Fortify cast ("Fortify active."; the caster and every teammate hear it). Names follow [World.md](World.md). Feed attribution, event triggers and playback belong to the announcer UI, not the asset generator; ping behavior belongs to [ui.md](Design/ui.md) and Fortify behavior to [commanders.md](Design/commanders.md).
 
 `./x gen render-announcer-voice` renders the entire script on a Linux CPU with Piper, then uses the existing Unreal audio importer to create `/Game/Audio/Announcer/VO_<id>` sound waves from `Art/Audio/Announcer/VO_<id>.wav`. Adding a line needs only one `{id, text}` entry and regeneration. Model URLs, SHA-256 pins and commercial-use terms live in [SOURCES.md](../Art/Audio/SOURCES.md); package versions are pinned in [RenderAnnouncerVoice.py](../Build/RenderAnnouncerVoice.py). Generation and audition options live only in [`./x help gen`](../x).
 
