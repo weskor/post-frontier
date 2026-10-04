@@ -6,6 +6,7 @@
 #include "CommandHUD.h"
 #include "Commands/PingCommandComponent.h"
 #include "EngineUtils.h"
+#include "GroundHeight.h"
 #include "Rules/ControllerInputPolicy.h"
 
 void ACommandPlayerController::PingAtCursor()
@@ -75,9 +76,9 @@ bool ACommandPlayerController::PingWorldPoint(const FVector2D& Position)
 		Force = Producer->IsAlive() && Producer->IsProducer() ? Producer->ForceGroup.Get() : nullptr;
 	FVector Origin, Direction, Location;
 	if (!DeprojectScreenPositionToWorld(Position.X, Position.Y, Origin, Direction)
-		|| !ControllerInputPolicy::GroundPoint(Origin, Direction, Location))
+		|| (!GroundHeight::Ray(*GetWorld(), Origin, Direction, Location)
+			&& !ControllerInputPolicy::GroundPoint(Origin, Direction, Location)))
 		return false;
-	Location.Z = 0.f;
 	PingCommands->ServerPing(Location, Force);
 	return true;
 }

@@ -40,7 +40,7 @@ Bunker → Cluster: **51.4 s** at 420 cm/s by the same 100 cm, eight-neighbour p
 
 ## Terrain and traits
 
-[Built] Each region has a `trait` in the JSON (`high_ground`, `cover`, `open`, `hazard` or none), and a `terrain` block holds the plateaus, ramps, closed borders, cover props and routes; `--derive` keeps both. Terrain runs on the terrain kit's 400 cm grid (a cell belongs to the region holding its centre). The trait effects are not built here ([map.md](../Design/map.md#region-traits-new--decided)).
+[Built] Each region has a `trait` in the JSON (`high_ground`, `cover`, `open`, `hazard` or none), and a `terrain` block holds the plateaus, ramps, closed borders, cover props and routes; `--derive` keeps both. Terrain runs on the terrain kit's 400 cm grid (a cell belongs to the region holding its centre). The generator sets each `AMapRegion` trait from the JSON; the trait effects live in the combat rules ([map.md](../Design/map.md#region-traits-new--decided)).
 
 | Trait | Regions | Terrain |
 | --- | --- | --- |

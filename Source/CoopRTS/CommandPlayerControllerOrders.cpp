@@ -7,6 +7,7 @@
 #include "CommandHUD.h"
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/OrderGraph.h"
+#include "GroundHeight.h"
 #include "Headquarters.h"
 #include "InputCoreTypes.h"
 #include "MapRegion.h"
@@ -57,7 +58,8 @@ bool ACommandPlayerController::PickOrderTarget(const FVector2D& Position, const 
 		Structure = Hit.GetActor();
 	FVector RayOrigin, Direction;
 	return DeprojectScreenPositionToWorld(Position.X, Position.Y, RayOrigin, Direction)
-		&& ControllerInputPolicy::GroundPoint(RayOrigin, Direction, Location);
+		&& (GroundHeight::Ray(*GetWorld(), RayOrigin, Direction, Location)
+			|| ControllerInputPolicy::GroundPoint(RayOrigin, Direction, Location));
 }
 
 FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Position, bool bQueue) const

@@ -235,6 +235,9 @@ def place_match_actors(region_defs, deposit_defs):
         actor.set_editor_property("home_team", region["home_team"])
         actor.set_editor_property("polygon", [unreal.Vector2D(*point) for point in region["poly"]])
         actor.set_editor_property("neighbours", region["neighbours"])
+        trait = TerrainSpawn.region_trait(region.get("trait"))
+        actor.set_editor_property("trait", trait)
+        require(actor.get_editor_property("trait") == trait, "Region %d trait did not apply" % index)
         actor.set_editor_property("defend_posts", [unreal.Vector(x, y, terrain.ground_z(x, y)) for x, y in region["defend_posts"]])
         if index in anchors:
             actor.set_editor_property("anchor", anchors[index])

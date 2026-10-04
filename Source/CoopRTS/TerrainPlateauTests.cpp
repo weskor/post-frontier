@@ -43,6 +43,8 @@ public:
 			return Ground(World, *State, PC);
 		case 1:
 			return Capture(World, *State, PC);
+		case 4:
+			return Traits(World, *State, PC);
 		case 2:
 			return Build(*State, Wallet);
 		default:
@@ -68,7 +70,6 @@ private:
 	bool Ground(UWorld* World, ACommandGameState& State, ACommandPlayerController* PC)
 	{
 		FString Error;
-		FTerrainData Data;
 		if (!LoadTerrain(Data, Error))
 			return Fail(Error);
 		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
@@ -119,6 +120,60 @@ private:
 		if (!Check(GroundHeight::Ray(*World, FloorEye, FloorAnchor - FloorEye, Hit) && FVector::Dist2D(Hit, FloorAnchor) < 5. && FMath::Abs(Hit.Z) < 1.,
 				TEXT("A cursor ray aimed at flat ground picks the floor")))
 			return true;
+		Stage = 4;
+		return false;
+	}
+
+	static ERegionTrait TraitNamed(const FString& Name)
+	{
+		return Name == TEXT("high_ground") ? ERegionTrait::HighGround
+			: Name == TEXT("cover")        ? ERegionTrait::Cover
+			: Name == TEXT("open")         ? ERegionTrait::Open
+			: Name == TEXT("hazard")       ? ERegionTrait::Hazard
+										   : ERegionTrait::None;
+	}
+
+	// Every region carries the trait the JSON authored, and a unit standing on Switchback's plateau shoots 20% farther
+	// than the same unit on Human Near's floor.
+	bool Traits(UWorld* World, ACommandGameState& State, ACommandPlayerController* PC)
+	{
+		for (const AMapRegion* Region : State.Regions)
+		{
+			const FString* Name = Data.Traits.Find(Region->RegionIndex);
+			if (!Check(Name != nullptr && Region->GetTrait() == TraitNamed(*Name),
+					FString::Printf(TEXT("Region %d (%s) carries its authored trait '%s' at runtime"), Region->RegionIndex,
+						*Region->DisplayName.ToString(), Name ? **Name : TEXT("?"))))
+				return true;
+		}
+		if (!Hill.IsValid())
+		{
+			const FVector High = State.GetRegionAnchor(7), Low = State.GetRegionAnchor(1);
+			Hill = SpawnGroup(World, PC, 0, FVector(High.X, High.Y, High.Z + 100.));
+			Flat = SpawnGroup(World, PC, 1, FVector(Low.X, Low.Y, Low.Z + 100.));
+			TraitsStarted = GameSeconds(World);
+			return !Check(Hill.IsValid() && Flat.IsValid(), TEXT("Switchback and Human Near squads must spawn"));
+		}
+		if (GameSeconds(World) - TraitsStarted < 1.5)
+			return false; // Units cache their region on a refresh tick.
+		for (int32 Index = 0; Index < Hill->GetUnits().Num() && Index < Flat->GetUnits().Num(); ++Index)
+		{
+			const AArmyUnit* Up = Hill->GetUnits()[Index];
+			const AArmyUnit* Down = Flat->GetUnits()[Index];
+			if (!Check(Up->GetRegionTrait() == ERegionTrait::HighGround && Down->GetRegionTrait() == ERegionTrait::None
+						&& Up->GetActorLocation().Z > PlateauHeight - 40.,
+					TEXT("A unit on Switchback's plateau is in High ground, one on Human Near's floor is not")))
+				return true;
+			if (!Check(FMath::IsNearlyEqual(Up->WeaponRange(), Down->WeaponRange() * RegionTraitPolicy::HighGroundRangeMultiplier, .5f),
+					FString::Printf(TEXT("High ground adds 20%% range (%.0f vs %.0f)"), Up->WeaponRange(), Down->WeaponRange())))
+				return true;
+		}
+		for (const TWeakObjectPtr<AArmyGroup>& Group : { Hill, Flat })
+		{
+			for (AArmyUnit* Unit : TArray<AArmyUnit*>(Group->GetUnits()))
+				if (IsValid(Unit))
+					Unit->Destroy();
+			Group->Destroy();
+		}
 		Stage = 1;
 		return false;
 	}
@@ -195,7 +250,9 @@ private:
 	}
 
 	FAutomationTestBase* Test;
-	TWeakObjectPtr<AArmyGroup> Squad;
+	FTerrainData Data;
+	TWeakObjectPtr<AArmyGroup> Squad, Hill, Flat;
+	double TraitsStarted = 0.;
 	TWeakObjectPtr<ACommandBuilding> Building;
 	int32 Stage = 0;
 	double Started;

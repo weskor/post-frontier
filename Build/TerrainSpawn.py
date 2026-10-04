@@ -27,6 +27,11 @@ def as_ground(actor):
     return actor
 
 
+def region_trait(name):
+    """unreal.RegionTrait for a JSON trait name (None or high_ground/cover/open/hazard)."""
+    return getattr(unreal.RegionTrait, (name or "none").upper())
+
+
 def suffixed(piece, look):
     """Kit mesh name of `piece` in the Human or Machine look."""
     return piece + ("_Machine" if look == "machine" else "")

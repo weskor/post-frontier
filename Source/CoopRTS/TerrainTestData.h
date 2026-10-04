@@ -30,6 +30,7 @@ struct FTerrainData
 	TArray<FRoute> Routes;
 	TArray<FRamp> Ramps;
 	FVector2D FirstProp = FVector2D::ZeroVector;
+	TMap<int32, FString> Traits; // region index -> JSON trait name ("" for none)
 };
 
 inline bool LoadTerrain(FTerrainData& Out, FString& Error)
@@ -45,12 +46,24 @@ inline bool LoadTerrain(FTerrainData& Out, FString& Error)
 	const TSharedPtr<FJsonObject>* Terrain = nullptr;
 	const TArray<TSharedPtr<FJsonValue>>* Routes = nullptr;
 	const TArray<TSharedPtr<FJsonValue>>* Plateaus = nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* Regions = nullptr;
 	const TArray<TSharedPtr<FJsonValue>>* Props = nullptr;
 	if (!Root->TryGetObjectField(TEXT("terrain"), Terrain) || !(*Terrain)->TryGetArrayField(TEXT("routes"), Routes)
 		|| !(*Terrain)->TryGetArrayField(TEXT("plateaus"), Plateaus) || !(*Terrain)->TryGetArrayField(TEXT("props"), Props))
 	{
 		Error = TEXT("Map JSON lacks terrain routes, plateaus or props");
 		return false;
+	}
+	if (!Root->TryGetArrayField(TEXT("regions"), Regions))
+	{
+		Error = TEXT("Map JSON lacks regions");
+		return false;
+	}
+	for (const TSharedPtr<FJsonValue>& Value : *Regions)
+	{
+		FString Trait;
+		Value->AsObject()->TryGetStringField(TEXT("trait"), Trait);
+		Out.Traits.Add(static_cast<int32>(Value->AsObject()->GetNumberField(TEXT("index"))), Trait);
 	}
 	for (const TSharedPtr<FJsonValue>& Value : *Routes)
 	{
