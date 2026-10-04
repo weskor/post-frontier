@@ -93,6 +93,9 @@ public:
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Moves match time forward without waiting, for world tests.
 	void SkipClock(float Seconds) { ClockSkew += Seconds; }
+	// The "rush" simulation scenario, honoured by the team-0 autopilot only: every force attacks
+	// the opposing main at spawn and after every refill, and nothing but casualty withdrawal retreats.
+	bool bRushScenario = false;
 #endif
 	// Team 0 is created only by an explicit autopilot fixture; normal play creates team 5.
 	// Replicated so a client can tell the autopilot's empty release state from JEV's.
@@ -102,6 +105,14 @@ public:
 	TObjectPtr<ACommandPlayerState> Commander;
 private:
 	bool BeginTurn(FJevTurn& Turn);
+	bool IsRushAutopilot() const
+	{
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+		return bRushScenario && TeamIndex == 0;
+#else
+		return false;
+#endif
+	}
 	void ExecuteForces(FJevTurn& Turn);
 	void ExecuteForce(FJevTurn& Turn, AArmyGroup* Force);
 	// Orders a wave force, or a force joining the wave, to Attack Target under a fresh ticket.

@@ -189,6 +189,30 @@ def test_report_economy_must_carry_both_launched_baselines(
         validate_report(report, job)
 
 
+@pytest.mark.parametrize(
+    ("launched", "recorded"), [("rush", "default"), ("default", "rush"), ("rush", None)]
+)
+def test_report_scenario_must_match_the_launched_job(
+    launched: str, recorded: str | None
+) -> None:
+    job, report = telemetry()
+    job["scenario"] = launched
+    if recorded is not None:
+        report["scenario"] = recorded
+    else:
+        report.pop("scenario", None)
+    with pytest.raises(ValueError, match="scenario"):
+        validate_report(report, job)
+
+
+def test_a_report_without_a_scenario_is_the_default_autopilot() -> None:
+    job, report = telemetry()
+    validate_report(report, job)
+    job["scenario"] = "rush"
+    report["scenario"] = "rush"
+    validate_report(report, job)
+
+
 @pytest.mark.parametrize("missing", ["snapshot", "creation", "escalation"])
 def test_missing_plans_are_excluded_instead_of_crashing_aggregation(
     tmp_path: Path,

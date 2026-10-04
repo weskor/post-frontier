@@ -25,6 +25,18 @@ void ReadNumber(const TCHAR* Key, T& Value, T Minimum, T Maximum, FString& Error
 	}
 	Value = static_cast<T>(Parsed);
 }
+
+// "default" or "rush"; anything else is an error rather than a silent default.
+void ReadScenario(ESimulationScenario& Scenario, FString& Error)
+{
+	FString Text;
+	if (!FParse::Value(FCommandLine::Get(), TEXT("SimScenario="), Text))
+		return;
+	if (Text.Equals(TEXT("rush"), ESearchCase::IgnoreCase))
+		Scenario = ESimulationScenario::Rush;
+	else if (!Text.Equals(TEXT("default"), ESearchCase::IgnoreCase))
+		Error = FString::Printf(TEXT("Invalid SimScenario=%s"), *Text);
+}
 }
 
 const FSimulationSettings& FSimulationSettings::Get()
@@ -38,6 +50,7 @@ const FSimulationSettings& FSimulationSettings::Get()
 		if (Result.bDuel)
 			Result.TimeCap = 300.f;
 		ReadNumber(TEXT("SimSeed="), Result.Seed, 0, MAX_int32, Result.Error);
+		ReadScenario(Result.Scenario, Result.Error);
 		ReadNumber(TEXT("SimHumanBaseline="), Result.HumanBaselineIncome, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimJevBaseline="), Result.JevBaselineIncome, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimNormalRate="), Result.NormalRate, 0, 10000, Result.Error);

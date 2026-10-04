@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
 
 from harness.verify import JsonObject
@@ -24,6 +25,33 @@ TEAM_FIELDS = (
     "largest_region_unit_share",
 )
 COMPARISON_FIELDS = (*TEAM_FIELDS, "units_by_role")
+
+
+@dataclass(frozen=True)
+class Outcome:
+    """How a battle ended: a decisive result has a winner, a censored one only the cap."""
+
+    decisive: bool
+    winner: int | None
+    seconds: float
+
+
+def interpret_outcome(report: JsonObject) -> Outcome:
+    """The one place that says which recorded outcomes end a battle.
+
+    Today a battle ends when an HQ is destroyed; the guarded-HQ slice adds the completed
+    hold here. Every statistic and the gate read outcomes only through this function.
+    """
+    kind = report.get("outcome")
+    seconds = number(report.get("duration"), "duration")
+    if kind == "hq_destroyed":
+        winner = report.get("winner")
+        if winner not in (0, 5):
+            raise ValueError("Decisive outcome without a winning team")
+        return Outcome(True, winner, seconds)
+    if kind == "time_cap":
+        return Outcome(False, None, seconds)
+    raise ValueError("Unknown outcome, not a result")
 
 
 def number(value: object, label: str) -> float:
@@ -54,6 +82,8 @@ def validate_report(report: JsonObject, job: JsonObject) -> None:
             "Telemetry economy (human and JEV baselines, rates, reserves) "
             "does not match launched job"
         )
+    if report.get("scenario", "default") != job.get("scenario", "default"):
+        raise ValueError("Telemetry scenario does not match launched job")
     duration = number(report.get("duration"), "duration")
     if duration <= 0 or duration > job["time_cap"] + 0.1:
         raise ValueError("Duration outside game-time cap")
@@ -231,20 +261,19 @@ def validate_teams(snapshot: JsonObject) -> None:
 def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> None:
     snapshots = report["snapshots"]
     final = {team["team"]: team for team in snapshots[-1]["teams"]}
-    if report.get("outcome") == "time_cap":
+    outcome = interpret_outcome(report)
+    if not outcome.decisive:
         if (
             report.get("winner") is not None
             or duration < job["time_cap"] - 0.02
             or any(final[team]["hq_health"] <= 0 for team in (0, 5))
         ):
             raise ValueError("Invalid time-cap draw")
-    elif report.get("outcome") == "hq_destroyed":
-        winner = report.get("winner")
-        if winner not in (0, 5) or final[5 if winner == 0 else 0]["hq_health"] > 0:
+    else:
+        winner = outcome.winner
+        if final[5 if winner == 0 else 0]["hq_health"] > 0:
             raise ValueError("Winner has no destroyed opposing HQ")
         if final[0]["hq_health"] <= 0 and winner != 5:
             raise ValueError(
                 "Simultaneous HQ loss must follow game's team-5 tie precedence"
             )
-    else:
-        raise ValueError("Unknown outcome, not a result")

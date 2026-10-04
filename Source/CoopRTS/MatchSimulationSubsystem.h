@@ -113,6 +113,14 @@ private:
 		int32 Health = 0;
 		uint32 Attacks = 0;
 	};
+	// How a tick's state ends the match, if it does. The one place that interprets outcomes.
+	struct FOutcome
+	{
+		bool bEnded = false;
+		const TCHAR* Kind = TEXT("none");
+		int32 Winner = -1;
+		const TCHAR* Error = nullptr;
+	};
 	bool Start(ACommandGameState& State);
 	bool StartDuel(ACommandGameState& State);
 	bool StartMatch(ACommandGameState& State);
@@ -130,6 +138,9 @@ private:
 	void ObserveRegions(ACommandGameState& State);
 	void ObserveDeposits(ACommandGameState& State);
 	void ObserveHeadquarters(ACommandGameState& State);
+	FOutcome ResolveOutcome(const ACommandGameState& State, double Time) const;
+	// Rush scenario telemetry: when each team-0 force first lived and first attacked JEV's main.
+	void ObserveRush(ACommandGameState& State);
 	void Snapshot(ACommandGameState& State, double ScheduledTime);
 	TSharedRef<FJsonObject> SnapshotTeam(ACommandGameState& State, int32 Slot) const;
 	TSharedRef<FJsonObject> Event(const TCHAR* Kind, int32 Team = -1);
@@ -141,6 +152,9 @@ private:
 	TWeakObjectPtr<AEnemyCommander> Autopilot;
 	TMap<TWeakObjectPtr<AArmyUnit>, FObservedUnit> ObservedUnits;
 	TMap<int32, int32> RegionOwners;
+	// Team-0 forces seen in the rush scenario; the value is true once seen attacking RushTargetRegion.
+	TMap<TWeakObjectPtr<AArmyGroup>, bool> RushForces;
+	int32 RushTargetRegion = INDEX_NONE;
 	TSet<TWeakObjectPtr<ADepositSite>> Depleted;
 	int32 ObservedPlanHistory = 0;
 	int32 Produced[2] = {};

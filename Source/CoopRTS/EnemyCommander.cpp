@@ -92,6 +92,7 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 	Turn.State = State;
 	Turn.Commander = Commander;
 	Turn.Team = TeamIndex;
+	Turn.bRush = IsRushAutopilot();
 	Turn.Now = GetWorld()->GetTimeSeconds();
 	CommittedForces.RemoveAllSwap([&](const FJevCommittedForce& Entry) {
 		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander

@@ -19,6 +19,12 @@ DEFAULT_ECONOMY = dict(
     rich_amount=1500,
 )
 RATE_KEYS = ("human_baseline", "jev_baseline", "normal_rate", "rich_rate")
+SCENARIOS = ("default", "rush")
+BASELINE_PRESETS = ("baseline1", "baseline2", "baseline3", "baseline4")
+# The 1b gate's sample (decision G1): both human baselines, both scenarios, 1200 s cap.
+GATE_VARIANTS = ("baseline2", "baseline1")
+GATE_SEEDS = 20
+GATE_TIME_CAP = 1200.0
 
 
 def parse_variant(text: str) -> tuple[str, dict[str, int]]:
@@ -29,9 +35,9 @@ def parse_variant(text: str) -> tuple[str, dict[str, int]]:
         )
     values = dict(DEFAULT_ECONOMY)
     if not separator:
-        if name not in ("baseline2", "baseline3", "baseline4"):
+        if name not in BASELINE_PRESETS:
             raise argparse.ArgumentTypeError(
-                "Use baseline2/3/4 or NAME:human_baseline=1,jev_baseline=2,..."
+                "Use baseline1/2/3/4 or NAME:human_baseline=1,jev_baseline=2,..."
             )
         values["human_baseline"] = int(name[-1])
     else:
@@ -59,16 +65,39 @@ def parse_variant(text: str) -> tuple[str, dict[str, int]]:
 def resolved_time_cap(args: argparse.Namespace) -> float:
     if args.time_cap is not None:
         return float(args.time_cap)
+    if args.gate:
+        return GATE_TIME_CAP
     return 300 if args.duel else 2400
+
+
+def resolved_matches(args: argparse.Namespace) -> int:
+    if args.matches is not None:
+        return int(args.matches)
+    return GATE_SEEDS if args.gate else 10
+
+
+def resolved_scenarios(args: argparse.Namespace) -> list[str]:
+    if args.scenario:
+        return list(args.scenario)
+    return list(SCENARIOS) if args.gate else ["default"]
 
 
 def validate_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     time_cap = resolved_time_cap(args)
+    matches = resolved_matches(args)
+    if args.gate and (args.duel or args.matrix or args.compare_dilation is not None):
+        parser.error(
+            "--gate cannot combine with --duel, --matrix or --compare-dilation"
+        )
+    if args.duel and args.scenario:
+        parser.error("--scenario applies to AI matches, not --duel")
+    if len(set(args.scenario or [])) != len(args.scenario or []):
+        parser.error("--scenario values must be unique")
     if args.duel and (args.variant or args.matrix or args.compare_dilation is not None):
         parser.error(
             "--duel cannot use economy --variant, --matrix or --compare-dilation"
         )
-    if args.matches <= 0 or not 0 <= args.seed <= 2147483647 - args.matches + 1:
+    if matches <= 0 or not 0 <= args.seed <= 2147483647 - matches + 1:
         parser.error("matches must be positive and seeds within signed int32")
     if any(
         not math.isfinite(value)
@@ -101,7 +130,8 @@ def plan_jobs(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> list[JsonObject]:
     time_cap = resolved_time_cap(args)
-    maps = args.maps or ([MAP_V2] if args.duel else [MAP_V2, MAP_V1])
+    matches = resolved_matches(args)
+    maps = args.maps or ([MAP_V2] if args.duel or args.gate else [MAP_V2, MAP_V1])
     if len(set(maps)) != len(maps) or any(
         not re.fullmatch(r"/Game/[A-Za-z0-9_/]+", name) for name in maps
     ):
@@ -119,9 +149,11 @@ def plan_jobs(
                 time_cap=time_cap,
             )
             for map_name in maps
-            for seed in range(args.seed, args.seed + args.matches)
+            for seed in range(args.seed, args.seed + matches)
         ]
-    variants = args.variant or [parse_variant("baseline2")]
+    variants = args.variant or [
+        parse_variant(name) for name in (GATE_VARIANTS if args.gate else ("baseline2",))
+    ]
     if len({name for name, _ in variants}) != len(variants):
         parser.error("Variant names must be unique")
     combinations = (
@@ -141,12 +173,14 @@ def plan_jobs(
         dict(
             map=map_name,
             variant=name,
+            scenario=scenario,
             economy=economy,
             seed=seed,
             dilation=dilation,
             time_cap=cap,
         )
         for map_name, (name, economy) in combinations
-        for seed in range(args.seed, args.seed + args.matches)
+        for scenario in resolved_scenarios(args)
+        for seed in range(args.seed, args.seed + matches)
         for dilation in dilation_values
     ]

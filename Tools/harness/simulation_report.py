@@ -8,7 +8,14 @@ from pathlib import Path
 import statistics
 
 from harness.simulation_charts import make_charts
-from harness.simulation_comparison import compare_pair, symmetry_metadata
+from harness.simulation_comparison import (
+    PASS,
+    battle_statistics,
+    compare_pair,
+    evaluate_gate_1b,
+    rush_evidence,
+    symmetry_metadata,
+)
 from harness.simulation_evidence import (
     PLAN_LABELS,
     PLAN_VERBS,
@@ -18,7 +25,7 @@ from harness.simulation_evidence import (
     save_json,
     teams,
 )
-from harness.simulation_validation import validate_report
+from harness.simulation_validation import interpret_outcome, validate_report
 from harness.verify import JsonObject
 
 
@@ -46,9 +53,10 @@ def load_results(
 def group_summary(key: GroupKey, reports: list[JsonObject]) -> tuple[str, JsonObject]:
     map_name, variant, dilation = key
     n = len(reports)
-    wins0 = sum(row["winner"] == 0 for row in reports)
-    wins5 = sum(row["winner"] == 5 for row in reports)
-    draws = sum(row["outcome"] == "time_cap" for row in reports)
+    outcomes = [interpret_outcome(row) for row in reports]
+    wins0 = sum(outcome.winner == 0 for outcome in outcomes)
+    wins5 = sum(outcome.winner == 5 for outcome in outcomes)
+    draws = sum(not outcome.decisive for outcome in outcomes)
     depleted = [
         min(
             event["time"]
@@ -298,14 +306,111 @@ def summarize(run: Path, manifest: JsonObject) -> bool:
     return _summarize_matches(run, manifest)
 
 
+def variant_label(job: JsonObject) -> str:
+    scenario = job.get("scenario", "default")
+    return job["variant"] if scenario == "default" else f"{job['variant']}+{scenario}"
+
+
 def group_matches(valid: list[tuple[JsonObject, JsonObject]]) -> Groups:
     groups: collections.defaultdict[GroupKey, list[JsonObject]] = (
         collections.defaultdict(list)
     )
     for record, report in valid:
         job = record["job"]
-        groups[(job["map"], job["variant"], job["dilation"])].append(report)
+        groups[(job["map"], variant_label(job), job["dilation"])].append(report)
     return groups
+
+
+def _minutes(seconds: float | None) -> str:
+    return "n/a" if seconds is None else f"{seconds / 60:.2f}"
+
+
+def battle_length_section(
+    valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
+) -> list[JsonObject]:
+    cells: collections.defaultdict[tuple[str, str, str, float], list[JsonObject]] = (
+        collections.defaultdict(list)
+    )
+    for record, report in valid:
+        job = record["job"]
+        key = (
+            job["map"],
+            job["variant"],
+            job.get("scenario", "default"),
+            job["dilation"],
+        )
+        cells[key].append(report)
+    lines += [
+        "",
+        "## Battle length",
+        "",
+        "Decisive matches ended by the outcome rules; censored matches reached the time cap and are not lengths. "
+        "The median including censored counts each censored match at its cap, a lower bound that never flatters a long battle.",
+        "",
+        "| Map | Variant | Scenario | Dilation | Matches | Decisive | Median decisive min | Censored | Median incl. censored min | Earliest victory s |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    rows: list[JsonObject] = []
+    evidence: list[str] = []
+    for (map_name, variant, scenario, dilation), reports in sorted(cells.items()):
+        stats = battle_statistics(reports)
+        victory = stats["earliest_victory_seconds"]
+        lines.append(
+            f"| {map_name} | {variant} | {scenario} | {dilation:g}\u00d7 | {stats['matches']} | {stats['decisive']} "
+            f"| {_minutes(stats['decisive_median_seconds'])} | {stats['censored']} "
+            f"| {_minutes(stats['median_with_censored_seconds'])} | {'none' if victory is None else f'{victory:.1f}'} |"
+        )
+        row = dict(
+            stats, map=map_name, variant=variant, scenario=scenario, dilation=dilation
+        )
+        if scenario == "rush":
+            row["rush"] = rush = rush_evidence(reports)
+            median, longest = (
+                rush["median_order_delay_seconds"],
+                rush["max_order_delay_seconds"],
+            )
+            delays = (
+                "n/a"
+                if median is None
+                else f"median {median:.1f} s, maximum {longest:.1f} s"
+            )
+            evidence.append(
+                f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
+                f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}."
+            )
+        rows.append(row)
+    lines.append("")
+    for scenario in sorted({row["scenario"] for row in rows}):
+        earliest = [
+            row["earliest_victory_seconds"]
+            for row in rows
+            if row["scenario"] == scenario
+            and row["earliest_victory_seconds"] is not None
+        ]
+        lines.append(
+            f"- Earliest team-0 victory, scenario `{scenario}`: **{f'{min(earliest):.1f} s' if earliest else 'none'}**."
+        )
+    lines += [*evidence, ""]
+    return rows
+
+
+def gate_section(
+    manifest: JsonObject, valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
+) -> JsonObject | None:
+    if manifest.get("gate") != "1b":
+        return None
+    result = evaluate_gate_1b(valid)
+    lines += [
+        f"## Gate 1b: {result['status']}",
+        "",
+        f"Needs both human baselines on V2, both scenarios, at least {result['seeds_required']} seeds in every cell and a 1200 s cap; fewer seeds never PASS.",
+        "",
+    ]
+    lines += [
+        f"- **{row['status']}** {row['check']}: {row['detail']}"
+        for row in result["checks"]
+    ]
+    return result
 
 
 def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
@@ -330,7 +435,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         summaries.append(summary)
     lines += [
         "",
-        "The pacing target is 12\u201318 game minutes. Draw durations are censored by the cap, not measured victory times.",
+        "Draw durations are censored by the cap, not measured victory times; see the battle-length section for decisive and censored results separately.",
         "~50% side wins is an expectation only for actually symmetric maps and identical conditions. V2's HQ positions, travel distances and region geometry are asymmetric; do not label a side bias an AI bug without inspecting these metadata and planner tick ordering.",
         "",
         "## Layout and concentration evidence",
@@ -341,6 +446,11 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         "",
     ]
     layouts = layout_evidence(groups, lines)
+    stats_lines: list[str] = []
+    length_rows = battle_length_section(valid, stats_lines)
+    gate = gate_section(manifest, valid, stats_lines)
+    lines += stats_lines
+    print("\n".join(stats_lines), flush=True)
     plans = plan_evidence(valid, lines)
     comparisons = paired_comparisons(valid, manifest, lines)
     report_tail(run, manifest, failed, groups, lines)
@@ -350,6 +460,8 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
             groups=summaries,
             layouts=layouts,
             jev_plans=plans,
+            battle_length=length_rows,
+            gate=gate,
             failures=failed,
             dilation_comparisons=comparisons,
         ),
@@ -359,4 +471,5 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         not failed
         and len(manifest["matches"]) == len(manifest["planned_jobs"])
         and all(row["status"] == "pass" for row in comparisons)
+        and (gate is None or gate["status"] == PASS)
     )

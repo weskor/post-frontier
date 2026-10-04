@@ -19,16 +19,31 @@ def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--variant",
         action="append",
-        help="baseline2/3/4 or NAME:human_baseline=1,jev_baseline=2,normal_rate=4,...",
+        help="baseline1/2/3/4 or NAME:human_baseline=1,jev_baseline=2,normal_rate=4,...",
     )
     parser.add_argument(
         "--matches",
         type=int,
-        default=10,
-        help="matches per map/variant (duel: matrix seeds per map)",
+        default=None,
+        help="matches per map/variant/scenario (default 10; --gate 1b: 20; duel: matrix seeds per map)",
     )
     parser.add_argument(
         "--matrix", action="store_true", help="V2 baseline2/3/4 plus v1 baseline2"
+    )
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        choices=("default", "rush"),
+        help="team-0 autopilot scenario, repeatable: default (the current autopilot) or rush "
+        "(every force attacks along the path to JEV's HQ at spawn and after every refill; "
+        "only casualty withdrawal retreats)",
+    )
+    parser.add_argument(
+        "--gate",
+        choices=("1b",),
+        help="evaluate a gate over the run and print PASS/FAIL (exit 1 unless PASS); "
+        "1b defaults to V2, baseline2 and baseline1, both scenarios, 20 seeds, 1200 s cap; "
+        "fewer seeds or another cap never PASS",
     )
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument(

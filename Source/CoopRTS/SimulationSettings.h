@@ -6,12 +6,21 @@
 
 class UWorld;
 
+// Team-0 autopilot behaviour of a whole-match simulation. Rush gives every force Attack along the
+// path to JEV's HQ at spawn and after every refill; only casualty withdrawal ever retreats.
+enum class ESimulationScenario : uint8
+{
+	Default,
+	Rush
+};
+
 // Process-local, explicitly opted-in constants. Ordinary play and network worlds keep defaults.
 struct FSimulationSettings
 {
 	bool bEnabled = false;
 	bool bDuel = false;
 	int32 Seed = 1;
+	ESimulationScenario Scenario = ESimulationScenario::Default;
 	int32 HumanBaselineIncome = EconomyPolicy::HumanBaselineIncome;
 	int32 JevBaselineIncome = EconomyPolicy::JevBaselineIncome;
 	int32 NormalRate = EconomyPolicy::NormalDepositRate;

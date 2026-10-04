@@ -81,6 +81,7 @@ def command(args: argparse.Namespace, job: JsonObject, output: Path) -> list[str
         "-ExecCmds=t.MaxFPS 0",
     ]
     if job.get("mode") != "duel":
+        result.append(f"-SimScenario={job.get('scenario', 'default')}")
         result += [
             f"-{ECONOMY_FLAGS[key]}={value}" for key, value in job["economy"].items()
         ]

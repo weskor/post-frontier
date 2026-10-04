@@ -1,13 +1,21 @@
-"""Paired dilation comparison and layout symmetry evidence."""
+"""Paired dilation comparison, layout symmetry evidence, battle-length statistics and the 1b gate."""
 
 from __future__ import annotations
 
 import collections
 import math
+import statistics
 
 from harness.simulation_evidence import teams
-from harness.simulation_validation import COMPARISON_FIELDS
+from harness.simulation_planning import GATE_SEEDS, GATE_TIME_CAP, MAP_V2
+from harness.simulation_validation import COMPARISON_FIELDS, interpret_outcome
 from harness.verify import JsonObject
+
+# Decision G1: median battle length 8-12 min, and no rush victory before 360 s.
+LENGTH_BAND_MINUTES = (8.0, 12.0)
+RUSH_FLOOR_SECONDS = 360.0
+REQUIRED_HUMAN_BASELINES = (2, 1)
+PASS, FAIL, INSUFFICIENT = "PASS", "FAIL", "INSUFFICIENT"
 
 
 def compare_pair(one: JsonObject, high: JsonObject, tolerance: float) -> JsonObject:
@@ -160,3 +168,139 @@ def symmetry_metadata(report: JsonObject) -> JsonObject:
             reward_hops=rewards,
         )
     return result
+
+
+def battle_statistics(reports: list[JsonObject]) -> JsonObject:
+    """Decisive and censored (time-cap) results, never blended without saying so."""
+    outcomes = [(interpret_outcome(report), report) for report in reports]
+    decisive = [outcome.seconds for outcome, _ in outcomes if outcome.decisive]
+    capped = [
+        float(report["time_cap_seconds"])
+        for outcome, report in outcomes
+        if not outcome.decisive
+    ]
+    victories = [
+        outcome.seconds
+        for outcome, _ in outcomes
+        if outcome.decisive and outcome.winner == 0
+    ]
+    return dict(
+        matches=len(reports),
+        decisive=len(decisive),
+        decisive_median_seconds=statistics.median(decisive) if decisive else None,
+        censored=len(capped),
+        # Censored matches count at their cap: a lower bound on their true length.
+        median_with_censored_seconds=statistics.median(decisive + capped)
+        if reports
+        else None,
+        earliest_victory_seconds=min(victories) if victories else None,
+    )
+
+
+def rush_evidence(reports: list[JsonObject]) -> JsonObject:
+    """How fast rush forces got their Attack order toward JEV's HQ after first living."""
+    seen = 0
+    delays: list[float] = []
+    for report in reports:
+        first: dict[str, float] = {}
+        ordered: dict[str, float] = {}
+        for event in report["events"]:
+            if event["kind"] == "rush_force_seen":
+                first.setdefault(event["id"], event["time"])
+            elif event["kind"] == "rush_force_attacking":
+                ordered.setdefault(event["id"], event["time"])
+        seen += len(first)
+        delays += [ordered[key] - first[key] for key in first if key in ordered]
+    return dict(
+        forces_seen=seen,
+        forces_attacking=len(delays),
+        median_order_delay_seconds=statistics.median(delays) if delays else None,
+        max_order_delay_seconds=max(delays) if delays else None,
+    )
+
+
+def _cell_problem(cell: list[tuple[JsonObject, JsonObject]]) -> str | None:
+    if not cell:
+        return "no valid matches"
+    caps = {job["time_cap"] for job, _ in cell}
+    if caps != {GATE_TIME_CAP}:
+        listed = ", ".join(f"{cap:g}" for cap in sorted(caps))
+        return f"time cap {listed} s, the gate needs {GATE_TIME_CAP:g} s"
+    if len(cell) < GATE_SEEDS:
+        return f"{len(cell)} seeds, the gate needs at least {GATE_SEEDS}"
+    return None
+
+
+def _check(name: str, status: str, detail: str) -> JsonObject:
+    return dict(check=name, status=status, detail=detail)
+
+
+def _length_check(
+    variant: str, cell: list[tuple[JsonObject, JsonObject]]
+) -> JsonObject:
+    name = f"{variant}: median battle length {LENGTH_BAND_MINUTES[0]:g}-{LENGTH_BAND_MINUTES[1]:g} min"
+    problem = _cell_problem(cell)
+    if problem:
+        return _check(name, INSUFFICIENT, problem)
+    stats = battle_statistics([report for _, report in cell])
+    minutes = stats["median_with_censored_seconds"] / 60
+    within = LENGTH_BAND_MINUTES[0] <= minutes <= LENGTH_BAND_MINUTES[1]
+    detail = (
+        f"median {minutes:.2f} min over {stats['matches']} seeds "
+        f"({stats['censored']} censored at the cap counted at {GATE_TIME_CAP:g} s)"
+    )
+    return _check(name, PASS if within else FAIL, detail)
+
+
+def _rush_check(variant: str, cell: list[tuple[JsonObject, JsonObject]]) -> JsonObject:
+    name = f"{variant}: no rush victory before {RUSH_FLOOR_SECONDS:g} s"
+    earliest = battle_statistics([report for _, report in cell])[
+        "earliest_victory_seconds"
+    ]
+    # One early victory refutes the gate at any sample size; only a clean result needs the seeds.
+    if earliest is not None and earliest < RUSH_FLOOR_SECONDS:
+        return _check(name, FAIL, f"rush victory at {earliest:.1f} s")
+    problem = _cell_problem(cell)
+    if problem:
+        return _check(name, INSUFFICIENT, problem)
+    detail = (
+        f"earliest rush victory {earliest:.1f} s over {len(cell)} seeds"
+        if earliest is not None
+        else f"no rush victory in {len(cell)} seeds"
+    )
+    return _check(name, PASS, detail)
+
+
+def evaluate_gate_1b(valid: list[tuple[JsonObject, JsonObject]]) -> JsonObject:
+    """PASS needs both baselines, both scenarios, every cell at the G1 sample size and cap."""
+    cells: dict[tuple[str, str], list[tuple[JsonObject, JsonObject]]] = (
+        collections.defaultdict(list)
+    )
+    baselines: set[int] = set()
+    for record, report in valid:
+        job = record["job"]
+        if job["map"] != MAP_V2:
+            continue
+        scenario = job.get("scenario", "default")
+        cells[(job["variant"], scenario)].append((job, report))
+        baselines.add(job["economy"]["human_baseline"])
+    checks: list[JsonObject] = []
+    for baseline in REQUIRED_HUMAN_BASELINES:
+        if baseline not in baselines:
+            checks.append(
+                _check(
+                    f"{baseline}/s baseline measured",
+                    INSUFFICIENT,
+                    "no valid matches on V2 for this human baseline",
+                )
+            )
+    for variant in sorted({variant for variant, _ in cells}):
+        checks.append(_length_check(variant, cells.get((variant, "default"), [])))
+        checks.append(_rush_check(variant, cells.get((variant, "rush"), [])))
+    if not cells:
+        checks.append(_check("V2 matches", INSUFFICIENT, "no valid matches on V2"))
+    statuses = {row["status"] for row in checks}
+    status = (
+        FAIL if FAIL in statuses else INSUFFICIENT if INSUFFICIENT in statuses else PASS
+    )
+    return dict(gate="1b", status=status, seeds_required=GATE_SEEDS, checks=checks)

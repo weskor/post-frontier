@@ -28,6 +28,7 @@ FMatchSimulation::FMatchSimulation(UWorld* InWorld)
 	Report->SetStringField(TEXT("outcome"), TEXT("none"));
 	Report->SetField(TEXT("winner"), MakeShared<FJsonValueNull>());
 	Report->SetNumberField(TEXT("seed"), Settings.Seed);
+	Report->SetStringField(TEXT("scenario"), Settings.Scenario == ESimulationScenario::Rush ? TEXT("rush") : TEXT("default"));
 	Report->SetStringField(TEXT("engine_version"), FEngineVersion::Current().ToString());
 	Report->SetStringField(TEXT("command_line"), FCommandLine::Get());
 	Report->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(GetWorld()->GetOutermost()->GetName()));

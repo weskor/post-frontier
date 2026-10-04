@@ -2,11 +2,13 @@
 #include "MatchSimulationSubsystem.h"
 
 #include "ArenaBounds.h"
+#include "ArmyGroup.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "Content/MatchContent.h"
 #include "EnemyCommander.h"
 #include "Headquarters.h"
+#include "MapRegion.h"
 #include "SimulationSettings.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -18,6 +20,12 @@ bool FMatchSimulation::StartMatch(ACommandGameState& State)
 	if (!FindMatchActors(State) || !SpawnAutopilot())
 		return false;
 	StartWorldTime = GetWorld()->GetTimeSeconds();
+	if (FSimulationSettings::Get().Scenario == ESimulationScenario::Rush)
+	{
+		const AMapRegion* Target = State.FindRegionAt(State.EnemyHeadquarters->GetActorLocation());
+		RushTargetRegion = Target ? Target->RegionIndex : INDEX_NONE;
+		Report->SetNumberField(TEXT("rush_target_region"), RushTargetRegion);
+	}
 	bStarted = true;
 	ConfigureTime();
 	DescribeMatch(State);
@@ -84,6 +92,7 @@ bool FMatchSimulation::SpawnAutopilot()
 	}
 	Planner->TeamIndex = 0;
 	Planner->Commander = HumanCommander.Get();
+	Planner->bRushScenario = FSimulationSettings::Get().Scenario == ESimulationScenario::Rush;
 	Planner->FinishSpawning(Transform);
 	Autopilot = Planner;
 	return true;
@@ -99,26 +108,18 @@ void FMatchSimulation::TickMatch(float DeltaTime, ACommandGameState& State)
 	}
 	MaxGameDelta = FMath::Max(MaxGameDelta, DeltaTime);
 	Observe(State);
+	ObserveRush(State);
 	const double Time = GetWorld()->GetTimeSeconds() - StartWorldTime;
-	if (State.MatchResult != EMatchResult::Ongoing)
+	const FOutcome Outcome = ResolveOutcome(State, Time);
+	if (Outcome.Error)
 	{
-		const int32 Winner = State.MatchResult == EMatchResult::Victory ? 0 : 5;
-		if ((Winner == 0 ? State.EnemyHeadquarters->Health : State.FriendlyHeadquarters->Health) > 0)
-		{
-			Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Terminal match result without destroyed HQ"));
-			return;
-		}
-		Snapshot(State, Time);
-		Finish(TEXT("complete"), TEXT("hq_destroyed"), Winner);
+		Finish(TEXT("failed"), TEXT("none"), -1, Outcome.Error);
 		return;
 	}
-	if (Time >= FSimulationSettings::Get().TimeCap)
+	if (Outcome.bEnded)
 	{
-		// A same-frame HQ death must be an outcome, not a time-cap draw, even before GameMode's tick.
 		Snapshot(State, Time);
-		const int32 Winner = State.FriendlyHeadquarters->Health <= 0 ? 5 : State.EnemyHeadquarters->Health <= 0 ? 0
-																												: -1;
-		Finish(TEXT("complete"), Winner == -1 ? TEXT("time_cap") : TEXT("hq_destroyed"), Winner);
+		Finish(TEXT("complete"), Outcome.Kind, Outcome.Winner);
 		return;
 	}
 	if (Time >= NextSnapshot)
@@ -128,6 +129,60 @@ void FMatchSimulation::TickMatch(float DeltaTime, ACommandGameState& State)
 		NextSnapshot = (FMath::FloorToDouble(Time / 30.) + 1.) * 30.;
 		if (!Flush())
 			Finish(TEXT("failed"), TEXT("none"), -1, TEXT("Cannot persist telemetry checkpoint"));
+	}
+}
+
+FMatchSimulation::FOutcome FMatchSimulation::ResolveOutcome(const ACommandGameState& State, double Time) const
+{
+	FOutcome Outcome;
+	if (State.MatchResult != EMatchResult::Ongoing)
+	{
+		const int32 Winner = State.MatchResult == EMatchResult::Victory ? 0 : 5;
+		if ((Winner == 0 ? State.EnemyHeadquarters->Health : State.FriendlyHeadquarters->Health) > 0)
+		{
+			Outcome.Error = TEXT("Terminal match result without destroyed HQ");
+			return Outcome;
+		}
+		Outcome.bEnded = true;
+		Outcome.Kind = TEXT("hq_destroyed");
+		Outcome.Winner = Winner;
+		return Outcome;
+	}
+	if (Time < FSimulationSettings::Get().TimeCap)
+		return Outcome;
+	// A same-frame HQ death must be an outcome, not a time-cap draw, even before GameMode's tick.
+	Outcome.bEnded = true;
+	Outcome.Winner = State.FriendlyHeadquarters->Health <= 0 ? 5 : State.EnemyHeadquarters->Health <= 0 ? 0
+																									   : -1;
+	Outcome.Kind = Outcome.Winner == -1 ? TEXT("time_cap") : TEXT("hq_destroyed");
+	return Outcome;
+}
+
+void FMatchSimulation::ObserveRush(ACommandGameState& State)
+{
+	if (FSimulationSettings::Get().Scenario != ESimulationScenario::Rush)
+		return;
+	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+	{
+		if (It->GetTeamIndex() != 0 || It->GetAliveCount() == 0)
+			continue;
+		const auto Record = [&](const TCHAR* Kind) {
+			const TSharedRef<FJsonObject> Row = Event(Kind, 0);
+			Row->SetStringField(TEXT("id"), It->GetName());
+			Row->SetNumberField(TEXT("force"), It->ForceNumber);
+			Row->SetNumberField(TEXT("target_region"), It->TargetRegionIndex);
+		};
+		bool* bAttacking = RushForces.Find(TWeakObjectPtr<AArmyGroup>(*It));
+		if (!bAttacking)
+		{
+			bAttacking = &RushForces.Add(TWeakObjectPtr<AArmyGroup>(*It), false);
+			Record(TEXT("rush_force_seen"));
+		}
+		if (!*bAttacking && It->Verb == EForceVerb::Attack && It->TargetRegionIndex == RushTargetRegion)
+		{
+			*bAttacking = true;
+			Record(TEXT("rush_force_attacking"));
+		}
 	}
 }
 #endif

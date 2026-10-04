@@ -39,6 +39,8 @@ struct FJevTurn
 	const UMatchContent* Content = nullptr;
 	const UArmyUnitDefinition* Infantry = nullptr;
 	int32 Team = 5;
+	// The team-0 autopilot runs the rush simulation scenario (AEnemyCommander::bRushScenario).
+	bool bRush = false;
 	float Now = 0.f;
 	int32 ProducerIndex = INDEX_NONE;
 	int32 ExtractorIndex = INDEX_NONE;

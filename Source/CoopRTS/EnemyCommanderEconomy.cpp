@@ -175,7 +175,8 @@ void BuildNext(const FJevTurn& Turn)
 	// Prefer the safest controlled forward anchor. Never construct on a contested region.
 	const int32 Anchor = JevExecution::ForwardRegion(Turn.Summary, Turn.EnemyHome, ContestedRegions(Turn), ProducerRegions(Turn));
 	const FVector BuildCenter = Anchor == INDEX_NONE ? Turn.Home : Turn.Summary.Regions[Anchor].Position;
-	switch (JevExecution::NextEconomyAction(EconomyInputs(Turn, Anchor != INDEX_NONE)))
+	// A rush leaves territory behind it, so its extra Barracks build at home when no forward anchor exists.
+	switch (JevExecution::NextEconomyAction(EconomyInputs(Turn, Anchor != INDEX_NONE || Turn.bRush)))
 	{
 	case JevExecution::EEconomyAction::BuildProducer:
 		BuildNear(Turn, Turn.ProducerIndex, BuildCenter);

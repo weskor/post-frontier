@@ -129,7 +129,7 @@ bool TryAlternatives(const FJevTurn& Turn, FJevForceStep& Step)
 // False when the force's order was rejected, no alternative took and it has no order left.
 bool RecoverRejected(const FJevTurn& Turn, FJevForceStep& Step)
 {
-	if (Step.bFresh && TryAlternatives(Turn, Step))
+	if (Step.bFresh && !Turn.bRush && TryAlternatives(Turn, Step))
 		return true;
 	if (Step.Force->Orders.IsEmpty())
 	{
@@ -179,6 +179,18 @@ JevPlanner::FPlan WavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int3
 	return Plan;
 }
 
+// The rush scenario's choice: Attack the opposing main whatever the planner would pick. Planner
+// recovery, defence and expansion are off; the force's own casualty withdrawal and refill still run,
+// and an Attack that already stands is not reissued (OrderChange), so a refill resumes it.
+bool ChooseNextPlan(const FJevTurn& Turn, FJevForceStep& Step)
+{
+	if (!Turn.bRush || !ValidRegion(Turn.Summary.EnemyHome))
+		return ChoosePlan(Turn, Step);
+	Step.bRecovering = false;
+	Step.Next = WavePlan(Turn, Step, Turn.Summary.EnemyHome);
+	return true;
+}
+
 // A force already in the field joins a wave unless it is retreating, recovering or holding its attacked region.
 bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
 {
@@ -207,7 +219,7 @@ void AEnemyCommander::ExecuteForce(FJevTurn& Turn, AArmyGroup* Force)
 	if (Step.Current && JevExecution::HoldsClaim(Turn.Summary, Step.Current->Plan, Turn.Now))
 		Turn.Summary.Regions[Step.Current->Plan.Target].bClaimed = --Turn.Reservations[Step.Current->Plan.Target] > 0;
 	SnapshotForce(Turn, Step);
-	if (!ChoosePlan(Turn, Step) || !IssueOrder(Turn, Step))
+	if (!ChooseNextPlan(Turn, Step) || !IssueOrder(Turn, Step))
 		return;
 	Commit(Turn, Step);
 	Publish(Turn, Step);

@@ -18,7 +18,7 @@ import sys
 from harness.simulation_evidence import save_json
 from harness.simulation_execution import ROOT, artifact_identity, run_match
 from harness.simulation_planning import parse_variant, plan_jobs, validate_options
-from harness.simulation_report import summarize
+from harness.simulation_report import summarize, variant_label
 from harness.verify import JsonObject
 from x.content.simulation import configure
 from x.settings import load
@@ -34,7 +34,11 @@ def main() -> int:
         args.variant = [parse_variant(text) for text in args.variant]
     if args.report_only:
         run = args.report_only.resolve()
-        return 0 if summarize(run, json.loads((run / "run.json").read_text())) else 1
+        recorded: JsonObject = json.loads((run / "run.json").read_text())
+        if args.gate:
+            recorded["gate"] = args.gate
+        return 0 if summarize(run, recorded) else 1
+
     validate_options(parser, args)
     jobs = plan_jobs(parser, args)
     artifacts = artifact_identity(args)
@@ -42,6 +46,7 @@ def main() -> int:
     manifest: JsonObject = dict(
         schema_version=1,
         mode="duel" if args.duel else "match",
+        gate=args.gate,
         created=dt.datetime.now(dt.UTC).isoformat(),
         artifacts=artifacts,
         planned_jobs=jobs,
@@ -57,7 +62,7 @@ def main() -> int:
             map_id = job["map"].rsplit("/", 1)[-1]
             directory = (
                 run
-                / f"{index + 1:03d}-{map_id}-{job['variant']}-seed{job['seed']}-x{job['dilation']:g}"
+                / f"{index + 1:03d}-{map_id}-{variant_label(job)}-seed{job['seed']}-x{job['dilation']:g}"
             )
             print(f"MATCH {index + 1}/{len(jobs)} {directory.name}", flush=True)
             try:
