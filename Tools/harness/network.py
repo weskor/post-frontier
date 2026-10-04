@@ -313,15 +313,8 @@ def select_order_region(
     index: int,
     exclude: Sequence[int] = (),
     min_distance: float = 1500,
-    nearest_to: int | None = None,
 ) -> JsonObject:
-    """First reachable neutral region far from the producer, in graph order.
-
-    `nearest_to` picks the candidate closest to that region's anchor instead.
-    Workaround for a game bug (a march captures an off-route region whose
-    polygon the navmesh path clips): keep a retarget pair close together so the
-    return trip crosses no third region the scenario still needs.
-    """
+    """First reachable neutral region far from the producer, in graph order."""
     producer = building(state, index)
     source = next(
         r["index"] for r in state["regions"] if r["homeTeam"] == producer["team"]
@@ -337,10 +330,7 @@ def select_order_region(
         bool(candidates),
         "map has no reachable, non-main region sufficiently far from the producer",
     )
-    if nearest_to is None:
-        return candidates[0]
-    anchor = region(state, nearest_to)["anchor"]
-    return min(candidates, key=lambda r: distance2(r["anchor"], anchor))
+    return candidates[0]
 
 
 def order_matches(state: JsonObject, index: int, verb: int, target: int) -> bool:

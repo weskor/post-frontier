@@ -156,18 +156,6 @@ def test_order_selection_rejects_boundary_home_excluded_and_unreachable_regions(
         select_order_region(state, 8, exclude=(20,))
 
 
-def test_retarget_pair_picks_nearest_remaining_region_not_graph_first() -> None:
-    state = region_snapshot()
-    state["regions"] = [
-        {"index": 0, "homeTeam": 0, "anchor": [0, 0], "neighbours": [10, 20, 30]},
-        {"index": 10, "homeTeam": -1, "anchor": [2000, 0], "neighbours": [0]},
-        {"index": 20, "homeTeam": -1, "anchor": [4800, 0], "neighbours": [0]},
-        {"index": 30, "homeTeam": -1, "anchor": [5000, 0], "neighbours": [0]},
-    ]
-    assert select_order_region(state, 8, exclude=(30,))["index"] == 10
-    assert select_order_region(state, 8, exclude=(30,), nearest_to=30)["index"] == 20
-
-
 def held_snapshot() -> JsonObject:
     state = force_snapshot()
     state["buildings"][0].update(forceVerb=0, targetRegionIndex=20)

@@ -206,10 +206,8 @@ def retarget_and_open_vacancy(
     second_front = building(states["host"], second)["front"]
     second_target = building(states["host"], second)["targetRegionIndex"]
     original_target = building(states["host"], index)["targetRegionIndex"]
-    # Keep the return trip short: a march can capture an off-route region whose
-    # polygon the navmesh path clips, and capture_region needs a neutral one left.
     moved_target = select_order_region(
-        states["host"], index, exclude=(original_target,), nearest_to=original_target
+        states["host"], index, exclude=(original_target,)
     )["index"]
     hold_at(run, s, index, moved_target, "replacement Hold target region replicates")
     converged(
