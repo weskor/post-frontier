@@ -28,8 +28,9 @@ const FColor HatchRed(255, 72, 56, 70);
 const FColor FlashHatch(255, 72, 56, 140);
 const FColor Dimmed(150, 158, 168);
 const FColor FriendlyCable(64, 184, 163);
-// Violet, well away from the cut red and from the red team colours: a cable is not a warning.
-const FColor HostileCable(188, 112, 236);
+// JEV is the Machine: pearl from the Machine skin tokens (STYLE.md), solid where Beyond cables are grey dashes and the
+// cut is red dashes with hatch.
+const FColor HostileCable(234, 241, 246);
 const FColor PulseCyan(120, 230, 255);
 const FColor SparkWhite(255, 244, 190);
 

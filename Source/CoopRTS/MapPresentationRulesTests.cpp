@@ -145,7 +145,7 @@ bool FMapCutObserverTest::RunTest(const FString&)
 		TestTrue(TEXT("The flash clock runs from the local sight, not the server stamp"),
 			FMath::IsNearlyEqual(Chain.Observer.FlashAge(2, 100.4f), .4f, .001f));
 		TestTrue(TEXT("Only the cable to the lost region 1 snapped, from the cut region next to it"),
-			Chain.Observer.IsSnapped(2, 1) && !Chain.Observer.IsSnapped(3, 2) && !Chain.Observer.IsSnapped(2, 5));
+			Chain.Observer.IsSnapped(2, 1) && !Chain.Observer.IsSnapped(3, 2));
 		TestFalse(TEXT("A neutral neighbour that never held a cable leaves no stub"), Chain.Observer.IsSnapped(2, 5));
 		// The team takes an unrelated region 4: the mask changes again, but 2 and 3 are not newly cut.
 		Chain.See(Bit(0), Bit(0) | Bit(2) | Bit(3) | Bit(4), Bit(1), 101.f, 101.f);
@@ -158,13 +158,28 @@ bool FMapCutObserverTest::RunTest(const FString&)
 		TestTrue(TEXT("A reconnected region stops flashing"), Chain.Observer.FlashAge(2, 106.f) < 0.f);
 		TestFalse(TEXT("and its stub is gone"), Chain.Observer.IsSnapped(2, 1));
 	}
-	// A second cut while the first is still flashing flashes only the new region.
+	// A second cut while the first is still flashing flashes only the new region and leaves the first clock alone.
+	{
+		FChain Chain;
+		const uint64 All = Whole | Bit(4);
+		Chain.See(All, All, 0, 50.f, 100.f);
+		// The enemy takes 2: region 3 is cut, region 4 still reaches the main through 1.
+		Chain.See(Bit(0) | Bit(1) | Bit(4), Bit(0) | Bit(1) | Bit(3) | Bit(4), Bit(2), 100.f, 100.f);
+		// Then it takes 1: region 4 is cut too.
+		Chain.See(Bit(0), Bit(0) | Bit(3) | Bit(4), Bit(1) | Bit(2), 100.5f, 100.5f);
+		TestTrue(TEXT("The first cut keeps its own clock"), FMath::IsNearlyEqual(Chain.Observer.FlashAge(3, 100.5f), .5f, .001f));
+		TestTrue(TEXT("The newly cut region flashes from its own start"), Chain.Observer.FlashAge(4, 100.5f) == 0.f);
+	}
+	// The mask can reach the client before the region owner does: the stub appears once the owner arrives.
 	{
 		FChain Chain;
 		Chain.See(Whole, Whole, 0, 50.f, 100.f);
-		Chain.See(Bit(0) | Bit(1) | Bit(2), Bit(0) | Bit(1) | Bit(2), Bit(3), 100.f, 100.f);
-		Chain.See(Bit(0) | Bit(1), Bit(0) | Bit(1) | Bit(2), Bit(3), 100.5f, 100.5f);
-		TestTrue(TEXT("The newly cut region flashes from its own start"), Chain.Observer.FlashAge(2, 100.5f) == 0.f);
+		Chain.See(Bit(0), Whole, 0, 100.f, 100.f);
+		TestFalse(TEXT("While region 1 still reads as held there is no snapped cable yet"), Chain.Observer.IsSnapped(2, 1));
+		Chain.See(Bit(0), Bit(0) | Bit(2) | Bit(3), Bit(1), 100.f, 100.1f);
+		TestTrue(TEXT("The cable to region 1 snaps when its owner changes, though the mask change is past"),
+			Chain.Observer.IsSnapped(2, 1));
+		TestTrue(TEXT("and the cut regions keep the flash they began"), Chain.Observer.FlashAge(3, 100.1f) >= 0.f);
 	}
 	return true;
 }

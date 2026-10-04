@@ -109,7 +109,10 @@ float MapPresentation::FCutObserver::FlashAge(int32 Region, float Now) const
 
 bool MapPresentation::FCutObserver::IsSnapped(int32 CutRegion, int32 OtherRegion) const
 {
-	return Snapped.Contains(static_cast<uint16>((CutRegion << 8) | OtherRegion));
+	if (CutRegion < 0 || CutRegion >= ObservedRegions || OtherRegion < 0 || OtherRegion >= ObservedRegions)
+		return false;
+	const uint64 Other = uint64(1) << OtherRegion;
+	return (LastCutOff & (uint64(1) << CutRegion)) && (CutFrom[CutRegion] & Other) && !(LastHeld & Other);
 }
 
 void MapPresentation::Observe(FCutObserver& Observer, const FObservation& In)
@@ -132,17 +135,10 @@ void MapPresentation::Observe(FCutObserver& Observer, const FObservation& In)
 			Observer.Started[Region] = In.Now;
 		if (!(Newly & Bit) || !In.Neighbours)
 			continue;
-		for (int32 Other = 0; Other < ObservedRegions; ++Other)
-		{
-			const uint64 OtherBit = uint64(1) << Other;
-			const bool bHadCable = bFirst ? (In.Opponent & OtherBit) != 0 : (Observer.PreviousConnected & OtherBit) != 0;
-			if ((In.Neighbours[Region] & OtherBit) && bHadCable && !(In.Held & OtherBit))
-				Observer.Snapped.AddUnique(static_cast<uint16>((Region << 8) | Other));
-		}
+		Observer.CutFrom[Region] = (bFirst ? In.Opponent : Observer.PreviousConnected) & In.Neighbours[Region];
 	}
-	Observer.Snapped.RemoveAll([&In](uint16 Edge) {
-		return !(In.CutOff & (uint64(1) << (Edge >> 8))) || (In.Held & (uint64(1) << (Edge & 0xFF)));
-	});
+	Observer.LastHeld = In.Held;
+	Observer.LastCutOff = In.CutOff;
 	Observer.bSeen = true;
 	Observer.PreviousConnected = In.Connected;
 	Observer.SeenChangedAt = In.ChangedAt;

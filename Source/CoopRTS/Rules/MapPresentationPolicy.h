@@ -70,8 +70,12 @@ struct FCutObserver
 	float SeenChangedAt = 0.f;
 	// Local flash clock start per region, or negative when it is not flashing.
 	float Started[ObservedRegions];
-	// Snapped edges, (cut-off region << 8) | other region, kept while the cut and the loss both stand.
-	TArray<uint16> Snapped;
+	// Per cut-off region, the neighbours it was linked to when the cut was seen: where cables were live (or, for a client
+	// that joined after the cut, where the opponent now holds). A cable snapped when that neighbour is no longer held,
+	// judged on every frame because the mask and the region owners replicate separately and may arrive in either order.
+	uint64 CutFrom[ObservedRegions] = {};
+	uint64 LastHeld = 0;
+	uint64 LastCutOff = 0;
 	FCutObserver()
 	{
 		for (float& Start : Started)
