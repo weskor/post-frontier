@@ -1,12 +1,15 @@
 #include "Rules/ArmyGroupPolicy.h"
 
+#include "Rules/GameplayConstants.h"
+
 namespace ArmyGroupPolicy
 {
 FVector FormationOffset(const FFormation& Formation, int32 Slot)
 {
 	const float Side = Slot % 2 ? 1.f : -1.f;
 	if (Formation.bProduced)
-		return FVector((Formation.Capacity / 2 - 1 - 2 * (Slot / 2)) * 55.f, Side * 55.f, 0.f);
+		return FVector((Formation.Capacity / 2 - 1 - 2 * (Slot / 2)) * (GameplayConstants::FormationSpacing * .5f),
+			Side * (GameplayConstants::FormationSpacing * .5f), 0.f);
 	return FVector((Formation.bOpposing ? -1.f : 1.f) * (1 - Slot / 2) * 220.f, Side * 140.f, 0.f);
 }
 
