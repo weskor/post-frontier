@@ -14,7 +14,7 @@
 #include "GameState/GameStateRegistry.h"
 #include "Headquarters.h"
 #include "NavigationSystem.h"
-#include "Rules/PlanningHudPolicy.h"
+#include "GameState/GameStateTerritory.h"
 #include "Rules/PlanningPolicy.h"
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "HAL/PlatformMisc.h"
@@ -73,9 +73,9 @@ bool GameStatePlanning::FindDefaultBarracks(const ACommandGameState& State, int3
 	// A spot that would crowd a free deposit is skipped, so a later Drill Rig still fits (as JEV's own placement does).
 	const UBuildingDefinition* Barracks = State.Content->Building(KitBuildingIndex(*State.Content, false));
 	const float Clearance = Barracks ? Barracks->FootprintRadius * UE_SQRT_2 + 200.f : 0.f;
-	for (int32 Spot = 0; Spot < PlanningHud::SpotCount; ++Spot)
+	for (int32 Spot = 0; Spot < PlanningPolicy::DefaultSpotCount; ++Spot)
 	{
-		const FVector Candidate = PlanningHud::DefaultBarracksSpot(Home->GetActorLocation(), Team, Spot);
+		const FVector Candidate = PlanningPolicy::DefaultBarracksSpot(Home->GetActorLocation(), Team, Spot);
 		if (!CrowdsFreeDeposit(State, Candidate, Clearance) && Accept(Candidate))
 		{
 			OutSpot = Candidate;
@@ -355,6 +355,9 @@ void ACommandGameState::TickPlanning()
 #endif
 	ReconcilePlanningRoster();
 	PlaceJevKit(false);
+	// The frozen world never reaches Tick's refresh, so without this the published connection stays empty and the map reads
+	// every region the team holds as cut off (a red hatch, rigs OFFLINE) until 0:00. Placing or moving a Rig changes it.
+	GameStateTerritory::RefreshConnections(*this);
 	Planning.SecondsRemaining = static_cast<float>(PlanningPolicy::Remaining(GetWorld()->GetRealTimeSeconds(), PlanningDeadline));
 	// A frozen world slows normal replication scheduling; the countdown is published every tick, as the pause's is.
 	ForceNetUpdate();

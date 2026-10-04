@@ -101,14 +101,4 @@ void AppendKitCard(FStringBuilderBase& Out, EKitCard State)
 		break;
 	}
 }
-
-FVector DefaultBarracksSpot(const FVector& Home, int32 Team, int32 Index)
-{
-	const int32 Ring = Index / 32, Direction = Index % 32;
-	const float Angle = Direction * PI / 16.f;
-	const float Orientation = Team == 5 ? -1.f : 1.f;
-	FVector Spot = Home + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * ((380.f + Ring * 160.f) * Orientation);
-	Spot.Z = 5.f;
-	return Spot;
-}
 }

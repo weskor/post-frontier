@@ -26,6 +26,11 @@ public:
 
 	void FocusOn(FVector Location);
 
+	// Motion blur off for this camera's view only (a post-process override, no global state). The frozen planning world
+	// keeps its last frame's velocity, so with blur on the whole scene smears until the world runs again.
+	void SetMotionBlurSuppressed(bool bSuppressed);
+	bool IsMotionBlurSuppressed() const;
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	TObjectPtr<USpringArmComponent> SpringArm;

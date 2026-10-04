@@ -22,7 +22,7 @@ void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<Planning
 
 // The default spots are ONE rule: the end of planning places by it and the HUD's ghosts show it. Each search offers
 // candidates in order and the first Accept takes. The server's Accept places the piece, the ghost's validates it.
-// Barracks: rings around the home headquarters (PlanningHud::DefaultBarracksSpot), skipping spots that would crowd a free
+// Barracks: rings around the home headquarters (PlanningPolicy::DefaultBarracksSpot), skipping spots that would crowd a free
 // deposit. Rig: the nearest free own deposit, then the next when a placement fails.
 bool FindDefaultBarracks(const ACommandGameState& State, int32 Team, TFunctionRef<bool(const FVector&)> Accept, FVector& OutSpot);
 bool FindDefaultRig(const ACommandGameState& State, int32 Team, TFunctionRef<bool(const FVector&)> Accept, FVector& OutSite);

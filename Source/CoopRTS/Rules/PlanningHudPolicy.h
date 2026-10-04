@@ -73,10 +73,4 @@ enum class EKitCard : uint8
 };
 EKitCard KitCard(bool bPlaced, bool bReady, bool bSiteAvailable);
 void AppendKitCard(FStringBuilderBase& Out, EKitCard State);
-
-// The default Barracks spots, in the order the end of planning tries them: 9 rings of 32 directions around the home
-// headquarters, 380 uu out and 160 uu more per ring, mirrored for the far side. The first legal spot clear of free
-// deposits wins (GameStatePlanning::FindDefaultBarracks, which the server and the HUD's ghost both call).
-constexpr int32 SpotCount = 9 * 32;
-FVector DefaultBarracksSpot(const FVector& Home, int32 Team, int32 Index);
 }

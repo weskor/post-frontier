@@ -1031,4 +1031,6 @@ rendered = true
 "Source/CoopRTS/CommandPlayerController*.[ch]*" = ["planning-ui"]
 "Source/CoopRTS/HUD/**/*.[chp]*" = ["planning-ui"]
 "Source/CoopRTS/CommandHUD.[chp]*" = ["planning-ui"]
+"Source/CoopRTS/CommandCamera.[ch]*" = ["planning-ui"]
+"Source/CoopRTS/GameState/GameStatePlanning.*" = ["planning-ui"]
 "Tools/harness/hud_planning.py" = ["tools"]

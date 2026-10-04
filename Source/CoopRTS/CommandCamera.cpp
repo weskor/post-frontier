@@ -44,6 +44,17 @@ ACommandCamera::ACommandCamera()
 	Camera->bUsePawnControlRotation = false;
 }
 
+void ACommandCamera::SetMotionBlurSuppressed(bool bSuppressed)
+{
+	Camera->PostProcessSettings.bOverride_MotionBlurAmount = bSuppressed;
+	Camera->PostProcessSettings.MotionBlurAmount = 0.f;
+}
+
+bool ACommandCamera::IsMotionBlurSuppressed() const
+{
+	return Camera->PostProcessSettings.bOverride_MotionBlurAmount && Camera->PostProcessSettings.MotionBlurAmount == 0.f;
+}
+
 void ACommandCamera::Pan(FVector2D Axis, float DeltaSeconds)
 {
 	if (!IsLocallyControlled() || Axis.IsNearlyZero())

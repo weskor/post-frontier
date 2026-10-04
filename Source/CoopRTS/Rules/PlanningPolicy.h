@@ -58,4 +58,10 @@ struct FKitFill
 };
 // What expiry or the end of planning must still supply for one commander's kit.
 FKitFill Fill(bool bBarracksPlaced, bool bRigPlaced, bool bRigSiteAvailable);
+
+// The default Barracks spots, in the order the end of planning tries them: 9 rings of 32 directions around the home
+// headquarters, 380 uu out and 160 uu more per ring, mirrored for the far side (team 5). The first legal spot clear of free
+// deposits wins (GameStatePlanning::FindDefaultBarracks, which the server and the HUD's ghost both call).
+constexpr int32 DefaultSpotCount = 9 * 32;
+FVector DefaultBarracksSpot(const FVector& Home, int32 Team, int32 Index);
 }

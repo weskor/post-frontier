@@ -212,8 +212,6 @@ private:
 	CommandHUDPanels::FPlanningGhosts PlanningGhosts;
 	double PlanningGhostsAt = -1000.;
 	bool bPlanningWasActive = false;
-	// r.MotionBlurQuality as it was before planning turned it off; INDEX_NONE while untouched.
-	int32 SavedMotionBlurQuality = INDEX_NONE;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	// Keeps the deck open over the world when it does not fit beside the force cards.
@@ -287,7 +285,7 @@ private:
 	// Planning, in CommandPlayerControllerPlanning.cpp.
 	void UpdatePlanning();
 	void EndPlanningInput();
-	void HoldMotionBlurOff(bool bHold);
+	void SuppressPlanningMotionBlur(bool bSuppress);
 	void SendKitPlacement(const FVector& Location);
 	void SendPlanningUnitType(int32 ChipIndex);
 	void FocusJevBase();

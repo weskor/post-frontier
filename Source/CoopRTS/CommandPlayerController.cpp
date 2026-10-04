@@ -46,7 +46,6 @@ void ACommandPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (InputSubsystem.IsValid() && Mapping)
 		InputSubsystem->RemoveMappingContext(Mapping);
 	InputSubsystem.Reset();
-	HoldMotionBlurOff(false);
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -76,7 +75,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	PlanningGhosts = CommandHUDPanels::FPlanningGhosts();
 	PlanningGhostsAt = -1000.;
 	bPlanningWasActive = false;
-	HoldMotionBlurOff(false);
+	SuppressPlanningMotionBlur(false);
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;

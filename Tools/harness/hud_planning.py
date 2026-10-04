@@ -92,6 +92,9 @@ def open_phase(
         pid, state = boot(run, capture, resolution, isolate=False)
     finally:
         os.environ.pop(KEEP_PLANNING, None)
+    # An offscreen cursor left on a viewport edge engages real edge-pan and drifts the camera off the map (the black
+    # captures of verify-bff3 and verify-095e); park it in the middle before anything is captured.
+    run.request("host", "cursor", x=state["viewportWidth"] / 2, y=state["viewportHeight"] / 2)
     capture.wait(
         lambda s: s["planning"]["active"] and bool(s["planning"]["kits"]),
         "the match opens in the planning phase with the commander's kit slot",
@@ -118,11 +121,16 @@ def open_phase(
     return pid, int(state["localIndex"]), mates, state
 
 
+def camera(state: JsonObject) -> list[float]:
+    return [float(v) for v in state["cameraPosition"]]
+
+
 def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     require(len(resolutions) == 2, "the planning capture needs two viewports")
     wide, narrow = resolutions
     capture = Capture(run)
     pid, own, mates, state = open_phase(run, capture, wide)
+    home = camera(state)
     capture.shot(f"planning-unplaced-{wide[0]}x{wide[1]}")
     viewport(run, capture, *narrow)
     capture.shot(f"planning-unplaced-{narrow[0]}x{narrow[1]}")
@@ -130,6 +138,10 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     capture.shot(f"planning-kit-{narrow[0]}x{narrow[1]}")
     viewport(run, capture, *wide)
     capture.shot(f"planning-kit-{wide[0]}x{wide[1]}")
+    require(
+        camera(capture.state()) == home,
+        "the camera drifted during the capture: a cursor on an edge pans it",
+    )
     capture.key("Enter")
     capture.wait(lambda s: bool(mine(s)["ready"]), "Enter readies the finished kit")
     capture.shot(f"planning-ready-{wide[0]}x{wide[1]}")

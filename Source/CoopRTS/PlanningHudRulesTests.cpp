@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "Misc/AutomationTest.h"
 #include "Rules/PlanningHudPolicy.h"
+#include "Rules/PlanningPolicy.h"
 
 // Pure rule tests: no world, no actors. The planning HUD's texts and what Enter does (ui.md surface 10).
 
@@ -14,7 +15,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlanningHudEnterTest, "CoopRTS.Rules.PlanningH
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlanningHudKitTest, "CoopRTS.Rules.PlanningHud.Kit",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlanningHudSpotsTest, "CoopRTS.Rules.PlanningHud.Spots",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlanningHudSpotsTest, "CoopRTS.Rules.Planning.DefaultSpots",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
@@ -165,14 +166,15 @@ bool FPlanningHudKitTest::RunTest(const FString&)
 
 bool FPlanningHudSpotsTest::RunTest(const FString&)
 {
+	using namespace PlanningPolicy;
 	const FVector Home(1000., -500., 20.);
-	TestEqual(TEXT("There are nine rings of 32 directions"), SpotCount, 288);
+	TestEqual(TEXT("There are nine rings of 32 directions"), DefaultSpotCount, 288);
 	const FVector First = DefaultBarracksSpot(Home, 0, 0);
 	TestTrue(TEXT("The first spot is 380 uu from home along +X, at the building height"),
 		First.Equals(FVector(1380., -500., 5.), .01));
 	TestTrue(TEXT("a quarter turn later it is along +Y"), DefaultBarracksSpot(Home, 0, 8).Equals(FVector(1000., -120., 5.), .01));
 	TestTrue(TEXT("The next ring is 160 uu further out"), DefaultBarracksSpot(Home, 0, 32).Equals(FVector(1540., -500., 5.), .01));
-	TestTrue(TEXT("and the last ring is 1660 uu out"), FMath::IsNearlyEqual(FVector::Dist2D(DefaultBarracksSpot(Home, 0, SpotCount - 32), Home), 380. + 8 * 160., .01));
+	TestTrue(TEXT("and the last ring is 1660 uu out"), FMath::IsNearlyEqual(FVector::Dist2D(DefaultBarracksSpot(Home, 0, DefaultSpotCount - 32), Home), 380. + 8 * 160., .01));
 	TestTrue(TEXT("The far side mirrors the rings through its headquarters"),
 		DefaultBarracksSpot(Home, 5, 0).Equals(FVector(620., -500., 5.), .01));
 	return true;

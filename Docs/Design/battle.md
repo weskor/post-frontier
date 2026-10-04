@@ -11,7 +11,7 @@
 
 **Why.** Every battle used to start from an empty base. In all 20 harness matches the AI's opening was identical to the second: barracks finished at 14 s, first Drill Rig at 27 s, first capture at 39 s, first fight around 2:15. One build order, replayed 4–6 times a run. Research: [opening.md](../Research/opening.md).
 
-**Planning phase (before 0:00) [Built].** Starting values, orchestrator 2026-10-04. The authoritative core is built and tested; the controller's input and HUD (Enter, KIT bar, planning panel, roster chips, see [ui.md](ui.md)) are **[New]**. Commands: `Commands/PlanningCommands.h`.
+**Planning phase (before 0:00) [Built].** Starting values, orchestrator 2026-10-04. The authoritative core and the controller's input and HUD (Enter, KIT bar, planning panel, roster chips, see [ui.md](ui.md)) are built and tested. Commands: `Commands/PlanningCommands.h`.
 - It lasts up to 60 s of real time and ends early when every human is Ready. The battle clock, economy, JEV, combat, production and construction don't run; the world pauses without spending the co-op pause, and P is refused. The phase ends once, at the deadline or on the last Ready, after the navmesh is ready. The battle clock (JEV's schedule, telemetry and simulation durations) reads 0:00 at that moment.
 - **Each commander:**
   - places a pre-built Barracks (normal placement rules, in own territory; free and finished) and a Drill Rig (default: the nearest free deposit in own territory);

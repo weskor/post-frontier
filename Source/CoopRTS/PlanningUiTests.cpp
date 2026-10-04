@@ -1,6 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "ArmyGroup.h"
-#include "HAL/IConsoleManager.h"
+#include "CommandCamera.h"
 #include "ArmyTestSetup.h"
 #include "DepositSite.h"
 #include "Headquarters.h"
@@ -28,10 +28,10 @@ FString ReadyText(const FContext& Context)
 	return FString(Text.ToView());
 }
 
-int32 MotionBlurQuality()
+bool MotionBlurSuppressed(const ACommandPlayerController* Controller)
 {
-	const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MotionBlurQuality"));
-	return Quality ? Quality->GetInt() : INDEX_NONE;
+	const ACommandCamera* Camera = Cast<ACommandCamera>(Controller->GetPawn());
+	return Camera && Camera->IsMotionBlurSuppressed();
 }
 
 class FScenario final : public PlanningUiFixture::FScenario
@@ -93,7 +93,10 @@ private:
 		const FContext Context = MakeContext(PC);
 		if (!Check(Context.bPlanning && !Context.bKitReady, TEXT("The phase is on and the kit is not Ready")))
 			return;
-		Check(MotionBlurQuality() == 0, TEXT("Motion blur is held off while the frozen world is on screen"));
+		Check(MotionBlurSuppressed(PC), TEXT("Motion blur is held off on this camera while the frozen world is on screen"));
+		const AMapRegion* Home = State->FindRegionAt(State->FriendlyHeadquarters->GetActorLocation());
+		Check(Home && State->IsRegionConnected(0, Home->RegionIndex),
+			TEXT("The team's main reads connected while the world is frozen, so the map shows no false supply cut"));
 		for (const FVector2D& Size : { FVector2D(1600.f, 900.f), FVector2D(1280.f, 720.f) })
 		{
 			const FLayout Layout = MakeLayout(Context, Size.X, Size.Y);
@@ -283,7 +286,7 @@ private:
 		Check(!Context.bPlanning && bPause && !bPlanning, TEXT("At 0:00 the panel goes and Pause is back"));
 		Check(!PC->IsPlacingBuilding() && PC->IsHUDExpanded() && Feedback().IsEmpty(),
 			TEXT("At 0:00 the armed KIT card, its hint and the Ready line are gone, so a click cannot buy a second Barracks"));
-		Check(MotionBlurQuality() > 0, TEXT("and back on at 0:00"));
+		Check(!MotionBlurSuppressed(PC), TEXT("and back on at 0:00"));
 		const ACommandBuilding* Barracks = nullptr;
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->OwningPlayerState == Host && Building->Kind == EBuildingKind::Barracks)

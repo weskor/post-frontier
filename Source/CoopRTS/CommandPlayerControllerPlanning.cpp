@@ -8,7 +8,6 @@
 #include "Content/MatchContent.h"
 #include "HUD/HUDPanels.h"
 #include "HUD/PlanningPanel.h"
-#include "HAL/IConsoleManager.h"
 #include "Headquarters.h"
 #include "Rules/PlanningHudPolicy.h"
 #include "Rules/PlanningPolicy.h"
@@ -27,24 +26,15 @@ bool ACommandPlayerController::IsPlanningActive() const
 	return State && State->IsPlanning();
 }
 
-// The frozen world keeps its previous frame's view, so once the camera has moved motion blur smears the whole scene until
-// the world runs again (planning captures with it on show buildings streaked and the terrain ghosted; with it off they are
-// sharp). The player pans and zooms through the whole phase, so it stays off for the phase and comes back at 0:00.
-void ACommandPlayerController::HoldMotionBlurOff(bool bHold)
+// The frozen world keeps its previous frame's velocity, so once the camera has moved motion blur smears the whole scene
+// until the world runs again (planning captures with it on show buildings streaked and the terrain ghosted; with it off
+// they are sharp). The override lives on this player's camera only and is applied every planning tick, so a camera that
+// was replaced mid-phase gets it too; EndPlanningInput lifts it at 0:00.
+void ACommandPlayerController::SuppressPlanningMotionBlur(bool bSuppress)
 {
-	IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MotionBlurQuality"));
-	if (!Quality)
-		return;
-	if (bHold && SavedMotionBlurQuality == INDEX_NONE)
-	{
-		SavedMotionBlurQuality = Quality->GetInt();
-		Quality->Set(0, ECVF_SetByCode);
-	}
-	else if (!bHold && SavedMotionBlurQuality != INDEX_NONE)
-	{
-		Quality->Set(SavedMotionBlurQuality, ECVF_SetByCode);
-		SavedMotionBlurQuality = INDEX_NONE;
-	}
+	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
+		if (Camera->IsMotionBlurSuppressed() != bSuppress)
+			Camera->SetMotionBlurSuppressed(bSuppress);
 }
 
 // Planning is over: what it armed must not reach the battle. A kit card armed at 0:00 would otherwise buy a second Barracks
@@ -52,6 +42,7 @@ void ACommandPlayerController::HoldMotionBlurOff(bool bHold)
 void ACommandPlayerController::EndPlanningInput()
 {
 	CancelMode();
+	SuppressPlanningMotionBlur(false);
 	PlanningConfirmAsked = -1000.;
 	PlanningGhosts = FPlanningGhosts();
 	PlanningGhostsAt = -1000.;
@@ -65,8 +56,8 @@ void ACommandPlayerController::UpdatePlanning()
 	const bool bActive = State && State->IsPlanning();
 	if (bPlanningWasActive && !bActive)
 		EndPlanningInput();
-	if (bPlanningWasActive != bActive)
-		HoldMotionBlurOff(bActive);
+	if (bActive)
+		SuppressPlanningMotionBlur(true);
 	bPlanningWasActive = bActive;
 	const FPlanningKit* Kit = bActive && IsValid(Commander) ? State->FindKit(Commander) : nullptr;
 	if (!Kit)
