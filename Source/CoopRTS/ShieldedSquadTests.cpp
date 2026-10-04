@@ -1,0 +1,199 @@
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+
+#include "CombatTraitFixture.h"
+#include "Commands/CommandService.h"
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FShieldedSquadWorldTest, "CoopRTS.Content.ShieldedSquad.ProduceAndFight",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+namespace
+{
+using namespace CombatTraitFixture;
+
+// The Lancer and Scrambler from the real catalogue, produced at a Barracks of each faction (team 0 Human, team 5
+// Machine) with the real production tick: a full squad each, configured stats on every member, the Lancer's
+// shield, and a Scrambler pulse that strips a hostile Lancer's shield without touching its HP.
+class FSquadScenario : public FScenario
+{
+public:
+	using FScenario::FScenario;
+
+protected:
+	bool Setup() override;
+	bool Step(double Now) override;
+
+private:
+	struct FCase
+	{
+		EUnitRole Role;
+		bool bMachine;
+	};
+	static constexpr FCase Cases[] = { { EUnitRole::Assault, false }, { EUnitRole::Support, false },
+		{ EUnitRole::Assault, true }, { EUnitRole::Support, true } };
+
+	bool Produce(const FCase& Case);
+	bool PlaceBarracks(ACommandPlayerState* Commander, const FVector& Center);
+	bool CheckSquad(const FCase& Case, const UArmyUnitDefinition& Definition);
+	bool StartPulse(const FCase& Case);
+
+	ACommandPlayerState* WalletOf(const FCase& Case) const { return Case.bMachine ? Arena.State->EnemyCommander.Get() : Arena.Wallet.Get(); }
+
+	TWeakObjectPtr<ACommandBuilding> Barracks;
+	TWeakObjectPtr<AArmyUnit> Caster, Victim;
+	FVector Ground = FVector::ZeroVector;
+	int32 LancerIndex = INDEX_NONE, ScramblerIndex = INDEX_NONE, CaseIndex = 0;
+};
+
+bool FSquadScenario::PlaceBarracks(ACommandPlayerState* Commander, const FVector& Center)
+{
+	ACommandGameState* State = Arena.State.Get();
+	Commander->Resources = 5000;
+	const int32 Team = Commander == State->EnemyCommander ? 5 : 0;
+	for (int32 Ring = 0; Ring < 9; ++Ring)
+		for (int32 Direction = 0; Direction < 32; ++Direction)
+		{
+			const float Angle = Direction * PI / 16.f;
+			FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
+			Point.Z = 5.f;
+			Point = State->ResolveBuildingLocation(ArmyTestSetup::BarracksIndex, Point, Team);
+			FString Reason;
+			if (State->FindRegionAt(Point) != State->FindRegionAt(Center)
+				|| !State->ValidateBuildingPlacement(ArmyTestSetup::BarracksIndex, Team, Point, Reason))
+				continue;
+			Barracks = FCommandService::PlaceBuilding(Commander, ArmyTestSetup::BarracksIndex, Point).Building;
+			if (Barracks.IsValid())
+				return true;
+		}
+	return false;
+}
+
+bool FSquadScenario::Setup()
+{
+	const ACommandGameState* State = Arena.State.Get();
+	LancerIndex = ArmyTestSetup::UnitIndex(State, EUnitRole::Assault);
+	ScramblerIndex = ArmyTestSetup::UnitIndex(State, EUnitRole::Support);
+	const UArmyUnitDefinition* Lancer = State->Content->Unit(LancerIndex);
+	const UArmyUnitDefinition* Scrambler = State->Content->Unit(ScramblerIndex);
+	AMapRegion *First = nullptr, *Second = nullptr;
+	if (!Check(Lancer && Scrambler && Lancer->Id == TEXT("lancer") && Scrambler->Id == TEXT("scrambler"),
+			TEXT("The catalogue lists the Lancer and the Scrambler")))
+		return false;
+	if (!Check(Arena.PickRegions(First, Second) && Arena.Ground(*First, Ground), TEXT("A roomy navigable region hosts the pulse fixture")))
+		return false;
+	// Nothing else may be within a pulse radius of the fixture ground.
+	return Check(FVector::Dist2D(Ground, State->FriendlyHeadquarters->GetActorLocation()) > 1500.f
+			&& FVector::Dist2D(Ground, State->EnemyHeadquarters->GetActorLocation()) > 1500.f,
+		TEXT("The pulse fixture is far from both headquarters"));
+}
+
+bool FSquadScenario::Produce(const FCase& Case)
+{
+	ACommandGameState* State = Arena.State.Get();
+	ACommandPlayerState* Commander = WalletOf(Case);
+	const AHeadquarters* Hq = Case.bMachine ? State->EnemyHeadquarters.Get() : State->FriendlyHeadquarters.Get();
+	if (!Check(PlaceBarracks(Commander, Hq->GetActorLocation()), TEXT("A Barracks site exists beside the headquarters")))
+		return false;
+	Barracks->Tick(60.f);
+	const int32 Fee = State->Content->Unit(Case.Role == EUnitRole::Assault ? LancerIndex : ScramblerIndex)->ConfigurationCost;
+	const int32 Before = Commander->Resources;
+	FCommandService::ConfigureProduction(Commander, Barracks.Get(), Case.Role, true);
+	if (!Check(Barracks->IsComplete() && Barracks->bForceConfigured && Barracks->bProductionEnabled && Barracks->ProductionRole == Case.Role
+				&& Commander->Resources == Before - Fee,
+			TEXT("A completed Barracks locks the new unit type and charges its configuration fee")))
+		return false;
+	const UArmyUnitDefinition* Definition = Barracks->GetProductionDefinition();
+	if (!Check(Definition && Definition->Role == Case.Role, TEXT("The Barracks produces the catalogue unit of that role")))
+		return false;
+	const int32 BeforeUnits = Commander->Resources;
+	for (int32 Pass = 0; Pass < 40; ++Pass)
+		Barracks->TickProduction(Definition->UnitDuration + .3f);
+	int32 Joined = 0, Travelling = 0;
+	Barracks->GetForceCounts(Joined, Travelling);
+	return Check(Joined + Travelling == Definition->Capacity && Definition->Capacity == 3
+				&& Commander->Resources == BeforeUnits - 3 * Definition->UnitCost,
+			TEXT("Production fills exactly one squad of 3 and charges 3 unit costs, then holds at capacity"))
+		&& CheckSquad(Case, *Definition);
+}
+
+bool FSquadScenario::CheckSquad(const FCase& Case, const UArmyUnitDefinition& Definition)
+{
+	const ACommandGameState* State = Arena.State.Get();
+	const UBuildingDefinition* Producer = State->Content->Building(ArmyTestSetup::BarracksIndex);
+	const TArray<TSoftObjectPtr<UStaticMesh>>& Variants = Case.bMachine ? Producer->MachineRoleMeshes : Producer->HumanRoleMeshes;
+	const int32 UnitIndex = Barracks->ProductionUnitIndex;
+	if (!Check((Case.bMachine ? Definition.MachineMesh : Definition.HumanMesh).LoadSynchronous()
+				&& Variants.IsValidIndex(UnitIndex) && Variants[UnitIndex].LoadSynchronous(),
+			TEXT("The unit mesh and the Barracks variant of the faction are imported")))
+		return false;
+	int32 Members = 0;
+	for (TActorIterator<AArmyUnit> It(Arena.World.Get()); It; ++It)
+	{
+		const AArmyUnit* Unit = *It;
+		if (!Unit->IsAlive() || Unit->GetGroup() != Barracks->ForceGroup)
+			continue;
+		++Members;
+		const int32 Shield = Case.Role == EUnitRole::Assault ? 80 : 0;
+		if (!Check(Unit->GetUnitRole() == Case.Role && Unit->GetHealth() == Definition.MaxHealth && Unit->GetShield() == Shield
+					&& Unit->MaxShield() == Shield && Definition.AttackDamage == (Shield ? 30 : 12) && Definition.Range == 550.f
+					&& Definition.Interval == 1.f && Definition.MoveSpeed == (Shield ? 420.f : 480.f),
+				TEXT("Every member carries the configured stats; a Lancer has 80 shield")))
+			return false;
+	}
+	return Check(Members == 3, TEXT("Three living members belong to the squad's force"));
+}
+
+bool FSquadScenario::StartPulse(const FCase& Case)
+{
+	AArmyUnit* Squad = nullptr;
+	for (AArmyUnit* Unit : Barracks->ForceGroup->GetUnits())
+		if (IsValid(Unit) && Unit->IsAlive())
+			Squad = Unit;
+	if (!Check(Squad != nullptr, TEXT("The Scrambler squad has a member to pulse with")))
+		return false;
+	Barracks->ForceGroup->SetActorTickEnabled(false);
+	Caster = Squad;
+	Arena.Place(Squad, Ground + FVector(-300.f, 0.f, 65.f));
+	Victim = Arena.Spawn(!Case.bMachine, LancerIndex, Ground, Ground + FVector(-180.f, 0.f, 65.f));
+	if (!Check(Victim.IsValid(), TEXT("The hostile Lancer fixture spawns")))
+		return false;
+	return Check(Victim->GetShield() == 80 && Caster->GetLastPulseServerTime() < 0.,
+		TEXT("A hostile Lancer with 80 shield stands in a produced Scrambler's pulse radius, which is ready at spawn"));
+}
+
+bool FSquadScenario::Step(double Now)
+{
+	if (CaseIndex >= UE_ARRAY_COUNT(Cases))
+		return true;
+	const FCase& Case = Cases[CaseIndex];
+	if (Stage == 0)
+	{
+		if (!Produce(Case))
+			return true;
+		if (Case.Role == EUnitRole::Assault)
+		{
+			++CaseIndex;
+			return false;
+		}
+		if (!StartPulse(Case))
+			return true;
+		Next(1, Now);
+		return false;
+	}
+	if (Victim->GetShield() > 0)
+		return !Check(!After(Now, 1.5), TEXT("The produced Scrambler pulses at a shielded hostile in range"));
+	if (!Check(Victim->GetHealth() == 110 && Caster->GetLastPulseServerTime() > 0.,
+			TEXT("The pulse empties the shield without HP damage and publishes its cast time")))
+		return true;
+	++CaseIndex;
+	Stage = 0;
+	return false;
+}
+}
+
+bool FShieldedSquadWorldTest::RunTest(const FString& Parameters)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FSquadScenario(this));
+	return true;
+}
+
+#endif

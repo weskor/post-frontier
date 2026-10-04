@@ -30,6 +30,27 @@ FStringView ObjectiveRegionName(FStringView Name)
 	return Name;
 }
 
+void DrawAssaultRoleGlyph(const FPainter& Paint, const FRect& Glyph, const FLinearColor& Color)
+{
+	Paint.Outline({ Glyph.X, Glyph.Y + 2.f, 4.f, 7.f }, Color);
+	Paint.Fill({ Glyph.X + 7.f, Glyph.Y, 1.f, 10.f }, Color);
+	Paint.Fill({ Glyph.X + 6.f, Glyph.Y + 1.f, 3.f, 2.f }, Color);
+	Paint.Fill({ Glyph.X + 5.f, Glyph.Y + 7.f, 5.f, 1.f }, Color);
+}
+
+void DrawSupportRoleGlyph(const FPainter& Paint, const FRect& Glyph, const FLinearColor& Color)
+{
+	Paint.Fill({ Glyph.X + 4.f, Glyph.Y + 4.f, 2.f, 2.f }, Color);
+	Paint.Fill({ Glyph.X + 2.f, Glyph.Y + 2.f, 1.f, 6.f }, Color);
+	Paint.Fill({ Glyph.X + 7.f, Glyph.Y + 2.f, 1.f, 6.f }, Color);
+	Paint.Fill({ Glyph.X, Glyph.Y, 1.f, 10.f }, Color);
+	Paint.Fill({ Glyph.X + 9.f, Glyph.Y, 1.f, 10.f }, Color);
+	Paint.Fill({ Glyph.X, Glyph.Y, 2.f, 1.f }, Color);
+	Paint.Fill({ Glyph.X, Glyph.Y + 9.f, 2.f, 1.f }, Color);
+	Paint.Fill({ Glyph.X + 8.f, Glyph.Y, 2.f, 1.f }, Color);
+	Paint.Fill({ Glyph.X + 8.f, Glyph.Y + 9.f, 2.f, 1.f }, Color);
+}
+
 void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, const FObjectiveForce& Force,
 	const FRect& Rect, float Alpha)
 {
@@ -48,6 +69,10 @@ void DrawObjectiveForceBadge(const FPainter& Paint, const FContext& Context, con
 		Paint.Fill(Glyph, Color);
 		Paint.Fill({ Glyph.X + 3.f, Glyph.Y + 2.f, 4.f, 6.f }, Palette::Card.CopyWithNewOpacity(Alpha));
 	}
+	else if (Unit->Role == EUnitRole::Assault)
+		DrawAssaultRoleGlyph(Paint, Glyph, Color);
+	else if (Unit->Role == EUnitRole::Support)
+		DrawSupportRoleGlyph(Paint, Glyph, Color);
 	else if (Unit->Role == EUnitRole::Ranged)
 	{
 		Paint.Outline(Glyph, Color);

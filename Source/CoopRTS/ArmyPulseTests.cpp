@@ -18,6 +18,11 @@ class FPulseScenario : public FScenario
 {
 public:
 	using FScenario::FScenario;
+	~FPulseScenario() override
+	{
+		if (SlowLancer.IsValid())
+			SlowLancer->UnitDuration = LancerDuration;
+	}
 
 protected:
 	bool Setup() override;
@@ -32,6 +37,8 @@ private:
 	TWeakObjectPtr<ACommandBuilding> Barracks, Foundation;
 	FVector Ground = FVector::ZeroVector, Origin = FVector::ZeroVector;
 	int32 ShieldedIndex = INDEX_NONE;
+	TWeakObjectPtr<UArmyUnitDefinition> SlowLancer;
+	float LancerDuration = 0.f;
 	double FirstPulse = 0., StunStart = 0.;
 	float FrozenProgress = 0.f, FrozenConstruction = 0.f;
 };
@@ -80,12 +87,14 @@ bool FPulseScenario::Setup()
 				&& PlaceBarracksNear(Arena.State->FriendlyHeadquarters->GetActorLocation(), Barracks),
 			TEXT("Pulse fixtures find roomy ground and a Barracks site")))
 		return false;
-	// The Barracks builds with the real tick, then produces a slow test-only unit so progress is continuous.
+	// The Barracks builds with the real tick, then produces the catalogue Lancer made slow (restored on exit)
+	// so progress is continuous.
 	Barracks->Tick(60.f);
-	FUnitSpec Producer;
-	Producer.Role = EUnitRole::Assault;
-	Producer.UnitDuration = 60.f;
-	Arena.AddUnit(Producer);
+	SlowLancer = const_cast<UArmyUnitDefinition*>(Arena.State->Content->Unit(ArmyTestSetup::UnitIndex(Arena.State.Get(), EUnitRole::Assault)));
+	if (!Check(SlowLancer.IsValid(), TEXT("The catalogue has a Lancer to slow down")))
+		return false;
+	LancerDuration = SlowLancer->UnitDuration;
+	SlowLancer->UnitDuration = 60.f;
 	FCommandService::ConfigureProduction(Arena.Wallet.Get(), Barracks.Get(), EUnitRole::Assault, true);
 	if (!Check(Barracks->IsComplete() && Barracks->bProductionEnabled && Barracks->GetProductionDuration() == 60.f,
 			TEXT("A completed Barracks starts producing the slow fixture unit")))

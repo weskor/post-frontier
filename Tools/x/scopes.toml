@@ -385,6 +385,11 @@ filter = "CoopRTS.HUD.SupplyCard"
 map = "default"
 rendered = true
 
+[scopes.shielded-squad]
+kind = "automation"
+filter = "CoopRTS.Content.ShieldedSquad"
+map = "default"
+
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
 "*.md" = ["lint"]
@@ -406,10 +411,10 @@ rendered = true
 "Build/Audio/**" = ["tools"]
 "Build/Maps/AvailabilityZoneV2.json" = ["defend-posts-v2", "terrain-v2"]
 "Build/Generate*.py" = ["lint"]
-"Build/GenerateMatchContent.py" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit"]
+"Build/GenerateMatchContent.py" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit", "shielded-squad"]
 "Build/GenerateGameplayConstants.py" = ["tools"]
 "Build/ContentText.py" = ["maps", "tools"]
-"Build/Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit", "tools", "maps", "team-economy"]
+"Build/Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit", "tools", "maps", "team-economy", "shielded-squad"]
 "Build/GenerateCommandMap.py" = ["defend-posts-boot"]
 "Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2", "terrain-v2"]
 "Build/Import*.py" = ["lint"]
@@ -770,9 +775,10 @@ rendered = true
 "Source/CoopRTS/DamageRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/ShieldRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/RegionTraitRulesTests.cpp" = ["rules"]
-"Source/CoopRTS/CombatTraitFixture.h" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/CombatTraitFixture.h" = ["shields", "pulse-stun", "region-traits", "shielded-squad"]
 "Source/CoopRTS/ArmyShieldTests.cpp" = ["shields"]
 "Source/CoopRTS/ArmyPulseTests.cpp" = ["pulse-stun"]
+"Source/CoopRTS/ShieldedSquadTests.cpp" = ["shielded-squad"]
 "Source/CoopRTS/ArmyRegionTraitTests.cpp" = ["region-traits"]
 "Source/CoopRTS/ArmyRegionSpeedTests.cpp" = ["region-traits"]
 "Source/CoopRTS/Rules/DamagePolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "shields", "pulse-stun", "region-traits"]
@@ -781,11 +787,11 @@ rendered = true
 "Source/CoopRTS/ArmyUnitShield.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit", "simulation-duel", "shields", "pulse-stun", "region-traits"]
 "Source/CoopRTS/ArmyUnitRegion.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit", "simulation-duel", "shields", "pulse-stun", "region-traits"]
 # Existing runtime files these fixtures exercise; matching entries are unioned.
-"Source/CoopRTS/ArmyUnit.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits", "fortify"]
-"Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify"]
+"Source/CoopRTS/ArmyUnit.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
+"Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
 "Source/CoopRTS/Headquarters.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify"]
 "Source/CoopRTS/MapRegion.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "fortify-network"]
-"Source/CoopRTS/Content/UnitDefinition.[h]" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Content/UnitDefinition.[h]" = ["shields", "pulse-stun", "region-traits", "shielded-squad"]
 "Source/CoopRTS/Rules/CombatPolicy.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits"]
 
 # Fortify: its tests and probe, and every runtime file its authority, effects and replication run through (unioned).

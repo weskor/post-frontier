@@ -72,7 +72,8 @@ void UCoopAudioSubsystem::LoadCueLibrary()
 	const auto Load = [this](int32 Team, int32 Role, const TCHAR* Folder, const FCueSpec& Spec) {
 		LoadCue(Team, Role, Folder, Spec.Event, Spec.Name, Spec.Count);
 	};
-	const TCHAR* Roles[] = { TEXT("Frontline"), TEXT("Ranged"), TEXT("Siege") };
+	const TPair<EUnitRole, const TCHAR*> Roles[] = { { EUnitRole::Frontline, TEXT("Frontline") }, { EUnitRole::Ranged, TEXT("Ranged") },
+		{ EUnitRole::Siege, TEXT("Siege") }, { EUnitRole::Assault, TEXT("Lancer") }, { EUnitRole::Support, TEXT("Scrambler") } };
 	const FCueSpec Structures[] = {
 		{ ECoopAudioEvent::Place, TEXT("Place"), 2 },
 		{ ECoopAudioEvent::ConstructLoop, TEXT("ConstructLoop"), 2 },
@@ -84,11 +85,12 @@ void UCoopAudioSubsystem::LoadCueLibrary()
 	};
 	for (int32 Team : { 0, 5 })
 	{
-		for (int32 Role = 0; Role < UE_ARRAY_COUNT(Roles); ++Role)
+		for (const auto& Role : Roles)
 		{
-			Load(Team, Role, Roles[Role], { ECoopAudioEvent::Attack, Role == 0 ? TEXT("Attack") : TEXT("Fire"), 4 });
-			Load(Team, Role, Roles[Role], { ECoopAudioEvent::Impact, TEXT("Impact"), 3 });
-			Load(Team, Role, Roles[Role], { ECoopAudioEvent::Death, TEXT("Death"), 3 });
+			const int32 Key = static_cast<int32>(Role.Key);
+			Load(Team, Key, Role.Value, { ECoopAudioEvent::Attack, Role.Key == EUnitRole::Frontline ? TEXT("Attack") : TEXT("Fire"), 4 });
+			Load(Team, Key, Role.Value, { ECoopAudioEvent::Impact, TEXT("Impact"), 3 });
+			Load(Team, Key, Role.Value, { ECoopAudioEvent::Death, TEXT("Death"), 3 });
 		}
 		for (const FCueSpec& Spec : Structures)
 			Load(Team, StructureRole, TEXT("Structure"), Spec);

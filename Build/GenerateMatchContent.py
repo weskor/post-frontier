@@ -2,7 +2,7 @@
 
 Build/Content/units.json and buildings.json own every unit and building field;
 Build/ContentText.py validates them before any asset is written. Catalogue order
-is a replicated contract: units frontline=0, ranged=1, siege=2; buildings
+is a replicated contract: units frontline=0, ranged=1, siege=2, lancer=3, scrambler=4; buildings
 barracks=0, extractor=1, workshop=2. The output is deterministic: assets are
 written only from those files and the art paths derived from their asset names.
 
@@ -71,7 +71,7 @@ def build_units():
     # Validate the complete source before writing any asset.
     tags = [
         (
-            authored_enum(role_type, definition["role"], ("FRONTLINE", "RANGED", "SIEGE")),
+            authored_enum(role_type, definition["role"], ("FRONTLINE", "RANGED", "SIEGE", "ASSAULT", "SUPPORT")),
             authored_enum(armor_type, definition["armor_class"], ("LIGHT", "HEAVY", "SHIELDED", "STRUCTURE")),
             authored_enum(damage_type, definition["damage_type"], ("KINETIC", "PIERCING", "DEMOLITION", "EMP")),
         )
@@ -84,6 +84,7 @@ def build_units():
         values = [(key, definition[key]) for key in (
             "id", "display_name", "max_health", "attack_damage", "range", "interval",
             "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
+            "max_shield", "pulse_interval", "pulse_radius", "pulse_building_stun_seconds",
         )]
         values.extend((
             ("role", role),

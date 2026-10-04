@@ -31,6 +31,10 @@ UNIT_FIELDS = (
     "unit_duration",
     "capacity",
     "configuration_cost",
+    "max_shield",
+    "pulse_interval",
+    "pulse_radius",
+    "pulse_building_stun_seconds",
     "accent",
 )
 BUILDING_FIELDS = (
@@ -48,7 +52,7 @@ BUILDING_FIELDS = (
 )
 # Catalogue order is a replicated contract (see MatchContent.h).
 BUILDING_ORDER = ("barracks", "extractor", "workshop")
-UNIT_ORDER = ("frontline", "ranged", "siege")
+UNIT_ORDER = ("frontline", "ranged", "siege", "lancer", "scrambler")
 
 
 def load_json(name: str) -> object:

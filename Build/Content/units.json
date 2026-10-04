@@ -15,7 +15,11 @@
     "unit_duration": 3.3333332538604736,
     "capacity": 6,
     "configuration_cost": 0,
-    "accent": [0.85, 0.85, 0.85]
+    "accent": [0.85, 0.85, 0.85],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0
   },
   {
     "asset_name": "Ranged",
@@ -33,7 +37,11 @@
     "unit_duration": 4.0,
     "capacity": 5,
     "configuration_cost": 0,
-    "accent": [0.55, 0.85, 1.0]
+    "accent": [0.55, 0.85, 1.0],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0
   },
   {
     "asset_name": "Siege",
@@ -51,6 +59,54 @@
     "unit_duration": 6.666666666666667,
     "capacity": 3,
     "configuration_cost": 180,
-    "accent": [1.0, 0.65, 0.25]
+    "accent": [1.0, 0.65, 0.25],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0
+  },
+  {
+    "asset_name": "Lancer",
+    "id": "lancer",
+    "display_name": "Lancer",
+    "role": "ASSAULT",
+    "armor_class": "SHIELDED",
+    "damage_type": "PIERCING",
+    "move_speed": 420.0,
+    "max_health": 110,
+    "attack_damage": 30,
+    "range": 550.0,
+    "interval": 1.0,
+    "unit_cost": 45,
+    "unit_duration": 7.5,
+    "capacity": 3,
+    "configuration_cost": 0,
+    "accent": [0.45, 0.75, 1.0],
+    "max_shield": 80,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0
+  },
+  {
+    "asset_name": "Scrambler",
+    "id": "scrambler",
+    "display_name": "Scrambler",
+    "role": "SUPPORT",
+    "armor_class": "LIGHT",
+    "damage_type": "EMP",
+    "move_speed": 480.0,
+    "max_health": 80,
+    "attack_damage": 12,
+    "range": 550.0,
+    "interval": 1.0,
+    "unit_cost": 35,
+    "unit_duration": 5.833333492279053,
+    "capacity": 3,
+    "configuration_cost": 0,
+    "accent": [0.75, 0.45, 1.0],
+    "max_shield": 0,
+    "pulse_interval": 10.0,
+    "pulse_radius": 400.0,
+    "pulse_building_stun_seconds": 3.0
   }
 ]
