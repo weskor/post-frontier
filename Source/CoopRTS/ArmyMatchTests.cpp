@@ -156,7 +156,7 @@ private:
 			|| Wallet->Resources > ACommandPlayerState::InitialResources + 2 * State->GetIncomePerSecond(Wallet)
 			|| State->FriendlyHeadquarters->Health != State->FriendlyHeadquarters->MaxHealth()
 			|| State->EnemyHeadquarters->Health != State->EnemyHeadquarters->MaxHealth()
-			|| State->GetIncomePerSecond(Wallet) != State->GetBaselineIncomePerSecond())
+			|| State->GetIncomePerSecond(Wallet) != State->GetHumanBaselineIncomePerSecond())
 			return Fail(TEXT("Restart must preserve commander identity but reset economy/research/HQs/territory"));
 		for (TActorIterator<AArmyGroup> It(World); It; ++It)
 			if (It->GetTeamIndex() == 0)

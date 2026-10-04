@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from harness.network import WORKSHOP, NetworkRun, owned_buildings, require, wallet
 from harness.network_session import Session, converged
+from harness.simulation_planning import DEFAULT_ECONOMY
 from harness.verify import JsonObject
 
 
@@ -64,7 +65,9 @@ def reset_matches(
         and len(state["sites"]) == len(old["host"]["sites"])
         and len(state["deposits"]) == len(old["host"]["deposits"])
         and all(
-            not d["occupied"] and d["remaining"] == (3000 if d["rich"] else 2400)
+            not d["occupied"]
+            and d["remaining"]
+            == DEFAULT_ECONOMY["rich_amount" if d["rich"] else "normal_amount"]
             for d in state["deposits"]
         )
         and all(

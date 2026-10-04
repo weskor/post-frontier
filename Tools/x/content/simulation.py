@@ -19,7 +19,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--variant",
         action="append",
-        help="baseline2/3/4 or NAME:baseline=3,normal_rate=4,...",
+        help="baseline2/3/4 or NAME:human_baseline=1,jev_baseline=2,normal_rate=4,...",
     )
     parser.add_argument(
         "--matches",

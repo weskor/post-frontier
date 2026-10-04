@@ -176,7 +176,7 @@ bool FConstructionScenario::LifecycleExtractor(UWorld* World, ACommandPlayerCont
 			TEXT("Controlled polygon retains rights after real force departure")))
 		return true;
 	const int32 Rate = Deposit->RatePerSecond();
-	if (!Check(Rate == (Deposit->bRich ? 6 : 4) && Deposit->Remaining == (Deposit->bRich ? 3000 : 2400),
+	if (!Check(Rate == (Deposit->bRich ? 6 : 4) && Deposit->Remaining == (Deposit->bRich ? EconomyPolicy::RichDepositAmount : EconomyPolicy::NormalDepositAmount),
 			TEXT("Deposit kind selects exact finite total and rate")))
 		return true;
 	const int32 IncomeBefore = Wallet->Resources, OtherBefore = OtherWallet->Resources;
@@ -184,10 +184,11 @@ bool FConstructionScenario::LifecycleExtractor(UWorld* World, ACommandPlayerCont
 	State->bVerificationIncomePaused = false;
 	State->Tick(2.f);
 	State->bVerificationIncomePaused = true;
-	if (!Check(State->GetIncomePerSecond(Wallet) == 2 + Rate && State->GetIncomePerSecond(OtherWallet) == 2
-				&& Wallet->Resources == IncomeBefore + (2 + Rate) * 2 && OtherWallet->Resources == OtherBefore + 4
+	// Shared pool: both baselines (8) plus the rig (2 x Rate), split evenly whoever built it.
+	if (!Check(State->GetIncomePerSecond(Wallet) == 2 + Rate / 2 && State->GetIncomePerSecond(OtherWallet) == 2 + Rate / 2
+				&& Wallet->Resources == IncomeBefore + 4 + Rate && OtherWallet->Resources == OtherBefore + 4 + Rate
 				&& Deposit->Remaining == RemainingBefore - Rate * 2,
-			TEXT("Completed extractor pays only builder, baseline pays teammate, deposit drains exactly")))
+			TEXT("Completed extractor pays both commanders evenly, builder or not, and the deposit drains exactly")))
 		return true;
 	return LifecycleDepletion(World, PC, State, Wallet, OtherWallet, Deposit, Site, Occupiers, Extractor);
 }
@@ -222,8 +223,8 @@ bool FConstructionScenario::LifecycleDepletion(UWorld* World, ACommandPlayerCont
 	State->Tick(2.f);
 	State->bVerificationIncomePaused = true;
 	if (!Check(Deposit->Remaining == 0 && State->GetIncomePerSecond(Wallet) == 2
-				&& Wallet->Resources == FinalBefore + 8 + 3 && OtherWallet->Resources == FinalOther + 8,
-			TEXT("Final partial payment cannot overdraw deposit; next tick pays baseline only")))
+				&& Wallet->Resources == FinalBefore + 5 + 4 && OtherWallet->Resources == FinalOther + 5 + 4,
+			TEXT("Final partial payment cannot overdraw deposit; the pool splits 11 then 8, the half carrying over")))
 		return true;
 	Extractor->ReceiveAttack(Extractor->Health, Enemy->GetUnits()[0]);
 	if (!Check(!IsValid(Deposit->Extractor) && Building.IsValid() && Building->OwningPlayerState == Wallet
