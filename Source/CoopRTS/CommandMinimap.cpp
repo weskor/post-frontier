@@ -380,7 +380,7 @@ void DrawCaption(UCanvas* Canvas, const ACommandPlayerController& Controller, FV
 	const bool bOfflineHq = State && ((IsValid(State->FriendlyHeadquarters) && State->FriendlyHeadquarters->IsOffline()) || (IsValid(State->EnemyHeadquarters) && State->EnemyHeadquarters->IsOffline()));
 	// While an HQ is offline the legend names its mark in place of the sector outline.
 	FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
-		FStringView(bOfflineHq ? TEXT("HQ/base | X: HQ offline | amber: front") : TEXT("HQ/base | sector | amber: contest/front")),
+		FStringView(bOfflineHq ? TEXT("HQ/base | X: HQ offline | amber: contest/front") : TEXT("HQ/base | sector | amber: contest/front")),
 		Font, Neutral);
 	Canvas->DrawItem(Legend);
 }
