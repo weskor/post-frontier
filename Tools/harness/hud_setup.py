@@ -66,6 +66,11 @@ def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
 
         jev_intent_scenario(run, resolution)
         return
+    if label == "new-units":
+        from harness.hud_units import scenario
+
+        scenario(run, resolution)
+        return
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]

@@ -16,6 +16,8 @@ isolated host and captures the timeline bar, region badge and memo feed after ea
 --quick force-bar: real card selection, production pause/resume, Attack, withdrawal and Retreat,
 with state captures at every --res. Other --quick labels boot one placed barracks and capture the
 deck + inspector at one resolution; they do not prove production, orders, research or victory.
+--quick new-units: locks two real Barracks to the Lancer and the Scrambler, waits for each full squad of 3 and
+captures both squads and the two together at the default camera (Human faction only).
 """
 
 from __future__ import annotations
@@ -69,7 +71,8 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "markers and six-second expiry; 'jev-intent' captures the JEV timeline, badges and memos "
         "through plan creation, escalation and replacement; other labels boot, place and select "
         "one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first resolution, "
-        "then stop; no production fill, fronts, research or victory",
+        "then stop; 'new-units' produces a Lancer and a Scrambler squad and captures them; no production fill, "
+        "fronts, research or victory otherwise",
     )
     parser.add_argument("--max-fps", type=int, default=30)
 
