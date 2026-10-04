@@ -110,15 +110,15 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 - **Speed bands by armor class [Change]:** slow 360 (Heavy) and fast 480 (Light) are [Built]; medium 420 (Shielded) and very fast 560 (Raider) are [New].
 - **Auto-casts at tier 1:** only the specialists (Scrambler, Repair crew, Shield projector). Branches add auto-casts to other units, e.g. the Warden's taunt.
 
-[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed, as starting values that **do not yet pass the duel acceptance rules** ([Balance.md](../Balance.md#lancer-and-scrambler--starting-stat-duel-2026-10-04)); [New] the other rows remain starting values for future harness validation:
+[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed (starting values, orchestrator 2026-10-04, from the [tuning round](../Balance.md#lancer-and-scrambler-tuning-round--no-passing-point-2026-10-04)); they pass every duel rule except the roster worth ratio, which is an open owner decision; [New] the other rows remain starting values for future harness validation:
 
 | Unit | Squad | Cost per unit | Full squad | HP | DPS | Range | Speed | Auto-cast |
 |---|---:|---:|---:|---|---:|---|---|---|
 | Brawler | 6 | 20 | 120 | 330 | 7 | melee | slow | — |
 | Rifle | 5 | 24 | 120 | 92 | 24 | mid | fast | — |
 | Artillery | 3 | 40 | 120 | 160 | 16 splash | long | fast | — |
-| Lancer | 3 | 45 | 135 | 110 + 80 shield | 30 | mid | medium | — |
-| Scrambler | 3 | 35 | 105 | 80 | 12 EMP | mid | fast | EMP pulse, see [Scrambler pulse](#lancer-and-scrambler-in-step-1b-built) |
+| Lancer | 3 | 24 | 72 | 36 + 60 shield | 24 | mid | medium | — |
+| Scrambler | 3 | 24 | 72 | 80 | 12 EMP | mid | fast | EMP pulse, see [Scrambler pulse](#lancer-and-scrambler-in-step-1b-built) |
 | Raider | 4 | 25 | 100 | 85 | 16 | short | very fast | — (passive: 2× capture speed) |
 | Repair crew | 2 | 40 | 80 | 160 | — | heals at 400 | slow | Heals the most damaged ally, 30 HP/s |
 | Shield projector | 2 | 45 | 90 | 90 + 120 shield | 6 | short | medium | 100-point regenerating shield bubble on allies within 500 |
@@ -135,7 +135,7 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 Both are built in step 1b with the table rows above as starting values (orchestrator 2026-10-04) and are produced at the Barracks of both factions, 3 per squad. Each fires one shot per 1.0 s, so the DPS column is the damage per shot. The Lancer's shot is single-target. Production building: [buildings.md](buildings.md#building-list); time and fee: [forces.md](forces.md#barracks-built).
 
 **Scrambler pulse.** Starting values, orchestrator 2026-10-04:
-- **Trigger:** automatic. It fires when it is ready and at least one hostile unit with shield above 0, or one hostile building (not the HQ, not a Failover Node), is within **400 cm** of the Scrambler. The **10 s** cooldown starts at the cast, and the first pulse is ready at spawn.
+- **Trigger:** automatic. It fires when it is ready and at least one hostile unit with shield above 0, or one hostile building (not the HQ, not a Failover Node), is within **600 cm** of the Scrambler. The **10 s** cooldown starts at the cast, and the first pulse is ready at spawn.
 - **Retreating:** a Scrambler does not pulse while its force is Retreating, matching Retreat's no-firing rule (approved by the orchestrator, 2026-10-04).
 - **Units:** hostile units in the radius lose all current shield, with no HP damage, and their shield regen delay restarts.
 - **Buildings:** hostile buildings in the radius are stunned for **3 s**. Production, construction and research progress pause; extraction and capture are unaffected. A new stun refreshes to 3 s; stuns never stack.

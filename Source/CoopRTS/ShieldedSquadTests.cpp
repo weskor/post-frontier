@@ -10,6 +10,8 @@ namespace
 {
 using namespace CombatTraitFixture;
 
+constexpr int32 LancerHealth = 36, LancerShield = 60;
+
 // The Lancer and Scrambler from the real catalogue, produced at a Barracks of each faction (team 0 Human, team 5
 // Machine) with the real production tick: a full squad each, configured stats on every member, the Lancer's
 // shield, and a Scrambler pulse that strips a hostile Lancer's shield without touching its HP.
@@ -132,11 +134,15 @@ bool FSquadScenario::CheckSquad(const FCase& Case, const UArmyUnitDefinition& De
 		if (!Unit->IsAlive() || Unit->GetGroup() != Barracks->ForceGroup)
 			continue;
 		++Members;
-		const int32 Shield = Case.Role == EUnitRole::Assault ? 80 : 0;
-		if (!Check(Unit->GetUnitRole() == Case.Role && Unit->GetHealth() == Definition.MaxHealth && Unit->GetShield() == Shield
-					&& Unit->MaxShield() == Shield && Definition.AttackDamage == (Shield ? 30 : 12) && Definition.Range == 550.f
-					&& Definition.Interval == 1.f && Definition.MoveSpeed == (Shield ? 420.f : 480.f),
-				TEXT("Every member carries the configured stats; a Lancer has 80 shield")))
+		const bool bLancer = Case.Role == EUnitRole::Assault;
+		const int32 Shield = bLancer ? LancerShield : 0;
+		const int32 Health = bLancer ? LancerHealth : 80;
+		const bool bPulse = !bLancer && Definition.PulseInterval == 10.f && Definition.PulseRadius == 600.f && Definition.PulseBuildingStunSeconds == 3.f;
+		if (!Check(Unit->GetUnitRole() == Case.Role && Unit->GetHealth() == Health && Unit->GetShield() == Shield
+					&& Unit->MaxShield() == Shield && Definition.AttackDamage == (bLancer ? 24 : 12) && Definition.UnitCost == 24
+					&& Definition.Range == 550.f && Definition.Interval == 1.f && Definition.MoveSpeed == (bLancer ? 420.f : 480.f)
+					&& (bLancer || bPulse),
+				TEXT("Every member carries the configured stats; a Lancer has 60 shield, a Scrambler pulses at 600 cm")))
 			return false;
 	}
 	return Check(Members == 3, TEXT("Three living members belong to the squad's force"));
@@ -156,8 +162,8 @@ bool FSquadScenario::StartPulse(const FCase& Case)
 	Victim = Arena.Spawn(!Case.bMachine, LancerIndex, Ground, Ground + FVector(-180.f, 0.f, 65.f));
 	if (!Check(Victim.IsValid(), TEXT("The hostile Lancer fixture spawns")))
 		return false;
-	return Check(Victim->GetShield() == 80 && Caster->GetLastPulseServerTime() < 0.,
-		TEXT("A hostile Lancer with 80 shield stands in a produced Scrambler's pulse radius, which is ready at spawn"));
+	return Check(Victim->GetShield() == LancerShield && Caster->GetLastPulseServerTime() < 0.,
+		TEXT("A hostile Lancer with its full shield stands in a produced Scrambler's pulse radius, which is ready at spawn"));
 }
 
 bool FSquadScenario::Step(double Now)
@@ -181,7 +187,7 @@ bool FSquadScenario::Step(double Now)
 	}
 	if (Victim->GetShield() > 0)
 		return !Check(!After(Now, 1.5), TEXT("The produced Scrambler pulses at a shielded hostile in range"));
-	if (!Check(Victim->GetHealth() == 110 && Caster->GetLastPulseServerTime() > 0.,
+	if (!Check(Victim->GetHealth() == LancerHealth && Caster->GetLastPulseServerTime() > 0.,
 			TEXT("The pulse empties the shield without HP damage and publishes its cast time")))
 		return true;
 	++CaseIndex;
