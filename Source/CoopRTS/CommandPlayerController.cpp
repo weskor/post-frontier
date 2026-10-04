@@ -60,6 +60,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
 	bFortifyTargeting = false;
+	bFortifyCastPending = false;
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;

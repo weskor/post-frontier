@@ -161,6 +161,8 @@ private:
 	int32 PlacementIndex = -1;
 	bool bAssigningOrder = false;
 	bool bFortifyTargeting = false;
+	// A cast is sent and its verdict has not arrived: further clicks wait.
+	bool bFortifyCastPending = false;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	// Keeps the deck open over the world when it does not fit beside the force cards.

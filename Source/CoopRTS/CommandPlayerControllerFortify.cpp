@@ -44,7 +44,7 @@ void ACommandPlayerController::ToggleFortifyTargeting()
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return;
-	if (ControllerInputPolicy::FortifyStep(bFortifyTargeting, ControllerInputPolicy::EFortifyInput::HKey)
+	if (ControllerInputPolicy::FortifyStep(bFortifyTargeting, bFortifyCastPending, ControllerInputPolicy::EFortifyInput::HKey)
 		== ControllerInputPolicy::EFortifyStep::Cancel)
 	{
 		CancelPointerMode();
@@ -79,8 +79,11 @@ FFortifyPreview ACommandPlayerController::GetFortifyPreview(const FVector2D& Pos
 
 bool ACommandPlayerController::HandleFortifyClick(const FVector2D& Position)
 {
-	if (ControllerInputPolicy::FortifyStep(bFortifyTargeting, ControllerInputPolicy::EFortifyInput::LeftClick)
-		!= ControllerInputPolicy::EFortifyStep::Cast)
+	const ControllerInputPolicy::EFortifyStep Step = ControllerInputPolicy::FortifyStep(
+		bFortifyTargeting, bFortifyCastPending, ControllerInputPolicy::EFortifyInput::LeftClick);
+	if (Step == ControllerInputPolicy::EFortifyStep::Wait)
+		return true;
+	if (Step != ControllerInputPolicy::EFortifyStep::Cast)
 		return false;
 	const FFortifyPreview Preview = GetFortifyPreview(Position);
 	if (!Preview.IsAllowed())
@@ -95,6 +98,7 @@ bool ACommandPlayerController::HandleFortifyClick(const FVector2D& Position)
 		if (IsValid(Region) && Region->RegionIndex == Preview.RegionIndex)
 		{
 			SetFeedback(TEXT("Fortify sent; awaiting server."));
+			bFortifyCastPending = true;
 			AbilityCommands->ServerCastFortify(Region);
 			break;
 		}
@@ -108,6 +112,7 @@ void ACommandPlayerController::CompleteFortifyInput(const FString& Message, bool
 		bFortifyTargeting = false;
 		bHUDExpanded = true;
 	}
+	bFortifyCastPending = false;
 	SetCommandFeedback(Message, bAccepted);
 }
 

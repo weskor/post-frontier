@@ -54,7 +54,7 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 			Camera->FocusOn(WorldPosition);
 		return true;
 	}
-	if (!bPlacingBuilding && !bAssigningOrder)
+	if (!bPlacingBuilding && !bAssigningOrder && !bFortifyTargeting)
 		if (AArmyGroup* Force = HUD->GetForceAtScreenPosition(Position))
 		{
 			SelectForce(Force, IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));

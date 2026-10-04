@@ -223,14 +223,12 @@ bool FFortifyTextTest::RunTest(const FString& Parameters)
 bool FFortifyTargetingTest::RunTest(const FString& Parameters)
 {
 	using namespace ControllerInputPolicy;
-	TestEqual(TEXT("H arms"), FortifyStep(false, EFortifyInput::HKey), EFortifyStep::Arm);
-	TestEqual(TEXT("H again cancels"), FortifyStep(true, EFortifyInput::HKey), EFortifyStep::Cancel);
-	TestEqual(TEXT("RMB cancels"), FortifyStep(true, EFortifyInput::RightClick), EFortifyStep::Cancel);
-	TestEqual(TEXT("Esc cancels"), FortifyStep(true, EFortifyInput::EscapeKey), EFortifyStep::Cancel);
-	TestEqual(TEXT("LMB casts"), FortifyStep(true, EFortifyInput::LeftClick), EFortifyStep::Cast);
-	TestEqual(TEXT("LMB does nothing when not armed"), FortifyStep(false, EFortifyInput::LeftClick), EFortifyStep::Ignore);
-	TestEqual(TEXT("RMB leaves an unarmed mode alone"), FortifyStep(false, EFortifyInput::RightClick), EFortifyStep::Ignore);
-	TestEqual(TEXT("Esc leaves an unarmed mode alone"), FortifyStep(false, EFortifyInput::EscapeKey), EFortifyStep::Ignore);
+	TestEqual(TEXT("H arms"), FortifyStep(false, false, EFortifyInput::HKey), EFortifyStep::Arm);
+	TestEqual(TEXT("H again cancels"), FortifyStep(true, false, EFortifyInput::HKey), EFortifyStep::Cancel);
+	TestEqual(TEXT("H cancels even while a cast is pending"), FortifyStep(true, true, EFortifyInput::HKey), EFortifyStep::Cancel);
+	TestEqual(TEXT("LMB casts"), FortifyStep(true, false, EFortifyInput::LeftClick), EFortifyStep::Cast);
+	TestEqual(TEXT("A second LMB waits for the first cast's verdict"), FortifyStep(true, true, EFortifyInput::LeftClick), EFortifyStep::Wait);
+	TestEqual(TEXT("LMB does nothing when not armed"), FortifyStep(false, false, EFortifyInput::LeftClick), EFortifyStep::Ignore);
 	TestFalse(TEXT("The mode ends on acceptance"), FortifyStaysArmed(true, true));
 	TestTrue(TEXT("It stays open on rejection"), FortifyStaysArmed(true, false));
 	TestFalse(TEXT("A closed mode never reopens by itself"), FortifyStaysArmed(false, false));

@@ -8,12 +8,6 @@
 
 namespace CommandHUDPanels
 {
-static void Countdown(FStringBuilderBase& Out, float Left)
-{
-	const int32 Seconds = FMath::Max(0, FMath::CeilToInt(Left));
-	Out.Appendf(TEXT("%d:%02d"), Seconds / 60, Seconds % 60);
-}
-
 void DrawFortifyDock(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover)
 {
 	const float Now = Context.State ? Context.State->GetServerWorldTimeSeconds() : 0.f;
@@ -30,10 +24,10 @@ void DrawFortifyDock(const FPainter& Paint, const FContext& Context, const FButt
 	else if (Dock.State == FortifyPolicy::EDockState::Cooldown)
 	{
 		Status << TEXT("Ready in ");
-		Countdown(Status, Dock.CooldownLeft);
+		FortifyPolicy::AppendClock(Status, Dock.CooldownLeft);
 	}
 	else if (Dock.State == FortifyPolicy::EDockState::NeedData)
-		Status.Appendf(TEXT("Need %d more Data"), Dock.DataShort);
+		FortifyPolicy::AppendDataShort(Status, Dock.DataShort);
 	else
 		Status.Appendf(TEXT("%d Data"), FortifyPolicy::DataCost);
 	Paint.Text(Status.ToView(), Rect.X + 9.f, Rect.Y + 20.f, 8.5f, Color, false, EAlign::Left, Rect.W - 15.f);
@@ -58,7 +52,7 @@ void DrawFortifyCursor(const FPainter& Paint, const FContext& Context, const FLa
 	else if (bRefresh)
 	{
 		Title << TEXT("LMB: Refresh Fortify at ") << Name << TEXT(" \u00B7 ");
-		Countdown(Title, Preview.Decision.RefreshLeft);
+		FortifyPolicy::AppendClock(Title, Preview.Decision.RefreshLeft);
 		Title << TEXT(" left");
 	}
 	else
@@ -101,7 +95,7 @@ void DrawFortifyBadge(const FPainter& Paint, const AMapRegion& Region, const FVe
 		return;
 	TStringBuilder<64> Label;
 	Label.Appendf(TEXT("FORTIFIED C%d "), Region.FortifyCaster + 1);
-	Countdown(Label, Left);
+	FortifyPolicy::AppendClock(Label, Left);
 	const float Width = Paint.TextWidth(Label.ToView(), 9.f, true) + 42.f;
 	const FRect Rect{ Screen.X - Width * .5f, Screen.Y - 2.f, Width, 28.f };
 	if (!OverlayFits(Paint, Rect))

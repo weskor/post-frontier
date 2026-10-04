@@ -2,15 +2,6 @@
 
 namespace FortifyPolicy
 {
-namespace
-{
-void AppendClock(FStringBuilderBase& Out, float Seconds)
-{
-	const int32 Whole = FMath::Max(0, FMath::CeilToInt(Seconds));
-	Out.Appendf(TEXT("%d:%02d"), Whole / 60, Whole % 60);
-}
-}
-
 bool IsActive(const FRegionState& Region, float Now)
 {
 	return Region.Team >= 0 && Now < Region.ExpiresAt;
@@ -86,6 +77,17 @@ float SecondsLeft(const FRegionState& Region, float Now)
 	return IsActive(Region, Now) ? Region.ExpiresAt - Now : 0.f;
 }
 
+void AppendClock(FStringBuilderBase& Out, float Seconds)
+{
+	const int32 Whole = FMath::Max(0, FMath::CeilToInt(Seconds));
+	Out.Appendf(TEXT("%d:%02d"), Whole / 60, Whole % 60);
+}
+
+void AppendDataShort(FStringBuilderBase& Out, int32 DataShort)
+{
+	Out.Appendf(TEXT("Need %d more Data"), DataShort);
+}
+
 void AppendReason(FStringBuilderBase& Out, const FDecision& Decision, FStringView RegionName)
 {
 	switch (Decision.Verdict)
@@ -110,7 +112,7 @@ void AppendReason(FStringBuilderBase& Out, const FDecision& Decision, FStringVie
 		AppendClock(Out, Decision.CooldownLeft);
 		break;
 	case EVerdict::NeedData:
-		Out.Appendf(TEXT("Need %d more Data"), Decision.DataShort);
+		AppendDataShort(Out, Decision.DataShort);
 		break;
 	case EVerdict::Accepted:
 		break;

@@ -4,6 +4,7 @@
 #include "CommandService.h"
 #include "CoopAudioSubsystem.h"
 #include "Engine/World.h"
+#include "GameState/GameStateEconomy.h"
 #include "MapRegion.h"
 #include "Rules/FortifyPolicy.h"
 
@@ -21,16 +22,16 @@ FObjectiveEvent MakeEvent(const AMapRegion& Region, const ACommandGameState& Sta
 	return Event;
 }
 
-// Every controller of a human commander on Team, except the one holding Except.
+// Every controller of a roster commander on Team, except the one holding Except.
 template <typename Visit>
-void ForEachTeammate(const UWorld& World, int32 Team, const ACommandPlayerState* Except, Visit&& Do)
+void ForEachTeammate(const ACommandGameState& State, int32 Team, const ACommandPlayerState* Except, Visit&& Do)
 {
-	for (FConstPlayerControllerIterator It = World.GetPlayerControllerIterator(); It; ++It)
+	const TArray<ACommandPlayerState*> Roster = FGameStateEconomy::Roster(State);
+	for (FConstPlayerControllerIterator It = State.GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		const ACommandPlayerController* Controller = Cast<ACommandPlayerController>(It->Get());
 		const ACommandPlayerState* Player = Controller ? Controller->GetPlayerState<ACommandPlayerState>() : nullptr;
-		if (Player && Player != Except && Player->TeamIndex == Team && Player->CommanderIndex >= 0
-			&& Player->CommanderIndex < 5 && Controller->AbilityCommands)
+		if (Player && Player != Except && Player->TeamIndex == Team && Roster.Contains(Player) && Controller->AbilityCommands)
 			Do(*Controller->AbilityCommands);
 	}
 }
@@ -92,7 +93,7 @@ void UAbilityCommandComponent::PostFortifyCast(const AMapRegion& Region, const A
 	Attribution.TeamIndex = Caster.TeamIndex;
 	Attribution.CommanderIndex = Caster.CommanderIndex;
 	Attribution.PlayerName = Caster.GetPlayerName();
-	ForEachTeammate(*Region.GetWorld(), Caster.TeamIndex, &Caster,
+	ForEachTeammate(*State, Caster.TeamIndex, &Caster,
 		[&Event](UAbilityCommandComponent& Recipient) { Recipient.ClientReceiveTeamEvent(Event); });
 }
 
@@ -102,6 +103,6 @@ void UAbilityCommandComponent::PostFortifyEnded(const AMapRegion& Region, int32 
 	if (!State)
 		return;
 	const FObjectiveEvent Event = MakeEvent(Region, *State, FortifyPolicy::EndedEventId, Team);
-	ForEachTeammate(*Region.GetWorld(), Team, nullptr,
+	ForEachTeammate(*State, Team, nullptr,
 		[&Event](UAbilityCommandComponent& Recipient) { Recipient.ClientReceiveTeamEvent(Event); });
 }

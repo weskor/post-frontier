@@ -787,5 +787,4 @@ map = "default"
 "Source/CoopRTS/CapturePoint.[ch]*" = ["fortify"]
 "Source/CoopRTS/CommandPlayerState.[ch]*" = ["fortify", "fortify-network"]
 "Tools/harness/network_fortify.py" = ["fortify-network", "tools"]
-"Source/CoopRTS/HUD/Fortify*" = ["fortify", "fortify-network"]
-"Tools/harness/hud_fortify.py" = ["fortify-network", "tools"]
+"Source/CoopRTS/HUD/Fortify*" = ["fortify"]

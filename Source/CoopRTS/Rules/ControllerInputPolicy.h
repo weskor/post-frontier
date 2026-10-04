@@ -41,23 +41,24 @@ double MinimapDiamondDistance(const FVector2D& WorldDelta, const FVector2D& Half
 // Square pick box around a minimap marker, in screen pixels; edges are inclusive.
 bool IsWithinMarker(const FVector2D& Position, const FVector2D& Marker, double Radius);
 
-// Fortify targeting (ui.md surface 4): what each input does, by whether the mode is armed.
+// Fortify targeting (ui.md surface 4): what H and a left click do, by whether the mode is armed and a cast is
+// still awaiting the server. RMB and Esc cancel through the shared pointer-mode cancel.
 enum class EFortifyInput : uint8
 {
 	HKey,
-	LeftClick,
-	RightClick,
-	EscapeKey
+	LeftClick
 };
 enum class EFortifyStep : uint8
 {
 	Ignore,
 	Arm,
 	Cancel,
-	Cast
+	Cast,
+	// The click is consumed but sends nothing: the previous cast has not been answered yet.
+	Wait
 };
-// H arms, and cancels again while armed; RMB and Esc cancel; LMB casts. Anything else leaves the mode alone.
-EFortifyStep FortifyStep(bool bArmed, EFortifyInput Input);
+// H arms, and cancels again while armed; LMB casts, or waits while a cast is pending; otherwise nothing.
+EFortifyStep FortifyStep(bool bArmed, bool bCastPending, EFortifyInput Input);
 // The mode ends on acceptance and stays open on rejection, so a refused cast can be retried elsewhere.
 bool FortifyStaysArmed(bool bArmed, bool bAccepted);
 }

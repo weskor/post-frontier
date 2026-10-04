@@ -91,6 +91,10 @@ bool FreezesCapture(const FRegionState& Region, float Now);
 float DefenceFor(const FRegionState& Region, int32 PlannerTeam, float Now);
 // Seconds left on an active Fortify, 0 when none.
 float SecondsLeft(const FRegionState& Region, float Now);
+// "m:ss", rounded up to the second shown. The one clock formatter for the dock, chip and badge.
+void AppendClock(FStringBuilderBase& Out, float Seconds);
+// "Need 12 more Data".
+void AppendDataShort(FStringBuilderBase& Out, int32 DataShort);
 // Appends the text the chip and the rejection show: "Brig is neutral", "Need 12 more Data", "Cooldown 0:47".
 void AppendReason(FStringBuilderBase& Out, const FDecision& Decision, FStringView RegionName);
 // A region the rules allow in principle: only the cooldown and the Data balance hold a cast back, not the region.
