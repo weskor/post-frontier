@@ -44,6 +44,10 @@ private:
 			return Left();
 		case 4:
 			return Started();
+		case 5:
+			return FirstUnit();
+		case 6:
+			return Latched();
 		default:
 			return Executing();
 		}
@@ -219,24 +223,67 @@ private:
 		return false;
 	}
 
-	// Units arrive and march under the same plans, without a re-plan inside the commitment.
+	// The first unit of any kit force: its ticket has stood on every tick up to here (Continuous). The force is lost
+	// next frame, so no evaluation sees it alive.
+	bool FirstUnit()
+	{
+		for (const FRecorded& Was : Plans)
+			if (Was.Force.IsValid() && Was.Force->GetAliveCount() > 0)
+			{
+				Lost = Was.Force;
+				Enter(6);
+				return false;
+			}
+		if (StageGameSeconds() > 20.)
+		{
+			Check(false, TEXT("A kit force of JEV fields its first unit"));
+			return Done();
+		}
+		return false;
+	}
+
+	// A first unit lost before JEV's next evaluation still makes its force a fielded one: the plan goes with the
+	// explicit evaluation below, and does not stay up as for a force that never fielded.
+	bool Latched()
+	{
+		AArmyGroup* Victim = Lost.Get();
+		if (!Check(Victim && Victim->GetAliveCount() > 0 && PlanOf(Victim), TEXT("The force with a first unit has its plan before the unit is lost")))
+			return Done();
+		const TArray<TObjectPtr<AArmyUnit>> Units = Victim->GetUnits();
+		for (AArmyUnit* Unit : Units)
+			if (IsValid(Unit))
+				Unit->Destroy();
+		EvaluateJev();
+		if (!Check(Victim->GetAliveCount() == 0 && !PlanOf(Victim), TEXT("A first unit lost between evaluations still fields its force: no plan while it is empty")))
+			return Done();
+		Plans.RemoveAll([Victim](const FRecorded& Was) { return Was.Force == Victim; });
+		Enter(7);
+		return false;
+	}
+
+	void EvaluateJev()
+	{
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			if (It->TeamIndex == 5)
+				It->EvaluatePlan();
+	}
+
+	// The other kit forces keep their plans and tickets until each has fielded its first unit, and after it.
 	bool Executing()
 	{
-		bool bFielded = false;
 		for (const FRecorded& Was : Plans)
-			bFielded |= Was.Force.IsValid() && Was.Force->GetAliveCount() > 0;
-		if (!bFielded)
-		{
-			if (StageGameSeconds() > 20.)
+			if (Was.Force.IsValid() && Was.Force->GetAliveCount() == 0)
 			{
-				Check(false, TEXT("A kit force of JEV fields its first unit"));
-				return Done();
+				if (StageGameSeconds() > 25.)
+				{
+					Check(false, TEXT("Every other kit force of JEV fields its first unit"));
+					return Done();
+				}
+				return false;
 			}
-			return false;
-		}
 		if (StageGameSeconds() < 6.)
 			return false;
-		if (!SamePlans(TEXT("After the first units arrived")))
+		if (!SamePlans(TEXT("After every kit force fielded")))
 			return Done();
 		return Wiped();
 	}
@@ -244,20 +291,15 @@ private:
 	// A force wiped out is not planned while it refills, as before: its plan and ticket go until a unit returns.
 	bool Wiped()
 	{
-		AArmyGroup* Victim = nullptr;
-		for (const FRecorded& Was : Plans)
-			if (Was.Force.IsValid() && Was.Force->GetAliveCount() > 0)
-				Victim = Was.Force.Get();
-		if (!Check(Victim && PlanOf(Victim), TEXT("A fielded kit force has a plan before it is wiped out")))
+		AArmyGroup* Victim = Plans.IsEmpty() ? nullptr : Plans[0].Force.Get();
+		if (!Check(Victim && Victim->GetAliveCount() > 0 && PlanOf(Victim), TEXT("A fielded kit force has a plan before it is wiped out")))
 			return Done();
 		bWatching = false;
 		const TArray<TObjectPtr<AArmyUnit>> Units = Victim->GetUnits();
 		for (AArmyUnit* Unit : Units)
 			if (IsValid(Unit))
 				Unit->Destroy();
-		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-			if (It->TeamIndex == 5)
-				It->EvaluatePlan();
+		EvaluateJev();
 		Check(Victim->GetAliveCount() == 0 && !PlanOf(Victim), TEXT("A wiped-out force keeps no plan while it has no unit"));
 		return Done();
 	}
@@ -274,6 +316,7 @@ private:
 
 	TArray<FRecorded> Plans;
 	TWeakObjectPtr<ACommandPlayerState> ThirdPtr;
+	TWeakObjectPtr<AArmyGroup> Lost;
 	float PlanningClock = 0.f;
 	float ZeroClock = 0.f;
 	bool bWatching = false;

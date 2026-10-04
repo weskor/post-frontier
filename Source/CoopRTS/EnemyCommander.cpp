@@ -62,11 +62,24 @@ void AEnemyCommander::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(AEnemyCommander, TeamIndex);
 }
 
+// A force seen with living units has fielded, however briefly: if it is wiped out it is no newly built kit force.
+// Latched every frame, not at evaluation, so a first unit lost between two evaluations still counts.
+namespace
+{
+void LatchFielded(TArray<FJevCommittedForce, TInlineAllocator<8>>& Forces)
+{
+	for (FJevCommittedForce& Entry : Forces)
+		if (Entry.Force.IsValid() && Entry.Force->GetAliveCount() > 0)
+			Entry.Plan.bFielded = true;
+}
+}
+
 void AEnemyCommander::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	if (!HasAuthority())
 		return;
+	LatchFielded(CommittedForces);
 	// A due release evaluates at once, retrying while an evaluation cannot launch it.
 	ReleaseRetryElapsed += DeltaSeconds;
 	const bool bReleaseDue = TickRelease() && ReleaseRetryElapsed >= .25f;
@@ -100,10 +113,7 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 	Turn.Team = TeamIndex;
 	Turn.bRush = IsRushAutopilot();
 	Turn.Now = GetWorld()->GetTimeSeconds();
-	// A force seen with living units has fielded, however briefly: if it is wiped out it is no newly built kit force.
-	for (FJevCommittedForce& Entry : CommittedForces)
-		if (Entry.Force.IsValid() && Entry.Force->GetAliveCount() > 0)
-			Entry.Plan.bFielded = true;
+	LatchFielded(CommittedForces);
 	CommittedForces.RemoveAllSwap([&](const FJevCommittedForce& Entry) {
 		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander || !KeepsEntry(Entry);
 	});
