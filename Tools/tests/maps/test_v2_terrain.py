@@ -140,6 +140,19 @@ def test_wall_must_cover_its_whole_shared_edge(terrain_map: MapData) -> None:
     )
 
 
+@pytest.mark.parametrize("cell", [(10, 5), (12, 5), (13, 6)])
+def test_open_side_wall_must_cover_its_edge(
+    terrain_map: MapData, cell: tuple[int, int]
+) -> None:
+    terrain = Terrain(terrain_map)
+    assert not any("Wall 5-12" in e for e in terrain_errors(terrain))
+    terrain.walls.discard(cell)
+    assert any(
+        "Wall 5-12 leaves the shared edge uncovered" in e
+        for e in terrain_errors(terrain)
+    )
+
+
 def test_routes_must_be_neighbour_paths_and_distinct(
     terrain_map: MapData, real_walker: Walker
 ) -> None:

@@ -503,15 +503,37 @@ def _prop_errors(terrain: Terrain) -> list[str]:
     return errors
 
 
+def _edge_sealed(terrain: Terrain, a: int, b: int, point: Point) -> bool:
+    """A walker crossing the shared edge at `point` must meet a wall cell. Without an Open side every cell the edge
+    touches is a wall. With one, the wall stands on the other region's side: each edge cell it owns is a wall, and
+    each edge cell the Open region owns has all its neighbouring cells of the other region walled."""
+    open_side = [r for r in (a, b) if terrain.trait.get(r) == "open"]
+    if not open_side:
+        return terrain.edge_cells(point) <= terrain.walls
+    wall_side = b if open_side[0] == a else a
+    for cell in terrain.edge_cells(point):
+        if terrain.owner.get(cell) == wall_side:
+            if cell not in terrain.walls:
+                return False
+        elif terrain.owner.get(cell) == open_side[0]:
+            around = (
+                (cell[0] + i, cell[1] + j) for i in (-1, 0, 1) for j in (-1, 0, 1)
+            )
+            if any(
+                terrain.owner.get(c) == wall_side and c not in terrain.walls
+                for c in around
+            ):
+                return False
+    return True
+
+
 def _wall_errors(terrain: Terrain) -> list[str]:
     """Every wall border is covered along its whole shared edge (Open sides are walled from the other side, and the
     walking check proves those sealed), and each Open region declares exactly the pieces standing in it."""
     errors = []
     for a, b in sorted(terrain.wall_borders):
-        if "open" in (terrain.trait.get(a), terrain.trait.get(b)):
-            continue
         for point in terrain.shared_edge_samples(a, b):
-            if not terrain.edge_cells(point) <= terrain.walls:
+            if not _edge_sealed(terrain, a, b, point):
                 errors.append(
                     f"Wall {a}-{b} leaves the shared edge uncovered near {point[0]:.0f}, {point[1]:.0f}"
                 )
