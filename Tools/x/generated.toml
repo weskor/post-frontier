@@ -30,7 +30,9 @@ outputs = [
   "Content/Art/Textures/**",
   "Content/Art/Materials/M_Shared.uasset",
   "Content/Art/Materials/MF_*.uasset",
-  "Content/Art/Materials/MI_SC2_*.uasset",
+  "Content/Art/Materials/MI_SC2_*_Unit.uasset",
+  "Content/Art/Materials/MI_SC2_*_Bld.uasset",
+  "Content/Art/Materials/MI_SC2_*_Env.uasset",
 ]
 
 [[generated]]
@@ -71,7 +73,12 @@ sources = [
   "Build/Maps/AvailabilityZone.json",
   "Art/Terrain/*.fbx",
 ]
-outputs = ["Content/Art/Terrain/**"]
+outputs = [
+  "Content/Art/Terrain/**",
+  "Content/Art/Materials/MI_SC2_Human_Dark_Terrain.uasset",
+  "Content/Art/Materials/MI_SC2_Human_Dark_Rock.uasset",
+  "Content/Art/Materials/MI_SC2_Human_Shell_Rock.uasset",
+]
 
 [[generated]]
 name = "command-map"
