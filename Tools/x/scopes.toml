@@ -373,7 +373,8 @@ rendered = true
 "Source/CoopRTS/ArmyGroup.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "simulation-duel", "pursuit"]
 "Source/CoopRTS/ArmyMatchTests.cpp" = ["match-loss", "match-win"]
 "Source/CoopRTS/ArmyMovementTests.cpp" = ["movement"]
-"Source/CoopRTS/ArmyNetworkVerification.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
+# The probe files share one include closure; the pause, ping and JEV intent scopes below are folded into this entry.
+"Source/CoopRTS/ArmyNetworkVerification*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pause", "pause-network", "pings-network", "jev-intent-ui"]
 "Source/CoopRTS/ArmyOrderTests.cpp" = ["orders"]
 "Source/CoopRTS/ArmyStrategy*" = ["strategy"]
 "Source/CoopRTS/ArmyTestSetup.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit"]
@@ -513,7 +514,6 @@ rendered = true
 "Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings", "force-bar"]
 "Source/CoopRTS/HUD/*.cpp" = ["pause", "pings"]
 "Tools/harness/network_scenarios.py" = ["pause-network", "pings-network", "tools"]
-"Source/CoopRTS/ArmyNetworkVerification.*" = ["pause", "pause-network", "pings-network"]
 "Tools/harness/network.py" = ["pause-network", "tools"]
 "Tools/harness/network_session.py" = ["pause-network", "tools"]
 "Tools/harness/network_cli.py" = ["pause-network", "tools"]
@@ -634,7 +634,6 @@ rendered = true
 "Source/CoopRTS/CommandHUD.[ch]*" = ["jev-intent-ui"]
 "Source/CoopRTS/CommandMinimap.[ch]*" = ["jev-intent-ui"]
 "Source/CoopRTS/CommandGameState.[h]" = ["jev-intent-ui"]
-"Source/CoopRTS/ArmyNetworkVerification.[c]pp" = ["jev-intent-ui"]
 
 # Route intent supplements existing executor/input scopes, never replaces them.
 "Source/CoopRTS/RouteIntentTests.cpp" = ["route-intent"]

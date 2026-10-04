@@ -1,672 +1,61 @@
 // Development-only, explicit command-line opt-in. Each process observes its own game world;
 // only the listen host with the separate Authority switch can arrange encounters.
+// This file is the session driver: it polls request.json, routes the action to the handlers in the
+// ArmyNetworkVerification*.cpp files and replies with the world snapshot.
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
-#include "ArenaBounds.h"
+#include "ArmyNetworkVerification.h"
 #include "ArmyGroup.h"
-#include "ArmyUnit.h"
-#include "CapturePoint.h"
-#include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
-#include "Commands/CommandService.h"
-#include "Commands/ConstructionCommandComponent.h"
-#include "Commands/MatchCommandComponent.h"
-#include "Commands/OrderCommandComponent.h"
-#include "Commands/PingCommandComponent.h"
-#include "Commands/OrderGraph.h"
-#include "Commands/ProductionCommandComponent.h"
-#include "HUD/HUDPanels.h"
-#include "JevIntentFixture.h"
-#include "CommandHUD.h"
-#include "HUD/ForceBarVerification.h"
-#include "ForceOrders.h"
-#include "HUD/OrderInputPreview.h"
-#include "RouteIntentVerification.h"
-#include "MapRegion.h"
-#include "DepositSite.h"
-#include "Content/MatchContent.h"
-#include "GameFramework/Pawn.h"
 #include "CommandPlayerState.h"
-#include "EnemyCommander.h"
-#include "Headquarters.h"
-#include "ObjectiveAnnouncer.h"
+#include "Containers/Ticker.h"
 #include "Engine/Engine.h"
-#include "Engine/GameViewportClient.h"
-#include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
-#include "InputKeyEventArgs.h"
-#include "Engine/NetDriver.h"
-#include "EngineUtils.h"
 #include "HAL/PlatformFileManager.h"
+#include "HUD/ForceBarVerification.h"
 #include "Json.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
-#include "Containers/Ticker.h"
-#include "UObject/UObjectArray.h"
-#include "UnrealClient.h"
 
 namespace CoopRTSNetworkVerification
 {
-namespace
+namespace Probe
 {
-FString Directory;
-FString Peer;
 bool bAuthorityFixtures = false;
-FTSTicker::FDelegateHandle TickHandle;
-int32 LastCommand = 0;
 int32 Generation = 0;
-TWeakObjectPtr<UWorld> LastWorld;
 FVector PlacementCandidate = FVector::ZeroVector;
 bool bPlacementCandidateValid = false;
-
-TSharedPtr<FJsonObject> Object() { return MakeShared<FJsonObject>(); }
-int32 LifetimeId(const UObject* Value)
-{
-	// Object indices can be reused after travel; weak-object serials distinguish lifetimes.
-	return GUObjectArray.AllocateSerialNumber(Value->GetUniqueID());
-}
-void Number(const TSharedPtr<FJsonObject>& ObjectValue, const TCHAR* Key, double Value)
-{
-	ObjectValue->SetNumberField(Key, Value);
-}
-void Vector(const TSharedPtr<FJsonObject>& ObjectValue, const TCHAR* Key, FVector Value)
-{
-	TArray<TSharedPtr<FJsonValue>> Coordinates;
-	Coordinates.Add(MakeShared<FJsonValueNumber>(Value.X));
-	Coordinates.Add(MakeShared<FJsonValueNumber>(Value.Y));
-	Coordinates.Add(MakeShared<FJsonValueNumber>(Value.Z));
-	ObjectValue->SetArrayField(Key, Coordinates);
-}
-// Unit definition currently selected by a producer; production rules read the same definition.
-const UArmyUnitDefinition* ProductionDefinition(const ACommandGameState& State, const ACommandBuilding& Building)
-{
-	if (!State.Content)
-		return nullptr;
-	for (int32 Index = 0; const UArmyUnitDefinition* Definition = State.Content->Unit(Index); ++Index)
-		if (Definition->Role == Building.ProductionRole)
-			return Definition;
-	return nullptr;
-}
-ACommandPlayerController* LocalController(UWorld* World);
-
-void AlertSurfaceSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Result)
-{
-	TArray<TSharedPtr<FJsonValue>> Rows;
-	const ACommandPlayerController* PC = LocalController(Context->GetWorld());
-	const ACommandHUD* HUD = PC ? Cast<ACommandHUD>(PC->GetHUD()) : nullptr;
-	Number(Result, TEXT("focusedAlertSequence"), PC ? PC->GetFocusedAlertSequence() : 0);
-	if (HUD)
-	{
-		auto Append = [&Rows, HUD](const FObjectiveEvent& Event) {
-			FVector2D Position;
-			if (!HUD->FindAlertScreenPosition(Event.Sequence, Position))
-				return;
-			auto Row = Object();
-			Number(Row, TEXT("sequence"), Event.Sequence);
-			Number(Row, TEXT("x"), Position.X);
-			Number(Row, TEXT("y"), Position.Y);
-			Rows.Add(MakeShared<FJsonValueObject>(Row));
-		};
-		if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context))
-			for (const FObjectiveEvent& Event : Announcer->GetEvents())
-				Append(Event);
-		if (PC->PingCommands)
-			for (const FObjectiveEvent& Event : PC->PingCommands->GetEvents())
-				Append(Event);
-	}
-	Result->SetArrayField(TEXT("uiAlerts"), Rows);
 }
 
-void ObjectiveSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Result)
+namespace
 {
-	TArray<TSharedPtr<FJsonValue>> Events;
-	if (const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context))
-		for (const FObjectiveEvent& Event : Announcer->GetEvents())
-		{
-			auto Entry = Object();
-			Number(Entry, TEXT("sequence"), Event.Sequence);
-			Entry->SetStringField(TEXT("id"), Event.Id.ToString());
-			Number(Entry, TEXT("serverTime"), Event.ServerTime);
-			Vector(Entry, TEXT("position"), Event.Location);
-			Number(Entry, TEXT("region"), Event.RegionIndex);
-			Entry->SetStringField(TEXT("regionName"), Event.RegionName);
-			Number(Entry, TEXT("affectedTeam"), Event.AffectedTeam);
-			Number(Entry, TEXT("damageTier"), Event.DamageTier);
-			TArray<TSharedPtr<FJsonValue>> Forces;
-			for (const FObjectiveForce& Force : Event.Forces)
-			{
-				auto Contributor = Object();
-				Number(Contributor, TEXT("team"), Force.TeamIndex);
-				Number(Contributor, TEXT("owner"), Force.CommanderIndex);
-				Number(Contributor, TEXT("forceNumber"), Force.ForceNumber);
-				Number(Contributor, TEXT("unitIndex"), Force.UnitIndex);
-				Contributor->SetStringField(TEXT("playerName"), Force.PlayerName);
-				Forces.Add(MakeShared<FJsonValueObject>(Contributor));
-			}
-			Entry->SetArrayField(TEXT("forces"), Forces);
-			Events.Add(MakeShared<FJsonValueObject>(Entry));
-		}
-	Result->SetArrayField(TEXT("objectiveEvents"), Events);
-	AlertSurfaceSnapshot(Context, Result);
+using namespace Probe;
+
+FString Directory;
+FString Peer;
+FTSTicker::FDelegateHandle TickHandle;
+int32 LastCommand = 0;
+TWeakObjectPtr<UWorld> LastWorld;
+
+// No fixture execution on clients, even if a malicious client sends fixture commands.
+FString ExecuteFixture(const FProbeRequest& Probe)
+{
+	UWorld* World = Probe.World;
+	if (!bAuthorityFixtures || !World->GetAuthGameMode() || World->GetNetMode() != NM_ListenServer)
+		return TEXT("host-only authority fixture switch required");
+	if (!Probe.State)
+		return TEXT("server fixture state unavailable");
+	FString Error;
+	if (HandleScenarioFixture(Probe, Error) || HandleEconomyFixture(Probe, Error))
+		return Error;
+	AArmyGroup* Army = FindArmy(World, Probe.Owner, Probe.Index);
+	if (!Army)
+		return TEXT("server fixture army unavailable");
+	if (HandleForceFixture(Probe, *Army, Error))
+		return Error;
+	return TEXT("unknown command");
 }
 
-void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
-{
-	const ACommandPlayerController* PC = LocalController(World);
-	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	const float Now = State ? State->GetServerWorldTimeSeconds() : 0.f;
-	Number(Result, TEXT("serverTime"), Now);
-	if (PC && PC->PingCommands)
-	{
-		Number(Result, TEXT("pingFeedbackSerial"), PC->PingCommands->PingFeedbackSerial);
-		Result->SetBoolField(TEXT("pingAccepted"), PC->PingCommands->bLastPingAccepted);
-	}
-	TArray<TSharedPtr<FJsonValue>> Events;
-	if (PC && PC->PingCommands)
-		for (const FObjectiveEvent& Event : PC->PingCommands->GetEvents())
-		{
-			auto Entry = Object();
-			Number(Entry, TEXT("sequence"), Event.Sequence);
-			Entry->SetStringField(TEXT("id"), Event.Id.ToString());
-			Number(Entry, TEXT("serverTime"), Event.ServerTime);
-			Vector(Entry, TEXT("position"), Event.Location);
-			Number(Entry, TEXT("affectedTeam"), Event.AffectedTeam);
-			Entry->SetStringField(TEXT("targetForceOwnerName"), Event.TargetForceOwnerName);
-			Entry->SetBoolField(TEXT("active"), Now - Event.ServerTime < UPingCommandComponent::Lifetime);
-			TArray<TSharedPtr<FJsonValue>> Forces;
-			for (const FObjectiveForce& Force : Event.Forces)
-			{
-				auto Contributor = Object();
-				Number(Contributor, TEXT("team"), Force.TeamIndex);
-				Number(Contributor, TEXT("owner"), Force.CommanderIndex);
-				Number(Contributor, TEXT("forceNumber"), Force.ForceNumber);
-				Contributor->SetStringField(TEXT("playerName"), Force.PlayerName);
-				Forces.Add(MakeShared<FJsonValueObject>(Contributor));
-			}
-			Entry->SetArrayField(TEXT("forces"), Forces);
-			FVector2D Screen = FVector2D::ZeroVector;
-			Entry->SetBoolField(TEXT("mapProjected"),
-				PC->ProjectWorldLocationToScreen(Event.Location + FVector(0.f, 0.f, 35.f), Screen));
-			Number(Entry, TEXT("mapX"), Screen.X);
-			Number(Entry, TEXT("mapY"), Screen.Y);
-			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
-			FVector2D Origin;
-			float Size;
-			if (HUD && State && IsValid(State->Arena) && HUD->GetMinimapScreenRect(Origin, Size))
-			{
-				const FVector2D Half = State->Arena->HalfExtent;
-				Number(Entry, TEXT("minimapX"), Origin.X + Size * (Event.Location.Y + Half.Y) / (2.f * Half.Y));
-				Number(Entry, TEXT("minimapY"), Origin.Y + Size * (Half.X - Event.Location.X) / (2.f * Half.X));
-			}
-			Events.Add(MakeShared<FJsonValueObject>(Entry));
-		}
-	Result->SetArrayField(TEXT("pingEvents"), Events);
-}
-
-TSharedPtr<FJsonValue> Rect(const CommandHUDPanels::FRect& Value, float Scale)
-{
-	TArray<TSharedPtr<FJsonValue>> Edges;
-	for (const float Edge : { Value.X, Value.Y, Value.W, Value.H })
-		Edges.Add(MakeShared<FJsonValueNumber>(Edge * Scale));
-	return MakeShared<FJsonValueArray>(Edges);
-}
-
-// Published plans next to what the HUD derives from them, in screen pixels.
-void JevIntentSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result)
-{
-	using namespace CommandHUDPanels;
-	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	if (!State)
-		return;
-	TArray<TSharedPtr<FJsonValue>> Plans;
-	for (const FJevPublishedPlan& Plan : State->EnemyPlans)
-	{
-		auto Entry = Object();
-		Number(Entry, TEXT("ticket"), Plan.TicketNumber);
-		Number(Entry, TEXT("forceNumber"), Plan.ForceNumber);
-		Number(Entry, TEXT("verb"), static_cast<int32>(Plan.Verb));
-		Number(Entry, TEXT("source"), Plan.SourceRegionIndex);
-		Number(Entry, TEXT("target"), Plan.TargetRegionIndex);
-		Number(Entry, TEXT("sizeBand"), Plan.SizeBand);
-		Number(Entry, TEXT("eta"), Plan.EtaSeconds);
-		Number(Entry, TEXT("etaIssuedAt"), Plan.EtaIssuedAt);
-		Entry->SetBoolField(TEXT("escalated"), Plan.bEscalated);
-		Entry->SetStringField(TEXT("memo"), Plan.Memo);
-		Plans.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("jevPlans"), Plans);
-	ACommandPlayerController* PC = LocalController(World);
-	int32 Width = 0, Height = 0;
-	if (PC)
-		PC->GetViewportSize(Width, Height);
-	const FContext Context = MakeContext(PC);
-	const FLayout Layout = MakeLayout(Context, Width, Height);
-	if (!PC || Layout.Scale <= 0.f)
-		return;
-	FJevIntentModel Model;
-	BuildJevIntentModel(Context, Model);
-	auto Intent = Object();
-	const FRect Timeline = JevTimelineRect(Context, Layout, Model);
-	if (Timeline.W > 0.f)
-		Intent->SetField(TEXT("timelineRect"), Rect(Timeline, Layout.Scale));
-	TArray<TSharedPtr<FJsonValue>> Entries;
-	for (const JevIntent::FTimelineEntry& Entry : Model.Timeline)
-	{
-		auto Row = Object();
-		Number(Row, TEXT("ticket"), Entry.Ticket);
-		Number(Row, TEXT("forceNumber"), Entry.ForceNumber);
-		Number(Row, TEXT("target"), Entry.Target);
-		Number(Row, TEXT("sizeBand"), Entry.SizeBand);
-		Number(Row, TEXT("seconds"), Entry.Seconds);
-		Row->SetBoolField(TEXT("escalated"), Entry.bEscalated);
-		Entries.Add(MakeShared<FJsonValueObject>(Row));
-	}
-	Intent->SetArrayField(TEXT("entries"), Entries);
-	TArray<TSharedPtr<FJsonValue>> Badges;
-	for (const JevIntent::FRegionBadge& Badge : Model.Badges)
-	{
-		auto Row = Object();
-		Number(Row, TEXT("region"), Badge.Region);
-		Number(Row, TEXT("seconds"), Badge.Seconds);
-		Number(Row, TEXT("plans"), Badge.Plans);
-		Row->SetBoolField(TEXT("escalated"), Badge.bEscalated);
-		TStringBuilder<128> Label;
-		JevBadgeLabel(Context, Badge, Label);
-		Row->SetStringField(TEXT("label"), Label.ToString());
-		FVector2D Screen;
-		const bool bProjected = PC->ProjectWorldLocationToScreen(State->GetRegionAnchor(Badge.Region) + FVector(0.f, 0.f, 110.f), Screen);
-		Row->SetBoolField(TEXT("onScreen"), bProjected && Screen.X >= 0.f && Screen.Y >= 0.f && Screen.X < Width && Screen.Y < Height);
-		Badges.Add(MakeShared<FJsonValueObject>(Row));
-	}
-	Intent->SetArrayField(TEXT("badges"), Badges);
-	TArray<TSharedPtr<FJsonValue>> Memos;
-	FJevMemoRow Rows[JevIntent::MemoVisible];
-	const int32 Count = JevMemoRows(Context, Layout, Model, Rows);
-	for (int32 Index = 0; Index < Count; ++Index)
-	{
-		auto Row = Object();
-		Row->SetStringField(TEXT("text"), Rows[Index].Memo->Text);
-		Number(Row, TEXT("alpha"), Rows[Index].Alpha);
-		Row->SetField(TEXT("rect"), Rect(Rows[Index].Rect, Layout.Scale));
-		Memos.Add(MakeShared<FJsonValueObject>(Row));
-	}
-	Intent->SetArrayField(TEXT("memos"), Memos);
-	Result->SetObjectField(TEXT("jevIntent"), Intent);
-}
-
-void HoldSnapshot(const AArmyGroup& Group, const TSharedPtr<FJsonObject>& Entry)
-{
-	Number(Entry, TEXT("holdRegionIndex"), Group.HoldRegionIndex);
-	Number(Entry, TEXT("holdPostIndex"), Group.HoldPostIndex);
-	Vector(Entry, TEXT("holdPostLocation"), Group.HoldPostLocation);
-	Entry->SetBoolField(TEXT("bHoldResponding"), Group.bHoldResponding);
-	const AArmyUnit* Threat = Group.HoldThreat;
-	const bool bLiveThreat = IsValid(Threat) && Threat->IsAlive();
-	Number(Entry, TEXT("holdThreatId"), bLiveThreat ? LifetimeId(Threat) : -1);
-	if (bLiveThreat)
-		Vector(Entry, TEXT("holdThreatPosition"), Threat->GetActorLocation());
-}
-
-TSharedPtr<FJsonObject> Snapshot(UWorld* World)
-{
-	auto Result = Object();
-	Number(Result, TEXT("generation"), Generation);
-	Result->SetBoolField(TEXT("ready"), World != nullptr);
-	if (!World)
-		return Result;
-	Number(Result, TEXT("netMode"), static_cast<int32>(World->GetNetMode()));
-	Result->SetStringField(TEXT("map"), UWorld::RemovePIEPrefix(World->GetOutermost()->GetName()));
-	Result->SetBoolField(TEXT("worldPaused"), World->IsPaused());
-	Number(Result, TEXT("worldTime"), World->GetTimeSeconds());
-	if (const ACommandPlayerController* PC = LocalController(World))
-	{
-		Number(Result, TEXT("uiScreen"), static_cast<int32>(PC->GetUIScreen()));
-		Number(Result, TEXT("masterVolume"), PC->GetMasterVolume());
-		Result->SetBoolField(TEXT("menuWorld"), PC->IsMenuWorld());
-		Number(Result, TEXT("pauseFeedbackSerial"), PC->MatchCommands->PauseFeedbackSerial);
-		Result->SetBoolField(TEXT("pauseAccepted"), PC->MatchCommands->bLastPauseAccepted);
-		if (const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD()))
-		{
-			TArray<TSharedPtr<FJsonValue>> Buttons;
-			for (int32 Index = 1; Index <= static_cast<int32>(EHUDAction::ForceCard60); ++Index)
-			{
-				FVector2D Position;
-				if (!HUD->FindActionScreenPosition(static_cast<EHUDAction>(Index), Position))
-					continue;
-				auto Button = Object();
-				Number(Button, TEXT("action"), Index);
-				Number(Button, TEXT("x"), Position.X);
-				Number(Button, TEXT("y"), Position.Y);
-				Buttons.Add(MakeShared<FJsonValueObject>(Button));
-			}
-			Result->SetArrayField(TEXT("uiButtons"), Buttons);
-		}
-	}
-	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	if (!State)
-	{
-		Result->SetBoolField(TEXT("ready"), false);
-		return Result;
-	}
-	Number(Result, TEXT("gameStateId"), LifetimeId(State));
-	if (const UNetDriver* Driver = World->GetNetDriver())
-	{
-		Number(Result, TEXT("netDriverId"), LifetimeId(Driver));
-#if DO_ENABLE_NET_TEST
-		Number(Result, TEXT("pktLag"), Driver->PacketSimulationSettings.PktLag);
-		Number(Result, TEXT("pktLoss"), Driver->PacketSimulationSettings.PktLoss);
-#endif
-	}
-	Number(Result, TEXT("result"), static_cast<int32>(State->MatchResult));
-	Result->SetBoolField(TEXT("activePaused"), State->IsActivePaused());
-	Result->SetBoolField(TEXT("coopPauseSpent"), State->IsCoopPauseSpent());
-	Number(Result, TEXT("pauseRemaining"), State->GetPauseSecondsRemaining());
-	Result->SetBoolField(TEXT("placementValid"), bPlacementCandidateValid);
-	Vector(Result, TEXT("placementCandidate"), PlacementCandidate);
-	Number(Result, TEXT("enemyResources"), IsValid(State->EnemyCommander) ? State->EnemyCommander->Resources : 0);
-	if (IsValid(State->Arena))
-		Result->SetArrayField(TEXT("arenaHalfExtent"), { MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.X), MakeShared<FJsonValueNumber>(State->Arena->HalfExtent.Y) });
-	Number(Result, TEXT("enemyIncome"), State->GetEnemyIncomePerSecond());
-	Result->SetBoolField(TEXT("incomePaused"), State->bVerificationIncomePaused);
-	auto Wallets = TArray<TSharedPtr<FJsonValue>>();
-	for (const APlayerState* PS : State->PlayerArray)
-	{
-		const auto* Wallet = Cast<ACommandPlayerState>(PS);
-		if (!IsValid(Wallet))
-			continue;
-		auto Entry = Object();
-		Number(Entry, TEXT("index"), Wallet->CommanderIndex);
-		Number(Entry, TEXT("team"), Wallet->TeamIndex);
-		Entry->SetStringField(TEXT("playerName"), Wallet->GetPlayerName());
-		Number(Entry, TEXT("wallet"), Wallet->Resources);
-		Number(Entry, TEXT("income"), State->GetIncomePerSecond(Wallet));
-		Number(Entry, TEXT("doctrine"), static_cast<int32>(Wallet->Doctrine));
-		Wallets.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("players"), Wallets);
-	int32 LocalIndex = -1;
-	for (TActorIterator<ACommandPlayerController> It(World); It; ++It)
-		if (It->IsLocalController())
-		{
-			Result->SetStringField(TEXT("orderFeedback"), It->GetOrderFeedback());
-			Number(Result, TEXT("feedbackOpacity"), It->GetFeedbackOpacity());
-			Result->SetBoolField(TEXT("hudExpanded"), It->IsHUDExpanded());
-			const ACommandHUD* DeckHUD = Cast<ACommandHUD>(It->GetHUD());
-			Result->SetBoolField(TEXT("deckOpen"), DeckHUD && DeckHUD->IsDeckOpen());
-			Result->SetBoolField(TEXT("placing"), It->IsPlacingBuilding());
-			Result->SetBoolField(TEXT("assigningOrder"), It->IsAssigningOrder());
-			Number(Result, TEXT("pendingVerb"), static_cast<int32>(It->GetPendingVerb()));
-			RouteIntentVerification::HoverSnapshot(**It, Result);
-			Result->SetBoolField(TEXT("buildingSelected"), IsValid(It->GetSelectedBuilding()));
-			Number(Result, TEXT("selectedBuilding"), State->Buildings.IndexOfByKey(It->GetSelectedBuilding()));
-			TArray<TSharedPtr<FJsonValue>> Selected;
-			for (const AArmyGroup* Force : It->GetSelectedForces())
-				if (IsValid(Force))
-					Selected.Add(MakeShared<FJsonValueNumber>(LifetimeId(Force)));
-			Result->SetArrayField(TEXT("selectedForces"), Selected);
-			Number(Result, TEXT("inspectedForce"), IsValid(It->GetInspectedForce()) ? LifetimeId(It->GetInspectedForce()) : -1);
-			FVector2D DragStart, DragEnd;
-			Result->SetBoolField(TEXT("selectionDragging"), It->GetSelectionDrag(DragStart, DragEnd));
-			if (const APawn* Camera = It->GetPawn())
-				Vector(Result, TEXT("cameraPosition"), Camera->GetActorLocation());
-			if (const ACommandHUD* HUD = Cast<ACommandHUD>(It->GetHUD()))
-			{
-				FVector2D Origin;
-				float Size;
-				if (HUD->GetMinimapScreenRect(Origin, Size))
-				{
-					Result->SetArrayField(TEXT("minimapOrigin"), { MakeShared<FJsonValueNumber>(Origin.X), MakeShared<FJsonValueNumber>(Origin.Y) });
-					Number(Result, TEXT("minimapSize"), Size);
-				}
-			}
-			int32 ViewportWidth = 0, ViewportHeight = 0;
-			It->GetViewportSize(ViewportWidth, ViewportHeight);
-			Number(Result, TEXT("viewportWidth"), ViewportWidth);
-			Number(Result, TEXT("viewportHeight"), ViewportHeight);
-			Result->SetBoolField(TEXT("centreClear"), DeckHUD && !DeckHUD->IsPanelPoint(FVector2D(ViewportWidth, ViewportHeight) * .5f));
-			float CursorX, CursorY;
-			if (It->GetMousePosition(CursorX, CursorY))
-			{
-				const FVector2D Cursor(CursorX, CursorY);
-				Result->SetArrayField(TEXT("cursorScreen"), { MakeShared<FJsonValueNumber>(Cursor.X), MakeShared<FJsonValueNumber>(Cursor.Y) });
-				const FOrderInputPreview Preview = It->GetOrderPreview(Cursor,
-					It->IsInputKeyDown(EKeys::LeftShift) || It->IsInputKeyDown(EKeys::RightShift));
-				auto PreviewEntry = Object();
-				Number(PreviewEntry, TEXT("resolution"), static_cast<int32>(Preview.Resolution));
-				Number(PreviewEntry, TEXT("rejection"), static_cast<int32>(Preview.Rejection));
-				Number(PreviewEntry, TEXT("regionIndex"), Preview.RegionIndex);
-				Number(PreviewEntry, TEXT("structureId"), IsValid(Preview.Structure) ? LifetimeId(Preview.Structure) : -1);
-				PreviewEntry->SetBoolField(TEXT("allowed"), Preview.IsAllowed());
-				PreviewEntry->SetStringField(TEXT("label"), Preview.Label());
-				Result->SetObjectField(TEXT("orderPreview"), PreviewEntry);
-				FVector Origin, Direction;
-				if (It->DeprojectScreenPositionToWorld(Cursor.X, Cursor.Y, Origin, Direction)
-					&& FMath::Abs(Direction.Z) >= KINDA_SMALL_NUMBER)
-				{
-					const double Time = -Origin.Z / Direction.Z;
-					if (Time >= 0.f)
-						Vector(Result, TEXT("cursorWorld"), Origin + Direction * Time);
-				}
-			}
-			if (const auto* PS = It->GetPlayerState<ACommandPlayerState>())
-			{
-				LocalIndex = PS->CommanderIndex;
-				Number(Result, TEXT("income"), State->GetIncomePerSecond(PS));
-			}
-			break;
-		}
-	Number(Result, TEXT("localIndex"), LocalIndex);
-	auto Armies = TArray<TSharedPtr<FJsonValue>>();
-	for (TActorIterator<AArmyGroup> It(World); It; ++It)
-	{
-		const AArmyGroup* Group = *It;
-		auto Entry = Object();
-		Number(Entry, TEXT("actorId"), LifetimeId(Group));
-		Number(Entry, TEXT("owner"), IsValid(Group->GetOwningPlayerState()) ? Group->GetOwningPlayerState()->CommanderIndex : -1);
-		Number(Entry, TEXT("team"), Group->GetTeamIndex());
-		Number(Entry, TEXT("army"), Group->GetArmyIndex());
-		Number(Entry, TEXT("forceNumber"), Group->ForceNumber);
-		Number(Entry, TEXT("serial"), Group->OrderSerial);
-		Number(Entry, TEXT("doctrine"), static_cast<int32>(Group->GetDoctrine()));
-		Number(Entry, TEXT("forceVerb"), static_cast<int32>(Group->Verb));
-		Number(Entry, TEXT("targetRegionIndex"), Group->TargetRegionIndex);
-		Number(Entry, TEXT("targetStructureId"), IsValid(Group->TargetStructure) ? LifetimeId(Group->TargetStructure) : -1);
-		Number(Entry, TEXT("status"), static_cast<int32>(Group->Status));
-		Number(Entry, TEXT("retreatThreshold"), static_cast<int32>(Group->RetreatThreshold));
-		Number(Entry, TEXT("waypointRegionIndex"), Group->WaypointRegionIndex);
-		Number(Entry, TEXT("resumeCount"), Group->ResumeCount);
-		Number(Entry, TEXT("marchSpeed"), Group->GetMarchSpeed());
-		TArray<TSharedPtr<FJsonValue>> Orders;
-		for (const FForceOrder& Order : Group->Orders)
-		{
-			auto OrderEntry = Object();
-			Number(OrderEntry, TEXT("forceVerb"), static_cast<int32>(Order.Verb));
-			Number(OrderEntry, TEXT("targetRegionIndex"), Order.RegionIndex);
-			Number(OrderEntry, TEXT("targetStructureId"), IsValid(Order.Structure) ? LifetimeId(Order.Structure) : -1);
-			Orders.Add(MakeShared<FJsonValueObject>(OrderEntry));
-		}
-		Entry->SetArrayField(TEXT("orders"), Orders);
-		RouteIntentVerification::Snapshot(*Group, Entry);
-		Number(Entry, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
-		Vector(Entry, TEXT("front"), Group->Destination);
-		Vector(Entry, TEXT("center"), Group->GetCenter());
-		Vector(Entry, TEXT("destination"), Group->Destination);
-		Vector(Entry, TEXT("home"), Group->GetHomeLocation());
-		HoldSnapshot(*Group, Entry);
-		if (ACommandPlayerController* Local = Cast<ACommandPlayerController>(World->GetFirstPlayerController()))
-			if (const ACommandHUD* HUD = Cast<ACommandHUD>(Local->GetHUD()))
-			{
-				FVector2D Badge;
-				if (HUD->FindForceScreenPosition(Group, Badge))
-					Entry->SetArrayField(TEXT("badge"), { MakeShared<FJsonValueNumber>(Badge.X), MakeShared<FJsonValueNumber>(Badge.Y) });
-				Entry->SetBoolField(TEXT("highlighted"), Local->IsForceHighlighted(Group));
-				ForceBarVerification::Snapshot(*Local, *Group, Entry);
-			}
-		auto Units = TArray<TSharedPtr<FJsonValue>>();
-		for (const AArmyUnit* Unit : Group->GetUnits())
-		{
-			if (!IsValid(Unit))
-				continue;
-			auto Member = Object();
-			Number(Member, TEXT("actorId"), LifetimeId(Unit));
-			Number(Member, TEXT("maxHealth"), Unit->MaxHealth());
-			Number(Member, TEXT("slot"), Unit->GetCompositionSlot());
-			Number(Member, TEXT("role"), static_cast<int32>(Unit->GetUnitRole()));
-			Number(Member, TEXT("health"), Unit->GetHealth());
-			Number(Member, TEXT("attacks"), Unit->AttackCount);
-			Number(Member, TEXT("owner"), Unit->GetCommanderIndex());
-			Member->SetBoolField(TEXT("reinforcing"), Unit->IsReinforcing());
-			Number(Member, TEXT("producer"), IsValid(Group->GetProductionBuilding()) ? State->Buildings.IndexOfByKey(Group->GetProductionBuilding()) : -1);
-			Vector(Member, TEXT("position"), Unit->GetActorLocation());
-			Units.Add(MakeShared<FJsonValueObject>(Member));
-		}
-		Entry->SetArrayField(TEXT("units"), Units);
-		Armies.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("armies"), Armies);
-	auto Buildings = TArray<TSharedPtr<FJsonValue>>();
-	for (int32 Index = 0; Index < State->Buildings.Num(); ++Index)
-	{
-		const ACommandBuilding* Building = State->Buildings[Index];
-		if (!IsValid(Building))
-			continue;
-		auto Entry = Object();
-		Number(Entry, TEXT("index"), Index);
-		Number(Entry, TEXT("actorId"), LifetimeId(Building));
-		Number(Entry, TEXT("owner"), IsValid(Building->OwningPlayerState) ? Building->OwningPlayerState->CommanderIndex : -1);
-		Number(Entry, TEXT("team"), Building->TeamIndex);
-		Number(Entry, TEXT("kind"), static_cast<int32>(Building->Kind));
-		Number(Entry, TEXT("health"), Building->Health);
-		Number(Entry, TEXT("deposit"), State->Deposits.IndexOfByKey(Building->Deposit));
-		int32 Joined, Travelling;
-		Building->GetForceCounts(Joined, Travelling);
-		Entry->SetBoolField(TEXT("configured"), Building->bForceConfigured);
-		Number(Entry, TEXT("forceID"), IsValid(Building->ForceGroup) ? Building->ForceGroup->GetArmyIndex() : -1);
-		Number(Entry, TEXT("forceNumber"), Building->ForceNumber);
-		const UArmyUnitDefinition* Unit = ProductionDefinition(*State, *Building);
-		Number(Entry, TEXT("capacity"), Unit ? Unit->Capacity : 0);
-		Number(Entry, TEXT("joined"), Joined);
-		Number(Entry, TEXT("travelling"), Travelling);
-		Number(Entry, TEXT("unitCost"), Unit ? Unit->UnitCost : 0);
-		Number(Entry, TEXT("unitTime"), Unit ? Unit->UnitDuration : 0.f);
-		Number(Entry, TEXT("constructionProgress"), Building->ConstructionProgress);
-		Number(Entry, TEXT("recipe"), static_cast<int32>(Building->ProductionRole));
-		Number(Entry, TEXT("productionSeconds"), Building->ProductionProgressSeconds);
-		const AArmyGroup* Force = Building->ForceGroup;
-		Number(Entry, TEXT("forceVerb"), IsValid(Force) ? static_cast<int32>(Force->Verb) : -1);
-		Number(Entry, TEXT("targetRegionIndex"), IsValid(Force) ? Force->TargetRegionIndex : INDEX_NONE);
-		Number(Entry, TEXT("targetStructureId"), IsValid(Force) && IsValid(Force->TargetStructure) ? LifetimeId(Force->TargetStructure) : -1);
-		Number(Entry, TEXT("status"), IsValid(Force) ? static_cast<int32>(Force->Status) : -1);
-		Number(Entry, TEXT("rallyRegionIndex"), Building->RallyRegionIndex);
-		Entry->SetBoolField(TEXT("enabled"), Building->bProductionEnabled);
-		Entry->SetStringField(TEXT("productionState"),
-			StaticEnum<EProductionState>()->GetNameStringByValue(static_cast<int64>(Building->GetProductionState())));
-		Vector(Entry, TEXT("position"), Building->GetActorLocation());
-		Vector(Entry, TEXT("front"), IsValid(Force) ? Force->Destination : Building->GetActorLocation());
-		Buildings.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("buildings"), Buildings);
-	if (IsValid(State->EnemyHeadquarters))
-	{
-		Number(Result, TEXT("enemyHQId"), LifetimeId(State->EnemyHeadquarters));
-		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
-	}
-	auto Sites = TArray<TSharedPtr<FJsonValue>>();
-	for (const ACapturePoint* Site : State->CaptureSites)
-	{
-		if (!IsValid(Site))
-			continue;
-		auto Entry = Object();
-		Number(Entry, TEXT("actorId"), LifetimeId(Site));
-		Number(Entry, TEXT("index"), Site->SiteIndex);
-		Number(Entry, TEXT("kind"), static_cast<int32>(Site->SiteKind));
-		Number(Entry, TEXT("owner"), Site->ControllingTeam);
-		Number(Entry, TEXT("progress"), Site->CaptureProgress);
-		Vector(Entry, TEXT("position"), Site->GetActorLocation());
-		Entry->SetBoolField(TEXT("friendlyPresent"), Site->bFriendlyPresent);
-		Entry->SetBoolField(TEXT("enemyPresent"), Site->bEnemyPresent);
-		Sites.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("sites"), Sites);
-	auto Regions = TArray<TSharedPtr<FJsonValue>>();
-	for (const AMapRegion* Region : State->Regions)
-	{
-		if (!IsValid(Region))
-			continue;
-		auto Entry = Object();
-		Number(Entry, TEXT("index"), Region->RegionIndex);
-		Entry->SetStringField(TEXT("name"), Region->DisplayName.ToString());
-		Number(Entry, TEXT("role"), static_cast<int32>(Region->RegionRole));
-		Number(Entry, TEXT("homeTeam"), Region->HomeTeam);
-		Number(Entry, TEXT("controller"), State->GetRegionController(Region->RegionIndex));
-		Entry->SetBoolField(TEXT("contested"), State->IsRegionContested(Region->RegionIndex, 0));
-		Entry->SetBoolField(TEXT("enemyContested"), State->IsRegionContested(Region->RegionIndex, 5));
-		Vector(Entry, TEXT("anchor"), State->GetRegionAnchor(Region->RegionIndex));
-		TArray<TSharedPtr<FJsonValue>> Neighbours;
-		for (int32 Neighbour : Region->Neighbours)
-			Neighbours.Add(MakeShared<FJsonValueNumber>(Neighbour));
-		Entry->SetArrayField(TEXT("neighbours"), Neighbours);
-		TArray<TSharedPtr<FJsonValue>> Polygon;
-		for (const FVector2D& Point : Region->Polygon)
-		{
-			TArray<TSharedPtr<FJsonValue>> Coordinates;
-			Coordinates.Add(MakeShared<FJsonValueNumber>(Point.X));
-			Coordinates.Add(MakeShared<FJsonValueNumber>(Point.Y));
-			Polygon.Add(MakeShared<FJsonValueArray>(Coordinates));
-		}
-		Entry->SetArrayField(TEXT("polygon"), Polygon);
-		Regions.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("regions"), Regions);
-	auto Deposits = TArray<TSharedPtr<FJsonValue>>();
-	for (int32 Index = 0; Index < State->Deposits.Num(); ++Index)
-	{
-		const ADepositSite* Deposit = State->Deposits[Index];
-		if (!IsValid(Deposit))
-			continue;
-		auto Entry = Object();
-		Number(Entry, TEXT("index"), Index);
-		Number(Entry, TEXT("actorId"), LifetimeId(Deposit));
-		Number(Entry, TEXT("region"), Deposit->RegionIndex);
-		Number(Entry, TEXT("remaining"), Deposit->Remaining);
-		Number(Entry, TEXT("rate"), Deposit->RatePerSecond());
-		Entry->SetBoolField(TEXT("rich"), Deposit->bRich);
-		const ACommandBuilding* Extractor = Deposit->Extractor;
-		Entry->SetBoolField(TEXT("occupied"), IsValid(Extractor));
-		Entry->SetBoolField(TEXT("complete"), IsValid(Extractor) && Extractor->IsComplete() && Extractor->IsAlive());
-		Number(Entry, TEXT("extractor"), IsValid(Extractor) ? State->Buildings.IndexOfByKey(Deposit->Extractor) : -1);
-		Number(Entry, TEXT("owner"), IsValid(Extractor) && IsValid(Extractor->OwningPlayerState) ? Extractor->OwningPlayerState->CommanderIndex : -1);
-		Number(Entry, TEXT("team"), IsValid(Extractor) ? Extractor->TeamIndex : -1);
-		Vector(Entry, TEXT("position"), Deposit->GetActorLocation());
-		Deposits.Add(MakeShared<FJsonValueObject>(Entry));
-	}
-	Result->SetArrayField(TEXT("deposits"), Deposits);
-	Number(Result, TEXT("friendlyHQ"), IsValid(State->FriendlyHeadquarters) ? State->FriendlyHeadquarters->Health : -1);
-	Number(Result, TEXT("enemyHQ"), IsValid(State->EnemyHeadquarters) ? State->EnemyHeadquarters->Health : -1);
-	if (IsValid(State->FriendlyHeadquarters))
-		Vector(Result, TEXT("friendlyHQPosition"), State->FriendlyHeadquarters->GetActorLocation());
-	if (IsValid(State->EnemyHeadquarters))
-		Vector(Result, TEXT("enemyHQPosition"), State->EnemyHeadquarters->GetActorLocation());
-	ObjectiveSnapshot(State, Result);
-	PingSnapshot(World, Result);
-	JevIntentSnapshot(World, Result);
-	return Result;
-}
-AArmyGroup* FindArmy(UWorld* World, int32 Owner, int32 Index)
-{
-	for (TActorIterator<AArmyGroup> It(World); It; ++It)
-		if (It->GetArmyIndex() == Index && IsValid(It->GetOwningPlayerState())
-			&& It->GetOwningPlayerState()->CommanderIndex == Owner)
-			return *It;
-	return nullptr;
-}
-ACommandPlayerController* LocalController(UWorld* World)
-{
-	for (TActorIterator<ACommandPlayerController> It(World); It; ++It)
-		if (It->IsLocalController())
-			return *It;
-	return nullptr;
-}
 FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 {
 	if (!World)
@@ -674,591 +63,50 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	FString ForceCardError;
 	if (ForceBarVerification::Apply(*World, Request, ForceCardError))
 		return ForceCardError;
-	FString Action;
-	Request->TryGetStringField(TEXT("action"), Action);
-	if (Action == TEXT("observe"))
+	FProbeRequest Probe;
+	Probe.World = World;
+	Probe.Request = Request;
+	Request->TryGetStringField(TEXT("action"), Probe.Action);
+	if (Probe.Action == TEXT("observe"))
 		return FString();
-	ACommandPlayerController* PC = LocalController(World);
-	ACommandPlayerState* Own = PC ? PC->GetPlayerState<ACommandPlayerState>() : nullptr;
-	const int32 Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
-	const int32 Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
-	ACommandGameState* State = World->GetGameState<ACommandGameState>();
-	if (Action == TEXT("enginePause"))
-	{
-		if (!PC)
-			return TEXT("local owning controller unavailable");
-		PC->ServerPause();
-		return FString();
-	}
-	if (Action == TEXT("pause") || Action == TEXT("resume"))
-	{
-		if (!Own || Own->CommanderIndex < 0 || !State)
-			return TEXT("local owning controller unavailable");
-		if (Action == TEXT("pause"))
-			PC->MatchCommands->ServerPause();
-		else
-			PC->MatchCommands->ServerResume();
-		return FString();
-	}
-	if (Action == TEXT("ping") || Action == TEXT("pingAtScreenPosition"))
-	{
-		if (!PC || !Own || Own->CommanderIndex < 0 || !PC->PingCommands)
-			return TEXT("local owning ping controller unavailable");
-		bool bWithoutPlayerState = false;
-		Request->TryGetBoolField(TEXT("withoutPlayerState"), bWithoutPlayerState);
-		if (Action == TEXT("pingAtScreenPosition") && bWithoutPlayerState)
-		{
-			const uint32 Serial = PC->PingCommands->PingFeedbackSerial;
-			PC->SetPlayerState(nullptr);
-			const bool bSubmitted = PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))));
-			PC->SetPlayerState(Own);
-			return !bSubmitted && PC->PingCommands->PingFeedbackSerial == Serial
-				? FString()
-				: TEXT("minimap ping before PlayerState arrived submitted a command");
-		}
-		if (Action == TEXT("pingAtScreenPosition"))
-			return PC->PingAtScreenPosition(FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))))
-				? FString()
-				: TEXT("screen ping placement rejected");
-		AArmyGroup* Target = nullptr;
-		bool bForce = false;
-		Request->TryGetBoolField(TEXT("force"), bForce);
-		if (bForce)
-		{
-			Target = FindArmy(World, Owner, Index);
-			if (!Target)
-				return TEXT("ping target force not replicated locally");
-		}
-		PC->PingCommands->ServerPing(FVector(Request->GetNumberField(TEXT("x")),
-										 Request->GetNumberField(TEXT("y")), Request->GetNumberField(TEXT("z"))),
-			Target);
-		return FString();
-	}
-	if (Action == TEXT("build") || Action == TEXT("production") || Action == TEXT("forceOrderRPC")
-		|| Action == TEXT("cancel") || Action == TEXT("research"))
-	{
-		if (!Own || Own->CommanderIndex < 0 || !State)
-			return TEXT("local owning controller unavailable");
-		if (Action == TEXT("build"))
-			PC->ConstructionCommands->ServerPlaceBuilding(static_cast<int32>(Request->GetIntegerField(TEXT("kind"))),
-				FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f));
-		else
-		{
-			const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
-			if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex]))
-				return TEXT("building not replicated locally");
-			ACommandBuilding* Building = State->Buildings[BuildingIndex];
-			if (Action == TEXT("production"))
-				PC->ProductionCommands->ServerConfigureProduction(Building,
-					static_cast<EUnitRole>(Request->GetIntegerField(TEXT("recipe"))), Request->GetBoolField(TEXT("enabled")));
-			// Bypass local selection only for deliberately invalid/foreign RPC validation.
-			else if (Action == TEXT("forceOrderRPC"))
-			{
-				if (!IsValid(Building->ForceGroup))
-					return TEXT("force not replicated locally");
-				PC->OrderCommands->ServerIssueForceOrder({ Building->ForceGroup },
-					static_cast<EForceVerb>(Request->GetIntegerField(TEXT("forceVerb"))),
-					static_cast<int32>(Request->GetIntegerField(TEXT("targetRegionIndex"))),
-					Request->GetBoolField(TEXT("targetEnemyHQ")) ? State->EnemyHeadquarters.Get() : nullptr,
-					Request->GetBoolField(TEXT("queue")), 0);
-			}
-			else if (Action == TEXT("cancel"))
-				PC->ConstructionCommands->ServerCancelBuilding(Building);
-			else
-				PC->ProductionCommands->ServerResearch(Building, static_cast<EArmyDoctrine>(Request->GetIntegerField(TEXT("choice"))));
-		}
-		return FString();
-	}
-	if (Action == TEXT("place"))
-	{
-		if (!PC || !PC->IsPlacingBuilding())
-			return TEXT("placement mode unavailable");
-		PC->PlaceBuildingAt(FVector(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")), 5.f),
-			PC->IsInputKeyDown(EKeys::LeftShift) || PC->IsInputKeyDown(EKeys::RightShift));
-		return FString();
-	}
-	if (Action == TEXT("orderClick") || Action == TEXT("beginAttack")
-		|| Action == TEXT("confirmAttack") || Action == TEXT("retreat"))
-	{
-		if (!PC)
-			return TEXT("local order controller unavailable");
-		bool bQueue = false;
-		Request->TryGetBoolField(TEXT("queue"), bQueue);
-		if (Action == TEXT("beginAttack"))
-			PC->BeginForceAttack();
-		else if (Action == TEXT("retreat"))
-			PC->RetreatSelectedForces(bQueue);
-		else
-		{
-			const FVector2D Position(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")));
-			if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y))
-				return TEXT("invalid order screen point");
-			if (Action == TEXT("orderClick"))
-				PC->HandleOrderClick(Position, bQueue);
-			else
-				PC->ConfirmAttackAtScreenPosition(Position, bQueue);
-		}
-		// A resolved rejection is gameplay feedback, not a broken probe request.
-		return FString();
-	}
-	// Shared controller/HUD path checks, not native OS input. Commands still use the owning-controller RPCs.
-	if (Action == TEXT("select") || Action == TEXT("hud") || Action == TEXT("hudClick") || Action == TEXT("key")
-		|| Action == TEXT("screenshot") || Action == TEXT("resolution") || Action == TEXT("cursor"))
-	{
-		if (!PC)
-			return TEXT("local controller unavailable");
-		if (Action == TEXT("select"))
-		{
-			const FString Target = Request->GetStringField(TEXT("target"));
-			if (Target == TEXT("none"))
-				PC->SelectActor(nullptr);
-			else if (Target == TEXT("box"))
-			{
-				bool bAdd = false;
-				Request->TryGetBoolField(TEXT("add"), bAdd);
-				PC->SelectForceBox(
-					FVector2D(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y"))),
-					FVector2D(Request->GetNumberField(TEXT("x2")), Request->GetNumberField(TEXT("y2"))), bAdd);
-			}
-			else if (Target == TEXT("building"))
-			{
-				const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
-				if (!State || !State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex]))
-					return TEXT("building not replicated locally");
-				bool bDoubleClick = false;
-				Request->TryGetBoolField(TEXT("doubleClick"), bDoubleClick);
-				ACommandBuilding* Building = State->Buildings[BuildingIndex];
-				PC->SelectActorWithModifiers(Building, false, bDoubleClick);
-				if (Building->OwningPlayerState != Own)
-				{
-					AArmyGroup* Force = Building->ForceGroup;
-					if (!Own || !IsValid(Building->OwningPlayerState)
-						|| Building->OwningPlayerState->TeamIndex != Own->TeamIndex || !Building->IsProducer()
-						|| !IsValid(Force) || PC->GetInspectedForce() != Force
-						|| PC->GetSelectedBuilding() || PC->IsForceSelected(Force))
-						return TEXT("teammate force inspection rejected");
-				}
-				else if (!bDoubleClick && PC->GetSelectedBuilding() != Building)
-					return TEXT("building selection rejected");
-			}
-			else if (Target == TEXT("force") || Target == TEXT("unit") || Target == TEXT("badge"))
-			{
-				const int32 Number = Request->GetIntegerField(TEXT("number"));
-				AArmyGroup* Force = nullptr;
-				for (TActorIterator<AArmyGroup> It(World); It; ++It)
-					if (IsValid(It->GetOwningPlayerState()) && It->GetOwningPlayerState()->CommanderIndex == Owner
-						&& It->ForceNumber == Number)
-					{
-						Force = *It;
-						break;
-					}
-				if (!Force)
-					return TEXT("force not replicated locally");
-				bool bToggle = false;
-				Request->TryGetBoolField(TEXT("toggle"), bToggle);
-				if (Target == TEXT("badge"))
-				{
-					const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
-					FVector2D Position;
-					if (!HUD || !HUD->FindForceScreenPosition(Force, Position) || HUD->GetForceAtScreenPosition(Position) != Force)
-						return TEXT("force badge not visible or obscured");
-					if (!PC->HandleHUDClick(Position))
-						return TEXT("force badge click rejected");
-				}
-				else if (Target == TEXT("unit"))
-				{
-					AArmyUnit* Unit = nullptr;
-					for (AArmyUnit* Candidate : Force->GetUnits())
-						if (IsValid(Candidate) && Candidate->IsAlive())
-						{
-							Unit = Candidate;
-							break;
-						}
-					if (!Unit)
-						return TEXT("force has no living unit");
-					PC->SelectActorWithModifiers(Unit, bToggle, false);
-				}
-				else
-					PC->SelectForce(Force, bToggle);
-				if (PC->GetInspectedForce() != Force && !(bToggle && !PC->IsForceSelected(Force)))
-					return TEXT("force inspection rejected");
-			}
-			else
-				return TEXT("unknown selection target");
-			return FString();
-		}
-		if (Action == TEXT("cursor"))
-		{
-			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
-			const double X = Request->GetNumberField(TEXT("x")), Y = Request->GetNumberField(TEXT("y"));
-			if (!Viewport || !FMath::IsFinite(X) || !FMath::IsFinite(Y)
-				|| X < 0 || Y < 0 || X >= Viewport->GetSizeXY().X || Y >= Viewport->GetSizeXY().Y)
-				return TEXT("cursor screen point outside viewport");
-			Viewport->SetMouse(FMath::RoundToInt(X), FMath::RoundToInt(Y));
-			return FString();
-		}
-		if (Action == TEXT("hud"))
-		{
-			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
-			const EHUDAction HUDAction = static_cast<EHUDAction>(Request->GetIntegerField(TEXT("hudAction")));
-			FVector2D Position;
-			if (!HUD || !HUD->FindActionScreenPosition(HUDAction, Position))
-				return TEXT("HUD action not visible");
-			if (HUD->GetActionAtScreenPosition(Position) != HUDAction)
-				return TEXT("HUD hit test disagrees with drawn geometry");
-			if (!PC->HandleHUDClick(Position))
-				return TEXT("HUD click missed every panel");
-			return FString();
-		}
-		if (Action == TEXT("hudClick"))
-		{
-			const FVector2D Position(Request->GetNumberField(TEXT("x")), Request->GetNumberField(TEXT("y")));
-			if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y))
-				return TEXT("invalid HUD screen point");
-			return PC->HandleHUDClick(Position) ? FString() : TEXT("HUD click missed every panel");
-		}
-		if (Action == TEXT("key"))
-		{
-			// Delivered to PlayerInput (Enhanced Input mappings), not the OS/compositor.
-			const FString KeyName = Request->GetStringField(TEXT("key"));
-			if (KeyName != TEXT("Escape") && KeyName != TEXT("F4") && KeyName != TEXT("Tab")
-				&& KeyName != TEXT("Enter") && KeyName != TEXT("SpaceBar") && KeyName != TEXT("F")
-				&& KeyName != TEXT("One") && KeyName != TEXT("Two") && KeyName != TEXT("Three")
-				&& KeyName != TEXT("Four") && KeyName != TEXT("Five") && KeyName != TEXT("Left")
-				&& KeyName != TEXT("LeftShift") && KeyName != TEXT("RightShift")
-				&& KeyName != TEXT("Q") && KeyName != TEXT("H") && KeyName != TEXT("R") && KeyName != TEXT("P")
-				&& KeyName != TEXT("G") && KeyName != TEXT("B") && KeyName != TEXT("W") && KeyName != TEXT("E")
-				&& KeyName != TEXT("LeftMouseButton")
-				&& KeyName != TEXT("T") && KeyName != TEXT("A") && KeyName != TEXT("RightMouseButton")
-				&& KeyName != TEXT("MouseScrollUp") && KeyName != TEXT("MouseScrollDown"))
-				return TEXT("unsupported probe key");
-			FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
-			PC->InputKey(FInputKeyEventArgs(Viewport, IPlatformInputDeviceMapper::Get().GetDefaultInputDevice(),
-				FKey(*KeyName), Request->GetBoolField(TEXT("pressed")) ? IE_Pressed : IE_Released, FPlatformTime::Cycles64()));
-			return FString();
-		}
-		if (Action == TEXT("screenshot"))
-		{
-			const FString Path = Request->GetStringField(TEXT("path"));
-			if (Path.IsEmpty())
-				return TEXT("screenshot path required");
-			FScreenshotRequest::RequestScreenshot(Path, false, false);
-			return FString();
-		}
-		const int32 Width = static_cast<int32>(Request->GetIntegerField(TEXT("width")));
-		const int32 Height = static_cast<int32>(Request->GetIntegerField(TEXT("height")));
-		if (Width < 640 || Height < 480 || Width > 7680 || Height > 4320)
-			return TEXT("resolution out of bounds");
-		PC->ConsoleCommand(FString::Printf(TEXT("r.SetRes %dx%dw"), Width, Height));
-		return FString();
-	}
-	if (Action == TEXT("restart"))
-	{
-		if (!Own || Own->CommanderIndex < 0)
-			return TEXT("local owning controller unavailable");
-		PC->MatchCommands->ServerRequestRestart();
-		return FString();
-	}
-	// No fixture execution on clients, even if a malicious client sends fixture commands.
-	if (!bAuthorityFixtures || !World->GetAuthGameMode() || World->GetNetMode() != NM_ListenServer)
-		return TEXT("host-only authority fixture switch required");
-	if (!State)
-		return TEXT("server fixture state unavailable");
-	AArmyGroup* Army = FindArmy(World, Owner, Index);
-	if (Action == TEXT("jevPlans"))
-	{
-		FString Stage;
-		Request->TryGetStringField(TEXT("stage"), Stage);
-		if (Stage == TEXT("create"))
-			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Create);
-		if (Stage == TEXT("escalate"))
-			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Escalate);
-		if (Stage == TEXT("replace"))
-			return JevIntentFixture::Publish(World, *State, JevIntentFixture::EStage::Replace);
-		return TEXT("unknown JEV plan stage");
-	}
-	if (Action == TEXT("routeTeammate"))
-		return PC ? RouteIntentVerification::TeammateFixture(*PC,
-						Request->GetIntegerField(TEXT("targetRegionIndex")), Request->GetBoolField(TEXT("enabled")))
-				  : TEXT("route fixture controller unavailable");
-	if (Action == TEXT("isolate"))
-	{
-		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-			It->SetActorTickEnabled(false);
-		for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			if (It->GetTeamIndex() == 5)
-			{
-				const AMapRegion* PhysicalRegion = State->FindRegionAt(It->GetCenter());
-				if (PhysicalRegion)
-					FCommandService::IssueForceOrder(It->GetOwningPlayerState(), *It, EForceVerb::MoveHold, PhysicalRegion->RegionIndex);
-			}
-		for (ACommandBuilding* Building : State->Buildings)
-			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
-				FCommandService::ConfigureProduction(State->EnemyCommander, Building,
-					Building->bForceConfigured ? Building->ProductionRole : static_cast<EUnitRole>(255), false);
-		return FString();
-	}
-	if (Action == TEXT("placement"))
-	{
-		bPlacementCandidateValid = false;
-		const int32 BuildingIndex = static_cast<int32>(Request->GetIntegerField(TEXT("kind")));
-		if (!IsValid(State->FriendlyHeadquarters))
-			return TEXT("friendly HQ unavailable");
-		const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
-		for (int32 Ring = 0; Ring < 9; ++Ring)
-			for (int32 Direction = 0; Direction < 32; ++Direction)
-			{
-				const float Angle = Direction * PI / 16.f;
-				FVector Candidate = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
-				Candidate.Z = 5.f;
-				Candidate = State->ResolveBuildingLocation(BuildingIndex, Candidate);
-				FString Reason;
-				if (State->ValidateBuildingPlacement(BuildingIndex, 0, Candidate, Reason))
-				{
-					bPlacementCandidateValid = true;
-					PlacementCandidate = Candidate;
-					return FString();
-				}
-			}
-		return TEXT("no valid construction candidate");
-	}
-	if (Action == TEXT("income"))
-	{
-		State->bVerificationIncomePaused = Request->GetBoolField(TEXT("paused"));
-		return FString();
-	}
-	if (Action == TEXT("incomeTick"))
-	{
-		if (!State->bVerificationIncomePaused)
-			return TEXT("pause natural income before isolated payment tick");
-		State->bVerificationIncomePaused = false;
-		State->Tick(2.f);
-		State->bVerificationIncomePaused = true;
-		return FString();
-	}
-	if (Action == TEXT("depositRemaining"))
-	{
-		const int32 DepositIndex = Request->GetIntegerField(TEXT("deposit"));
-		const int32 Remaining = Request->GetIntegerField(TEXT("remaining"));
-		if (!State->Deposits.IsValidIndex(DepositIndex) || !IsValid(State->Deposits[DepositIndex])
-			|| Remaining < 0 || Remaining > 3000)
-			return TEXT("invalid finite deposit fixture");
-		State->Deposits[DepositIndex]->Remaining = Remaining;
-		State->Deposits[DepositIndex]->ForceNetUpdate();
-		return FString();
-	}
-	if (Action == TEXT("enemyExtractor"))
-	{
-		if (!IsValid(State->EnemyCommander) || !State->Content)
-			return TEXT("JEV construction fixture unavailable");
-		for (ADepositSite* Deposit : State->Deposits)
-		{
-			if (!IsValid(Deposit) || IsValid(Deposit->Extractor) || State->GetRegionController(Deposit->RegionIndex) != 5)
-				continue;
-			const int32 BuildingIndex = State->Content->BuildingIndexOf(TEXT("extractor"));
-			FString Reason;
-			if (!State->ValidateBuildingPlacement(BuildingIndex, 5, Deposit->GetActorLocation(), Reason))
-				continue;
-			State->EnemyCommander->Resources = 160;
-			ACommandBuilding* Extractor = FCommandService::PlaceBuilding(State->EnemyCommander, BuildingIndex, Deposit->GetActorLocation()).Building;
-			if (!Extractor)
-				return TEXT("paid JEV extractor fixture rejected");
-			Extractor->Tick(60.f); // Accelerated construction fixture, not natural completion proof.
-			return FString();
-		}
-		return TEXT("no free legal JEV deposit");
-	}
-	// destroyBuilding orphans a barracks' force through the same hostile damage path.
-	if (Action == TEXT("destroyExtractor") || Action == TEXT("destroyBuilding"))
-	{
-		const int32 BuildingIndex = Request->GetIntegerField(TEXT("building"));
-		const EBuildingKind Expected = Action == TEXT("destroyExtractor") ? EBuildingKind::Extractor : EBuildingKind::Barracks;
-		if (!State->Buildings.IsValidIndex(BuildingIndex) || !IsValid(State->Buildings[BuildingIndex])
-			|| State->Buildings[BuildingIndex]->Kind != Expected)
-			return TEXT("building damage fixture unavailable");
-		ACommandBuilding* Extractor = State->Buildings[BuildingIndex];
-		const int32 HostileTeam = Extractor->TeamIndex == 5 ? 0 : 5;
-		ACommandPlayerState* HostileWallet = HostileTeam == 5 ? State->EnemyCommander.Get() : PC->GetPlayerState<ACommandPlayerState>();
-		const FVector Staging = (HostileTeam == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters)->GetActorLocation();
-		const FTransform Transform(FRotator::ZeroRotator, Staging + FVector(0.f, 0.f, 100.f));
-		AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
-			nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (!Hostile)
-			return TEXT("hostile extractor damage fixture allocation failed");
-		Hostile->Initialize(FArmyGroupSpawn{ HostileTeam, HostileWallet, -1, nullptr, Transform.GetLocation() });
-		Hostile->FinishSpawning(Transform);
-		if (!Hostile->SpawnUnits())
-		{
-			Hostile->Destroy();
-			return TEXT("hostile extractor damage fixture spawn failed");
-		}
-		Extractor->ReceiveAttack(Extractor->Health, Hostile->GetUnits()[0]);
-		const bool bDestroyed = !IsValid(Extractor) || !Extractor->IsAlive();
-		Hostile->Destroy();
-		return bDestroyed ? FString() : TEXT("hostile damage did not destroy extractor");
-	}
-	if (Action == TEXT("fund"))
-	{
-		ACommandPlayerState* Wallet = nullptr;
-		for (APlayerState* Player : State->PlayerArray)
-			if (auto* Candidate = Cast<ACommandPlayerState>(Player))
-				if (Candidate->CommanderIndex == Owner)
-					Wallet = Candidate;
-		if (!Wallet)
-			return TEXT("fixture wallet unavailable");
-		const int32 Amount = static_cast<int32>(Request->GetIntegerField(TEXT("amount")));
-		if (Amount < 0 || Amount > 1000)
-			return TEXT("fixture wallet amount out of bounds");
-		Wallet->Resources = Amount;
-		Wallet->ForceNetUpdate();
-		return FString();
-	}
-	if (!Army)
-		return TEXT("server fixture army unavailable");
-	if (Action == TEXT("hqDamage"))
-	{
-		const int32 Damage = static_cast<int32>(Request->GetIntegerField(TEXT("damage")));
-		AHeadquarters* Target = State->EnemyHeadquarters;
-		if (!IsValid(Target) || Damage <= 0 || Damage >= Target->Health || Army->GetUnits().IsEmpty())
-			return TEXT("nonlethal HQ damage fixture unavailable");
-		Target->ReceiveAttack(Damage, Army->GetUnits()[0]);
-		return FString();
-	}
-	if (Action == TEXT("capture"))
-	{
-		const int32 SiteIndex = static_cast<int32>(Request->GetIntegerField(TEXT("site")));
-		ACapturePoint* Site = nullptr;
-		for (ACapturePoint* Candidate : State->CaptureSites)
-			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex)
-				Site = Candidate;
-		if (!Site || Army->GetUnits().IsEmpty())
-			return TEXT("capture site or unit unavailable");
-		Army->GetUnits()[0]->SetActorLocation(Site->GetActorLocation() + FVector(0.f, 0.f, 95.f), false, nullptr, ETeleportType::TeleportPhysics);
-		return FString();
-	}
-	if (Action == TEXT("occupant"))
-	{
-		const int32 SiteIndex = static_cast<int32>(Request->GetIntegerField(TEXT("site")));
-		const int32 Slot = static_cast<int32>(Request->GetIntegerField(TEXT("slot")));
-		const bool bEnemy = Request->GetBoolField(TEXT("enemy"));
-		const bool bPresent = Request->GetBoolField(TEXT("present"));
-		ACapturePoint* Site = nullptr;
-		for (ACapturePoint* Candidate : State->CaptureSites)
-			if (IsValid(Candidate) && Candidate->SiteIndex == SiteIndex
-				&& Candidate->SiteKind == ECaptureSiteKind::Resource)
-				Site = Candidate;
-		AArmyGroup* SelectedGroup = Army;
-		if (bEnemy)
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->GetTeamIndex() == 5)
-				{
-					SelectedGroup = *It;
-					break;
-				}
-		if (!Site || !IsValid(SelectedGroup) || SelectedGroup->GetTeamIndex() != (bEnemy ? 5 : 0))
-			return TEXT("objective resource site or army unavailable");
-		AArmyUnit* Unit = nullptr;
-		for (AArmyUnit* Candidate : SelectedGroup->GetUnits())
-			if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetCompositionSlot() == Slot)
-				Unit = Candidate;
-		if (!Unit)
-			return TEXT("objective live unit slot unavailable");
-		// Only real units are moved; AdvanceCapture samples them on the normal server tick.
-		const FVector Location = bPresent
-			? Site->GetActorLocation() + FVector(bEnemy ? 370.f : -30.f, 0.f, 95.f)
-			: SelectedGroup->GetHomeLocation() + FVector(0.f, 0.f, 95.f);
-		Unit->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
-		Unit->ForceNetUpdate();
-		return FString();
-	}
-	if (Action == TEXT("kill"))
-	{
-		const int32 Slot = static_cast<int32>(Request->GetIntegerField(TEXT("slot")));
-		AArmyUnit* Victim = nullptr;
-		for (AArmyUnit* Unit : Army->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == Slot)
-				Victim = Unit;
-		if (!Victim)
-			return TEXT("live casualty or hostile shooter unavailable");
-		AArmyUnit* Shooter = nullptr;
-		AArmyGroup* CasualtyFixture = nullptr;
-		for (TActorIterator<AArmyGroup> It(World); It && !Shooter; ++It)
-			if (It->GetTeamIndex() == 5 && It->GetTeamIndex() != Victim->GetTeamIndex())
-				for (AArmyUnit* Candidate : It->GetUnits())
-					if (IsValid(Candidate) && Candidate->IsAlive() && Candidate->GetTeamIndex() != Victim->GetTeamIndex())
-					{
-						Shooter = Candidate;
-						break;
-					}
-		if (!IsValid(Shooter))
-		{
-			if (!IsValid(State->EnemyHeadquarters))
-				return TEXT("enemy HQ unavailable for hostile staging");
-			// Hostile fixtures stage in front of the enemy HQ, never at a literal map coordinate.
-			const FTransform Transform(FRotator::ZeroRotator,
-				State->EnemyHeadquarters->GetActorLocation() + FVector(-1400.f, 0.f, -10.f));
-			AArmyGroup* Hostile = World->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
-				nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-			if (!Hostile)
-				return TEXT("hostile casualty fixture allocation failed");
-			Hostile->Initialize(FArmyGroupSpawn{ 5, State->EnemyCommander, -1, nullptr, Transform.GetLocation() });
-			Hostile->FinishSpawning(Transform);
-			CasualtyFixture = Hostile;
-			if (!Hostile->SpawnUnits())
-			{
-				Hostile->Destroy();
-				return TEXT("hostile casualty fixture spawn failed");
-			}
-			FCommandService::IssueForceOrder(State->EnemyCommander, Hostile, EForceVerb::MoveHold, ForceOrderGraph::TeamMain(*State, 5));
-			Hostile->SetActorTickEnabled(false);
-			for (AArmyUnit* Unit : Hostile->GetUnits())
-				Unit->SetActorTickEnabled(false);
-			Shooter = Hostile->GetUnits()[0];
-		}
-		if (!IsValid(Shooter) || !Shooter->IsAlive() || Shooter->GetTeamIndex() == Victim->GetTeamIndex())
-			return TEXT("live casualty or hostile shooter unavailable");
-		// Twice the remaining health stays lethal through entrenched-frontline damage reduction.
-		Victim->ReceiveAttack(Victim->GetHealth() * 2, Shooter);
-		if (CasualtyFixture)
-			CasualtyFixture->Destroy();
-		return !Victim->IsAlive() ? FString() : TEXT("hostile damage did not kill casualty");
-	}
-	if (Action == TEXT("finish"))
-	{
-		const bool bWin = Request->GetBoolField(TEXT("win"));
-		AHeadquarters* Target = bWin ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
-		AArmyUnit* Shooter = bWin && !Army->GetUnits().IsEmpty() ? Army->GetUnits()[0] : nullptr;
-		if (!bWin)
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->GetTeamIndex() == 5 && !It->GetUnits().IsEmpty())
-				{
-					Shooter = It->GetUnits()[0];
-					break;
-				}
-		if (!IsValid(Target) || !IsValid(Shooter))
-			return TEXT("HQ or shooter unavailable");
-		Target->Health = 1;
-		Target->ForceNetUpdate();
-		const FVector Previous = Shooter->GetActorLocation();
-		Shooter->SetActorLocation(Target->GetActorLocation() + FVector(90.f, 0.f, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
-		Shooter->NextAttackTime = 0.f;
-		Shooter->FireAt(Target);
-		Shooter->SetActorLocation(Previous, false, nullptr, ETeleportType::TeleportPhysics);
-		return Target->Health == 0 ? FString() : TEXT("weapon did not destroy HQ");
-	}
-	return TEXT("unknown command");
+	Probe.PC = LocalController(World);
+	Probe.Own = Probe.PC ? Probe.PC->GetPlayerState<ACommandPlayerState>() : nullptr;
+	Probe.Owner = static_cast<int32>(Request->GetIntegerField(TEXT("owner")));
+	Probe.Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
+	Probe.State = World->GetGameState<ACommandGameState>();
+	FString Error;
+	if (HandleMatchAction(Probe, Error) || HandleCommandAction(Probe, Error) || HandleInputAction(Probe, Error))
+		return Error;
+	return ExecuteFixture(Probe);
 }
-bool Tick(float)
+
+UWorld* FindGameWorld()
 {
-	UWorld* World = nullptr;
 	if (GEngine)
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
 			if (UWorld* Candidate = Context.World())
 				if (Candidate->IsGameWorld())
-				{
-					World = Candidate;
-					break;
-				}
+					return Candidate;
+	return nullptr;
+}
+
+void WriteReply(int32 Id, const FString& Error, UWorld* World)
+{
+	auto Reply = Object();
+	Number(Reply, TEXT("id"), Id);
+	Reply->SetStringField(TEXT("peer"), Peer);
+	Reply->SetStringField(TEXT("error"), Error);
+	Reply->SetObjectField(TEXT("state"), Snapshot(World));
+	FString Output;
+	FJsonSerializer::Serialize(Reply.ToSharedRef(), TJsonWriterFactory<>::Create(&Output));
+	// Memos carry non-ASCII text; AutoDetect would write UTF-16, which the harness cannot parse.
+	FFileHelper::SaveStringToFile(Output, *(Directory / TEXT("reply.tmp")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+	FPlatformFileManager::Get().GetPlatformFile().MoveFile(*(Directory / TEXT("reply.json")), *(Directory / TEXT("reply.tmp")));
+}
+
+bool Tick(float)
+{
+	UWorld* World = FindGameWorld();
 	if (World && World != LastWorld.Get())
 	{
 		LastWorld = World;
@@ -1275,21 +123,13 @@ bool Tick(float)
 	if (!Request->TryGetNumberField(TEXT("id"), Id) || Id <= LastCommand)
 		return true;
 	LastCommand = Id;
-	auto Reply = Object();
-	Number(Reply, TEXT("id"), Id);
-	Reply->SetStringField(TEXT("peer"), Peer);
 	const FString Error = Execute(World, Request);
-	Reply->SetStringField(TEXT("error"), Error);
-	Reply->SetObjectField(TEXT("state"), Snapshot(World));
-	FString Output;
-	FJsonSerializer::Serialize(Reply.ToSharedRef(), TJsonWriterFactory<>::Create(&Output));
-	// Memos carry non-ASCII text; AutoDetect would write UTF-16, which the harness cannot parse.
-	FFileHelper::SaveStringToFile(Output, *(Directory / TEXT("reply.tmp")), FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
-	FPlatformFileManager::Get().GetPlatformFile().MoveFile(*(Directory / TEXT("reply.json")), *(Directory / TEXT("reply.tmp")));
+	WriteReply(Id, Error, World);
 	UE_LOG(LogTemp, Display, TEXT("Network verification peer=%s id=%d error=%s"), *Peer, Id, *Error);
 	return true;
 }
-} // namespace
+}
+
 void Start()
 {
 	if (!FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyDir="), Directory)
@@ -1301,10 +141,11 @@ void Start()
 	UE_LOG(LogTemp, Display, TEXT("Network verification enabled peer=%s authorityFixtures=%d"), *Peer, bAuthorityFixtures);
 	TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick), .1f);
 }
+
 void Stop()
 {
 	if (TickHandle.IsValid())
 		FTSTicker::GetCoreTicker().RemoveTicker(TickHandle);
 }
-} // namespace CoopRTSNetworkVerification
+}
 #endif
