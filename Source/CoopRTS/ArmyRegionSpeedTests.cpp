@@ -56,7 +56,7 @@ bool FOpenSpeedScenario::Setup()
 	FastFirst = Arena.Spawn(false, FastIndex, OpenGround, At(OpenGround, 0.f, -250.f));
 	FastSecond = FastFirst.IsValid() ? Arena.Join(FastFirst.Get(), FastIndex, OpenGround, At(OpenGround, 0.f, 250.f)) : nullptr;
 	return Check(OpenFirst.IsValid() && OpenSecond.IsValid() && PlainFirst.IsValid() && PlainSecond.IsValid()
-				&& FastFirst.IsValid() && FastSecond.IsValid(),
+			&& FastFirst.IsValid() && FastSecond.IsValid(),
 		TEXT("Three forces of two real units spawn"));
 }
 

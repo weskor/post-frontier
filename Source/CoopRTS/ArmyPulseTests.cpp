@@ -72,7 +72,6 @@ bool FPulseScenario::StandByHeadquarters()
 	return true;
 }
 
-
 bool FPulseScenario::Setup()
 {
 	AMapRegion* First = nullptr;

@@ -121,6 +121,7 @@ private:
 	bool ApplyProduction(int32 UnitIndex, bool bEnabled);
 
 	bool FindProductionExit(FVector& OutLocation, int32& Cursor) const;
+	bool IsForceNumberReserved(const ACommandGameState& State, int32 Number) const;
 	float ProductionCheckAccumulator = 0.f;
 	UPROPERTY(ReplicatedUsing = OnRep_PlacementCommitted)
 	double PlacementCommittedServerTime = -1.;

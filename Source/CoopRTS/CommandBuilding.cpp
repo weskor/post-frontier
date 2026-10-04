@@ -104,6 +104,27 @@ void ACommandBuilding::ApplyStun(float Seconds)
 	ForceNetUpdate();
 }
 
+bool ACommandBuilding::IsForceNumberReserved(const ACommandGameState& State, int32 Number) const
+{
+	for (const ACommandBuilding* Other : State.Buildings)
+		if (IsValid(Other) && Other != this && !Other->IsActorBeingDestroyed() && Other->IsAlive() && Other->IsProducer()
+			&& Other->TeamIndex == TeamIndex && (TeamIndex == 5 || Other->OwningPlayerState == OwningPlayerState)
+			&& Other->ForceNumber == Number)
+			return true;
+	// A number also stays reserved while any living survivor of the force that held it remains.
+	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
+	{
+		const AArmyGroup* Group = *It;
+		if (Group->IsActorBeingDestroyed() || Group->GetTeamIndex() != TeamIndex || Group->ForceNumber != Number
+			|| (TeamIndex != 5 && Group->GetOwningPlayerState() != OwningPlayerState))
+			continue;
+		for (const AArmyUnit* Unit : Group->GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive())
+				return true;
+	}
+	return false;
+}
+
 void ACommandBuilding::BeginPlay()
 {
 	Super::BeginPlay();
@@ -112,9 +133,9 @@ void ACommandBuilding::BeginPlay()
 		// Kind is a derived, replicated view of the definition for callers that still branch on it.
 		if (const UBuildingDefinition* Definition = GetDefinition())
 			Kind = Definition->GetKind();
+		if (Health <= 0)
+			Health = MaxHealth();
 	}
-	if (HasAuthority() && Health <= 0)
-		Health = MaxHealth();
 	AudioPreviousHealth = Health;
 	bAudioWasComplete = IsComplete();
 	AudioDeploymentCount = DeploymentCount;
@@ -123,55 +144,19 @@ void ACommandBuilding::BeginPlay()
 	bAudioStateInitialized = true;
 	OnRep_Appearance();
 	OnRep_PlacementCommitted();
-	if (HasAuthority())
+	ACommandGameState* State = HasAuthority() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	if (!State)
+		return;
+	if (IsProducer() && IsAlive())
 	{
-		if (ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
-		{
-			if (IsProducer() && IsAlive())
-			{
-				ForceNumber = 1;
-				for (;; ++ForceNumber)
-				{
-					bool bReserved = false;
-					for (const ACommandBuilding* Other : State->Buildings)
-					{
-						if (!IsValid(Other) || Other == this || Other->IsActorBeingDestroyed()
-							|| !Other->IsAlive() || !Other->IsProducer() || Other->TeamIndex != TeamIndex
-							|| (TeamIndex != 5 && Other->OwningPlayerState != OwningPlayerState))
-							continue;
-						if (Other->ForceNumber == ForceNumber)
-						{
-							bReserved = true;
-							break;
-						}
-					}
-					if (bReserved)
-						continue;
-					for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
-					{
-						const AArmyGroup* Group = *It;
-						if (Group->IsActorBeingDestroyed() || Group->GetTeamIndex() != TeamIndex
-							|| Group->ForceNumber != ForceNumber
-							|| (TeamIndex != 5 && Group->GetOwningPlayerState() != OwningPlayerState))
-							continue;
-						for (const AArmyUnit* Unit : Group->GetUnits())
-							if (IsValid(Unit) && Unit->IsAlive())
-							{
-								bReserved = true;
-								break;
-							}
-						if (bReserved)
-							break;
-					}
-					if (!bReserved)
-						break;
-				}
-			}
-			State->Buildings.AddUnique(this);
-			InitializeRallyPoint();
-			State->ForceNetUpdate();
-		}
+		// Lowest free positive number for this owner.
+		ForceNumber = 1;
+		while (IsForceNumberReserved(*State, ForceNumber))
+			++ForceNumber;
 	}
+	State->Buildings.AddUnique(this);
+	InitializeRallyPoint();
+	State->ForceNetUpdate();
 }
 
 void ACommandBuilding::Tick(float DeltaSeconds)
