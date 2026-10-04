@@ -1,5 +1,6 @@
 """The source-to-output map: glob rules, rejection policy and agreement with the repository."""
 
+import ast
 from pathlib import Path
 import subprocess
 
@@ -109,3 +110,42 @@ def test_rejections_use_every_map_so_a_commit_cannot_reclassify() -> None:
 def test_malformed_map_is_rejected(text: str) -> None:
     with pytest.raises(ValueError, match=r"generated\.toml"):
         generated.parse(text)
+
+
+def _assigned(script: str, name: str) -> ast.expr:
+    tree = ast.parse((ROOT / "Build" / script).read_text(encoding="utf-8"))
+    (value,) = (
+        node.value
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
+    )
+    return value
+
+
+def _owner_names(instances: list[str]) -> set[tuple[str, str]]:
+    return {
+        (name, entry.name)
+        for name in instances
+        for entry in generated.owner(MAP, f"Content/Art/Materials/{name}.uasset")
+    }
+
+
+def test_terrain_variants_are_owned_only_by_terrain_kit() -> None:
+    variants = _assigned("TerrainKit.py", "VARIANTS")
+    assert isinstance(variants, ast.Dict)
+    names = [ast.literal_eval(key) for key in variants.keys if key is not None]
+    assert len(names) >= 3
+    assert _owner_names(names) == {(name, "terrain-kit") for name in names}
+
+
+def test_shared_scope_instances_are_owned_only_by_shared_material() -> None:
+    slots = ast.literal_eval(_assigned("BuildSharedMaterial.py", "SLOTS_OF_SCOPE"))
+    factions = ast.literal_eval(_assigned("BuildSharedMaterial.py", "FACTIONS_OF_SCOPE"))
+    names = [
+        f"MI_SC2_{faction}_{slot}_{scope}"
+        for scope, scope_slots in slots.items()
+        for faction in (*factions[scope], *(("Construction",) if scope == "Bld" else ()))
+        for slot in scope_slots
+    ]
+    assert _owner_names(names) == {(name, "shared-material") for name in names}
