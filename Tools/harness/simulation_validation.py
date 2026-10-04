@@ -29,18 +29,26 @@ COMPARISON_FIELDS = (*TEAM_FIELDS, "units_by_role")
 
 @dataclass(frozen=True)
 class Outcome:
-    """How a battle ended: a decisive result has a winner, a censored one only the cap."""
+    """How a battle ended: a decisive result has a winner, a censored one only the cap.
 
+    `hq_down` and `hq_up` are the final-snapshot HQ states this outcome requires; the
+    validator checks them without knowing which outcome kinds exist.
+    """
+
+    kind: str
     decisive: bool
     winner: int | None
     seconds: float
+    hq_down: tuple[int, ...]
+    hq_up: tuple[int, ...]
 
 
 def interpret_outcome(report: JsonObject) -> Outcome:
     """The one place that says which recorded outcomes end a battle.
 
     Today a battle ends when an HQ is destroyed; the guarded-HQ slice adds the completed
-    hold here. Every statistic and the gate read outcomes only through this function.
+    hold here, with the HQ states it requires. Every statistic, the gate and the outcome
+    validator read outcomes only through this function.
     """
     kind = report.get("outcome")
     seconds = number(report.get("duration"), "duration")
@@ -48,9 +56,19 @@ def interpret_outcome(report: JsonObject) -> Outcome:
         winner = report.get("winner")
         if winner not in (0, 5):
             raise ValueError("Decisive outcome without a winning team")
-        return Outcome(True, winner, seconds)
+        # Simultaneous HQ loss follows the game's team-5 tie precedence.
+        return Outcome(
+            kind,
+            True,
+            winner,
+            seconds,
+            (5,) if winner == 0 else (0,),
+            (0,) if winner == 0 else (),
+        )
     if kind == "time_cap":
-        return Outcome(False, None, seconds)
+        if report.get("winner") is not None:
+            raise ValueError("Invalid time-cap draw: a winner is recorded")
+        return Outcome(kind, False, None, seconds, (), (0, 5))
     raise ValueError("Unknown outcome, not a result")
 
 
@@ -259,21 +277,15 @@ def validate_teams(snapshot: JsonObject) -> None:
 
 
 def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> None:
-    snapshots = report["snapshots"]
-    final = {team["team"]: team for team in snapshots[-1]["teams"]}
+    final = {team["team"]: team for team in report["snapshots"][-1]["teams"]}
     outcome = interpret_outcome(report)
-    if not outcome.decisive:
-        if (
-            report.get("winner") is not None
-            or duration < job["time_cap"] - 0.02
-            or any(final[team]["hq_health"] <= 0 for team in (0, 5))
-        ):
-            raise ValueError("Invalid time-cap draw")
-    else:
-        winner = outcome.winner
-        if final[5 if winner == 0 else 0]["hq_health"] > 0:
-            raise ValueError("Winner has no destroyed opposing HQ")
-        if final[0]["hq_health"] <= 0 and winner != 5:
+    if not outcome.decisive and duration < job["time_cap"] - 0.02:
+        raise ValueError("Invalid time-cap draw: ended before the cap")
+    for team in outcome.hq_down:
+        if final[team]["hq_health"] > 0:
+            raise ValueError(f"Invalid {outcome.kind} result: team {team} HQ stands")
+    for team in outcome.hq_up:
+        if final[team]["hq_health"] <= 0:
             raise ValueError(
-                "Simultaneous HQ loss must follow game's team-5 tie precedence"
+                f"Invalid {outcome.kind} result: team {team} HQ is destroyed"
             )

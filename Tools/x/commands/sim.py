@@ -24,6 +24,12 @@ HELP = (
     "Duel economy variants, --matrix and --compare-dilation are incompatible. "
     "Duel reports evaluate Docs/Design/units.md rules; balance failures are evidence, not runtime failures. "
     "Stalled duels are invalid runtime failures, never draws or a balance baseline. "
+    "--scenario rush (repeatable with default) makes the team-0 autopilot give every force Attack along "
+    "the path to JEV's HQ at spawn and after every refill; only casualty withdrawal retreats. "
+    "--gate 1b evaluates the step 1b gate (Docs/Balance.md): defaults to V2, baseline2 and baseline1, "
+    "both scenarios, 20 seeds each and a 1200 s cap, prints PASS/FAIL/INSUFFICIENT per check and exits 1 "
+    "unless PASS; fewer seeds, another cap or a missing baseline never PASS. Decisive and censored "
+    "(time-cap) results are reported separately; --report-only RUN --gate 1b evaluates an existing run. "
     "Use --compare-dilation for paired telemetry comparison; --report-only RUN regenerates "
     "charts/reports without a game. Reports live in the recorded run directory, never Saved/Simulation."
 )

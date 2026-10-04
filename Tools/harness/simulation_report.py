@@ -325,6 +325,11 @@ def _minutes(seconds: float | None) -> str:
     return "n/a" if seconds is None else f"{seconds / 60:.2f}"
 
 
+def _median_text(stats: JsonObject) -> str:
+    text = _minutes(stats["median_with_censored_seconds"])
+    return f"\u2265{text}" if stats["median_is_lower_bound"] else text
+
+
 def _rush_line(variant: str, rush: JsonObject) -> str:
     median, longest = (
         rush["median_order_delay_seconds"],
@@ -335,7 +340,9 @@ def _rush_line(variant: str, rush: JsonObject) -> str:
     )
     return (
         f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
-        f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}."
+        f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}. "
+        f"Own casualty cycle: {rush['withdrawals']} withdrawals/refills, {rush['resumes']} resumes. "
+        f"Retreat events (a defect, expected 0): {rush['retreats']}."
     )
 
 
@@ -373,7 +380,7 @@ def battle_length_section(
         "## Battle length",
         "",
         "Decisive matches ended by the outcome rules; censored matches reached the time cap and are not lengths. "
-        "The median including censored counts each censored match at its cap, a lower bound that never flatters a long battle.",
+        "The median including censored counts each censored match at its cap; a censored match's true length is longer, so this is a lower bound (shown \u2265 when a censored match sits at a middle rank, where it proves no ceiling).",
         "",
         "| Map | Variant | Scenario | Dilation | Matches | Decisive | Median decisive min | Censored | Median incl. censored min | Earliest victory s |",
         "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -386,7 +393,7 @@ def battle_length_section(
         lines.append(
             f"| {map_name} | {variant} | {scenario} | {dilation:g}\u00d7 | {stats['matches']} | {stats['decisive']} "
             f"| {_minutes(stats['decisive_median_seconds'])} | {stats['censored']} "
-            f"| {_minutes(stats['median_with_censored_seconds'])} | {'none' if victory is None else f'{victory:.1f}'} |"
+            f"| {_median_text(stats)} | {'none' if victory is None else f'{victory:.1f}'} |"
         )
         row = dict(
             stats, map=map_name, variant=variant, scenario=scenario, dilation=dilation

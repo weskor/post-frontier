@@ -7,7 +7,12 @@ import math
 import statistics
 
 from harness.simulation_evidence import teams
-from harness.simulation_planning import GATE_SEEDS, GATE_TIME_CAP, MAP_V2
+from harness.simulation_planning import (
+    DEFAULT_ECONOMY,
+    GATE_SEEDS,
+    GATE_TIME_CAP,
+    MAP_V2,
+)
 from harness.simulation_validation import COMPARISON_FIELDS, interpret_outcome
 from harness.verify import JsonObject
 
@@ -15,6 +20,9 @@ from harness.verify import JsonObject
 LENGTH_BAND_MINUTES = (8.0, 12.0)
 RUSH_FLOOR_SECONDS = 360.0
 REQUIRED_HUMAN_BASELINES = (2, 1)
+GATE_ECONOMIES = [
+    dict(DEFAULT_ECONOMY, human_baseline=value) for value in REQUIRED_HUMAN_BASELINES
+]
 PASS, FAIL, INSUFFICIENT = "PASS", "FAIL", "INSUFFICIENT"
 
 
@@ -170,6 +178,21 @@ def symmetry_metadata(report: JsonObject) -> JsonObject:
     return result
 
 
+def _median(decisive: list[float], capped: list[float]) -> tuple[float | None, bool]:
+    """Median with censored matches at their cap, and whether it is only a lower bound.
+
+    A censored match's true length exceeds its cap, so a censored value at either middle
+    rank makes the median a lower bound that cannot prove any ceiling.
+    """
+    ranked = sorted(
+        [(value, False) for value in decisive] + [(value, True) for value in capped]
+    )
+    if not ranked:
+        return None, False
+    middle = ranked[(len(ranked) - 1) // 2], ranked[len(ranked) // 2]
+    return statistics.median(value for value, _ in ranked), any(c for _, c in middle)
+
+
 def battle_statistics(reports: list[JsonObject]) -> JsonObject:
     """Decisive and censored (time-cap) results, never blended without saying so."""
     outcomes = [(interpret_outcome(report), report) for report in reports]
@@ -184,23 +207,29 @@ def battle_statistics(reports: list[JsonObject]) -> JsonObject:
         for outcome, _ in outcomes
         if outcome.decisive and outcome.winner == 0
     ]
+    median, bound = _median(decisive, capped)
     return dict(
         matches=len(reports),
         decisive=len(decisive),
         decisive_median_seconds=statistics.median(decisive) if decisive else None,
         censored=len(capped),
-        # Censored matches count at their cap: a lower bound on their true length.
-        median_with_censored_seconds=statistics.median(decisive + capped)
-        if reports
-        else None,
+        median_with_censored_seconds=median,
+        # True when a censored match sits at a middle rank: the true median is above this.
+        median_is_lower_bound=bound,
         earliest_victory_seconds=min(victories) if victories else None,
     )
 
 
 def rush_evidence(reports: list[JsonObject]) -> JsonObject:
-    """How fast rush forces got their Attack order toward JEV's HQ after first living."""
+    """Order delay after first living, and the withdrawal, resume and (defect) retreat events."""
     seen = 0
     delays: list[float] = []
+    counts = collections.Counter(
+        event["kind"]
+        for report in reports
+        for event in report["events"]
+        if event["kind"].startswith("rush_force_")
+    )
     for report in reports:
         first: dict[str, float] = {}
         ordered: dict[str, float] = {}
@@ -216,6 +245,10 @@ def rush_evidence(reports: list[JsonObject]) -> JsonObject:
         forces_attacking=len(delays),
         median_order_delay_seconds=statistics.median(delays) if delays else None,
         max_order_delay_seconds=max(delays) if delays else None,
+        # Withdrawals and resumes are the force's own casualty cycle; a retreat is a defect.
+        withdrawals=counts["rush_force_withdrawing"],
+        resumes=counts["rush_force_resumed"],
+        retreats=counts["rush_force_retreat"],
     )
 
 
@@ -244,11 +277,18 @@ def _length_check(
         return _check(name, INSUFFICIENT, problem)
     stats = battle_statistics([report for _, report in cell])
     minutes = stats["median_with_censored_seconds"] / 60
-    within = LENGTH_BAND_MINUTES[0] <= minutes <= LENGTH_BAND_MINUTES[1]
     detail = (
         f"median {minutes:.2f} min over {stats['matches']} seeds "
         f"({stats['censored']} censored at the cap counted at {GATE_TIME_CAP:g} s)"
     )
+    if stats["median_is_lower_bound"]:
+        # The true median is above a lower bound that reached the cap's rank: no ceiling is proven.
+        return _check(
+            name,
+            FAIL,
+            f"median at least {minutes:.2f} min, a censored match at the middle rank: {detail}",
+        )
+    within = LENGTH_BAND_MINUTES[0] <= minutes <= LENGTH_BAND_MINUTES[1]
     return _check(name, PASS if within else FAIL, detail)
 
 
@@ -272,14 +312,18 @@ def _rush_check(variant: str, cell: list[tuple[JsonObject, JsonObject]]) -> Json
 
 
 def evaluate_gate_1b(valid: list[tuple[JsonObject, JsonObject]]) -> JsonObject:
-    """PASS needs both baselines, both scenarios, every cell at the G1 sample size and cap."""
+    """PASS needs both baselines, both scenarios, every cell at the G1 sample size and cap.
+
+    A baseline variant is the default economy with only `human_baseline` set to 2 or 1;
+    a V2 job with any other economy is not a gate sample.
+    """
     cells: dict[tuple[str, str], list[tuple[JsonObject, JsonObject]]] = (
         collections.defaultdict(list)
     )
     baselines: set[int] = set()
     for record, report in valid:
         job = record["job"]
-        if job["map"] != MAP_V2:
+        if job["map"] != MAP_V2 or job["economy"] not in GATE_ECONOMIES:
             continue
         scenario = job.get("scenario", "default")
         cells[(job["variant"], scenario)].append((job, report))

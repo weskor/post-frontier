@@ -121,6 +121,14 @@ private:
 		int32 Winner = -1;
 		const TCHAR* Error = nullptr;
 	};
+	// What ObserveRush has recorded for one team-0 force.
+	struct FRushForce
+	{
+		bool bAttacking = false;
+		bool bRetreating = false;
+		bool bWithdrawn = false;
+		int32 Resumes = 0;
+	};
 	bool Start(ACommandGameState& State);
 	bool StartDuel(ACommandGameState& State);
 	bool StartMatch(ACommandGameState& State);
@@ -152,8 +160,8 @@ private:
 	TWeakObjectPtr<AEnemyCommander> Autopilot;
 	TMap<TWeakObjectPtr<AArmyUnit>, FObservedUnit> ObservedUnits;
 	TMap<int32, int32> RegionOwners;
-	// Team-0 forces seen in the rush scenario; the value is true once seen attacking RushTargetRegion.
-	TMap<TWeakObjectPtr<AArmyGroup>, bool> RushForces;
+	// Team-0 forces seen in the rush scenario, and which of their transitions were already recorded.
+	TMap<TWeakObjectPtr<AArmyGroup>, FRushForce> RushForces;
 	int32 RushTargetRegion = INDEX_NONE;
 	TSet<TWeakObjectPtr<ADepositSite>> Depleted;
 	int32 ObservedPlanHistory = 0;

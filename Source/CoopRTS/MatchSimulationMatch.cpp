@@ -171,17 +171,35 @@ void FMatchSimulation::ObserveRush(ACommandGameState& State)
 			Row->SetStringField(TEXT("id"), It->GetName());
 			Row->SetNumberField(TEXT("force"), It->ForceNumber);
 			Row->SetNumberField(TEXT("target_region"), It->TargetRegionIndex);
+			Row->SetNumberField(TEXT("status"), static_cast<uint8>(It->Status));
+			Row->SetNumberField(TEXT("resume_count"), It->ResumeCount);
 		};
-		bool* bAttacking = RushForces.Find(TWeakObjectPtr<AArmyGroup>(*It));
-		if (!bAttacking)
+		const TWeakObjectPtr<AArmyGroup> Key(*It);
+		FRushForce* Rush = RushForces.Find(Key);
+		if (!Rush)
 		{
-			bAttacking = &RushForces.Add(TWeakObjectPtr<AArmyGroup>(*It), false);
+			Rush = &RushForces.Add(Key, FRushForce{ false, false, false, It->ResumeCount });
 			Record(TEXT("rush_force_seen"));
 		}
-		if (!*bAttacking && It->Verb == EForceVerb::Attack && It->TargetRegionIndex == RushTargetRegion)
+		if (!Rush->bAttacking && It->Verb == EForceVerb::Attack && It->TargetRegionIndex == RushTargetRegion)
 		{
-			*bAttacking = true;
+			Rush->bAttacking = true;
 			Record(TEXT("rush_force_attacking"));
+		}
+		// A rush never issues Retreat: any of these events is a defect. Withdrawing and refilling are the
+		// force's own casualty withdrawal, and a resume is its automatic return to the standing Attack.
+		const bool bRetreating = It->Verb == EForceVerb::Retreat;
+		if (bRetreating && !Rush->bRetreating)
+			Record(TEXT("rush_force_retreat"));
+		Rush->bRetreating = bRetreating;
+		const bool bWithdrawn = It->Status == EForceStatus::Withdrawing || It->Status == EForceStatus::Refilling;
+		if (bWithdrawn && !Rush->bWithdrawn)
+			Record(TEXT("rush_force_withdrawing"));
+		Rush->bWithdrawn = bWithdrawn;
+		if (It->ResumeCount > Rush->Resumes)
+		{
+			Rush->Resumes = It->ResumeCount;
+			Record(TEXT("rush_force_resumed"));
 		}
 	}
 }

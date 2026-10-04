@@ -13,6 +13,7 @@ from harness.simulation_comparison import (
 )
 from harness.simulation_execution import command
 from harness.simulation_planning import (
+    DEFAULT_ECONOMY,
     GATE_SEEDS,
     GATE_TIME_CAP,
     MAP_V2,
@@ -42,7 +43,7 @@ def match(
         map=MAP_V2,
         variant=variant,
         scenario=scenario,
-        economy=dict(human_baseline=human, jev_baseline=2),
+        economy=dict(DEFAULT_ECONOMY, human_baseline=human),
         time_cap=cap,
         dilation=1,
     )
@@ -92,6 +93,7 @@ def test_statistics_keep_decisive_and_censored_apart() -> None:
     assert stats["decisive_median_seconds"] == 600
     # Censored matches count at the cap: [400, 600, 800, 1200, 1200].
     assert stats["median_with_censored_seconds"] == 800
+    assert not stats["median_is_lower_bound"]
     # JEV's win at 800 s is a decisive length but not a victory.
     assert stats["earliest_victory_seconds"] == 400
 
@@ -112,6 +114,56 @@ def test_unknown_outcome_is_not_a_result_and_decisive_needs_a_winner() -> None:
     assert not interpret_outcome(
         dict(outcome="time_cap", duration=10, winner=None)
     ).decisive
+
+
+def test_a_censored_value_at_the_middle_rank_is_a_bound_not_a_median() -> None:
+    # Ten JEV wins at 240 s and ten stalemates: the mean of the middle ranks is 720 s,
+    # exactly the 12 min ceiling, yet half the battles outlast the cap.
+    reports = [match(seconds=240, winner=5)[1] for _ in range(10)]
+    reports += [match(winner=None)[1] for _ in range(10)]
+    stats = battle_statistics(reports)
+    assert stats["median_with_censored_seconds"] == 720
+    assert stats["median_is_lower_bound"]
+
+
+def test_censored_below_the_middle_ranks_leave_the_median_exact() -> None:
+    reports = [match(seconds=240, winner=5)[1] for _ in range(11)]
+    reports += [match(winner=None)[1] for _ in range(9)]
+    stats = battle_statistics(reports)
+    assert stats["median_with_censored_seconds"] == 240
+    assert not stats["median_is_lower_bound"]
+
+
+def test_gate_never_passes_a_median_that_only_bounds_the_ceiling() -> None:
+    rows = passing_gate()
+    for variant in ("baseline2", "baseline1"):
+        defaults = [
+            row
+            for row in rows
+            if row[0]["job"]["variant"] == variant
+            and row[0]["job"]["scenario"] == "default"
+        ]
+        for index, (_, report) in enumerate(defaults):
+            if index < 10:
+                report.update(winner=5, duration=240)
+            else:
+                report.update(outcome="time_cap", winner=None, duration=CAP)
+    result = evaluate_gate_1b(rows)
+    length = checks(result)["baseline2: median battle length 8-12 min"]
+    assert length["status"] == FAIL
+    assert "middle rank" in length["detail"]
+    assert result["status"] == FAIL
+
+
+def test_decisive_outcome_names_the_hq_states_it_requires() -> None:
+    won = interpret_outcome(dict(outcome="hq_destroyed", duration=9, winner=0))
+    assert (won.hq_down, won.hq_up) == ((5,), (0,))
+    lost = interpret_outcome(dict(outcome="hq_destroyed", duration=9, winner=5))
+    assert (lost.hq_down, lost.hq_up) == ((0,), ())
+    draw = interpret_outcome(dict(outcome="time_cap", duration=9, winner=None))
+    assert (draw.hq_down, draw.hq_up) == ((), (0, 5))
+    with pytest.raises(ValueError, match="Invalid time-cap draw"):
+        interpret_outcome(dict(outcome="time_cap", duration=9, winner=0))
 
 
 def test_gate_passes_only_at_full_sample() -> None:
@@ -236,7 +288,14 @@ def test_rush_evidence_measures_the_delay_from_first_living_to_attack() -> None:
                 ("rush_force_attacking", "b", 46),
                 ("rush_force_seen", "c", 50),
             ),
-            events(("rush_force_seen", "a", 5), ("rush_force_attacking", "a", 5)),
+            events(
+                ("rush_force_seen", "a", 5),
+                ("rush_force_attacking", "a", 5),
+                ("rush_force_withdrawing", "a", 60),
+                ("rush_force_resumed", "a", 90),
+                ("rush_force_withdrawing", "a", 120),
+                ("rush_force_retreat", "a", 130),
+            ),
         ]
     )
     assert evidence == dict(
@@ -244,7 +303,24 @@ def test_rush_evidence_measures_the_delay_from_first_living_to_attack() -> None:
         forces_attacking=3,
         median_order_delay_seconds=2,
         max_order_delay_seconds=6,
+        withdrawals=2,
+        resumes=1,
+        retreats=1,
     )
+
+
+def test_a_baseline_needs_the_default_economy_apart_from_the_human_income() -> None:
+    rows = cell(variant="baseline2") + cell(variant="baseline2", scenario="rush")
+    for scenario in ("default", "rush"):
+        for _ in range(GATE_SEEDS):
+            record, report = match("baseline1", scenario)
+            record["job"]["variant"] = "custom"
+            record["job"]["economy"]["jev_baseline"] = 9
+            rows.append((record, report))
+    result = evaluate_gate_1b(rows)
+    assert result["status"] == INSUFFICIENT
+    assert checks(result)["1/s baseline measured"]["status"] == INSUFFICIENT
+    assert not any(row["check"].startswith("custom") for row in result["checks"])
 
 
 def options(*arguments: str) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
