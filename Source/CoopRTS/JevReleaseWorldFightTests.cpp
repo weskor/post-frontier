@@ -191,8 +191,7 @@ private:
 					&& FMath::IsNearlyEqual(Force->GetMarchSpeed(), Base * JevRelease::RapidSpeedFactor, .01f),
 				TEXT("A v2.1 wave force reports 115% of its unit speed as base and march speed"));
 			for (const AArmyUnit* Unit : Force->GetUnits())
-				Check(IsValid(Unit) && FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed,
-								  Base * JevRelease::RapidSpeedFactor, .01f),
+				Check(IsValid(Unit) && FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, Base * JevRelease::RapidSpeedFactor, .01f),
 					TEXT("Its units are driven at the faster speed"));
 			Check(Plan && Plan->EtaSeconds > 0.f, TEXT("The v2.1 wave publishes an ETA from the faster speed"));
 		}
