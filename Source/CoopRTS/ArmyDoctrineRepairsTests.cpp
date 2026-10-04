@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 
 #include "ArmyDoctrineFixture.h"
+#include "GuardedHqTestSupport.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDoctrineRepairsTest, "CoopRTS.Doctrine.FieldRepairs",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -219,7 +220,8 @@ private:
 		const uint32 BeforeShot = Siege->AttackCount;
 		Siege->FireAt(HQ);
 		if (!Check(Siege->AttackCount == BeforeShot + 1 && HQ->Health == 0,
-				TEXT("Real weapon destroys HQ before terminal repair observation")))
+				TEXT("Real weapon takes the HQ offline before terminal repair observation"))
+			|| !Check(GuardedHqTest::CompleteHold(*HQ), TEXT("The attackers complete the hold on the offline HQ")))
 			return true;
 		Next(10, Now);
 		return false;

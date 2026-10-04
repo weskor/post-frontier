@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 
 #include "ArmyDoctrineFixture.h"
+#include "GuardedHqTestSupport.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDoctrineRestartTest, "CoopRTS.Doctrine.Restart",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -47,7 +48,8 @@ private:
 		const uint32 Before = Siege->AttackCount;
 		Siege->FireAt(HQ);
 		if (!Check(Siege->AttackCount == Before + 1 && HQ->Health == 0,
-				TEXT("A real doctrine-bearing siege shot destroys the enemy HQ")))
+				TEXT("A real doctrine-bearing siege shot takes the enemy HQ offline"))
+			|| !Check(GuardedHqTest::CompleteHold(*HQ), TEXT("The attackers complete the hold on the offline HQ")))
 			return true;
 		Next(1, Now);
 		return false;

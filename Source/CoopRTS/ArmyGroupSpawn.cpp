@@ -10,6 +10,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GroundHeight.h"
 #include "NavigationSystem.h"
 
@@ -159,15 +160,22 @@ AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner
 {
 	ACommandGameState* State = World.GetGameState<ACommandGameState>();
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&World);
-	if (!State || !Navigation || State->MatchResult != EMatchResult::Ongoing || &Owner != State->EnemyCommander
+	// JEV's waves and a human commander's emergency force (HqHoldPolicy) are the free forces.
+	const bool bJev = State && &Owner == State->EnemyCommander;
+	const bool bHuman = Owner.TeamIndex == 0 && Owner.CommanderIndex >= 0;
+	if (!State || !Navigation || State->MatchResult != EMatchResult::Ongoing || !(bJev || bHuman)
 		|| UnitIndices.IsEmpty() || UnitIndices.Num() > MaxUnitCount)
 		return nullptr;
+	int32 NextArmy = 0;
+	if (bHuman)
+		for (TActorIterator<AArmyGroup> It(&World); It; ++It)
+			NextArmy = FMath::Max(NextArmy, It->GetArmyIndex() + 1);
 	const FTransform Transform(Anchor);
 	AArmyGroup* Group = World.SpawnActorDeferred<AArmyGroup>(StaticClass(), Transform, nullptr, nullptr,
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Group)
 		return nullptr;
-	Group->Initialize({ 5, &Owner, -1, nullptr, Anchor });
+	Group->Initialize({ bJev ? 5 : 0, &Owner, bJev ? -1 : NextArmy, nullptr, Anchor });
 	Group->ForceNumber = InForceNumber;
 	Group->SpeedFactor = InSpeedFactor;
 	Group->FinishSpawning(Transform);

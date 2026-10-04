@@ -5,6 +5,7 @@
 
 class ACommandBuilding;
 class ACommandGameState;
+class AFailoverNode;
 class ACommandPlayerState;
 class UWorld;
 
@@ -38,4 +39,6 @@ private:
 	int32 EnemyRemainderTenths = 0;
 	// Finished JEV buildings seen alive; one that disappears was destroyed, since only unfinished ones cancel.
 	TArray<TWeakObjectPtr<const ACommandBuilding>> LiveJevBuildings;
+	// JEV's standing Failover Nodes; one that falls pays like a destroyed building.
+	TArray<TWeakObjectPtr<const AFailoverNode>> LiveJevNodes;
 };

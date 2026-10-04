@@ -2,6 +2,7 @@
 
 #include "MatchTelemetryScenario.h"
 #include "ArmyTestSetup.h"
+#include "GuardedHqTestSupport.h"
 #include "MatchTelemetry.h"
 #include "ArmyUnit.h"
 #include "CommandGameMode.h"
@@ -97,7 +98,9 @@ bool FMatchScenario::EndWithHQ(UWorld* World, ACommandPlayerController* PC, ACom
 		return false;
 	Freeze(Attacker);
 	State->EnemyHeadquarters->ReceiveAttack(State->EnemyHeadquarters->Health, Attacker->GetUnits()[0]);
-	return true;
+	// An HQ at 0 HP is offline; the battle ends when its hold completes.
+	return Check(GuardedHqTest::CompleteHold(*State->EnemyHeadquarters, Attacker->GetUnits()[0]),
+		TEXT("The attackers complete the hold on the offline HQ"));
 }
 
 bool FMatchScenario::OriginalUnchanged()

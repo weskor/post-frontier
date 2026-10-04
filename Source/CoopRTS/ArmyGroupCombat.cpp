@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationSystem.h"
@@ -22,6 +23,7 @@ struct FArmyCombatScan
 {
 	TArray<AArmyUnit*, TInlineAllocator<32>> Enemies;
 	AHeadquarters* HostileHQ = nullptr;
+	TArray<AFailoverNode*, TInlineAllocator<2>> HostileNodes;
 	const TArray<TObjectPtr<ACommandBuilding>>* HostileBuildings = nullptr;
 };
 
@@ -41,6 +43,15 @@ FArmyCombatScan ScanHostiles(UWorld& World, int32 Team)
 	if (const ACommandGameState* State = World.GetGameState<ACommandGameState>())
 	{
 		Scan.HostileHQ = Team == 5 ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get();
+		if (IsValid(Scan.HostileHQ))
+		{
+			for (const TWeakObjectPtr<AFailoverNode>& Node : Scan.HostileHQ->GetNodes())
+				if (Node.IsValid())
+					Scan.HostileNodes.Add(Node.Get());
+			// Shooting an immune HQ wastes the volley: auto-acquisition takes its nodes first. An explicit Attack still may.
+			if (Scan.HostileHQ->IsImmune())
+				Scan.HostileHQ = nullptr;
+		}
 		Scan.HostileBuildings = &State->Buildings;
 	}
 	return Scan;
@@ -103,6 +114,8 @@ AActor* AArmyGroup::ChooseTarget(AArmyUnit& Unit, const FArmyCombatScan& Scan) c
 	for (AArmyUnit* Enemy : Scan.Enemies)
 		Consider(Enemy);
 	Consider(Scan.HostileHQ);
+	for (AFailoverNode* Node : Scan.HostileNodes)
+		Consider(Node);
 	if (Scan.HostileBuildings)
 		for (ACommandBuilding* Building : *Scan.HostileBuildings)
 			Consider(Building);

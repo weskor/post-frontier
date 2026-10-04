@@ -4,6 +4,8 @@
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "DepositSite.h"
+#include "FailoverNode.h"
+#include "Headquarters.h"
 #include "GameState/GameStateTerritory.h"
 #include "MapRegion.h"
 #include "Rules/EconomyPolicy.h"
@@ -150,6 +152,14 @@ void FGameStateEconomy::TrackStructureKills(ACommandGameState& State)
 		LiveJevBuildings.RemoveAtSwap(Index);
 		++Kills;
 	}
+	for (int32 Index = LiveJevNodes.Num() - 1; Index >= 0; --Index)
+	{
+		const AFailoverNode* Node = LiveJevNodes[Index].Get();
+		if (IsValid(Node) && !Node->IsActorBeingDestroyed() && Node->IsAlive())
+			continue;
+		LiveJevNodes.RemoveAtSwap(Index);
+		++Kills;
+	}
 	if (Kills > 0)
 	{
 		const TArray<ACommandPlayerState*> Roster = FGameStateEconomy::Roster(State);
@@ -158,6 +168,10 @@ void FGameStateEconomy::TrackStructureKills(ACommandGameState& State)
 	for (const ACommandBuilding* Building : State.Buildings)
 		if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsAlive() && Building->IsComplete())
 			LiveJevBuildings.AddUnique(Building);
+	if (IsValid(State.EnemyHeadquarters))
+		for (const TWeakObjectPtr<AFailoverNode>& Node : State.EnemyHeadquarters->GetNodes())
+			if (Node.IsValid() && Node->IsAlive())
+				LiveJevNodes.AddUnique(Node.Get());
 }
 
 TArray<ACommandPlayerState*> FGameStateEconomy::Roster(const ACommandGameState& State)

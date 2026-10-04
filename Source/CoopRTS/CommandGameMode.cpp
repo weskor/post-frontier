@@ -131,8 +131,9 @@ void ACommandGameMode::Tick(float DeltaSeconds)
 	if (!State || State->MatchResult != EMatchResult::Ongoing
 		|| !IsValid(State->FriendlyHeadquarters) || !IsValid(State->EnemyHeadquarters))
 		return;
-	const EMatchResult Result = OutcomePolicy::Evaluate({ State->FriendlyHeadquarters->Health,
-		State->EnemyHeadquarters->Health, EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
+	// A side is lost when its HQ's lifecycle says so (a completed hold on its offline main), not at 0 HP.
+	const EMatchResult Result = OutcomePolicy::Evaluate({ !State->FriendlyHeadquarters->IsAlive(),
+		!State->EnemyHeadquarters->IsAlive(), EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
 	if (Result == EMatchResult::Ongoing)
 		return;
 	const bool bFriendlyLost = Result == EMatchResult::Defeat;

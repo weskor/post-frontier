@@ -86,6 +86,13 @@ public:
 	void EvaluatePlan();
 	// The one source of match time for JEV's schedule: seconds since match start, frozen by pause.
 	float GetMatchSeconds() const;
+	// The emergency wave of decision H3: a free wave at the current release's budget, launched at JEV's main
+	// on the next evaluation, which this call makes due at once. Authority only.
+	void RequestEmergencyWave()
+	{
+		bEmergencyWavePending = true;
+		EvaluateElapsed = 2.f;
+	}
 	static constexpr int32 MaxPublishedWaves = 8;
 	// Release schedule and wave events for clients (team 5 only).
 	UPROPERTY(Replicated)
@@ -122,7 +129,10 @@ private:
 	// Publishes the schedule; true when a release is due and its wave not yet launched.
 	bool TickRelease();
 	void AdvanceReleases(FJevTurn& Turn);
-	void LaunchWave(FJevTurn& Turn, int32 ReleaseIndex);
+	// TargetOverride is the region the wave attacks; INDEX_NONE takes the release's own target.
+	void LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 TargetOverride = INDEX_NONE);
+	// A wave of the current release sent against the humans holding JEV's own main.
+	void LaunchEmergencyWave(FJevTurn& Turn);
 	void RecordWave(const FJevWaveEvent& Event);
 	TArray<FJevCommittedForce, TInlineAllocator<8>> CommittedForces;
 	// Free forces this commander launched; they never refill, so they fight on.
@@ -137,6 +147,7 @@ private:
 	int32 WaveCarry = 0;
 	// The newest release whose wave has launched.
 	int32 LaunchedUpTo = 0;
+	bool bEmergencyWavePending = false;
 	float ReleaseRetryElapsed = 0.f;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	float ClockSkew = 0.f;
