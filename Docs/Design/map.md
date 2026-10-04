@@ -54,6 +54,8 @@ A region can have one trait, shown as an icon on the region and the minimap:
 
 Traits make *where* to fight a decision, and they combine with Move & Hold.
 
+**[Change] Built in step 1b** on fixed regions of Habitable Zone v2, with terrain to match each trait: raised plateaus with ramps for high ground, visible cover, and narrow necks giving 2–3 routes between fronts. The seed shuffles traits from step 4 ([build-order.md](build-order.md)).
+
 **Region traits were chosen over map events for launch.** The review asked for one or the other, and traits are static, readable and shape strategy every battle.
 
 ## Neutrals [New] — decided

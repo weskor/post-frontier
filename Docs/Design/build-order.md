@@ -13,7 +13,7 @@ The battle has to be fun before a run layer can help it.
      - JEV player-count scaling.
      - Re-tag today's three units with armor classes, speed by class and the targeting rule. **Build the harness duel matrix** and validate the re-tag before adding units.
      - The co-op pause and solo active pause.
-     - **Gate:** playtest with 2–3 friends: steering feels clear, and JEV's plans are readable.
+     - **Gate:** playtest with 2–3 friends: steering feels clear, and JEV's plans are readable. **Not run as a separate playtest (owner, 2026-10-04).** On a flat map with 3 units and no active choices, 1a isn't interesting enough to share. Its questions join the 1b playtest.
    - **1b: economy and pressure**
      - Connectivity (definition in [economy.md](economy.md)), shared income with accumulators, reinforcements along the supply chain, and gifting.
      - **Deposit pressure:** halved deposit reserves, and JEV's baseline split from the human floor; the harness compares a 2/s and a 1/s human baseline ([economy.md](economy.md)).
@@ -24,6 +24,9 @@ The battle has to be fun before a run layer can help it.
      - **Pre-built start and planning phase,** with a generic kit (Barracks plus a Drill Rig) until commanders exist; lower starting Power; JEV's matching start ([battle.md](battle.md)). It shortens every battle, so it belongs before the battle-length gate.
      - **Guarding the HQs:** Failover Nodes, the fortified opening, the hold and the final protocol for both HQs ([battle.md](battle.md)).
      - At least one two-commander threat ([open-questions.md](open-questions.md)).
+     - **Where and how to fight (moved from step 4 and step 3, owner decision 2026-10-04):**
+       - **Region traits** on fixed regions of Habitable Zone v2. Each trait's terrain matches it: high ground sits on raised plateaus with ramps, and cover has visible cover. The map also gets narrow necks and 2–3 real routes between fronts that cost different things, so routes stop being straight lines ([map.md](map.md)).
+       - **One region ability, Fortify, for every commander** until commanders exist. It is paid with Data plus a cooldown ([commanders.md](commanders.md)).
      - **Gate:** harness median battle length is inside 8–12 min, and a scripted rush (every force on Attack from the start, nobody watching) never wins before 6 min; the playtest shows the decision budget is met and no unit type dominates.
 2. **Depth inside a battle:**
    - Tier 3, perks, Factory and Lab, Workshop as the tier-3 gate.
@@ -38,7 +41,7 @@ The battle has to be fun before a run layer can help it.
 4. **Variety:**
    - The remaining units.
    - JEV personalities and calldowns; Raid and Sabotage.
-   - Region traits and neutrals; the seed shuffle with its fairness rules, the seed checker, and link toggles.
+   - Neutrals; traits in the seed shuffle with its fairness rules, the seed checker, and link toggles.
    - **The other two commanders.** All four must exist before release, because all four are available from run 1.
    - The remaining bosses and maps.
 5. **Meta:** unlocks, the Terms of Service ladder, codex, cosmetics.

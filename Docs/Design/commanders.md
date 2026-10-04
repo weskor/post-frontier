@@ -31,6 +31,8 @@ There are 4 commanders at launch, and **all four are available from the first ru
 | Quartermaster | **Rush Shift:** instantly refill any ally's force in a connected region. **Quartermaster pays** the units' normal Power price, plus the Data cast cost. | **All Hands:** every friendly force on the team refills instantly. **Each force's owner pays** the normal price; the ultimate's value is time. | Refills delivered to own and allied forces. **Not gifts**, which could be passed back and forth to charge it. |
 | Wiretap | **Jam:** delay JEV's committed plan in a region by 20 s | **Prompt Injection:** JEV's next committed plan is redirected to a region you choose | Beating JEV's committed attacks |
 
+**[Change] Until commanders exist (build step 1b):** every commander has **Fortify** as a generic region ability, with the effect above. It costs **40 Data** (the cast cost in [economy.md](economy.md)'s Data budget) and has a **90 s cooldown** (starting value). Groundbreaker keeps it once commanders arrive (owner decision 2026-10-04).
+
 Every kit leaves gaps on purpose. Teammates and drafts fill them. The armor classes each kit can answer are below; entries in *italics* are branches, which have to be drafted first ([cards.md](cards.md)).
 
 | Commander | Kinetic (vs Light) | Piercing (vs Heavy) | EMP (vs Shielded) | Demolition (vs Structure) |
