@@ -148,7 +148,7 @@ bool FMatchScenario::Stage4(UWorld* World, ACommandGameState* State)
 		return false;
 	LastLeft = State->MatchTelemetry->GetBattleSeconds();
 	Leave(World, Leaver.Get());
-	State->EnemyHeadquarters->ReceiveAttack(State->EnemyHeadquarters->Health, FirstForce->GetUnits()[0]);
+	GuardedHqTest::TakeOffline(*State->EnemyHeadquarters, *FirstForce->GetUnits()[0]);
 	// An HQ at 0 HP is offline; the battle ends when its hold completes.
 	if (!Check(GuardedHqTest::CompleteHold(*State->EnemyHeadquarters, FirstForce->GetUnits()[0]), TEXT("The attackers complete the hold on the offline HQ")))
 		return true;

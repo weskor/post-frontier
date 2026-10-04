@@ -55,8 +55,7 @@ bool FGuardedImmunityTest::RunTest(const FString&)
 			T.TestEqual(TEXT("The loss is announced to all"),
 				Events(F, Team == 0 ? TEXT("own_node_lost") : TEXT("enemy_node_lost"), Since), 1);
 			const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(F.State);
-			T.TestTrue(TEXT("with the number of nodes left"), Announcer && Announcer->GetEvents().Last().DamageTier == 1
-					&& Announcer->GetEvents().Last().AffectedTeam == Team);
+			T.TestTrue(TEXT("with the number of nodes left"), Announcer && Announcer->GetEvents().Last().DamageTier == 1 && Announcer->GetEvents().Last().AffectedTeam == Team);
 			Home.ReceiveAttack(500, Striker1);
 			T.TestEqual(TEXT("Either node is enough: still no damage"), Home.Health, Home.MaxHealth());
 			First->ReceiveAttack(100000, Striker1);

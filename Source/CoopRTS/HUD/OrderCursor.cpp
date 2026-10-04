@@ -40,7 +40,7 @@ void DrawOrderCursor(const FPainter& Paint, const FContext& Context, const FLayo
 		Width, 28.f
 	};
 	const FLinearColor Color = !Preview.IsAllowed() || bImmune ? Palette::Warn : Preview.Resolution == ForceOrderInput::EResolution::Attack ? Palette::Enemy
-																																 : Palette::Good;
+																																			: Palette::Good;
 	Paint.Fill(Rect, Palette::Panel);
 	Paint.Outline(Rect, Color);
 	Paint.TextIn(Text.ToView(), Rect, 10.f, Color, true, EAlign::Left, Pad);

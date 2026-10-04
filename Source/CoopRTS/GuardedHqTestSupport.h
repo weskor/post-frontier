@@ -5,12 +5,22 @@
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
 #include "EngineUtils.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "Rules/HqHoldPolicy.h"
 
 namespace GuardedHqTest
 {
+// Breaks whatever guards the HQ (a map may place Failover Nodes) and takes it to 0 HP with Attacker's own hits.
+inline void TakeOffline(AHeadquarters& Target, AArmyUnit& Attacker)
+{
+	for (const TWeakObjectPtr<AFailoverNode>& Node : Target.GetNodes())
+		if (Node.IsValid())
+			Node->ReceiveAttack(100000, &Attacker);
+	Target.ReceiveAttack(Target.MaxHealth() * 100, &Attacker);
+}
+
 // Outcome fixtures end a battle through the real rules: an HQ at 0 HP is only offline, so the hold has to
 // complete. This removes the side's own units from its main, puts Attacker (when none stands there yet) in it,
 // and lets the full hold pass in one step. True when the HQ is lost afterwards.

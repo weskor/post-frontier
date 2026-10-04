@@ -18,6 +18,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHqHoldGuardTest, "CoopRTS.Rules.HqHold.Guard",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHqHoldJevPlanningTest, "CoopRTS.Rules.HqHold.JevPlanning",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHqHoldJevDefenceTest, "CoopRTS.Rules.HqHold.JevDefence",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -134,78 +136,92 @@ bool FHqHoldGuardTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+namespace
+{
+// JEV's main 0 touches the two regions 1 and 2, equally far; 3 is the players' main.
+struct FJevFixture
+{
+	FJevFixture()
+	{
+		for (int32 Index = 0; Index < 4; ++Index)
+			World.Regions[Index].bExists = true;
+		World.Regions[0].Neighbours = (uint64(1) << 1) | (uint64(1) << 2);
+		World.Regions[1].Neighbours = (uint64(1) << 0) | (uint64(1) << 3);
+		World.Regions[2].Neighbours = (uint64(1) << 0) | (uint64(1) << 3);
+		World.Regions[3].Neighbours = (uint64(1) << 1) | (uint64(1) << 2);
+		World.Regions[1].Position = FVector(1000.f, 1000.f, 0.f);
+		World.Regions[2].Position = FVector(1000.f, -1000.f, 0.f);
+		World.Regions[3].Position = FVector(2000.f, 0.f, 0.f);
+		World.Regions[0].Controller = 5;
+		World.Regions[0].bMain = true;
+		World.Regions[3].Controller = 0;
+		World.Regions[3].bMain = true;
+		World.Regions[1].Controller = World.Regions[2].Controller = 0;
+		World.Home = 0;
+		World.EnemyHome = 3;
+		Force.Source = Force.Home = 0;
+		Force.UnitCount = 5;
+		Force.ClassSpeeds = Speeds;
+	}
+	FJevFixture(const FJevFixture&) = delete;
+	FJevFixture& operator=(const FJevFixture&) = delete;
+
+	JevPlanner::FPlan Pick() const
+	{
+		const JevPlanner::FCandidates All = JevPlanner::Propose(World, Force);
+		const JevPlanner::FCandidate* Best = JevPlanner::Choose(All);
+		return Best ? Best->Plan : JevPlanner::FPlan();
+	}
+
+	JevPlanner::FWorld World;
+	JevPlanner::FForce Force;
+	float Speeds[1] = { 200.f };
+};
+}
+
 bool FHqHoldJevPlanningTest::RunTest(const FString& Parameters)
 {
 	using namespace JevPlanner;
-	// JEV's main 0 touches the two regions 1 and 2, equally far; 3 is the players' main.
-	FWorld World;
-	for (int32 Index = 0; Index < 4; ++Index)
-		World.Regions[Index].bExists = true;
-	World.Regions[0].Neighbours = (uint64(1) << 1) | (uint64(1) << 2);
-	World.Regions[1].Neighbours = (uint64(1) << 0) | (uint64(1) << 3);
-	World.Regions[2].Neighbours = (uint64(1) << 0) | (uint64(1) << 3);
-	World.Regions[3].Neighbours = (uint64(1) << 1) | (uint64(1) << 2);
-	World.Regions[1].Position = FVector(1000.f, 1000.f, 0.f);
-	World.Regions[2].Position = FVector(1000.f, -1000.f, 0.f);
-	World.Regions[3].Position = FVector(2000.f, 0.f, 0.f);
-	World.Regions[0].Controller = 5;
-	World.Regions[0].bMain = true;
-	World.Regions[3].Controller = 0;
-	World.Regions[3].bMain = true;
-	World.Regions[1].Controller = World.Regions[2].Controller = 0;
-	World.Home = 0;
-	World.EnemyHome = 3;
-	const float Speeds[] = { 200.f };
-	FForce Force;
-	Force.Source = Force.Home = 0;
-	Force.UnitCount = 5;
-	Force.ClassSpeeds = Speeds;
-	const auto Pick = [&]() {
-		const FCandidates All = Propose(World, Force);
-		const FCandidate* Best = Choose(All);
-		return Best ? Best->Plan : FPlan();
-	};
-
+	FJevFixture Fixture;
+	FWorld& World = Fixture.World;
 	// A hostile Failover Node outranks another structure at the same distance.
 	FTarget Targets[] = { { 11, 1, true, false }, { 22, 2, true, true } };
 	World.Targets = Targets;
-	FPlan Chosen = Pick();
-	TestTrue(TEXT("A hostile node is attacked before an equal structure"),
-		Chosen.Target == 2 && Chosen.TargetIdentity == 22);
+	FPlan Chosen = Fixture.Pick();
+	TestTrue(TEXT("A hostile node is attacked before an equal structure"), Chosen.Target == 2 && Chosen.TargetIdentity == 22);
 	Targets[1].bNode = false;
-	Chosen = Pick();
-	TestTrue(TEXT("Without the node bonus the lower index wins the tie"), Chosen.Target == 1);
+	TestEqual(TEXT("Without the node bonus the lower index wins the tie"), Fixture.Pick().Target, 1);
 	World.Targets = {};
 
 	// The nodes come before the HQ: an advantaged JEV does not push into the main while one stands.
 	World.bAdvantage = true;
-	Chosen = Pick();
-	TestEqual(TEXT("An unthreatened JEV with the advantage pushes the main"), Chosen.Target, 3);
+	TestEqual(TEXT("An unthreatened JEV with the advantage pushes the main"), Fixture.Pick().Target, 3);
 	World.bHostileNodesStand = true;
-	Chosen = Pick();
-	TestTrue(TEXT("While a hostile node stands it does not"), Chosen.Target != 3);
+	TestTrue(TEXT("While a hostile node stands it does not"), Fixture.Pick().Target != 3);
 	// An offline hostile HQ makes its main the objective even without the advantage.
 	World.bAdvantage = false;
 	World.bHostileNodesStand = false;
 	World.bHostileHqOffline = true;
-	Chosen = Pick();
-	TestEqual(TEXT("An offline hostile HQ makes its main the objective"), Chosen.Target, 3);
-	World.bHostileHqOffline = false;
+	TestEqual(TEXT("An offline hostile HQ makes its main the objective"), Fixture.Pick().Target, 3);
+	return true;
+}
 
-	// A region holding one of JEV's own nodes is worth defending over an equal one.
+bool FHqHoldJevDefenceTest::RunTest(const FString& Parameters)
+{
+	using namespace JevPlanner;
+	FJevFixture Fixture;
+	FWorld& World = Fixture.World;
 	World.Regions[1].Hostiles = World.Regions[2].Hostiles = 3;
 	World.Regions[1].Controller = World.Regions[2].Controller = 5;
-	Chosen = Pick();
-	TestTrue(TEXT("Equal threatened regions tie on the lower index"), Chosen.Target == 1);
+	TestEqual(TEXT("Equal threatened regions tie on the lower index"), Fixture.Pick().Target, 1);
 	World.Regions[2].OwnNodes = 1;
-	Chosen = Pick();
-	TestTrue(TEXT("The region with its own node is defended first"),
-		Chosen.Target == 2 && Chosen.Verb == EVerb::MoveAndHold);
+	const FPlan Defence = Fixture.Pick();
+	TestTrue(TEXT("The region with its own node is defended first"), Defence.Target == 2 && Defence.Verb == EVerb::MoveAndHold);
 	// Even where it does not hold the region, JEV fights for the node.
 	World.Regions[1].Controller = World.Regions[2].Controller = 0;
-	Chosen = Pick();
+	const FPlan Contest = Fixture.Pick();
 	TestTrue(TEXT("A node in a hostile-held region is contested with an Attack"),
-		Chosen.Target == 2 && Chosen.Verb == EVerb::Attack);
+		Contest.Target == 2 && Contest.Verb == EVerb::Attack);
 	return true;
 }
 

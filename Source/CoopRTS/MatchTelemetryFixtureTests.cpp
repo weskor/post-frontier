@@ -97,7 +97,7 @@ bool FMatchScenario::EndWithHQ(UWorld* World, ACommandPlayerController* PC, ACom
 	if (!Check(Attacker && !Attacker->GetUnits().IsEmpty(), TEXT("Fresh match has an explicit unpaid terminal attacker")))
 		return false;
 	Freeze(Attacker);
-	State->EnemyHeadquarters->ReceiveAttack(State->EnemyHeadquarters->Health, Attacker->GetUnits()[0]);
+	GuardedHqTest::TakeOffline(*State->EnemyHeadquarters, *Attacker->GetUnits()[0]);
 	// An HQ at 0 HP is offline; the battle ends when its hold completes.
 	return Check(GuardedHqTest::CompleteHold(*State->EnemyHeadquarters, Attacker->GetUnits()[0]),
 		TEXT("The attackers complete the hold on the offline HQ"));

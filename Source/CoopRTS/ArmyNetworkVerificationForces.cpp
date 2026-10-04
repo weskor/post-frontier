@@ -14,6 +14,7 @@
 #include "EnemyCommander.h"
 #include "EngineUtils.h"
 #include "ForceOrders.h"
+#include "GuardedHqTestSupport.h"
 #include "Headquarters.h"
 #include "JevIntentFixture.h"
 #include "Json.h"
@@ -195,6 +196,10 @@ FString ForcesFinish(const FProbeRequest& Probe, AArmyGroup& Army)
 			}
 	if (!IsValid(Target) || !IsValid(Shooter))
 		return TEXT("HQ or shooter unavailable");
+	// The nodes fall first; the weapon then takes the HQ offline and the attackers complete the hold on its main.
+	for (const TWeakObjectPtr<AFailoverNode>& Node : Target->GetNodes())
+		if (Node.IsValid())
+			Node->ReceiveAttack(100000, Shooter);
 	Target->Health = 1;
 	Target->ForceNetUpdate();
 	const FVector Previous = Shooter->GetActorLocation();
@@ -202,7 +207,9 @@ FString ForcesFinish(const FProbeRequest& Probe, AArmyGroup& Army)
 	Shooter->NextAttackTime = 0.f;
 	Shooter->FireAt(Target);
 	Shooter->SetActorLocation(Previous, false, nullptr, ETeleportType::TeleportPhysics);
-	return Target->Health == 0 ? FString() : TEXT("weapon did not destroy HQ");
+	if (Target->Health != 0)
+		return TEXT("weapon did not take the HQ offline");
+	return GuardedHqTest::CompleteHold(*Target, Shooter) ? FString() : TEXT("hold did not complete");
 }
 }
 

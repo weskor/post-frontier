@@ -304,7 +304,9 @@ def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> No
             )
     for team in (*outcome.hq_lost, *outcome.hq_standing):
         if "hq_state" not in final[team]:
-            raise ValueError(f"Invalid {outcome.kind} result: team {team} has no hq_state")
+            raise ValueError(
+                f"Invalid {outcome.kind} result: team {team} has no hq_state"
+            )
     for team in outcome.hq_lost:
         if final[team]["hq_state"] != "lost":
             raise ValueError(

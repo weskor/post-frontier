@@ -119,7 +119,8 @@ private:
 		// The first time a match HQ goes offline it also announces its emergency force, right after.
 		const bool bOffline = Id == TEXT("own_hq_offline") || Id == TEXT("enemy_hq_offline");
 		const bool bMatchHQ = State->FriendlyHeadquarters == HQ || State->EnemyHeadquarters == HQ;
-		const int32 Raised = Id.IsNone() ? 0 : bOffline && bMatchHQ ? 2 : 1;
+		const int32 Raised = Id.IsNone() ? 0 : bOffline && bMatchHQ ? 2
+																	: 1;
 		HQ->ReceiveAttack(Damage, Attacker);
 		if (!Check(HQ->Health == FMath::Max(0, Health - Damage) && Announcer->GetEvents().Num() == Before + Raised,
 				TEXT("A valid HQ hit applies damage and emits only its most urgent event, or suppresses the known force")))
@@ -127,9 +128,7 @@ private:
 		if (Id.IsNone())
 			return true;
 		const FObjectiveEvent& Event = Announcer->GetEvents()[Before];
-		if (Raised == 2 && !Check(Announcer->GetEvents().Last().Id == (HQ->TeamIndex == 0 ? TEXT("own_emergency") : TEXT("enemy_emergency"))
-							&& Announcer->GetEvents().Last().AffectedTeam == HQ->TeamIndex,
-				TEXT("The first offline transition announces its emergency force to all")))
+		if (Raised == 2 && !Check(Announcer->GetEvents().Last().Id == (HQ->TeamIndex == 0 ? TEXT("own_emergency") : TEXT("enemy_emergency")) && Announcer->GetEvents().Last().AffectedTeam == HQ->TeamIndex, TEXT("The first offline transition announces its emergency force to all")))
 			return false;
 		return Check(Event.Id == Id && Event.DamageTier == Tier && Event.AffectedTeam == HQ->TeamIndex,
 				   TEXT("HQ event preserves resulting damage tier and affected team with the expected priority"))

@@ -113,7 +113,9 @@ def test_unknown_outcome_is_not_a_result_and_decisive_needs_a_winner() -> None:
         with pytest.raises(ValueError, match="without a winning team"):
             interpret_outcome(dict(outcome=kind, duration=10, winner=None))
     # A completed hold is a decisive result for the side that held the main.
-    assert interpret_outcome(dict(outcome="hold_completed", duration=10, winner=5)).decisive
+    assert interpret_outcome(
+        dict(outcome="hold_completed", duration=10, winner=5)
+    ).decisive
     assert not interpret_outcome(
         dict(outcome="time_cap", duration=10, winner=None)
     ).decisive

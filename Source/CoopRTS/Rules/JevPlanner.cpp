@@ -154,10 +154,10 @@ float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain,
 	const FRegion& Region = World.Regions[Index];
 	if (Index == World.EnemyHome)
 		return World.bHostileHqOffline ? OfflineHqScore : !World.bThreatened && World.bAdvantage && !World.bHostileNodesStand ? 200.f
-																															 : -50.f;
+																															  : -50.f;
 	return 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f * Region.DefenceMultiplier
-			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
-			- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
+		- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
+		- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
 }
 
 void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, FCandidates& Out)

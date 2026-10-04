@@ -248,7 +248,7 @@ void AHeadquarters::OnRep_Appearance()
 		Material = Body->CreateAndSetMaterialInstanceDynamic(TeamSlot);
 	if (Material)
 		Material->SetVectorParameterValue(TEXT("TeamColor"), !IsOnline() ? FLinearColor(.08f, .08f, .08f) : TeamIndex == 5 ? FLinearColor(1.f, .08f, .08f)
-																														  : FLinearColor(.04f, .50f, 1.f));
+																														   : FLinearColor(.04f, .50f, 1.f));
 }
 
 void AHeadquarters::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
