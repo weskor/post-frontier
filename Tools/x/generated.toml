@@ -39,7 +39,7 @@ outputs = [
 name = "unit-meshes"
 gen = ["import-unit-meshes"]
 sources = ["Build/ImportUnitMeshes.py", "Build/ArtMaterials.py", "Art/Units/*.fbx"]
-outputs = ["Content/Art/Units/**", "Content/Maps/UnitGallery.umap"]
+outputs = ["Content/Art/Units/**", "Content/Maps/UnitGallery.umap", "Content/Art/Materials/MI_GalleryFloor.uasset"]
 
 [[generated]]
 name = "building-meshes"
