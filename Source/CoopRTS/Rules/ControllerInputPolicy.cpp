@@ -97,3 +97,9 @@ bool ControllerInputPolicy::FortifyStaysArmed(bool bArmed, bool bAccepted)
 {
 	return bArmed && !bAccepted;
 }
+
+ControllerInputPolicy::EEscapeStep ControllerInputPolicy::EscapeStep(bool bArmedMode, bool bTeamPanelOpen)
+{
+	return bArmedMode ? EEscapeStep::CancelPointerMode : bTeamPanelOpen ? EEscapeStep::CloseTeamPanel
+																		: EEscapeStep::Screen;
+}

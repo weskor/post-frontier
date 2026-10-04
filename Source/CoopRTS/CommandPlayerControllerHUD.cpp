@@ -92,6 +92,8 @@ bool ACommandPlayerController::HandleGlobalHUDAction(EHUDAction Action)
 		}
 		return true;
 	}
+	if (HandleTeamPanelAction(Action))
+		return true;
 	if (Action != EHUDAction::PingTeammateForce)
 		return false;
 	if (AArmyGroup* Force = GetInspectedForce(); IsSelectableForce(Force) && !IsOwnedForce(Force))

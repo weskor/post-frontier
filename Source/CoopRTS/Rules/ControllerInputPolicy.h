@@ -61,4 +61,14 @@ enum class EFortifyStep : uint8
 EFortifyStep FortifyStep(bool bArmed, bool bCastPending, EFortifyInput Input);
 // The mode ends on acceptance and stays open on rejection, so a refused cast can be retried elsewhere.
 bool FortifyStaysArmed(bool bArmed, bool bAccepted);
+
+// Esc closes things from the inside out: an armed mode (placement, orders, Fortify targeting, a pending build chord), then
+// the Team panel, then the screen change (the menu, or back out of one).
+enum class EEscapeStep : uint8
+{
+	CancelPointerMode,
+	CloseTeamPanel,
+	Screen
+};
+EEscapeStep EscapeStep(bool bArmedMode, bool bTeamPanelOpen);
 }

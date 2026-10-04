@@ -73,6 +73,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "'pressure' captures the empty JEV timeline, a stunned Barracks, the LINE CUT chip, the v1.1 release cell "
         "and the wave it sends at every --res (run it on --map /Game/Maps/AvailabilityZoneV2; takes about "
         "two minutes of game time); "
+        "'team' captures the Team panel (opener, rows, toggle, presets, Send, a refusal, the log, the teammate card's Gift entry) at every --res; "
         "'force-bar' exercises force cards at every --res; 'map-presentation' captures region traits, a "
         "supply cut at the moment it lands and five seconds later, and the Scrambler pulse ring at every --res "
         "(run it on --map /Game/Maps/AvailabilityZoneV2); 'pings' captures G ground/minimap "
@@ -106,6 +107,11 @@ def execute(
 
         pressure_scenario(run, resolutions)
         print(f"PASS: pressure HUD at {count} viewports; evidence: {run.run}")
+    elif label == "team":
+        from harness.hud_team import scenario as team_scenario
+
+        team_scenario(run, resolutions)
+        print(f"PASS: Team panel; evidence: {run.run}")
     elif label == "fortify":
         from harness.hud_fortify import scenario as fortify_scenario
 
@@ -127,7 +133,7 @@ def main() -> None:
     args = parser.parse_args()
     resolutions = args.res or (
         [(1600, 900), (1280, 720)]
-        if args.quick in ("fortify", "map-presentation", "pressure")
+        if args.quick in ("fortify", "map-presentation", "pressure", "team")
         else [(1600, 900)]
     )
     run = NetworkRun(

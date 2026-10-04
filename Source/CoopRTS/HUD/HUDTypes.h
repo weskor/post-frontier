@@ -121,6 +121,9 @@ struct FLayout
 	FRect Feedback;
 	FRect Menu;
 	FRect Pause;
+	// The TEAM opener left of Pause, and the Team panel in the alert feed's column (empty while closed).
+	FRect TeamButton;
+	FRect TeamPanel;
 	FRect Screen;
 	FRect ForceBar;
 	// Whether the deck is actually drawn: requested and either beside the cards or pinned.

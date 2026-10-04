@@ -16,6 +16,7 @@
 #include "HUD/MapPresentationVerification.h"
 #include "JevProductionVerification.h"
 #include "HUD/PressureVerification.h"
+#include "HUD/TeamPanelVerification.h"
 #include "Json.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
@@ -69,7 +70,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	if (ForceBarVerification::Apply(*World, Request, ForceCardError) || FortifyVerification::Apply(*World, Request, ForceCardError)
 		|| MapPresentationVerification::Apply(*World, Request, ForceCardError)
 		|| JevProductionVerification::Apply(*World, Request, ForceCardError)
-		|| PressureVerification::Apply(*World, Request, ForceCardError))
+		|| PressureVerification::Apply(*World, Request, ForceCardError)
+		|| TeamPanelVerification::Apply(*World, Request, ForceCardError))
 		return ForceCardError;
 	FProbeRequest Probe;
 	Probe.World = World;

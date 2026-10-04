@@ -223,7 +223,10 @@ void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect, TFunction
 	const float X = Rect.X + 6.f, Width = Rect.W - 12.f;
 	if (!Card.bOwned)
 	{
-		Visit({ EHUDAction::PingTeammateForce, { X, Rect.Y + 125.f, Width, 22.f }, EBlock::None, false, 0 }, TEXT("Need help here [G]"));
+		const float Ping = (Width - 4.f) * .62f;
+		Visit({ EHUDAction::PingTeammateForce, { X, Rect.Y + 125.f, Ping, 22.f }, EBlock::None, false, 0 }, TEXT("Need help here [G]"));
+		Visit({ EHUDAction::GiftTeammateForce, { X + Ping + 4.f, Rect.Y + 125.f, Width - Ping - 4.f, 22.f }, EBlock::None, false, 0 },
+			TEXT("Gift\u2026"));
 		return;
 	}
 	Visit({ EHUDAction::ForceCardAttack, { X, Rect.Y + 125.f, (Width - 4.f) * .5f, 22.f }, EBlock::None,

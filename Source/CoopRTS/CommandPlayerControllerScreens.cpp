@@ -8,6 +8,7 @@
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Rules/ControllerInputPolicy.h"
 
 namespace
 {
@@ -82,12 +83,20 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 
 void ACommandPlayerController::Escape()
 {
-	if (bPlacingBuilding || bAssigningOrder || bFortifyTargeting || bBuildHotkeyPending)
+	const ECommandScreen Current = GetUIScreen();
+	switch (ControllerInputPolicy::EscapeStep(bPlacingBuilding || bAssigningOrder || bFortifyTargeting || bBuildHotkeyPending,
+		TeamFlow.bOpen && Current == ECommandScreen::Game))
 	{
+	case ControllerInputPolicy::EEscapeStep::CancelPointerMode:
 		CancelPointerMode();
 		return;
+	case ControllerInputPolicy::EEscapeStep::CloseTeamPanel:
+		TeamFlow.bOpen = false;
+		PlayUISound(TEXT("Click"));
+		return;
+	case ControllerInputPolicy::EEscapeStep::Screen:
+		break;
 	}
-	const ECommandScreen Current = GetUIScreen();
 	if (Current == ECommandScreen::Game)
 		ShowScreen(ECommandScreen::Pause);
 	else if (Current == ECommandScreen::Pause)

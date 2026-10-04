@@ -408,9 +408,10 @@ private:
 		int32 Controls = 0;
 		ForEachForceCardButton(Card, { 0.f, 0.f, 360.f, ForceBarHeight }, [&](const FButton& Button, FStringView) {
 			++Controls;
-			Check(Button.Action == EHUDAction::PingTeammateForce, TEXT("The only teammate control is Need help here"));
+			Check(Button.Action == EHUDAction::PingTeammateForce || Button.Action == EHUDAction::GiftTeammateForce,
+				TEXT("The only teammate controls are Need help here and Gift"));
 		});
-		Check(Controls == 1, TEXT("Read-only teammate card exposes exactly one ping control"));
+		Check(Controls == 2, TEXT("Read-only teammate card exposes exactly the ping and gift controls"));
 		const uint32 Serial = Foreign->OrderSerial;
 		const ERetreatThreshold Threshold = Foreign->RetreatThreshold;
 		const bool bProducing = ForeignProducer->bProductionEnabled;
@@ -422,6 +423,11 @@ private:
 		const int32 Pings = PC->PingCommands->GetEvents().Num();
 		Click(Foreign.Get(), EHUDAction::PingTeammateForce);
 		Check(PC->PingCommands->GetEvents().Num() == Pings + 1, TEXT("Teammate card ping creates a real team event"));
+		Check(!PC->IsTeamPanelOpen(), TEXT("Pinging leaves the Team panel closed"));
+		Click(Foreign.Get(), EHUDAction::GiftTeammateForce);
+		Check(PC->IsTeamPanelOpen() && PC->GetTeamFlow().Teammate == Foreign->GetOwningPlayerState()->CommanderIndex
+				&& PC->GetSelectedForces().IsEmpty(),
+			TEXT("Teammate card Gift opens the Team panel with its owner chosen and selects nothing"));
 	}
 	FAutomationTestBase* Test;
 	double Started;

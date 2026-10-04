@@ -28,6 +28,8 @@ void ACommandPlayerController::HandleForceCardClick(AArmyGroup* Force, EHUDActio
 	{
 		if (Action == EHUDAction::PingTeammateForce)
 			PingCommands->ServerPing(Force->GetCenter(), Force);
+		else if (Action == EHUDAction::GiftTeammateForce && IsValid(Force->GetOwningPlayerState()))
+			OpenTeamPanelFor(Force->GetOwningPlayerState()->CommanderIndex);
 		return;
 	}
 	if (Action == EHUDAction::None)

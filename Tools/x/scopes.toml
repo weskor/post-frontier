@@ -303,6 +303,18 @@ kind = "automation"
 filter = "CoopRTS.Construction.Production"
 map = "default"
 
+[scopes.team-panel]
+kind = "automation"
+filter = "CoopRTS.TeamPanel"
+map = "default"
+rendered = true
+
+[scopes.team-panel-network]
+kind = "script"
+commands = [
+  ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "gifts"],
+]
+
 [scopes.rules]
 kind = "automation"
 filter = "CoopRTS.Rules"
@@ -975,3 +987,14 @@ rendered = true
 "Source/CoopRTS/JevProductionVerification.*" = ["jev-new-units"]
 "Source/CoopRTS/JevReleaseWorldFixture.[h]" = ["jev-new-units"]
 "Source/CoopRTS/Rules/Jev*.[ch]*" = ["jev-new-units"]
+
+# Team panel and gifting: pure rules, the world scenarios on a real controller and HUD, the owning RPC component and the
+# loopback probe, unioned with the files they run through.
+"Source/CoopRTS/TeamPanelRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/TeamPanelTests.cpp" = ["team-panel"]
+"Source/CoopRTS/Rules/TeamPanelPolicy.*" = ["rules", "team-panel", "team-panel-network"]
+"Source/CoopRTS/Commands/GiftCommandComponent.*" = ["team-panel", "team-panel-network"]
+"Source/CoopRTS/CommandPlayerControllerTeam.cpp" = ["team-panel", "team-panel-network"]
+"Source/CoopRTS/HUD/TeamPanel*" = ["team-panel", "team-panel-network"]
+"Tools/harness/network_gifts.py" = ["team-panel-network", "tools"]
+"Tools/harness/hud_team.py" = ["tools"]

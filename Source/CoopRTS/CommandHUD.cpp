@@ -10,6 +10,7 @@
 #include "HUD/HUDPanels.h"
 #include "HUD/OrderCursor.h"
 #include "HUD/ForceBar.h"
+#include "HUD/TeamPanel.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/ForceSelectionPolicy.h"
 
@@ -332,6 +333,7 @@ void ACommandHUD::DrawHUD()
 	DrawTopBar(Paint, Context, Forces, Layout);
 	DrawMinimap(Paint, Controller, Layout);
 	DrawObjectiveAlerts(Paint, Context, Layout);
+	DrawTeamPanel(Paint, Context, Layout);
 	DrawJevIntent(Paint, Context, Layout, Intent);
 	DrawBuildPanel(Paint, Context, Layout);
 	DrawCommandDeck(Paint, Context, Forces, Layout);

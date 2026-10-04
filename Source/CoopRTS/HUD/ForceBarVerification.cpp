@@ -65,7 +65,8 @@ static bool ControlAction(FStringView Control, EHUDAction& Action)
 		{ TEXT("25"), EHUDAction::ForceCard25 },
 		{ TEXT("40"), EHUDAction::ForceCard40 },
 		{ TEXT("60"), EHUDAction::ForceCard60 },
-		{ TEXT("ping"), EHUDAction::PingTeammateForce }
+		{ TEXT("ping"), EHUDAction::PingTeammateForce },
+		{ TEXT("gift"), EHUDAction::GiftTeammateForce }
 	};
 	for (const FControl& Item : Controls)
 		if (Control == Item.Name)

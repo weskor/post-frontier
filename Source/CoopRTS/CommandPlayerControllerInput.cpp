@@ -48,6 +48,7 @@ void ACommandPlayerController::SetupInputComponent()
 	Bind(TEXT("Restart"), EKeys::Enter, &ThisClass::RequestRestart, ETriggerEvent::Started);
 	Bind(TEXT("ActivePause"), EKeys::P, &ThisClass::ToggleActivePause, ETriggerEvent::Started);
 	Bind(TEXT("Ping"), EKeys::G, &ThisClass::PingAtCursor, ETriggerEvent::Started);
+	Bind(TEXT("TeamPanel"), EKeys::Tab, &ThisClass::ToggleTeamPanel, ETriggerEvent::Started);
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		InputSubsystem = Subsystem;

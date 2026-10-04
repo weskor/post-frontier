@@ -62,7 +62,27 @@ enum class EHUDAction : uint8
 	JevTimelineCell0 = 56,
 	JevTimelineCell1 = 57,
 	JevTimelineCell2 = 58,
-	JevTimelineCell3 = 59
+	JevTimelineCell3 = 59,
+	// The Team panel (ui.md surface 3): the TEAM opener and the panel's Close, then its teammate rows, resource toggle,
+	// amount presets, stepper, Send and log scroll buttons. TeamToggle..TeamLogDown is one contiguous range.
+	TeamToggle = 60,
+	TeamClose = 61,
+	TeamRow0 = 62,
+	TeamRow1 = 63,
+	TeamRow2 = 64,
+	TeamPower = 65,
+	TeamData = 66,
+	TeamPreset0 = 67,
+	TeamPreset1 = 68,
+	TeamPreset2 = 69,
+	TeamPresetAll = 70,
+	TeamStepDown = 71,
+	TeamStepUp = 72,
+	TeamSend = 73,
+	TeamLogUp = 74,
+	TeamLogDown = 75,
+	// A teammate's read-only force card: opens the Team panel with its owner chosen.
+	GiftTeammateForce = 76
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

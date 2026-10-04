@@ -8,6 +8,7 @@
 #include "Commands/PingCommandComponent.h"
 #include "Commands/AbilityCommandComponent.h"
 #include "Commands/BranchCommandComponent.h"
+#include "Commands/GiftCommandComponent.h"
 #include "WorldOverlay.h"
 
 ACommandPlayerController::ACommandPlayerController()
@@ -22,6 +23,7 @@ ACommandPlayerController::ACommandPlayerController()
 	PingCommands = CreateDefaultSubobject<UPingCommandComponent>(TEXT("PingCommands"));
 	AbilityCommands = CreateDefaultSubobject<UAbilityCommandComponent>(TEXT("AbilityCommands"));
 	BranchCommands = CreateDefaultSubobject<UBranchCommandComponent>(TEXT("BranchCommands"));
+	GiftCommands = CreateDefaultSubobject<UGiftCommandComponent>(TEXT("GiftCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
@@ -63,6 +65,10 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bAssigningOrder = false;
 	bFortifyTargeting = false;
 	bFortifyCastPending = false;
+	TeamFlow = TeamPanelPolicy::FFlow();
+	TeamRefusal.Reset();
+	bGiftPending = false;
+	GiftSeenThrough = -1.f;
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;
@@ -114,6 +120,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	}
 	SelectPlacedBuilding();
 	PruneSelection();
+	UpdateTeamPanel();
 	UpdateCamera(DeltaTime);
 	if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
 		DrawWorldOverlay(*Overlay);

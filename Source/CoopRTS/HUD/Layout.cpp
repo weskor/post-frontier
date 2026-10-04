@@ -9,6 +9,7 @@
 #include "DepositSite.h"
 #include "MapRegion.h"
 #include "ObjectiveAnnouncer.h"
+#include "TeamPanel.h"
 
 namespace CommandHUDPanels
 {
@@ -171,6 +172,14 @@ FLayout MakeLayout(const FContext& Context, float PixelWidth, float PixelHeight)
 	const float AlertBottom = Layout.Build.Y - Gap;
 	Layout.Alerts = { AlertX, Layout.Objectives.Bottom() + Gap, AlertWidth,
 		FMath::Max(0.f, AlertBottom - Layout.Objectives.Bottom() - Gap) };
+	Layout.TeamButton = { Layout.Pause.X - Gap - TeamButtonWidth, Layout.Pause.Y, TeamButtonWidth, TopHeight };
+	// While open, the Team panel takes the alert feed's column; the feed keeps its width but loses its height.
+	if (Context.Controller && Context.Controller->IsTeamPanelOpen())
+	{
+		Layout.TeamPanel = { AlertX, Layout.Alerts.Y, AlertWidth,
+			TeamGeometry({ AlertX, Layout.Alerts.Y, AlertWidth, 0.f }, TeammateCount(Context)).Height };
+		Layout.Alerts.H = 0.f;
+	}
 	Layout.bFeedback = Context.Controller && Context.Controller->GetFeedbackOpacity() > 0.f;
 	if (Context.Controller && Context.Controller->GetUIScreen() != ECommandScreen::Game)
 		Layout.Feedback = { Layout.Screen.X, FMath::Max(Margin, Layout.Screen.Y - Gap - FeedbackHeight), Layout.Screen.W, FeedbackHeight };
@@ -217,6 +226,9 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Objectives);
 	Visit(Layout.Menu);
 	Visit(Layout.Pause);
+	Visit(Layout.TeamButton);
+	if (Layout.TeamPanel.W > 0.f)
+		Visit(Layout.TeamPanel);
 	Visit(Layout.Minimap);
 	Visit(Layout.FortifyDock);
 	Visit(Layout.Build);

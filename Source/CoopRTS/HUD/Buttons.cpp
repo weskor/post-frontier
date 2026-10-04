@@ -1,5 +1,6 @@
 #include "HUDPanels.h"
 #include "CommandGameState.h"
+#include "TeamPanel.h"
 
 namespace CommandHUDPanels
 {
@@ -8,6 +9,11 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 	if (BuildSlot(Button.Action) != INDEX_NONE)
 	{
 		DrawBuildCard(Paint, Context, Button, bHover);
+		return;
+	}
+	if (IsTeamAction(Button.Action))
+	{
+		DrawTeamButton(Paint, Context, Button, bHover);
 		return;
 	}
 	switch (Button.Action)

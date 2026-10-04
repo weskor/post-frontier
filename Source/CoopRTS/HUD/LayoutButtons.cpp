@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "TeamPanel.h"
 #include "CommandPlayerController.h"
 #include "CommandGameState.h"
 #include "Content/MatchContent.h"
@@ -206,6 +207,7 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 	const bool bSpent = Context.State && Context.State->IsCoopPauseSpent() && !Context.State->IsActivePaused();
 	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
 		Context.State && Context.State->IsActivePaused(), 0 });
+	ForEachTeamButton(Context, Layout, Visit);
 	BuildButtons(Context, Layout, Visit);
 	if (!Layout.bDeck)
 		return;

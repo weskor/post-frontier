@@ -9,6 +9,7 @@
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
 #include "HUD/FortifyPreview.h"
+#include "Rules/TeamPanelPolicy.h"
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
@@ -28,6 +29,7 @@ class UMatchCommandComponent;
 class UPingCommandComponent;
 class UAbilityCommandComponent;
 class UBranchCommandComponent;
+class UGiftCommandComponent;
 
 enum class ECommandScreen : uint8
 {
@@ -110,6 +112,8 @@ public:
 	TObjectPtr<UAbilityCommandComponent> AbilityCommands;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UBranchCommandComponent> BranchCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UGiftCommandComponent> GiftCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
 	void SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
 	// Fortify targeting (CommandPlayerControllerFortify.cpp): H or the dock arms it, LMB on ground or minimap casts,
@@ -121,6 +125,19 @@ public:
 	// Casts at Position while targeting; true when the click was consumed.
 	bool HandleFortifyClick(const FVector2D& Position);
 	void CompleteFortifyInput(const FString& Message, bool bAccepted);
+	// Team panel (ui.md surface 3), in CommandPlayerControllerTeam.cpp: Tab or the TEAM button toggles it. The flow, its
+	// refusals and the gold dot live here; the gift itself goes through GiftCommands and FCommandService::Gift.
+	const TeamPanelPolicy::FFlow& GetTeamFlow() const { return TeamFlow; }
+	bool IsTeamPanelOpen() const { return TeamFlow.bOpen; }
+	void ToggleTeamPanel();
+	// Opens the panel with Slot chosen: the teammate force card's Gift... entry.
+	void OpenTeamPanelFor(int32 Slot);
+	// Applies a Team panel button; false when Action is not one.
+	bool HandleTeamPanelAction(EHUDAction Action);
+	// The refusal text under Send and how opaque it still is; false when none is showing.
+	bool GetTeamRefusal(FString& OutText, float& OutOpacity) const;
+	bool HasUnseenGift() const;
+	void CompleteGiftInput(const FString& Message, bool bAccepted);
 
 protected:
 	virtual void BeginPlay() override;
@@ -166,6 +183,14 @@ private:
 	bool bFortifyTargeting = false;
 	// A cast is sent and its verdict has not arrived: further clicks wait.
 	bool bFortifyCastPending = false;
+	// The Team panel's flow, the refusal under Send, and the newest gift time the commander has seen.
+	TeamPanelPolicy::FFlow TeamFlow;
+	FString TeamRefusal;
+	double TeamRefusalStarted = 0.;
+	float GiftSeenThrough = -1.f;
+	// A gift is sent and its verdict has not arrived: Send waits.
+	bool bGiftPending = false;
+	FString PendingGiftText;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	// Keeps the deck open over the world when it does not fit beside the force cards.
@@ -231,6 +256,11 @@ private:
 	void ClickPlacement();
 	// HUD action dispatch, in CommandPlayerControllerHUD.cpp.
 	bool HandleGlobalHUDAction(EHUDAction Action);
+	// Team panel, in CommandPlayerControllerTeam.cpp.
+	void UpdateTeamPanel();
+	void SendGift();
+	void SetTeamRefusal(const FString& Text);
+	int32 TeammateSlotOfRow(int32 Row) const;
 	bool IsHUDActionBlocked(EHUDAction Action);
 	void HandleBuildingAction(EHUDAction Action);
 	// Menu screens, in CommandPlayerControllerScreens.cpp; each returns true when the action applied.

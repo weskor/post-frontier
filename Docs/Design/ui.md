@@ -34,7 +34,7 @@ Research: [input.md](../Research/input.md).
 - **[Built] Selecting never moves the camera.** Double-tap a force's number within 0.3 s, or press F, to centre on the selection; several forces focus their midpoint. Box dragging begins beyond 6 screen pixels. Space jumps to the latest alert (see "Awareness" below).
 - **[Built]** Shift-clicking an owned force card adds it without toggling an existing selection; double-clicking its body focuses that force.
 - **[Built] Click a production building** to open its panel and highlight its force's badge and force-bar card without selecting the force. The panel has a *Select force* button; double-clicking the building selects its force.
-- **[Built] Click a teammate's force, unit or producer** to inspect its force read-only, never adding it to command selection. The same full force card shows its owner, order, joined and reinforcing members, production, ETA and rule summaries, with **Need help here [G]** as its only control. You can't command it or change its production.
+- **[Built] Click a teammate's force, unit or producer** to inspect its force read-only, never adding it to command selection. The same full force card shows its owner, order, joined and reinforcing members, production, ETA and rule summaries, with **Need help here [G]** and **Gift…** (opens the Team panel with its owner chosen) as its only controls. You can't command it or change its production.
 
 **Giving orders [Built] unless noted:**
 - **[Built] Right-click is the smart order** for all selected owned forces:
@@ -101,12 +101,12 @@ Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent
 
 Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 2026-10-04)**; mechanics, costs and durations live in the topic files they link, never here, so quoted numbers in strings are examples and real values come from data. Layout numbers are virtual pixels at HUD scale 1.0 (1600×900 and 1280×720 are both 1.0). They follow the binding rules above: no drag-only actions, no hover-only information, an on-screen prompt for every key, large snap targets (28 px minimum for any clickable target; a chip's hit area may be larger than its drawing), and state is never carried by colour alone (each state has a glyph or a word).
 
-**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which restarts only on the Result screen and starts Play Solo on the Main Menu; neither screen overlaps planning). Esc cancels the armed mode first, then closes the Team panel, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
+**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which restarts only on the Result screen and starts Play Solo on the Main Menu; neither screen overlaps planning). Esc cancels the armed mode first, then closes the Team panel **[Built]**, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
 
 | Key | Action | Where it also sits on screen |
 |---|---|---|
 | **H** | Arm Fortify targeting | The Fortify dock button |
-| **Tab** | Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
+| **Tab** | [Built] Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
 | **Enter** | Ready / un-ready | The **READY** button, planning only |
 
 ### 1. Data, rates and supply-cut state [Built]
@@ -124,14 +124,14 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Feed [Built]:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline` (one row per region just cut, red stripe, Drill Rig count read live); clicking it focuses the region. It is a team row (see surface 3).
 - **Force card:** a **CUT OFF** chip in the header between unit type and strength, and the refill line reads `Refill: HELD · cut off · 1 recruit waiting` ([forces.md](forces.md)). A card shows at most two chips (CUT OFF, REFIT n/m, `▲ T2`), then `+N`.
 
-### 3. Gifting and the Team panel [New]
+### 3. Gifting and the Team panel [Built]
 
-- **Opening:** the **TEAM [Tab]** button (96×32) sits left of the Pause button; Tab toggles. A gold dot marks an unseen gift. The panel is 390 px wide and **replaces the alert feed column while open**; the strip, timeline and announcer keep working.
+- **Opening:** the **TEAM [Tab]** button (96×32) sits left of the Pause button; Tab toggles. A gold dot marks a gift sent to you that you have not seen; it clears while the panel is open. The panel is 390 px wide and **replaces the alert feed column while open**; the strip, timeline and announcer keep working.
 - **Rows:** teammates only (a team has at most four commanders, so up to three rows; 28 px high, the whole row is the target): colour swatch, `C2`, Power with rate, Data with rate, and a `FORTIFY ready` / `FORTIFY 0:47` chip, which is each commander's cooldown display.
 - **Gift flow:** click a teammate; click the `POWER` or `DATA` toggle; click a preset (Power 50 / 100 / 200 / ALL, Data 10 / 25 / 50 / ALL) or `−` / `+` (Power ±10, Data ±5); click the full-width `SEND 100 Power to C2` button. A teammate's read-only force card gets a `Gift…` button that opens the panel with them selected.
-- **Rejections** show inline under Send with the existing 3 s hold and 1 s fade, and a disabled Send still explains itself on click: `Not enough Power: you have 340`, `Pick an amount above 0`, `C2 left the team`, `Gifting opens at 0:00`.
-- **Log:** the team gift log ([economy.md](economy.md)) in the panel, three rows with 28 px ▲ / ▼ buttons stacked beside them, so scrolling never needs the wheel. An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
-- **Team rows in the feed:** gifts, Fortify casts and supply cuts rank below objective rows and above ping rows, and stay out of Space history.
+- **Rejections** show inline under Send with the existing 3 s hold and 1 s fade, and a disabled Send still explains itself on click: `Not enough Power: you have 340`, `Pick an amount above 0`, `C2 left the team`, plus `Pick a teammate first` before anyone is chosen and `Gifting is closed: the battle is over` once the battle ends. **[New]** `Gifting opens at 0:00` while the planning phase runs ([battle.md](battle.md)); there is no planning phase to read yet.
+- **Log:** the team gift log ([economy.md](economy.md)) in the panel, three rows with 28 px ▲ / ▼ buttons stacked beside them, so scrolling never needs the wheel. **[New]** An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
+- **Team rows in the feed:** Fortify casts and supply cuts **[Built]**, and gifts **[New]**, rank below objective rows and above ping rows, and stay out of Space history.
 - **Controller [Later]:** focus order rows → toggle → presets → stepper → Send; the D-pad moves, A activates.
 - **Why:** no drag, hover or typing; three teammates fit within the 296 px column at 1280×720.
 

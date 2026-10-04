@@ -12,6 +12,7 @@
 #include "EnemyCommander.h"
 #include "EngineUtils.h"
 #include "HUD/OrderInputPreview.h"
+#include "HUD/TeamPanelVerification.h"
 #include "Json.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/NetDriver.h"
@@ -219,6 +220,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	JevIntentSnapshot(World, Result);
 	AbilitySnapshot(World, *State, Result);
 	PlanningSnapshot(*State, Result);
+	TeamPanelVerification::Snapshot(*World, *State, Result);
 	return Result;
 }
 }
