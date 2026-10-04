@@ -94,7 +94,9 @@ def open_phase(
         os.environ.pop(KEEP_PLANNING, None)
     # An offscreen cursor left on a viewport edge engages real edge-pan and drifts the camera off the map (the black
     # captures of verify-bff3 and verify-095e); park it in the middle before anything is captured.
-    run.request("host", "cursor", x=state["viewportWidth"] / 2, y=state["viewportHeight"] / 2)
+    run.request(
+        "host", "cursor", x=state["viewportWidth"] / 2, y=state["viewportHeight"] / 2
+    )
     capture.wait(
         lambda s: s["planning"]["active"] and bool(s["planning"]["kits"]),
         "the match opens in the planning phase with the commander's kit slot",
