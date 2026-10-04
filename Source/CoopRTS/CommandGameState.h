@@ -8,6 +8,7 @@
 #include "ForceOrders.h"
 #include "GameState/GameStateEconomy.h"
 #include "GameState/HoldDamageLedger.h"
+#include "Content/UnitDefinition.h"
 #include "CommandGameState.generated.h"
 
 class AArenaBounds;
@@ -71,6 +72,65 @@ struct FJevPlanHistoryEntry
 };
 #endif
 
+// One queued first order of a commander's kit force: applied when the force exists at 0:00.
+USTRUCT(BlueprintType)
+struct FPlanningOrder
+{
+	GENERATED_BODY()
+	UPROPERTY(BlueprintReadOnly)
+	EForceVerb Verb = EForceVerb::MoveHold;
+	UPROPERTY(BlueprintReadOnly)
+	int32 RegionIndex = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<AActor> Structure;
+};
+
+// One commander's pre-built kit during planning: a finished Barracks and Drill Rig, the Barracks unit type and
+// the first orders, all editable until Ready. JEV's matching kits carry the enemy wallet and are always Ready.
+USTRUCT(BlueprintType)
+struct FPlanningKit
+{
+	GENERATED_BODY()
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<ACommandPlayerState> Commander;
+	UPROPERTY(BlueprintReadOnly)
+	bool bReady = false;
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<ACommandBuilding> Barracks;
+	UPROPERTY(BlueprintReadOnly)
+	TObjectPtr<ACommandBuilding> Rig;
+	UPROPERTY(BlueprintReadOnly)
+	EUnitRole UnitRole = EUnitRole::Frontline;
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FPlanningOrder> Orders;
+};
+
+// The phase before 0:00 (battle.md "Opening"). SecondsRemaining counts real time down while the world is frozen.
+USTRUCT(BlueprintType)
+struct FPlanningState
+{
+	GENERATED_BODY()
+	UPROPERTY(BlueprintReadOnly)
+	bool bActive = false;
+	UPROPERTY(BlueprintReadOnly)
+	float SecondsRemaining = 0.f;
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FPlanningKit> Kits;
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FPlanningKit> JevKits;
+};
+
+enum class EPlanningEnd : uint8
+{
+	None,
+	AllReady,
+	Expired,
+	// A simulation completed it at once with default kits.
+	Harness,
+	// An automation fixture skipped it: no kit and the legacy wallet.
+	Fixture
+};
+
 // The regions a team's main reaches through its own regions, with the server time that set changed.
 USTRUCT()
 struct FTeamConnection
@@ -119,6 +179,20 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	void SetMatchResult(EMatchResult Result);
+	// Planning runs from the start of a battle until every human is Ready or 60 real seconds pass; nothing
+	// advances meanwhile. Its commands are FPlanningCommands.
+	bool IsPlanning() const { return Planning.bActive; }
+	// The server world time at which the battle clock reads 0:00: now while planning, then the end of planning.
+	float GetBattleClockStartServerTime() const;
+	// Opens a fresh planning phase: pauses the world, resets wallets to the opening and gives every human a
+	// kit slot and JEV its matching start. Server only.
+	void BeginPlanning();
+	int32 GetPlanningEndCount() const { return PlanningEndCount; }
+	EPlanningEnd GetPlanningEnd() const { return PlanningEndReason; }
+	// Real seconds the last planning phase lasted.
+	double GetPlanningSeconds() const { return PlanningSeconds; }
+	const FPlanningKit* FindKit(const ACommandPlayerState* Commander) const;
+	FPlanningKit* FindKit(const ACommandPlayerState* Commander);
 	bool IsActivePaused() const { return bActivePaused; }
 	bool IsCoopPauseSpent() const { return bCoopPauseSpent; }
 	float GetPauseSecondsRemaining() const { return PauseSecondsRemaining; }
@@ -188,13 +262,23 @@ public:
 #endif
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
 	TObjectPtr<ACommandPlayerState> EnemyCommander;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Planning")
+	FPlanningState Planning;
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	// Explicit listen-host verification fixture; never present in shipping games.
 	bool bVerificationIncomePaused = false;
 #endif
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	// Ends an active planning phase at once as a harness would: the legacy start (no kit, 600 Power) for a
+	// fixture, or all Ready with default kits when bWithKits. A no-op once planning is over.
+	void CompletePlanningForHarness(bool bWithKits);
+	// A planning test keeps the automation net from completing its phase.
+	bool bPlanningHeldByTest = false;
+#endif
 private:
 	friend class FCommandService;
+	friend struct FPlanningCommands;
 	bool ApplyPause(ACommandPlayerController* Controller, bool bPause);
 	void PublishPauseBudget();
 	FPauseBudget PauseBudget;
@@ -204,6 +288,31 @@ private:
 	bool bCoopPauseSpent = false;
 	UPROPERTY(Replicated)
 	float PauseSecondsRemaining = 0.f;
+	// Planning (GameState/GameStatePlanning.cpp). ApplyKitPlacement is a free, finished placement.
+	ACommandBuilding* ApplyKitPlacement(int32 BuildingIndex, const FVector& Location, ACommandPlayerState* Commander,
+		int32 Team, FString& OutReason);
+	void TickPlanning();
+	void ReconcilePlanningRoster();
+	void EvaluatePlanningEnd();
+	void EndPlanning(EPlanningEnd Reason);
+	void FillKits();
+	void StartKitForces();
+	void PlaceJevKit(bool bForce);
+	// Places or moves one kit piece; a refused move leaves the piece where it was.
+	bool PlaceKitPiece(FPlanningKit& Kit, bool bRig, const FVector& Location, FString& OutReason);
+	bool PlaceDefaultBarracks(FPlanningKit& Kit);
+	bool PlaceDefaultRig(FPlanningKit& Kit);
+	void DestroyKit(FPlanningKit& Kit);
+	void SyncWorldPause(ACommandPlayerController* Controller);
+	double JevKitRetryAt = 0.;
+	double PlanningDeadline = 0.;
+	double PlanningStartedReal = 0.;
+	double PlanningSeconds = 0.;
+	int32 PlanningEndCount = 0;
+	EPlanningEnd PlanningEndReason = EPlanningEnd::None;
+	// Stamped when planning ends; negative until then, when the clock starts with the world.
+	UPROPERTY(Replicated)
+	float BattleClockStartServerTime = -1.f;
 	bool bSoloMenuPaused = false;
 	ACommandBuilding* ApplyPlacement(int32 BuildingIndex, const FVector& Location,
 		ACommandPlayerState* Commander, int32 Team, FString& OutReason);

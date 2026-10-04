@@ -32,6 +32,9 @@ void ACommandGameState::BeginPlay()
 
 bool ACommandGameState::ApplyPause(ACommandPlayerController* Controller, bool bPause)
 {
+	// Nothing runs during planning, so there is nothing to pause and the shared pause is not spent.
+	if (Planning.bActive && bPause)
+		return false;
 	const bool bCoop = GetNetMode() != NM_Standalone;
 	if (bPause)
 	{
@@ -67,13 +70,17 @@ void ACommandGameState::RefreshSoloMenuPause(ACommandPlayerController* Controlle
 	if (!HasAuthority() || GetNetMode() != NM_Standalone)
 		return;
 	bSoloMenuPaused = bMenuPaused;
-	if (ACommandGameMode* Mode = GetWorld()->GetAuthGameMode<ACommandGameMode>())
-		Mode->ApplyMatchPause(Controller, bSoloMenuPaused || PauseBudget.bPaused);
+	SyncWorldPause(Controller);
 }
 
 void ACommandGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (HasAuthority() && Planning.bActive)
+	{
+		TickPlanning(); // Real-time bookkeeping while the world stands still, never income.
+		return;
+	}
 	if (HasAuthority() && PauseBudget.bPaused)
 	{
 		const double Now = FPlatformTime::Seconds();
@@ -215,4 +222,6 @@ void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ACommandGameState, bActivePaused);
 	DOREPLIFETIME(ACommandGameState, bCoopPauseSpent);
 	DOREPLIFETIME(ACommandGameState, PauseSecondsRemaining);
+	DOREPLIFETIME(ACommandGameState, Planning);
+	DOREPLIFETIME(ACommandGameState, BattleClockStartServerTime);
 }

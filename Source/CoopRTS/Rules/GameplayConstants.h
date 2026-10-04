@@ -6,7 +6,7 @@
 
 namespace GameplayConstants
 {
-constexpr int32 StartingResources = 600;
+constexpr int32 StartingResources = 200;
 constexpr int32 HumanBaselineIncome = 2;
 constexpr int32 JevBaselineIncome = 2;
 constexpr int32 RewardRegionDataRate = 1;

@@ -83,7 +83,8 @@ inline int32 TravelRegion(const AArmyGroup* Force, const FVector& Preferred)
 	}
 	return Best;
 }
-inline UWorld* World()
+// The standalone game world, as it is: planning may still be running (the planning tests start there).
+inline UWorld* PlanningWorld()
 {
 	if (GEngine)
 		for (const FWorldContext& Context : GEngine->GetWorldContexts())
@@ -91,6 +92,15 @@ inline UWorld* World()
 				if (Candidate->IsGameWorld() && Candidate->GetNetMode() == NM_Standalone)
 					return Candidate;
 	return nullptr;
+}
+// The fixture world: planning is skipped (no kit, the pre-planning wallet) so scenarios keep the opening
+// they were written for. Automation worlds are also completed by the game state's own tick.
+inline UWorld* World()
+{
+	UWorld* Candidate = PlanningWorld();
+	if (ACommandGameState* State = Candidate ? Candidate->GetGameState<ACommandGameState>() : nullptr)
+		State->CompletePlanningForHarness(false);
+	return Candidate;
 }
 // Scenario stage waits use the world clock. Automation runs on an uncapped fixed
 // step (Tools/x/testing.py), so game time outruns wall time; failure deadlines

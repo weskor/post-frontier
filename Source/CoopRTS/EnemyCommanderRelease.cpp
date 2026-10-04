@@ -7,10 +7,10 @@
 
 namespace
 {
-// Match second 0 as a server world time. Every read of match time goes through here.
+// Match second 0 as a server world time: the end of planning. Every read of match time goes through here.
 float ClockStart(const ACommandGameState& State, float Skew)
 {
-	return State.GetAudioLiveStartServerTime() - Skew;
+	return State.GetBattleClockStartServerTime() - Skew;
 }
 }
 

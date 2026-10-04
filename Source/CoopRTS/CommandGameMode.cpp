@@ -116,6 +116,9 @@ bool ACommandGameMode::ApplyMatchPause(APlayerController* Controller, bool bPaus
 	const ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!State || !IsValid(State->EnemyCommander))
 		return false;
+	// The engine's first pauser takes its player state from the controller; planning pauses without one.
+	if (!Controller)
+		GetWorldSettings()->SetPauserPlayerState(State->EnemyCommander);
 	if (!Super::SetPause(Controller, FCanUnpause::CreateUObject(this, &ThisClass::CanUnpauseMatch)))
 		return false;
 	// Both delegate and replicated marker outlive every human controller. Reuse the
@@ -185,6 +188,7 @@ void ACommandGameMode::BeginPlay()
 		return;
 	EnemyCommander = GetWorld()->SpawnActor<AEnemyCommander>();
 	State->ForceNetUpdate();
+	State->BeginPlanning();
 }
 
 void ACommandGameMode::PreLogin(const FString& Options, const FString& Address,

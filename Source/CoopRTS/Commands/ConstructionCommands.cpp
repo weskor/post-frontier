@@ -42,9 +42,9 @@ void ReleaseDeposit(ADepositSite* Deposit, const ACommandBuilding* Building)
 }
 
 // Deferred spawn on the navmesh ground under Location; the deposit is reserved before BeginPlay so concurrent
-// construction cannot claim it. Null with OutReason on failure.
+// construction cannot claim it. A building spawned with Progress 1 stands finished. Null with OutReason on failure.
 ACommandBuilding* SpawnConstruction(UWorld* World, int32 BuildingIndex, int32 Team, ACommandPlayerState* Commander,
-	ADepositSite* Deposit, const FVector& Location, FString& OutReason)
+	ADepositSite* Deposit, const FVector& Location, FString& OutReason, float Progress)
 {
 	FNavLocation Ground;
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
@@ -74,6 +74,7 @@ ACommandBuilding* SpawnConstruction(UWorld* World, int32 BuildingIndex, int32 Te
 		Deposit->ForceNetUpdate();
 	}
 	Building->Health = Building->MaxHealth();
+	Building->ConstructionProgress = Progress;
 	Building->FinishSpawning(Transform);
 	if (!IsValid(Building) || !Building->IsAlive())
 	{
@@ -84,6 +85,40 @@ ACommandBuilding* SpawnConstruction(UWorld* World, int32 BuildingIndex, int32 Te
 		return nullptr;
 	}
 	return Building;
+}
+
+struct FPlacementSite
+{
+	const UBuildingDefinition* Definition = nullptr;
+	FVector Location = FVector::ZeroVector;
+};
+
+// The checks every placement shares: rules, snapped location, definition and owner.
+bool ResolveSite(const ACommandGameState& State, int32 BuildingIndex, const FVector& RequestedLocation,
+	const ACommandPlayerState* Commander, int32 Team, FPlacementSite& Site, FString& OutReason)
+{
+	if (!State.ValidateBuildingPlacement(BuildingIndex, Team, RequestedLocation, OutReason))
+		return false;
+	Site.Location = State.ResolveBuildingLocation(BuildingIndex, RequestedLocation, Team);
+	Site.Definition = State.Content->Building(BuildingIndex);
+	if (!IsBuildingOwner(State, Commander, Team))
+	{
+		OutReason = TEXT("Invalid building owner");
+		return false;
+	}
+	return true;
+}
+
+// The free deposit a deposit building stands on; null with OutReason when it needs one and none is free.
+bool ResolveDeposit(const ACommandGameState& State, const FPlacementSite& Site, ADepositSite*& Deposit, FString& OutReason)
+{
+	Deposit = Site.Definition->bRequiresDeposit ? FindFreeDepositAt(State, Site.Location) : nullptr;
+	if (Site.Definition->bRequiresDeposit && !Deposit)
+	{
+		OutReason = TEXT("Deposit unavailable");
+		return false;
+	}
+	return true;
 }
 }
 
@@ -96,28 +131,19 @@ ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const F
 		OutReason = TEXT("Server authority required");
 		return nullptr;
 	}
-	if (!ValidateBuildingPlacement(BuildingIndex, Team, RequestedLocation, OutReason))
+	FPlacementSite Site;
+	ADepositSite* Deposit = nullptr;
+	if (!ResolveSite(*this, BuildingIndex, RequestedLocation, Commander, Team, Site, OutReason))
 		return nullptr;
-	const FVector Location = ResolveBuildingLocation(BuildingIndex, RequestedLocation, Team);
-	const UBuildingDefinition& Definition = *Content->Building(BuildingIndex);
-	if (!IsBuildingOwner(*this, Commander, Team))
-	{
-		OutReason = TEXT("Invalid building owner");
-		return nullptr;
-	}
-	const int32 Cost = ACommandBuilding::GetBuildCost(Definition);
+	const int32 Cost = ACommandBuilding::GetBuildCost(*Site.Definition);
 	if (Commander->Resources < Cost)
 	{
 		OutReason = TEXT("Insufficient resources");
 		return nullptr;
 	}
-	ADepositSite* Deposit = Definition.bRequiresDeposit ? FindFreeDepositAt(*this, Location) : nullptr;
-	if (Definition.bRequiresDeposit && !Deposit)
-	{
-		OutReason = TEXT("Deposit unavailable");
+	if (!ResolveDeposit(*this, Site, Deposit, OutReason))
 		return nullptr;
-	}
-	ACommandBuilding* Building = SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Location, OutReason);
+	ACommandBuilding* Building = SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Site.Location, OutReason, 0.f);
 	if (!Building)
 		return nullptr;
 	if (!Commander->TrySpend(Cost))
@@ -130,6 +156,24 @@ ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const F
 	Building->NotifyPlacementCommitted();
 	OutReason = TEXT("Construction started");
 	return Building;
+}
+
+// A kit piece is free and stands finished: no cost, no construction, no placement fanfare.
+ACommandBuilding* ACommandGameState::ApplyKitPlacement(int32 BuildingIndex, const FVector& RequestedLocation,
+	ACommandPlayerState* Commander, int32 Team, FString& OutReason)
+{
+	OutReason.Reset();
+	if (!HasAuthority())
+	{
+		OutReason = TEXT("Server authority required");
+		return nullptr;
+	}
+	FPlacementSite Site;
+	ADepositSite* Deposit = nullptr;
+	if (!ResolveSite(*this, BuildingIndex, RequestedLocation, Commander, Team, Site, OutReason)
+		|| !ResolveDeposit(*this, Site, Deposit, OutReason))
+		return nullptr;
+	return SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Site.Location, OutReason, 1.f);
 }
 
 bool ACommandBuilding::ApplyCancellation()

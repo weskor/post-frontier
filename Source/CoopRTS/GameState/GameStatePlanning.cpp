@@ -1,0 +1,367 @@
+#include "GameState/GameStatePlanning.h"
+
+#include "ArmyGroup.h"
+#include "CommandBuilding.h"
+#include "CommandGameMode.h"
+#include "CommandGameState.h"
+#include "Commands/CommandService.h"
+#include "Content/MatchContent.h"
+#include "CommandPlayerController.h"
+#include "DepositSite.h"
+#include "EnemyCommander.h"
+#include "EngineUtils.h"
+#include "GameFramework/WorldSettings.h"
+#include "GameState/GameStateRegistry.h"
+#include "Headquarters.h"
+#include "NavigationSystem.h"
+#include "Rules/PlanningPolicy.h"
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "SimulationSettings.h"
+#endif
+
+// Planning phase (battle.md "Opening"): a frozen world, a kit per human commander and JEV's matching start.
+// Commands are Commands/PlanningCommands.cpp; the pure rules are Rules/PlanningPolicy.cpp.
+
+namespace
+{
+int32 FirstBuildingWith(const UMatchContent& Content, bool UBuildingDefinition::* Capability)
+{
+	for (int32 Index = 0; Index < Content.Buildings.Num(); ++Index)
+		if (const UBuildingDefinition* Building = Content.Building(Index); Building && Building->*Capability)
+			return Index;
+	return INDEX_NONE;
+}
+
+void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<PlanningPolicy::FRigSite>& Out)
+{
+	for (const ADepositSite* Deposit : State.Deposits)
+	{
+		PlanningPolicy::FRigSite& Site = Out.AddDefaulted_GetRef();
+		if (!IsValid(Deposit))
+			continue;
+		Site.Position = Deposit->GetActorLocation();
+		Site.bFree = !IsValid(Deposit->Extractor) && Deposit->Remaining > 0;
+		Site.bOwnTerritory = State.GetRegionController(Deposit->RegionIndex) == Team
+			&& !State.IsRegionContested(Deposit->RegionIndex, Team);
+	}
+}
+
+int32 SlotOf(const FPlanningKit& Kit)
+{
+	return IsValid(Kit.Commander) ? Kit.Commander->CommanderIndex : INDEX_NONE;
+}
+}
+
+bool GameStatePlanning::NavigationReady(UWorld* World)
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	return !Navigation || !Navigation->GetDefaultNavDataInstance(FNavigationSystem::DontCreate)
+		|| !Navigation->IsNavigationBuildInProgress();
+}
+
+float ACommandGameState::GetBattleClockStartServerTime() const
+{
+	if (Planning.bActive)
+		return GetServerWorldTimeSeconds();
+	return BattleClockStartServerTime >= 0.f ? BattleClockStartServerTime : GetAudioLiveStartServerTime();
+}
+
+const FPlanningKit* ACommandGameState::FindKit(const ACommandPlayerState* Commander) const
+{
+	return Planning.Kits.FindByPredicate([Commander](const FPlanningKit& Kit) { return Kit.Commander == Commander; });
+}
+
+FPlanningKit* ACommandGameState::FindKit(const ACommandPlayerState* Commander)
+{
+	return Planning.Kits.FindByPredicate([Commander](const FPlanningKit& Kit) { return Kit.Commander == Commander; });
+}
+
+void ACommandGameState::BeginPlanning()
+{
+	UWorld* World = GetWorld();
+	if (!HasAuthority() || !World || MatchResult != EMatchResult::Ongoing || !IsValid(Content) || !IsValid(EnemyCommander))
+		return;
+	Planning = FPlanningState();
+	Planning.bActive = true;
+	Planning.SecondsRemaining = static_cast<float>(PlanningPolicy::PlanningSeconds);
+	PlanningStartedReal = World->GetRealTimeSeconds();
+	PlanningDeadline = PlanningStartedReal + PlanningPolicy::PlanningSeconds;
+	PlanningEndReason = EPlanningEnd::None;
+	JevKitRetryAt = 0.;
+	BattleClockStartServerTime = -1.f;
+	for (ACommandPlayerState* Commander : FGameStateEconomy::Roster(*this))
+		Commander->ResetForNewMatch();
+	EnemyCommander->ResetForNewMatch();
+	ReconcilePlanningRoster();
+	SyncWorldPause(nullptr);
+	ForceNetUpdate();
+}
+
+void ACommandGameState::SyncWorldPause(ACommandPlayerController* Controller)
+{
+	ACommandGameMode* Mode = GetWorld() ? GetWorld()->GetAuthGameMode<ACommandGameMode>() : nullptr;
+	if (!Mode)
+		return;
+	Mode->ApplyMatchPause(Controller, Planning.bActive || PauseBudget.bPaused || bSoloMenuPaused);
+	GetWorld()->GetWorldSettings()->ForceNetUpdate();
+}
+
+void ACommandGameState::ReconcilePlanningRoster()
+{
+	const TArray<ACommandPlayerState*> Roster = FGameStateEconomy::Roster(*this);
+	TArray<int32, TInlineAllocator<5>> RosterSlots, KitSlots;
+	for (const ACommandPlayerState* Commander : Roster)
+		RosterSlots.Add(Commander->CommanderIndex);
+	for (const FPlanningKit& Kit : Planning.Kits)
+		KitSlots.Add(SlotOf(Kit));
+	const PlanningPolicy::FRosterChange Change = PlanningPolicy::Reconcile(KitSlots, RosterSlots);
+	for (int32 Slot : Change.Leave)
+		for (int32 Index = Planning.Kits.Num() - 1; Index >= 0; --Index)
+			if (SlotOf(Planning.Kits[Index]) == Slot)
+			{
+				DestroyKit(Planning.Kits[Index]);
+				Planning.Kits.RemoveAt(Index);
+			}
+	for (int32 Slot : Change.Join)
+		for (ACommandPlayerState* Commander : Roster)
+			if (Commander->CommanderIndex == Slot)
+				Planning.Kits.AddDefaulted_GetRef().Commander = Commander;
+	if (!Change.Leave.IsEmpty() || !Change.Join.IsEmpty())
+		ForceNetUpdate();
+}
+
+void ACommandGameState::DestroyKit(FPlanningKit& Kit)
+{
+	if (IsValid(Kit.Barracks))
+		Kit.Barracks->Destroy();
+	if (IsValid(Kit.Rig))
+		Kit.Rig->Destroy();
+	Kit.Barracks = nullptr;
+	Kit.Rig = nullptr;
+}
+
+bool ACommandGameState::PlaceKitPiece(FPlanningKit& Kit, bool bRig, const FVector& Location, FString& OutReason)
+{
+	TObjectPtr<ACommandBuilding>& Piece = bRig ? Kit.Rig : Kit.Barracks;
+	const int32 Index = IsValid(Content) ? FirstBuildingWith(*Content, bRig ? &UBuildingDefinition::bRequiresDeposit
+																		   : &UBuildingDefinition::bProducesForces)
+										 : INDEX_NONE;
+	if (Index == INDEX_NONE || !IsValid(Kit.Commander))
+	{
+		OutReason = TEXT("Kit unavailable");
+		return false;
+	}
+	const bool bHadPiece = IsValid(Piece);
+	const FVector Previous = bHadPiece ? Piece->GetActorLocation() : FVector::ZeroVector;
+	if (bHadPiece)
+		Piece->Destroy();
+	ACommandBuilding* Placed = ApplyKitPlacement(Index, Location, Kit.Commander, Kit.Commander->TeamIndex, OutReason);
+	if (!Placed && bHadPiece)
+	{
+		FString Ignored;
+		Placed = ApplyKitPlacement(Index, Previous, Kit.Commander, Kit.Commander->TeamIndex, Ignored);
+		Piece = Placed;
+		ForceNetUpdate();
+		return false;
+	}
+	Piece = Placed;
+	ForceNetUpdate();
+	return Placed != nullptr;
+}
+
+bool ACommandGameState::PlaceDefaultBarracks(FPlanningKit& Kit)
+{
+	const int32 Team = Kit.Commander->TeamIndex;
+	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Team);
+	if (!Home)
+		return false;
+	// Rings around the headquarters, mirrored with the side; the first legal spot wins.
+	const float Orientation = Team == 5 ? -1.f : 1.f;
+	FString Reason;
+	for (int32 Ring = 0; Ring < 9; ++Ring)
+		for (int32 Direction = 0; Direction < 32; ++Direction)
+		{
+			const float Angle = Direction * PI / 16.f;
+			FVector Location = Home->GetActorLocation()
+				+ FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * ((380.f + Ring * 160.f) * Orientation);
+			Location.Z = 5.f;
+			if (PlaceKitPiece(Kit, false, Location, Reason))
+				return true;
+		}
+	return false;
+}
+
+bool ACommandGameState::PlaceDefaultRig(FPlanningKit& Kit)
+{
+	const int32 Team = Kit.Commander->TeamIndex;
+	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Team);
+	if (!Home)
+		return false;
+	TArray<PlanningPolicy::FRigSite> Sites;
+	CollectRigSites(*this, Team, Sites);
+	FString Reason;
+	for (int32 Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()); Best != INDEX_NONE;
+		Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()))
+	{
+		if (PlaceKitPiece(Kit, true, Sites[Best].Position, Reason))
+			return true;
+		Sites[Best].bFree = false;
+	}
+	return false;
+}
+
+void ACommandGameState::PlaceJevKit(bool bForce)
+{
+	while (Planning.JevKits.Num() > Planning.Kits.Num())
+	{
+		DestroyKit(Planning.JevKits.Last());
+		Planning.JevKits.Pop();
+	}
+	while (Planning.JevKits.Num() < Planning.Kits.Num())
+	{
+		FPlanningKit& Kit = Planning.JevKits.AddDefaulted_GetRef();
+		Kit.Commander = EnemyCommander;
+		Kit.bReady = true;
+	}
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	if ((!bForce && Now < JevKitRetryAt) || !GameStatePlanning::NavigationReady(GetWorld()))
+		return;
+	JevKitRetryAt = Now + .5;
+	for (FPlanningKit& Kit : Planning.JevKits)
+	{
+		if (!IsValid(Kit.Barracks))
+			PlaceDefaultBarracks(Kit);
+		if (!IsValid(Kit.Rig))
+			PlaceDefaultRig(Kit);
+	}
+	ForceNetUpdate();
+}
+
+void ACommandGameState::FillKits()
+{
+	const int32 RigIndex = FirstBuildingWith(*Content, &UBuildingDefinition::bRequiresDeposit);
+	const UBuildingDefinition* Rig = Content->Building(RigIndex);
+	for (FPlanningKit& Kit : Planning.Kits)
+	{
+		if (!IsValid(Kit.Commander))
+			continue;
+		TArray<PlanningPolicy::FRigSite> Sites;
+		CollectRigSites(*this, Kit.Commander->TeamIndex, Sites);
+		const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Kit.Commander->TeamIndex);
+		const bool bSite = Home && PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()) != INDEX_NONE;
+		const PlanningPolicy::FKitFill Need = PlanningPolicy::Fill(IsValid(Kit.Barracks), IsValid(Kit.Rig), bSite);
+		if (Need.bPlaceBarracks && !PlaceDefaultBarracks(Kit))
+			UE_LOG(LogTemp, Warning, TEXT("Planning: no room for commander %d's Barracks"), Kit.Commander->CommanderIndex);
+		if ((Need.bRefundRig || (Need.bPlaceRig && !PlaceDefaultRig(Kit))) && Rig)
+			Kit.Commander->AddResources(ACommandBuilding::GetBuildCost(*Rig));
+	}
+	PlaceJevKit(true);
+}
+
+void ACommandGameState::TickPlanning()
+{
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	const FSimulationSettings& Simulation = FSimulationSettings::ForWorld(GetWorld());
+	if (Simulation.bEnabled || (GIsAutomationTesting && !bPlanningHeldByTest))
+	{
+		// A simulation plays the real opening with default kits; duels and automation fixtures skip it.
+		ReconcilePlanningRoster();
+		CompletePlanningForHarness(Simulation.bEnabled && !Simulation.bDuel);
+		return;
+	}
+#endif
+	ReconcilePlanningRoster();
+	PlaceJevKit(false);
+	Planning.SecondsRemaining = static_cast<float>(PlanningPolicy::Remaining(GetWorld()->GetRealTimeSeconds(), PlanningDeadline));
+	EvaluatePlanningEnd();
+}
+
+void ACommandGameState::EvaluatePlanningEnd()
+{
+	if (!Planning.bActive)
+		return;
+	int32 Ready = 0;
+	for (const FPlanningKit& Kit : Planning.Kits)
+		Ready += Kit.bReady ? 1 : 0;
+	const PlanningPolicy::EEnd End = PlanningPolicy::Evaluate(Planning.Kits.Num(), Ready,
+		GetWorld()->GetRealTimeSeconds(), PlanningDeadline);
+	if (End == PlanningPolicy::EEnd::Continue || !GameStatePlanning::NavigationReady(GetWorld()))
+		return;
+	EndPlanning(End == PlanningPolicy::EEnd::AllReady ? EPlanningEnd::AllReady : EPlanningEnd::Expired);
+}
+
+void ACommandGameState::EndPlanning(EPlanningEnd Reason)
+{
+	if (!Planning.bActive)
+		return;
+	if (Reason == EPlanningEnd::Fixture)
+	{
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+		for (FPlanningKit& Kit : Planning.Kits)
+			DestroyKit(Kit);
+		for (FPlanningKit& Kit : Planning.JevKits)
+			DestroyKit(Kit);
+		for (ACommandPlayerState* Commander : FGameStateEconomy::Roster(*this))
+			Commander->Resources = GameStatePlanning::FixtureStartingResources;
+		EnemyCommander->Resources = GameStatePlanning::FixtureStartingResources;
+#endif
+	}
+	else
+		FillKits();
+	Planning.bActive = false;
+	Planning.SecondsRemaining = 0.f;
+	PlanningSeconds = GetWorld()->GetRealTimeSeconds() - PlanningStartedReal;
+	PlanningEndReason = Reason;
+	++PlanningEndCount;
+	if (Reason != EPlanningEnd::Fixture)
+		BattleClockStartServerTime = GetServerWorldTimeSeconds();
+	SyncWorldPause(nullptr);
+	if (Reason != EPlanningEnd::Fixture)
+		StartKitForces();
+	UE_LOG(LogTemp, Display, TEXT("Planning ended reason=%d after %.1f real seconds"), static_cast<int32>(Reason), PlanningSeconds);
+	Planning.Kits.Reset();
+	Planning.JevKits.Reset();
+	ForceNetUpdate();
+}
+
+// At 0:00 production starts: each Barracks takes its chosen unit type and the first orders, and JEV plans.
+void ACommandGameState::StartKitForces()
+{
+	for (const FPlanningKit& Kit : Planning.Kits)
+	{
+		if (!IsValid(Kit.Commander) || !IsValid(Kit.Barracks))
+			continue;
+		if (!FCommandService::ConfigureProduction(Kit.Commander, Kit.Barracks, Kit.UnitRole, true))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Planning: commander %d's Barracks could not start production"), Kit.Commander->CommanderIndex);
+			continue;
+		}
+		bool bQueue = false;
+		for (const FPlanningOrder& Order : Kit.Orders)
+		{
+			FCommandService::IssueForceOrder(Kit.Commander, Kit.Barracks->ForceGroup, Order.Verb, Order.RegionIndex,
+				Order.Structure, bQueue);
+			bQueue = true;
+		}
+	}
+	for (TActorIterator<AEnemyCommander> It(GetWorld()); It; ++It)
+		if (It->TeamIndex == 5)
+			It->EvaluatePlan();
+}
+
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+void ACommandGameState::CompletePlanningForHarness(bool bWithKits)
+{
+	if (!Planning.bActive || bPlanningHeldByTest)
+		return;
+	if (!bWithKits)
+	{
+		EndPlanning(EPlanningEnd::Fixture);
+		return;
+	}
+	for (FPlanningKit& Kit : Planning.Kits)
+		Kit.bReady = true;
+	if (GameStatePlanning::NavigationReady(GetWorld()))
+		EndPlanning(EPlanningEnd::Harness);
+}
+#endif

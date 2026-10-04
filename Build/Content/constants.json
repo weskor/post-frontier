@@ -1,5 +1,5 @@
 {
-  "starting_resources": 600,
+  "starting_resources": 200,
   "human_baseline_income": 2,
   "jev_baseline_income": 2,
   "reward_region_data_rate": 1,
