@@ -16,8 +16,8 @@
   {"id": "fortify_cast", "text": "Fortify active."},
   {"id": "own_node_lost", "text": "Hardline Failover Node lost."},
   {"id": "enemy_node_lost", "text": "The Lattice Failover Node lost."},
-  {"id": "own_emergency", "text": "Hardline offline. Emergency forces deployed."},
-  {"id": "enemy_emergency", "text": "The Lattice offline. Emergency forces deployed."},
-  {"id": "own_hq_online", "text": "Hardline is back online."},
-  {"id": "enemy_hq_online", "text": "The Lattice is back online."}
+  {"id": "own_emergency", "text": "Hardline HQ offline. Emergency forces deployed."},
+  {"id": "enemy_emergency", "text": "The Lattice HQ offline. Emergency forces deployed."},
+  {"id": "own_hq_online", "text": "Hardline HQ back online."},
+  {"id": "enemy_hq_online", "text": "The Lattice HQ back online."}
 ]

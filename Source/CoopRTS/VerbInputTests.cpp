@@ -20,7 +20,7 @@ bool FScenario::Update()
 	if (Stage == 0)
 		return Initialize(World);
 	if (!Check(IsValid(PC) && IsValid(HUD) && IsValid(Camera) && IsValid(State)
-				&& IsValid(Forces[0]) && IsValid(Forces[1]) && IsValid(Hostile) && IsValid(Producer),
+				&& IsValid(Forces[0]) && IsValid(Forces[1]) && IsValid(Hostile) && IsValid(Producer) && IsValid(Node),
 			TEXT("Isolated input fixtures survive")))
 		return true;
 	return RunStage(World);
@@ -33,7 +33,7 @@ bool FScenario::RunStage(UWorld* World)
 	case 1:
 		return StageSmartMinimap();
 	case 2:
-		return StageSmartGround();
+		return bNodeClicked ? StageSmartGround() : StageSmartNode();
 	case 3:
 		return StageAttackKey();
 	case 4:

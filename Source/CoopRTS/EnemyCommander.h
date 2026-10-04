@@ -43,6 +43,9 @@ struct FJevWaveEvent
 	int32 Forces = 0;
 	UPROPERTY()
 	int32 TargetRegion = INDEX_NONE;
+	// An emergency wave (HqHoldPolicy), not a scheduled release's; it does not count in FJevReleaseState::WaveCount.
+	UPROPERTY()
+	bool bEmergency = false;
 };
 
 // JEV's release schedule as every peer reads it. Times are match seconds on the clock
@@ -64,7 +67,7 @@ struct FJevReleaseState
 	bool bNextShown = false;
 	UPROPERTY()
 	float ClockStartServerTime = 0.f;
-	// Waves launched this match, and the most recent ones (oldest first).
+	// Release waves launched this match, and the most recent waves of either kind (oldest first).
 	UPROPERTY()
 	int32 WaveCount = 0;
 	UPROPERTY()
@@ -129,9 +132,10 @@ private:
 	// Publishes the schedule; true when a release is due and its wave not yet launched.
 	bool TickRelease();
 	void AdvanceReleases(FJevTurn& Turn);
-	// TargetOverride is the region the wave attacks; INDEX_NONE takes the release's own target.
-	void LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 TargetOverride = INDEX_NONE);
-	// A wave of the current release sent against the humans holding JEV's own main.
+	// A release wave. An emergency wave (decision H3) buys one wave at the release's budget without the release
+	// carry, never calls the other forces to join, and attacks the humans standing in JEV's own main.
+	void LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmergency = false);
+	// The emergency wave at the current release's budget (v1.1's before 120 s).
 	void LaunchEmergencyWave(FJevTurn& Turn);
 	void RecordWave(const FJevWaveEvent& Event);
 	TArray<FJevCommittedForce, TInlineAllocator<8>> CommittedForces;

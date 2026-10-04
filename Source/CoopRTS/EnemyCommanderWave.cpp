@@ -84,30 +84,34 @@ int32 CostOf(const AArmyGroup& Force)
 }
 }
 
-void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 TargetOverride)
+void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmergency)
 {
+	// An emergency wave neither spends nor adds to the release carry.
+	int32 EmergencyCarry = 0;
+	int32& Carry = bEmergency ? EmergencyCarry : WaveCarry;
 	const JevRelease::FBehaviour Behaviour = JevRelease::BehaviourFor(ReleaseIndex);
 	const int32 Budget = JevRelease::WaveBudget(ReleaseIndex, HumanCommanders(*Turn.State));
-	const int32 Target = TargetOverride != INDEX_NONE ? TargetOverride
-		: Behaviour.bRaid                             ? JevRelease::RaidRegion(Turn.Summary)
-													  : Turn.Summary.EnemyHome;
+	const int32 Target = bEmergency ? Turn.Summary.Home
+		: Behaviour.bRaid           ? JevRelease::RaidRegion(Turn.Summary)
+									: Turn.Summary.EnemyHome;
 	if (Budget <= 0)
 		return;
 	// No place to send the wave: the budget carries to the next release rather than vanishing.
 	if (!JevExecution::ValidRegion(Target))
 	{
-		WaveCarry += Budget;
+		Carry += Budget;
 		return;
 	}
 	const TArray<JevRelease::FUnitOption> Options = UnitOptions(*Turn.Content);
-	const JevRelease::FPurchase Bought = JevRelease::Purchase(WaveCarry + Budget, Options, Behaviour,
+	const JevRelease::FPurchase Bought = JevRelease::Purchase(Carry + Budget, Options, Behaviour,
 		JevRelease::MostNumerous(Turn.EnemyArmor));
 	FJevWaveEvent Event;
 	Event.Release = ReleaseIndex;
+	Event.bEmergency = bEmergency;
 	Event.MatchSeconds = GetMatchSeconds();
-	Event.Budget = WaveCarry + Budget;
+	Event.Budget = Carry + Budget;
 	Event.TargetRegion = Target;
-	WaveCarry = Bought.Carry;
+	Carry = Bought.Carry;
 	const TArray<int32> Roster = RosterOf(Bought);
 	const TArray<int32> Sizes = JevRelease::SplitForces(Roster.Num());
 	TArray<AArmyGroup*, TInlineAllocator<8>> Wave;
@@ -122,7 +126,7 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 Targe
 		AArmyGroup* Force = AArmyGroup::SpawnFreeForce(*Turn.World, *Turn.Commander,
 			AssemblyPoint(Turn, Slot, Sizes.Num()), Members, FreeForceNumber(Turn), Behaviour.SpeedFactor);
 		// Whatever could not be placed carries on rather than vanishing.
-		WaveCarry += Requested - (Force ? CostOf(*Force) : 0);
+		Carry += Requested - (Force ? CostOf(*Force) : 0);
 		if (!Force)
 			continue;
 		Wave.Add(Force);
@@ -134,13 +138,13 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 Targe
 	Event.Forces = Wave.Num();
 	for (AArmyGroup* Force : Wave)
 		ExecuteWaveForce(Turn, Force, Target, false);
-	if (Behaviour.bCoordinated)
+	if (Behaviour.bCoordinated && !bEmergency)
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
 	UE_LOG(LogJevRelease, Display,
 		TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d humans(L/H/S/St)=%d/%d/%d/%d"),
-		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, WaveCarry,
+		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, Carry,
 		Turn.EnemyArmor.Count[0], Turn.EnemyArmor.Count[1], Turn.EnemyArmor.Count[2], Turn.EnemyArmor.Count[3]);
 }
 
@@ -148,7 +152,7 @@ void AEnemyCommander::LaunchEmergencyWave(FJevTurn& Turn)
 {
 	// Before v1.1 the budget is zero; the emergency wave then buys the first real budget.
 	const int32 Index = FMath::Max(1, JevRelease::IndexAt(GetMatchSeconds()));
-	LaunchWave(Turn, Index, Turn.Summary.Home);
+	LaunchWave(Turn, Index, true);
 }
 
 bool AEnemyCommander::IsWaveForce(const AArmyGroup* Force) const

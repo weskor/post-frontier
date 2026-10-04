@@ -8,6 +8,7 @@
 #include "EngineUtils.h"
 #include "GameState/GameStateRegistry.h"
 #include "GameState/GameStateTerritory.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "ObjectiveAnnouncer.h"
@@ -248,8 +249,8 @@ void ACommandGameState::FHoldAlarmPass::ClassifyThreat(const FRegionAlarm& Alarm
 		{
 			Holder.HoldThreatenedAsset = Victim;
 			Holder.HoldThreatKind = Cast<AHeadquarters>(Victim) ? EHoldThreatKind::Headquarters
-				: Cast<ACommandBuilding>(Victim)                ? EHoldThreatKind::Building
-																: EHoldThreatKind::Force;
+				: Cast<ACommandBuilding>(Victim) || Cast<AFailoverNode>(Victim) ? EHoldThreatKind::Building
+																				: EHoldThreatKind::Force;
 		}
 	}
 	if (!Holder.bHoldResponding)

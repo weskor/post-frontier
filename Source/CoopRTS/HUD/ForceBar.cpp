@@ -5,6 +5,7 @@
 #include "CommandGameState.h"
 #include "Commands/OrderGraph.h"
 #include "EngineUtils.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 
@@ -30,6 +31,8 @@ void OrderName(const FContext& Context, EForceVerb Verb, int32 Region, const AAc
 			Text << Building->GetDefinition()->DisplayName.ToString();
 		else if (IsValid(Structure) && Structure->IsA<AHeadquarters>())
 			Text << TEXT("HQ");
+		else if (IsValid(Structure) && Structure->IsA<AFailoverNode>())
+			Text << TEXT("Failover Node");
 		else
 			TargetName(Context.State, Region, Text);
 	}

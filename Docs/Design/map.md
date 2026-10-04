@@ -5,7 +5,7 @@
 ## Territory rules [Built unless noted]
 
 - Habitable Zone v2 has 15 polygon regions. Its asset is still `AvailabilityZoneV2`, and today's menu still calls it Availability Zone v2 ([World.md](../World.md#names-in-code-and-assets)).
-- **Main regions:** belong to their team until its HQ is lost, and cannot be captured. **[Change]** An HQ that is offline is not yet lost, so its main stays controlled for its owner until the hold completes ([battle.md](battle.md#guarding-the-hqs-built--decided)).
+- **Main regions:** belong to their team until its HQ is lost, and cannot be captured. **[Built]** An HQ that is offline is not yet lost, so its main stays controlled for its owner until the hold completes ([battle.md](battle.md#guarding-the-hqs-built--decided)).
 - **Every other region:** follows its capture anchor.
   - Radius 430 cm, rate 0.125/s: 8 s to take a neutral anchor, 16 s to flip an enemy one.
   - Capture makes no progress when both sides are present or when nobody is, and nothing locks a capture. Only units that belong to a force count.

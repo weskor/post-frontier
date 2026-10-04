@@ -18,6 +18,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedImmunityTest, "CoopRTS.Guarded.Immunity
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedBountyTest, "CoopRTS.Guarded.Bounty",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedFortifyTest, "CoopRTS.Guarded.Fortify",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedPlatingTest, "CoopRTS.Guarded.Plating",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedHoldTest, "CoopRTS.Guarded.Hold",
@@ -96,6 +98,34 @@ bool FGuardedBountyTest::RunTest(const FString&)
 		T.TestEqual(TEXT("A destroyed JEV node pays 60 Data"), F.Wallets[0]->Data, 60);
 		F.Step();
 		T.TestEqual(TEXT("once"), F.Wallets[0]->Data, 60);
+	}));
+	return true;
+}
+
+bool FGuardedFortifyTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FGuardedScenario(this, 1, [](FTeamEconomyFixture& F) {
+		FAutomationTestBase& T = *F.Test;
+		AEnemyCommander* Clock = F.World->SpawnActor<AEnemyCommander>();
+		AFailoverNode* Node = SpawnNode(F, 0, 0);
+		AArmyUnit* Raider = F.SpawnHostileIn(F.Neck);
+		if (!Clock || !Node || !Raider)
+		{
+			T.AddError(TEXT("Node fixtures unavailable"));
+			return;
+		}
+		Clock->SetActorTickEnabled(false);
+		Clock->SkipClock(300.f); // Past the plating: only Fortify is left to scale the hit.
+		F.Wallets[0]->Data = 100;
+		AMapRegion* Region = nullptr;
+		for (AMapRegion* Candidate : F.State->Regions)
+			if (IsValid(Candidate) && Candidate->Contains(Node->GetActorLocation()))
+				Region = Candidate;
+		T.TestTrue(TEXT("The node's region is Fortified by its team"),
+			Region && FCommandService::CastFortify(F.Wallets[0], Region).IsAccepted());
+		T.TestFalse(TEXT("The plating is over"), Node->IsPlated());
+		Node->ReceiveAttack(100, Raider);
+		T.TestEqual(TEXT("A Fortified node takes x0.75"), Node->MaxHealth() - Node->Health, 75);
 	}));
 	return true;
 }
@@ -264,6 +294,13 @@ bool FGuardedEmergencyTest::RunTest(const FString&)
 			}
 			T.TestTrue(*FString::Printf(TEXT("Commander %d's emergency force is a full squad of its Barracks unit type"), Slot + 1), bFull && bType);
 			T.TestTrue(TEXT("spawned at the HQ, in the main"), bAtHome);
+			// The commander can command it: ownership matches the controller, as for a produced force.
+			ACommandPlayerState* Commander = F.Wallets[Slot];
+			T.TestTrue(TEXT("and orders it"),
+				FCommandService::IssueForceOrder(Commander, *It, EForceVerb::MoveHold, F.State->FindRegionAt(Home.GetActorLocation())->RegionIndex)
+					.IsAccepted());
+			T.TestTrue(TEXT("and sets its retreat threshold"),
+				FCommandService::SetRetreatThreshold(Commander, *It, ERetreatThreshold::Percent40).IsAccepted());
 		}
 		T.TestTrue(TEXT("Every commander gets exactly one free force"), Forces[0] == 1 && Forces[1] == 1);
 		T.TestEqual(TEXT("The emergency is announced to all"), Events(F, TEXT("own_emergency"), Since), 1);

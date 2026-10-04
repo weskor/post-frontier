@@ -9,6 +9,7 @@
 #include "CommandPlayerState.h"
 #include "Components/CapsuleComponent.h"
 #include "Content/MatchContent.h"
+#include "Engine/Level.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GroundHeight.h"
@@ -155,6 +156,20 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 	return Unit;
 }
 
+int32 AArmyGroup::NextArmyIndex(const UWorld& World)
+{
+	int32 Index = 0;
+	for (const ULevel* Level : World.GetLevels())
+	{
+		if (!Level)
+			continue;
+		for (const AActor* Actor : Level->Actors)
+			if (const AArmyGroup* Group = Cast<AArmyGroup>(Actor); IsValid(Group))
+				Index = FMath::Max(Index, Group->GetArmyIndex() + 1);
+	}
+	return Index;
+}
+
 AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
 	TConstArrayView<int32> UnitIndices, int32 InForceNumber, float InSpeedFactor)
 {
@@ -166,16 +181,14 @@ AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner
 	if (!State || !Navigation || State->MatchResult != EMatchResult::Ongoing || !(bJev || bHuman)
 		|| UnitIndices.IsEmpty() || UnitIndices.Num() > MaxUnitCount)
 		return nullptr;
-	int32 NextArmy = 0;
-	if (bHuman)
-		for (TActorIterator<AArmyGroup> It(&World); It; ++It)
-			NextArmy = FMath::Max(NextArmy, It->GetArmyIndex() + 1);
 	const FTransform Transform(Anchor);
-	AArmyGroup* Group = World.SpawnActorDeferred<AArmyGroup>(StaticClass(), Transform, nullptr, nullptr,
+	// A human force is owned by its commander's controller, like a produced one: that is what lets the commander order it.
+	AActor* ControllerOwner = bHuman ? Owner.GetOwner() : nullptr;
+	AArmyGroup* Group = World.SpawnActorDeferred<AArmyGroup>(StaticClass(), Transform, ControllerOwner, nullptr,
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Group)
 		return nullptr;
-	Group->Initialize({ bJev ? 5 : 0, &Owner, bJev ? -1 : NextArmy, nullptr, Anchor });
+	Group->Initialize({ bJev ? 5 : 0, &Owner, bJev ? -1 : NextArmyIndex(World), nullptr, Anchor });
 	Group->ForceNumber = InForceNumber;
 	Group->SpeedFactor = InSpeedFactor;
 	Group->FinishSpawning(Transform);

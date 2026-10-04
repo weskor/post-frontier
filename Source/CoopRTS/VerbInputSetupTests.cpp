@@ -98,7 +98,15 @@ bool FScenario::SpawnFixtures(UWorld* World)
 	ACommandPlayerState* Wallet = PC->GetPlayerState<ACommandPlayerState>();
 	Producer = Building(World, Wallet, FromFriendlyHQ(State, 700.f, -600.f, 5.f));
 	Hostile = Building(World, State->EnemyCommander.Get(), FromEnemyHQ(State, -700.f, 600.f, 5.f));
-	return Check(IsValid(Producer) && IsValid(Hostile), TEXT("Completed friendly producer and hostile structure fixtures spawn"));
+	const FTransform NodeTransform(FromEnemyHQ(State, -900.f, -900.f, AFailoverNode::HitBoxHalfSize));
+	Node = World->SpawnActorDeferred<AFailoverNode>(AFailoverNode::StaticClass(), NodeTransform, nullptr, nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (Node)
+	{
+		Node->TeamIndex = 5;
+		Node->FinishSpawning(NodeTransform);
+	}
+	return Check(IsValid(Producer) && IsValid(Hostile) && IsValid(Node), TEXT("Completed friendly producer, hostile structure and hostile node fixtures spawn"));
 }
 
 bool FScenario::FindHostileGround()

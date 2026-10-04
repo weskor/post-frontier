@@ -5,6 +5,7 @@
 #include "ArmyUnit.h"
 #include "CommandCamera.h"
 #include "CommandHUD.h"
+#include "FailoverNode.h"
 #include "HUD/OrderInputPreview.h"
 #include "Engine/GameViewportClient.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -44,6 +45,8 @@ private:
 	// VerbInputSmartOrderTests.cpp
 	bool StageSmartMinimap();
 	bool StageSmartGround();
+	// A click on a hostile Failover Node on the ground resolves to an Attack on it, like any structure.
+	bool StageSmartNode();
 	bool Submit(const FVector2D& Point, ForceOrderInput::EResolution Resolution, EForceVerb Verb,
 		int32 Region, AActor* Structure = nullptr, bool bQueue = false);
 	bool OrdersMatch(EForceVerb Verb, int32 Region, AActor* Structure, bool bQueue);
@@ -164,6 +167,9 @@ private:
 	ACommandCamera* Camera = nullptr;
 	ACommandBuilding* Producer = nullptr;
 	ACommandBuilding* Hostile = nullptr;
+	AFailoverNode* Node = nullptr;
+	bool bNodeFocused = false;
+	bool bNodeClicked = false;
 	AArmyGroup* Forces[2] = {};
 	uint32 Serials[2] = {};
 };

@@ -6,23 +6,6 @@
 #include "Engine/World.h"
 #include "Engine/Level.h"
 
-namespace
-{
-int32 NextArmyIndex(const UWorld& World)
-{
-	int32 Index = 0;
-	for (const ULevel* Level : World.GetLevels())
-	{
-		if (!Level)
-			continue;
-		for (const AActor* Actor : Level->Actors)
-			if (const AArmyGroup* Group = Cast<AArmyGroup>(Actor); IsValid(Group))
-				Index = FMath::Max(Index, Group->GetArmyIndex() + 1);
-	}
-	return Index;
-}
-}
-
 bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 {
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
@@ -46,7 +29,7 @@ bool ACommandBuilding::ApplyProduction(int32 UnitIndex, bool bEnabled)
 			ControllerOwner, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (!Group)
 			return false;
-		Group->Initialize({ TeamIndex, OwningPlayerState.Get(), NextArmyIndex(*GetWorld()), this, Assembly });
+		Group->Initialize({ TeamIndex, OwningPlayerState.Get(), AArmyGroup::NextArmyIndex(*GetWorld()), this, Assembly });
 		Group->FinishSpawning(Transform);
 		bool bAcceptedOrder = false;
 		if (IsValid(Group))

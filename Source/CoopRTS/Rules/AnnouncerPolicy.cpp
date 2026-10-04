@@ -22,10 +22,10 @@ const FDefinition Entries[] = {
 	{ TEXT("fortify_cast"), TEXT("Fortify active."), true, false, false },
 	{ TEXT("own_node_lost"), TEXT("Hardline Failover Node lost."), true, false, false },
 	{ TEXT("enemy_node_lost"), TEXT("The Lattice Failover Node lost."), true, false, false },
-	{ TEXT("own_emergency"), TEXT("Hardline offline. Emergency forces deployed."), true, false, false },
-	{ TEXT("enemy_emergency"), TEXT("The Lattice offline. Emergency forces deployed."), true, false, false },
-	{ TEXT("own_hq_online"), TEXT("Hardline is back online."), true, false, false },
-	{ TEXT("enemy_hq_online"), TEXT("The Lattice is back online."), true, false, false }
+	{ TEXT("own_emergency"), TEXT("Hardline HQ offline. Emergency forces deployed."), true, false, false },
+	{ TEXT("enemy_emergency"), TEXT("The Lattice HQ offline. Emergency forces deployed."), true, false, false },
+	{ TEXT("own_hq_online"), TEXT("Hardline HQ back online."), true, false, false },
+	{ TEXT("enemy_hq_online"), TEXT("The Lattice HQ back online."), true, false, false }
 };
 }
 

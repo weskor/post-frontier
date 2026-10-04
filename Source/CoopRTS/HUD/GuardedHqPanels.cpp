@@ -96,8 +96,8 @@ void DrawShieldGlyph(const FPainter& Paint, const FVector2D& Center, const FLine
 
 void DrawImmuneHatch(const FPainter& Paint, const FRect& Rect)
 {
-	const FLinearColor Color(0.f, 0.f, 0.f, .35f);
-	for (float X = Rect.X; X + Rect.H <= Rect.Right(); X += 7.f)
+	const FLinearColor Color(0.f, 0.f, 0.f, .22f);
+	for (float X = Rect.X; X + Rect.H <= Rect.Right(); X += 9.f)
 		Line(Paint, { X, Rect.Bottom() }, { X + Rect.H, Rect.Y }, Color);
 }
 
@@ -126,10 +126,17 @@ void DrawHqBar(const FPainter& Paint, const FRect& Rect, const AHeadquarters* HQ
 	if (bImmune)
 		DrawImmuneHatch(Paint, Rect);
 	Paint.Outline(Rect, Color.CopyWithNewOpacity(.55f));
-	if (bImmune)
-		DrawShieldGlyph(Paint, { Rect.X + 12.f, Rect.Y + Rect.H * .5f }, Palette::Text);
-	Paint.TextIn(HqName(Team), Rect, 9.f, Palette::Text, true, EAlign::Left, bImmune ? 22.f : 7.f);
 	Value.Appendf(TEXT("%d / %d"), Health, Max);
+	if (bImmune)
+	{
+		// The hatch must not eat the words: both texts sit on dark plates.
+		const FLinearColor Plate(0.f, 0.f, 0.f, .5f);
+		Paint.Fill({ Rect.X + 1.f, Rect.Y + 2.f, Paint.TextWidth(HqName(Team), 9.f, true) + 26.f, Rect.H - 4.f }, Plate);
+		Paint.Fill({ Rect.Right() - Paint.TextWidth(Value.ToView(), 9.f, true) - 12.f, Rect.Y + 2.f,
+						Paint.TextWidth(Value.ToView(), 9.f, true) + 11.f, Rect.H - 4.f }, Plate);
+		DrawShieldGlyph(Paint, { Rect.X + 12.f, Rect.Y + Rect.H * .5f }, Palette::Text);
+	}
+	Paint.TextIn(HqName(Team), Rect, 9.f, Palette::Text, true, EAlign::Left, bImmune ? 22.f : 7.f);
 	Paint.TextIn(Value.ToView(), Rect, 9.f, Palette::Text, true, EAlign::Right, 7.f);
 }
 

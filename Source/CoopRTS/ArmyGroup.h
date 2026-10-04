@@ -79,6 +79,8 @@ public:
 	// Authority-owned encounters may create joined members without a producer.
 	// Paid recruits join through QueueRecruit or SpawnReinforcement, never SpawnMember.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
+	// The next unused army index: production and free forces take the next one each.
+	static int32 NextArmyIndex(const UWorld& World);
 	// A free force for the enemy commander (its waves) or a human commander (the emergency force): a
 	// producerless group holding the listed catalogue units (at most six), placed on free navigable
 	// ground around Anchor. It touches no wallet and no extraction. Null when nothing could be placed.

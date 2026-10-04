@@ -88,7 +88,7 @@ void AHeadquarters::DeployHumanEmergencyForces(ACommandGameState& State)
 		const FVector Anchor = GetActorLocation() + Forward * AssemblyDistance + Side * ((Slot - (Roster.Num() - 1) * .5f) * AssemblySpacing);
 		AArmyGroup* Force = AArmyGroup::SpawnFreeForce(*GetWorld(), *Commander, Anchor, Squad, FreeForceNumber(State, *Commander), 1.f);
 		// A free force has no producer to refill it: it fights to the end.
-		if (Force)
-			FCommandService::SetRetreatThreshold(Commander, Force, ERetreatThreshold::Never);
+		if (Force && !FCommandService::SetRetreatThreshold(Commander, Force, ERetreatThreshold::Never).IsAccepted())
+			UE_LOG(LogTemp, Warning, TEXT("Emergency force of commander %d refused its no-retreat threshold"), Commander->CommanderIndex);
 	}
 }

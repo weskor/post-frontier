@@ -42,6 +42,8 @@ struct FObjectiveEvent
 	FString RegionName;
 	UPROPERTY()
 	int32 AffectedTeam = -1;
+	// The event's one number. HQ damage events: the tier (0 under attack, 1 half, 2 critical or offline). Node-lost
+	// events: Failover Nodes left. Back-online events: the restored HP percent.
 	UPROPERTY()
 	int32 DamageTier = 0;
 	UPROPERTY()

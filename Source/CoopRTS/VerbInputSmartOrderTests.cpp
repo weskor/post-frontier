@@ -10,10 +10,29 @@ bool FScenario::StageSmartMinimap()
 		|| !Submit(Ground, ForceOrderInput::EResolution::MoveHold, EForceVerb::MoveHold, Target)
 		|| !Submit(Minimap(HostileRegionPoint), ForceOrderInput::EResolution::MoveHold, EForceVerb::MoveHold, EnemyHome)
 		|| !Submit(Minimap(Hostile->GetActorLocation()), ForceOrderInput::EResolution::Attack, EForceVerb::Attack,
-			RegionAt(State, Hostile->GetActorLocation()), Hostile))
+			RegionAt(State, Hostile->GetActorLocation()), Hostile)
+		|| !Submit(Minimap(Node->GetActorLocation()), ForceOrderInput::EResolution::Attack, EForceVerb::Attack,
+			RegionAt(State, Node->GetActorLocation()), Node))
 		return true;
 	Camera->FocusOn(Hostile->GetActorLocation());
 	++Stage;
+	return false;
+}
+
+bool FScenario::StageSmartNode()
+{
+	if (!bNodeFocused)
+	{
+		Camera->FocusOn(Node->GetActorLocation());
+		bNodeFocused = true;
+		return false;
+	}
+	FVector2D Ground;
+	if (!Check(PC->ProjectWorldLocationToScreen(Node->GetActorLocation(), Ground), TEXT("Hostile node projects onto ground viewport"))
+		|| !Submit(Ground, ForceOrderInput::EResolution::Attack, EForceVerb::Attack, RegionAt(State, Node->GetActorLocation()), Node))
+		return true;
+	bNodeClicked = true;
+	Camera->FocusOn(Hostile->GetActorLocation());
 	return false;
 }
 

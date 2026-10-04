@@ -7,6 +7,7 @@
 #include "CommandHUD.h"
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/OrderGraph.h"
+#include "FailoverNode.h"
 #include "GroundHeight.h"
 #include "Headquarters.h"
 #include "InputCoreTypes.h"
@@ -36,6 +37,12 @@ AActor* ACommandPlayerController::PickMinimapStructure(const ACommandHUD& HUD, c
 		Pick(Building, 3.);
 	Pick(State.FriendlyHeadquarters, 6.);
 	Pick(State.EnemyHeadquarters, 6.);
+	// Failover Nodes are valid Attack targets too; drawn after the HQs, so a node beside one is the one picked.
+	for (const AHeadquarters* HQ : { State.FriendlyHeadquarters.Get(), State.EnemyHeadquarters.Get() })
+		if (IsValid(HQ))
+			for (const TWeakObjectPtr<AFailoverNode>& Node : HQ->GetNodes())
+				if (Node.IsValid())
+					Pick(Node.Get(), 4.);
 	return Picked;
 }
 
@@ -53,7 +60,7 @@ bool ACommandPlayerController::PickOrderTarget(const FVector2D& Position, const 
 		return false;
 	FHitResult Hit;
 	if (GetHitResultAtScreenPosition(Position, ECC_Visibility, false, Hit)
-		&& (Cast<ACommandBuilding>(Hit.GetActor()) || Cast<AHeadquarters>(Hit.GetActor()))
+		&& (Cast<ACommandBuilding>(Hit.GetActor()) || Cast<AHeadquarters>(Hit.GetActor()) || Cast<AFailoverNode>(Hit.GetActor()))
 		&& CombatTarget::IsAliveHostile(Hit.GetActor(), Team))
 		Structure = Hit.GetActor();
 	FVector RayOrigin, Direction;

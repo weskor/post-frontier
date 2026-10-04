@@ -8,6 +8,8 @@
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedJevEmergencyTest, "CoopRTS.Guarded.JevEmergency",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedJevNodeAttackTest, "CoopRTS.Guarded.JevNodeAttack",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedTargetsTest, "CoopRTS.Guarded.Targets",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedAcquisitionTest, "CoopRTS.Guarded.Acquisition",
@@ -53,7 +55,11 @@ bool FGuardedJevEmergencyTest::RunTest(const FString&)
 				}
 		T.TestTrue(TEXT("which has units"), Units > 0);
 		T.TestEqual(TEXT("spawned at the HQ, in its main"), AtHome, Units);
-		T.TestTrue(TEXT("It is published as the wave it is, once"), Jev->Release.WaveCount == 1 && Jev->Release.Waves.Last().Release >= 1);
+		// Decision (review ruling): an emergency wave is published on the timeline as one, and is not a release wave.
+		T.TestTrue(TEXT("It is published as an emergency wave"), !Jev->Release.Waves.IsEmpty() && Jev->Release.Waves.Last().bEmergency);
+		T.TestEqual(TEXT("and is no release wave"), Jev->Release.WaveCount, 0);
+		T.TestEqual(TEXT("It buys the v1.1 budget before 120 s, for two commanders"), Jev->Release.Waves.Last().Budget,
+			JevRelease::WaveBudget(1, 2));
 		T.TestEqual(TEXT("and it is free: JEV's wallet is untouched"), F.State->EnemyCommander->Resources, 0);
 
 		// Back online and offline again: once per battle.
@@ -69,6 +75,33 @@ bool FGuardedJevEmergencyTest::RunTest(const FString&)
 		Jev->EvaluatePlan();
 		T.TestEqual(TEXT("with no second emergency wave"), FreeForces(), 0);
 		T.TestEqual(TEXT("and no second announcement"), Events(F, TEXT("enemy_emergency"), Since), 1);
+	}));
+	return true;
+}
+
+bool FGuardedJevNodeAttackTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FGuardedScenario(this, 1, [](FTeamEconomyFixture& F) {
+		FAutomationTestBase& T = *F.Test;
+		AEnemyCommander* Jev = F.World->SpawnActor<AEnemyCommander>();
+		// A human node out in the neck, a region JEV does not hold and the human main does not contain.
+		const FTransform Transform(F.State->GetRegionAnchor(F.Neck) + FVector(0.f, 0.f, 150.f));
+		AFailoverNode* Node = F.World->SpawnActorDeferred<AFailoverNode>(AFailoverNode::StaticClass(), Transform, nullptr,
+			nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		AArmyUnit* Scout = F.SpawnHostileIn(1);
+		if (!Jev || !Node || !Scout || !Scout->GetGroup())
+		{
+			T.AddError(TEXT("Node attack fixtures unavailable"));
+			return;
+		}
+		Node->TeamIndex = 0;
+		Node->FinishSpawning(Transform);
+		Jev->SetActorTickEnabled(false);
+		AArmyGroup* Force = Scout->GetGroup();
+		Jev->EvaluatePlan();
+		T.TestEqual(TEXT("JEV's planner sends its force to Attack"), static_cast<int32>(Force->Verb), static_cast<int32>(EForceVerb::Attack));
+		T.TestTrue(TEXT("with the human node as the structure target, through the Attack-structure path"),
+			Force->TargetStructure == Node && CombatTarget::IsAliveHostile(Node, 5));
 	}));
 	return true;
 }

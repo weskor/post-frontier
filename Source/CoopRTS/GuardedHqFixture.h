@@ -7,6 +7,7 @@
 #include "EngineUtils.h"
 #include "FailoverNode.h"
 #include "Headquarters.h"
+#include "MapRegion.h"
 #include "ObjectiveAnnouncer.h"
 #include "TeamEconomyFixture.h"
 
@@ -87,6 +88,15 @@ inline void ClearGroups(const FTeamEconomyFixture& F, int32 Team)
 // with their emergency forces unspent.
 inline void Clean(FTeamEconomyFixture& F)
 {
+	for (AMapRegion* Region : F.State->Regions)
+		if (IsValid(Region))
+		{
+			Region->FortifyTeam = -1;
+			Region->FortifyCaster = -1;
+			Region->FortifyExpiresAt = 0.f;
+		}
+	for (ACommandPlayerState* Wallet : F.Wallets)
+		Wallet->FortifyReadyAt = 0.f;
 	for (TActorIterator<AFailoverNode> It(F.World); It; ++It)
 		It->Destroy();
 	for (TActorIterator<AEnemyCommander> It(F.World); It; ++It)
