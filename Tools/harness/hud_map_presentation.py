@@ -32,10 +32,13 @@ def focus(
     run: NetworkRun,
     capture: Capture,
     region: int,
-    action: str = FORTIFY_FOCUS,
-    **fields: object,
+    weight: float | None = None,
 ) -> None:
-    run.request("host", action, region=region, **fields)
+    """Centre on the region's anchor, or (with a weight) that far towards its Drill Rig."""
+    if weight is None:
+        run.request("host", FORTIFY_FOCUS, region=region)
+    else:
+        run.request("host", "mapPresFocusRig", region=region, weight=weight)
     previous: list[object] = []
 
     def settled(state: JsonObject) -> bool:
@@ -85,7 +88,7 @@ def cut_states(run: NetworkRun, capture: Capture, suffix: str) -> None:
         set_control(run, capture, region, 0)
     # The build bar covers the lower third of a 720 px viewport: lean the camera towards the rig there.
     weight = 0.5 if capture.state()["viewportHeight"] >= 900 else 0.85
-    focus(run, capture, FAR, "mapPresFocusRig", weight=weight)
+    focus(run, capture, FAR, weight)
     zoom(run, capture, ZOOM_OUT)
     capture.shot(f"cut-before-connected-{suffix}")
     run.request("host", "mapPresDilation", factor=CUT_SLOW)
