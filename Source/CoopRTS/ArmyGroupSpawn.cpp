@@ -138,7 +138,7 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 }
 
 AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
-	TConstArrayView<int32> UnitIndices, int32 InForceNumber)
+	TConstArrayView<int32> UnitIndices, int32 InForceNumber, float InSpeedFactor)
 {
 	ACommandGameState* State = World.GetGameState<ACommandGameState>();
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&World);
@@ -152,6 +152,7 @@ AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner
 		return nullptr;
 	Group->Initialize({ 5, &Owner, -1, nullptr, Anchor });
 	Group->ForceNumber = InForceNumber;
+	Group->SpeedFactor = InSpeedFactor;
 	Group->FinishSpawning(Transform);
 	// Each member takes the nearest navigable point around the anchor, ring by ring, that no
 	// earlier member occupies and where a unit fits.

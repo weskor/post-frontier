@@ -82,7 +82,7 @@ public:
 	// units (at most six), placed on free navigable ground around Anchor. It touches no wallet
 	// and no extraction. Null when nothing could be placed.
 	static AArmyGroup* SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
-		TConstArrayView<int32> UnitIndices, int32 InForceNumber);
+		TConstArrayView<int32> UnitIndices, int32 InForceNumber, float InSpeedFactor);
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
 	void SettleMatch();
 	FVector GetCenter() const;
@@ -111,6 +111,10 @@ public:
 	ERetreatThreshold RetreatThreshold = ERetreatThreshold::Percent40;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
 	float MarchSpeed = 0.f;
+	// Multiplies the base march speed of every member: 1 for ordinary forces, set once when a
+	// free wave force spawns (JEV v2.1). Composes with region traits and the selection cap.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
+	float SpeedFactor = 1.f;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
 	int32 WaypointRegionIndex = INDEX_NONE;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")

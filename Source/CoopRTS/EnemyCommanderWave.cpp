@@ -123,7 +123,7 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 		for (const int32 Unit : Members)
 			Requested += Options[Unit].Cost;
 		AArmyGroup* Force = AArmyGroup::SpawnFreeForce(*Turn.World, *Turn.Commander,
-			AssemblyPoint(Turn, Slot, Sizes.Num()), Members, FreeForceNumber(Turn));
+			AssemblyPoint(Turn, Slot, Sizes.Num()), Members, FreeForceNumber(Turn), Behaviour.SpeedFactor);
 		// Whatever could not be placed carries on rather than vanishing.
 		WaveCarry += Requested - (Force ? CostOf(*Force) : 0);
 		if (!Force)

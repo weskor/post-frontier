@@ -154,6 +154,7 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, Status);
 	DOREPLIFETIME(AArmyGroup, RetreatThreshold);
 	DOREPLIFETIME(AArmyGroup, MarchSpeed);
+	DOREPLIFETIME(AArmyGroup, SpeedFactor);
 	DOREPLIFETIME(AArmyGroup, WaypointRegionIndex);
 	DOREPLIFETIME(AArmyGroup, ResumeCount);
 	DOREPLIFETIME(AArmyGroup, Units);

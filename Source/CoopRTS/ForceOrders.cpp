@@ -76,7 +76,7 @@ float AArmyGroup::GetBaseMarchSpeed() const
 	if (Speed == TNumericLimits<float>::Max() && IsValid(ProductionBuilding))
 		if (const UArmyUnitDefinition* Definition = ProductionBuilding->GetProductionDefinition())
 			Speed = Definition->MoveSpeed;
-	return Speed == TNumericLimits<float>::Max() ? 0.f : Speed;
+	return Speed == TNumericLimits<float>::Max() ? 0.f : Speed * SpeedFactor;
 }
 
 float AArmyGroup::GetMarchSpeed() const
