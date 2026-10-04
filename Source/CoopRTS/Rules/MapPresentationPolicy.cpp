@@ -120,7 +120,8 @@ void MapPresentation::Observe(FCutObserver& Observer, const FObservation& In)
 	// First sight (a late join) takes every region that is cut now; later, only those that just left the mask.
 	uint64 Newly = 0;
 	if (In.Connected)
-		Newly = bFirst ? In.CutOff : bChanged ? NewlyCutOff(Observer.PreviousConnected, In.Connected, In.Held) & In.CutOff : 0;
+		Newly = bFirst ? In.CutOff : bChanged ? NewlyCutOff(Observer.PreviousConnected, In.Connected, In.Held) & In.CutOff
+											  : 0;
 	const bool bPlays = FlashPlays(In.Now, In.ChangedAt);
 	for (int32 Region = 0; Region < ObservedRegions; ++Region)
 	{

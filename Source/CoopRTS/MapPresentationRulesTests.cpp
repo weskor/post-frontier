@@ -13,6 +13,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapCableVisibilityTest, "CoopRTS.Rules.MapPres
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapCutObserverTest, "CoopRTS.Rules.MapPresentation.CutObserver",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapLateObserverTest, "CoopRTS.Rules.MapPresentation.LateObserver",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapPulseTimingTest, "CoopRTS.Rules.MapPresentation.PulseTiming",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapPlateOrderTest, "CoopRTS.Rules.MapPresentation.PlateOrder",
@@ -164,6 +166,12 @@ bool FMapCutObserverTest::RunTest(const FString&)
 		Chain.See(Bit(0) | Bit(1), Bit(0) | Bit(1) | Bit(2), Bit(3), 100.5f, 100.5f);
 		TestTrue(TEXT("The newly cut region flashes from its own start"), Chain.Observer.FlashAge(2, 100.5f) == 0.f);
 	}
+	return true;
+}
+
+bool FMapLateObserverTest::RunTest(const FString&)
+{
+	const uint64 Whole = Bit(0) | Bit(1) | Bit(2) | Bit(3);
 	// A client joining later: a recent cut flashes from first sight, an old one is steady.
 	{
 		FChain Recent;
