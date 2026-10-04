@@ -16,7 +16,9 @@ enum class EProductionState : uint8
 	WalletUnavailable,
 	InsufficientResources,
 	DeploymentBlocked,
-	Producing
+	Producing,
+	// A finished recruit waits at the producer because its force is cut off. Appended last: the value is reported.
+	Held
 };
 
 struct FProductionInput

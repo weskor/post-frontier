@@ -82,7 +82,7 @@ bool FProductionPrecedenceTest::RunTest(const FString& Parameters)
 	ExpectHeld(*this, TEXT("Paused beats full, broke and blocked"), In, EProductionState::Paused);
 	In.bEnabled = true;
 	In.Waiting = 1;
-	ExpectHeld(*this, TEXT("A held recruit beats full, broke and blocked"), In, EProductionState::DeploymentBlocked);
+	ExpectHeld(*this, TEXT("A held recruit beats full, broke and blocked"), In, EProductionState::Held);
 	In.Waiting = 0;
 	ExpectHeld(*this, TEXT("Full beats wallet, funds and blocked"), In, EProductionState::ForceComplete);
 	In.Joined = Capacity - 1;
@@ -201,9 +201,9 @@ bool FProductionHeldRecruitTest::RunTest(const FString& Parameters)
 	{
 		FProductionInput Held = Ready(Progress);
 		Held.Waiting = 1;
-		ExpectHeld(*this, TEXT("Held recruit holds production"), Held, EProductionState::DeploymentBlocked);
+		ExpectHeld(*this, TEXT("Held recruit holds production"), Held, EProductionState::Held);
 		Held.Balance = 0;
-		ExpectHeld(*this, TEXT("Held recruit holds production even when broke"), Held, EProductionState::DeploymentBlocked);
+		ExpectHeld(*this, TEXT("Held recruit holds production even when broke"), Held, EProductionState::Held);
 
 		FProductionInput Released = Ready(Progress);
 		Released.Waiting = 0;

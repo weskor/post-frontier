@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "SupplyDeliveryFixture.h"
+#include "GroundHeight.h"
 
 // Replacements travel along the supply chain: a force two hops from the producer's region gets each
 // recruit after 4 s + 2 s per hop at its own formation, a cut force's recruit waits at the producer,
@@ -56,8 +57,9 @@ private:
 		Check(Elapsed >= 8. && Elapsed <= 8.6, TEXT("A force two hops out receives its recruit after 4 s + 2 s per hop"));
 		Check(Recruit && Joined() == 2 && MemberActors() == 2 && Force->GetPendingRecruitCount() == 0 && InRegion(Recruit, Far)
 				&& FVector::Dist2D(Recruit->GetActorLocation(), First->GetActorLocation()) < 500.f
-				&& FVector::Dist2D(Recruit->GetActorLocation(), Producer->GetActorLocation()) > 2500.f,
-			TEXT("The recruit appears at the force's formation, in Far, and joins at once"));
+				&& FVector::Dist2D(Recruit->GetActorLocation(), Producer->GetActorLocation()) > 2500.f
+				&& FMath::Abs(Recruit->GetActorLocation().Z - GroundHeight::At(*GameWorld, Recruit->GetActorLocation().X, Recruit->GetActorLocation().Y) - 60.) < 40.,
+			TEXT("The recruit appears at the force's formation, in Far, on the ground height, and joins at once"));
 		return true;
 	}
 };
@@ -125,7 +127,7 @@ private:
 		int32 ProducerJoined = 0, ProducerTravelling = 0;
 		Producer->GetForceCounts(ProducerJoined, ProducerTravelling);
 		if (!Check(Wallet->Resources == Balance && Force->RecruitsWaiting == 1 && Force->RecruitsInTransit == 0
-					&& Enabled == EProductionState::DeploymentBlocked && ProducerTravelling == 1,
+					&& Enabled == EProductionState::Held && ProducerTravelling == 1,
 				TEXT("Production holds at one waiting recruit and debits nothing more")))
 			return true;
 		SetStage(5);

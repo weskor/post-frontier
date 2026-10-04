@@ -10,6 +10,7 @@
 #include "Commands/OrderGraph.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
+#include "GroundHeight.h"
 #include "MapRegion.h"
 #include "NavigationSystem.h"
 
@@ -18,6 +19,7 @@ using namespace ArmyGroupInternal;
 namespace
 {
 // A formation slot a recruit can stand on: navigable, in the arena and clear of other pawns.
+// The floor height is the tagged ground under the slot (plateaus and ramps), not the navmesh sample.
 bool FreeGround(UNavigationSystemV1& Navigation, const FVector& Wanted, FVector& Ground)
 {
 	UWorld* World = Navigation.GetWorld();
@@ -25,11 +27,13 @@ bool FreeGround(UNavigationSystemV1& Navigation, const FVector& Wanted, FVector&
 	if (!AArenaBounds::IsTravelLocation(World, Wanted)
 		|| !Navigation.ProjectPointToNavigation(Wanted, Projected, FVector(75.f, 75.f, 200.f))
 		|| FVector::DistSquared2D(Wanted, Projected.Location) > FMath::Square(75.f)
-		|| !AArenaBounds::IsTravelLocation(World, Projected.Location)
-		|| World->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 65.f),
+		|| !AArenaBounds::IsTravelLocation(World, Projected.Location))
+		return false;
+	const FVector Floor = GroundHeight::Snap(*World, Projected.Location);
+	if (World->OverlapBlockingTestByChannel(Floor + FVector(0.f, 0.f, 65.f),
 			FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f)))
 		return false;
-	Ground = Projected.Location;
+	Ground = Floor;
 	return true;
 }
 }

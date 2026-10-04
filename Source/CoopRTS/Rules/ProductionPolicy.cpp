@@ -16,9 +16,9 @@ EProductionState Classify(const FProductionInput& In)
 		return EProductionState::ForceUnavailable;
 	if (!In.bEnabled)
 		return EProductionState::Paused;
-	// A finished recruit that cannot reach its force is a blocked deployment; no further work starts.
+	// A finished recruit that cannot reach its force holds all further work.
 	if (In.Waiting > 0)
-		return EProductionState::DeploymentBlocked;
+		return EProductionState::Held;
 	if (In.Joined + In.Travelling >= In.Capacity)
 		return EProductionState::ForceComplete;
 	if (!In.bWalletValid)
@@ -37,8 +37,8 @@ FProductionDecision ProductionPolicy::Evaluate(const FProductionInput& In)
 	if (Out.State == EProductionState::Producing && In.DeltaSeconds > 0.f)
 		Out.NewProgress = FMath::Min(In.Duration, In.Progress + In.DeltaSeconds);
 	// Completed work is only retried while the building is otherwise able to produce;
-	// pause, a full force or an empty wallet hold it without attempting deployment.
+	// pause, a held recruit, a full force or an empty wallet hold it without attempting deployment.
 	Out.bDeploymentDue = (Out.State == EProductionState::Producing || Out.State == EProductionState::DeploymentBlocked)
-		&& Out.NewProgress >= In.Duration && In.Waiting == 0;
+		&& Out.NewProgress >= In.Duration;
 	return Out;
 }

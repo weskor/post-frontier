@@ -9,6 +9,7 @@
 #include "CommandPlayerState.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
+#include "GroundHeight.h"
 #include "NavigationSystem.h"
 
 using namespace ArmyGroupInternal;
@@ -217,7 +218,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 
 AArmyUnit* AArmyGroup::SpawnJoined(const UArmyUnitDefinition& Definition, int32 UnitIndex, int32 Slot, const FVector& Ground)
 {
-	const FTransform Transform(FRotator::ZeroRotator, Ground + FVector(0.f, 0.f, 65.f));
+	const FTransform Transform(FRotator::ZeroRotator, GroundHeight::Snap(*GetWorld(), Ground) + FVector(0.f, 0.f, 65.f));
 	AArmyUnit* Candidate = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
 		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	if (!Candidate)

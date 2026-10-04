@@ -28,6 +28,8 @@ const TCHAR* StatusText(EProductionState State)
 		return TEXT("INSUFFICIENT RESOURCES");
 	case EProductionState::DeploymentBlocked:
 		return TEXT("DEPLOYMENT BLOCKED");
+	case EProductionState::Held:
+		return TEXT("HELD");
 	default:
 		return TEXT("PRODUCING");
 	}

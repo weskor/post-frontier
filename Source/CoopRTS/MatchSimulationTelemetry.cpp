@@ -239,14 +239,16 @@ void CountUnits(UWorld& World, ACommandGameState& State, int32 Team, FTeamCounts
 		if (!It->IsAlive() || It->GetTeamIndex() != Team)
 			continue;
 		++Counts.Alive;
-		if (It->IsReinforcing())
-			++Counts.Reinforcing;
 		const int32 Role = static_cast<uint8>(It->GetUnitRole());
 		if (Role < 3)
 			++Counts.Roles[Role];
 		const AMapRegion* Region = State.FindRegionAt(It->GetActorLocation());
 		++Counts.UnitRegions.FindOrAdd(Region ? Region->RegionIndex : INDEX_NONE);
 	}
+	// Recruits in transit or waiting at a producer are not units; they are counted apart from joined strength.
+	for (TActorIterator<AArmyGroup> It(&World); It; ++It)
+		if (It->GetTeamIndex() == Team)
+			Counts.Reinforcing += It->GetPendingRecruitCount();
 }
 
 TSharedRef<FJsonObject> ForceDetail(AArmyGroup& Force, int32 Strength, ACommandGameState& State)

@@ -56,12 +56,14 @@ static void DrawProductionRemedy(const FPainter& Paint, const FContext& Context,
 	else if (ProductionState == EProductionState::Paused)
 		Remedy << TEXT("Paused: click Resume.");
 	else if (ProductionState == EProductionState::DeploymentBlocked)
+		Remedy << TEXT("Deployment blocked: clear barracks exit; auto retry.");
+	else if (ProductionState == EProductionState::Held)
 	{
 		const AArmyGroup* Force = Context.Building->ForceGroup;
 		if (IsValid(Force) && Force->bSupplyCutOff)
 			Remedy << TEXT("Recruit held: force cut off from supply; it ships when the chain is whole.");
 		else
-			Remedy << TEXT("Deployment blocked: clear barracks exit; auto retry.");
+			Remedy << TEXT("Recruit held: clear barracks exit; auto retry.");
 	}
 	else if (ProductionState == EProductionState::Producing)
 		Remedy << TEXT("Building one unit; pays when finished, then ships along the supply chain.");
@@ -76,8 +78,7 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	const ACommandBuilding* Building = Context.Building;
 	const EProductionState ProductionState = Building->GetProductionState();
 	const AArmyGroup* Force = Building->ForceGroup;
-	const bool bHeld = IsValid(Force) && Force->RecruitsWaiting > 0;
-	const FString Status = bHeld ? FString(TEXT("RECRUIT HELD")) : FString(StatusText(ProductionState));
+	const FString Status = StatusText(ProductionState);
 	const FLinearColor StatusColor = ProductionState == EProductionState::Producing || ProductionState == EProductionState::ForceComplete ? Palette::Good
 		: ProductionState == EProductionState::Paused || ProductionState == EProductionState::MatchFinished                               ? Palette::Muted
 																																		  : Palette::Warn;
