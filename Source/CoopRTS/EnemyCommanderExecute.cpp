@@ -56,15 +56,11 @@ JevPlanner::FPlan ActualPlanOf(const FJevTurn& Turn, const FJevForceStep& Step)
 
 float JoinedHealthFraction(const AArmyGroup& Force)
 {
-	float Health = 0.f;
-	int32 Joined = 0;
+	TArray<JevExecution::FUnitHealth, TInlineAllocator<8>> Health;
 	for (const AArmyUnit* Unit : Force.GetUnits())
 		if (IsValid(Unit) && Unit->IsAlive())
-		{
-			Health += float(Unit->GetHealth()) / Unit->MaxHealth();
-			++Joined;
-		}
-	return Joined ? Health / Joined : 1.f;
+			Health.Add({ Unit->GetHealth(), Unit->MaxHealth(), Unit->GetShield(), Unit->MaxShield() });
+	return JevExecution::HealthFraction(Health);
 }
 
 void SnapshotForce(const FJevTurn& Turn, FJevForceStep& Step)

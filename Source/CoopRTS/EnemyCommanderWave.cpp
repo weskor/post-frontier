@@ -29,13 +29,13 @@ int32 HumanCommanders(const ACommandGameState& State)
 	return FGameStateEconomy::Roster(State).Num();
 }
 
-// One option per catalogue unit. Waves buy today's three combat roles only; a unit with no
-// option here (cost 0) is never bought.
+// One option per catalogue unit. Waves buy all five combat roles; a unit with no option here
+// (cost 0) is never bought.
 TArray<JevRelease::FUnitOption> UnitOptions(const UMatchContent& Content)
 {
 	TArray<JevRelease::FUnitOption> Options;
 	Options.SetNum(Content.Units.Num());
-	for (const EUnitRole Role : { EUnitRole::Frontline, EUnitRole::Ranged, EUnitRole::Siege })
+	for (const EUnitRole Role : { EUnitRole::Frontline, EUnitRole::Ranged, EUnitRole::Siege, EUnitRole::Assault, EUnitRole::Support })
 	{
 		const int32 Index = Content.UnitIndexForRole(Role);
 		if (const UArmyUnitDefinition* Unit = Content.Unit(Index))

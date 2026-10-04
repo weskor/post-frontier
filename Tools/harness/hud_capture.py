@@ -19,6 +19,8 @@ deck + inspector at one resolution; they do not prove production, orders, resear
 --quick new-units: locks two real Barracks to the Lancer and the Scrambler, waits for each full squad of 3 and
 captures both squads and the two together at the default camera (Human faction only); new-units-support-first
 produces the Scrambler first, which puts it in the open instead of behind the second Barracks.
+--quick jev-units: the Machine-faction counterpart on an isolated host: the host fixture places two completed JEV
+Barracks locked to the Lancer and the Scrambler, and the capture shows each full squad of 3, then both with the camera between them.
 """
 
 from __future__ import annotations
@@ -74,7 +76,8 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "markers and six-second expiry; 'jev-intent' captures the JEV timeline, badges and memos "
         "through plan creation, escalation and replacement; other labels boot, place and select "
         "one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first resolution, "
-        "then stop; 'new-units' and 'new-units-support-first' produce a Lancer and a Scrambler squad and capture them; no "
+        "then stop; 'new-units' and 'new-units-support-first' produce a Lancer and a Scrambler squad and capture them; 'jev-units' "
+        "does the same for JEV (Machine faction); no "
         "production fill, fronts, research or victory otherwise",
     )
     parser.add_argument("--max-fps", type=int, default=30)

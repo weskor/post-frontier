@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Content/UnitDefinition.h"
 #include "EnemyCommander.h"
 #include "ForceOrders.h"
 #include "Rules/JevExecution.h"
@@ -104,6 +105,14 @@ inline EForceVerb OrderVerb(JevPlanner::EVerb Verb)
 		: Verb == JevPlanner::EVerb::Retreat ? EForceVerb::Retreat
 											 : EForceVerb::MoveHold;
 }
+
+// JEV's production role slots (JevExecution::RoleSlots) are EUnitRole values, which keeps one ordering.
+static_assert(static_cast<int32>(EUnitRole::Support) + 1 == JevExecution::RoleSlots
+		&& static_cast<int32>(EUnitRole::Assault) == JevExecution::AssaultSlot
+		&& static_cast<int32>(EUnitRole::Support) == JevExecution::SupportSlot,
+	"JEV role slots follow EUnitRole");
+inline int32 RoleSlot(EUnitRole Role) { return static_cast<int32>(Role); }
+inline EUnitRole SlotRole(int32 Slot) { return static_cast<EUnitRole>(Slot); }
 
 // The region the force is marching to, or retreating to.
 int32 ActualTarget(const AArmyGroup& Force);

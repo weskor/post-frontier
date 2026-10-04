@@ -14,6 +14,7 @@
 #include "HUD/ForceBarVerification.h"
 #include "HUD/FortifyVerification.h"
 #include "HUD/MapPresentationVerification.h"
+#include "JevProductionVerification.h"
 #include "Json.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
@@ -65,7 +66,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 		return TEXT("game world unavailable");
 	FString ForceCardError;
 	if (ForceBarVerification::Apply(*World, Request, ForceCardError) || FortifyVerification::Apply(*World, Request, ForceCardError)
-		|| MapPresentationVerification::Apply(*World, Request, ForceCardError))
+		|| MapPresentationVerification::Apply(*World, Request, ForceCardError)
+		|| JevProductionVerification::Apply(*World, Request, ForceCardError))
 		return ForceCardError;
 	FProbeRequest Probe;
 	Probe.World = World;

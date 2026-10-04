@@ -19,12 +19,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevReleaseFightsOnTest, "CoopRTS.Rules.JevRele
 
 namespace
 {
-// Today's three units: Brawler, Rifle, Artillery.
+// The catalogue's five units in role order: Brawler, Rifle, Artillery, Lancer, Scrambler.
 TArray<JevRelease::FUnitOption> TodaysUnits()
 {
 	return { { 20, EArmorClass::Heavy, EDamageType::Kinetic },
 		{ 24, EArmorClass::Light, EDamageType::Piercing },
-		{ 40, EArmorClass::Light, EDamageType::Demolition } };
+		{ 40, EArmorClass::Light, EDamageType::Demolition },
+		{ 24, EArmorClass::Shielded, EDamageType::Piercing },
+		{ 24, EArmorClass::Light, EDamageType::EMP } };
 }
 
 // Human main 4 at the far end of the line 0 - 1 - 2 - 3 - 4, team 5 main at 0.
@@ -125,6 +127,10 @@ bool FJevReleasePurchaseTest::RunTest(const FString&)
 	Wave = Purchase(260, Options, Counter, EArmorClass::Light);
 	TestTrue(TEXT("Against Light the Brawler (Kinetic) is the answer"), Wave.Counts[0] == 13 && Wave.Units == 13 && Wave.Carry == 0);
 	Wave = Purchase(260, Options, Counter, EArmorClass::Shielded);
+	TestTrue(TEXT("Against Shielded the Scrambler (EMP) is the answer"),
+		Wave.Counts[4] == 10 && Wave.Counts[0] == 1 && Wave.Units == 11 && Wave.Carry == 0);
+	const TArray<FUnitOption> NoEmp = { Options[0], Options[1], Options[2], Options[3] };
+	Wave = Purchase(260, NoEmp, Counter, EArmorClass::Shielded);
 	TestTrue(TEXT("With no answer to the class the wave falls back to the cheapest unit"), Wave.Counts[0] == 13 && Wave.Carry == 0);
 	Wave = Purchase(260, Options, Counter, EArmorClass::Unset);
 	TestTrue(TEXT("With no humans to read the wave buys the cheapest unit"), Wave.Counts[0] == 13);

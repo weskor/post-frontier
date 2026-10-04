@@ -248,16 +248,19 @@ bool FJevExecutionPlansTest::RunTest(const FString&)
 bool FJevExecutionSummaryTest::RunTest(const FString&)
 {
 	using namespace JevExecution;
+	const JevRelease::FArmorCounts NoHumans;
 	const int32 Empty[RoleSlots] = {};
-	TestEqual(TEXT("With no producers the first role is Frontline"), UnfilledRoleSlot(Empty), 0);
-	const int32 FrontOnly[RoleSlots] = { 2, 0, 0 };
-	TestEqual(TEXT("The first missing role is filled next"), UnfilledRoleSlot(FrontOnly), 1);
-	const int32 NoSiege[RoleSlots] = { 1, 1, 0 };
-	TestEqual(TEXT("Siege is filled once both main roles exist"), UnfilledRoleSlot(NoSiege), 2);
-	const int32 FrontHeavy[RoleSlots] = { 2, 1, 1 };
-	TestEqual(TEXT("Ranged catches up when Frontline outnumbers it"), UnfilledRoleSlot(FrontHeavy), 1);
-	const int32 Even[RoleSlots] = { 1, 1, 1 };
-	TestEqual(TEXT("Ties go to Frontline"), UnfilledRoleSlot(Even), 0);
+	TestEqual(TEXT("With no producers the first role is Frontline"), NextRoleSlot(Empty, NoHumans), 0);
+	const int32 FrontOnly[RoleSlots] = { 2, 0, 0, 0, 0 };
+	TestEqual(TEXT("The first missing role is filled next"), NextRoleSlot(FrontOnly, NoHumans), 1);
+	const int32 NoSiege[RoleSlots] = { 1, 1, 0, 0, 0 };
+	TestEqual(TEXT("Siege is filled once both main roles exist"), NextRoleSlot(NoSiege, NoHumans), 2);
+	const int32 FrontHeavy[RoleSlots] = { 2, 1, 1, 0, 0 };
+	TestEqual(TEXT("Ranged catches up when Frontline outnumbers it"), NextRoleSlot(FrontHeavy, NoHumans), 1);
+	const int32 Even[RoleSlots] = { 1, 1, 1, 0, 0 };
+	TestEqual(TEXT("Ties go to Frontline"), NextRoleSlot(Even, NoHumans), 0);
+	const int32 Extras[RoleSlots] = { 0, 1, 1, 1, 1 };
+	TestEqual(TEXT("A missing base role is still filled when the new roles exist"), NextRoleSlot(Extras, NoHumans), 0);
 
 	TestTrue(TEXT("A 5:4 edge with a full squad and equal income is an advantage"), HasAdvantage(5, 4, 5, 3, 3));
 	TestFalse(TEXT("A narrower edge is not"), HasAdvantage(5, 5, 5, 3, 3));

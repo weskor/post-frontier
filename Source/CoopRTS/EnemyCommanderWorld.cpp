@@ -26,12 +26,6 @@ bool HasCapability(const ACommandBuilding& Building, bool UBuildingDefinition::*
 	return Definition && Definition->*Capability;
 }
 
-int32 RoleSlot(EUnitRole Role)
-{
-	return Role == EUnitRole::Frontline ? 0 : Role == EUnitRole::Ranged ? 1
-																		: 2;
-}
-
 void AddTarget(FJevTurn& Turn, AActor* Actor, bool bNode = false)
 {
 	const AMapRegion* Region = Turn.State->FindRegionAt(Actor->GetActorLocation());

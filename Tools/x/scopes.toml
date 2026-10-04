@@ -36,6 +36,11 @@ kind = "automation"
 filter = "CoopRTS.Enemy.Release"
 map = "default"
 
+[scopes.jev-new-units]
+kind = "automation"
+filter = "CoopRTS.Enemy.NewUnits"
+map = "default"
+
 [scopes.jev-chain]
 kind = "automation"
 filter = "CoopRTS.Enemy.Chain"
@@ -935,7 +940,7 @@ rendered = true
 "Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
 "Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
 "Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
-"Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "jev-new-units"]
 "Source/CoopRTS/MatchTelemetry.cpp" = ["planning-phase"]
 
 # Planning network proof: the probe, its harness scenario and the runtime the replicated phase runs through.
@@ -944,3 +949,9 @@ rendered = true
 "Source/CoopRTS/Commands/PlanningCommands.[ch]*" = ["planning-network"]
 "Source/CoopRTS/GameState/GameStatePlanning.[ch]*" = ["planning-network"]
 "Source/CoopRTS/Rules/PlanningPolicy.[ch]*" = ["planning-network"]
+# JEV fields the Lancer and the Scrambler: its production roles, wave purchases and force-health estimate (unioned).
+"Source/CoopRTS/JevNewUnitsRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/JevNewUnitsWorldTests.cpp" = ["jev-new-units"]
+"Source/CoopRTS/JevProductionVerification.*" = ["jev-new-units"]
+"Source/CoopRTS/JevReleaseWorldFixture.[h]" = ["jev-new-units"]
+"Source/CoopRTS/Rules/Jev*.[ch]*" = ["jev-new-units"]

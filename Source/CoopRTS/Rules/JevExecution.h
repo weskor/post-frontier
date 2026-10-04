@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "JevPlanner.h"
+#include "JevReleasePolicy.h"
 
 // Pure decisions the enemy commander's executor makes around a planner choice:
 // what to claim, when an order or its publication changes, and what to build.
@@ -14,13 +15,31 @@ constexpr float RecoveryExitHealth = .8f;
 constexpr float DepositRateWeight = 3.f;
 constexpr float DepositDistanceScale = 2000.f;
 constexpr int32 MaxProducers = 3;
-// Production role slots: 0 Frontline, 1 Ranged, 2 Siege.
-constexpr int32 RoleSlots = 3;
+// Production role slots, in EUnitRole order: 0 Frontline, 1 Ranged, 2 Siege, 3 Assault, 4 Support.
+constexpr int32 RoleSlots = 5;
+// The slots below this one are the base roles every JEV army fills first.
+constexpr int32 BaseRoleSlots = 3;
+constexpr int32 AssaultSlot = 3;
+constexpr int32 SupportSlot = 4;
 
 inline bool ValidRegion(int32 Index) { return Index >= 0 && Index < ForceOrders::MaxRegions; }
 
-// The first role with no producer; once all three exist, Frontline unless it outnumbers Ranged.
-int32 UnfilledRoleSlot(const int32 (&Counts)[RoleSlots]);
+// The role slot a new producer takes. The first producer is Frontline. After that the humans' most
+// numerous armor class decides: Light is answered by Frontline, Heavy by Ranged then Assault (Piercing),
+// Shielded by Support (EMP), each only while it has no producer. Otherwise the first base role with no
+// producer; once all three exist, Frontline unless it outnumbers Ranged.
+int32 NextRoleSlot(const int32 (&Counts)[RoleSlots], const JevRelease::FArmorCounts& Humans);
+// One living unit's hit points and shield.
+struct FUnitHealth
+{
+	int32 Health = 0;
+	int32 MaxHealth = 0;
+	int32 Shield = 0;
+	int32 MaxShield = 0;
+};
+// A force's mean unit health, shield counted with hit points: (HP + shield) / (max HP + max shield) per
+// unit. 1 for no units, so an empty force never reads as hurt.
+float HealthFraction(TConstArrayView<FUnitHealth> Units);
 // A squad's worth of units, a 5:4 strength edge and no income deficit.
 bool HasAdvantage(int32 Friendly, int32 Enemy, int32 SquadSize, int32 FriendlyIncome, int32 EnemyIncome);
 // Recovery starts below RecoveryEnterHealth and holds until RecoveryExitHealth.

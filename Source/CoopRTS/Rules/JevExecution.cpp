@@ -2,12 +2,57 @@
 
 namespace JevExecution
 {
-int32 UnfilledRoleSlot(const int32 (&Counts)[RoleSlots])
+namespace
 {
-	for (int32 Slot = 0; Slot < RoleSlots; ++Slot)
+// Slots whose units are strong against Armor, best first.
+TConstArrayView<int32> CounterSlots(EArmorClass Armor)
+{
+	static constexpr int32 AgainstLight[] = { 0 };
+	static constexpr int32 AgainstHeavy[] = { 1, AssaultSlot };
+	static constexpr int32 AgainstShielded[] = { SupportSlot };
+	switch (Armor)
+	{
+	case EArmorClass::Light:
+		return AgainstLight;
+	case EArmorClass::Heavy:
+		return AgainstHeavy;
+	case EArmorClass::Shielded:
+		return AgainstShielded;
+	default:
+		return {};
+	}
+}
+}
+
+int32 NextRoleSlot(const int32 (&Counts)[RoleSlots], const JevRelease::FArmorCounts& Humans)
+{
+	int32 Producers = 0;
+	for (const int32 Count : Counts)
+		Producers += Count;
+	if (Producers == 0)
+		return 0;
+	for (const int32 Slot : CounterSlots(JevRelease::MostNumerous(Humans)))
+		if (Counts[Slot] == 0)
+			return Slot;
+	for (int32 Slot = 0; Slot < BaseRoleSlots; ++Slot)
 		if (Counts[Slot] == 0)
 			return Slot;
 	return Counts[0] <= Counts[1] ? 0 : 1;
+}
+
+float HealthFraction(TConstArrayView<FUnitHealth> Units)
+{
+	float Total = 0.f;
+	int32 Counted = 0;
+	for (const FUnitHealth& Unit : Units)
+	{
+		const int32 Max = Unit.MaxHealth + Unit.MaxShield;
+		if (Max <= 0)
+			continue;
+		Total += float(Unit.Health + Unit.Shield) / Max;
+		++Counted;
+	}
+	return Counted ? Total / Counted : 1.f;
 }
 
 bool HasAdvantage(int32 Friendly, int32 Enemy, int32 SquadSize, int32 FriendlyIncome, int32 EnemyIncome)

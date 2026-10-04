@@ -156,17 +156,13 @@ void ConfigureProduction(FJevTurn& Turn)
 	{
 		if (!Building->IsComplete())
 			continue;
-		const int32 Slot = JevExecution::UnfilledRoleSlot(Turn.Roles);
 		const EUnitRole Role = Building->bForceConfigured ? Building->ProductionRole
-			: Slot == 0                                   ? EUnitRole::Frontline
-			: Slot == 1                                   ? EUnitRole::Ranged
-														  : EUnitRole::Siege;
+														  : SlotRole(JevExecution::NextRoleSlot(Turn.Roles, Turn.EnemyArmor));
 		const bool bWasConfigured = Building->bForceConfigured;
 		if (!Building->bProductionEnabled)
 			FCommandService::ConfigureProduction(Turn.Commander, Building, Role, true);
 		if (!bWasConfigured && Building->bForceConfigured)
-			++Turn.Roles[Role == EUnitRole::Frontline ? 0 : Role == EUnitRole::Ranged ? 1
-																					  : 2];
+			++Turn.Roles[RoleSlot(Role)];
 	}
 }
 
