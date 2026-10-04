@@ -85,7 +85,7 @@ def build_units():
         art = art_names.get(definition["branch_of"], name)
         unit = data_asset("/Game/Units/DA_" + name, unreal.ArmyUnitDefinition)
         values = [(key, definition[key]) for key in (
-            "id", "display_name", "max_health", "attack_damage", "range", "interval",
+            "id", "display_name", "max_health", "attack_damage", "range", "interval", "structure_damage_multiplier",
             "unit_cost", "capacity", "configuration_cost", "unit_duration", "move_speed",
             "max_shield", "pulse_interval", "pulse_radius", "pulse_building_stun_seconds",
             "branch_of", "branch_summary",

@@ -156,7 +156,7 @@ Two branches per unit; each branch is a card ([cards.md](cards.md)). Each branch
 | Shield projector | Dome: bigger radius | Reflector: reflects part of the damage taken |
 | Juggernaut | Siege Walker: long-range Demolition | Crusher: melee trample splash against Light |
 
-**Branch effects built in step 1b [Built], except the Demolisher's structure multiplier [New].** Each unit type offers one branch in 1b, available from battle 1 and bought per production building ([forces.md](forces.md#barracks-upgrades-new--decided)); drafting arrives with the run layer. Starting values, orchestrator 2026-10-04. The other branch of each unit waits for drafting.
+**Branch effects built in step 1b [Built].** Each unit type offers one branch in 1b, available from battle 1 and bought per production building ([forces.md](forces.md#barracks-upgrades-new--decided)); drafting arrives with the run layer. Starting values, orchestrator 2026-10-04. The other branch of each unit waits for drafting.
 
 | Unit | Branch | 1b effect |
 |---|---|---|

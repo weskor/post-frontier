@@ -130,12 +130,19 @@ def test_branches_carry_the_documented_one_b_effects() -> None:
         units["lancer"]["move_speed"] * 0.9
     )
     assert units["jammer"]["pulse_building_stun_seconds"] == 5.0
+    assert units["demolisher"]["structure_damage_multiplier"] == 1.5
+    assert all(
+        unit["structure_damage_multiplier"] == 1.0
+        for unit in units.values()
+        if unit["id"] != "demolisher"
+    )
     # Everything else about a branch is its base's.
     for branch, base in (
         ("warden", "frontline"),
         ("marksman", "ranged"),
         ("bulwark", "lancer"),
         ("jammer", "scrambler"),
+        ("demolisher", "siege"),
     ):
         assert units[branch]["branch_of"] == base
         assert units[branch]["branch_summary"]

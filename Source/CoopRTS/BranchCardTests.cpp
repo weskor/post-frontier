@@ -47,8 +47,10 @@ protected:
 			return Ready();
 		case 7:
 			return Upgrading();
-		default:
+		case 8:
 			return Refitting();
+		default:
+			return Emergency();
 		}
 	}
 
@@ -166,7 +168,26 @@ private:
 		ReadForceCard(MakeContext(PC), *Force, INDEX_NONE, Card);
 		if (!Check(Card.bRefitting && FString(Card.RefitLine.ToView()).StartsWith(TEXT("Refit 1/3 \u2192 Warden")), TEXT("The card reads the refit line with its progress")))
 			return true;
-		return Shot(TEXT("branch-refit"));
+		if (!Shot(TEXT("branch-refit")))
+			return false;
+		// A human free force is the emergency force of an offline HQ: its card says so.
+		const FVector Anchor = State->GetRegionAnchor(Far) + FVector(600.f, 0.f, 0.f);
+		EmergencyForce = AArmyGroup::SpawnFreeForce(*GameWorld, *Wallet, Anchor, TArray<int32>{ BaseIndex(), BaseIndex() }, 4, 1.f);
+		if (!Check(EmergencyForce.IsValid(), TEXT("An emergency force spawns for the commander")))
+			return true;
+		SetStage(9);
+		return false;
+	}
+	bool Emergency()
+	{
+		using namespace CommandHUDPanels;
+		FForceCard Card;
+		ReadForceCard(MakeContext(PC), *EmergencyForce, INDEX_NONE, Card);
+		if (!Check(FString(Card.Title.ToView()) == TEXT("4  EMERGENCY Brawler") && FString(Card.Production.ToView()).StartsWith(TEXT("Emergency force"))
+					&& !Card.bRefitting && !Card.bBranchAffordable,
+				*FString::Printf(TEXT("The emergency force's card is named EMERGENCY: '%s' / '%s'"), *FString(Card.Title.ToView()), *FString(Card.Production.ToView()))))
+			return true;
+		return Shot(TEXT("branch-emergency"));
 	}
 
 	// Lets the HUD draw for a moment, requests a screenshot and waits for the file; true once it is written.
@@ -200,6 +221,7 @@ private:
 	ACommandPlayerController* PC = nullptr;
 	ACommandHUD* HUD = nullptr;
 	TWeakObjectPtr<ACommandBuilding> Fresh;
+	TWeakObjectPtr<AArmyGroup> EmergencyForce;
 	FString ShotPath;
 	bool bShotRequested = false;
 	double ShotStarted = 0.;

@@ -66,6 +66,9 @@ public:
 	float Range = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	float Interval = 0.f;
+	// Multiplies this unit's damage against Structure armor, after the class bonus (Demolisher 1.5); 1 = none.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	float StructureDamageMultiplier = 1.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	EArmorClass ArmorClass = EArmorClass::Unset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")

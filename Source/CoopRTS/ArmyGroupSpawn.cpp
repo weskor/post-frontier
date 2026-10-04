@@ -192,6 +192,7 @@ AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner
 	Group->Initialize({ bJev ? 5 : 0, &Owner, bJev ? -1 : NextArmyIndex(World), nullptr, Anchor });
 	Group->ForceNumber = InForceNumber;
 	Group->SpeedFactor = InSpeedFactor;
+	Group->bFreeForce = true;
 	Group->FinishSpawning(Transform);
 	// Each member takes the nearest navigable point around the anchor, ring by ring, that no
 	// earlier member occupies and where a unit fits.

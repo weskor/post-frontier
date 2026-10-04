@@ -10,6 +10,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchStatsWorldTest, "CoopRTS.Forces.Branch.C
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchJammerWorldTest, "CoopRTS.Forces.Branch.Content.JammerStun",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchDemolisherWorldTest, "CoopRTS.Forces.Branch.Content.DemolisherStructures",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 namespace
 {
@@ -88,11 +90,43 @@ protected:
 	int32 Brawler = INDEX_NONE, Warden = INDEX_NONE, Rifle = INDEX_NONE, Marksman = INDEX_NONE, Lancer = INDEX_NONE, Bulwark = INDEX_NONE;
 };
 
-// A hostile Jammer beside a Barracks: its first pulse stuns the building for 5 s, where the Scrambler's is 3 s.
-class FJammerScenario : public FScenario
+// A scenario with a finished-on-demand friendly Barracks near the HQ.
+class FBarracksScenario : public FScenario
 {
 public:
 	using FScenario::FScenario;
+
+protected:
+	// The first legal Barracks site on a ring around the friendly HQ.
+	bool PlaceBarracksNearHeadquarters()
+	{
+		const ACommandGameState& State = *Arena.State;
+		const FVector Center = State.FriendlyHeadquarters->GetActorLocation();
+		for (int32 Ring = 0; Ring < 9; ++Ring)
+			for (int32 Direction = 0; Direction < 32; ++Direction)
+			{
+				const float Angle = Direction * PI / 16.f;
+				FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
+				Point.Z = 5.f;
+				Point = State.ResolveBuildingLocation(ArmyTestSetup::BarracksIndex, Point);
+				FString Reason;
+				if (State.FindRegionAt(Point) != State.FindRegionAt(Center) || !State.ValidateBuildingPlacement(ArmyTestSetup::BarracksIndex, 0, Point, Reason))
+					continue;
+				Barracks = FCommandService::PlaceBuilding(Arena.Wallet.Get(), ArmyTestSetup::BarracksIndex, Point).Building;
+				if (Barracks.IsValid())
+					return true;
+			}
+		return false;
+	}
+
+	TWeakObjectPtr<ACommandBuilding> Barracks;
+};
+
+// A hostile Jammer beside a Barracks: its first pulse stuns the building for 5 s, where the Scrambler's is 3 s.
+class FJammerScenario : public FBarracksScenario
+{
+public:
+	using FBarracksScenario::FBarracksScenario;
 
 protected:
 	bool Setup() override
@@ -117,28 +151,6 @@ protected:
 		return Check(Barracks->IsComplete() && Jammer.IsValid() && !Barracks->IsStunned(), TEXT("A finished Barracks and a Jammer beside it, not yet stunned"));
 	}
 
-	// The first legal Barracks site on a ring around the friendly HQ.
-	bool PlaceBarracksNearHeadquarters()
-	{
-		const ACommandGameState& State = *Arena.State;
-		const FVector Center = State.FriendlyHeadquarters->GetActorLocation();
-		for (int32 Ring = 0; Ring < 9; ++Ring)
-			for (int32 Direction = 0; Direction < 32; ++Direction)
-			{
-				const float Angle = Direction * PI / 16.f;
-				FVector Point = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * (380.f + Ring * 160.f);
-				Point.Z = 5.f;
-				Point = State.ResolveBuildingLocation(ArmyTestSetup::BarracksIndex, Point);
-				FString Reason;
-				if (State.FindRegionAt(Point) != State.FindRegionAt(Center) || !State.ValidateBuildingPlacement(ArmyTestSetup::BarracksIndex, 0, Point, Reason))
-					continue;
-				Barracks = FCommandService::PlaceBuilding(Arena.Wallet.Get(), ArmyTestSetup::BarracksIndex, Point).Building;
-				if (Barracks.IsValid())
-					return true;
-			}
-		return false;
-	}
-
 	bool Step(double Now) override
 	{
 		if (!Barracks->IsStunned())
@@ -149,8 +161,54 @@ protected:
 	}
 
 	FVector Ground = FVector::ZeroVector;
-	TWeakObjectPtr<ACommandBuilding> Barracks;
 	TWeakObjectPtr<AArmyUnit> Jammer;
+};
+// A hostile Artillery and a Demolisher each shell the same finished Barracks: 60 for the Artillery (40 plus the
+// Demolition class bonus), 90 for the Demolisher; the multiplier reaches the shell through the real FireAt.
+class FDemolisherScenario : public FBarracksScenario
+{
+public:
+	using FBarracksScenario::FBarracksScenario;
+
+protected:
+	bool Setup() override
+	{
+		AMapRegion* First = nullptr;
+		AMapRegion* Second = nullptr;
+		if (!Check(Arena.PickRegions(First, Second) && Arena.Ground(*First, Ground), TEXT("The Demolisher fixture finds roomy ground")))
+			return false;
+		const ACommandGameState& State = *Arena.State;
+		const UArmyUnitDefinition* Siege = State.Content->FindUnit(TEXT("siege"));
+		const UArmyUnitDefinition* Demolisher = State.Content->FindUnit(TEXT("demolisher"));
+		if (!Check(Siege && Demolisher && Siege->StructureDamageMultiplier == 1.f && Demolisher->StructureDamageMultiplier == 1.5f
+					&& Demolisher->AttackDamage == Siege->AttackDamage && Demolisher->Range == Siege->Range,
+				TEXT("The Demolisher is the Artillery with a 1.5 structure multiplier")))
+			return false;
+		Arena.Wallet->Resources = 3000;
+		if (!Check(PlaceBarracksNearHeadquarters(), TEXT("A Barracks is placed in friendly territory")))
+			return false;
+		Barracks->Tick(60.f);
+		const FVector Near = Barracks->GetActorLocation() + FVector(0.f, 700.f, 60.f);
+		Gun = Arena.Spawn(true, State.Content->IndexOf(Siege), Ground, Near);
+		Breaker = Arena.Spawn(true, State.Content->IndexOf(Demolisher), Ground, Near + FVector(0.f, 100.f, 0.f));
+		return Check(Barracks->IsComplete() && Gun.IsValid() && Breaker.IsValid(), TEXT("A finished Barracks with an Artillery and a Demolisher in range"));
+	}
+
+	bool Step(double Now) override
+	{
+		const int32 Start = Barracks->Health;
+		Gun->NextAttackTime = 0.f;
+		Gun->FireAt(Barracks.Get());
+		const int32 ByGun = Start - Barracks->Health;
+		Breaker->NextAttackTime = 0.f;
+		Breaker->FireAt(Barracks.Get());
+		const int32 ByBreaker = Start - ByGun - Barracks->Health;
+		Check(ByGun == 60 && ByBreaker == 90, *FString::Printf(TEXT("An Artillery shell costs a Barracks 60 and a Demolisher's 90 (got %d and %d)"), ByGun, ByBreaker));
+		return true;
+	}
+
+	FVector Ground = FVector::ZeroVector;
+	TWeakObjectPtr<AArmyUnit> Gun, Breaker;
 };
 }
 
@@ -163,6 +221,12 @@ bool FBranchStatsWorldTest::RunTest(const FString&)
 bool FBranchJammerWorldTest::RunTest(const FString&)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FJammerScenario(this));
+	return true;
+}
+
+bool FBranchDemolisherWorldTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FDemolisherScenario(this));
 	return true;
 }
 #endif

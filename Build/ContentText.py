@@ -27,6 +27,7 @@ UNIT_FIELDS = (
     "attack_damage",
     "range",
     "interval",
+    "structure_damage_multiplier",
     "unit_cost",
     "unit_duration",
     "capacity",
@@ -75,6 +76,7 @@ UNIT_ORDER = (
     "marksman",
     "bulwark",
     "jammer",
+    "demolisher",
 )
 
 

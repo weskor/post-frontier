@@ -106,6 +106,10 @@ public:
 	// A producer-backed force with living members that the supply chain does not reach.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Supply")
 	bool bSupplyCutOff = false;
+	// A free force (SpawnFreeForce): never had a producer. For a human commander that is the emergency force of a
+	// HQ gone offline, which its force card names.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army")
+	bool bFreeForce = false;
 	void SettleMatch();
 	FVector GetCenter() const;
 	EArmyDoctrine GetDoctrine() const;

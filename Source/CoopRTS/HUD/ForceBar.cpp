@@ -166,6 +166,9 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 				break;
 			}
 	Card.Title.Appendf(TEXT("%d  "), Force.ForceNumber);
+	// A human free force is the emergency force of an offline HQ (ui.md surface 9).
+	if (Force.bFreeForce)
+		Card.Title << TEXT("EMERGENCY ");
 	if (Card.Definition)
 		Card.Title << Card.Definition->DisplayName.ToString();
 	else
@@ -187,7 +190,7 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 		AppendRefillLine(Force, Card.Producer->GetProductionState(), Card.Production);
 	}
 	else
-		Card.Production << TEXT("Orphan \u00B7 no reinforcements");
+		Card.Production << (Force.bFreeForce ? TEXT("Emergency force \u00B7 no reinforcements") : TEXT("Orphan \u00B7 no reinforcements"));
 	ReadBranch(Context, Force, Card);
 }
 

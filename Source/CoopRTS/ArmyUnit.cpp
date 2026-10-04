@@ -289,6 +289,7 @@ void AArmyUnit::FireAt(AActor* Victim)
 		Outgoing.Base = Definition->AttackDamage;
 		Outgoing.Type = GetDamageType();
 		Outgoing.Armor = CombatTarget::ArmorClass(Other);
+		Outgoing.StructureMultiplier = Definition->StructureDamageMultiplier;
 		if (UnitRole == EUnitRole::Siege)
 		{
 			Outgoing.SplashDistance = FMath::Sqrt(DistanceSquared);

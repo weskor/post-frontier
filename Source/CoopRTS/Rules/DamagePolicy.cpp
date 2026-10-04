@@ -14,6 +14,8 @@ int32 Scale(int32 Damage, double Multiplier)
 int32 DamagePolicy::Outgoing(const FOutgoing& Hit)
 {
 	int32 Damage = CombatPolicy::Damage(Hit.Base, Hit.Type, Hit.Armor);
+	if (Hit.Armor == EArmorClass::Structure && Hit.StructureMultiplier != 1.f)
+		Damage = Scale(Damage, Hit.StructureMultiplier);
 	if (Hit.SplashDistance >= 0.f)
 		Damage = CombatPolicy::SplashDamage(Damage, Hit.SplashDistance);
 	return Hit.WorkshopMultiplier == 1.f ? Damage : Scale(Damage, Hit.WorkshopMultiplier);

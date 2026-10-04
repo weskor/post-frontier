@@ -25,7 +25,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "",
-    "branch_summary": ""
+    "branch_summary": "",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Ranged",
@@ -53,7 +54,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "",
-    "branch_summary": ""
+    "branch_summary": "",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Siege",
@@ -81,7 +83,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "",
-    "branch_summary": ""
+    "branch_summary": "",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Lancer",
@@ -109,7 +112,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "",
-    "branch_summary": ""
+    "branch_summary": "",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Scrambler",
@@ -137,7 +141,8 @@
     "pulse_radius": 600.0,
     "pulse_building_stun_seconds": 3.0,
     "branch_of": "",
-    "branch_summary": ""
+    "branch_summary": "",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Warden",
@@ -165,7 +170,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "frontline",
-    "branch_summary": "+30% HP"
+    "branch_summary": "+30% HP",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Marksman",
@@ -193,7 +199,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "ranged",
-    "branch_summary": "+20% range"
+    "branch_summary": "+20% range",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Bulwark",
@@ -221,7 +228,8 @@
     "pulse_radius": 0.0,
     "pulse_building_stun_seconds": 0.0,
     "branch_of": "lancer",
-    "branch_summary": "+50% shield, -10% speed"
+    "branch_summary": "+50% shield, -10% speed",
+    "structure_damage_multiplier": 1.0
   },
   {
     "asset_name": "Jammer",
@@ -249,6 +257,36 @@
     "pulse_radius": 600.0,
     "pulse_building_stun_seconds": 5.0,
     "branch_of": "scrambler",
-    "branch_summary": "5 s building stun"
+    "branch_summary": "5 s building stun",
+    "structure_damage_multiplier": 1.0
+  },
+  {
+    "asset_name": "Demolisher",
+    "id": "demolisher",
+    "display_name": "Demolisher",
+    "role": "SIEGE",
+    "armor_class": "LIGHT",
+    "damage_type": "DEMOLITION",
+    "move_speed": 480.0,
+    "max_health": 160,
+    "attack_damage": 40,
+    "range": 1150.0,
+    "interval": 2.5,
+    "unit_cost": 40,
+    "unit_duration": 6.666666666666667,
+    "capacity": 3,
+    "configuration_cost": 180,
+    "accent": [
+      1.0,
+      0.65,
+      0.25
+    ],
+    "max_shield": 0,
+    "pulse_interval": 0.0,
+    "pulse_radius": 0.0,
+    "pulse_building_stun_seconds": 0.0,
+    "branch_of": "siege",
+    "branch_summary": "x1.5 damage vs structures",
+    "structure_damage_multiplier": 1.5
   }
 ]

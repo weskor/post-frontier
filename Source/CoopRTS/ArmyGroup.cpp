@@ -177,4 +177,5 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, RecruitsInTransit);
 	DOREPLIFETIME(AArmyGroup, RecruitsWaiting);
 	DOREPLIFETIME(AArmyGroup, bSupplyCutOff);
+	DOREPLIFETIME(AArmyGroup, bFreeForce);
 }

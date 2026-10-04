@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "Misc/AutomationTest.h"
 #include "Rules/BranchPolicy.h"
+#include "Rules/DamagePolicy.h"
 
 // Pure rule tests: no world, no actors. Eligibility, the upgrade timer and the production pause, the
 // per-battle reset, the refit queue and what a refit keeps, and the panel and card texts.
@@ -14,6 +15,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchUpgradeTest, "CoopRTS.Rules.Branch.Upgra
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchRefitQueueTest, "CoopRTS.Rules.Branch.RefitQueue",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchDurabilityTest, "CoopRTS.Rules.Branch.Durability",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchStructureMultiplierTest, "CoopRTS.Rules.Branch.StructureMultiplier",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchTextTest, "CoopRTS.Rules.Branch.Text",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
@@ -216,6 +219,28 @@ bool FBranchTextTest::RunTest(const FString& Parameters)
 	AppendRefitLine(Text, { 2, 5 }, TEXT("Marksman"));
 	TestEqual(TEXT("and its line say cut-off members keep the old form"), FString(Text.ToView()),
 		FString(TEXT("Refit 2/5 \u2192 Marksman \u00B7 cut-off members keep old form")));
+	return true;
+}
+
+// The Demolisher's x1.5 against Structure is an outgoing multiplier: on top of the Demolition class bonus,
+// before splash falloff and the Workshop, and only against Structure armor.
+bool FBranchStructureMultiplierTest::RunTest(const FString& Parameters)
+{
+	DamagePolicy::FOutgoing Hit;
+	Hit.Base = 40;
+	Hit.Type = EDamageType::Demolition;
+	Hit.Armor = EArmorClass::Structure;
+	TestEqual(TEXT("An Artillery shell on a structure is 40 plus the 50% class bonus"), DamagePolicy::Outgoing(Hit), 60);
+	Hit.StructureMultiplier = 1.5f;
+	TestEqual(TEXT("A Demolisher shell is x1.5 on top of that"), DamagePolicy::Outgoing(Hit), 90);
+	Hit.SplashDistance = 100.f;
+	TestEqual(TEXT("The multiplier precedes splash falloff: 90 at half radius truncates to 67"), DamagePolicy::Outgoing(Hit), 67);
+	Hit.WorkshopMultiplier = DamagePolicy::SiegeOpticsOutgoingMultiplier;
+	TestEqual(TEXT("and the Workshop follows both"), DamagePolicy::Outgoing(Hit), 50);
+	Hit.SplashDistance = -1.f;
+	Hit.WorkshopMultiplier = 1.f;
+	Hit.Armor = EArmorClass::Light;
+	TestEqual(TEXT("Against a unit the multiplier does nothing"), DamagePolicy::Outgoing(Hit), 40);
 	return true;
 }
 #endif

@@ -21,6 +21,8 @@ struct FOutgoing
 	float SplashDistance = -1.f;
 	// Outgoing Workshop specialization multiplier (Siege Optics 0.75).
 	float WorkshopMultiplier = 1.f;
+	// The attacker's own damage multiplier against Structure armor (Demolisher 1.5), on top of the class bonus.
+	float StructureMultiplier = 1.f;
 };
 
 // What one hit takes from a victim's durability.
@@ -31,7 +33,7 @@ struct FResult
 	bool Any() const { return ShieldLoss > 0 || HealthLoss > 0; }
 };
 
-// Damage after class bonus, splash falloff and Workshop; 0 outside the splash radius.
+// Damage after class bonus, the attacker's structure multiplier, splash falloff and Workshop; 0 outside the splash radius.
 int32 Outgoing(const FOutgoing& Hit);
 // Incoming multipliers (Cover, Fortify, Entrenched) multiply together before one truncation.
 int32 Incoming(int32 Damage, TConstArrayView<float> Multipliers);
