@@ -5,11 +5,15 @@
 # ///
 """Build sound sets from recorded layers, mixed and rendered in REAPER (Docs/Audio.md).
 
-    uv run Build/FetchAudioSources.py                   # once: recorded sources into Saved/AudioSources/
-    uv run Build/GenerateUnitAudio.py                   # every unit: prepare layers, render, write Art/Audio
-    uv run Build/GenerateUnitAudio.py --unit Human_Ranged --new-session
+    ./x gen fetch-audio-sources                        # once: recordings into Saved/AudioSources/
+    ./x gen generate-unit-audio                       # every recipe: render, write Art/Audio
+    ./x gen generate-unit-audio -- --unit Human_Lancer --unit Machine_Scrambler
 
 Recipes live in Build/unit_audio/<faction>_<role>.py (SOURCES + UNIT); shared code in unit_audio/core.py.
+Lancer and Scrambler each supply Fire (4), Impact (3) and Death (3), like the ranged units.
+Lancer also supplies faction-shared ShieldBreak (3); Scrambler supplies auto-cast Pulse (3).
+The four keys are Human_Lancer, Machine_Lancer, Human_Scrambler and Machine_Scrambler.
+Selection/acknowledgement cues remain in the shared UI recipe. Recipe discovery is automatic.
 Three stages per unit:
 1. Prepare: cut single events out of the source recordings (onset detection), convert to 48 kHz mono,
    apply the recipe's pitch/filter/trim and write one clip per layer to Saved/AudioLayers/<Unit>/.
@@ -39,7 +43,7 @@ def main() -> None:
         "--unit",
         action="append",
         metavar="FACTION_ROLE",
-        help="only this unit, e.g. Human_Ranged (repeatable); default: every recipe",
+        help="only this unit, e.g. Human_Lancer or Machine_Scrambler (repeatable); default: every recipe",
     )
     parser.add_argument(
         "--new-session",

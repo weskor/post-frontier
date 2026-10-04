@@ -40,6 +40,11 @@ UAudioComponent* UCoopAudioSubsystem::Play(ECoopAudioEvent Event, int32 Team, in
 void UCoopAudioSubsystem::PlayUnit(ECoopAudioEvent Event, int32 Team, EUnitRole Role,
 	const FVector& Location, AActor* Owner)
 {
+	if (Event == ECoopAudioEvent::Pulse || Event == ECoopAudioEvent::ShieldBreak)
+	{
+		Play(Event, Team, UnitEffectRole, Location, false);
+		return;
+	}
 	if (Event != ECoopAudioEvent::Attack && Event != ECoopAudioEvent::Impact && Event != ECoopAudioEvent::Death)
 		return;
 	Play(Event, Team, static_cast<int32>(Role), Location, false);

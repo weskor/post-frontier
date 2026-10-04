@@ -1,0 +1,421 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Machine_Scrambler"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Machine_Scrambler_Fire_01" 1
+  MARKER 1 0.800000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Scrambler_Fire_02" 1
+  MARKER 2 3.800000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Scrambler_Fire_03" 1
+  MARKER 3 6.800000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Scrambler_Fire_04" 1
+  MARKER 4 9.800000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Scrambler_Impact_01" 1
+  MARKER 5 12.800000 "" 1
+  MARKER 6 15.000000 "SW_Machine_Scrambler_Impact_02" 1
+  MARKER 6 15.800000 "" 1
+  MARKER 7 18.000000 "SW_Machine_Scrambler_Impact_03" 1
+  MARKER 7 18.800000 "" 1
+  MARKER 8 21.000000 "SW_Machine_Scrambler_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Machine_Scrambler_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Machine_Scrambler_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  MARKER 11 30.000000 "SW_Machine_Scrambler_Pulse_01" 1
+  MARKER 11 31.600000 "" 1
+  MARKER 12 33.000000 "SW_Machine_Scrambler_Pulse_02" 1
+  MARKER 12 34.600000 "" 1
+  MARKER 13 36.000000 "SW_Machine_Scrambler_Pulse_03" 1
+  MARKER 13 37.600000 "" 1
+  <TRACK
+    NAME "Override relay"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.141646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_01 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_01__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.139937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_02 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_02__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.138396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_03 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_03__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.136750
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_04 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_04__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.140000
+      LENGTH 0.178375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_01 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_01__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.140000
+      LENGTH 0.178375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_02 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_02__Overriderelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.140000
+      LENGTH 0.178375
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_03 Override relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_03__Overriderelay.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Override static"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 0.015000
+      LENGTH 0.317812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_01 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_01__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.015000
+      LENGTH 0.308646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_02 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_02__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.015000
+      LENGTH 0.300000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_03 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_03__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.015000
+      LENGTH 0.291563
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_04 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_04__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.015000
+      LENGTH 0.178271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_01 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_01__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.015000
+      LENGTH 0.174083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_02 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_02__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.015000
+      LENGTH 0.170083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_03 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_03__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.120000
+      LENGTH 0.467292
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_01 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_01__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.120000
+      LENGTH 0.453958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_02 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_02__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.120000
+      LENGTH 0.440812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_03 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_03__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.160000
+      LENGTH 0.416187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_01 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_01__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.160000
+      LENGTH 0.404167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_02 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_02__Overridestatic.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.160000
+      LENGTH 0.392833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_03 Override static"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_03__Overridestatic.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "EMP discharge"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.025000
+      LENGTH 0.280604
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_01 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_01__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.025000
+      LENGTH 0.275958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_02 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_02__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.025000
+      LENGTH 0.271167
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_03 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_03__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.025000
+      LENGTH 0.266542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Fire_04 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Fire_04__EMPdischarge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Contact arc"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.210271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_01 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_01__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.205437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_02 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_02__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.200813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Impact_03 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Impact_03__Contactarc.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power down"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.566771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_01 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_01__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.554188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_02 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_02__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.541521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_03 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_03__Powerdown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell drop"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.320000
+      LENGTH 0.423729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_01 Shell drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_01__Shelldrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.320000
+      LENGTH 0.414083
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_02 Shell drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_02__Shelldrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.320000
+      LENGTH 0.404458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Death_03 Shell drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Death_03__Shelldrop.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse charge"
+    VOLPAN 0.316228 0 -1 -1 1
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.238104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_01 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_01__Pulsecharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.234021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_02 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_02__Pulsecharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.000000
+      LENGTH 0.230063
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_03 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_03__Pulsecharge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse body"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 30.140000
+      LENGTH 0.777937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_01 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_01__Pulsebody.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.140000
+      LENGTH 0.759687
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_02 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_02__Pulsebody.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.140000
+      LENGTH 0.742250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Scrambler_Pulse_03 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Scrambler/SW_Machine_Scrambler_Pulse_03__Pulsebody.wav"
+      >
+    >
+  >
+>

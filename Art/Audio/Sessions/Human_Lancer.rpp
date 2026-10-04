@@ -1,0 +1,367 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_Lancer"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_Lancer_Fire_01" 1
+  MARKER 1 0.900000 "" 1
+  MARKER 2 3.000000 "SW_Human_Lancer_Fire_02" 1
+  MARKER 2 3.900000 "" 1
+  MARKER 3 6.000000 "SW_Human_Lancer_Fire_03" 1
+  MARKER 3 6.900000 "" 1
+  MARKER 4 9.000000 "SW_Human_Lancer_Fire_04" 1
+  MARKER 4 9.900000 "" 1
+  MARKER 5 12.000000 "SW_Human_Lancer_Impact_01" 1
+  MARKER 5 12.800000 "" 1
+  MARKER 6 15.000000 "SW_Human_Lancer_Impact_02" 1
+  MARKER 6 15.800000 "" 1
+  MARKER 7 18.000000 "SW_Human_Lancer_Impact_03" 1
+  MARKER 7 18.800000 "" 1
+  MARKER 8 21.000000 "SW_Human_Lancer_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Human_Lancer_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Human_Lancer_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  MARKER 11 30.000000 "SW_Human_Lancer_ShieldBreak_01" 1
+  MARKER 11 31.000000 "" 1
+  MARKER 12 33.000000 "SW_Human_Lancer_ShieldBreak_02" 1
+  MARKER 12 34.000000 "" 1
+  MARKER 13 36.000000 "SW_Human_Lancer_ShieldBreak_03" 1
+  MARKER 13 37.000000 "" 1
+  <TRACK
+    NAME "Cutter beam"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.045000
+      LENGTH 0.622146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_01 Cutter beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_01__Cutterbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.045000
+      LENGTH 0.613646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_02 Cutter beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_02__Cutterbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.045000
+      LENGTH 0.604646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_03 Cutter beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_03__Cutterbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.045000
+      LENGTH 0.595875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_04 Cutter beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_04__Cutterbeam.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Welding crackle"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 0.045000
+      LENGTH 0.480000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_01 Welding crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_01__Weldingcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.045000
+      LENGTH 0.480000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_02 Welding crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_02__Weldingcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.045000
+      LENGTH 0.480000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_03 Welding crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_03__Weldingcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.045000
+      LENGTH 0.480000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_04 Welding crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_04__Weldingcrackle.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Frame servo"
+    VOLPAN 0.223872 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.200271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_01 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_01__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.200271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_02 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_02__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.200271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_03 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_03__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.200271
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Fire_04 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Fire_04__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.100000
+      LENGTH 0.674667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_01 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_01__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.100000
+      LENGTH 0.674667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_02 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_02__Frameservo.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.100000
+      LENGTH 0.674667
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_03 Frame servo"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_03__Frameservo.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Contact arc"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.264833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_01 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_01__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.260417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_02 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_02__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.255896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_03 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_03__Contactarc.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Frame collapse"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 12.015000
+      LENGTH 0.416187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_01 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_01__Framecollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.015000
+      LENGTH 0.392833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_02 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_02__Framecollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.015000
+      LENGTH 0.370771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Impact_03 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Impact_03__Framecollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.350000
+      LENGTH 0.824604
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_01 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_01__Framecollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.350000
+      LENGTH 0.777937
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_02 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_02__Framecollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.350000
+      LENGTH 0.734313
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_03 Frame collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_03__Framecollapse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Operator"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.900438
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_01 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_01__Operator.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.879938
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_02 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_02__Operator.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.859458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_Death_03 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_Death_03__Operator.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shield rupture"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.636500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_01 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_01__Shieldrupture.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.618146
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_02 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_02__Shieldrupture.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.000000
+      LENGTH 0.600812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_03 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_03__Shieldrupture.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shield shards"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 30.025000
+      LENGTH 0.440812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_01 Shield shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_01__Shieldshards.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.025000
+      LENGTH 0.431042
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_02 Shield shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_02__Shieldshards.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.025000
+      LENGTH 0.421187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Lancer_ShieldBreak_03 Shield shards"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Lancer/SW_Human_Lancer_ShieldBreak_03__Shieldshards.wav"
+      >
+    >
+  >
+>

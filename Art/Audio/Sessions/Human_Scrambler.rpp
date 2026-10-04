@@ -1,0 +1,394 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Human_Scrambler"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Human_Scrambler_Fire_01" 1
+  MARKER 1 0.800000 "" 1
+  MARKER 2 3.000000 "SW_Human_Scrambler_Fire_02" 1
+  MARKER 2 3.800000 "" 1
+  MARKER 3 6.000000 "SW_Human_Scrambler_Fire_03" 1
+  MARKER 3 6.800000 "" 1
+  MARKER 4 9.000000 "SW_Human_Scrambler_Fire_04" 1
+  MARKER 4 9.800000 "" 1
+  MARKER 5 12.000000 "SW_Human_Scrambler_Impact_01" 1
+  MARKER 5 12.800000 "" 1
+  MARKER 6 15.000000 "SW_Human_Scrambler_Impact_02" 1
+  MARKER 6 15.800000 "" 1
+  MARKER 7 18.000000 "SW_Human_Scrambler_Impact_03" 1
+  MARKER 7 18.800000 "" 1
+  MARKER 8 21.000000 "SW_Human_Scrambler_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Human_Scrambler_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Human_Scrambler_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  MARKER 11 30.000000 "SW_Human_Scrambler_Pulse_01" 1
+  MARKER 11 31.600000 "" 1
+  MARKER 12 33.000000 "SW_Human_Scrambler_Pulse_02" 1
+  MARKER 12 34.600000 "" 1
+  MARKER 13 36.000000 "SW_Human_Scrambler_Pulse_03" 1
+  MARKER 13 37.600000 "" 1
+  <TRACK
+    NAME "EMP discharge"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.356729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_01 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_01__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.348438
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_02 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_02__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.340542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_03 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_03__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.332979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_04 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_04__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 21.100000
+      LENGTH 0.600812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_01 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_01__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.100000
+      LENGTH 0.600812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_02 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_02__EMPdischarge.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.100000
+      LENGTH 0.600812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_03 EMP discharge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_03__EMPdischarge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pack crackle"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 0.030000
+      LENGTH 0.250000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_01 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_01__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.030000
+      LENGTH 0.250000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_02 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_02__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.030000
+      LENGTH 0.250000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_03 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_03__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.030000
+      LENGTH 0.250000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_04 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_04__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 12.020000
+      LENGTH 0.180000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_01 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_01__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.020000
+      LENGTH 0.180000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_02 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_02__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.020000
+      LENGTH 0.180000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_03 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_03__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.200000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_01 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_01__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.200000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_02 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_02__Packcrackle.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.200000
+      LENGTH 0.550000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_03 Pack crackle"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_03__Packcrackle.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pack relay"
+    VOLPAN 0.223872 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.106958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_01 Pack relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_01__Packrelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.106958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_02 Pack relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_02__Packrelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.106958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_03 Pack relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_03__Packrelay.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.106958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Fire_04 Pack relay"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Fire_04__Packrelay.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Contact arc"
+    VOLPAN 0.794328 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.267396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_01 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_01__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.261104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_02 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_02__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.255104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Impact_03 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Impact_03__Contactarc.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Operator"
+    VOLPAN 0.501187 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.661021
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_01 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_01__Operator.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.645771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_02 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_02__Operator.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.630646
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_03 Operator"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_03__Operator.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pack drop"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 21.300000
+      LENGTH 0.505062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_01 Pack drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_01__Packdrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.300000
+      LENGTH 0.493437
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_02 Pack drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_02__Packdrop.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.300000
+      LENGTH 0.482333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Death_03 Pack drop"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Death_03__Packdrop.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse charge"
+    VOLPAN 0.354813 0 -1 -1 1
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.311958
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_01 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_01__Pulsecharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.306500
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_02 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_02__Pulsecharge.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.000000
+      LENGTH 0.301208
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_03 Pulse charge"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_03__Pulsecharge.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Pulse body"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 30.180000
+      LENGTH 0.952396
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_01 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_01__Pulsebody.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.180000
+      LENGTH 0.930250
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_02 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_02__Pulsebody.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.180000
+      LENGTH 0.909104
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Human_Scrambler_Pulse_03 Pulse body"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Human_Scrambler/SW_Human_Scrambler_Pulse_03__Pulsebody.wav"
+      >
+    >
+  >
+>

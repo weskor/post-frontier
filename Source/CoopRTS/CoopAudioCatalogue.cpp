@@ -24,7 +24,7 @@ struct FCueSpec
 
 int32 UCoopAudioSubsystem::CueKey(ECoopAudioEvent Event, int32 Team, int32 Role)
 {
-	return (Team == 5 ? 1000 : 0) + Role * 100 + static_cast<int32>(Event);
+	return (Team == 5 ? 10000 : 0) + Role * 100 + static_cast<int32>(Event);
 }
 
 UCoopAudioSubsystem::UCoopAudioSubsystem()
@@ -93,6 +93,8 @@ void UCoopAudioSubsystem::LoadCueLibrary()
 		for (const FCueSpec& Spec : Structures)
 			Load(Team, StructureRole, TEXT("Structure"), Spec);
 		Load(Team, StructureRole, TEXT("Structure"), Team == 5 ? FCueSpec{ ECoopAudioEvent::Notify, TEXT("Notify"), 2 } : FCueSpec{ ECoopAudioEvent::Research, TEXT("Research"), 2 });
+		Load(Team, UnitEffectRole, TEXT("Scrambler"), { ECoopAudioEvent::Pulse, TEXT("Pulse"), 3 });
+		Load(Team, UnitEffectRole, TEXT("Lancer"), { ECoopAudioEvent::ShieldBreak, TEXT("ShieldBreak"), 3 });
 	}
 	const FCueSpec UI[] = {
 		{ ECoopAudioEvent::Click, TEXT("Click"), 3 }, { ECoopAudioEvent::Select, TEXT("Select"), 2 },

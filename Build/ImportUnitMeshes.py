@@ -13,7 +13,7 @@ origin at the capsule centre (ground z = -60 for units, -100 for HQs). Default i
 it, so no rotation or scale is applied; the bounds checks below fail if that ever stops being true.
 
 Materials: every slot gets its MI_SC2_<Faction>_<Slot>_<Scope> instance of /Game/Art/Materials/M_Shared (built by
-Build/BuildSharedMaterial.py, which must have run first): scope Unit for the six units, Bld for the two HQs (they are
+Build/BuildSharedMaterial.py, which must have run first): scope Unit for the ten units, Bld for the two HQs (they are
 3 m buildings). The Team slot's `TeamColor` default is the faction colour (Human blue, Machine red); gameplay tints it
 per team through a dynamic instance. Vertex colours (the baked SC2Mask: R Edge, G Cavity, B Ground) are imported
 with Vertex Color Import Option Replace and read back in Build/VerifyMasks.py.
@@ -36,7 +36,7 @@ editor = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FBX_DIR = os.path.join(ROOT, "Art", "Units")
 MESH_FOLDER = "/Game/Art/Units"
-ROLES = ("Frontline", "Ranged", "Siege", "HQ")
+ROLES = ("Frontline", "Ranged", "Siege", "Lancer", "Scrambler", "HQ")
 FACTIONS = ("Machine", "Human")
 SLOTS = ("Team", "Shell", "Dark", "Glow")
 
@@ -139,7 +139,7 @@ for name, lo, hi in rows:
     # Forward is +X: barrels reach further forward than the body reaches back. SM_Human_Siege is exempt: its
     # wheels and rear mount make the box rear-heavy (-66.0 / +62.8, identical to the Blender source); its jaws
     # point +X, which the gallery screenshots confirm.
-    if name.endswith(("_Siege", "_Ranged")) and name != "SM_Human_Siege":
+    if name.endswith(("_Siege", "_Ranged", "_Lancer", "_Scrambler")) and name != "SM_Human_Siege":
         require(hi.x > abs(lo.x), "%s forward is not +X (max x %.1f, min x %.1f)" % (name, hi.x, lo.x))
 unreal.log("UNIT_MESHES_IMPORTED %d" % len(meshes))
 
@@ -187,10 +187,10 @@ def place(faction, role, x, y, yaw):
 
 # Machine row on +Y facing -Y (yaw -90); Human row on -Y facing +Y (yaw +90). Forward is +X in mesh space.
 # Units stand in a line along X with the HQs behind them (Machine HQ at +Y, Human HQ at -Y).
-unit_roles = ROLES[:3]
+unit_roles = ROLES[:-1]
 for faction, y, yaw in (("Machine", ROW_GAP / 2, -90.0), ("Human", -ROW_GAP / 2, 90.0)):
     for index, role in enumerate(unit_roles):
-        place(faction, role, (index - 1) * SPACING, y, yaw)
+        place(faction, role, (index - 2) * SPACING, y, yaw)
     place(faction, "HQ", 0.0, y + (1 if faction == "Machine" else -1) * HQ_OFFSET, yaw)
 
 # GameModeBase still spawns a DefaultPawn (a visible sphere); park it far outside the frame. The camera is the view.

@@ -127,7 +127,7 @@ def import_announcer():
 
 def import_world_audio():
     files = sorted((ROOT / "Art" / "Audio").glob("*/*/SW_*.wav"))
-    require(len(files) == 115, "Expected 115 rendered source WAVs, found " + str(len(files)))
+    require(files, "No rendered source WAVs found under Art/Audio; run generate-unit-audio")
     for source in files:
         with wave.open(str(source), "rb") as data:
             require(data.getframerate() == 48000 and data.getnchannels() == 1 and data.getsampwidth() == 3,
@@ -226,9 +226,13 @@ def import_world_audio():
 
     concurrency = {}
     limits = {"Combat": 24, "Impact": 12, "Death": 8, "Construction": 4, "Structure": 8, "Alerts": 2, "UI": 4, "Ambience": 1}
-    for faction in ("Human", "Machine"):
-        for role in ("Frontline", "Ranged", "Siege"):
-            limits[faction + "_" + role] = 6
+    weapon_sets = sorted({
+        "_".join(source.parts[-3:-1])
+        for source in files
+        if source.stem.split("_")[-2] in ("Attack", "Fire", "Pulse")
+    })
+    for key in weapon_sets:
+        limits[key] = 6
     for name, count in limits.items():
         obj = asset("CC_" + name, unreal.SoundConcurrency, unreal.SoundConcurrencyFactory)
         settings = obj.get_editor_property("concurrency")
@@ -264,7 +268,7 @@ def import_world_audio():
         faction, role = source.parts[-3:-1]
         event = source.stem.split("_")[-2]
         volume, priority = (0.80 if faction == "Machine" else 1.0), 1.0
-        if event in ("Attack", "Fire"):
+        if event in ("Attack", "Fire", "Pulse"):
             category, group = "Combat", "Combat"
             groups = [concurrency[group], concurrency[faction + "_" + role]]
         else:
@@ -272,6 +276,8 @@ def import_world_audio():
                 category, group, priority = "Ambience", "Ambience", 0.25
             elif event == "Impact":
                 category, group, volume, priority = "Combat", "Impact", volume * 0.70, 0.75
+            elif event == "ShieldBreak":
+                category, group, priority = "Combat", "Impact", 1.5
             elif event == "Death":
                 category, group, priority = "Combat", "Death", 1.5
             elif event == "ConstructLoop":
@@ -293,8 +299,10 @@ def import_world_audio():
         sound.set_editor_property("override_concurrency", False)
         sound.set_editor_property("concurrency_set", groups)
         save(sound)
+        unreal.log("AUDIO_IMPORTED_CUE " + paths[0])
 
-    unreal.log("AUDIO_IMPORTED waves=115 support=25 total=140")
+    support_count = len(classes) + len(concurrency) + len([mix, attenuation, reverb, preset, submix])
+    unreal.log(f"AUDIO_IMPORTED waves={len(files)} support={support_count} total={len(files) + support_count}")
 
 
 if __name__ == "__main__":

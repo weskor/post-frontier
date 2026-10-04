@@ -8,12 +8,12 @@ Pipeline (see Docs/World.md "Art pipeline"): Build/GenerateBuildingMeshes.py (Bl
     -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/ImportBuildingMeshes.py" \
     -unattended -nullrhi -nosplash
 
-Require BUILDING_MESHES_IMPORTED 15 in the log (and no RuntimeError). Reruns replace the meshes.
+Require BUILDING_MESHES_IMPORTED 19 in the log (and no RuntimeError). Reruns replace the meshes.
 
-Meshes: SM_{Human,Machine}_{Barracks,Barracks_Frontline,Barracks_Ranged,Barracks_Siege,Outpost,Workshop} (a Barracks
-is configured once and permanently as Frontline, Ranged or Siege; SM_*_Barracks is the neutral, unconfigured
-building) and the faction-neutral scaffolds SM_Construction_{Barracks,Outpost,Workshop}. These are the names
-ACommandBuilding::FindBuildingMesh loads.
+Meshes: SM_{Human,Machine}_{Barracks,Barracks_Frontline,Barracks_Ranged,Barracks_Siege,Barracks_Lancer,
+Barracks_Scrambler,Outpost,Workshop} (a Barracks is configured once and permanently as Frontline, Ranged, Siege,
+Lancer or Scrambler; SM_*_Barracks is the neutral, unconfigured building) and the faction-neutral scaffolds
+SM_Construction_{Barracks,Outpost,Workshop}. These are the names ACommandBuilding::FindBuildingMesh loads.
 
 FBX contract (docstring of Build/GenerateBuildingMeshes.py; ACommandBuilding::GetFootprintRadius): centimetres, +Z up,
 door / ramp / dish toward +X, origin at the footprint centre, ground at z = -65 (the actor's footprint box is 130 cm
@@ -42,7 +42,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FBX_DIR = os.path.join(ROOT, "Art", "Buildings")
 MESH_FOLDER = "/Game/Art/Buildings"
 FACTIONS = ("Machine", "Human")
-KINDS = ("Barracks", "Barracks_Frontline", "Barracks_Ranged", "Barracks_Siege", "Outpost", "Workshop")
+KINDS = ("Barracks", "Barracks_Frontline", "Barracks_Ranged", "Barracks_Siege", "Barracks_Lancer",
+         "Barracks_Scrambler", "Outpost", "Workshop")
 SCAFFOLDS = ("Barracks", "Outpost", "Workshop")
 SLOTS = ("Team", "Shell", "Dark", "Glow")
 GROUND = -65.0
@@ -51,7 +52,8 @@ OVERHANG = 1.10
 HALF = {"Barracks": 125.0, "Outpost": 95.0, "Workshop": 145.0}
 # Height above ground in cm: min / max, from HEIGHT_RANGE / SCAFFOLD_HEIGHT_RANGE in Build/GenerateBuildingMeshes.py
 HEIGHT = {"Barracks": (170, 230), "Barracks_Frontline": (170, 260), "Barracks_Ranged": (170, 260),
-          "Barracks_Siege": (170, 260), "Outpost": (340, 400), "Workshop": (160, 230)}
+          "Barracks_Siege": (170, 260), "Barracks_Lancer": (170, 260), "Barracks_Scrambler": (170, 260),
+          "Outpost": (340, 400), "Workshop": (160, 230)}
 SCAFFOLD_HEIGHT = {"Barracks": (190, 250), "Outpost": (260, 340), "Workshop": (170, 240)}
 
 # name -> (materials faction set, footprint class, height range)

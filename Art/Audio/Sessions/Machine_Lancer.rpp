@@ -1,0 +1,358 @@
+<REAPER_PROJECT 0.1 "7.79/linux-x86_64" 0
+  SAMPLERATE 48000 0 0
+  RENDER_FILE "../../../Saved/AudioRender/Machine_Lancer"
+  RENDER_PATTERN $region
+  RENDER_FMT 0 1 48000
+  RENDER_1X 0
+  RENDER_RANGE 3 0 0 0 1000
+  RENDER_STEMS 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  MARKER 1 0.000000 "SW_Machine_Lancer_Fire_01" 1
+  MARKER 1 0.900000 "" 1
+  MARKER 2 3.000000 "SW_Machine_Lancer_Fire_02" 1
+  MARKER 2 3.900000 "" 1
+  MARKER 3 6.000000 "SW_Machine_Lancer_Fire_03" 1
+  MARKER 3 6.900000 "" 1
+  MARKER 4 9.000000 "SW_Machine_Lancer_Fire_04" 1
+  MARKER 4 9.900000 "" 1
+  MARKER 5 12.000000 "SW_Machine_Lancer_Impact_01" 1
+  MARKER 5 12.800000 "" 1
+  MARKER 6 15.000000 "SW_Machine_Lancer_Impact_02" 1
+  MARKER 6 15.800000 "" 1
+  MARKER 7 18.000000 "SW_Machine_Lancer_Impact_03" 1
+  MARKER 7 18.800000 "" 1
+  MARKER 8 21.000000 "SW_Machine_Lancer_Death_01" 1
+  MARKER 8 22.600000 "" 1
+  MARKER 9 24.000000 "SW_Machine_Lancer_Death_02" 1
+  MARKER 9 25.600000 "" 1
+  MARKER 10 27.000000 "SW_Machine_Lancer_Death_03" 1
+  MARKER 10 28.600000 "" 1
+  MARKER 11 30.000000 "SW_Machine_Lancer_ShieldBreak_01" 1
+  MARKER 11 31.000000 "" 1
+  MARKER 12 33.000000 "SW_Machine_Lancer_ShieldBreak_02" 1
+  MARKER 12 34.000000 "" 1
+  MARKER 13 36.000000 "SW_Machine_Lancer_ShieldBreak_03" 1
+  MARKER 13 37.000000 "" 1
+  <TRACK
+    NAME "Correction tone"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 0.000000
+      LENGTH 0.224479
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_01 Correction tone"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_01__Correctiontone.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.000000
+      LENGTH 0.221979
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_02 Correction tone"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_02__Correctiontone.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.000000
+      LENGTH 0.219312
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_03 Correction tone"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_03__Correctiontone.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.000000
+      LENGTH 0.216938
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_04 Correction tone"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_04__Correctiontone.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Precision beam"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 0.025000
+      LENGTH 0.466458
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_01 Precision beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_01__Precisionbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 3.025000
+      LENGTH 0.460813
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_02 Precision beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_02__Precisionbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 6.025000
+      LENGTH 0.455708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_03 Precision beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_03__Precisionbeam.wav"
+      >
+    >
+    <ITEM
+      POSITION 9.025000
+      LENGTH 0.450313
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Fire_04 Precision beam"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Fire_04__Precisionbeam.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Contact arc"
+    VOLPAN 0.707946 0 -1 -1 1
+    <ITEM
+      POSITION 12.000000
+      LENGTH 0.330521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_01 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_01__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.000000
+      LENGTH 0.322896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_02 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_02__Contactarc.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.000000
+      LENGTH 0.315333
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_03 Contact arc"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_03__Contactarc.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Glass fracture"
+    VOLPAN 0.398107 0 -1 -1 1
+    <ITEM
+      POSITION 12.020000
+      LENGTH 0.264833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_01 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_01__Glassfracture.wav"
+      >
+    >
+    <ITEM
+      POSITION 15.020000
+      LENGTH 0.260417
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_02 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_02__Glassfracture.wav"
+      >
+    >
+    <ITEM
+      POSITION 18.020000
+      LENGTH 0.255896
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Impact_03 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Impact_03__Glassfracture.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.020000
+      LENGTH 0.534062
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_01 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_01__Glassfracture.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.020000
+      LENGTH 0.521521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_02 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_02__Glassfracture.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.020000
+      LENGTH 0.509563
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_03 Glass fracture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_03__Glassfracture.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Power down"
+    VOLPAN 0.562341 0 -1 -1 1
+    <ITEM
+      POSITION 21.000000
+      LENGTH 0.707229
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_01 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_01__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.000000
+      LENGTH 0.686833
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_02 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_02__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.000000
+      LENGTH 0.667562
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_03 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_03__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 30.120000
+      LENGTH 0.269875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_01 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_01__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.120000
+      LENGTH 0.269875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_02 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_02__Powerdown.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.120000
+      LENGTH 0.269875
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_03 Power down"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_03__Powerdown.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Fault"
+    VOLPAN 0.251189 0 -1 -1 1
+    <ITEM
+      POSITION 21.120000
+      LENGTH 0.336708
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_01 Fault"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_01__Fault.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.120000
+      LENGTH 0.317812
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_02 Fault"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_02__Fault.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.120000
+      LENGTH 0.300000
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_03 Fault"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_03__Fault.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shell collapse"
+    VOLPAN 0.446684 0 -1 -1 1
+    <ITEM
+      POSITION 21.320000
+      LENGTH 0.629729
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_01 Shell collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_01__Shellcollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 24.320000
+      LENGTH 0.594542
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_02 Shell collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_02__Shellcollapse.wav"
+      >
+    >
+    <ITEM
+      POSITION 27.320000
+      LENGTH 0.561187
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_Death_03 Shell collapse"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_Death_03__Shellcollapse.wav"
+      >
+    >
+  >
+  <TRACK
+    NAME "Shield rupture"
+    VOLPAN 1.000000 0 -1 -1 1
+    <ITEM
+      POSITION 30.000000
+      LENGTH 0.566771
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_01 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_01__Shieldrupture.wav"
+      >
+    >
+    <ITEM
+      POSITION 33.000000
+      LENGTH 0.554188
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_02 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_02__Shieldrupture.wav"
+      >
+    >
+    <ITEM
+      POSITION 36.000000
+      LENGTH 0.541521
+      FADEOUT 1 0.005 0 1 0 0 0
+      NAME "SW_Machine_Lancer_ShieldBreak_03 Shield rupture"
+      <SOURCE WAVE
+        FILE "../../../Saved/AudioLayers/Machine_Lancer/SW_Machine_Lancer_ShieldBreak_03__Shieldrupture.wav"
+      >
+    >
+  >
+>

@@ -17,13 +17,16 @@ All model code writes heights above the ground; BModel.add shifts them by GROUND
 
 Meshes (one object per FBX, exported at the origin, same FBX settings as the units)
     SM_Human_Barracks   SM_Human_Barracks_Frontline   SM_Human_Barracks_Ranged   SM_Human_Barracks_Siege
+                        SM_Human_Barracks_Lancer      SM_Human_Barracks_Scrambler
     SM_Human_Outpost    SM_Human_Workshop
     SM_Machine_Barracks SM_Machine_Barracks_Frontline SM_Machine_Barracks_Ranged SM_Machine_Barracks_Siege
+                        SM_Machine_Barracks_Lancer    SM_Machine_Barracks_Scrambler
     SM_Machine_Outpost  SM_Machine_Workshop
     SM_Construction_Barracks SM_Construction_Outpost SM_Construction_Workshop   (faction neutral)
-A Barracks is configured once and permanently as Frontline, Ranged or Siege (no level 2). SM_*_Barracks is the
-neutral, unconfigured building; each role mesh is the same base (same footprint, origin, slots) plus a role
-add-on that echoes the unit it produces (barracks_role functions, verify() requires >500 extra triangles).
+A Barracks is configured once and permanently as Frontline, Ranged, Siege, Lancer or Scrambler (no level 2).
+SM_*_Barracks is the neutral, unconfigured building; each role mesh is the same base (same footprint, origin,
+slots) plus a role add-on that echoes the unit it produces (barracks_role functions, verify() requires >500
+extra triangles).
 
 Art direction (Saved/AgentBriefs/sc2-style.md): StarCraft 2-style stylized sci-fi, not scrap. Human = rugged
 blue-collar industrial future-military (Terran-like): armoured hulls on landing struts, blast doors, hazard
@@ -43,7 +46,7 @@ Budgets asserted in check(): at most 20000 triangles per building and 10000 per 
 Scaffolds obey the same footprint rule (crane arms may overhang up to +10%).
 
 Outputs (Art/Buildings/, relative to the repo root)
-    SM_*.fbx            fifteen meshes
+    SM_*.fbx            nineteen meshes
                         Each carries the colour attribute SC2Mask (R Edge, G Cavity, B Ground, A 1; linear, see
                         Build/MasterMaterials.py), re-imported and checked against the baked values on every run.
     Buildings.blend     the same meshes in a grid for editing (NOT at the origin; always export from this
@@ -51,7 +54,8 @@ Outputs (Art/Buildings/, relative to the repo root)
                         Rewritten on EVERY run, including when a build step or check fails.
     Preview.png         side view (orthographic, looks along +Y, +X is right). Rows top to bottom: Machine,
                         Human, Construction. Columns: Barracks (neutral), Barracks_Frontline, Barracks_Ranged,
-                        Barracks_Siege, Outpost, Workshop (scaffolds sit under Barracks, Outpost, Workshop).
+                        Barracks_Siege, Barracks_Lancer, Barracks_Scrambler, Outpost, Workshop (scaffolds sit under
+                        Barracks, Outpost, Workshop).
     PreviewRTS.png      same lineup from a 50 degree RTS camera (25 degrees azimuth, fronts toward camera)
     PreviewField.png    RTS distance on the Campus Zero asphalt/scrapyard albedo under dusk light with
                         Frontline / Ranged / Siege units next to the buildings for scale
@@ -100,7 +104,8 @@ MIN_TEAM_TOP_AREA = {"building": 0.6, "scaffold": 0.4}   # m^2 of Team faces loo
 # min / max height above ground (m): the Outpost is the tall beacon, the Workshop the low wide one
 HEIGHT_RANGE = {
     "Barracks": (1.7, 2.3), "Barracks_Frontline": (1.7, 2.6), "Barracks_Ranged": (1.7, 2.6),
-    "Barracks_Siege": (1.7, 2.6), "Outpost": (3.4, 4.0), "Workshop": (1.6, 2.3),
+    "Barracks_Siege": (1.7, 2.6), "Barracks_Lancer": (1.7, 2.6), "Barracks_Scrambler": (1.7, 2.6),
+    "Outpost": (3.4, 4.0), "Workshop": (1.6, 2.3),
 }
 SCAFFOLD_HEIGHT_RANGE = {"Barracks": (1.9, 2.5), "Outpost": (2.6, 3.4), "Workshop": (1.7, 2.4)}
 
@@ -614,8 +619,55 @@ def human_barracks_siege(m):
     m.hazard((-0.80, -1.36, 0.05), (1, 0, 0), (0, 1, 0), 1.35, 0.23, (0, 0, 1), period=0.16)
 
 
+def human_barracks_lancer(m):
+    """Lancer (Torchbearer, mining cutter): a shield gate of two hoops with a lit inner ring and Team caps
+    straddling the door, and racked mining cutters with lit nozzles along both flanks."""
+    for x in (1.22, 1.32):
+        m.tor((x, 0.0, 0.62), 0.52, 0.035, SHELL, aim=(1, 0, 0), verts=40)
+    m.tor((1.27, 0.0, 0.62), 0.50, 0.012, GLOW, aim=(1, 0, 0), verts=40)
+    m.bx(1.17, 1.35, -0.17, 0.17, 1.13, 1.21, TEAM, bevel=0.02)
+    for s in (1, -1):
+        m.bx(1.17, 1.35, s * 0.46, s * 0.62, 0.0, 0.10, DARK, bevel=0.02)
+        m.bx(1.17, 1.35, s * 0.50, s * 0.60, 0.44, 0.78, TEAM, bevel=0.02)
+        m.bx(-0.70, 0.50, s * 1.10, s * 1.18, 0.15, 1.00, DARK, bevel=0.02)
+        m.bx(-0.70, 0.50, s * 1.08, s * 1.24, 0.0, 0.15, DARK, bevel=0.02)
+        m.bx(-0.74, 0.54, s * 1.16, s * 1.26, 1.00, 1.06, TEAM, bevel=0.02)
+        for i in range(4):
+            z = 0.28 + 0.19 * i
+            m.cyl((-0.10, s * 1.22, z), (1.00, 0.09, 0.09), SHELL, aim=(1, 0, 0), verts=12)
+            m.cyl((0.46, s * 1.22, z), (0.14, 0.05, 0.05), DARK, aim=(1, 0, 0), verts=10, taper=0.5)
+            m.sph((0.54, s * 1.22, z), (0.06, 0.06, 0.06), GLOW, verts=8)
+            m.cyl((-0.45, s * 1.22, z), (0.10, 0.12, 0.12), TEAM, aim=(1, 0, 0), verts=12)
+
+
+def human_barracks_scrambler(m):
+    """Scrambler (Killswitch, EMP pack): two coil towers on the roof, each a stack of lit rings on a dark core
+    with a fork of prongs, capacitor drums with lit bands along both flanks and a Team surge plate."""
+    for s in (1, -1):
+        x0, y = -0.35, s * 0.72
+        m.bx(x0 - 0.22, x0 + 0.22, y - 0.22, y + 0.22, 1.50, 1.62, DARK, bevel=0.03)
+        m.bx(x0 - 0.18, x0 + 0.18, y - 0.18, y + 0.18, 1.62, 1.68, TEAM, bevel=0.02)
+        m.cyl((x0, y, 1.98), (0.62, 0.14, 0.14), DARK, aim=(0, 0, 1), verts=14)
+        for z in (1.78, 1.94, 2.10, 2.26):
+            m.tor((x0, y, z), 0.13, 0.025, GLOW, verts=20)
+        for d in (1, -1):
+            m.rod((x0, y, 2.30), (x0 + 0.04, y + 0.17 * d, 2.46), 0.022, SHELL, verts=6)
+            m.sph((x0 + 0.04, y + 0.17 * d, 2.48), (0.07, 0.07, 0.07), GLOW, verts=8)
+        m.sph((x0, y, 2.34), (0.10, 0.10, 0.10), GLOW, verts=10)
+        m.bx(-0.70, 0.50, s * 1.10, s * 1.24, 0.0, 0.10, DARK, bevel=0.02)
+        for i in range(4):
+            x = -0.52 + 0.34 * i
+            m.ycyl((x, s * 1.20, 0.45), 0.14, 0.26, DARK, verts=14)
+            m.ycyl((x, s * 1.275, 0.45), 0.02, 0.30, GLOW, verts=14)
+            m.ycyl((x, s * 1.24, 0.80), 0.10, 0.20, SHELL, verts=14)
+        m.bx(-0.72, 0.52, s * 1.16, s * 1.30, 0.92, 0.97, TEAM, bevel=0.02)
+    m.bx(1.15, 1.30, -0.50, 0.50, 1.46, 1.54, TEAM, bevel=0.02)
+    m.cable((1.20, -0.50, 1.50), (0.40, -0.90, 1.70), (-0.20, -0.72, 1.62), 0.02, verts=6)
+
+
 HUMAN_ROLES = {"Frontline": human_barracks_frontline, "Ranged": human_barracks_ranged,
-               "Siege": human_barracks_siege}
+               "Siege": human_barracks_siege, "Lancer": human_barracks_lancer,
+               "Scrambler": human_barracks_scrambler}
 
 
 def machine_barracks_frontline(m):
@@ -679,8 +731,43 @@ def machine_barracks_siege(m):
     m.plan(ellipse(0.16, 0.16, 20), 1.30, 1.325, GLOW, loc=(-0.55, 0))
 
 
+def machine_barracks_lancer(m):
+    """Lancer (Corrector): four tall floating shield vanes standing on lit pedestals around the hover steps, and
+    a pearl needle crystal hung between two floating rings over the roof."""
+    for s in (1, -1):
+        for x, y, yaw in ((1.15, s * 0.62, -20 * s), (0.78, s * 1.02, -35 * s)):
+            m.plan(ellipse(0.17, 0.17, 18), 0.0, 0.10, DARK, loc=(x, y), bevel=0.01)
+            m.tor((x, y, 0.12), 0.19, 0.014, GLOW, verts=24)
+            m.sph((x, y, 0.82), (0.34, 0.07, 1.30), SHELL, rot=(0, 0, yaw), verts=20)
+            m.box((x, y, 0.88), (0.20, 0.09, 0.50), TEAM, rot=(0, 0, yaw), bevel=0.01)
+            m.box((x, y, 1.44), (0.12, 0.09, 0.02), GLOW, rot=(0, 0, yaw))
+    m.lathe([(0.0, 1.62), (0.10, 1.70), (0.10, 2.02), (0.0, 2.32)], (-0.05, 0.0, 0.0), GLOW, verts=6)
+    for z, r in ((1.82, 0.20), (2.02, 0.16)):
+        m.tor((-0.05, 0.0, z), r, 0.025, SHELL, verts=28)
+
+
+def machine_barracks_scrambler(m):
+    """Scrambler (Override): a fan of five crystal antenna spires rising forward from a Team ring on the roof,
+    with floating data shards trailing behind it."""
+    base = Vector((-0.20, 0.0, 1.55))
+    m.plan(ellipse(0.34, 0.34, 24), 1.50, 1.58, DARK, loc=(-0.20, 0.0), bevel=0.012)
+    m.tor((base.x, base.y, 1.62), 0.30, 0.035, TEAM, verts=32)
+    for k, yaw in enumerate((-48, -24, 0, 24, 48)):
+        a = math.radians(yaw)
+        pitch = math.radians(35 + (8 if k % 2 else 0))
+        d = Vector((math.cos(pitch) * math.cos(a), math.cos(pitch) * math.sin(a), math.sin(pitch)))
+        tip = base + d * 0.95
+        m.rod(base + Vector((0, 0, 0.05)), tip, 0.035, SHELL, r1=0.012, verts=6)
+        m.rod(base.lerp(tip, 0.15), base.lerp(tip, 0.9), 0.008, GLOW, verts=4)
+        m.sph(tip, (0.07, 0.07, 0.07), GLOW, verts=8)
+    for i, (x, y, z, r) in enumerate(((-0.62, 0.30, 1.90, 25), (-0.80, -0.20, 2.15, 70), (-0.55, -0.42, 1.75, 40),
+                                      (-0.90, 0.10, 1.70, 10), (-0.70, 0.52, 2.20, 55))):
+        m.box((x, y, z), (0.12, 0.09, 0.10), GLOW if i % 2 else SHELL, rot=(r, 2 * r, 3 * r), bevel=0.01, seg=2)
+
+
 MACHINE_ROLES = {"Frontline": machine_barracks_frontline, "Ranged": machine_barracks_ranged,
-                 "Siege": machine_barracks_siege}
+                 "Siege": machine_barracks_siege, "Lancer": machine_barracks_lancer,
+                 "Scrambler": machine_barracks_scrambler}
 
 
 # --------------------------------------------------------------------------------------
@@ -1069,12 +1156,16 @@ MODELS = (
     ("Machine", "Barracks_Frontline", lambda mats: machine_barracks(mats, "Frontline")),
     ("Machine", "Barracks_Ranged", lambda mats: machine_barracks(mats, "Ranged")),
     ("Machine", "Barracks_Siege", lambda mats: machine_barracks(mats, "Siege")),
+    ("Machine", "Barracks_Lancer", lambda mats: machine_barracks(mats, "Lancer")),
+    ("Machine", "Barracks_Scrambler", lambda mats: machine_barracks(mats, "Scrambler")),
     ("Machine", "Outpost", machine_outpost),
     ("Machine", "Workshop", machine_workshop),
     ("Human", "Barracks", human_barracks),
     ("Human", "Barracks_Frontline", lambda mats: human_barracks(mats, "Frontline")),
     ("Human", "Barracks_Ranged", lambda mats: human_barracks(mats, "Ranged")),
     ("Human", "Barracks_Siege", lambda mats: human_barracks(mats, "Siege")),
+    ("Human", "Barracks_Lancer", lambda mats: human_barracks(mats, "Lancer")),
+    ("Human", "Barracks_Scrambler", lambda mats: human_barracks(mats, "Scrambler")),
     ("Human", "Outpost", human_outpost),
     ("Human", "Workshop", human_workshop),
     ("Construction", "Barracks", lambda mats: construction(mats, "Barracks")),
@@ -1132,8 +1223,9 @@ def check(obj):
 # --------------------------------------------------------------------------------------
 PREVIEW_SIZE = (2400, 1500)
 RTS_SIZE = (2400, 1500)
-COLUMN = {"Barracks": 0, "Barracks_Frontline": 1, "Barracks_Ranged": 2, "Barracks_Siege": 3, "Outpost": 4,
-          "Workshop": 5}
+COLUMN = {"Barracks": 0, "Barracks_Frontline": 1, "Barracks_Ranged": 2, "Barracks_Siege": 3, "Barracks_Lancer": 4,
+          "Barracks_Scrambler": 5, "Outpost": 6, "Workshop": 7}
+CENTER_COLUMN = 3.5   # column the preview cameras centre on
 ROW = {"Machine": 0, "Human": 1, "Neutral": 2}   # Machine top / far, Human middle, Construction bottom / near
 COLUMN_DX = 4.2
 ROW_DZ = 4.2      # side view row pitch
@@ -1268,28 +1360,29 @@ class Rig:
                 prop.location = (col * COLUMN_DX, 0.0, (2 - row) * ROW_DZ - GROUND)
             else:
                 prop.location = (col * COLUMN_DX, (1 - row) * ROW_DY, -GROUND)
-        cx = 2.5 * COLUMN_DX
+        cx = CENTER_COLUMN * COLUMN_DX
         for ground in self.grounds:
             ground.hide_render = True
         if view == "side":
             for row, ground in enumerate(self.grounds):
                 ground.hide_render = False
-                ground.scale = (29.0, 5.2, 0.04)
+                ground.scale = (38.0, 5.2, 0.04)
                 ground.location = (cx, 0.0, (2 - row) * ROW_DZ - 0.02)
         else:
             ground = self.grounds[0]
             ground.hide_render = False
-            ground.scale = (30.0, 22.0, 0.04)
+            ground.scale = (40.0, 26.0, 0.04)
             ground.location = (cx, 0.0, -0.02)
 
     def camera_side(self):
         self.scene.render.resolution_x, self.scene.render.resolution_y = PREVIEW_SIZE
         self.cam_data.type = "ORTHO"
-        self.cam_data.ortho_scale = 27.0
-        self.cam.location = (2.5 * COLUMN_DX, -60.0, ROW_DZ + 2.0)
+        self.cam_data.ortho_scale = 36.0
+        self.cam.location = (CENTER_COLUMN * COLUMN_DX, -60.0, ROW_DZ + 2.0)
         self.cam.rotation_euler = (math.radians(90), 0, 0)
 
-    def camera_rts(self, target=(2.5 * COLUMN_DX, -0.3, 0.8), distance=46.0, azimuth=25.0, lens=55, pitch=50.0):
+    def camera_rts(self, target=(CENTER_COLUMN * COLUMN_DX, -0.3, 0.8), distance=62.0, azimuth=25.0, lens=55,
+                   pitch=50.0):
         """50 degree pitch; azimuth rotates the camera around the target (0 = looking along +Y)."""
         self.cam_data.type = "PERSP"
         self.cam_data.lens = lens

@@ -37,7 +37,9 @@ enum class ECoopAudioEvent : uint8
 	Select,
 	Front,
 	Reject,
-	Hover
+	Hover,
+	Pulse,
+	ShieldBreak
 };
 
 USTRUCT()

@@ -709,6 +709,17 @@ GLYPHS_SVG: dict[str, str] = {
         '<rect x="46" y="16" width="12" height="22" rx="2"/></g>'
         '<rect x="8" y="50" width="48" height="8"/><circle cx="20" cy="52" r="7"/><circle cx="44" cy="52" r="7"/>'
     ),
+    "role_assault": g(
+        '<path fill-rule="evenodd" d="M6,18 H28 V36 C28,47 23,54 17,58 C11,54 6,47 6,36 Z '
+        'M12,24 H22 V36 C22,43 20,47 17,50 C14,47 12,43 12,36 Z"/>'
+        '<polygon points="44,4 56,24 47,24 47,48 41,48 41,24 32,24"/>'
+        '<rect x="34" y="46" width="20" height="6"/><rect x="41" y="52" width="6" height="8"/>'
+    ),
+    "role_support": g(
+        '<rect x="27" y="27" width="10" height="10"/>'
+        f'<path d="M22,18 H18 V46 H22 M42,18 H46 V46 H42 '
+        f'M12,8 H6 V56 H12 M52,8 H58 V56 H52" fill="none" stroke="{W}" stroke-width="6"/>'
+    ),
 }
 
 # ---------------------------------------------------------------------------------------------------------------

@@ -15,30 +15,34 @@ contact at z = -0.60; the Machine Ranged drone hovers with its lowest point at z
 check(): at most 15000 triangles per unit and 35000 per HQ; unit footprints stay inside +/-0.47 m
 (Siege +/-0.67 m) in X and Y.
 
-The eight meshes
+The twelve meshes
     Machine (team 5): SOL 6000 (Frontline: pearl sentinel, floating shoulder shells, red lens), Autocomplete
         Drone (Ranged: hovering pod, floating halo, cyan core), Hallucinator (Siege: quadruped with an
-        energy-prism lance), The Cluster (HQ: floating-segment monolith around one huge red lens).
+        energy-prism lance), Corrector (Lancer: tall pearl needle on a three-pin tripod, four floating
+        shield vanes, one prism lance), Override (Scrambler: monopod core with a forward fan of five antenna
+        blades and floating data shards), The Cluster (HQ: floating-segment monolith around one huge red lens).
     Human (The Offline): Luddite (Frontline: power armour, riot shield, hydraulic sledgehammer), Offline
         Ranger (Ranged: light armour, rail rifle, sensor backpack), Unplugger (Siege: mech walker with giant
-        bolt-cutter jaws), The Bunker (HQ: prefab command post on landing struts, blast doors, reactor stack).
+        bolt-cutter jaws), Torchbearer (Lancer: miner in a raised shield-cage hoop with a mining cutter),
+        Killswitch (Scrambler: lean runner under a tall EMP coil pack with a forearm emitter dish), The
+        Bunker (HQ: prefab command post on landing struts, blast doors, reactor stack).
 
 Outputs (relative to the repo root)
     Art/Units/SM_<Name>.fbx   one mesh object named SM_<Name> per file, exported at the origin
-    Art/Units/Units.blend     the same eight meshes in a row along +X for editing, wearing the preview
+    Art/Units/Units.blend     the same twelve meshes in a row along +X for editing, wearing the preview
                               palette as object-level material overrides (NOT at the origin; always export
                               from this script, never from the .blend). Saved on every run.
     Art/Units/Preview.png     side view lineup (orthographic, camera looks along +Y, +X is right)
     Art/Units/PreviewRTS.png  the same lineup from a 50 degree pitch RTS camera (perspective, 25
                               degrees azimuth so unit fronts (+X) turn toward the camera)
-    Art/Units/PreviewField.png  RTS-distance check: all six units (no HQs) on the Campus Zero asphalt
+    Art/Units/PreviewField.png  RTS-distance check: all ten units (no HQs) on the Campus Zero asphalt
                               with a scrapyard patch, low warm key + cool fill, about 40 px per unit
                               at 2000 px wide. Human and Machine should be equally easy to spot here.
 
-Preview lineup order. Columns left to right: Frontline, Ranged, Siege, HQ. Machine row on top
-(side view) or far (RTS view); Human row below (side view) or near (RTS view):
-    Machine: SM_Machine_Frontline, SM_Machine_Ranged, SM_Machine_Siege, SM_Machine_HQ
-    Human:   SM_Human_Frontline,   SM_Human_Ranged,   SM_Human_Siege,   SM_Human_HQ
+Preview lineup order. Columns left to right: Frontline, Ranged, Siege, Lancer, Scrambler, HQ. Machine row on
+top (side view) or far (RTS view); Human row below (side view) or near (RTS view):
+    Machine: SM_Machine_Frontline, _Ranged, _Siege, _Lancer, _Scrambler, SM_Machine_HQ
+    Human:   SM_Human_Frontline,   _Ranged, _Siege, _Lancer, _Scrambler, SM_Human_HQ
 
 Material slots, in this order on every mesh (all four are used by every mesh):
     0 Team   player colour: big painted plates (Human: pauldrons, pack lids, shield faces, roof plates,
@@ -923,10 +927,240 @@ def human_hq(mats):
     return m.finish()
 
 
+# --------------------------------------------------------------------------------------
+# Shielded triangle units: Lancer (Assault, Shielded) and Scrambler (Support, EMP)
+# --------------------------------------------------------------------------------------
+def arch_x(m, center, radius, a0, a1, n, r, mat, verts=8):
+    """Arc of rods in the YZ plane around `center` (an X-axis ring segment). Angles in degrees: 0 = +Y, 90 = up."""
+    center = Vector(center)
+    pts = []
+    for i in range(n + 1):
+        a = math.radians(a0 + (a1 - a0) * i / n)
+        pts.append(center + Vector((0.0, radius * math.cos(a), radius * math.sin(a))))
+    for p0, p1 in zip(pts, pts[1:]):
+        m.rod(p0, p1, r, mat, verts=verts)
+
+
+def human_lancer(mats):
+    """Torchbearer: miner in a shield cage. A raised hoop of rods and emitter caps stands behind the shoulders
+    (a wide T from above), the right hand carries a mining cutter that ends in a lit beam tip."""
+    m = Model("SM_Human_Lancer", mats)
+    # legs: lugged boot, toe wedge, greave, knee, thigh plate (a little leaner than the Luddite)
+    for s in (1, -1):
+        y = 0.15 * s
+        m.box((0.03, y, -0.58), (0.38, 0.21, 0.04), DARK, bevel=0.015)
+        m.armor((0.0, y, -0.50), (0.30, 0.20, 0.12), SHELL, top=(0.92, 0.94))
+        m.armor((0.18, y, -0.51), (0.12, 0.18, 0.09), SHELL, top=(0.35, 0.9), skew=(-0.25, 0.0))
+        m.armor((-0.01, y, -0.31), (0.22, 0.19, 0.28), SHELL, top=(1.1, 1.06), skew=(0.03, 0.0))
+        m.sph((0.0, y, -0.145), (0.18, 0.18, 0.18), DARK, verts=12)
+        m.armor((0.0, y, -0.06), (0.22, 0.20, 0.14), SHELL, top=(1.08, 1.0))
+        m.rod((-0.11, y * 1.18, -0.27), (-0.11, y * 1.18, -0.09), 0.016, DARK, verts=8)
+    # hips, belt with hazard tape
+    m.armor((0.0, 0.0, -0.03), (0.32, 0.38, 0.10), SHELL, top=(1.0, 1.0))
+    m.box((0.0, 0.0, 0.03), (0.30, 0.34, 0.06), DARK, bevel=0.015)
+    m.hazard((0.153, 0.0, 0.03), (1, 0, 0), (0, 1, 0), 0.22, 0.04, n=6)
+    # torso with breastplate, lit lamp and a team chest stripe
+    m.armor((0.0, 0.0, 0.18), (0.32, 0.36, 0.32), SHELL, top=(1.1, 1.35), bevel=0.05)
+    m.armor((0.19, 0.0, 0.19), (0.10, 0.32, 0.24), SHELL, top=(0.45, 0.85), bevel=0.035)
+    m.armor((0.225, 0.0, 0.26), (0.03, 0.20, 0.05), TEAM, top=(0.9, 0.9), bevel=0.01, seg=2)
+    m.lamp((0.223, 0.0, 0.17), (1, 0, 0.35), (0, 1, 0), (0.07, 0.05), depth=0.03)
+    # smaller team shoulder pads so the hoop clears them
+    f = Frame(m, (0.0, 0.29, 0.335), rot=(-16, 0, 0))
+    f.armor((0, 0, 0.02), (0.24, 0.17, 0.08), TEAM, top=(0.74, 0.70), bevel=0.035, mirror=True)
+    f.armor((0, 0, -0.04), (0.28, 0.20, 0.05), SHELL, top=(0.94, 0.94), bevel=0.018, mirror=True)
+    # head: helmet with a lit visor and a mining lamp on the brow
+    m.vcyl((0.0, 0.0, 0.35), 0.06, 0.10, DARK)
+    m.armor((0.02, 0.0, 0.45), (0.22, 0.22, 0.16), SHELL, top=(0.8, 0.86), bevel=0.05)
+    m.box((0.12, 0.0, 0.44), (0.05, 0.16, 0.07), DARK, bevel=0.015)
+    m.box((0.148, 0.0, 0.44), (0.012, 0.13, 0.03), GLOW)
+    m.cyl((0.08, 0.0, 0.545), (0.07, 0.07, 0.07), DARK, verts=10)
+    m.cyl((0.12, 0.0, 0.545), (0.012, 0.055, 0.055), GLOW, verts=10)
+    # shield cage: backpack generator, a raised hoop of shell rods with a lit inner ring, emitter caps
+    m.armor((-0.20, 0.0, 0.14), (0.16, 0.30, 0.30), DARK, top=(0.92, 0.92))
+    for dz in (-0.06, 0.0, 0.06):
+        m.box((-0.285, 0.0, 0.14 + dz), (0.012, 0.20, 0.02), GLOW)
+    hoop = Vector((-0.13, 0.0, 0.10))
+    arch_x(m, hoop, 0.43, -28, 208, 18, 0.032, SHELL)
+    arch_x(m, hoop + Vector((-0.03, 0.0, 0.0)), 0.40, -28, 208, 18, 0.014, GLOW, verts=6)
+    for ang, big in ((-28, False), (208, False), (90, True)):
+        a = math.radians(ang)
+        p = hoop + Vector((0.0, 0.43 * math.cos(a), 0.43 * math.sin(a)))
+        radial = Vector((0.0, math.cos(a), math.sin(a)))
+        f = Frame.surface(m, p, radial, (1, 0, 0))
+        f.armor((0, 0, 0.0), (0.18, 0.14, 0.07) if big else (0.12, 0.10, 0.06), TEAM, top=(0.8, 0.8), bevel=0.012,
+                seg=2)
+        f.sph((0, 0, 0.05), (0.05, 0.05, 0.05), GLOW, verts=8)
+    m.rod((-0.27, 0.10, 0.28), (-0.13, 0.40, 0.18), 0.016, DARK, verts=6, mirror=True)
+    # left arm: sleeve and a lamp-lit gauntlet
+    a, b = Vector((0.0, 0.28, 0.24)), Vector((0.20, 0.25, 0.06))
+    m.rod(a, b, 0.052, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.45), (0.10, 0.10, 0.10), DARK, verts=10)
+    m.sph(b, (0.11, 0.11, 0.11), DARK, verts=10)
+    m.box((0.23, 0.25, 0.06), (0.06, 0.10, 0.10), SHELL, bevel=0.02)
+    # right arm and the mining cutter: housing, heat fins, nozzle taper, beam tip
+    a, b = Vector((0.0, -0.28, 0.24)), Vector((0.14, -0.27, 0.07))
+    m.rod(a, b, 0.055, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.45), (0.10, 0.10, 0.10), DARK, verts=10)
+    m.sph(b, (0.11, 0.11, 0.11), DARK, verts=10)
+    m.cyl((0.20, -0.27, 0.07), (0.28, 0.13, 0.13), DARK, verts=14, bevel=0.01)
+    for x in (0.12, 0.18, 0.24):
+        m.tor((x, -0.27, 0.07), 0.075, 0.012, SHELL, aim=(1, 0, 0), verts=16)
+    m.cyl((0.38, -0.27, 0.07), (0.11, 0.10, 0.10), SHELL, verts=14, taper=0.5)
+    m.cyl((0.425, -0.27, 0.07), (0.07, 0.06, 0.06), GLOW, verts=10, taper=0.35)
+    m.sph((0.43, -0.27, 0.07), (0.05, 0.05, 0.05), GLOW, verts=8)
+    m.box((0.20, -0.27, 0.145), (0.16, 0.03, 0.03), GLOW)
+    m.cable((0.01, -0.27, 0.20), (-0.10, -0.40, 0.10), (0.10, -0.30, 0.10), 0.012, verts=6)
+    return m.finish()
+
+
+def human_scrambler(mats):
+    """Killswitch: lean runner under a tall EMP coil pack. The coil tower and its fork stand above the head, a
+    forearm emitter dish reaches forward."""
+    m = Model("SM_Human_Scrambler", mats)
+    for s in (1, -1):
+        y = 0.13 * s
+        m.box((0.03, y, -0.58), (0.34, 0.18, 0.04), DARK, bevel=0.012)
+        m.armor((0.0, y, -0.50), (0.27, 0.17, 0.12), SHELL, top=(0.92, 0.94))
+        m.armor((0.165, y, -0.51), (0.10, 0.16, 0.09), SHELL, top=(0.35, 0.9), skew=(-0.25, 0.0))
+        m.armor((-0.005, y, -0.32), (0.19, 0.16, 0.28), SHELL, top=(1.1, 1.05))
+        m.sph((0.0, y, -0.155), (0.15, 0.15, 0.15), DARK, verts=12)
+        m.armor((0.0, y, -0.07), (0.19, 0.17, 0.13), SHELL, top=(1.08, 1.0))
+        m.rod((-0.10, y * 1.2, -0.28), (-0.10, y * 1.2, -0.10), 0.013, DARK, verts=8)
+    # hips with two capacitor drums on the sides
+    m.armor((0.0, 0.0, -0.03), (0.27, 0.33, 0.09), SHELL, top=(1.0, 1.0))
+    m.box((0.0, 0.0, 0.02), (0.25, 0.29, 0.05), DARK, bevel=0.012)
+    m.lamp((0.13, 0.0, 0.02), (1, 0, 0), (0, 1, 0), (0.05, 0.04), depth=0.025)
+    for s in (1, -1):
+        m.ycyl((0.02, 0.215 * s, -0.01), 0.07, 0.13, DARK, verts=14)
+        m.ycyl((0.02, 0.255 * s, -0.01), 0.012, 0.15, GLOW, verts=14)
+    # slim torso, breastplate, team stripe
+    m.armor((0.0, 0.0, 0.17), (0.26, 0.30, 0.30), SHELL, top=(1.1, 1.3), bevel=0.045)
+    m.armor((0.15, 0.0, 0.18), (0.08, 0.26, 0.22), SHELL, top=(0.45, 0.85), bevel=0.03)
+    m.armor((0.185, 0.0, 0.25), (0.03, 0.18, 0.04), TEAM, top=(0.9, 0.9), bevel=0.01, seg=2)
+    m.box((0.19, 0.0, 0.14), (0.03, 0.14, 0.014), GLOW)
+    # shoulder pads (team) and head with a lit goggle bar
+    f = Frame(m, (0.0, 0.25, 0.31), rot=(-14, 0, 0))
+    f.armor((0, 0, 0.02), (0.25, 0.17, 0.07), TEAM, top=(0.74, 0.70), bevel=0.03, mirror=True)
+    m.vcyl((0.0, 0.0, 0.33), 0.06, 0.09, DARK)
+    m.armor((0.02, 0.0, 0.425), (0.19, 0.19, 0.14), SHELL, top=(0.8, 0.85), bevel=0.04)
+    m.box((0.115, 0.0, 0.42), (0.04, 0.15, 0.05), DARK, bevel=0.012)
+    m.box((0.137, 0.0, 0.42), (0.012, 0.13, 0.024), GLOW)
+    # EMP coil pack: casing, a tower of lit rings on a dark core, a fork of two prongs with live tips
+    m.armor((-0.20, 0.0, 0.12), (0.18, 0.30, 0.26), DARK, top=(0.92, 0.92))
+    m.armor((-0.20, 0.0, 0.265), (0.16, 0.26, 0.04), TEAM, top=(0.88, 0.88))
+    m.vcyl((-0.20, 0.0, 0.43), 0.34, 0.075, DARK, verts=12)
+    for z in (0.32, 0.39, 0.46, 0.53):
+        m.tor((-0.20, 0.0, z), 0.075, 0.013, GLOW, verts=18)
+    for s in (1, -1):
+        m.rod((-0.20, 0.0, 0.54), (-0.18, 0.11 * s, 0.60), 0.013, SHELL, verts=6)
+        m.sph((-0.18, 0.11 * s, 0.61), (0.045, 0.045, 0.045), GLOW, verts=8)
+    m.sph((-0.20, 0.0, 0.60), (0.06, 0.06, 0.06), GLOW, verts=10)
+    for s in (1, -1):
+        m.vcyl((-0.29, 0.10 * s, 0.05), 0.12, 0.05, DARK)
+    m.cable((-0.20, -0.10, 0.20), (-0.05, -0.28, 0.20), (0.10, -0.30, 0.10), 0.012, verts=6)
+    # left arm hangs with a probe; right forearm carries the emitter dish pointing forward
+    a, b = Vector((0.0, 0.24, 0.23)), Vector((0.10, 0.27, 0.0))
+    m.rod(a, b, 0.045, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.5), (0.08, 0.08, 0.08), DARK, verts=10)
+    m.sph(b, (0.09, 0.09, 0.09), DARK, verts=10)
+    a, b = Vector((0.0, -0.24, 0.23)), Vector((0.20, -0.20, 0.08))
+    m.rod(a, b, 0.045, SHELL, verts=12)
+    m.sph(a.lerp(b, 0.5), (0.08, 0.08, 0.08), DARK, verts=10)
+    m.sph(b, (0.09, 0.09, 0.09), DARK, verts=10)
+    m.box((0.24, -0.20, 0.08), (0.14, 0.09, 0.09), DARK, bevel=0.02)
+    m.cyl((0.34, -0.20, 0.08), (0.10, 0.22, 0.22), SHELL, verts=20, taper=0.35)
+    m.sph((0.375, -0.20, 0.08), (0.06, 0.06, 0.06), GLOW, verts=10)
+    m.tor((0.31, -0.20, 0.08), 0.115, 0.01, GLOW, aim=(1, 0, 0), verts=22)
+    return m.finish()
+
+
+def machine_lancer(mats):
+    """Corrector: a tall pearl needle on a three-pin tripod, four big floating shield vanes around the spine and
+    one long prism lance. Reads as a thin vertical line with a plate cage, apart from the Sentinel's shoulders."""
+    m = Model("SM_Machine_Lancer", mats)
+    # tripod: ball hip, spindle thigh, Glow core, shin spike, flat foot pad at the ground
+    hip = Vector((0.0, 0.0, -0.10))
+    for k in range(3):
+        a = math.radians(120 * k)
+        c, s = math.cos(a), math.sin(a)
+        knee = Vector((0.15 * c, 0.15 * s, -0.30))
+        foot = Vector((0.26 * c, 0.26 * s, -0.575))
+        m.sph(hip, (0.10, 0.10, 0.10), DARK, verts=10)
+        m.sph(hip.lerp(knee, 0.5), (0.22, 0.07, 0.07), SHELL, aim=(knee - hip), verts=14)
+        m.sph(knee, (0.07, 0.07, 0.07), DARK, verts=10)
+        m.rod(knee, foot, 0.016, SHELL, verts=8)
+        m.rod(knee.lerp(foot, 0.15), knee.lerp(foot, 0.85), 0.007, GLOW, verts=6)
+        m.vcyl((foot.x, foot.y, -0.58), 0.04, 0.11, DARK, verts=12)
+    # spine: tall spindle, belt ring, team lens facing forward, crown crystal over a floating halo
+    m.sph((0.0, 0.0, 0.10), (0.20, 0.20, 0.62), SHELL, verts=24)
+    m.tor((0.0, 0.0, -0.06), 0.105, 0.010, GLOW, verts=24)
+    m.tor((0.0, 0.0, 0.26), 0.115, 0.010, GLOW, verts=24)
+    m.lens((0.085, 0.0, 0.15), 0.065, aim=(1, 0, 0), clamps=4)
+    m.tor((0.0, 0.0, 0.49), 0.12, 0.009, SHELL, verts=24)
+    m.cyl((0.0, 0.0, 0.54), (0.12, 0.06, 0.06), GLOW, verts=6, aim=(0, 0, 1), taper=0.3)
+    # four floating shield vanes: tall pearl ellipsoids with team inlays and a lit edge ring
+    for sx in (0.13, -0.13):
+        f = Frame(m, (sx, 0.27, 0.10), rot=(10, 0, 0))
+        f.sph((0, 0, 0), (0.26, 0.05, 0.64), SHELL, verts=24, mirror=True)
+        f.armor((0.0, 0.026, 0.06), (0.14, 0.016, 0.24), TEAM, top=(0.8, 0.8), bevel=0.006, seg=2, mirror=True)
+        f.box((0.0, 0.0, 0.33), (0.10, 0.02, 0.012), GLOW, mirror=True)
+    # long crystal prism lance between floating focus rings
+    m.cyl((0.24, 0.0, 0.15), (0.40, 0.075, 0.075), GLOW, verts=6, taper=0.4)
+    m.cyl((0.12, 0.0, 0.15), (0.12, 0.10, 0.10), DARK, verts=10)
+    for x, r in ((0.17, 0.05), (0.27, 0.045), (0.36, 0.04)):
+        m.tor((x, 0.0, 0.15), r + 0.012, 0.008, SHELL, aim=(1, 0, 0), verts=18)
+    m.sph((-0.13, 0.0, 0.15), (0.09, 0.09, 0.09), GLOW, verts=10)
+    return m.finish()
+
+
+def machine_scrambler(mats):
+    """Override: a monopod on three skids, a pearl core with one red lens and a forward fan of five antenna
+    blades; a few floating data shards trail behind. A glitchy fan against the Sentinel's torso."""
+    m = Model("SM_Machine_Scrambler", mats)
+    # pogo leg: spindle, Glow core, ball joint, spike foot, three skids
+    m.sph((0.0, 0.0, -0.33), (0.07, 0.07, 0.50), SHELL, verts=14)
+    m.rod((0.0, 0.0, -0.52), (0.0, 0.0, -0.20), 0.008, GLOW, verts=6)
+    m.sph((0.0, 0.0, -0.13), (0.12, 0.12, 0.12), DARK, verts=12)
+    m.vcyl((0.0, 0.0, -0.58), 0.04, 0.10, DARK, verts=12)
+    m.vcyl((0.0, 0.0, -0.555), 0.02, 0.05, GLOW, verts=10)
+    for k in range(3):
+        a = math.radians(120 * k + 60)
+        c, s = math.cos(a), math.sin(a)
+        top = Vector((0.0, 0.0, -0.42))
+        foot = Vector((0.20 * c, 0.20 * s, -0.575))
+        m.rod(top, foot, 0.012, SHELL, verts=6)
+        m.box((foot.x, foot.y, -0.58), (0.07, 0.05, 0.04), DARK, rot=(0, 0, math.degrees(a)), bevel=0.01, seg=1)
+    # core: pearl sphere, belt rings, the red lens
+    m.sph((0.0, 0.0, 0.0), (0.30, 0.30, 0.28), SHELL, verts=24)
+    m.tor((0.0, 0.0, 0.0), 0.152, 0.009, GLOW, verts=28)
+    m.armor((-0.06, 0.0, 0.12), (0.18, 0.14, 0.03), TEAM, top=(0.85, 0.85), bevel=0.008, seg=2)
+    m.lens((0.13, 0.0, 0.02), 0.07, aim=(1, 0, 0), clamps=4)
+    m.vcyl((0.0, 0.0, 0.165), 0.04, 0.12, DARK, verts=14)
+    # antenna fan: five blades spread across the front, tilted up, each with a live tip
+    for k, yaw in enumerate((-48, -24, 0, 24, 48)):
+        a = math.radians(yaw)
+        pitch = math.radians(28 + (6 if k % 2 else 0))
+        d = Vector((math.cos(pitch) * math.cos(a), math.cos(pitch) * math.sin(a), math.sin(pitch)))
+        base = Vector((0.0, 0.0, 0.20))
+        tip = base + d * 0.43
+        m.add("frust", base.lerp(tip, 0.5), (0.43, 0.035, 0.012), SHELL, aim=d, taper=(0.35, 1.0), bevel=0.006,
+              seg=1)
+        m.rod(base.lerp(tip, 0.1), base.lerp(tip, 0.85), 0.005, GLOW, verts=6)
+        m.sph(tip, (0.034, 0.034, 0.034), GLOW, verts=8)
+    m.cyl((0.0, 0.0, 0.215), (0.05, 0.10, 0.10), SHELL, verts=14, aim=(0, 0, 1))
+    # floating data shards trailing behind the core
+    for i, (x, y, z, r) in enumerate(((-0.20, 0.14, 0.22, 25), (-0.27, -0.10, 0.32, 70), (-0.17, -0.20, 0.08, 40),
+                                      (-0.30, 0.06, 0.15, 10), (-0.12, 0.22, 0.42, 55))):
+        m.armor((x, y, z), (0.07, 0.05, 0.06), GLOW if i % 2 else SHELL, top=(0.7, 0.7), rot=(r, 2 * r, 3 * r),
+                bevel=0.006, seg=1)
+    return m.finish()
+
+
 MODELS = (
     ("Machine", machine_frontline), ("Machine", machine_ranged), ("Machine", machine_siege),
-    ("Machine", machine_hq),
-    ("Human", human_frontline), ("Human", human_ranged), ("Human", human_siege), ("Human", human_hq),
+    ("Machine", machine_lancer), ("Machine", machine_scrambler), ("Machine", machine_hq),
+    ("Human", human_frontline), ("Human", human_ranged), ("Human", human_siege),
+    ("Human", human_lancer), ("Human", human_scrambler), ("Human", human_hq),
 )
 
 
@@ -962,6 +1196,8 @@ def check(obj):
         assert lo.z >= -0.35, (name, lo)
     else:
         assert abs(lo.z + 0.60) < 1e-4, "%s does not touch the ground: %s" % (name, lo)
+    if name.endswith(("_Lancer", "_Scrambler")):
+        assert hi.x > -lo.x, "%s forward is not +X: %s %s" % (name, lo, hi)
 
 
 def export_fbx(obj, path):
@@ -1031,7 +1267,8 @@ def verify_masks(obj, path):
 # --------------------------------------------------------------------------------------
 # Preview renders
 # --------------------------------------------------------------------------------------
-PREVIEW_COLUMNS = (0.0, 1.8, 3.6, 6.2)  # x of each column; HQ column is wider
+PREVIEW_COLUMNS = {"Frontline": 0.0, "Ranged": 1.8, "Siege": 3.6, "Lancer": 5.4, "Scrambler": 7.2, "HQ": 9.9}
+PREVIEW_CENTER = 5.0  # x the cameras and ground slabs centre on
 PREVIEW_SIZE = (2000, 1500)
 
 # PreviewField.png: RTS-distance render on the Campus Zero floor (2000 px wide).
@@ -1051,6 +1288,8 @@ FIELD_SKY_STRENGTH = 3.5
 FIELD_LAYOUT = {
     "SM_Human_Frontline": (-10.0, -1.5), "SM_Machine_Frontline": (-6.0, 2.0), "SM_Human_Siege": (-2.5, -2.0),
     "SM_Machine_Ranged": (3.0, 1.5), "SM_Human_Ranged": (7.0, -2.0), "SM_Machine_Siege": (11.0, 2.0),
+    "SM_Human_Lancer": (-8.0, 3.0), "SM_Machine_Scrambler": (-4.0, -3.0),
+    "SM_Machine_Lancer": (0.0, -2.5), "SM_Human_Scrambler": (9.5, 3.5),
 }
 
 
@@ -1157,29 +1396,29 @@ class PreviewRig:
             src = self.objects[index]
             row = 0 if faction == "Machine" else 1
             drop = 1.0 if src.name.endswith("_HQ") else 0.6
-            x = PREVIEW_COLUMNS[index % 4]
+            x = PREVIEW_COLUMNS[src.name.rsplit("_", 1)[1]]
             if view == "side":
                 self.props[src.name].location = (x, 0.0, (3.7 if row == 0 else 0.0) + drop)
             else:
                 self.props[src.name].location = (x, 1.9 if row == 0 else -1.9, drop)
         a, b = self.grounds
         if view == "side":
-            a.scale = b.scale = (9.4, 4.0, 0.04)
-            a.location = (3.3, 0.0, -0.02)
-            b.location = (3.3, 0.0, 3.68)
+            a.scale = b.scale = (13.0, 4.0, 0.04)
+            a.location = (PREVIEW_CENTER, 0.0, -0.02)
+            b.location = (PREVIEW_CENTER, 0.0, 3.68)
             b.hide_render = False
         else:
-            a.scale = (16.0, 12.0, 0.04)
-            a.location = (3.5, 0.0, -0.02)
+            a.scale = (22.0, 12.0, 0.04)
+            a.location = (PREVIEW_CENTER, 0.0, -0.02)
             b.hide_render = True
 
     def camera_side(self):
         self.cam_data.type = "ORTHO"
-        self.cam_data.ortho_scale = 9.6
-        self.cam.location = (3.3, -30.0, 3.35)
+        self.cam_data.ortho_scale = 13.0
+        self.cam.location = (PREVIEW_CENTER, -30.0, 3.35)
         self.cam.rotation_euler = (math.radians(90), 0, 0)
 
-    def camera_rts(self, target=(3.5, -0.3, 0.2), distance=19.0, azimuth=25.0, lens=55):
+    def camera_rts(self, target=(PREVIEW_CENTER, -0.3, 0.2), distance=26.0, azimuth=25.0, lens=55):
         """50 degree pitch; azimuth rotates the camera around the target (0 = looking along +Y)."""
         self.cam_data.type = "PERSP"
         self.cam_data.lens = lens

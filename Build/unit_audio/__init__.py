@@ -1,6 +1,7 @@
 """Unit sound recipes. Every module here other than core defines SOURCES and UNIT (see core.py).
 
 A recipe module is named after its unit key in lower case: Human_Ranged -> human_ranged.py.
+Lancer and Scrambler modules are discovered automatically, including their faction effect cues.
 """
 
 from __future__ import annotations
