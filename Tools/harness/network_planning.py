@@ -135,7 +135,9 @@ def client_edits(run: NetworkRun, names: list[str], client: str, remote: int) ->
     await_all(
         run,
         names,
-        lambda s: kit(s, remote)["role"] == RANGED and len(kit(s, remote)["orders"]) == 1,
+        lambda s: (
+            kit(s, remote)["role"] == RANGED and len(kit(s, remote)["orders"]) == 1
+        ),
         "the remote client's unit type and first order, sent over the wire, reach every peer",
     )
     run.request(client, "planningClientReady", ready=True)
