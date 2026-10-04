@@ -141,11 +141,16 @@ def test_terrain_variants_are_owned_only_by_terrain_kit() -> None:
 
 def test_shared_scope_instances_are_owned_only_by_shared_material() -> None:
     slots = ast.literal_eval(_assigned("BuildSharedMaterial.py", "SLOTS_OF_SCOPE"))
-    factions = ast.literal_eval(_assigned("BuildSharedMaterial.py", "FACTIONS_OF_SCOPE"))
+    factions = ast.literal_eval(
+        _assigned("BuildSharedMaterial.py", "FACTIONS_OF_SCOPE")
+    )
     names = [
         f"MI_SC2_{faction}_{slot}_{scope}"
         for scope, scope_slots in slots.items()
-        for faction in (*factions[scope], *(("Construction",) if scope == "Bld" else ()))
+        for faction in (
+            *factions[scope],
+            *(("Construction",) if scope == "Bld" else ()),
+        )
         for slot in scope_slots
     ]
     assert _owner_names(names) == {(name, "shared-material") for name in names}
