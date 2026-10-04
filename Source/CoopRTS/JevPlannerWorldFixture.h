@@ -6,6 +6,7 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "HAL/PlatformTime.h"
+#include "Rules/JevExecution.h"
 
 enum class EJevWorldProof
 {
@@ -74,17 +75,14 @@ private:
 			Unit->NextAttackTime = TNumericLimits<float>::Max();
 		}
 	}
+	// The planner's own force-health estimate (shield counted), so fixtures read what the executor reads.
 	static float JoinedHealth(const AArmyGroup& Force)
 	{
-		float Health = 0.f;
-		int32 Count = 0;
+		TArray<JevExecution::FUnitHealth, TInlineAllocator<8>> Health;
 		for (const AArmyUnit* Unit : Force.GetUnits())
 			if (IsValid(Unit) && Unit->IsAlive())
-			{
-				Health += float(Unit->GetHealth()) / Unit->MaxHealth();
-				++Count;
-			}
-		return Count ? Health / Count : 0.f;
+				Health.Add({ Unit->GetHealth(), Unit->MaxHealth(), Unit->GetShield(), Unit->MaxShield() });
+		return JevExecution::HealthFraction(Health);
 	}
 	const FJevPublishedPlan* Plan(const ACommandGameState* State, int32 Index) const
 	{
