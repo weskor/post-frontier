@@ -39,6 +39,8 @@ public:
 	static void PostFortifyCast(const AMapRegion& Region, const ACommandPlayerState& Caster);
 	// Server: tells every human commander of Team that its Fortify ended because the region was lost.
 	static void PostFortifyEnded(const AMapRegion& Region, int32 Team);
+	// Server: tells every human commander of Team that Region was cut off from its main.
+	static void PostSupplyCut(const AMapRegion& Region, int32 Team);
 
 private:
 	void PlayCastVoice(float ServerTime) const;

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "HUD/MapPresentation.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "WorldOverlay.generated.h"
 
@@ -19,7 +20,7 @@ public:
 	void Cell(const FVector& Center, const FVector2D& HalfSize, FColor Color);
 	void Line(const FVector& Start, const FVector& End, FColor Color, float Width);
 	void Square(const FVector& Center, const FVector2D& HalfSize, FColor Color, float Width);
-	void Ring(const FVector& Center, float Radius, FColor Color);
+	void Ring(const FVector& Center, float Radius, FColor Color, float Width = 2.f);
 	void Attack(const FVector& Start, const FVector& End, FColor Color, bool bSiege);
 
 private:
@@ -47,6 +48,7 @@ private:
 	TArray<FInstance> PreviousLines;
 	TArray<int32> RemovalIndices;
 	TArray<FFlash> Flashes;
+	FMapPresentationWorld MapWorld;
 };
 
 UCLASS()

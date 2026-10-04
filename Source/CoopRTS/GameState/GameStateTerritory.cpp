@@ -3,6 +3,7 @@
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
 #include "CommandGameState.h"
+#include "Commands/AbilityCommandComponent.h"
 #include "EngineUtils.h"
 #include "GameState/GameStateRegistry.h"
 #include "Commands/OrderGraph.h"
@@ -10,6 +11,7 @@
 #include "MapRegion.h"
 #include "Rules/EconomyPolicy.h"
 #include "Rules/ForceOrderPolicy.h"
+#include "Rules/MapPresentationPolicy.h"
 #include "Rules/PlacementPolicy.h"
 
 namespace GameStateTerritory
@@ -56,6 +58,24 @@ uint64 TeamConnectedMask(const ACommandGameState& State, int32 Team)
 	return EconomyPolicy::ConnectedRegions(Graph, Controllers, ForceOrderGraph::TeamMain(State, Team), Team);
 }
 
+namespace
+{
+// Tells the team's commanders about each region the change left held but unreachable.
+void AnnounceCuts(const ACommandGameState& State, int32 Team, uint64 Previous, uint64 Connected)
+{
+	uint64 Held = 0;
+	for (const AMapRegion* Region : State.Regions)
+		if (IsValid(Region) && Region->RegionIndex >= 0 && Region->RegionIndex < ForceOrders::MaxRegions
+			&& RegionController(State, Region->RegionIndex) == Team)
+			Held |= uint64(1) << Region->RegionIndex;
+	const uint64 Cut = MapPresentation::NewlyCutOff(Previous, Connected, Held);
+	for (const AMapRegion* Region : State.Regions)
+		if (IsValid(Region) && Region->RegionIndex >= 0 && Region->RegionIndex < ForceOrders::MaxRegions
+			&& (Cut & (uint64(1) << Region->RegionIndex)))
+			UAbilityCommandComponent::PostSupplyCut(*Region, Team);
+}
+}
+
 bool RefreshConnections(ACommandGameState& State)
 {
 	bool bChanged = false;
@@ -64,6 +84,9 @@ bool RefreshConnections(ACommandGameState& State)
 		const uint64 Mask = TeamConnectedMask(State, Team);
 		if (Mask == Connection.Mask)
 			return;
+		// Only the humans have a team feed; JEV's cuts show on the map alone.
+		if (Team == 0)
+			AnnounceCuts(State, Team, Connection.Mask, Mask);
 		Connection.Mask = Mask;
 		Connection.ChangedAt = Now;
 		bChanged = true;

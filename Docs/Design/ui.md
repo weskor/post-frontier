@@ -118,9 +118,9 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 ### 2. Supply cuts on the map and the force card [New]
 
-- **World:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut.
-- **Region and Drill Rigs:** the region's chip row (surface 7's stack) gets a **CUT OFF** chip. Its Drill Rigs go greyscale with a chain glyph, and their deposit label reads `POWER 1200 · OFFLINE` in place of the rate.
-- **Minimap:** the node gets a red hatched outline.
+- **World [Built]:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut.
+- **Region and Drill Rigs:** [Built] the region's chip row (surface 7's stack) gets a **CUT OFF** chip, each offline Drill Rig carries a chain glyph, and its deposit label reads `POWER 1200 · OFFLINE` in place of the rate. **[New]** The rig mesh itself goes greyscale with the building appearance work (tier-2 slice).
+- **Minimap [Built]:** the node gets a red hatched outline.
 - **Feed:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline`; clicking it focuses the region. It is a team row (see surface 3).
 - **Force card:** a **CUT OFF** chip in the header between unit type and strength, and the refill line reads `Refill: HELD · cut off · 1 recruit waiting` ([forces.md](forces.md)). A card shows at most two chips (CUT OFF, REFIT n/m, `▲ T2`), then `+N`.
 
@@ -157,16 +157,16 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 - **Unit bar (36 px):** a 3 px shield bar above the 5 px HP bar, pale cyan for both teams. The existing show rule applies (damaged or in a highlighted force); a unit with no shield draws none.
 - **Pulse on units:** the shield bar flashes white for 0.25 s, then shows an empty outline for the regeneration delay; regeneration refills it ([units.md](units.md)).
-- **Pulse cue:** a ring expanding to the pulse radius over 0.4 s at the Scrambler, and a spark on each hit shield bar or building; no numbers. There is no pulse cooldown display (orchestrator 2026-10-04).
+- **Pulse cue [Built]:** a ring expanding to the pulse radius over 0.4 s at the Scrambler, and a spark on each hit shield bar or building; no numbers. There is no pulse cooldown display (orchestrator 2026-10-04).
 - **Stun:** a yellow `STUN 2.4s` chip (bolt glyph, drain bar) in the building's chip row, refreshed by a new stun. Its production, construction and research bars freeze and desaturate, and the panel header reads `STUNNED`. Your own buildings post `Barracks 1 stunned by a Scrambler` (at most one per 5 s per building).
 - **Why:** the HP bar keeps its position; the ring and the chip both appear at t = 0, so it reads within 1 s.
 
 ### 7. Region trait icons [New]
 
-- **World:** a 20 px glyph left of the name on the label plate, and the trait word in 9.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9.5 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
-- **Stack above a region anchor,** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
-- **Minimap:** a 10 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node. 10 px is under STYLE.md's 20 px glyph rule because the minimap is 144 px wide; the world plate carries the full glyph and word, and if art cannot make the four silhouettes readable at 10 px the minimap falls back to one-letter pips (`H`, `C`, `O`, `!`).
-- **War-table zoom:** the plate collapses to a 24 px glyph plus the name.
+- **World [Built]:** a 20 px glyph left of the name on the label plate, and the trait word in 9.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9.5 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
+- **Stack above a region anchor [Built],** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
+- **Minimap [Built]:** a 10 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node. 10 px is under STYLE.md's 20 px glyph rule because the minimap is 144 px wide; the world plate carries the full glyph and word, and if art cannot make the four silhouettes readable at 10 px the minimap falls back to one-letter pips (`H`, `C`, `O`, `!`).
+- **War-table zoom [New]:** the plate collapses to a 24 px glyph plus the name.
 - **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
 
 ### 8. JEV timeline and the battle clock [New]

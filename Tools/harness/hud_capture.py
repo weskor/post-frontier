@@ -68,7 +68,9 @@ def configure(parser: argparse.ArgumentParser) -> None:
         type=label,
         metavar="LABEL",
         help="'fortify' captures dock, targeting, active badges and team feed at every --res; "
-        "'force-bar' exercises force cards at every --res; 'pings' captures G ground/minimap "
+        "'force-bar' exercises force cards at every --res; 'map-presentation' captures region traits, a "
+        "supply cut at the moment it lands and five seconds later, and the Scrambler pulse ring at every --res "
+        "(run it on --map /Game/Maps/AvailabilityZoneV2); 'pings' captures G ground/minimap "
         "markers and six-second expiry; 'jev-intent' captures the JEV timeline, badges and memos "
         "through plan creation, escalation and replacement; other labels boot, place and select "
         "one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first resolution, "
@@ -83,7 +85,9 @@ def main() -> None:
     configure(parser)
     args = parser.parse_args()
     resolutions = args.res or (
-        [(1600, 900), (1280, 720)] if args.quick == "fortify" else [(1600, 900)]
+        [(1600, 900), (1280, 720)]
+        if args.quick in ("fortify", "map-presentation")
+        else [(1600, 900)]
     )
     run = NetworkRun(
         Path(os.environ["X_HARNESS_DIR"]).resolve(),
@@ -101,6 +105,13 @@ def main() -> None:
             force_bar_scenario(run, resolutions)
             print(
                 f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}"
+            )
+        elif args.quick == "map-presentation":
+            from harness.hud_map_presentation import scenario as map_scenario
+
+            map_scenario(run, resolutions)
+            print(
+                f"PASS: map presentation at {len(resolutions)} viewports; evidence: {run.run}"
             )
         elif args.quick == "fortify":
             from harness.hud_fortify import scenario as fortify_scenario

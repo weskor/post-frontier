@@ -114,7 +114,7 @@ void AWorldOverlay::Square(const FVector& Center, const FVector2D& HalfSize, FCo
 		Line(Corners[Index], Corners[(Index + 1) % 4], Color, Width);
 }
 
-void AWorldOverlay::Ring(const FVector& Center, float Radius, FColor Color)
+void AWorldOverlay::Ring(const FVector& Center, float Radius, FColor Color, float Width)
 {
 	constexpr int32 Segments = 48;
 	FVector Previous = Center + FVector(Radius, 0., 0.);
@@ -122,7 +122,7 @@ void AWorldOverlay::Ring(const FVector& Center, float Radius, FColor Color)
 	{
 		const FVector2D Direction = CircleDirections<Segments>()[Index % Segments];
 		const FVector Next = Center + FVector(Direction.X * Radius, Direction.Y * Radius, 0.);
-		Line(Previous, Next, Color, 2.f);
+		Line(Previous, Next, Color, Width);
 		Previous = Next;
 	}
 }
@@ -205,6 +205,8 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 					Line(Center - FVector(0., 18., 0.), Center + FVector(0., 18., 0.), Color, 4.f);
 				}
 			}
+		if (State)
+			MapWorld.Draw(*this, *State);
 		break;
 	}
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)

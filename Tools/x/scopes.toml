@@ -374,6 +374,11 @@ kind = "automation"
 filter = "CoopRTS.Combat.Traits"
 map = "default"
 
+[scopes.map-presentation]
+kind = "automation"
+filter = "CoopRTS.Map.Presentation"
+map = "default"
+
 [scopes.supply-delivery]
 kind = "automation"
 filter = "CoopRTS.Forces.Supply"
@@ -818,3 +823,15 @@ map = "default"
 "Source/CoopRTS/CommandBuildingProduction.c*" = ["supply-delivery"]
 "Source/CoopRTS/HUD/ForceBar*.cpp" = ["supply-card"]
 "Source/CoopRTS/HUD/BuildingInspector.cpp" = ["supply-card"]
+
+# Map presentation (supply cuts, region traits, the Scrambler pulse ring): its rules and tests, and the files the surface runs through.
+"Source/CoopRTS/MapPresentationRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/MapPresentationWorldTests.cpp" = ["map-presentation"]
+"Source/CoopRTS/Rules/MapPresentationPolicy.*" = ["rules", "map-presentation"]
+"Source/CoopRTS/HUD/Map*" = ["map-presentation"]
+"Source/CoopRTS/HUD/MinimapMap.h" = ["map-presentation"]
+"Source/CoopRTS/HUD/SectorOverlays.cpp" = ["map-presentation"]
+"Source/CoopRTS/WorldOverlay.[ch]*" = ["map-presentation"]
+"Source/CoopRTS/CommandMinimap.c*" = ["map-presentation"]
+"Source/CoopRTS/Commands/AbilityCommandComponent.[ch]*" = ["map-presentation"]
+"Source/CoopRTS/GameState/GameStateTerritory.[ch]*" = ["map-presentation"]

@@ -7,6 +7,7 @@
 #include "GameState/GameStateEconomy.h"
 #include "MapRegion.h"
 #include "Rules/FortifyPolicy.h"
+#include "Rules/MapPresentationPolicy.h"
 
 namespace
 {
@@ -103,6 +104,16 @@ void UAbilityCommandComponent::PostFortifyEnded(const AMapRegion& Region, int32 
 	if (!State)
 		return;
 	const FObjectiveEvent Event = MakeEvent(Region, *State, FortifyPolicy::EndedEventId, Team);
+	ForEachTeammate(*State, Team, nullptr,
+		[&Event](UAbilityCommandComponent& Recipient) { Recipient.ClientReceiveTeamEvent(Event); });
+}
+
+void UAbilityCommandComponent::PostSupplyCut(const AMapRegion& Region, int32 Team)
+{
+	const ACommandGameState* State = Region.GetWorld()->GetGameState<ACommandGameState>();
+	if (!State)
+		return;
+	const FObjectiveEvent Event = MakeEvent(Region, *State, MapPresentation::SupplyCutEventId, Team);
 	ForEachTeammate(*State, Team, nullptr,
 		[&Event](UAbilityCommandComponent& Recipient) { Recipient.ClientReceiveTeamEvent(Event); });
 }
