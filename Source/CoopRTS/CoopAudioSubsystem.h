@@ -116,6 +116,10 @@ private:
 	bool bAmbienceStopping = false;
 
 	static int32 CueKey(ECoopAudioEvent Event, int32 Team, int32 Role);
+	void LoadMixAssets();
+	void LoadCue(int32 Team, int32 Role, const TCHAR* Folder, ECoopAudioEvent Event, const TCHAR* CueName, int32 Count);
+	void LoadCueLibrary();
+	void LoadAnnouncerLibrary();
 	USoundWave* Choose(ECoopAudioEvent Event, int32 Team, int32 Role, int32 Variant = INDEX_NONE);
 	UAudioComponent* Play(ECoopAudioEvent Event, int32 Team, int32 Role, const FVector& Location,
 		bool bUI, AActor* LoopOwner = nullptr, int32 Variant = INDEX_NONE);
