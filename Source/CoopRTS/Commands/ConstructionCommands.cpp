@@ -7,6 +7,86 @@
 #include "Engine/World.h"
 #include "Rules/EconomyPolicy.h"
 
+namespace
+{
+bool IsBuildingOwner(const ACommandGameState& State, const ACommandPlayerState* Commander, int32 Team)
+{
+	if (!IsValid(Commander) || Commander->GetWorld() != State.GetWorld() || Commander->TeamIndex != Team)
+		return false;
+	if (Team == 0)
+		return Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5
+			&& State.PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player) { return Player.Get() == Commander; });
+	return Team == 5 && Commander == State.EnemyCommander;
+}
+
+ADepositSite* FindFreeDepositAt(const ACommandGameState& State, const FVector& Location)
+{
+	for (ADepositSite* Candidate : State.Deposits)
+	{
+		if (!IsValid(Candidate) || IsValid(Candidate->Extractor))
+			continue;
+		const FVector Position = Candidate->GetActorLocation();
+		if (Position.X == Location.X && Position.Y == Location.Y)
+			return Candidate;
+	}
+	return nullptr;
+}
+
+void ReleaseDeposit(ADepositSite* Deposit, const ACommandBuilding* Building)
+{
+	if (IsValid(Deposit) && Deposit->Extractor == Building)
+	{
+		Deposit->Extractor = nullptr;
+		Deposit->ForceNetUpdate();
+	}
+}
+
+// Deferred spawn on the navmesh ground under Location; the deposit is reserved before BeginPlay so concurrent
+// construction cannot claim it. Null with OutReason on failure.
+ACommandBuilding* SpawnConstruction(UWorld* World, int32 BuildingIndex, int32 Team, ACommandPlayerState* Commander,
+	ADepositSite* Deposit, const FVector& Location, FString& OutReason)
+{
+	FNavLocation Ground;
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Ground, FVector(45.f, 45.f, 200.f)))
+	{
+		OutReason = TEXT("Navigation unavailable");
+		return nullptr;
+	}
+	// Navigation supplies height only: keep the resolved grid or deposit XY exact.
+	Ground.Location.X = Location.X;
+	Ground.Location.Y = Location.Y;
+	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, 65.f));
+	ACommandBuilding* Building = World->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(),
+		Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Building)
+	{
+		OutReason = TEXT("Building spawn failed");
+		return nullptr;
+	}
+	Building->BuildingIndex = BuildingIndex;
+	Building->TeamIndex = Team;
+	Building->OwningPlayerState = Commander;
+	Building->Deposit = Deposit;
+	if (Deposit)
+	{
+		Deposit->Extractor = Building;
+		Deposit->ForceNetUpdate();
+	}
+	Building->Health = Building->MaxHealth();
+	Building->FinishSpawning(Transform);
+	if (!IsValid(Building) || !Building->IsAlive())
+	{
+		ReleaseDeposit(Deposit, Building);
+		if (IsValid(Building))
+			Building->Destroy();
+		OutReason = TEXT("Building spawn failed");
+		return nullptr;
+	}
+	return Building;
+}
+}
+
 ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const FVector& RequestedLocation,
 	ACommandPlayerState* Commander, int32 Team, FString& OutReason)
 {
@@ -20,9 +100,7 @@ ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const F
 		return nullptr;
 	const FVector Location = ResolveBuildingLocation(BuildingIndex, RequestedLocation, Team);
 	const UBuildingDefinition& Definition = *Content->Building(BuildingIndex);
-	if (!IsValid(Commander) || Commander->GetWorld() != GetWorld() || Commander->TeamIndex != Team
-		|| (Team == 0 && (Commander->CommanderIndex < 0 || Commander->CommanderIndex >= 5 || !PlayerArray.ContainsByPredicate([Commander](const TObjectPtr<APlayerState>& Player) { return Player.Get() == Commander; })))
-		|| (Team == 5 && Commander != EnemyCommander))
+	if (!IsBuildingOwner(*this, Commander, Team))
 	{
 		OutReason = TEXT("Invalid building owner");
 		return nullptr;
@@ -33,75 +111,18 @@ ACommandBuilding* ACommandGameState::ApplyPlacement(int32 BuildingIndex, const F
 		OutReason = TEXT("Insufficient resources");
 		return nullptr;
 	}
-	ADepositSite* Deposit = nullptr;
-	if (Definition.bRequiresDeposit)
+	ADepositSite* Deposit = Definition.bRequiresDeposit ? FindFreeDepositAt(*this, Location) : nullptr;
+	if (Definition.bRequiresDeposit && !Deposit)
 	{
-		for (ADepositSite* Candidate : Deposits)
-		{
-			if (!IsValid(Candidate) || IsValid(Candidate->Extractor))
-				continue;
-			const FVector Position = Candidate->GetActorLocation();
-			if (Position.X == Location.X && Position.Y == Location.Y)
-			{
-				Deposit = Candidate;
-				break;
-			}
-		}
-		if (!Deposit)
-		{
-			OutReason = TEXT("Deposit unavailable");
-			return nullptr;
-		}
-	}
-	FNavLocation Ground;
-	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	if (!Navigation || !Navigation->ProjectPointToNavigation(Location, Ground, FVector(45.f, 45.f, 200.f)))
-	{
-		OutReason = TEXT("Navigation unavailable");
+		OutReason = TEXT("Deposit unavailable");
 		return nullptr;
 	}
-	// Navigation supplies height only: keep the resolved grid or deposit XY exact.
-	Ground.Location.X = Location.X;
-	Ground.Location.Y = Location.Y;
-	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, 65.f));
-	ACommandBuilding* Building = GetWorld()->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(),
-		Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	ACommandBuilding* Building = SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Location, OutReason);
 	if (!Building)
-	{
-		OutReason = TEXT("Building spawn failed");
 		return nullptr;
-	}
-	Building->BuildingIndex = BuildingIndex;
-	Building->TeamIndex = Team;
-	Building->OwningPlayerState = Commander;
-	Building->Deposit = Deposit;
-	if (Deposit)
-	{
-		// Reserve before BeginPlay so concurrent construction cannot claim the same deposit.
-		Deposit->Extractor = Building;
-		Deposit->ForceNetUpdate();
-	}
-	Building->Health = Building->MaxHealth();
-	Building->FinishSpawning(Transform);
-	if (!IsValid(Building) || !Building->IsAlive())
-	{
-		if (IsValid(Deposit) && Deposit->Extractor == Building)
-		{
-			Deposit->Extractor = nullptr;
-			Deposit->ForceNetUpdate();
-		}
-		if (IsValid(Building))
-			Building->Destroy();
-		OutReason = TEXT("Building spawn failed");
-		return nullptr;
-	}
 	if (!Commander->TrySpend(Cost))
 	{
-		if (IsValid(Deposit) && Deposit->Extractor == Building)
-		{
-			Deposit->Extractor = nullptr;
-			Deposit->ForceNetUpdate();
-		}
+		ReleaseDeposit(Deposit, Building);
 		Building->Destroy();
 		OutReason = TEXT("Insufficient resources");
 		return nullptr;

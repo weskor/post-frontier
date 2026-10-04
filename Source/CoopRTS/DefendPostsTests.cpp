@@ -50,32 +50,7 @@ public:
 			|| !Navigation || Navigation->IsNavigationBuildInProgress() || World->GetTimeSeconds() < 1.f)
 			return false;
 		if (Stage == 0)
-		{
-			// No paid force or planner may change ownership while the fixture probes it.
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				if (It->IsProducer())
-					FCommandService::ConfigureProduction(It->OwningPlayerState, *It,
-						It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
-			Overlay = AWorldOverlay::Get(World);
-			if (!Check(Overlay.IsValid(), TEXT("A local game has its client world overlay"))
-				|| !ValidatePosts(*State, *Navigation))
-				return true;
-			for (AMapRegion* Region : State->Regions)
-				if (Region->RegionRole != ERegionRole::Main && IsValid(Region->Anchor))
-				{
-					ProbeRegion = Region;
-					Capture = Region->Anchor;
-					break;
-				}
-			if (!Check(Capture.IsValid(), TEXT("Map supplies a capturable region for marker ownership transitions")))
-				return true;
-			OriginalTeam = Capture->ControllingTeam;
-			bOriginalTick = Capture->IsActorTickEnabled();
-			Capture->SetActorTickEnabled(false);
-			Stage = 1;
-			StageStarted = World->GetTimeSeconds();
-			return false;
-		}
+			return Begin(World, *State, *Navigation);
 		if (!Check(Overlay.IsValid() && ProbeRegion.IsValid() && Capture.IsValid(), TEXT("Marker ownership fixture survives")))
 			return true;
 		if (World->GetTimeSeconds() - StageStarted < .15f)
@@ -104,6 +79,34 @@ public:
 	}
 
 private:
+	// Stage 0: freeze economy and capture, validate the posts, then pick the region whose ownership the probe flips.
+	bool Begin(UWorld* World, ACommandGameState& State, UNavigationSystemV1& Navigation)
+	{
+		// No paid force or planner may change ownership while the fixture probes it.
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			if (It->IsProducer())
+				FCommandService::ConfigureProduction(It->OwningPlayerState, *It,
+					It->bForceConfigured ? It->ProductionRole : static_cast<EUnitRole>(255), false);
+		Overlay = AWorldOverlay::Get(World);
+		if (!Check(Overlay.IsValid(), TEXT("A local game has its client world overlay")) || !ValidatePosts(State, Navigation))
+			return true;
+		for (AMapRegion* Region : State.Regions)
+			if (Region->RegionRole != ERegionRole::Main && IsValid(Region->Anchor))
+			{
+				ProbeRegion = Region;
+				Capture = Region->Anchor;
+				break;
+			}
+		if (!Check(Capture.IsValid(), TEXT("Map supplies a capturable region for marker ownership transitions")))
+			return true;
+		OriginalTeam = Capture->ControllingTeam;
+		bOriginalTick = Capture->IsActorTickEnabled();
+		Capture->SetActorTickEnabled(false);
+		Stage = 1;
+		StageStarted = World->GetTimeSeconds();
+		return false;
+	}
+
 	bool Check(bool bCondition, const FString& What)
 	{
 		if (!bCondition)

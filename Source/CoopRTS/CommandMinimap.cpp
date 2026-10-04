@@ -221,6 +221,185 @@ void DrawJevBadges(const FMap& Map, const ACommandGameState& State)
 		Map.Canvas->DrawItem(Text);
 	}
 }
+
+const FLinearColor GridColor(.12f, .17f, .20f, .65f);
+
+void DrawBackdrop(const FMap& Map, FVector2D Origin, float Size)
+{
+	Map.Fill(Origin, FVector2D(Size, Size), FLinearColor(.018f, .028f, .038f, .96f));
+	for (int32 Index = 1; Index < 4; ++Index)
+	{
+		const double Offset = Size * Index / 4.0;
+		Map.Line(Origin + FVector2D(Offset, 0), Origin + FVector2D(Offset, Size), GridColor);
+		Map.Line(Origin + FVector2D(0, Offset), Origin + FVector2D(Size, Offset), GridColor);
+	}
+}
+
+void DrawRegionOutlines(const FMap& Map, const ACommandGameState& State)
+{
+	for (const AMapRegion* Region : State.Regions)
+	{
+		if (!IsValid(Region))
+			continue;
+		const FLinearColor Color = TeamColor(State.GetRegionController(Region->RegionIndex));
+		for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
+		{
+			const FVector2D& A = Region->Polygon[Index];
+			const FVector2D& B = Region->Polygon[(Index + 1) % Region->Polygon.Num()];
+			FVector2D Start, End;
+			if (Map.Point(FVector(A.X, A.Y, 0.f), Start) && Map.Point(FVector(B.X, B.Y, 0.f), End))
+				Map.Line(Start, End, Color.CopyWithNewOpacity(.45f));
+		}
+	}
+}
+
+void DrawSites(const FMap& Map, const ACommandGameState& State)
+{
+	for (const ADepositSite* Deposit : State.Deposits)
+	{
+		FVector2D Point;
+		if (IsValid(Deposit) && Map.Point(Deposit->GetActorLocation(), Point))
+			Map.Diamond(Point, 2.0, Deposit->Remaining > 0 ? Contested : Neutral);
+	}
+	for (const ACapturePoint* Site : State.CaptureSites)
+	{
+		FVector2D Point;
+		if (!IsValid(Site) || !Map.Point(Site->GetActorLocation(), Point))
+			continue;
+		Map.Diamond(Point, 4.0, TeamColor(Site->ControllingTeam));
+		if (Site->bFriendlyPresent && Site->bEnemyPresent)
+			Map.Diamond(Point, 6.5, Contested);
+	}
+}
+
+void DrawStructures(const FMap& Map, const ACommandGameState& State, const ACommandPlayerController& Controller)
+{
+	for (const ACommandBuilding* Building : State.Buildings)
+	{
+		FVector2D Point;
+		if (!IsValid(Building) || !Building->IsAlive() || !Map.Point(Building->GetActorLocation(), Point))
+			continue;
+		const FLinearColor Color = TeamColor(Building->TeamIndex);
+		Map.Box(Point, 3.0, Color);
+		if (Building->IsComplete())
+			Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), Color);
+		if (Building == Controller.GetSelectedBuilding())
+			Map.Box(Point, 5.0, View);
+	}
+	for (const AHeadquarters* HQ : { State.FriendlyHeadquarters.Get(), State.EnemyHeadquarters.Get() })
+	{
+		FVector2D Point;
+		if (!IsValid(HQ) || !Map.Point(HQ->GetActorLocation(), Point))
+			continue;
+		const FLinearColor Color = HQ->IsAlive() ? TeamColor(HQ->TeamIndex) : Neutral;
+		Map.Box(Point, 6.0, Color);
+		Map.Fill(Point - FVector2D(3, 3), FVector2D(6, 6), Color);
+	}
+}
+
+bool HasLivingMember(const AArmyGroup& Squad)
+{
+	for (const AArmyUnit* Member : Squad.GetUnits())
+		if (IsValid(Member) && Member->IsAlive())
+			return true;
+	return false;
+}
+
+// Read existing level actor arrays directly; no per-frame actor snapshots/allocations.
+void DrawForces(const FMap& Map, const UWorld& World)
+{
+	for (const ULevel* Level : World.GetLevels())
+	{
+		if (!Level)
+			continue;
+		for (const AActor* Actor : Level->Actors)
+		{
+			if (!IsValid(Actor))
+				continue;
+			FVector2D Point;
+			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Actor))
+			{
+				if (Unit->IsAlive() && Map.Point(Unit->GetActorLocation(), Point))
+					Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), TeamColor(Unit->GetTeamIndex()));
+			}
+			else if (const AArmyGroup* Squad = Cast<AArmyGroup>(Actor))
+			{
+				if (HasLivingMember(*Squad) && Map.Point(Squad->GetCenter(), Point))
+					Map.Diamond(Point, 3.0, TeamColor(Squad->GetTeamIndex()));
+			}
+		}
+	}
+}
+
+void DrawRoute(const FMap& Map, const ForceRoutePresentation::FRoute& Route)
+{
+	const FLinearColor Color = Route.Color.CopyWithNewOpacity(Route.OrderIndex > 0 ? .6f : 1.f);
+	const float Width = Route.bSelected || Route.bPreview ? 2.f : 1.f;
+	for (int32 Index = 1; Index < Route.Line.Count; ++Index)
+	{
+		const FVector2D A = Map.Project(Route.Line.Points[Index - 1]), B = Map.Project(Route.Line.Points[Index]);
+		const FVector2D Direction = (B - A).GetSafeNormal();
+		const FVector2D Side(-Direction.Y, Direction.X);
+		if (Route.bPreview || Route.OrderIndex > 0)
+		{
+			const double Length = FVector2D::Distance(A, B);
+			for (double Offset = 0.; Offset < Length; Offset += 7.)
+				Map.Line(A + Direction * Offset, A + Direction * FMath::Min(Offset + 4., Length), Color, Width);
+		}
+		else
+			Map.Line(A, B, Color, Width);
+		const FVector2D Tip = FVector2D::DistSquared(A, B) > 100. ? FMath::Lerp(A, B, .6) : B;
+		Map.Line(Tip, Tip - Direction * 5. + Side * 3., Color, Width);
+		Map.Line(Tip, Tip - Direction * 5. - Side * 3., Color, Width);
+	}
+	if (Route.Line.Count > 0 && (Route.bSelected || Route.bPreview))
+		Map.Diamond(Map.Project(Route.Line.Points[Route.Line.Count - 1]), Route.OrderIndex == 0 ? 7. : 4., Color);
+}
+
+void DrawSelectedFront(const FMap& Map, const ACommandPlayerController& Controller)
+{
+	const ACommandBuilding* Selected = Controller.GetSelectedBuilding();
+	FVector2D Front;
+	if (IsValid(Selected) && Selected->IsAlive() && IsValid(Selected->ForceGroup)
+		&& Map.Point(Selected->ForceGroup->Destination, Front))
+	{
+		Map.Diamond(Front, 6.0, Contested);
+		Map.Line(Front - FVector2D(3, 0), Front + FVector2D(3, 0), Contested);
+		Map.Line(Front - FVector2D(0, 3), Front + FVector2D(0, 3), Contested);
+	}
+}
+
+void DrawPings(const FMap& Map, const ACommandGameState& State, const ACommandPlayerController& Controller)
+{
+	if (!Controller.PingCommands)
+		return;
+	const float Now = State.GetServerWorldTimeSeconds();
+	for (const FObjectiveEvent& Event : Controller.PingCommands->GetEvents())
+	{
+		FVector2D Point;
+		if (Now - Event.ServerTime >= UPingCommandComponent::Lifetime || Event.Forces.IsEmpty()
+			|| !Map.Point(Event.Location, Point))
+			continue;
+		const FLinearColor Color = AArmyUnit::GetCommanderColor(Event.Forces[0].CommanderIndex);
+		Map.Diamond(Point, 7.0, Color);
+		Map.Line(Point - FVector2D(4, 0), Point + FVector2D(4, 0), Color, 2.f);
+		Map.Line(Point - FVector2D(0, 4), Point + FVector2D(0, 4), Color, 2.f);
+	}
+}
+
+void DrawCaption(UCanvas* Canvas, const ACommandPlayerController& Controller, FVector2D Origin, float Size)
+{
+	if (!GEngine || !GEngine->GetSmallFont())
+		return;
+	const float TextScale = FMath::Clamp(Size / 210.f, .65f, 1.f);
+	const FSlateFontInfo Font(GEngine->GetSmallFont(), 9.f * TextScale, FName(TEXT("Regular")));
+	FCanvasTextStringViewItem Header(Origin - FVector2D(0, 29.f * TextScale),
+		FStringView(Controller.IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL") : TEXT("ARENA / LMB PAN / RMB ORDER")), Font, View);
+	Canvas->DrawItem(Header);
+	FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
+		FStringView(TEXT("HQ/base | sector | amber: contest/front")), Font, Neutral);
+	Canvas->DrawItem(Legend);
+}
 }
 
 bool CommandMinimap::ScreenToWorld(const AArenaBounds* Arena, FVector2D Position, FVector2D Origin, float Size, FVector& OutWorld)
@@ -246,158 +425,22 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 	if (!Arena)
 		return;
 	const FMap Map{ Canvas, Origin, Size, Arena->HalfExtent };
-	Map.Fill(Origin, FVector2D(Size, Size), FLinearColor(.018f, .028f, .038f, .96f));
-	const FLinearColor Grid(.12f, .17f, .20f, .65f);
-	for (int32 Index = 1; Index < 4; ++Index)
+	DrawBackdrop(Map, Origin, Size);
+	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
+	if (State)
 	{
-		const double Offset = Size * Index / 4.0;
-		Map.Line(Origin + FVector2D(Offset, 0), Origin + FVector2D(Offset, Size), Grid);
-		Map.Line(Origin + FVector2D(0, Offset), Origin + FVector2D(Size, Offset), Grid);
+		DrawRegionOutlines(Map, *State);
+		DrawSites(Map, *State);
+		DrawStructures(Map, *State, *Controller);
 	}
-	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>())
-	{
-		for (const AMapRegion* Region : State->Regions)
-		{
-			if (!IsValid(Region))
-				continue;
-			const int32 Team = State->GetRegionController(Region->RegionIndex);
-			const FLinearColor Color = TeamColor(Team);
-			for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
-			{
-				const FVector2D& A = Region->Polygon[Index];
-				const FVector2D& B = Region->Polygon[(Index + 1) % Region->Polygon.Num()];
-				FVector2D Start, End;
-				if (Map.Point(FVector(A.X, A.Y, 0.f), Start) && Map.Point(FVector(B.X, B.Y, 0.f), End))
-					Map.Line(Start, End, Color.CopyWithNewOpacity(.45f));
-			}
-		}
-		for (const ADepositSite* Deposit : State->Deposits)
-		{
-			FVector2D Point;
-			if (IsValid(Deposit) && Map.Point(Deposit->GetActorLocation(), Point))
-				Map.Diamond(Point, 2.0, Deposit->Remaining > 0 ? Contested : Neutral);
-		}
-		for (const ACapturePoint* Site : State->CaptureSites)
-		{
-			FVector2D Point;
-			if (!IsValid(Site) || !Map.Point(Site->GetActorLocation(), Point))
-				continue;
-			const FLinearColor Color = TeamColor(Site->ControllingTeam);
-			Map.Diamond(Point, 4.0, Color);
-			if (Site->bFriendlyPresent && Site->bEnemyPresent)
-				Map.Diamond(Point, 6.5, Contested);
-		}
-		for (const ACommandBuilding* Building : State->Buildings)
-		{
-			FVector2D Point;
-			if (!IsValid(Building) || !Building->IsAlive() || !Map.Point(Building->GetActorLocation(), Point))
-				continue;
-			const FLinearColor Color = TeamColor(Building->TeamIndex);
-			Map.Box(Point, 3.0, Color);
-			if (Building->IsComplete())
-				Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), Color);
-			if (Building == Controller->GetSelectedBuilding())
-				Map.Box(Point, 5.0, View);
-		}
-		for (const AHeadquarters* HQ : { State->FriendlyHeadquarters.Get(), State->EnemyHeadquarters.Get() })
-		{
-			FVector2D Point;
-			if (!IsValid(HQ) || !Map.Point(HQ->GetActorLocation(), Point))
-				continue;
-			const FLinearColor Color = HQ->IsAlive() ? TeamColor(HQ->TeamIndex) : Neutral;
-			Map.Box(Point, 6.0, Color);
-			Map.Fill(Point - FVector2D(3, 3), FVector2D(6, 6), Color);
-		}
-	}
-	// Read existing level actor arrays directly; no per-frame actor snapshots/allocations.
-	for (const ULevel* Level : World->GetLevels())
-	{
-		if (!Level)
-			continue;
-		for (const AActor* Actor : Level->Actors)
-		{
-			if (!IsValid(Actor))
-				continue;
-			FVector2D Point;
-			if (const AArmyUnit* Unit = Cast<AArmyUnit>(Actor))
-			{
-				if (Unit->IsAlive() && Map.Point(Unit->GetActorLocation(), Point))
-					Map.Fill(Point - FVector2D(1, 1), FVector2D(2, 2), TeamColor(Unit->GetTeamIndex()));
-			}
-			else if (const AArmyGroup* Squad = Cast<AArmyGroup>(Actor))
-			{
-				bool bAlive = false;
-				for (const AArmyUnit* Member : Squad->GetUnits())
-					if (IsValid(Member) && Member->IsAlive())
-					{
-						bAlive = true;
-						break;
-					}
-				if (bAlive && Map.Point(Squad->GetCenter(), Point))
-					Map.Diamond(Point, 3.0, TeamColor(Squad->GetTeamIndex()));
-			}
-		}
-	}
-	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>())
+	DrawForces(Map, *World);
+	if (State)
 		DrawJevBadges(Map, *State);
-	ForceRoutePresentation::Visit(*Controller, [&Map](const ForceRoutePresentation::FRoute& Route) {
-		const FLinearColor Color = Route.Color.CopyWithNewOpacity(Route.OrderIndex > 0 ? .6f : 1.f);
-		const float Width = Route.bSelected || Route.bPreview ? 2.f : 1.f;
-		for (int32 Index = 1; Index < Route.Line.Count; ++Index)
-		{
-			const FVector2D A = Map.Project(Route.Line.Points[Index - 1]), B = Map.Project(Route.Line.Points[Index]);
-			const FVector2D Direction = (B - A).GetSafeNormal();
-			const FVector2D Side(-Direction.Y, Direction.X);
-			if (Route.bPreview || Route.OrderIndex > 0)
-			{
-				const double Length = FVector2D::Distance(A, B);
-				for (double Offset = 0.; Offset < Length; Offset += 7.)
-					Map.Line(A + Direction * Offset, A + Direction * FMath::Min(Offset + 4., Length), Color, Width);
-			}
-			else
-				Map.Line(A, B, Color, Width);
-			const FVector2D Tip = FVector2D::DistSquared(A, B) > 100. ? FMath::Lerp(A, B, .6) : B;
-			Map.Line(Tip, Tip - Direction * 5. + Side * 3., Color, Width);
-			Map.Line(Tip, Tip - Direction * 5. - Side * 3., Color, Width);
-		}
-		if (Route.Line.Count > 0 && (Route.bSelected || Route.bPreview))
-			Map.Diamond(Map.Project(Route.Line.Points[Route.Line.Count - 1]), Route.OrderIndex == 0 ? 7. : 4., Color);
-	});
-	const ACommandBuilding* Selected = Controller->GetSelectedBuilding();
-	FVector2D Front;
-	if (IsValid(Selected) && Selected->IsAlive() && IsValid(Selected->ForceGroup)
-		&& Map.Point(Selected->ForceGroup->Destination, Front))
-	{
-		Map.Diamond(Front, 6.0, Contested);
-		Map.Line(Front - FVector2D(3, 0), Front + FVector2D(3, 0), Contested);
-		Map.Line(Front - FVector2D(0, 3), Front + FVector2D(0, 3), Contested);
-	}
-	if (const ACommandGameState* State = World->GetGameState<ACommandGameState>(); State && Controller->PingCommands)
-	{
-		const float Now = State->GetServerWorldTimeSeconds();
-		for (const FObjectiveEvent& Event : Controller->PingCommands->GetEvents())
-		{
-			FVector2D Point;
-			if (Now - Event.ServerTime >= UPingCommandComponent::Lifetime || Event.Forces.IsEmpty()
-				|| !Map.Point(Event.Location, Point))
-				continue;
-			const FLinearColor Color = AArmyUnit::GetCommanderColor(Event.Forces[0].CommanderIndex);
-			Map.Diamond(Point, 7.0, Color);
-			Map.Line(Point - FVector2D(4, 0), Point + FVector2D(4, 0), Color, 2.f);
-			Map.Line(Point - FVector2D(0, 4), Point + FVector2D(0, 4), Color, 2.f);
-		}
-	}
-	Map.Box(Origin + FVector2D(Size, Size) * .5, Size * .5, Grid);
+	ForceRoutePresentation::Visit(*Controller, [&Map](const ForceRoutePresentation::FRoute& Route) { DrawRoute(Map, Route); });
+	DrawSelectedFront(Map, *Controller);
+	if (State)
+		DrawPings(Map, *State, *Controller);
+	Map.Box(Origin + FVector2D(Size, Size) * .5, Size * .5, GridColor);
 	DrawFootprint(Map, Controller);
-	if (GEngine && GEngine->GetSmallFont())
-	{
-		const float TextScale = FMath::Clamp(Size / 210.f, .65f, 1.f);
-		const FSlateFontInfo Font(GEngine->GetSmallFont(), 9.f * TextScale, FName(TEXT("Regular")));
-		FCanvasTextStringViewItem Header(Origin - FVector2D(0, 29.f * TextScale),
-			FStringView(Controller->IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL") : TEXT("ARENA / LMB PAN / RMB ORDER")), Font, View);
-		Canvas->DrawItem(Header);
-		FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
-			FStringView(TEXT("HQ/base | sector | amber: contest/front")), Font, Neutral);
-		Canvas->DrawItem(Legend);
-	}
+	DrawCaption(Canvas, *Controller, Origin, Size);
 }
