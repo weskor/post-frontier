@@ -46,9 +46,14 @@ def validate_report(report: JsonObject, job: JsonObject) -> None:
         raise ValueError(
             f"No complete schema-1 result: status={report.get('status')}, error={report.get('error')}"
         )
-    for field in ("map", "seed", "economy"):
+    for field in ("map", "seed"):
         if report.get(field) != job[field]:
             raise ValueError(f"Telemetry {field} does not match launched job")
+    if report.get("economy") != job["economy"]:
+        raise ValueError(
+            "Telemetry economy (human and JEV baselines, rates, reserves) "
+            "does not match launched job"
+        )
     duration = number(report.get("duration"), "duration")
     if duration <= 0 or duration > job["time_cap"] + 0.1:
         raise ValueError("Duration outside game-time cap")

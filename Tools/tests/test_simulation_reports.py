@@ -171,6 +171,24 @@ def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
         validate_report(report, job)
 
 
+@pytest.mark.parametrize(
+    "economy",
+    [
+        {"baseline": 2},
+        {"human_baseline": 2},
+        {"human_baseline": 1, "jev_baseline": 2},
+        {"human_baseline": 2, "jev_baseline": 1},
+    ],
+)
+def test_report_economy_must_carry_both_launched_baselines(
+    economy: JsonObject,
+) -> None:
+    job, report = telemetry()
+    report["economy"] = economy
+    with pytest.raises(ValueError, match="human and JEV baselines"):
+        validate_report(report, job)
+
+
 @pytest.mark.parametrize("missing", ["snapshot", "creation", "escalation"])
 def test_missing_plans_are_excluded_instead_of_crashing_aggregation(
     tmp_path: Path,
