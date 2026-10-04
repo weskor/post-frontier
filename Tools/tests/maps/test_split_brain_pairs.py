@@ -33,6 +33,7 @@ def test_every_authored_pair_is_two_non_adjacent_necks(v2_map: MapData) -> None:
         assert {first, second} <= necks
         assert second not in neighbours[first]
 
+
 @pytest.mark.parametrize(
     ("pairs", "message"),
     [
