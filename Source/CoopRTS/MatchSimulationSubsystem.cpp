@@ -129,6 +129,9 @@ void FMatchSimulation::Tick(float DeltaTime)
 	}
 	if (!bStarted)
 	{
+		// The opening (planning, then the kits at 0:00) belongs to the match: start observing once it has ended.
+		if (State->IsPlanningOpenOrPending())
+			return;
 		// Let the chosen map's navigation finish its initial asynchronous build.
 		if (FSimulationSettings::Get().bDuel && GetWorld()->GetTimeSeconds() < 3.f)
 			return;
