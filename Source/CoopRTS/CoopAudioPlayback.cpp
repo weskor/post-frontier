@@ -19,6 +19,9 @@ UAudioComponent* UCoopAudioSubsystem::Play(ECoopAudioEvent Event, int32 Team, in
 	USoundWave* Wave = Choose(Event, Team, Role, Variant);
 	if (!Wave)
 		return nullptr;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	++PlayCounts.FindOrAdd(static_cast<int32>(Event));
+#endif
 	if (MixWorld != World)
 		ApplyMasterMix(World);
 	AActor* ComponentOwner = LoopOwner ? LoopOwner : World->GetWorldSettings();

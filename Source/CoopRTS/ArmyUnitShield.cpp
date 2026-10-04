@@ -4,6 +4,7 @@
 #include "CombatTarget.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "CoopAudioSubsystem.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -68,8 +69,16 @@ void AArmyUnit::CastPulse(const ACommandGameState& State)
 	NextPulseReadyAt = ShieldPolicy::NextPulseReadyAt(GetWorld()->GetTimeSeconds(), Definition->PulseInterval);
 	LastPulseServerTime = State.GetServerWorldTimeSeconds();
 	ForceNetUpdate();
+	UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this);
+	if (Audio)
+		Audio->PlayUnit(ECoopAudioEvent::Pulse, TeamIndex, UnitRole, Origin, this);
 	for (AArmyUnit* Other : Units)
+	{
+		const bool bShieldBroke = Other->GetShield() > 0;
 		Other->StripShield();
+		if (bShieldBroke && Audio)
+			Audio->PlayUnit(ECoopAudioEvent::ShieldBreak, Other->GetTeamIndex(), Other->GetUnitRole(), Other->GetActorLocation(), Other);
+	}
 	for (ACommandBuilding* Building : Buildings)
 		Building->ApplyStun(Definition->PulseBuildingStunSeconds);
 }

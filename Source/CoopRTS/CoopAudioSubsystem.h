@@ -83,6 +83,10 @@ public:
 	void PlayCapture(ECoopAudioEvent Event, const FVector& Location, int32 Milestone = 0);
 	void PlayOutcome(bool bVictory);
 	void PlayAnnouncer(FName Id, float ServerTime);
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	// Cues that resolved a wave and started on this instance, by event; tests only.
+	int32 GetPlayCount(ECoopAudioEvent Event) const { return PlayCounts.FindRef(static_cast<int32>(Event)); }
+#endif
 
 private:
 	UPROPERTY()
@@ -119,6 +123,9 @@ private:
 	// Counts the cue specs asked for; the library is complete when everything asked for loaded.
 	int32 ExpectedCues = 0;
 	int32 ExpectedWaves = 0;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	TMap<int32, int32> PlayCounts;
+#endif
 
 	static int32 CueKey(ECoopAudioEvent Event, int32 Team, int32 Role);
 	void LoadMixAssets();

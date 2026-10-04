@@ -2,6 +2,7 @@
 
 #include "CombatTraitFixture.h"
 #include "Commands/CommandService.h"
+#include "CoopAudioSubsystem.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FShieldedSquadWorldTest, "CoopRTS.Content.ShieldedSquad.ProduceAndFight",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -44,6 +45,7 @@ private:
 	TWeakObjectPtr<AArmyUnit> Caster, Victim;
 	FVector Ground = FVector::ZeroVector;
 	int32 LancerIndex = INDEX_NONE, ScramblerIndex = INDEX_NONE, CaseIndex = 0;
+	int32 PulseCues = 0, BreakCues = 0;
 };
 
 bool FSquadScenario::PlaceBarracks(ACommandPlayerState* Commander, const FVector& Center)
@@ -162,6 +164,11 @@ bool FSquadScenario::StartPulse(const FCase& Case)
 	Victim = Arena.Spawn(!Case.bMachine, LancerIndex, Ground, Ground + FVector(-180.f, 0.f, 65.f));
 	if (!Check(Victim.IsValid(), TEXT("The hostile Lancer fixture spawns")))
 		return false;
+	const UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(Squad);
+	if (!Check(Audio != nullptr, TEXT("The audio subsystem is running in the test world")))
+		return false;
+	PulseCues = Audio->GetPlayCount(ECoopAudioEvent::Pulse);
+	BreakCues = Audio->GetPlayCount(ECoopAudioEvent::ShieldBreak);
 	return Check(Victim->GetShield() == LancerShield && Caster->GetLastPulseServerTime() < 0.,
 		TEXT("A hostile Lancer with its full shield stands in a produced Scrambler's pulse radius, which is ready at spawn"));
 }
@@ -187,8 +194,13 @@ bool FSquadScenario::Step(double Now)
 	}
 	if (Victim->GetShield() > 0)
 		return !Check(!After(Now, 1.5), TEXT("The produced Scrambler pulses at a shielded hostile in range"));
+	const UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(Caster.Get());
 	if (!Check(Victim->GetHealth() == LancerHealth && Caster->GetLastPulseServerTime() > 0.,
 			TEXT("The pulse empties the shield without HP damage and publishes its cast time")))
+		return true;
+	if (!Check(Audio && Audio->GetPlayCount(ECoopAudioEvent::Pulse) == PulseCues + 1
+				&& Audio->GetPlayCount(ECoopAudioEvent::ShieldBreak) == BreakCues + 1,
+			TEXT("One pulse cue plays at the cast and one shield-break cue for the Lancer whose shield it emptied")))
 		return true;
 	++CaseIndex;
 	Stage = 0;

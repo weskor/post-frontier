@@ -13,7 +13,7 @@
 | Artillery | 3 | 40 | 6.67 s | 180 |
 
 - Combat profiles and tuning live in [units.md](units.md). The same lock, refill and upgrade rules apply to the Factory and Lab ([buildings.md](buildings.md)).
-- **[New]** The Lancer and Scrambler follow the same per-unit rules: production time is proportional to unit cost ([units.md](units.md)), and neither has a one-time fee (starting value, orchestrator 2026-10-04).
+- **[Built]** The Lancer and Scrambler follow the same per-unit rules: production time is proportional to unit cost ([units.md](units.md)), and neither has a one-time fee (starting value, orchestrator 2026-10-04).
 - The lock is a deliberate commitment. Because battles are short, it never stays sunk for longer than one battle.
 - **Decided:** a finished building can be recycled for 50% of its build cost, so a wrong lock can be undone at a price ([buildings.md](buildings.md)).
 
