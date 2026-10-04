@@ -193,6 +193,11 @@ kind = "automation"
 filter = "CoopRTS.Forces.Verbs.NoSafeHQFallback"
 map = "default"
 
+[scopes.force-route-capture]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.RouteCapture"
+map = "default"
+
 [scopes.route-intent]
 kind = "automation"
 filter = "CoopRTS.Forces.RouteIntent"
@@ -464,6 +469,14 @@ rendered = true
 "Source/CoopRTS/VerbOrderRallyTests.cpp" = ["force-rally"]
 "Source/CoopRTS/VerbOrderNeverTests.cpp" = ["force-threshold-never"]
 "Source/CoopRTS/VerbOrderNoSafeRegionTests.cpp" = ["force-no-safe-fallback"]
+"Source/CoopRTS/VerbOrderRouteCaptureTests.cpp" = ["force-route-capture"]
+"Source/CoopRTS/RouteCaptureRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/RouteCapturePolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-attack-withdrawal", "force-contested-transit", "force-identity", "force-mixed-speed", "force-move-hold", "force-no-safe-fallback", "force-orphan", "force-queue", "force-rally", "force-retreat", "force-route-capture", "force-selection", "force-structure-death", "force-structure-withdrawal", "force-threshold-never", "hold-border", "hold-building-edge", "hold-jev", "hold-proportional", "hold-shared-commanders", "hold-timers", "match-loss", "match-win", "movement", "orders", "production", "pursuit", "route-intent", "rules", "simulation-duel", "strategy", "verb-input"]
+# Route-capture world test depends on the order tick, the shared route traversal and its fixture.
+"Source/CoopRTS/ForceOrders*.[ch]*" = ["force-route-capture"]
+"Source/CoopRTS/Rules/RouteIntent.[ch]*" = ["force-route-capture"]
+"Source/CoopRTS/Rules/ForceOrderPolicy.[ch]*" = ["force-route-capture"]
+"Source/CoopRTS/VerbOrderFixture.[ch]*" = ["force-route-capture"]
 "Source/CoopRTS/JevScalingTests.cpp" = ["jev-scaling"]
 "Source/CoopRTS/MapRegion.cpp" = ["construction", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]
 "Source/CoopRTS/MapRegion.h" = ["construction", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "production", "strategy", "defend-posts-boot", "defend-posts-v2"]

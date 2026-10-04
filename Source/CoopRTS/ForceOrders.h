@@ -49,6 +49,8 @@ struct FForceOrder
 	// Retained if the actor is destroyed before this queued order becomes active.
 	UPROPERTY(BlueprintReadOnly)
 	bool bStructureTarget = false;
+	// Server-only: the last region the force stood in while on this order's route.
+	int32 RouteOrigin = INDEX_NONE;
 
 	FForceOrder() = default;
 	FForceOrder(EForceVerb InVerb, int32 InRegion, AActor* InStructure = nullptr)

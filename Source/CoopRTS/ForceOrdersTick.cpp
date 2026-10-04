@@ -11,6 +11,7 @@
 #include "MapRegion.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationSystem.h"
+#include "Rules/RouteCapturePolicy.h"
 
 // Region state read once per order tick; bit N of a mask addresses region index N.
 struct FForceTickContext
@@ -274,16 +275,28 @@ void AArmyGroup::TickMarch(const FForceTickContext& Ctx)
 {
 	Status = EForceStatus::Marching;
 	const int32 Source = Ctx.Source;
-	int32 Waypoint = Source;
 	const AMapRegion* Current = ForceOrderGraph::Region(*Ctx.State, Source);
 	// Do not chase off the route to unlock an intermediate waypoint. Capture
-	// uncontested ground; pass a contested anchor only after physical arrival.
-	const bool bContested = Current && Current->Anchor
+	// uncontested ground on the route; pass a contested anchor only after physical
+	// arrival. Ground the path merely crosses is not captured.
+	RouteCapturePolicy::FMarch March;
+	March.Source = Source;
+	March.Target = TargetRegionIndex;
+	March.Origin = Orders[0].RouteOrigin;
+	March.Applied = AppliedWaypoint;
+	March.bHasRegion = Current != nullptr;
+	March.bHasAnchor = Current && Current->Anchor;
+	March.bControlled = (Ctx.Controlled & Bit(Source)) != 0;
+	March.bContested = March.bHasAnchor
 		&& (TeamIndex == 0 ? Current->Anchor->bEnemyPresent : Current->Anchor->bFriendlyPresent);
-	if (Source == TargetRegionIndex || (Current && (!Current->Anchor || (Ctx.Controlled & Bit(Source))))
-		|| (bContested && AppliedWaypoint != INDEX_NONE
-			&& (AppliedWaypoint != Source || HasArrivedAtRegion(*Ctx.State, Source))))
+	March.bArrived = March.bContested && AppliedWaypoint == Source && HasArrivedAtRegion(*Ctx.State, Source);
+	const RouteCapturePolicy::FDecision Decision = RouteCapturePolicy::Decide(Ctx.Graph, Ctx.Count, March);
+	Orders[0].RouteOrigin = Decision.Origin;
+	int32 Waypoint = Source;
+	if (Decision.Step == RouteCapturePolicy::EStep::Advance)
 		Waypoint = ForceOrders::NextWaypoint(Ctx.Graph, Ctx.Count, Source, TargetRegionIndex);
+	else if (Decision.Step == RouteCapturePolicy::EStep::Continue)
+		Waypoint = AppliedWaypoint;
 	if (Waypoint == TargetRegionIndex && TargetStructure)
 		ApplyWaypoint(Waypoint, EArmyOrder::Attack, TargetStructure);
 	else
