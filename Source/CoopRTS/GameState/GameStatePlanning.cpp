@@ -234,16 +234,14 @@ bool ACommandGameState::PlaceDefaultBarracks(FPlanningKit& Kit)
 {
 	FString Reason;
 	FVector Spot;
-	return GameStatePlanning::FindDefaultBarracks(*this, Kit.Commander->TeamIndex,
-		[&](const FVector& Candidate) { return PlaceKitPiece(Kit, false, Candidate, Reason); }, Spot);
+	return GameStatePlanning::FindDefaultBarracks(*this, Kit.Commander->TeamIndex, [&](const FVector& Candidate) { return PlaceKitPiece(Kit, false, Candidate, Reason); }, Spot);
 }
 
 bool ACommandGameState::PlaceDefaultRig(FPlanningKit& Kit)
 {
 	FString Reason;
 	FVector Site;
-	return GameStatePlanning::FindDefaultRig(*this, Kit.Commander->TeamIndex,
-		[&](const FVector& Candidate) { return PlaceKitPiece(Kit, true, Candidate, Reason); }, Site);
+	return GameStatePlanning::FindDefaultRig(*this, Kit.Commander->TeamIndex, [&](const FVector& Candidate) { return PlaceKitPiece(Kit, true, Candidate, Reason); }, Site);
 }
 
 namespace

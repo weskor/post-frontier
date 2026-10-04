@@ -18,8 +18,7 @@ void GhostBarracks(const ACommandGameState& State, int32 Team, FPlanningGhosts& 
 	FString Reason;
 	FVector Spot;
 	if (!Barracks
-		|| !GameStatePlanning::FindDefaultBarracks(State, Team,
-			[&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Spot))
+		|| !GameStatePlanning::FindDefaultBarracks(State, Team, [&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Spot))
 		return;
 	Out.bBarracks = true;
 	Out.Barracks = State.ResolveBuildingLocation(Index, Spot, Team);
@@ -33,8 +32,7 @@ void GhostRig(const ACommandGameState& State, int32 Team, FPlanningGhosts& Out)
 	FString Reason;
 	FVector Site;
 	if (!Rig
-		|| !GameStatePlanning::FindDefaultRig(State, Team,
-			[&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Site))
+		|| !GameStatePlanning::FindDefaultRig(State, Team, [&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Site))
 		return;
 	Out.bRig = true;
 	Out.Rig = Site;
