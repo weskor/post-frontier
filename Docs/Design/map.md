@@ -5,7 +5,7 @@
 ## Territory rules [Built unless noted]
 
 - Habitable Zone v2 has 15 polygon regions. Its asset is still `AvailabilityZoneV2`, and today's menu still calls it Availability Zone v2 ([World.md](../World.md#names-in-code-and-assets)).
-- **Main regions:** belong to their team until its HQ is lost, and cannot be captured. **[Change]** An HQ that is offline is not yet lost, so its main stays controlled for its owner until the hold completes ([battle.md](battle.md#guarding-the-hqs-change--decided)).
+- **Main regions:** belong to their team until its HQ is lost, and cannot be captured. **[Change]** An HQ that is offline is not yet lost, so its main stays controlled for its owner until the hold completes ([battle.md](battle.md#guarding-the-hqs-built--decided)).
 - **Every other region:** follows its capture anchor.
   - Radius 430 cm, rate 0.125/s: 8 s to take a neutral anchor, 16 s to flip an enemy one.
   - Capture makes no progress when both sides are present or when nobody is, and nothing locks a capture. Only units that belong to a force count.
@@ -24,7 +24,7 @@
   - A seed checker rejects bad seeds before they're offered. Batch-check about 1,000 seeds per map and compare histograms (hops to the nearest deposit, JEV distance, supply necks) to catch hidden bias.
   - Each map keeps one fixed beginner seed.
 - **Link toggles:** 2–4 designed toggles per map open or close links between regions, e.g. a bridge out or a pass open. They change the supply graph, which is what makes a known map play differently. Cosmetic changes don't count as variants.
-- **Failover Node sites:** each map authors two per side, in regions next to each main ([buildings.md](buildings.md#hq)). **[Change]** Built in step 1b on Habitable Zone v2 for both sides (orchestrator 2026-10-04).
+- **Failover Node sites:** each map authors two per side, in regions next to each main ([buildings.md](buildings.md#hq)). **[Built]** in step 1b on Habitable Zone v2 for both sides: Human Near and West Cut for Hardline, Canal Walk and Machine Near for the Lattice (`Build/Maps/AvailabilityZoneV2.json`, `failover_nodes`).
 - **Player count:** the map stays the same; JEV scales instead ([jev.md](jev.md)).
 
 ## Bases [Change] — decided

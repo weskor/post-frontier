@@ -4,6 +4,7 @@
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "Engine/World.h"
 
@@ -17,9 +18,12 @@ bool CombatTarget::IsAliveHostile(const AActor* Target, int32 AttackerTeam)
 	if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
 	{
 		const ACommandGameState* State = HQ->GetWorld()->GetGameState<ACommandGameState>();
-		return HQ->IsAlive() && HQ->TeamIndex != AttackerTeam && State
+		// An offline HQ is not a target: the hold, not damage, decides it. An immune one stays a valid order target.
+		return HQ->IsOnline() && HQ->TeamIndex != AttackerTeam && State
 			&& (State->FriendlyHeadquarters == HQ || State->EnemyHeadquarters == HQ);
 	}
+	if (const AFailoverNode* Node = Cast<AFailoverNode>(Target))
+		return Node->IsAlive() && Node->TeamIndex != AttackerTeam && Node->GetWorld()->GetGameState<ACommandGameState>();
 	if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
 	{
 		const ACommandGameState* State = Building->GetWorld()->GetGameState<ACommandGameState>();
@@ -35,6 +39,8 @@ EArmorClass CombatTarget::ArmorClass(const AActor* Target)
 		return Unit->GetArmorClass();
 	if (const AHeadquarters* HQ = Cast<AHeadquarters>(Target))
 		return HQ->GetArmorClass();
+	if (const AFailoverNode* Node = Cast<AFailoverNode>(Target))
+		return Node->GetArmorClass();
 	if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
 		return Building->GetArmorClass();
 	checkNoEntry();
@@ -49,6 +55,8 @@ void CombatTarget::ReceiveAttack(AActor* Target, int32 Damage, AArmyUnit* Attack
 		Unit->ReceiveAttack(Damage, Attacker);
 	else if (AHeadquarters* HQ = Cast<AHeadquarters>(Target))
 		HQ->ReceiveAttack(Damage, Attacker);
+	else if (AFailoverNode* Node = Cast<AFailoverNode>(Target))
+		Node->ReceiveAttack(Damage, Attacker);
 	else if (ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
 		Building->ReceiveAttack(Damage, Attacker);
 }

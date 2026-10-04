@@ -51,7 +51,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 ## Connected territory [Built]
 
 - A Drill Rig, and a reward region's Data trickle, pays only while its region is **connected to the friendly main region through controlled regions**. A Conduit can bridge one gap ([buildings.md](buildings.md)).
-- **Connected means** a path of regions your team *controls*, starting at your main. A contested region still counts as long as you control it, which keeps the rule readable; a neutral or enemy-held region breaks the chain. JEV's chain starts at JEV's main. While an HQ is offline the main stays controlled ([battle.md](battle.md#guarding-the-hqs-change--decided)).
+- **Connected means** a path of regions your team *controls*, starting at your main. A contested region still counts as long as you control it, which keeps the rule readable; a neutral or enemy-held region breaks the chain. JEV's chain starts at JEV's main. While an HQ is offline the main stays controlled ([battle.md](battle.md#guarding-the-hqs-built--decided)).
 - Cutting the chain stops income from every region beyond the cut. A disconnected Drill Rig neither pays nor depletes, and a disconnected reward region pays no Data (starting value, orchestrator 2026-10-04).
 - **[Built]** The connected set is recomputed whenever any region controller changes, and at least every 0.25 s. Each team's connected mask replicates together with the server time of its last change (starting value, orchestrator 2026-10-04).
 - **[Built]** There is one connectivity rule: income here and reinforcements ([forces.md](forces.md)) both read `ForceOrders::ConnectedMask`.

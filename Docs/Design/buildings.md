@@ -37,8 +37,8 @@ Each production building still locks to one of its units on first Start and grow
 
 ## HQ
 
-- **[Built]** Passive: no attack, 900 HP today, 1800 once structure HP doubles (not in step 1b). **[Change]** Today losing it loses the battle at once; with the hold, the battle is lost when the hold completes ([battle.md](battle.md#guarding-the-hqs-change--decided)).
-- **[New] Failover Nodes:** two guard each HQ, pre-built, **1000 HP** each, at the authored sites ([map.md](map.md#maps-new--decided)). The HQ takes no damage while either node stands. Nodes take 90% less damage until the `v1.2` release ([jev.md](jev.md#how-jev-plays-change--decided)). In step 1b nodes can't be repaired or rebuilt (the target allows repair, never rebuilding), and every node loss is announced to all. A destroyed HQ goes offline for a hold rather than dying at once ([battle.md](battle.md#guarding-the-hqs-change--decided)). Starting values, orchestrator 2026-10-04.
+- **[Built]** Passive: no attack, 900 HP today, 1800 once structure HP doubles (not in step 1b). **[Built]** Losing it takes it offline; the battle is lost when the hold on its main completes ([battle.md](battle.md#guarding-the-hqs-built--decided)).
+- **[Built] Failover Nodes:** two guard each HQ, pre-built, **1000 HP** each, at the authored sites ([map.md](map.md#maps-new--decided)). The HQ takes no damage while either node stands. Nodes take 90% less damage until the `v1.2` release ([jev.md](jev.md#how-jev-plays-change--decided)). In step 1b nodes can't be repaired or rebuilt (the target allows repair, never rebuilding), and every node loss is announced to all. A destroyed HQ goes offline for a hold rather than dying at once ([battle.md](battle.md#guarding-the-hqs-built--decided)). Starting values, orchestrator 2026-10-04.
 - **[Later]** HQ tiers and team calldowns. Cut from launch scope ([economy.md](economy.md)). The designed set, kept for later:
 
 | Tier | Calldown | Effect |

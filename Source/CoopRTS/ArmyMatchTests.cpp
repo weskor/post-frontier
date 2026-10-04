@@ -4,6 +4,7 @@
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
 #include "DepositSite.h"
+#include "GuardedHqTestSupport.h"
 #include "Headquarters.h"
 #include "SimulationSettings.h"
 #include "Content/BuildingDefinition.h"
@@ -105,8 +106,21 @@ private:
 	}
 	bool RunStage1(ACommandGameState* State, ACommandPlayerController* PC, ACommandPlayerState* Wallet)
 	{
+		AHeadquarters* Target = bVictory ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
 		if (State->MatchResult == EMatchResult::Ongoing)
+		{
+			// An HQ at 0 HP is only offline: the battle goes on until the attackers complete the hold on its main.
+			if (!bHoldCompleted && Target->IsOffline())
+			{
+				if (!Target->IsAlive() || Target->Health != 0)
+					return Fail(TEXT("A weapon-killed HQ must be offline at 0 HP, not lost"));
+				const AArmyGroup* Attacker = bVictory ? Friendly.Get() : Enemy.Get();
+				bHoldCompleted = true;
+				if (!GuardedHqTest::CompleteHold(*Target, Attacker->GetUnits()[0]))
+					return Fail(TEXT("Attackers in the main must complete the hold"));
+			}
 			return false;
+		}
 		const EMatchResult Expected = bVictory ? EMatchResult::Victory : EMatchResult::Defeat;
 		if (State->MatchResult != Expected || !Friendly.IsValid() || !Enemy.IsValid())
 			return Fail(TEXT("Weapon encounter resolved to the wrong outcome"));
@@ -120,7 +134,7 @@ private:
 		{
 			// The lethal hit is already proved. Isolate terminal rejection from the
 			// dead home HQ and hostile occupation, which independently deny building.
-			State->FriendlyHeadquarters->Health = 80;
+			State->FriendlyHeadquarters->ResetForTest(80);
 			for (AArmyUnit* Unit : Enemy->GetUnits())
 				Unit->SetActorLocation(ArmyTestSetup::HostileStaging(State)
 						+ FVector(0.f, Unit->GetCompositionSlot() * 100.f, 0.f),
@@ -202,6 +216,7 @@ private:
 	FAutomationTestBase* Test;
 	bool bVictory;
 	int32 Stage = 0;
+	bool bHoldCompleted = false;
 	int32 Slot = -1;
 	uint32 BeforeShots = 0;
 	double StartedAt = FPlatformTime::Seconds();

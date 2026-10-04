@@ -13,5 +13,11 @@
   {"id": "ping_look_here", "text": "Look here."},
   {"id": "ping_need_help", "text": "Need help here."},
   {"id": "region_defenders_responding", "text": "Region defenders responding."},
-  {"id": "fortify_cast", "text": "Fortify active."}
+  {"id": "fortify_cast", "text": "Fortify active."},
+  {"id": "own_node_lost", "text": "Hardline Failover Node lost."},
+  {"id": "enemy_node_lost", "text": "The Lattice Failover Node lost."},
+  {"id": "own_emergency", "text": "Hardline offline. Emergency forces deployed."},
+  {"id": "enemy_emergency", "text": "The Lattice offline. Emergency forces deployed."},
+  {"id": "own_hq_online", "text": "Hardline is back online."},
+  {"id": "enemy_hq_online", "text": "The Lattice is back online."}
 ]

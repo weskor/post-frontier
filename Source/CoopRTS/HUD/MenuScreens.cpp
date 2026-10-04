@@ -101,7 +101,7 @@ static void DrawMainMenuContent(const FPainter& Paint, const FRect& Panel)
 	const float Center = Panel.Center().X;
 
 	Paint.Text(TEXT("SOLO OR STEAM CO-OP  /  AVAILABILITY ZONE"), Center, Panel.Y + 82.f, 12.f, Palette::Friendly, true, EAlign::Center);
-	DrawScreenLine(Paint, Panel, TEXT("Build a base. Give your forces orders. Break JEV's headquarters."), 1);
+	DrawScreenLine(Paint, Panel, TEXT("Build a base. Give your forces orders. Break its Failover Nodes, take JEV's headquarters offline, then hold its main."), 1);
 	DrawScreenLine(Paint, Panel, TEXT("Choose v2 (15 regions) or classic. Solo needs no connection."), 2, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Start with 600 resources; your baseline income is +2 per second."), 3, Palette::Muted);
 	DrawScreenLine(Paint, Panel, TEXT("Choose your map below, then play solo or host on Steam."), 4, Palette::Muted);

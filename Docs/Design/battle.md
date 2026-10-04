@@ -5,7 +5,7 @@
 - **Length target:** 8–12 min.
 - **Start [Change]:** a planning phase, then the commanders' kits stand pre-built (see "Opening" below). Today [Built]: an empty base, 600 Power per commander and no units.
 - **Win:** complete the node objective.
-- **Lose [Change]:** the friendly HQ goes offline and the attackers complete its hold ([Guarding the HQs](#guarding-the-hqs-change--decided)). Today [Built]: the friendly HQ is destroyed.
+- **Lose [Built]:** the friendly HQ goes offline and the attackers complete its hold ([Guarding the HQs](#guarding-the-hqs-built--decided)).
 
 ## Opening: planning phase and pre-built kit [Change] — decided
 
@@ -59,28 +59,28 @@ Each node shows its objective in advance.
 
 | Objective | Win when | Pushes players to |
 |---|---|---|
-| Assault | The Lattice (JEV HQ) goes offline and the team wins its uplink hold (see "Guarding the HQs" below) | Commit to one push [Change] |
+| Assault | The Lattice (JEV HQ) goes offline and the team wins its uplink hold (see "Guarding the HQs" below) | Commit to one push [Built] |
 | Raid | **3 JEV relays** are destroyed. Relays are guarded and placed apart, so the team has to fight on several fronts | Spread out and fight on several fronts [New] |
 | Sabotage | **3 marked regions** are held at the same time for **90 s**. Progress is kept when interrupted and decays slowly | Hold territory and work together [New] |
 
-## Guarding the HQs [Change] — decided
+## Guarding the HQs [Built] — decided
 
 **Why.** In the 2026-10-01 playtest, a force left on Assault walked to JEV's HQ and won at about 5 min while the player was busy in his base, without him noticing. In source, the HQ has 900 HP and one full Frontline force deals 120 DPS, so it dies in 7.5 s. The HQs are 211 m apart, about 50 s of walking, and JEV defends with only its single nearest force, which has to walk home. Even the target's 1800 HP falls in 15 s, or 3 s against five forces. AI-vs-AI simulations never rush, so their 23.6 min median hid this. Research: [pacing.md](../Research/pacing.md).
 
 The same rules apply to **both HQs**, the Lattice and Hardline (starting values, orchestrator 2026-10-04):
-- **Failover Nodes [New]:** two per HQ, pre-built. Their stats, the damage reduction of the opening and the loss announcements are in [buildings.md](buildings.md#hq). A visible beam links them to the HQ.
-- **Offline HQ [New]:** an HQ at 0 HP goes offline instead of being destroyed, and its main becomes a hold objective for the attackers (the uplink, for the Lattice). Hold progress runs from 0 to full:
+- **Failover Nodes [Built]:** two per HQ, pre-built. Their stats, the damage reduction of the opening and the loss announcements are in [buildings.md](buildings.md#hq). A visible beam links them to the HQ.
+- **Offline HQ [Built]:** an HQ at 0 HP goes offline instead of being destroyed, and its main becomes a hold objective for the attackers (the uplink, for the Lattice). Hold progress runs from 0 to full:
   - attackers present with no defenders: progress grows by 1/75 per second;
   - any defender present: progress pauses;
   - nobody present: progress decays at the same rate.
   - Reaching 0 after progress existed, with no attackers present, brings the HQ back online at 25% HP.
   - Full progress (75 s of it) completes the hold and loses the battle for that side.
   - The main stays controlled and connected for its owner until the hold completes.
-- **Emergency wave [New]** (the final protocol): the first time a side's HQ goes offline (once per battle per side), an emergency force spawns at that HQ, announced globally.
+- **Emergency wave [Built]** (the final protocol): the first time a side's HQ goes offline (once per battle per side), an emergency force spawns at that HQ, announced globally.
   - Humans: one free force per commander, of that commander's Barracks unit type, at full squad.
   - JEV: one wave at the current release's wave budget ([jev.md](jev.md#how-jev-plays-change--decided)).
   - Neither emergency force is strong enough to win on its own.
-- **Outcome [Change]:** in step 1b, which has the Assault objective only, a battle ends only on a completed hold. Raid and Sabotage keep their own win conditions when they arrive (step 4). The harness counts completed holds.
+- **Outcome [Built]:** in step 1b, which has the Assault objective only, a battle ends only on a completed hold. Raid and Sabotage keep their own win conditions when they arrive (step 4). The harness counts completed holds.
 - **Earliest win:** the nodes' reduced damage lasts until the `v1.2` release; then a node and the HQ must break and the hold complete, so roughly 6–7 min against an unattended rush.
 
 ## Two-commander threat [New]

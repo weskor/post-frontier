@@ -6,9 +6,11 @@
 // its named values so this policy neither includes an actor nor duplicates enum ordinals.
 enum class EMatchResult : uint8;
 
+// A side is lost when its HQ's lifecycle says so: a completed hold on its offline main
+// (HqHoldPolicy::EPhase::Lost, AHeadquarters::IsAlive() false), never merely 0 HP.
 struct FOutcomeInput
 {
-	int32 FriendlyHealth, EnemyHealth;
+	bool bFriendlyLost, bEnemyLost;
 	EMatchResult Ongoing, Victory, Defeat;
 };
 

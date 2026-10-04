@@ -9,6 +9,7 @@
 #include "GameState/GameStateTerritory.h"
 #include "Content/MatchContent.h"
 #include "DepositSite.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "Rules/FortifyPolicy.h"
@@ -31,14 +32,39 @@ int32 RoleSlot(EUnitRole Role)
 																		: 2;
 }
 
-void AddTarget(FJevTurn& Turn, AActor* Actor)
+void AddTarget(FJevTurn& Turn, AActor* Actor, bool bNode = false)
 {
 	const AMapRegion* Region = Turn.State->FindRegionAt(Actor->GetActorLocation());
 	if (Region && ValidRegion(Region->RegionIndex))
 	{
-		Turn.Targets.Add({ Actor->GetUniqueID(), Region->RegionIndex, true });
+		Turn.Targets.Add({ Actor->GetUniqueID(), Region->RegionIndex, true, bNode });
 		Turn.TargetActors.Add(Actor);
 	}
+}
+
+// Guarded HQs: the hostile nodes are targets and gate the HQ; the team's own nodes mark regions worth defending.
+void ScanGuards(FJevTurn& Turn)
+{
+	const ACommandGameState& State = *Turn.State;
+	AHeadquarters* Hostile = Turn.Team == 5 ? State.FriendlyHeadquarters.Get() : State.EnemyHeadquarters.Get();
+	const AHeadquarters* Own = Turn.Team == 5 ? State.EnemyHeadquarters.Get() : State.FriendlyHeadquarters.Get();
+	if (IsValid(Own))
+		for (const TWeakObjectPtr<AFailoverNode>& Node : Own->GetNodes())
+			if (const AMapRegion* Region = Node.IsValid() && Node->IsAlive() ? State.FindRegionAt(Node->GetActorLocation()) : nullptr;
+				Region && ValidRegion(Region->RegionIndex))
+				++Turn.Summary.Regions[Region->RegionIndex].OwnNodes;
+	if (!IsValid(Hostile))
+		return;
+	for (const TWeakObjectPtr<AFailoverNode>& Node : Hostile->GetNodes())
+		if (Node.IsValid() && Node->IsAlive())
+		{
+			Turn.Summary.bHostileNodesStand = true;
+			AddTarget(Turn, Node.Get(), true);
+		}
+	Turn.Summary.bHostileHqOffline = Hostile->IsOffline();
+	// An immune or offline HQ cannot be damaged, so it is no structure target.
+	if (Hostile->IsOnline() && !Hostile->IsImmune())
+		AddTarget(Turn, Hostile);
 }
 
 int32 EnemyIncome(const FJevTurn& Turn)
@@ -187,7 +213,7 @@ void Finish(FJevTurn& Turn)
 	for (ACommandBuilding* Building : State.Buildings)
 		if (IsValid(Building) && Building->IsAlive() && Building->TeamIndex != Turn.Team)
 			AddTarget(Turn, Building);
-	AddTarget(Turn, Turn.Team == 5 ? State.FriendlyHeadquarters.Get() : State.EnemyHeadquarters.Get());
+	ScanGuards(Turn);
 	Turn.Summary.Targets = Turn.Targets;
 	Turn.Summary.bAdvantage = JevExecution::HasAdvantage(Turn.FriendlyStrength, Turn.EnemyStrength,
 		Turn.Infantry->Capacity, State.GetIncomePerSecond(Turn.Commander), EnemyIncome(Turn));

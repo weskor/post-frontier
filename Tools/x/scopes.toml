@@ -251,6 +251,18 @@ commands = [
   ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "fortify"],
 ]
 
+[scopes.guarded-hq]
+kind = "automation"
+filter = "CoopRTS.Guarded"
+map = "default"
+
+# Rendered captures of surface 9, run on request (./x test guarded-hq-view); the PNGs are inspected by a person.
+[scopes.guarded-hq-view]
+kind = "automation"
+filter = "CoopRTS.Visual.GuardedHq"
+map = "/Game/Maps/AvailabilityZoneV2"
+rendered = true
+
 [scopes.match-loss]
 kind = "automation"
 filter = "CoopRTS.Match.DefeatRestart"
@@ -421,7 +433,7 @@ map = "default"
 "Build/ContentText.py" = ["maps", "tools"]
 "Build/Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit", "tools", "maps", "team-economy", "shielded-squad"]
 "Build/GenerateCommandMap.py" = ["defend-posts-boot"]
-"Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2", "terrain-v2"]
+"Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2", "terrain-v2", "maps", "tools"]
 "Build/Import*.py" = ["lint"]
 "Build/Build*.py" = ["lint"]
 "Build/Fetch*.py" = ["lint"]
@@ -530,7 +542,7 @@ map = "default"
 "Source/CoopRTS/ArmyGroup.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit", "route-intent"]
 "Source/CoopRTS/ArmyUnit.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/ArmyTestSetup.*" = ["force-selection"]
-"Source/CoopRTS/CombatTarget.*" = ["force-selection"]
+"Source/CoopRTS/CombatTarget.*" = ["force-selection", "guarded-hq"]
 "Source/CoopRTS/CommandBuildingProduction.*" = ["force-selection"]
 "Source/CoopRTS/CommandCamera.*" = ["force-selection"]
 "Source/CoopRTS/CommandPlayerState.*" = ["force-selection"]
@@ -538,7 +550,7 @@ map = "default"
 "Source/CoopRTS/Content/*" = ["force-selection"]
 "Source/CoopRTS/Commands/*" = ["force-selection", "force-structure-withdrawal", "force-contested-transit"]
 "Source/CoopRTS/DepositSite.*" = ["force-selection"]
-"Source/CoopRTS/EnemyCommander*.*" = ["force-selection", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-release", "jev-chain"]
+"Source/CoopRTS/EnemyCommander*.*" = ["force-selection", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-release", "jev-chain", "guarded-hq"]
 "Source/CoopRTS/ForceOrders.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "force-structure-withdrawal", "force-contested-transit", "route-intent"]
 "Source/CoopRTS/MapRegion.*" = ["force-selection", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Source/CoopRTS/SimulationSettings.*" = ["force-selection"]
@@ -609,9 +621,9 @@ map = "default"
 "Source/CoopRTS/JevReleaseWorldTests.cpp" = ["jev-release"]
 "Source/CoopRTS/JevReleaseWorldFightTests.cpp" = ["jev-release"]
 "Source/CoopRTS/JevChainWorldTests.cpp" = ["jev-chain"]
-"Source/CoopRTS/ArmyGroupSpawn.cpp" = ["jev-release"]
+"Source/CoopRTS/ArmyGroupSpawn.cpp" = ["jev-release", "guarded-hq"]
 "Source/CoopRTS/Rules/JevExecution.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
-"Source/CoopRTS/Rules/JevPlanner.*" = ["rules", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-chain", "jev-release", "strategy", "fortify"]
+"Source/CoopRTS/Rules/JevPlanner.*" = ["rules", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-chain", "jev-release", "strategy", "fortify", "guarded-hq"]
 "Source/CoopRTS/JevMemoTests.cpp" = ["jev-memos"]
 "Source/CoopRTS/JevMemoTemplates.*" = ["jev-memos", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims"]
 "Config/DefaultGame.ini" = ["jev-memos"]
@@ -628,7 +640,7 @@ map = "default"
 # Pause contracts supplement, never replace, the existing include-closure scopes.
 "Source/CoopRTS/Commands/CommandService.*" = ["pause", "pause-network", "pings", "pings-network", "fortify", "fortify-network"]
 "Source/CoopRTS/CommandGameState.*" = ["force-selection", "pause", "pause-network", "objective-events", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims"]
-"Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network"]
+"Source/CoopRTS/CommandGameMode.*" = ["pause", "pause-network", "guarded-hq", "match-loss", "match-win"]
 "Source/CoopRTS/CommandPlayerController*" = ["pause", "pause-network", "objective-events", "pings", "pings-network", "force-bar", "force-cap", "telemetry", "verb-input"]
 "Source/CoopRTS/CommandHUD.*" = ["pause", "objective-events", "pings", "force-bar"]
 "Source/CoopRTS/HUD/*.cpp" = ["pause", "pings"]
@@ -648,7 +660,7 @@ map = "default"
 "Source/CoopRTS/CapturePoint.*" = ["force-selection", "objective-events"]
 "Source/CoopRTS/CommandBuilding.*" = ["force-selection", "objective-events", "hold-building-edge", "hold-proportional", "hold-border", "hold-timers", "hold-shared-commanders", "hold-jev"]
 "Content/Audio/Announcer/**" = ["objective-assets"]
-"Build/Audio/announcer_lines.json" = ["objective-assets"]
+"Build/Audio/announcer_lines.json" = ["objective-assets", "objective-events"]
 "Source/CoopRTS/Commands/PingCommandComponent.*" = ["pings", "pings-network"]
 "Source/CoopRTS/Commands/PingCommands.cpp" = ["pings", "pings-network"]
 "Source/CoopRTS/Rules/PingPolicy.h" = ["rules", "pings", "pings-network"]
@@ -794,7 +806,7 @@ map = "default"
 # Existing runtime files these fixtures exercise; matching entries are unioned.
 "Source/CoopRTS/ArmyUnit.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
 "Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "shielded-squad"]
-"Source/CoopRTS/Headquarters.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify"]
+"Source/CoopRTS/Headquarters.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "guarded-hq", "objective-events", "doctrine-repairs", "doctrine-restart", "telemetry"]
 "Source/CoopRTS/MapRegion.[ch]*" = ["shields", "pulse-stun", "region-traits", "fortify", "fortify-network"]
 "Source/CoopRTS/Content/UnitDefinition.[h]" = ["shields", "pulse-stun", "region-traits", "shielded-squad"]
 "Source/CoopRTS/Rules/CombatPolicy.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits"]
@@ -835,3 +847,16 @@ map = "default"
 "Source/CoopRTS/CommandMinimap.c*" = ["map-presentation"]
 "Source/CoopRTS/Commands/AbilityCommandComponent.[ch]*" = ["map-presentation"]
 "Source/CoopRTS/GameState/GameStateTerritory.[ch]*" = ["map-presentation"]
+
+# Guarded HQs: Failover Nodes, the offline hold, the emergency force. Their tests and every runtime file they run through (unioned).
+"Source/CoopRTS/GuardedHqWorldTests.cpp" = ["guarded-hq"]
+"Source/CoopRTS/GuardedHqTestSupport.h" = ["guarded-hq", "match-loss", "match-win", "doctrine-repairs", "doctrine-restart", "telemetry", "objective-events"]
+"Source/CoopRTS/HqHoldRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/HqHoldPolicy.*" = ["rules", "guarded-hq", "objective-events", "match-loss", "match-win"]
+"Source/CoopRTS/FailoverNode.*" = ["guarded-hq", "objective-events", "match-loss", "match-win", "combat"]
+"Source/CoopRTS/HeadquartersEmergency.cpp" = ["guarded-hq", "match-loss", "match-win"]
+"Source/CoopRTS/ArmyGroupCombat.cpp" = ["guarded-hq"]
+"Source/CoopRTS/GuardedHqViewTests.cpp" = ["guarded-hq-view"]
+"Source/CoopRTS/GuardedHqFixture.h" = ["guarded-hq"]
+"Source/CoopRTS/GuardedHqTargetTests.cpp" = ["guarded-hq"]
+"Source/CoopRTS/HUD/GuardedHqPanels.*" = ["guarded-hq-view"]

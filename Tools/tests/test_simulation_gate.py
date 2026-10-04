@@ -108,9 +108,12 @@ def test_all_censored_has_no_decisive_length_and_no_victory() -> None:
 
 def test_unknown_outcome_is_not_a_result_and_decisive_needs_a_winner() -> None:
     with pytest.raises(ValueError, match="Unknown outcome"):
-        interpret_outcome(dict(outcome="hold_completed", duration=10, winner=0))
-    with pytest.raises(ValueError, match="without a winning team"):
-        interpret_outcome(dict(outcome="hq_destroyed", duration=10, winner=None))
+        interpret_outcome(dict(outcome="hq_overrun", duration=10, winner=0))
+    for kind in ("hq_destroyed", "hold_completed"):
+        with pytest.raises(ValueError, match="without a winning team"):
+            interpret_outcome(dict(outcome=kind, duration=10, winner=None))
+    # A completed hold is a decisive result for the side that held the main.
+    assert interpret_outcome(dict(outcome="hold_completed", duration=10, winner=5)).decisive
     assert not interpret_outcome(
         dict(outcome="time_cap", duration=10, winner=None)
     ).decisive

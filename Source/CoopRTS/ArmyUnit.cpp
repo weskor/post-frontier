@@ -15,6 +15,7 @@
 #include "Engine/World.h"
 #include "DetourCrowdAIController.h"
 #include "EngineUtils.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -305,6 +306,9 @@ void AArmyUnit::FireAt(AActor* Victim)
 		if (*It != Victim)
 			Hit(*It);
 	for (TActorIterator<ACommandBuilding> It(GetWorld()); It; ++It)
+		if (*It != Victim)
+			Hit(*It);
+	for (TActorIterator<AFailoverNode> It(GetWorld()); It; ++It)
 		if (*It != Victim)
 			Hit(*It);
 	if (State)

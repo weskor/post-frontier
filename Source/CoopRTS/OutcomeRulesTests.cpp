@@ -5,22 +5,21 @@
 
 // Pure rule tests: no world, no actors. Values are arbitrary; assertions are invariants.
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOutcomeHealthTest, "CoopRTS.Rules.Outcome.HealthAndTies",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FOutcomeLostTest, "CoopRTS.Rules.Outcome.LostAndTies",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
-bool FOutcomeHealthTest::RunTest(const FString& Parameters)
+bool FOutcomeLostTest::RunTest(const FString& Parameters)
 {
-	const auto ExpectOutcome = [this](const TCHAR* What, int32 FriendlyHealth, int32 EnemyHealth, EMatchResult Expected) {
-		const EMatchResult Result = OutcomePolicy::Evaluate({ FriendlyHealth, EnemyHealth,
+	// A side is lost only when its HQ's lifecycle says so (a completed hold), never merely at 0 HP.
+	const auto ExpectOutcome = [this](const TCHAR* What, bool bFriendlyLost, bool bEnemyLost, EMatchResult Expected) {
+		const EMatchResult Result = OutcomePolicy::Evaluate({ bFriendlyLost, bEnemyLost,
 			EMatchResult::Ongoing, EMatchResult::Victory, EMatchResult::Defeat });
 		TestEqual(What, static_cast<int32>(Result), static_cast<int32>(Expected));
 	};
-	ExpectOutcome(TEXT("Both headquarters alive keeps match ongoing"), 1, 1, EMatchResult::Ongoing);
-	ExpectOutcome(TEXT("Only enemy headquarters destroyed wins"), 1, 0, EMatchResult::Victory);
-	ExpectOutcome(TEXT("Only friendly headquarters destroyed loses"), 0, 1, EMatchResult::Defeat);
-	ExpectOutcome(TEXT("Simultaneous destruction is defeat"), 0, 0, EMatchResult::Defeat);
-	ExpectOutcome(TEXT("Enemy health below zero remains destroyed"), 1, -1, EMatchResult::Victory);
-	ExpectOutcome(TEXT("Friendly health below zero still takes precedence"), -1, 0, EMatchResult::Defeat);
+	ExpectOutcome(TEXT("Neither HQ lost keeps the match ongoing"), false, false, EMatchResult::Ongoing);
+	ExpectOutcome(TEXT("Only the enemy HQ lost wins"), false, true, EMatchResult::Victory);
+	ExpectOutcome(TEXT("Only the friendly HQ lost loses"), true, false, EMatchResult::Defeat);
+	ExpectOutcome(TEXT("Both lost in the same frame is defeat"), true, true, EMatchResult::Defeat);
 	return true;
 }
 

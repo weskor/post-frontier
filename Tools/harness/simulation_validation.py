@@ -31,8 +31,10 @@ COMPARISON_FIELDS = (*TEAM_FIELDS, "units_by_role")
 class Outcome:
     """How a battle ended: a decisive result has a winner, a censored one only the cap.
 
-    `hq_down` and `hq_up` are the final-snapshot HQ states this outcome requires; the
-    validator checks them without knowing which outcome kinds exist.
+    `hq_down` and `hq_up` are the final-snapshot HQ health this outcome requires (0 HP, not
+    0 HP); `hq_lost` and `hq_standing` are the lifecycle states it requires (`hq_state`
+    is "lost", is not "lost"). The validator checks them without knowing which outcome
+    kinds exist.
     """
 
     kind: str
@@ -41,17 +43,28 @@ class Outcome:
     seconds: float
     hq_down: tuple[int, ...]
     hq_up: tuple[int, ...]
+    hq_lost: tuple[int, ...] = ()
+    hq_standing: tuple[int, ...] = ()
 
 
 def interpret_outcome(report: JsonObject) -> Outcome:
     """The one place that says which recorded outcomes end a battle.
 
-    Today a battle ends when an HQ is destroyed; the guarded-HQ slice adds the completed
-    hold here, with the HQ states it requires. Every statistic, the gate and the outcome
-    validator read outcomes only through this function.
+    A battle ends on a completed hold: an HQ at 0 HP is only offline, and the attackers must hold
+    its main until the HQ is lost. The simulation still reports that as `hq_destroyed` until its
+    outcome resolver moves to `hold_completed`; both mean the same decisive result, but only
+    `hold_completed` carries (and is checked against) the HQ lifecycle states. Every statistic,
+    the gate and the outcome validator read outcomes only through this function.
     """
     kind = report.get("outcome")
     seconds = number(report.get("duration"), "duration")
+    if kind == "hold_completed":
+        winner = report.get("winner")
+        if winner not in (0, 5):
+            raise ValueError("Decisive outcome without a winning team")
+        loser = 5 if winner == 0 else 0
+        # The loser's hold completed: its HQ is lost (0 HP) and the winner's is not.
+        return Outcome(kind, True, winner, seconds, (loser,), (), (loser,), (winner,))
     if kind == "hq_destroyed":
         winner = report.get("winner")
         if winner not in (0, 5):
@@ -289,3 +302,14 @@ def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> No
             raise ValueError(
                 f"Invalid {outcome.kind} result: team {team} HQ is destroyed"
             )
+    for team in (*outcome.hq_lost, *outcome.hq_standing):
+        if "hq_state" not in final[team]:
+            raise ValueError(f"Invalid {outcome.kind} result: team {team} has no hq_state")
+    for team in outcome.hq_lost:
+        if final[team]["hq_state"] != "lost":
+            raise ValueError(
+                f"Invalid {outcome.kind} result: team {team} HQ is not lost"
+            )
+    for team in outcome.hq_standing:
+        if final[team]["hq_state"] == "lost":
+            raise ValueError(f"Invalid {outcome.kind} result: team {team} HQ is lost")

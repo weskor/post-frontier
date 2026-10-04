@@ -84,11 +84,13 @@ int32 CostOf(const AArmyGroup& Force)
 }
 }
 
-void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
+void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, int32 TargetOverride)
 {
 	const JevRelease::FBehaviour Behaviour = JevRelease::BehaviourFor(ReleaseIndex);
 	const int32 Budget = JevRelease::WaveBudget(ReleaseIndex, HumanCommanders(*Turn.State));
-	const int32 Target = Behaviour.bRaid ? JevRelease::RaidRegion(Turn.Summary) : Turn.Summary.EnemyHome;
+	const int32 Target = TargetOverride != INDEX_NONE ? TargetOverride
+		: Behaviour.bRaid                             ? JevRelease::RaidRegion(Turn.Summary)
+													  : Turn.Summary.EnemyHome;
 	if (Budget <= 0)
 		return;
 	// No place to send the wave: the budget carries to the next release rather than vanishing.
@@ -140,6 +142,13 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 		TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d humans(L/H/S/St)=%d/%d/%d/%d"),
 		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, WaveCarry,
 		Turn.EnemyArmor.Count[0], Turn.EnemyArmor.Count[1], Turn.EnemyArmor.Count[2], Turn.EnemyArmor.Count[3]);
+}
+
+void AEnemyCommander::LaunchEmergencyWave(FJevTurn& Turn)
+{
+	// Before v1.1 the budget is zero; the emergency wave then buys the first real budget.
+	const int32 Index = FMath::Max(1, JevRelease::IndexAt(GetMatchSeconds()));
+	LaunchWave(Turn, Index, Turn.Summary.Home);
 }
 
 bool AEnemyCommander::IsWaveForce(const AArmyGroup* Force) const

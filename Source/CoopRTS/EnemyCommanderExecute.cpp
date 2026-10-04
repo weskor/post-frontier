@@ -208,6 +208,11 @@ void AEnemyCommander::ExecuteForces(FJevTurn& Turn)
 		}
 	for (AArmyGroup* Force : Turn.Forces)
 		ExecuteForce(Turn, Force);
+	if (bEmergencyWavePending)
+	{
+		bEmergencyWavePending = false;
+		LaunchEmergencyWave(Turn);
+	}
 }
 
 void AEnemyCommander::ExecuteForce(FJevTurn& Turn, AArmyGroup* Force)

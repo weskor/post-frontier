@@ -9,6 +9,12 @@ constexpr float CommitmentSeconds = 25.f;
 constexpr int32 MaxCandidates = 3;
 // Score per Power/s of connected income an expansion or hold restores or keeps.
 constexpr float ChainIncomeWeight = 4.f;
+// Guarded HQs (HqHoldPolicy): a hostile Failover Node outranks other structures as a target, so the nodes fall
+// before the HQ; a region holding one of the team's own nodes is worth defending beyond its other value;
+// and an offline hostile HQ makes its main the objective, because presence there completes the hold.
+constexpr float NodeTargetBonus = 60.f;
+constexpr float NodeDefenceBonus = 40.f;
+constexpr float OfflineHqScore = 300.f;
 
 enum class EVerb : uint8
 {
@@ -32,6 +38,8 @@ struct FRegion
 	int32 HostileRigs = 0;
 	// Scales the defenders' weight in this region's score: a Fortified region of another team (FortifyPolicy).
 	float DefenceMultiplier = 1.f;
+	// Standing Failover Nodes of this team's own HQ in this region.
+	int32 OwnNodes = 0;
 	uint64 Neighbours = 0;
 	FVector Position = FVector::ZeroVector;
 };
@@ -42,6 +50,8 @@ struct FTarget
 	uint32 Identity = 0;
 	int32 Region = INDEX_NONE;
 	bool bAlive = false;
+	// A hostile Failover Node.
+	bool bNode = false;
 };
 
 struct FWorld
@@ -54,6 +64,10 @@ struct FWorld
 	int32 EnemyHome = INDEX_NONE;
 	bool bAdvantage = false;
 	bool bThreatened = false;
+	// A hostile Failover Node still stands: the nodes come before the HQ.
+	bool bHostileNodesStand = false;
+	// The hostile HQ is offline: its main is the hold objective.
+	bool bHostileHqOffline = false;
 };
 
 struct FForce

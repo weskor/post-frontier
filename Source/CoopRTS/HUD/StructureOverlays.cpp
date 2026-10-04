@@ -1,12 +1,15 @@
 #include "HUDPanels.h"
 #include "CommandGameState.h"
+#include "FailoverNode.h"
+#include "GuardedHqPanels.h"
 #include "Headquarters.h"
+#include "WorldOverlay.h"
 
 namespace CommandHUDPanels
 {
 static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position,
 	FStringView Label, int32 Health, int32 Maximum, const FLinearColor& Color,
-	bool bConstructing = false, float Progress = 1.f)
+	bool bConstructing = false, float Progress = 1.f, bool bImmune = false)
 {
 	if (Maximum <= 0)
 		return;
@@ -14,7 +17,7 @@ static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context,
 	if (!ProjectOverlay(Paint, Context, Position, Screen))
 		return;
 	const float Line = Paint.LineHeight(10.f, true);
-	const float Width = FMath::Clamp(Paint.TextWidth(Label, 10.f, true) + 12.f, 96.f, 220.f);
+	const float Width = FMath::Clamp(Paint.TextWidth(Label, 10.f, true) + 12.f, 96.f, 280.f);
 	const FRect Back{ Screen.X - Width * .5f, Screen.Y - Line - (bConstructing ? 20.f : 12.f) - 6.f,
 		Width, Line + (bConstructing ? 20.f : 12.f) };
 	if (!OverlayFits(Paint, Back))
@@ -22,8 +25,10 @@ static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context,
 	Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
 	Paint.TextIn(Label, { Back.X + 4.f, Back.Y + 2.f, Width - 8.f, Line },
 		10.f, Color, true, EAlign::Center);
-	Paint.Bar({ Back.X + 4.f, Back.Y + Line + 4.f, Width - 8.f, 4.f },
-		static_cast<float>(Health) / Maximum, Color);
+	const FRect Bar{ Back.X + 4.f, Back.Y + Line + 4.f, Width - 8.f, 4.f };
+	Paint.Bar(Bar, static_cast<float>(Health) / Maximum, Color);
+	if (bImmune)
+		DrawImmuneHatch(Paint, Bar);
 	if (bConstructing)
 		Paint.Bar({ Back.X + 4.f, Back.Y + Line + 12.f, Width - 8.f, 4.f }, Progress, Palette::Gold);
 }
@@ -37,11 +42,28 @@ void DrawHeadquartersOverlays(const FPainter& Paint, const FContext& Context)
 	{
 		if (!IsValid(HQ))
 			continue;
-		TStringBuilder<64> Label;
-		Label.Appendf(TEXT("%s HQ %d/%d"), HQ->TeamIndex == 5 ? TEXT("ENEMY") : TEXT("FRIENDLY"),
-			HQ->Health, HQ->MaxHealth());
-		DrawStructureOverlay(Paint, Context, HQ->GetActorLocation() + FVector(0.f, 0.f, 300.f),
-			Label.ToView(), HQ->Health, HQ->MaxHealth(), HQ->TeamIndex == 5 ? Palette::Bad : Palette::Good);
+		TStringBuilder<96> Label;
+		AppendHqLabel(Label, *HQ);
+		const bool bOffline = HQ->IsOffline();
+		DrawStructureOverlay(Paint, Context, HQ->GetActorLocation() + FVector(0.f, 0.f, 300.f), Label.ToView(),
+			bOffline ? HqHoldPolicy::WholeSeconds(HQ->GetHold()) : HQ->Health,
+			bOffline ? FMath::RoundToInt(HqHoldPolicy::HoldSeconds) : HQ->MaxHealth(),
+			HQ->TeamIndex == 5 ? Palette::Bad : Palette::Good, false, 1.f, HQ->IsImmune());
+		// A visible beam links each standing node to the HQ it guards.
+		AWorldOverlay* Overlay = AWorldOverlay::Get(HQ);
+		for (const TWeakObjectPtr<AFailoverNode>& Entry : HQ->GetNodes())
+		{
+			const AFailoverNode* Node = Entry.Get();
+			if (!IsValid(Node) || !Node->IsAlive())
+				continue;
+			if (Overlay)
+				Overlay->Line(HQ->GetActorLocation() + FVector(0.f, 0.f, 150.f), Node->GetActorLocation() + FVector(0.f, 0.f, 150.f),
+					HQ->TeamIndex == 5 ? FColor(255, 70, 60) : FColor(70, 170, 255), 6.f);
+			TStringBuilder<64> NodeLabel;
+			NodeLabel.Appendf(TEXT("FAILOVER NODE %d/%d%s"), Node->Health, Node->MaxHealth(), Node->IsPlated() ? TEXT(" \u00B7 plated") : TEXT(""));
+			DrawStructureOverlay(Paint, Context, Node->GetActorLocation() + FVector(0.f, 0.f, 380.f), NodeLabel.ToView(),
+				Node->Health, Node->MaxHealth(), HQ->TeamIndex == 5 ? Palette::Bad : Palette::Good);
+		}
 	}
 }
 

@@ -152,8 +152,10 @@ float ChainScore(const FWorld& World, const FChain& Chain, int32 Index)
 float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, int32 Index)
 {
 	const FRegion& Region = World.Regions[Index];
-	return Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
-									: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f * Region.DefenceMultiplier
+	if (Index == World.EnemyHome)
+		return World.bHostileHqOffline ? OfflineHqScore : !World.bThreatened && World.bAdvantage && !World.bHostileNodesStand ? 200.f
+																															 : -50.f;
+	return 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f * Region.DefenceMultiplier
 			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
 			- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
 }
@@ -170,7 +172,7 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Cha
 			continue;
 		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
 		Plan.TargetIdentity = Target.Identity;
-		Offer(Out, Plan, RegionScore(World, Force, Chain, Route, Target.Region));
+		Offer(Out, Plan, RegionScore(World, Force, Chain, Route, Target.Region) + (Target.bNode ? NodeTargetBonus : 0.f));
 	}
 }
 }
@@ -236,17 +238,24 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		const FRegion& Region = World.Regions[Index];
 		if (!Region.bExists || Route.Hops[Index] == INDEX_NONE || Region.bClaimed)
 			continue;
+		const float NodeDefence = Region.OwnNodes > 0 ? NodeDefenceBonus : 0.f;
 		if (Region.Controller == World.Team)
 		{
 			if (Region.Hostiles > 0 || Region.bAttacked || Index == Force.Source)
 				Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Index, Route.Length[Index]),
-					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f + ChainScore(World, Chain, Index)
+					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f + ChainScore(World, Chain, Index) + NodeDefence
 															: -100.f);
 			continue;
 		}
 		if (Region.bMain && Index != World.EnemyHome)
 			continue;
 		const EVerb Verb = Region.Controller == INDEX_NONE ? EVerb::MoveAndHold : EVerb::Attack;
+		if (Region.OwnNodes > 0 && Region.Hostiles > 0)
+		{
+			// A node of its own in a region it does not control: fight for the region rather than leave the node to fall.
+			Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), 100.f - Route.Hops[Index] * 5.f + NodeDefence);
+			continue;
+		}
 		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Chain, Route, Index));
 	}
 	OfferStructures(World, Force, Chain, Route, Out);
