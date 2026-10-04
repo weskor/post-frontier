@@ -41,6 +41,8 @@ public:
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	int32 SiteIndex = 0;
 private:
+	// The region this point anchors is Fortified: capture progress holds for both sides.
+	bool IsFortifyFrozen() const;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UStaticMeshComponent> Marker;
 	float CaptureElapsed = 0.f;

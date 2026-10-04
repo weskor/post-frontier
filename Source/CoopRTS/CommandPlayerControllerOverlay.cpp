@@ -45,6 +45,7 @@ void ACommandPlayerController::DrawWorldOverlay(AWorldOverlay& Overlay) const
 	if (bPlacingBuilding)
 		DrawPlacementOverlay(Overlay);
 	DrawRegionOverlay(Overlay);
+	DrawFortifyOverlay(Overlay);
 	DrawSelectionOverlay(Overlay);
 }
 

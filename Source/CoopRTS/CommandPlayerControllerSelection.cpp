@@ -74,6 +74,7 @@ void ACommandPlayerController::SelectForce(AArmyGroup* Force, bool bToggle)
 	PendingPlacedBuilding.Reset();
 	PendingPlacedBuildingNetGUID = 0;
 	bAssigningOrder = false;
+	bFortifyTargeting = false;
 	bPlacingBuilding = false;
 	bHUDExpanded = true;
 	SelectedBuilding = nullptr;
@@ -130,6 +131,7 @@ void ACommandPlayerController::SelectForceBox(const FVector2D& Start, const FVec
 	bInitialFocusPending = false;
 	SelectedBuilding = nullptr;
 	bAssigningOrder = false;
+	bFortifyTargeting = false;
 	bPlacingBuilding = false;
 	if (!bAdd)
 		SelectedForces.Reset();
@@ -208,6 +210,7 @@ void ACommandPlayerController::SelectActorWithModifiers(AActor* Actor, bool bTog
 		InspectedForce = nullptr;
 		SelectedBuilding = IsOwnedBuilding(Building) ? Building : nullptr;
 		bAssigningOrder = false;
+		bFortifyTargeting = false;
 	}
 	if (SelectedBuilding)
 	{
@@ -224,7 +227,7 @@ void ACommandPlayerController::SelectUnderCursor()
 	{
 		const FVector2D Position(MouseX, MouseY);
 		const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
-		bSelectionDragging = GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bAssigningOrder
+		bSelectionDragging = GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bAssigningOrder && !bFortifyTargeting
 			&& (!HUD || !HUD->IsPanelPoint(Position));
 		if (bSelectionDragging)
 		{
@@ -244,6 +247,13 @@ void ACommandPlayerController::SelectUnderCursor()
 		float X, Y;
 		if (GetMousePosition(X, Y))
 			HandleAttackTargetClick(FVector2D(X, Y));
+		return;
+	}
+	if (bFortifyTargeting)
+	{
+		float X, Y;
+		if (GetMousePosition(X, Y))
+			HandleFortifyClick(FVector2D(X, Y));
 		return;
 	}
 	const bool bToggle = IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift);

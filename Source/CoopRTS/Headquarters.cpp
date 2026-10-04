@@ -2,6 +2,7 @@
 
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
+#include "MapRegion.h"
 #include "CoopAudioSubsystem.h"
 #include "ObjectiveAnnouncer.h"
 #include "Components/BoxComponent.h"
@@ -60,7 +61,10 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		return;
 	const int32 PreviousHealth = Health;
 	State->NotifyRegionDamage(this, TeamIndex, Attacker);
-	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, {});
+	TArray<float, TInlineAllocator<2>> Incoming;
+	if (const float Fortify = AMapRegion::FortifyIncomingAt(*State, GetActorLocation(), TeamIndex); Fortify != 1.f)
+		Incoming.Add(Fortify);
+	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, Incoming);
 	Health = FMath::Max(0, Health - Result.HealthLoss);
 	OnRep_Appearance();
 	ForceNetUpdate();

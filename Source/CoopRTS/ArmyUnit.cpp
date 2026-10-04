@@ -3,6 +3,7 @@
 #include "ArmyGroup.h"
 #include "CommandBuilding.h"
 #include "CombatTarget.h"
+#include "MapRegion.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "CoopAudioSubsystem.h"
@@ -332,6 +333,9 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		Incoming.Add(DamagePolicy::EntrenchedIncomingMultiplier);
 	if (const float Cover = RegionTraitPolicy::IncomingMultiplier(GetRegionTrait()); Cover != 1.f)
 		Incoming.Add(Cover);
+	if (const AMapRegion* Region = CurrentRegion.Get())
+		if (const float Fortify = Region->FortifyIncomingMultiplier(TeamIndex); Fortify != 1.f)
+			Incoming.Add(Fortify);
 	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), Shield, Incoming);
 	if (State && Result.Any())
 		State->NotifyRegionDamage(this, TeamIndex, Attacker);

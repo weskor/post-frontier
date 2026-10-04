@@ -8,6 +8,7 @@
 #include "CommandPlayerState.h"
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
+#include "HUD/FortifyPreview.h"
 #include "CommandPlayerController.generated.h"
 
 class ACommandBuilding;
@@ -25,6 +26,7 @@ class UProductionCommandComponent;
 class UOrderCommandComponent;
 class UMatchCommandComponent;
 class UPingCommandComponent;
+class UAbilityCommandComponent;
 
 enum class ECommandScreen : uint8
 {
@@ -103,8 +105,19 @@ public:
 	TObjectPtr<UMatchCommandComponent> MatchCommands;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPingCommandComponent> PingCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UAbilityCommandComponent> AbilityCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
 	void SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
+	// Fortify targeting (CommandPlayerControllerFortify.cpp): H or the dock arms it, LMB on ground or minimap casts,
+	// H, RMB or Esc cancels. The mode ends on acceptance and stays open on rejection.
+	bool IsFortifyTargeting() const { return bFortifyTargeting; }
+	void ToggleFortifyTargeting();
+	// The region under Position and what a cast there would do, as the cursor chip prints it.
+	FFortifyPreview GetFortifyPreview(const FVector2D& Position) const;
+	// Casts at Position while targeting; true when the click was consumed.
+	bool HandleFortifyClick(const FVector2D& Position);
+	void CompleteFortifyInput(const FString& Message, bool bAccepted);
 
 protected:
 	virtual void BeginPlay() override;
@@ -147,6 +160,7 @@ private:
 	bool bPlacingBuilding = false;
 	int32 PlacementIndex = -1;
 	bool bAssigningOrder = false;
+	bool bFortifyTargeting = false;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	// Keeps the deck open over the world when it does not fit beside the force cards.
@@ -229,4 +243,5 @@ private:
 	void DrawPlacementOverlay(AWorldOverlay& Overlay) const;
 	void DrawRegionOverlay(AWorldOverlay& Overlay) const;
 	void DrawSelectionOverlay(AWorldOverlay& Overlay) const;
+	void DrawFortifyOverlay(AWorldOverlay& Overlay) const;
 };

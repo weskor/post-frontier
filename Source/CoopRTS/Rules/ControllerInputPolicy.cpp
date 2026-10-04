@@ -79,3 +79,23 @@ bool ControllerInputPolicy::IsWithinMarker(const FVector2D& Position, const FVec
 {
 	return FMath::Abs(Position.X - Marker.X) <= Radius && FMath::Abs(Position.Y - Marker.Y) <= Radius;
 }
+
+ControllerInputPolicy::EFortifyStep ControllerInputPolicy::FortifyStep(bool bArmed, EFortifyInput Input)
+{
+	switch (Input)
+	{
+	case EFortifyInput::HKey:
+		return bArmed ? EFortifyStep::Cancel : EFortifyStep::Arm;
+	case EFortifyInput::LeftClick:
+		return bArmed ? EFortifyStep::Cast : EFortifyStep::Ignore;
+	case EFortifyInput::RightClick:
+	case EFortifyInput::EscapeKey:
+		return bArmed ? EFortifyStep::Cancel : EFortifyStep::Ignore;
+	}
+	return EFortifyStep::Ignore;
+}
+
+bool ControllerInputPolicy::FortifyStaysArmed(bool bArmed, bool bAccepted)
+{
+	return bArmed && !bAccepted;
+}

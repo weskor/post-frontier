@@ -40,4 +40,24 @@ FVector2D MinimapPoint(const FVector2D& WorldXY, const FVector2D& HalfExtent, co
 double MinimapDiamondDistance(const FVector2D& WorldDelta, const FVector2D& HalfExtent, double MapSize);
 // Square pick box around a minimap marker, in screen pixels; edges are inclusive.
 bool IsWithinMarker(const FVector2D& Position, const FVector2D& Marker, double Radius);
+
+// Fortify targeting (ui.md surface 4): what each input does, by whether the mode is armed.
+enum class EFortifyInput : uint8
+{
+	HKey,
+	LeftClick,
+	RightClick,
+	EscapeKey
+};
+enum class EFortifyStep : uint8
+{
+	Ignore,
+	Arm,
+	Cancel,
+	Cast
+};
+// H arms, and cancels again while armed; RMB and Esc cancel; LMB casts. Anything else leaves the mode alone.
+EFortifyStep FortifyStep(bool bArmed, EFortifyInput Input);
+// The mode ends on acceptance and stays open on rejection, so a refused cast can be retried elsewhere.
+bool FortifyStaysArmed(bool bArmed, bool bAccepted);
 }

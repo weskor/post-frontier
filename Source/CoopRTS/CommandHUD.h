@@ -54,7 +54,8 @@ enum class EHUDAction : uint8
 	ForceCardNever = 49,
 	ForceCard25 = 50,
 	ForceCard40 = 51,
-	ForceCard60 = 52
+	ForceCard60 = 52,
+	Fortify = 53
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

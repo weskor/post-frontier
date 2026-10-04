@@ -51,6 +51,10 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Doctrine")
 	EArmyDoctrine Doctrine = EArmyDoctrine::None;
+
+	// Server world time at which this commander may cast Fortify again (FortifyPolicy::CooldownSeconds after a cast).
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Fortify")
+	float FortifyReadyAt = 0.f;
 	// Carried human PlayerStates retain only their slot; match economy and doctrine reset.
 	void ResetForNewMatch();
 

@@ -6,6 +6,7 @@
 #include "Commands/OrderCommandComponent.h"
 #include "Commands/MatchCommandComponent.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/AbilityCommandComponent.h"
 #include "WorldOverlay.h"
 
 ACommandPlayerController::ACommandPlayerController()
@@ -18,6 +19,7 @@ ACommandPlayerController::ACommandPlayerController()
 	OrderCommands = CreateDefaultSubobject<UOrderCommandComponent>(TEXT("OrderCommands"));
 	MatchCommands = CreateDefaultSubobject<UMatchCommandComponent>(TEXT("MatchCommands"));
 	PingCommands = CreateDefaultSubobject<UPingCommandComponent>(TEXT("PingCommands"));
+	AbilityCommands = CreateDefaultSubobject<UAbilityCommandComponent>(TEXT("AbilityCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
@@ -44,6 +46,7 @@ void ACommandPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void ACommandPlayerController::ResetLocalMatchView()
 {
 	PingCommands->ResetForMatch();
+	AbilityCommands->ResetForMatch();
 	if (!IsLocalController())
 		return;
 	SelectedBuilding = nullptr;
@@ -56,6 +59,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	bSelectionDragging = false;
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
+	bFortifyTargeting = false;
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;

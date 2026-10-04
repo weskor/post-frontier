@@ -46,7 +46,7 @@ FString ExecuteFixture(const FProbeRequest& Probe)
 	if (!Probe.State)
 		return TEXT("server fixture state unavailable");
 	FString Error;
-	if (HandleScenarioFixture(Probe, Error) || HandleEconomyFixture(Probe, Error))
+	if (HandleScenarioFixture(Probe, Error) || HandleEconomyFixture(Probe, Error) || HandleAbilityFixture(Probe, Error))
 		return Error;
 	AArmyGroup* Army = FindArmy(World, Probe.Owner, Probe.Index);
 	if (!Army)
@@ -75,7 +75,8 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	Probe.Index = static_cast<int32>(Request->GetIntegerField(TEXT("army")));
 	Probe.State = World->GetGameState<ACommandGameState>();
 	FString Error;
-	if (HandleMatchAction(Probe, Error) || HandleCommandAction(Probe, Error) || HandleInputAction(Probe, Error))
+	if (HandleMatchAction(Probe, Error) || HandleCommandAction(Probe, Error) || HandleInputAction(Probe, Error)
+		|| HandleAbilityAction(Probe, Error))
 		return Error;
 	return ExecuteFixture(Probe);
 }

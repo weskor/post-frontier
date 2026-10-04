@@ -57,12 +57,15 @@ void StructuresSnapshot(const ACommandGameState& State, const TSharedPtr<FJsonOb
 void ObjectiveSnapshot(const UObject* Context, const TSharedPtr<FJsonObject>& Result);
 void PingSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result);
 void JevIntentSnapshot(UWorld* World, const TSharedPtr<FJsonObject>& Result);
+void AbilitySnapshot(UWorld* World, const ACommandGameState& State, const TSharedPtr<FJsonObject>& Result);
 
 // Action handlers. Each returns true when it recognised the action and sets Error to its outcome
 // (empty on success); false leaves the action to the next handler.
 bool HandleMatchAction(const FProbeRequest& Probe, FString& Error);
 bool HandleCommandAction(const FProbeRequest& Probe, FString& Error);
 bool HandleInputAction(const FProbeRequest& Probe, FString& Error);
+bool HandleAbilityAction(const FProbeRequest& Probe, FString& Error);
+bool HandleAbilityFixture(const FProbeRequest& Probe, FString& Error);
 bool HandleEconomyFixture(const FProbeRequest& Probe, FString& Error);
 bool HandleScenarioFixture(const FProbeRequest& Probe, FString& Error);
 bool HandleForceFixture(const FProbeRequest& Probe, AArmyGroup& Army, FString& Error);

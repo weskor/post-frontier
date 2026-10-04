@@ -82,7 +82,7 @@ void ACommandPlayerController::ShowScreen(ECommandScreen NewScreen)
 
 void ACommandPlayerController::Escape()
 {
-	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending)
+	if (bPlacingBuilding || bAssigningOrder || bFortifyTargeting || bBuildHotkeyPending)
 	{
 		CancelPointerMode();
 		return;

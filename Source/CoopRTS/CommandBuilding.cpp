@@ -3,6 +3,7 @@
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandGameState.h"
+#include "MapRegion.h"
 #include "CoopAudioSubsystem.h"
 #include "ObjectiveAnnouncer.h"
 #include "DepositSite.h"
@@ -306,7 +307,10 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
 		return;
 	State->NotifyRegionDamage(this, TeamIndex, Attacker);
-	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, {});
+	TArray<float, TInlineAllocator<2>> Incoming;
+	if (const float Fortify = AMapRegion::FortifyIncomingAt(*State, GetActorLocation(), TeamIndex); Fortify != 1.f)
+		Incoming.Add(Fortify);
+	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, Incoming);
 	Health = FMath::Max(0, Health - Result.HealthLoss);
 	OnRep_Appearance();
 	ForceNetUpdate();

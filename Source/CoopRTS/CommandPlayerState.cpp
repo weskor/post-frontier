@@ -28,6 +28,7 @@ void ACommandPlayerState::ResetForNewMatch()
 	PowerCarry = 0;
 	DataCarry = 0;
 	Doctrine = EArmyDoctrine::None;
+	FortifyReadyAt = 0.f;
 	ForceNetUpdate();
 }
 
@@ -109,5 +110,6 @@ void ACommandPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ACommandPlayerState, DataCarry);
 	DOREPLIFETIME(ACommandPlayerState, Doctrine);
 	DOREPLIFETIME(ACommandPlayerState, CommanderIndex);
+	DOREPLIFETIME(ACommandPlayerState, FortifyReadyAt);
 	DOREPLIFETIME(ACommandPlayerState, TeamIndex);
 }

@@ -5,6 +5,7 @@
 #include "CommandGameState.h"
 #include "CoopAudioSubsystem.h"
 #include "ObjectiveAnnouncer.h"
+#include "MapRegion.h"
 #include "WorldOverlay.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -83,6 +84,17 @@ void ACapturePoint::Tick(float DeltaSeconds)
 	}
 }
 
+bool ACapturePoint::IsFortifyFrozen() const
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (!State)
+		return false;
+	for (const AMapRegion* Region : State->Regions)
+		if (IsValid(Region) && Region->Anchor == this)
+			return Region->IsCaptureFrozen();
+	return false;
+}
+
 void ACapturePoint::AdvanceCapture(float Seconds)
 {
 	if (!HasAuthority() || Seconds < 0.f)
@@ -106,8 +118,9 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 		bEnemyPresent = bEnemy;
 		ForceNetUpdate();
 	}
+	// Occupancy stays published above; a Fortified region keeps its progress for both sides.
 	if (bFriendly == bEnemy || (ControllingTeam == 0 && bFriendly && !bEnemy)
-		|| (ControllingTeam == 5 && bEnemy && !bFriendly))
+		|| (ControllingTeam == 5 && bEnemy && !bFriendly) || IsFortifyFrozen())
 		return;
 	const float Previous = CaptureProgress;
 	const int32 PreviousOwner = ControllingTeam;

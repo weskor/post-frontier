@@ -217,6 +217,7 @@ TSharedPtr<FJsonObject> Snapshot(UWorld* World)
 	ObjectiveSnapshot(State, Result);
 	PingSnapshot(World, Result);
 	JevIntentSnapshot(World, Result);
+	AbilitySnapshot(World, *State, Result);
 	return Result;
 }
 }

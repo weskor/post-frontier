@@ -71,6 +71,11 @@ bool ACommandPlayerController::InputKey(const FInputKeyEventArgs& Params)
 			RetreatSelectedForces(IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift));
 			return true;
 		}
+		if (Params.Key == EKeys::H)
+		{
+			ToggleFortifyTargeting();
+			return true;
+		}
 	}
 	return Super::InputKey(Params);
 }

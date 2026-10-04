@@ -47,7 +47,7 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 	}
 	if (HUD->GetMinimapWorldPosition(Position, WorldPosition))
 	{
-		if (HandleAttackTargetClick(Position))
+		if (HandleFortifyClick(Position) || HandleAttackTargetClick(Position))
 			return true;
 		bInitialFocusPending = false;
 		if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
@@ -71,6 +71,11 @@ bool ACommandPlayerController::HandleGlobalHUDAction(EHUDAction Action)
 	if (Action == EHUDAction::ActivePause)
 	{
 		ToggleActivePause();
+		return true;
+	}
+	if (Action == EHUDAction::Fortify)
+	{
+		ToggleFortifyTargeting();
 		return true;
 	}
 	if (Action != EHUDAction::PingTeammateForce)

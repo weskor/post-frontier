@@ -70,7 +70,7 @@ FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Po
 	FContext Context;
 	Context.bAvailable = State && State->MatchResult == EMatchResult::Ongoing && IsValid(Commander)
 		&& Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5
-		&& GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !IsBuildHotkeyPending();
+		&& GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bFortifyTargeting && !IsBuildHotkeyPending();
 	Context.bAttack = bAssigningOrder;
 	Context.bQueue = bQueue;
 	Context.bProducerSelected = IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer();
@@ -133,7 +133,7 @@ bool ACommandPlayerController::HandleOrderClick(const FVector2D& Position, bool 
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return false;
-	if (bAssigningOrder || bPlacingBuilding || bBuildHotkeyPending || bSelectionDragging)
+	if (bAssigningOrder || bPlacingBuilding || bFortifyTargeting || bBuildHotkeyPending || bSelectionDragging)
 	{
 		CancelPointerMode();
 		return true;
@@ -144,7 +144,7 @@ bool ACommandPlayerController::HandleOrderClick(const FVector2D& Position, bool 
 
 void ACommandPlayerController::RightClickAtCursor()
 {
-	if (bAssigningOrder || bPlacingBuilding || bBuildHotkeyPending || bSelectionDragging)
+	if (bAssigningOrder || bPlacingBuilding || bFortifyTargeting || bBuildHotkeyPending || bSelectionDragging)
 	{
 		CancelPointerMode();
 		return;

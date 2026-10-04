@@ -9,6 +9,7 @@
 
 class ACommandBuilding;
 class ACommandPlayerController;
+class AMapRegion;
 
 enum class ECommandRejection : uint8
 {
@@ -43,6 +44,10 @@ public:
 	static FCommandResult Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice);
 	// Free, atomic transfer of a whole amount between two roster commanders of the same team, during a live battle.
 	static FCommandResult Gift(ACommandPlayerState* Sender, ACommandPlayerState* Recipient, EEconomyResource Resource, int32 Amount);
+	// Fortify (FortifyPolicy): protects a region the caster's team controls. Pays FortifyPolicy::DataCost from the
+	// caster, starts its cooldown and refreshes a Fortify the team already holds there. A rejection message is the
+	// reason text the cursor chip shows and spends nothing.
+	static FCommandResult CastFortify(ACommandPlayerState* Caster, AMapRegion* Region);
 	static FCommandResult Restart(ACommandPlayerController* Controller);
 	static FCommandResult Pause(ACommandPlayerController* Controller);
 	static FCommandResult Resume(ACommandPlayerController* Controller);

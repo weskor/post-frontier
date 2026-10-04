@@ -65,6 +65,7 @@ void ACommandPlayerController::BeginBuildingPlacement(int32 BuildIndex)
 	bPlacingBuilding = true;
 	bBuildHotkeyPending = false;
 	bAssigningOrder = false;
+	bFortifyTargeting = false;
 	bHUDExpanded = false;
 	SetFeedback(TEXT("Left-click valid ground; Shift+LMB places another; right-click/Esc cancels."));
 }
@@ -155,6 +156,7 @@ void ACommandPlayerController::CancelMode()
 		bPlacementCancelled = true;
 	bPlacingBuilding = false;
 	bAssigningOrder = false;
+	bFortifyTargeting = false;
 	bSelectionDragging = false;
 	bBuildHotkeyPending = false;
 	bRepeatPlacement = false;
@@ -166,7 +168,7 @@ void ACommandPlayerController::CancelMode()
 
 void ACommandPlayerController::CancelPointerMode()
 {
-	if (bPlacingBuilding || bAssigningOrder || bBuildHotkeyPending || bSelectionDragging)
+	if (bPlacingBuilding || bAssigningOrder || bFortifyTargeting || bBuildHotkeyPending || bSelectionDragging)
 	{
 		CancelMode();
 		SetFeedback(TEXT("Mode cancelled."));

@@ -4,6 +4,7 @@
 #include "CommandCamera.h"
 #include "CommandGameState.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/AbilityCommandComponent.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "Headquarters.h"
@@ -140,12 +141,15 @@ bool ACommandPlayerController::FocusAlertSequence(int32 Sequence)
 		ACommandCamera* PingCamera = Cast<ACommandCamera>(GetPawn());
 		if (!PingCamera)
 			return false;
-		for (const FObjectiveEvent& Event : PingCommands->GetEvents())
+		// Team feed rows keep their own ring and stay out of the Space cycle.
+		const bool bAbility = UAbilityCommandComponent::IsAbilitySequence(Sequence);
+		for (const FObjectiveEvent& Event : bAbility ? AbilityCommands->GetEvents() : PingCommands->GetEvents())
 			if (Event.Sequence == Sequence)
 			{
 				PingCamera->FocusOn(Event.Location);
 				bInitialFocusPending = false;
-				FocusedAlertSequence = Sequence;
+				if (!bAbility)
+					FocusedAlertSequence = Sequence;
 				return true;
 			}
 		return false;
