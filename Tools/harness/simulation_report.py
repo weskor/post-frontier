@@ -325,6 +325,34 @@ def _minutes(seconds: float | None) -> str:
     return "n/a" if seconds is None else f"{seconds / 60:.2f}"
 
 
+def _rush_line(variant: str, rush: JsonObject) -> str:
+    median, longest = (
+        rush["median_order_delay_seconds"],
+        rush["max_order_delay_seconds"],
+    )
+    delays = (
+        "n/a" if median is None else f"median {median:.1f} s, maximum {longest:.1f} s"
+    )
+    return (
+        f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
+        f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}."
+    )
+
+
+def _earliest_lines(rows: list[JsonObject]) -> list[str]:
+    lines = []
+    for scenario in sorted({row["scenario"] for row in rows}):
+        earliest = [
+            row["earliest_victory_seconds"]
+            for row in rows
+            if row["scenario"] == scenario
+            and row["earliest_victory_seconds"] is not None
+        ]
+        text = f"{min(earliest):.1f} s" if earliest else "none"
+        lines.append(f"- Earliest team-0 victory, scenario `{scenario}`: **{text}**.")
+    return lines
+
+
 def battle_length_section(
     valid: list[tuple[JsonObject, JsonObject]], lines: list[str]
 ) -> list[JsonObject]:
@@ -365,32 +393,9 @@ def battle_length_section(
         )
         if scenario == "rush":
             row["rush"] = rush = rush_evidence(reports)
-            median, longest = (
-                rush["median_order_delay_seconds"],
-                rush["max_order_delay_seconds"],
-            )
-            delays = (
-                "n/a"
-                if median is None
-                else f"median {median:.1f} s, maximum {longest:.1f} s"
-            )
-            evidence.append(
-                f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
-                f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}."
-            )
+            evidence.append(_rush_line(variant, rush))
         rows.append(row)
-    lines.append("")
-    for scenario in sorted({row["scenario"] for row in rows}):
-        earliest = [
-            row["earliest_victory_seconds"]
-            for row in rows
-            if row["scenario"] == scenario
-            and row["earliest_victory_seconds"] is not None
-        ]
-        lines.append(
-            f"- Earliest team-0 victory, scenario `{scenario}`: **{f'{min(earliest):.1f} s' if earliest else 'none'}**."
-        )
-    lines += [*evidence, ""]
+    lines += ["", *_earliest_lines(rows), *evidence, ""]
     return rows
 
 

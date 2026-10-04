@@ -153,7 +153,7 @@ FMatchSimulation::FOutcome FMatchSimulation::ResolveOutcome(const ACommandGameSt
 	// A same-frame HQ death must be an outcome, not a time-cap draw, even before GameMode's tick.
 	Outcome.bEnded = true;
 	Outcome.Winner = State.FriendlyHeadquarters->Health <= 0 ? 5 : State.EnemyHeadquarters->Health <= 0 ? 0
-																									   : -1;
+																										: -1;
 	Outcome.Kind = Outcome.Winner == -1 ? TEXT("time_cap") : TEXT("hq_destroyed");
 	return Outcome;
 }
