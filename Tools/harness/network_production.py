@@ -272,9 +272,7 @@ def replace_vacancy(
         s.names,
         lambda st: (
             order_matches(st, index, MOVE_HOLD, original_target)
-            and any(
-                u["slot"] == vacant for u in alive_units(force(st, s.owner, index))
-            )
+            and any(u["slot"] == vacant for u in alive_units(force(st, s.owner, index)))
         ),
         "the paid replacement appears in the vacated slot of the retargeted force",
     )
