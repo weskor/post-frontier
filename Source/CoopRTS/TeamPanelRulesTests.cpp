@@ -13,6 +13,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamPanelRefusalTest, "CoopRTS.Rules.TeamPanel
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamPanelTextTest, "CoopRTS.Rules.TeamPanel.Text",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamPanelFlashTest, "CoopRTS.Rules.TeamPanel.Flash",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamPanelLogTest, "CoopRTS.Rules.TeamPanel.Log",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamPanelEscapeTest, "CoopRTS.Rules.TeamPanel.Escape",
@@ -195,6 +197,31 @@ bool FTeamPanelTextTest::RunTest(const FString&)
 	Label.Reset();
 	AppendLogText(Label, { 1, 0, EResource::Data, 50, 0.f });
 	TestEqual(TEXT("A log line reads sender to recipient"), FString(Label.ToView()), FString(TEXT("C2 \u2192 C1   50 Data")));
+	return true;
+}
+
+bool FTeamPanelFlashTest::RunTest(const FString&)
+{
+	const TArray<FLogEntry> Log = { { 0, 1, EResource::Power, 100, 10.f }, { 2, 1, EResource::Data, 25, 12.f }, { 0, 2, EResource::Power, 50, 13.f } };
+	FFlash Flash = GiftFlash(Log, 1, 12.f);
+	TestTrue(TEXT("A gift to me flashes the moment it arrives"), Flash.bActive && Flash.Resource == EResource::Data && Flash.Amount == 25 && Flash.Sender == 2);
+	TestEqual(TEXT("at full strength"), Flash.Opacity, 1.f);
+	TStringBuilder<32> Text;
+	AppendFlashText(Text, Flash);
+	TestEqual(TEXT("with the amount and the sender"), FString(Text.ToView()), FString(TEXT("+25 from C3")));
+	Flash = GiftFlash(Log, 1, 13.f);
+	TestTrue(TEXT("The newest gift to me wins, not the newest to anyone"), Flash.bActive && Flash.Amount == 25);
+	Flash = GiftFlash(Log, 1, 14.75f);
+	TestEqual(TEXT("It starts to fade for its last half second"), Flash.Opacity, .5f);
+	TestFalse(TEXT("A flash lasts three seconds"), GiftFlash(Log, 1, 15.f).bActive);
+	TestFalse(TEXT("A gift to someone else never flashes for me"), GiftFlash(Log, 3, 13.f).bActive);
+	TestFalse(TEXT("A gift from the future does not flash"), GiftFlash(Log, 1, 9.f).bActive);
+	TestFalse(TEXT("An empty log has nothing to flash"), GiftFlash(TConstArrayView<FLogEntry>(), 1, 0.f).bActive);
+	Flash = GiftFlash(Log, 1, 10.f);
+	TestTrue(TEXT("An older gift flashes again if it is the only one in time"), Flash.bActive && Flash.Amount == 100 && Flash.Resource == EResource::Power);
+	Text.Reset();
+	AppendGiftFeedText(Text, Log[0]);
+	TestEqual(TEXT("The feed row names both commanders in full"), FString(Text.ToView()), FString(TEXT("Commander 1 gifted 100 Power to Commander 2")));
 	return true;
 }
 

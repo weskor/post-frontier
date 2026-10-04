@@ -4,6 +4,7 @@
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "HUD/HUDPanels.h"
 #include "HUD/TeamPanel.h"
+#include "HUD/TeamPanelFeed.h"
 #include "InputKeyEventArgs.h"
 #include "TeamEconomyFixture.h"
 
@@ -59,8 +60,38 @@ struct FGiftBed
 	ACommandPlayerState* To;
 	ACommandPlayerState* Outsider;
 
+	// The feed rows and the recipient's flash that the two gifts raise.
+	void Surfaces()
+	{
+		UGiftFeed* Feed = UGiftFeed::Get(F.World);
+		if (!T.TestNotNull(TEXT("The gift feed exists in a game world"), Feed))
+			return;
+		Feed->Observe(*F.State);
+		T.TestEqual(TEXT("Both gifts post a feed row"), Feed->Rows().Num(), 2);
+		if (Feed->Rows().Num() != 2)
+			return;
+		const FString Newest = FString::Printf(TEXT("Commander %d gifted 80 Data to Commander %d"), From->CommanderIndex + 1, To->CommanderIndex + 1);
+		T.TestEqual(TEXT("The newest row names sender, amount, resource and recipient"), Feed->Rows()[1].TargetForceOwnerName, Newest);
+		T.TestTrue(TEXT("on a gift sequence no replicated ring uses"), GiftFeed::IsGiftSequence(Feed->Rows()[1].Sequence));
+		Feed->Observe(*F.State);
+		T.TestEqual(TEXT("Observing again posts nothing more"), Feed->Rows().Num(), 2);
+		const FContext Context = MakeContext(Sender);
+		const FLayout Layout = MakeLayout(Context, 1600.f, 900.f);
+		int32 Visible = 0;
+		ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect&, float) { Visible += GiftFeed::IsGiftSequence(Event.Sequence); });
+		T.TestEqual(TEXT("Both rows are in the alert column"), Visible, 2);
+		Peer->FocusAlertSequence(Feed->Rows()[1].Sequence);
+		T.TestTrue(TEXT("A click on a gift row opens the Team panel"), Peer->IsTeamPanelOpen());
+		Peer->ToggleTeamPanel();
+		const TeamPanelPolicy::FFlash Flash = GiftFlash(MakeContext(Peer));
+		T.TestTrue(TEXT("The recipient's top bar flashes the newest gift"),
+			Flash.bActive && Flash.Resource == TeamPanelPolicy::EResource::Data && Flash.Amount == 80 && Flash.Sender == From->CommanderIndex);
+		T.TestFalse(TEXT("and the sender's does not"), GiftFlash(MakeContext(Sender)).bActive);
+	}
+
 	void Gifts()
 	{
+		UGiftFeed::Get(F.World)->Observe(*F.State);
 		From->Resources = 300;
 		From->Data = 80;
 		To->Resources = 5;
@@ -138,6 +169,7 @@ bool FTeamPanelClientGiftTest::RunTest(const FString&)
 		Peer->SetPlayerState(F.Wallets[1]);
 		FGiftBed Bed{ F, *F.Test, F.Controller, Peer, F.Wallets[0], F.Wallets[1], Outsider };
 		Bed.Gifts();
+		Bed.Surfaces();
 		Bed.Refusals();
 		Bed.Planning();
 		Peer->SetPlayerState(nullptr);

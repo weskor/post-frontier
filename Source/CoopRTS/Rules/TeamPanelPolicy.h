@@ -111,6 +111,25 @@ struct FLogEntry
 using FLogBuffer = TArray<FLogEntry, TInlineAllocator<EconomyPolicy::GiftLogLimit>>;
 // "C2 -> C1   100 Power", the arrow being U+2192.
 void AppendLogText(FStringBuilderBase& Out, const FLogEntry& Entry);
+// "Commander 2 gifted 100 Power to Commander 1": the feed row every teammate sees for an accepted gift.
+void AppendGiftFeedText(FStringBuilderBase& Out, const FLogEntry& Entry);
+
+// The recipient's top-bar flash: the newest gift to Self that arrived less than FlashSeconds before Now (Log and Now
+// on the same clock), full strength until its last half second.
+inline constexpr float FlashSeconds = 3.f;
+inline constexpr float FlashFadeSeconds = .5f;
+struct FFlash
+{
+	bool bActive = false;
+	EResource Resource = EResource::Power;
+	int32 Amount = 0;
+	int32 Sender = INDEX_NONE;
+	float Opacity = 0.f;
+};
+FFlash GiftFlash(TConstArrayView<FLogEntry> Log, int32 Self, float Now);
+// "+100 from C2".
+void AppendFlashText(FStringBuilderBase& Out, const FFlash& Flash);
+
 // A gift to Self that arrived after SeenThrough: the opener's gold dot.
 bool HasUnseenGift(TConstArrayView<FLogEntry> Log, int32 Self, float SeenThrough);
 // The newest entry time, or Fallback for an empty log.

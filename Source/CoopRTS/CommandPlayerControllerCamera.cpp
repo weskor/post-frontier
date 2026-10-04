@@ -7,6 +7,7 @@
 #include "Commands/AbilityCommandComponent.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
+#include "HUD/TeamPanelFeed.h"
 #include "Headquarters.h"
 #include "InputCoreTypes.h"
 #include "ObjectiveAnnouncer.h"
@@ -136,6 +137,12 @@ bool ACommandPlayerController::FocusAlertSequence(int32 Sequence)
 {
 	if (GetUIScreen() != ECommandScreen::Game)
 		return false;
+	// A gift row has no place to focus: it opens the Team panel, where the log is.
+	if (GiftFeed::IsGiftSequence(Sequence))
+	{
+		TeamFlow.bOpen = true;
+		return true;
+	}
 	if (Sequence < 0)
 	{
 		ACommandCamera* PingCamera = Cast<ACommandCamera>(GetPawn());

@@ -175,6 +175,34 @@ void AppendLogText(FStringBuilderBase& Out, const FLogEntry& Entry)
 	Out.Appendf(TEXT("   %d %s"), Entry.Amount, ResourceName(Entry.Resource));
 }
 
+void AppendGiftFeedText(FStringBuilderBase& Out, const FLogEntry& Entry)
+{
+	Out.Appendf(TEXT("Commander %d gifted %d %s to Commander %d"), Entry.Sender + 1, Entry.Amount, ResourceName(Entry.Resource),
+		Entry.Recipient + 1);
+}
+
+FFlash GiftFlash(TConstArrayView<FLogEntry> Log, int32 Self, float Now)
+{
+	FFlash Flash;
+	float Newest = -1.f;
+	for (const FLogEntry& Entry : Log)
+	{
+		const float Age = Now - Entry.Time;
+		if (Entry.Recipient != Self || Age < 0.f || Age >= FlashSeconds || Entry.Time < Newest)
+			continue;
+		Newest = Entry.Time;
+		Flash = { true, Entry.Resource, Entry.Amount, Entry.Sender,
+			FMath::Clamp((FlashSeconds - Age) / FlashFadeSeconds, 0.f, 1.f) };
+	}
+	return Flash;
+}
+
+void AppendFlashText(FStringBuilderBase& Out, const FFlash& Flash)
+{
+	Out.Appendf(TEXT("+%d from "), Flash.Amount);
+	AppendCommander(Out, Flash.Sender);
+}
+
 bool HasUnseenGift(TConstArrayView<FLogEntry> Log, int32 Self, float SeenThrough)
 {
 	for (const FLogEntry& Entry : Log)

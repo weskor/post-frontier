@@ -3,6 +3,7 @@
 #include "CommandGameState.h"
 #include "CommandHUD.h"
 #include "Commands/GiftCommandComponent.h"
+#include "HUD/TeamPanelFeed.h"
 #include "Rules/ControllerInputPolicy.h"
 
 namespace
@@ -46,6 +47,8 @@ void ACommandPlayerController::UpdateTeamPanel()
 	TeamPanelPolicy::FLogBuffer Log;
 	UGiftCommandComponent::ReadLog(*State, Log);
 	TeamPanelPolicy::ClampLog(TeamFlow, Log.Num());
+	if (UGiftFeed* Feed = UGiftFeed::Get(this))
+		Feed->Observe(*State);
 	// Everything logged while the panel is open has been seen.
 	if (TeamFlow.bOpen)
 		GiftSeenThrough = TeamPanelPolicy::LatestTime(Log, GiftSeenThrough);

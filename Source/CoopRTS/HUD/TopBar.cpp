@@ -5,6 +5,7 @@
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "ObjectiveAnnouncer.h"
+#include "TeamPanel.h"
 #include "Rules/AnnouncerPolicy.h"
 
 namespace CommandHUDPanels
@@ -120,18 +121,35 @@ static void DrawEconomyLine(const FPainter& Paint, const FContext& Context, cons
 	TStringBuilder<32> Commander;
 	Commander.Appendf(TEXT("C%d"), Context.Wallet->CommanderIndex + 1);
 	Put(Commander.ToView(), Palette::Gold);
+	// A gift to this commander flashes its figure white and says who sent how much; the Forces and Regions figures give
+	// way for those three seconds because the line has no room for both.
+	const TeamPanelPolicy::FFlash Flash = GiftFlash(Context);
+	const auto PutFlash = [&](TeamPanelPolicy::EResource Resource) {
+		if (!Flash.bActive || Flash.Resource != Resource)
+			return;
+		TStringBuilder<32> Text;
+		TeamPanelPolicy::AppendFlashText(Text, Flash);
+		Put(Text.ToView(), Palette::Gold.CopyWithNewOpacity(Flash.Opacity));
+	};
+	const auto Figure = [&](TeamPanelPolicy::EResource Resource, const FLinearColor& Rest) {
+		return Flash.bActive && Flash.Resource == Resource ? FLinearColor::LerpUsingHSV(Rest, FLinearColor(1.f, .95f, .6f), Flash.Opacity) : Rest;
+	};
 	TStringBuilder<48> Power;
 	Power.Appendf(TEXT("%d Power +"), Context.Balance);
 	PressureHud::AppendRate(Power, Context.State->GetPowerRate(Context.Wallet));
 	Power << TEXT("/s");
-	Put(Power.ToView(), Palette::Gold);
+	Put(Power.ToView(), Figure(TeamPanelPolicy::EResource::Power, Palette::Gold));
+	PutFlash(TeamPanelPolicy::EResource::Power);
 	TStringBuilder<48> Data;
 	Data.Appendf(TEXT("%d Data +"), Context.DataBalance);
 	PressureHud::AppendRate(Data, Context.State->GetDataRate(Context.Wallet));
 	Data << TEXT("/s");
 	DrawDataGlyph(Paint, X, Top.Y + (Top.H - 9.f) * .5f, Palette::Text);
 	X += 14.f;
-	Put(Data.ToView(), Palette::Text);
+	Put(Data.ToView(), Figure(TeamPanelPolicy::EResource::Data, Palette::Text));
+	PutFlash(TeamPanelPolicy::EResource::Data);
+	if (Flash.bActive)
+		return;
 	TStringBuilder<32> ForceCount;
 	ForceCount.Appendf(TEXT("Forces %d"), Forces.ConfiguredForces);
 	Put(ForceCount.ToView(), Palette::Gold);

@@ -10,6 +10,7 @@
 #include "HUDPanels.h"
 #include "Json.h"
 #include "TeamPanel.h"
+#include "TeamPanelFeed.h"
 
 namespace TeamPanelVerification
 {
@@ -177,6 +178,10 @@ void Snapshot(UWorld& World, const ACommandGameState& State, const TSharedPtr<FJ
 		Number(Team, TEXT("amount"), Flow.Amount);
 		Number(Team, TEXT("scroll"), Flow.LogScroll);
 		Team->SetBoolField(TEXT("unseen"), Controller->HasUnseenGift());
+		const UGiftFeed* Feed = UGiftFeed::Get(&World);
+		Number(Team, TEXT("feedRows"), Feed ? Feed->Rows().Num() : 0);
+		const TeamPanelPolicy::FFlash Flash = CommandHUDPanels::GiftFlash(CommandHUDPanels::MakeContext(Controller));
+		Team->SetBoolField(TEXT("flash"), Flash.bActive);
 		FString Refusal;
 		float Opacity;
 		Team->SetStringField(TEXT("refusal"), Controller->GetTeamRefusal(Refusal, Opacity) ? Refusal : FString());

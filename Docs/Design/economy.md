@@ -72,7 +72,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 ## Gifting [Built]
 
 - During the live battle, any human commander can send a positive whole amount of Power or Data to a teammate in the roster, never to themselves. A gift is free and atomic.
-- Every accepted gift is appended to a replicated team log (the last 20 entries, **[Built]**) and **[New]** appears in the alert feed, e.g. "Commander 2 gifted 100 Power to Commander 1". A rejection says why (starting value, orchestrator 2026-10-04).
+- Every accepted gift is appended to a replicated team log (the last 20 entries, **[Built]**) and **[Built]** appears in the alert feed, e.g. "Commander 2 gifted 100 Power to Commander 1". A rejection says why (starting value, orchestrator 2026-10-04).
 - **Decided:** gifting is **free and unlimited**. The visible log is the only safeguard; we trust friends.
 
 ## HQ tiers and team calldowns [Later] — cut from launch scope

@@ -91,9 +91,10 @@ def flow(run: NetworkRun, capture: Capture, own: int, width: int, height: int) -
     run.request("host", "giftFund", owner=own, power=340, data=20)
     gift(run, mates[0], own, "power", 100)
     capture.wait(
-        lambda s: team(s)["unseen"], "a gift to the commander marks the opener"
+        lambda s: team(s)["unseen"] and team(s)["flash"] and team(s)["feedRows"] > 0,
+        "a gift to the commander marks the opener, flashes the top bar and posts a feed row",
     )
-    capture.shot(f"team-opener-unseen-dot-{suffix}")
+    capture.shot(f"team-opener-dot-feed-row-flash-{suffix}")
     set_open(capture, True)
     run.request("host", "giftHudLayout")
     capture.shot(f"team-panel-rows-{suffix}")

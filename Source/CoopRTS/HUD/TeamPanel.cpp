@@ -70,6 +70,16 @@ FSendInput TeamSendInput(const FContext& Context)
 	return UGiftCommandComponent::MakeSendInput(*Context.State, Context.Wallet, Flow.Teammate, Flow.Resource, Flow.Amount);
 }
 
+FFlash GiftFlash(const FContext& Context)
+{
+	if (!Context.State || !Context.Wallet)
+		return FFlash();
+	FLogBuffer Log;
+	UGiftCommandComponent::ReadLog(*Context.State, Log);
+	return TeamPanelPolicy::GiftFlash(Log, Context.Wallet->CommanderIndex,
+		Context.State->GetServerWorldTimeSeconds() - Context.State->GetBattleClockStartServerTime());
+}
+
 static EHUDAction RowAction(int32 Row)
 {
 	return static_cast<EHUDAction>(static_cast<uint8>(EHUDAction::TeamRow0) + Row);

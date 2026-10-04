@@ -10,6 +10,7 @@
 #include "Rules/AnnouncerPolicy.h"
 #include "Rules/MapPresentationPolicy.h"
 #include "PressureView.h"
+#include "TeamPanelFeed.h"
 
 namespace CommandHUDPanels
 {
@@ -110,6 +111,8 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 	const FObjectiveEventView TeamAbilities = Abilities ? Abilities->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const UPressureView* Pressure = UPressureView::Get(Context.State);
 	const FObjectiveEventView LocalRows = Pressure ? FObjectiveEventView{ Pressure->Rows(), 0 } : FObjectiveEventView{ EmptyEvents, 0 };
+	const UGiftFeed* Gifts = UGiftFeed::Get(Context.State);
+	const FObjectiveEventView GiftRows = Gifts ? FObjectiveEventView{ Gifts->Rows(), 0 } : FObjectiveEventView{ EmptyEvents, 0 };
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
 	const auto VisitRing = [&](const FObjectiveEventView& Events, float Lifetime, bool bCompact) {
@@ -130,11 +133,12 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 		}
 		return true;
 	};
-	// Objective rows rank above this client's own pressure rows (stuns, releases), which rank above ability team rows,
-	// which rank above pings.
+	// Objective rows rank above this client's own pressure rows (stuns, releases), which rank above the team rows (ability
+	// rows, then gifts), which rank above pings.
 	if (VisitRing(Objectives, UObjectiveAnnouncer::FeedLifetime, false)
 		&& VisitRing(LocalRows, UObjectiveAnnouncer::FeedLifetime, true)
-		&& VisitRing(TeamAbilities, UAbilityCommandComponent::Lifetime, true))
+		&& VisitRing(TeamAbilities, UAbilityCommandComponent::Lifetime, true)
+		&& VisitRing(GiftRows, UObjectiveAnnouncer::FeedLifetime, true))
 		VisitRing(TeamPings, UPingCommandComponent::Lifetime, true);
 }
 
@@ -185,9 +189,15 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
 		const bool bAbility = UAbilityCommandComponent::IsAbilitySequence(Event.Sequence);
 		const bool bLocal = PressureView::IsLocalSequence(Event.Sequence);
+		const bool bGift = GiftFeed::IsGiftSequence(Event.Sequence);
 		const bool bPing = Event.Sequence < 0 && !bAbility;
 		TStringBuilder<256> Title;
-		if (bLocal)
+		if (bGift)
+		{
+			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, Palette::Gold.CopyWithNewOpacity(Alpha));
+			Title << Event.TargetForceOwnerName;
+		}
+		else if (bLocal)
 			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, LocalRowTitle(Event, Title).CopyWithNewOpacity(Alpha));
 		else if (bAbility)
 			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, TeamRowTitle(Context, Event, Title).CopyWithNewOpacity(Alpha));
@@ -207,6 +217,8 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 				Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
 			Region << TEXT("  |  Click to focus");
 		}
+		else if (bGift)
+			Region << TEXT("Team  |  Click to open Team log");
 		else if (bLocal)
 		{
 			if (!Event.RegionName.IsEmpty())
@@ -219,7 +231,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
-		for (int32 Index = 0; !bPing && !bAbility && !bLocal && Index < Event.Forces.Num(); ++Index)
+		for (int32 Index = 0; !bPing && !bAbility && !bLocal && !bGift && Index < Event.Forces.Num(); ++Index)
 		{
 			const FObjectiveForce& Force = Event.Forces[Index];
 			const float CellWidth = (Rect.W - 2.f * Pad - Gap) * .5f;

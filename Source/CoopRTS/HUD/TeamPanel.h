@@ -44,6 +44,8 @@ bool IsTeamAction(EHUDAction Action);
 // The panel frame, header, labels, amount, refusal and log. Buttons are drawn by DrawTeamButton.
 void DrawTeamPanel(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
 void DrawTeamButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
+// The recipient's top-bar flash for the newest gift to the viewer, on the battle clock the log is timed on.
+TeamPanelPolicy::FFlash GiftFlash(const FContext& Context);
 // The Send verdict the panel shows for the viewer's current flow.
 TeamPanelPolicy::FSendInput TeamSendInput(const FContext& Context);
 }
