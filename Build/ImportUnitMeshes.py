@@ -166,7 +166,7 @@ def spawn(actor_class, label, location, rotation=unreal.Rotator()):
     return actor
 
 
-floor_material = art.surface("MI_GalleryFloor", (0.04, 0.042, 0.048), 0.9)
+floor_material = art.surface("MI_UnitGalleryFloor", (0.04, 0.042, 0.048), 0.9)
 floor = spawn(unreal.StaticMeshActor, "Floor", (0, 0, -50))
 floor.static_mesh_component.set_static_mesh(cube)
 floor.static_mesh_component.set_material(0, floor_material)
