@@ -47,11 +47,17 @@ FCommandResult Verdict(bool bAccepted, FString Message, ECommandRejection Failur
 }
 
 // Planning accepts only its own commands (FPlanningCommands) and pings; the kit's unit type, placements and first
-// orders change nowhere else.
+// orders change nowhere else. JEV's own kit production is the one exception: the game configures its Barracks.
 bool InPlanning(ACommandPlayerState* Commander)
 {
 	const ACommandGameState* State = CommandState(Commander);
 	return State && State->IsPlanning();
+}
+
+bool IsEnemyCommander(ACommandPlayerState* Commander)
+{
+	const ACommandGameState* State = CommandState(Commander);
+	return State && Commander == State->EnemyCommander;
 }
 
 FCommandResult PlanningRefusal()
@@ -94,7 +100,7 @@ FCommandResult FCommandService::CancelBuilding(ACommandPlayerState* Commander, A
 
 FCommandResult FCommandService::ConfigureProduction(ACommandPlayerState* Commander, ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
 {
-	if (InPlanning(Commander))
+	if (InPlanning(Commander) && !IsEnemyCommander(Commander))
 		return PlanningRefusal();
 	if (!OwnsBuilding(Commander, Building))
 		return Verdict(false, TEXT("Production rejected: not your living building or match ended."), ECommandRejection::InvalidOwner);

@@ -100,6 +100,10 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 	Turn.Team = TeamIndex;
 	Turn.bRush = IsRushAutopilot();
 	Turn.Now = GetWorld()->GetTimeSeconds();
+	// A force seen with living units has fielded, however briefly: if it is wiped out it is no newly built kit force.
+	for (FJevCommittedForce& Entry : CommittedForces)
+		if (Entry.Force.IsValid() && Entry.Force->GetAliveCount() > 0)
+			Entry.Plan.bFielded = true;
 	CommittedForces.RemoveAllSwap([&](const FJevCommittedForce& Entry) {
 		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander || !KeepsEntry(Entry);
 	});
@@ -134,11 +138,7 @@ void AEnemyCommander::EvaluatePlan()
 	if (!bPlanning)
 		JevEconomy::BuildExtractor(Turn);
 	JevWorld::Finish(Turn);
-	{
-		// JEV's kit forces are made by the game, not by a player command: the planning lock lifts for this call.
-		TGuardValue<bool> Unlocked(Turn.State->Planning.bActive, false);
-		JevEconomy::ConfigureProduction(Turn);
-	}
+	JevEconomy::ConfigureProduction(Turn);
 	ExecuteForces(Turn);
 	if (TeamIndex == 5 && !bPlanning)
 		AdvanceReleases(Turn);
