@@ -158,6 +158,12 @@ sources = [
   "Build/GenerateAvailabilityZoneV2.py",
   "Build/DrawAvailabilityZoneV2.py",
   "Build/MatchLayout.py",
+  "Build/TerrainPlan.py",
+  "Build/TerrainWalk.py",
+  "Build/TerrainSpawn.py",
+  "Build/TerrainKit.py",
+  "Build/EnvKit.py",
+  "Build/ArtMaterials.py",
   "Build/Maps/AvailabilityZoneV2.json",
 ]
 outputs = ["Content/Maps/AvailabilityZoneV2.umap"]

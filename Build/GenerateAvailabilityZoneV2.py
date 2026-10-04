@@ -1,4 +1,4 @@
-"""Rebuild the flat /Game/Maps/AvailabilityZoneV2 from Maps/AvailabilityZoneV2.json.
+"""Rebuild /Game/Maps/AvailabilityZoneV2 (plateaus, ramps, cover, hazard) from Maps/AvailabilityZoneV2.json.
 
 Run in UnrealEditor-Cmd with PythonScriptPlugin after building CoopRTSEditor.
 Regions, capture anchors and deposits are native replicated match actors; painted
@@ -14,6 +14,9 @@ import unreal
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import MatchLayout
 import DrawAvailabilityZoneV2
+import TerrainPlan
+import TerrainSpawn
+import TerrainWalk
 
 MAP_PATH = "/Game/Maps/AvailabilityZoneV2"
 JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Maps", "AvailabilityZoneV2.json")
@@ -85,12 +88,15 @@ def validate(data):
         require(len(rock["poly"]) >= 3 and area(rock["poly"]) > 0, "Invalid CCW blocker polygon " + rock["id"])
     post_errors = DrawAvailabilityZoneV2.defend_post_errors(data)
     require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
+    terrain_errors = TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
+    require(not terrain_errors, "Invalid terrain: " + "; ".join(terrain_errors))
     return by_index
 
 
 with open(JSON_PATH, encoding="utf-8") as handle:
     data = json.load(handle)
 regions = validate(data)
+terrain = TerrainPlan.Terrain(data)
 arena_definition = data["arena"]
 hx, hy = arena_definition["half_extent"]
 
@@ -99,7 +105,7 @@ cube = require(unreal.load_asset("/Engine/BasicShapes/Cube.Cube"), "Missing engi
 cylinder = require(unreal.load_asset("/Engine/BasicShapes/Cylinder.Cylinder"), "Missing engine cylinder")
 materials = {}
 for name in ("MI_AZ_GravelDark", "MI_AZ_Concrete", "MI_AZ_MachineConcrete", "MI_AZ_PaintBlue",
-             "MI_AZ_PaintAmber", "MI_AZ_Steel"):
+             "MI_AZ_PaintAmber", "MI_AZ_Steel", "MI_AZ_Hazard", "MI_AZ_GlowHuman", "MI_AZ_DeckPlate"):
     materials[name] = require(unreal.load_asset("/Game/Art/Materials/" + name), "Missing existing material " + name)
 for name in ("ArenaBounds", "Headquarters", "CapturePoint", "MapRegion", "DepositSite", "CommandGameMode"):
     MatchLayout.native_class(name)
@@ -198,7 +204,7 @@ def place_match_actors(region_defs, deposit_defs):
     for hq in data["headquarters"]:
         actor = spawn(MatchLayout.native_class("Headquarters"),
                       "FriendlyHeadquarters" if hq["team"] == 0 else "EnemyHeadquarters",
-                      (hq["pos"][0], hq["pos"][1], 110))
+                      (hq["pos"][0], hq["pos"][1], 110 + terrain.ground_z(*hq["pos"])))
         actor.set_editor_property("team_index", hq["team"])
 
     anchors = {}
@@ -207,7 +213,7 @@ def place_match_actors(region_defs, deposit_defs):
             continue
         x, y = region["anchor"]
         anchor = spawn(MatchLayout.native_class("CapturePoint"),
-                       "Region%02d_%s" % (index, region["name"]), (x, y, 5))
+                       "Region%02d_%s" % (index, region["name"]), (x, y, 5 + terrain.ground_z(x, y)))
         anchor.set_editor_property("site_kind", unreal.CaptureSiteKind.RESOURCE)
         anchor.set_editor_property("site_index", index)
         anchor.set_editor_property("tags", [unreal.Name(region["name"])])
@@ -221,7 +227,7 @@ def place_match_actors(region_defs, deposit_defs):
     for index, region in sorted(region_defs.items()):
         point = hq_by_team[region["home_team"]] if region["role"] == "main" else region["anchor"]
         actor = spawn(MatchLayout.native_class("MapRegion"), "Region%02d_%s" % (index, region["name"]),
-                      (point[0], point[1], 0))
+                      (point[0], point[1], terrain.ground_z(*point)))
         actor.set_folder_path("AZV2/Regions")
         actor.set_editor_property("region_index", index)
         actor.set_editor_property("display_name", unreal.Text(region["name"]))
@@ -229,12 +235,12 @@ def place_match_actors(region_defs, deposit_defs):
         actor.set_editor_property("home_team", region["home_team"])
         actor.set_editor_property("polygon", [unreal.Vector2D(*point) for point in region["poly"]])
         actor.set_editor_property("neighbours", region["neighbours"])
-        actor.set_editor_property("defend_posts", [unreal.Vector(x, y, 0) for x, y in region["defend_posts"]])
+        actor.set_editor_property("defend_posts", [unreal.Vector(x, y, terrain.ground_z(x, y)) for x, y in region["defend_posts"]])
         if index in anchors:
             actor.set_editor_property("anchor", anchors[index])
     for index, deposit in enumerate(deposit_defs):
         x, y = deposit["pos"]
-        actor = spawn(MatchLayout.native_class("DepositSite"), "Deposit%02d" % index, (x, y, 5))
+        actor = spawn(MatchLayout.native_class("DepositSite"), "Deposit%02d" % index, (x, y, 5 + terrain.ground_z(x, y)))
         actor.set_folder_path("AZV2/Deposits")
         actor.set_editor_property("region_index", deposit["region"])
         actor.set_editor_property("rich", deposit["kind"] == "rich")
@@ -248,6 +254,7 @@ block("FlatGround", (0, 0), (2 * (hx + 200), 2 * (hy + 200), 100), materials["MI
       base=-100, collision=True, folder="AZV2/Ground")
 for rock in data["blockers"]:
     place_rock(rock)
+terrain_counts = TerrainSpawn.place_terrain(terrain, spawn, block, cylinder, materials)
 
 # Borders are planning lines, not walls. Simplify the rasterized source
 # polygons only for the visuals; native region data keeps its exact vertices.
@@ -261,18 +268,20 @@ for index, region in sorted(regions.items()):
         key = tuple(sorted((tuple(a), tuple(b))))
         if key not in seen_edges:
             seen_edges.add(key)
-            line("Border_%02d_%02d" % (index, edge), a, b, 16, role_material[region["role"]], base=0.5)
+            line("Border_%02d_%02d" % (index, edge), a, b, 16, role_material[region["role"]],
+                 base=0.5 + terrain.ground_z((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
     if region["anchor"] is not None:
         x, y = region["anchor"]
         block("AnchorPlate_%02d" % index, (x, y), (280, 280, 2), role_material[region["role"]],
-              mesh=cylinder, base=0.5, folder="AZV2/Anchors")
+              mesh=cylinder, base=0.5 + terrain.ground_z(x, y), folder="AZV2/Anchors")
 for index, deposit in enumerate(data["deposits"]):
     x, y = deposit["pos"]
     material = materials["MI_AZ_PaintAmber"] if deposit["kind"] == "rich" else materials["MI_AZ_PaintBlue"]
+    z = terrain.ground_z(x, y)
     block("DepositPlate_%02d" % index, (x, y), (190, 190, 2), material, mesh=cylinder,
-          base=0.5, folder="AZV2/Deposits")
+          base=0.5 + z, folder="AZV2/Deposits")
     block("DepositCore_%02d" % index, (x, y), (95, 95, 3), materials["MI_AZ_Steel"],
-          yaw=45, base=2.5, folder="AZV2/Deposits")
+          yaw=45, base=2.5 + z, folder="AZV2/Deposits")
 
 # Start the camera beside the friendly HQ, towards the interior; no origin start.
 friendly = next(hq["pos"] for hq in data["headquarters"] if hq["team"] == 0)
@@ -335,6 +344,6 @@ world = editor.get_editor_world()
 world.get_world_settings().set_editor_property("default_game_mode", MatchLayout.native_class("CommandGameMode"))
 require(levels.save_current_level(), "Could not save AvailabilityZoneV2")
 unreal.log("AVAILABILITY_ZONE_V2_GENERATED %s regions=%d capture=%d deposits=%d rocks=%d "
-           "borders=%d nav_half=%s actors=%d" %
+           "borders=%d terrain=%s nav_half=%s actors=%d" %
            (MAP_PATH, len(regions), len(anchors), len(data["deposits"]), len(data["blockers"]),
-            len(seen_edges), nav_half, len(actors.get_all_level_actors())))
+            len(seen_edges), terrain_counts, nav_half, len(actors.get_all_level_actors())))

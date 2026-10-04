@@ -102,6 +102,7 @@ function-length = [
 format = [
     "Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
     "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/TerrainPlan.py", "Build/TerrainWalk.py",
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
@@ -110,6 +111,7 @@ format = [
 ruff = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
     "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/TerrainPlan.py", "Build/TerrainWalk.py",
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
@@ -118,6 +120,7 @@ ruff = [
 mypy = [
     "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
     "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py",
+    "Build/TerrainPlan.py", "Build/TerrainWalk.py",
     "Build/DrawAvailabilityZoneV2.py", "Build/FetchTextures.py",
     "Build/FetchAudioSources.py", "Build/GenerateMusicSample.py",
     "Build/GenerateUnitAudio.py", "Build/ExportUIAssets.py", "Build/unit_audio/**/*.py",
@@ -127,7 +130,10 @@ mypy = [
 # These modules are imported by Unreal's embedded Python, not only by ./x.
 [python]
 version = "3.11"
-paths = ["Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py", "Build/ContentText.py"]
+paths = [
+    "Build/DrawMapLayout.py", "Build/AvailabilityZoneLayout.py", "Build/ContentText.py",
+    "Build/TerrainPlan.py", "Build/TerrainWalk.py",
+]
 
 [test-only-symbol]
 identifiers = [

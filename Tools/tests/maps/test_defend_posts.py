@@ -10,6 +10,15 @@ from DrawAvailabilityZoneV2 import MapData, defend_post_errors
 import MatchLayout
 import pytest
 
+FLAT_TERRAIN = {
+    "cell": 400,
+    "plateau_height": 300,
+    "plateaus": [],
+    "closed_borders": [],
+    "props": [],
+    "routes": [],
+}
+
 
 @pytest.fixture(scope="session")
 def dressed_classic(real_layout: Layout) -> Layout:
@@ -78,6 +87,7 @@ def test_v2_stretched_region(v2_map: MapData) -> None:
     x0, x1, y0, y1 = min(xs), max(xs) + 12000, min(ys), max(ys)
     region["poly"] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
     v2_map["regions"] = [region]
+    v2_map["terrain"] = FLAT_TERRAIN
     v2_map["arena"]["half_extent"] = [30000, 30000]
     errors = defend_post_errors(v2_map)
     assert len(errors) == 1 and "maximum 3500 cm" in errors[0]
@@ -143,6 +153,7 @@ def test_v2_uncovered_edge_touching_footprint(v2_map: MapData) -> None:
     region["poly"] = [[-7195, -145], [7145, -145], [7145, 145], [-7195, 145]]
     region["defend_posts"] = [[-3550, 0], [3500, 0]]
     v2_map["regions"] = [region]
+    v2_map["terrain"] = FLAT_TERRAIN
     v2_map["blockers"] = []
     v2_map["headquarters"] = []
     assert defend_post_errors(v2_map) == []

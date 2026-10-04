@@ -278,7 +278,6 @@ def test_walking_connectivity(v2_map: MapData, real_walking: None, target: str) 
         assert region["anchor"] is not None
         destination = region["anchor"]
         v2_map["headquarters"][1]["pos"] = home[:]
-        v2_map["regions"] = [region]
     axis = max((0, 1), key=lambda k: abs(home[k] - destination[k]))
     middle = (home[axis] + destination[axis]) / 2
     hx, hy = v2_map["arena"]["half_extent"]

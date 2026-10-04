@@ -17,16 +17,18 @@ quarter-cell sampling and the original CLI report; walking never draws.
 
 import argparse
 from collections import Counter, defaultdict, deque
-from collections.abc import Iterable, Iterator, Sequence
-import heapq
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from itertools import chain
 import json
 import math
 from pathlib import Path
 import subprocess
-from typing import NotRequired, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 import MatchLayout
+import TerrainPlan
+from TerrainPlan import CELL
+import TerrainWalk
 
 Point = list[float]
 Cell = tuple[int, int]
@@ -56,6 +58,7 @@ class Region(TypedDict):
     anchor: list[float] | None
     neighbours: list[int]
     defend_posts: list[list[float]]
+    trait: str | None
 
 
 class Deposit(TypedDict):
@@ -107,6 +110,7 @@ class MapData(TypedDict):
     deposits: list[Deposit]
     blockers: list[Blocker]
     navigation: Navigation
+    terrain: dict[str, Any]
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -420,9 +424,12 @@ def derive() -> None:
     assert [e["type"] for e in elements[:15]] == ["line"] * 15
     # Posts are authored world data, not another sketch-derived/runtime placement.
     # Preserve hand edits when re-deriving the region outlines and deposit sites.
+    previous = cast(MapData, json.loads(DATA.read_text()))
     authored_posts = {
-        region["index"]: region["defend_posts"]
-        for region in cast(MapData, json.loads(DATA.read_text()))["regions"]
+        region["index"]: region["defend_posts"] for region in previous["regions"]
+    }
+    authored_traits = {
+        region["index"]: region["trait"] for region in previous["regions"]
     }
     assert len([e for e in elements if e["type"] == "diamond"]) == 16
     labels = raster_countries(elements)
@@ -462,6 +469,7 @@ def derive() -> None:
                 anchor=world(anchor) if anchor else None,
                 neighbours=[],
                 defend_posts=authored_posts[k],
+                trait=authored_traits[k],
             )
         )
     # Shared-edge incidence is the source of truth for neighbour relations.
@@ -519,7 +527,12 @@ def derive() -> None:
         navigation=dict(
             bounds_volume=dict(centre=[0, 0, 0], half_extent=[10200, 10200, 1400])
         ),
+        terrain=previous["terrain"],
     )
+    # Closed borders (plateau cliffs without a ramp, rock walls) are not neighbours.
+    reduced = TerrainPlan.Terrain(data).neighbours()
+    for r in regions:
+        r["neighbours"] = reduced[r["index"]]
     DATA.write_text(json.dumps(data, indent=2) + "\n")
     print(
         f"Derived {len(regions)} regions, {len(deposits)} deposits, {len(data['blockers'])} partial rock marks -> {DATA}"
@@ -612,19 +625,11 @@ def site_errors(data: MapData) -> list[str]:
 
 
 def defend_post_errors(data: MapData) -> list[str]:
-    """Validate authored posts against gameplay countries and actual ground rocks."""
-
-    def clear_ground(point: Sequence[float], margin: float) -> bool:
-        return all(
-            not inside(point, blocker["poly"])
-            and clearance(point, blocker["poly"]) >= margin
-            for blocker in data["blockers"]
-        )
-
+    """Validate authored posts against gameplay countries and the terrain: rocks, props, ramps, walls and levels."""
     return MatchLayout.defend_post_errors(
         data["regions"],
         data["arena"]["half_extent"],
-        clear_ground,
+        TerrainPlan.Terrain(data).clear_ground,
         data["arena"]["placement_margin"],
         lambda poly, point: contains_point(point, poly),
         headquarters=[hq["pos"] for hq in data["headquarters"]],
@@ -665,11 +670,13 @@ def topology(data: MapData) -> tuple[int, float, list[str]]:
             actual[user_b[0]].add(user_a[0])
         else:
             errors.append(f"Edge has {len(users)} users: {key}")
+    closed = TerrainPlan.closed_borders(data, dict(enumerate(actual)))
     for r in regions:
         n = r["index"]
-        if sorted(actual[n]) != sorted(r["neighbours"]):
+        expected = sorted(k for k in actual[n] if tuple(sorted((n, k))) not in closed)
+        if expected != sorted(r["neighbours"]):
             errors.append(
-                f"Neighbour metadata mismatch for {n}: {r['neighbours']} vs {sorted(actual[n])}"
+                f"Neighbour metadata mismatch for {n}: {r['neighbours']} vs {expected}"
             )
         if any(n not in regions[k]["neighbours"] for k in r["neighbours"]):
             errors.append(f"Neighbour incidence not symmetric for {n}")
@@ -711,6 +718,7 @@ def symmetry_errors(data: MapData) -> list[str]:
 
 def audit(data: MapData) -> None:
     errors = region_errors(data) + site_errors(data) + defend_post_errors(data)
+    errors += TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
     regions = data["regions"]
     edge_count, boundary_length, edge_errors = topology(data)
     errors.extend(edge_errors)
@@ -750,72 +758,14 @@ def audit(data: MapData) -> None:
 
 
 def walking(data: MapData) -> None:
-    """8-neighbour Dijkstra on 100cm ground cells with 100cm rock clearance."""
-    n = 200
-    rocks = data["blockers"]
-    passable = bytearray(n * n)
-    for i in range(n):
-        x = (i - 99.5) * WALK_CELL
-        for j in range(n):
-            y = (j - 99.5) * WALK_CELL
-            passable[i * n + j] = all(
-                not inside((x, y), b["poly"]) and clearance((x, y), b["poly"]) >= 100
-                for b in rocks
-            )
-
-    def nearest(pos: Sequence[float]) -> int:
-        i, j = int((pos[0] + 10000) // WALK_CELL), int((pos[1] + 10000) // WALK_CELL)
-        if passable[i * n + j]:
-            return i * n + j
-        return min(
-            (
-                a * n + b
-                for a in range(max(0, i - 5), min(n, i + 6))
-                for b in range(max(0, j - 5), min(n, j + 6))
-                if passable[a * n + b]
-            ),
-            key=lambda idx: math.dist(
-                ((idx // n - 99.5) * WALK_CELL, (idx % n - 99.5) * WALK_CELL), pos
-            ),
-        )
-
-    def distances(pos: Sequence[float]) -> list[float]:
-        start = nearest(pos)
-        dist = [math.inf] * (n * n)
-        dist[start] = 0.0
-        todo = [(0.0, start)]
-        moves = [
-            (di, dj, WALK_CELL * math.hypot(di, dj))
-            for di in (-1, 0, 1)
-            for dj in (-1, 0, 1)
-            if di or dj
-        ]
-        while todo:
-            length, idx = heapq.heappop(todo)
-            if length != dist[idx]:
-                continue
-            i, j = divmod(idx, n)
-            for di, dj, step in moves:
-                a, b = i + di, j + dj
-                if not (0 <= a < n and 0 <= b < n and passable[a * n + b]):
-                    continue
-                if (
-                    di
-                    and dj
-                    and (not passable[(i + di) * n + j] or not passable[i * n + j + dj])
-                ):
-                    continue
-                node = a * n + b
-                if length + step < dist[node]:
-                    dist[node] = length + step
-                    heapq.heappush(todo, (dist[node], node))
-        return dist
-
+    """Height-aware 8-neighbour Dijkstra on 100cm cells: rocks, props, rock walls, cliffs and ramps."""
+    terrain = TerrainPlan.Terrain(data)
+    walker = TerrainWalk.Walker(terrain)
     home, enemy = (h["pos"] for h in data["headquarters"])
-    from_home, from_enemy = distances(home), distances(enemy)
+    from_home, from_enemy = walker.search(home)[0], walker.search(enemy)[0]
 
     def report(dist: Sequence[float], point: Sequence[float]) -> str:
-        length = dist[nearest(point)]
+        length = dist[walker.nearest(point)]
         if not math.isfinite(length):
             raise ValueError(f"Unreachable site {point}")
         return f"{length / 100:.1f} m / {length / SPEED:.1f} s"
@@ -826,6 +776,116 @@ def walking(data: MapData) -> None:
             print(
                 f"  anchor {r['index']:2} {r['name']:<17}: H {report(from_home, r['anchor'])}; J {report(from_enemy, r['anchor'])}"
             )
+    routes = TerrainWalk.route_report(terrain, walker)
+    for route in routes:
+        print(
+            f"  route {route['name']:<14} {route['length'] / 100:6.1f} m  {route['seconds']:5.1f} s  "
+            f"hazard {route['hazard'] / 100:3.0f} m ({route['damage']:.0f} damage)  open {route['open'] / 100:3.0f} m  "
+            f"regions {route['regions']}"
+        )
+    errors = TerrainWalk.walk_errors(terrain, walker) + TerrainWalk.route_errors(
+        terrain, routes
+    )
+    if errors:
+        for error in errors:
+            print("FAIL:", error)
+        raise ValueError(f"{len(errors)} walking errors")
+
+
+ROUTE_COLOURS = ("#1f6fd0", "#c0392b", "#14866d")
+
+
+def terrain_layers(
+    data: MapData, pt: Callable[[Sequence[float]], str]
+) -> tuple[list[str], list[str]]:
+    """SVG for ground under the rocks (apron, hazard, plateau, walls) and over them (props, ramps, routes)."""
+    terrain = TerrainPlan.Terrain(data)
+
+    def xy(point: Sequence[float]) -> tuple[float, float]:
+        x, y = map(float, pt(point).split(","))
+        return x, y
+
+    def box(
+        centre: Sequence[float], size_x: float, size_y: float, yaw: float, style: str
+    ) -> str:
+        c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        corners = [
+            (centre[0] + lx * c - ly * s, centre[1] + lx * s + ly * c)
+            for lx, ly in (
+                (-size_x / 2, -size_y / 2),
+                (size_x / 2, -size_y / 2),
+                (size_x / 2, size_y / 2),
+                (-size_x / 2, size_y / 2),
+            )
+        ]
+        return f'<polygon points="{" ".join(pt(c) for c in corners)}" {style}/>'
+
+    under = [
+        '<defs><pattern id="hazard" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="8" fill="#c0392b"/><rect x="4" width="4" height="8" fill="#f4d03f"/></pattern></defs>'
+    ]
+    over: list[str] = []
+    for i, j0, j1, _ in terrain.apron_runs():
+        under.append(
+            box(
+                (i * CELL, (j0 + j1) / 2 * CELL),
+                CELL,
+                (j1 - j0 + 1) * CELL,
+                0,
+                'fill="#ffffff" fill-opacity="0.75"',
+            )
+        )
+    under += [
+        box(p, 360, 360, 0, 'fill="url(#hazard)"') for p in terrain.hazard_plates()
+    ]
+    for piece in terrain.solid_pieces():
+        colour = "#3a3a3a" if piece["wall"] else "#8c6a4a"
+        under.append(
+            box(
+                piece["centre"],
+                CELL,
+                CELL,
+                0,
+                f'fill="{colour}" fill-opacity="0.7" stroke="#5a4028" stroke-width="0.4"',
+            )
+        )
+    for prop in terrain.props:
+        size_x, size_y = TerrainPlan.PROP_SIZE[prop["kit"]]
+        over.append(
+            box(
+                prop["pos"],
+                size_x * 100,
+                size_y * 100,
+                prop["yaw"],
+                'fill="#6b7b3a" stroke="#222" stroke-width="0.8"',
+            )
+        )
+    for ramp in terrain.ramps:
+        over.append(
+            box(
+                ramp["centre"],
+                TerrainPlan.RAMP_RUN,
+                TerrainPlan.RAMP_RUN,
+                ramp["yaw"],
+                'fill="#f08c00" fill-opacity="0.85" stroke="#7a3d00" stroke-width="2"',
+            )
+        )
+        dx, dy = TerrainPlan.DIRS[ramp["yaw"]]
+        (x0, y0), (x1, y1) = (
+            xy((ramp["centre"][0] + k * dx * 300, ramp["centre"][1] + k * dy * 300))
+            for k in (-1, 1)
+        )
+        over.append(
+            f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="#fff" stroke-width="3"/><circle cx="{x1:.1f}" cy="{y1:.1f}" r="4" fill="#fff"/>'
+        )
+    walker = TerrainWalk.Walker(terrain)
+    for route, colour in zip(
+        TerrainWalk.route_report(terrain, walker), ROUTE_COLOURS, strict=False
+    ):
+        points = " ".join(pt(p) for p in route["points"][::4])
+        over.append(
+            f'<polyline points="{points}" fill="none" stroke="{colour}" stroke-width="4" stroke-opacity="0.8" stroke-linejoin="round"/>'
+        )
+    return under, over
 
 
 def render(data: MapData, out: Path) -> None:
@@ -844,10 +904,11 @@ def render(data: MapData, out: Path) -> None:
         "reward": "#f6d891",
         "tactical": "#c6dfc6",
     }
+    under, over = terrain_layers(data, pt)
     out_svg = [
         '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1640" viewBox="-60 -65 1120 1150">',
         '<rect x="-60" y="-65" width="1120" height="1150" fill="#f1f3f0"/>',
-        '<text x="500" y="-30" text-anchor="middle" fill="#273c48" font-size="22" font-family="sans-serif">AVAILABILITY ZONE V2 — sketch-derived playable regions</text>',
+        '<text x="500" y="-30" text-anchor="middle" fill="#273c48" font-size="22" font-family="sans-serif">AVAILABILITY ZONE V2 — regions, traits, plateaus, ramps and routes</text>',
         '<rect width="1000" height="1000" fill="#ffffff"/>',
     ]
     for r in data["regions"]:
@@ -855,10 +916,12 @@ def render(data: MapData, out: Path) -> None:
         out_svg.append(
             f'<polygon points="{polygon(r["poly"])}" fill="{color}" stroke="#53686a" stroke-width="1.2" stroke-linejoin="round"/>'
         )
+    out_svg += under
     for b in data["blockers"]:
         out_svg.append(
             f'<polygon points="{polygon(b["poly"])}" fill="#394844" stroke="#1b2928" stroke-width="2"/>'
         )
+    out_svg += over
     for r in data["regions"]:
         if r["anchor"]:
             x, y = map(float, pt(r["anchor"]).split(","))
@@ -873,6 +936,10 @@ def render(data: MapData, out: Path) -> None:
         out_svg.append(
             f'<text x="{x:.1f}" y="{y - 12:.1f}" font-family="sans-serif" font-size="15" font-weight="bold" fill="#26383b" stroke="#fff" stroke-width="3" paint-order="stroke" text-anchor="middle">{r["index"]:02} {r["name"]}</text>'
         )
+        if r["trait"]:
+            out_svg.append(
+                f'<text x="{x:.1f}" y="{y + 4:.1f}" font-family="sans-serif" font-size="13" fill="#7a1f00" stroke="#fff" stroke-width="3" paint-order="stroke" text-anchor="middle">[{r["trait"].replace("_", " ")}]</text>'
+            )
     for d in data["deposits"]:
         x, y = map(float, pt(d["pos"]).split(","))
         color = "#a46700" if d["kind"] == "rich" else "#286687"
@@ -885,8 +952,8 @@ def render(data: MapData, out: Path) -> None:
             f'<circle cx="{x}" cy="{y}" r="16" fill="{("#2274a8" if h["team"] == 0 else "#b3475a")}" stroke="#fff" stroke-width="3"/><text x="{x + 20}" y="{y + 29}" font-family="sans-serif" font-size="17" fill="#273c48" stroke="#fff" stroke-width="3" paint-order="stroke">{h["id"]}</text>'
         )
     out_svg += [
-        '<text x="500" y="1040" text-anchor="middle" fill="#344b54" font-family="sans-serif" font-size="17">◇ normal / rich deposits (blue / amber)     ◎ capture anchors     ● HQs     ▰ partial rock cover</text>',
-        '<text x="500" y="1069" text-anchor="middle" fill="#53616b" font-family="sans-serif" font-size="15">200 \u00d7 200 m | X points up | Y points right | borders mark ownership, not walls | flat Z=0</text>',
+        '<text x="500" y="1040" text-anchor="middle" fill="#344b54" font-family="sans-serif" font-size="15">◇ deposits (blue normal, amber rich)  ◎ anchors  ● HQs  brown 300 cm plateau  orange 8 m ramp (arrow downhill)  dark rock wall  olive cover prop</text>',
+        '<text x="500" y="1069" text-anchor="middle" fill="#53616b" font-family="sans-serif" font-size="15">200 \u00d7 200 m | X points up | Y points right | borders mark ownership, not walls | routes: blue north, red centre, green south</text>',
         "</svg>",
     ]
     svg = "\n".join(out_svg).encode()

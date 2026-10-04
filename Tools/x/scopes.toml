@@ -78,6 +78,11 @@ kind = "automation"
 filter = "CoopRTS.Map.DefendPosts"
 map = "/Game/Maps/AvailabilityZoneV2"
 
+[scopes.terrain-v2]
+kind = "automation"
+filter = "CoopRTS.Map.Terrain"
+map = "/Game/Maps/AvailabilityZoneV2"
+
 [scopes.doctrine-frontline]
 kind = "automation"
 filter = "CoopRTS.Doctrine.EntrenchedFrontline"
@@ -364,17 +369,20 @@ map = "default"
 "uv.lock" = ["tools"]
 "Build/DrawMapLayout.py" = ["maps", "tools"]
 "Build/DrawAvailabilityZoneV2.py" = ["maps", "tools"]
+"Build/TerrainPlan.py" = ["maps", "tools", "defend-posts-v2", "terrain-v2"]
+"Build/TerrainWalk.py" = ["maps", "tools", "defend-posts-v2", "terrain-v2"]
+"Build/TerrainSpawn.py" = ["defend-posts-v2", "terrain-v2"]
 "Build/AvailabilityZoneLayout.py" = ["maps", "tools"]
 "Build/Maps/**" = ["maps", "tools"]
 "Build/Audio/**" = ["tools"]
-"Build/Maps/AvailabilityZoneV2.json" = ["defend-posts-v2"]
+"Build/Maps/AvailabilityZoneV2.json" = ["defend-posts-v2", "terrain-v2"]
 "Build/Generate*.py" = ["lint"]
 "Build/GenerateMatchContent.py" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit"]
 "Build/GenerateGameplayConstants.py" = ["tools"]
 "Build/ContentText.py" = ["maps", "tools"]
 "Build/Content/**" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "pursuit", "tools", "maps", "team-economy"]
 "Build/GenerateCommandMap.py" = ["defend-posts-boot"]
-"Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2"]
+"Build/GenerateAvailabilityZoneV2.py" = ["defend-posts-v2", "terrain-v2"]
 "Build/Import*.py" = ["lint"]
 "Build/Build*.py" = ["lint"]
 "Build/Fetch*.py" = ["lint"]
@@ -383,7 +391,7 @@ map = "default"
 "Build/EnvKit.py" = ["lint"]
 "Build/ExportUIAssets.py" = ["lint"]
 "Build/MasterMaterials.py" = ["lint"]
-"Build/MatchLayout.py" = ["maps", "tools", "defend-posts-boot", "defend-posts-v2"]
+"Build/MatchLayout.py" = ["maps", "tools", "defend-posts-boot", "defend-posts-v2", "terrain-v2"]
 "Tools/harness/simulate_matches.py" = ["lint"]
 "Build/TerrainKit.py" = ["lint"]
 "Build/VerifyMasks.py" = ["lint"]
@@ -394,7 +402,7 @@ map = "default"
 "CoopRTS.uproject" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "pursuit", "team-economy"]
 "Source/**/*.cs" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-scaling", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "pursuit", "team-economy"]
 "Content/Maps/Boot.umap" = ["defend-posts-boot"]
-"Content/Maps/AvailabilityZoneV2.umap" = ["defend-posts-v2"]
+"Content/Maps/AvailabilityZoneV2.umap" = ["defend-posts-v2", "terrain-v2"]
 
 # C++ entries derive from local include closure of each test translation unit.
 # A .cpp is covered whenever it implements a header in that closure.

@@ -37,7 +37,6 @@
   "regions": [
     {
       "index": 0,
-      "defend_posts": [[-5700, -7200], [-8500, -7500]],
       "name": "Human Main",
       "role": "main",
       "home_team": 0,
@@ -960,11 +959,21 @@
         1,
         2,
         9
-      ]
+      ],
+      "defend_posts": [
+        [
+          -5700,
+          -7200
+        ],
+        [
+          -8500,
+          -7500
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 1,
-      "defend_posts": [[-4000, -3700], [-3800, -1000]],
       "name": "Human Near",
       "role": "natural",
       "home_team": -1,
@@ -2853,11 +2862,21 @@
         7,
         8,
         9
-      ]
+      ],
+      "defend_posts": [
+        [
+          -4000,
+          -3700
+        ],
+        [
+          -3800,
+          -1000
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 2,
-      "defend_posts": [[300, -8600], [-2800, -8600], [-1900, -5100]],
       "name": "West Cut",
       "role": "tactical",
       "home_team": -1,
@@ -4230,13 +4249,26 @@
       "neighbours": [
         0,
         1,
-        3,
-        6
-      ]
+        3
+      ],
+      "defend_posts": [
+        [
+          300,
+          -8600
+        ],
+        [
+          -2800,
+          -8600
+        ],
+        [
+          -1900,
+          -5100
+        ]
+      ],
+      "trait": "cover"
     },
     {
       "index": 3,
-      "defend_posts": [[400, -5500], [3100, -7700], [4100, -4300]],
       "name": "Uplink",
       "role": "reward",
       "home_team": -1,
@@ -6165,13 +6197,26 @@
       "neighbours": [
         2,
         4,
-        5,
         6
-      ]
+      ],
+      "defend_posts": [
+        [
+          400,
+          -5500
+        ],
+        [
+          3100,
+          -7700
+        ],
+        [
+          4100,
+          -4300
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 4,
-      "defend_posts": [[8600, -8100], [5300, -8500], [7900, -4800]],
       "name": "North Ridge",
       "role": "tactical",
       "home_team": -1,
@@ -7300,11 +7345,25 @@
       "neighbours": [
         3,
         5
-      ]
+      ],
+      "defend_posts": [
+        [
+          8600,
+          -8100
+        ],
+        [
+          5300,
+          -8500
+        ],
+        [
+          7900,
+          -4800
+        ]
+      ],
+      "trait": "high_ground"
     },
     {
       "index": 5,
-      "defend_posts": [[9100, -900], [5000, -600]],
       "name": "Relay Plant",
       "role": "reward",
       "home_team": -1,
@@ -9115,16 +9174,24 @@
         -1210.526
       ],
       "neighbours": [
-        3,
         4,
         6,
-        12,
         13
-      ]
+      ],
+      "defend_posts": [
+        [
+          9100,
+          -900
+        ],
+        [
+          5000,
+          -600
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 6,
-      "defend_posts": [[2000, 700], [1100, -2100]],
       "name": "Interchange",
       "role": "tactical",
       "home_team": -1,
@@ -10664,17 +10731,26 @@
       ],
       "neighbours": [
         1,
-        2,
         3,
         5,
         7,
         11,
         12
-      ]
+      ],
+      "defend_posts": [
+        [
+          2000,
+          700
+        ],
+        [
+          1100,
+          -2100
+        ]
+      ],
+      "trait": "cover"
     },
     {
       "index": 7,
-      "defend_posts": [[-600, 300], [-2700, 2000]],
       "name": "Switchback",
       "role": "tactical",
       "home_team": -1,
@@ -12459,14 +12535,22 @@
       "neighbours": [
         1,
         6,
-        8,
-        10,
-        11
-      ]
+        8
+      ],
+      "defend_posts": [
+        [
+          -600,
+          300
+        ],
+        [
+          -2700,
+          2000
+        ]
+      ],
+      "trait": "high_ground"
     },
     {
       "index": 8,
-      "defend_posts": [[-4900, 4100], [-8000, 7200], [-7600, 2900]],
       "name": "Power Yard",
       "role": "reward",
       "home_team": -1,
@@ -14241,11 +14325,25 @@
         7,
         9,
         10
-      ]
+      ],
+      "defend_posts": [
+        [
+          -4900,
+          4100
+        ],
+        [
+          -8000,
+          7200
+        ],
+        [
+          -7600,
+          2900
+        ]
+      ],
+      "trait": "open"
     },
     {
       "index": 9,
-      "defend_posts": [[-8000, -200], [-8000, -3300]],
       "name": "South Outcrop",
       "role": "tactical",
       "home_team": -1,
@@ -15187,11 +15285,21 @@
         0,
         1,
         8
-      ]
+      ],
+      "defend_posts": [
+        [
+          -8000,
+          -200
+        ],
+        [
+          -8000,
+          -3300
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 10,
-      "defend_posts": [[-2300, 6300], [-7600, 9000], [-2800, 8800]],
       "name": "East Spur",
       "role": "tactical",
       "home_team": -1,
@@ -16534,14 +16642,27 @@
         6421.053
       ],
       "neighbours": [
-        7,
         8,
         11
-      ]
+      ],
+      "defend_posts": [
+        [
+          -2300,
+          6300
+        ],
+        [
+          -7600,
+          9000
+        ],
+        [
+          -2800,
+          8800
+        ]
+      ],
+      "trait": "hazard"
     },
     {
       "index": 11,
-      "defend_posts": [[-500, 4500], [1400, 8400]],
       "name": "Cooling",
       "role": "reward",
       "home_team": -1,
@@ -17965,14 +18086,23 @@
       ],
       "neighbours": [
         6,
-        7,
         10,
         12
-      ]
+      ],
+      "defend_posts": [
+        [
+          -500,
+          4500
+        ],
+        [
+          1400,
+          8400
+        ]
+      ],
+      "trait": "cover"
     },
     {
       "index": 12,
-      "defend_posts": [[3900, 7200], [3300, 4300]],
       "name": "Canal Walk",
       "role": "tactical",
       "home_team": -1,
@@ -19671,16 +19801,25 @@
         4666.667
       ],
       "neighbours": [
-        5,
         6,
         11,
         13,
         14
-      ]
+      ],
+      "defend_posts": [
+        [
+          3900,
+          7200
+        ],
+        [
+          3300,
+          4300
+        ]
+      ],
+      "trait": "open"
     },
     {
       "index": 13,
-      "defend_posts": [[7900, 3500], [6100, 5000]],
       "name": "Machine Near",
       "role": "natural",
       "home_team": -1,
@@ -21258,11 +21397,21 @@
         5,
         12,
         14
-      ]
+      ],
+      "defend_posts": [
+        [
+          7900,
+          3500
+        ],
+        [
+          6100,
+          5000
+        ]
+      ],
+      "trait": null
     },
     {
       "index": 14,
-      "defend_posts": [[8800, 7500], [6400, 8300]],
       "name": "Machine Main",
       "role": "main",
       "home_team": 5,
@@ -22048,7 +22197,18 @@
       "neighbours": [
         12,
         13
-      ]
+      ],
+      "defend_posts": [
+        [
+          8800,
+          7500
+        ],
+        [
+          6400,
+          8300
+        ]
+      ],
+      "trait": null
     }
   ],
   "deposits": [
@@ -22311,5 +22471,356 @@
         1400
       ]
     }
+  },
+  "terrain": {
+    "cell": 400,
+    "plateau_height": 300,
+    "plateaus": [
+      {
+        "region": 4,
+        "ramps": [
+          {
+            "to": 3,
+            "centre": [
+              5800,
+              -5400
+            ],
+            "yaw": 180
+          },
+          {
+            "to": 5,
+            "centre": [
+              9400,
+              -3000
+            ],
+            "yaw": 90
+          }
+        ]
+      },
+      {
+        "region": 7,
+        "ramps": [
+          {
+            "to": 1,
+            "centre": [
+              -2200,
+              -1000
+            ],
+            "yaw": 180
+          },
+          {
+            "to": 6,
+            "centre": [
+              1000,
+              1400
+            ],
+            "yaw": 0
+          },
+          {
+            "to": 8,
+            "centre": [
+              -4200,
+              2200
+            ],
+            "yaw": 180
+          }
+        ]
+      }
+    ],
+    "closed_borders": [
+      [
+        2,
+        6
+      ],
+      [
+        3,
+        5
+      ],
+      [
+        5,
+        12
+      ]
+    ],
+    "props": [
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -1920,
+          -6421
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          100,
+          -9133
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -3112,
+          -9353
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -3049,
+          -7561
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -1052,
+          -4869
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          -1472,
+          -7941
+        ],
+        "yaw": 90
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          -1993,
+          -9029
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          1289,
+          -9452
+        ],
+        "yaw": 45
+      },
+      {
+        "region": 2,
+        "kit": "Wreck",
+        "pos": [
+          -403,
+          -8127
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
+        "kit": "Wreck",
+        "pos": [
+          -882,
+          -9352
+        ],
+        "yaw": 0
+      },
+      {
+        "region": 2,
+        "kit": "Wreck",
+        "pos": [
+          -3039,
+          -6542
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 6,
+        "kit": "Container",
+        "pos": [
+          2383,
+          -1765
+        ],
+        "yaw": 90
+      },
+      {
+        "region": 6,
+        "kit": "Container",
+        "pos": [
+          3041,
+          961
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 6,
+        "kit": "Container",
+        "pos": [
+          1440,
+          -1298
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 6,
+        "kit": "Wreck",
+        "pos": [
+          3482,
+          15
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 6,
+        "kit": "Wreck",
+        "pos": [
+          1513,
+          348
+        ],
+        "yaw": 90
+      },
+      {
+        "region": 6,
+        "kit": "SandbagWall",
+        "pos": [
+          4163,
+          896
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 6,
+        "kit": "SandbagWall",
+        "pos": [
+          2464,
+          -75
+        ],
+        "yaw": 45
+      },
+      {
+        "region": 6,
+        "kit": "SandbagWall",
+        "pos": [
+          3209,
+          -998
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 6,
+        "kit": "FenceSegment",
+        "pos": [
+          1273,
+          -2649
+        ],
+        "yaw": 45
+      },
+      {
+        "region": 11,
+        "kit": "Chiller",
+        "pos": [
+          810,
+          8646
+        ],
+        "yaw": 90
+      },
+      {
+        "region": 11,
+        "kit": "Chiller",
+        "pos": [
+          551,
+          6293
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 11,
+        "kit": "Chiller",
+        "pos": [
+          2104,
+          9429
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 11,
+        "kit": "Chiller",
+        "pos": [
+          -168,
+          5348
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 11,
+        "kit": "Transformer",
+        "pos": [
+          200,
+          9463
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 11,
+        "kit": "Transformer",
+        "pos": [
+          1275,
+          7760
+        ],
+        "yaw": 135
+      },
+      {
+        "region": 11,
+        "kit": "Transformer",
+        "pos": [
+          193,
+          3439
+        ],
+        "yaw": 70
+      }
+    ],
+    "routes": [
+      {
+        "name": "North (Ridge)",
+        "regions": [
+          0,
+          2,
+          3,
+          4,
+          5,
+          13,
+          14
+        ]
+      },
+      {
+        "name": "Center (Hub)",
+        "regions": [
+          0,
+          1,
+          6,
+          12,
+          14
+        ]
+      },
+      {
+        "name": "South (Spur)",
+        "regions": [
+          0,
+          9,
+          8,
+          10,
+          11,
+          12,
+          14
+        ]
+      }
+    ]
   }
 }
