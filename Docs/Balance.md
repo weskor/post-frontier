@@ -185,7 +185,7 @@ The selected candidate kept the original one-second Rifle cadence and passed eve
 
 ### Reading the report
 
-`Report.md` separates runtime validity from balance acceptance. Its ordered matrix reports left/team-0 wins, right/team-5 wins and draws for each pair; mirror rows expose side bias rather than averaging it away. Prey/predator checks combine both ordered appearances of the unit against that opponent. The rule evidence includes measured wins, worth, efficiencies and pass/fail; support composition checks are explicitly unmeasured.
+`Report.md` separates runtime validity from balance acceptance. Its ordered matrix reports left/team-0 wins, right/team-5 wins and draws for each pair; mirror rows expose side bias rather than averaging it away. Prey/predator checks combine both ordered appearances of the unit against that opponent. The rule evidence includes measured wins, worth, efficiencies and pass/fail; the support composition rule reports the partner squad with and without the support unit against its target, per side order (from the Lancer and Scrambler run below; older runs carry no composition fights).
 
 The per-seed table records actual spent Power, initial members, survivors, survivor Power, effective HP removed, weapon attacks, game seconds and wipe/cap outcome. Cap durations are censored, not kill times. A fight that stops landing damage while both sides survive is `stalled`, an invalid runtime result rather than a draw. `summary.json` retains accepted rows and rule evidence; `run.json`, per-seed launch records, logs and atomic `match.json` checkpoints retain process identity and failures. A valid run may exit successfully with failed balance rules; invalid or missing matrices cannot pass rules or enter denominators.
 
@@ -225,6 +225,29 @@ This clean baseline supersedes `20261002-224929-sim-8c14`, which came from a dir
 - [Built] The revised world scenario fails on any stalled fight in its natural **60-second-per-pair** full matrix. A separate deliberately paused encounter still proves invalid stall detection; successful wipe/cap reporting never admits a stall into denominators.
 - [Built] At this baseline's old stats, the separate pursuit world scenario exercised two hostile melee units leaving firing range to **200 cm**, both closing and fighting to a death within **20 game seconds**, two Brawlers killing the first then reaching and killing the second Artillery within **25 game seconds**, and standing survivors physically regrouping within **3 game seconds** without a replacement order. The tuned-stat fixture instead derives the melee death bound from HP and weapon cadence, funds the target-switch encounter at equal Power, and places the pre-combat formation goal away from contact so every survivor must physically regroup.
 - No package, network, rendered presentation, friend playtest or support-composition result is claimed for this baseline.
+
+## Lancer and Scrambler — starting-stat duel, 2026-10-04
+
+[Built] Both units are catalogue rows in [Build/Content/units.json](../Build/Content/units.json) with the [units.md](Design/units.md) starting values (Lancer 45 Power, 110 HP + 80 shield, 30 damage, 550 range, 420 speed; Scrambler 35 Power, 80 HP, 12 EMP damage, 550 range, 480 speed, pulse 10 s / 400 cm / 3 s). Each is produced at the Barracks. The duel exporter now reports shields (`shield` on every definition, `shield_damage_dealt` per fight, shield loss restarts the stall clock) and runs the support composition fights; the rules module has one prey/predator rule per listed opponent, worth and dominance on combat units with HP plus shield, and the `scrambler_composition` rule.
+
+Evidence run **`20261004-104423-sim-69e3`**, task branch `task/units-content` at **`4893614`** plus locally generated `.uasset` files built from that commit's text (`dirty: True` only for those regenerated binaries): V2, seeds **1–40**, fixed-step 1×, 300 game seconds per fight. **40/40 seed processes validated; 1000/1000 pair fights and 160/160 composition fights ended on a wipe; zero stalled, zero cap draws, zero failed or missing.** Odd seeds create team 0 first, even seeds team 5. The starting values **fail** the acceptance rules; no stat was changed.
+
+| Rule | Verdict | Measured |
+| --- | --- | --- |
+| Brawler prey Artillery / predator Rifle | pass | 74/80, 6/80 |
+| Brawler predator Lancer (at most 35%) | **fail** | Brawler wins 80/80 |
+| Rifle prey Brawler / predator Artillery | pass | 74/80, 4/80 |
+| Artillery prey Rifle / predator Brawler | pass | 76/80, 6/80 |
+| Lancer prey Brawler (at least 65%) | **fail** | Lancer wins 0/80 |
+| Mirrors (40 fights each, five units) | pass | Brawler 23–17, Rifle 26–14, Artillery 18–22, Lancer 21–19, Scrambler 19–21 |
+| Scrambler composition (+20 points) | **fail** | Rifles alone 80/80, with one Scrambler 80/80, gain 0.0 points |
+| Roster worth ratio (at most 1.25) | **fail** | Brawler 0.607, Rifle 0.600, Artillery 0.643, Lancer 0.151; ratio 4.26 |
+| No HP-plus-shield and DPS per Power dominance | **fail** | Lancer (4.22 / 0.667) dominates Artillery (4.00 / 0.400) |
+| Runtime counter-table coverage | pass | five ids, Scrambler flagged support |
+
+Ordered matrix (team 0 wins / team 5 wins of 40, no draws): the Lancer loses to every combat unit **0/40** (Brawler, Rifle, Artillery) and beats only the Scrambler 40/40; the Scrambler loses to everything. Brawler, Rifle and Artillery keep their accepted relations (Brawler–Rifle 4/36, Brawler–Artillery 37/3, Rifle–Artillery 3/37). Equal budgets buy two Lancers (90 Power), three Scramblers (105) and five Rifles (120); the composition squad is one Scrambler plus three Rifles (107).
+
+**Diagnosis [Inference from the matrix and unit stats].** Per Power the Lancer is a Rifle with more durability and 30% less damage, in squads of two against squads of five or six, and fights end within five to seventeen game seconds, so the first-pulse range (400 cm, inside the 550 cm weapon range) is rarely used. Candidate changes screened for 10 seeds each (diagnostic, not committed, not acceptance): damage 60 passes every prey/predator rule but lets the Lancer dominate the Rifle and Artillery (worth ratio 1.99); damage 45 with 100 HP passes prey/predator and dominance but loses to Rifle and Artillery (worth ratio 1.66); cost 30 with 50 HP + 70 shield passes prey/predator and dominance (worth ratio 1.62, the Brawler now loses to two units). None passes the composition rule: Rifles alone already win 65–100% against the Lancer, and swapping two Rifles for a Scrambler lost 40–80 points in every screen. Figures: `/tmp/cooprts-work/tasks/units-content/evidence/`.
 
 ## Verification and failure history
 
