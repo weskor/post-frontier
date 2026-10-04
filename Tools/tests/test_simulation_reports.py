@@ -155,14 +155,7 @@ def test_results_revalidate_relocated_evidence_and_exclude_nonzero_exit(
     assert failed[1] == pending
 
 
-def test_role_counts_must_agree_between_teams() -> None:
-    job, report = telemetry()
-    report["snapshots"][1]["teams"][0]["units_by_role"] = [12, 0, 0]
-    with pytest.raises(ValueError, match="Role counts differ"):
-        validate_report(report, job)
-
-
-@pytest.mark.parametrize("damage", ["sample", "roles", "outcome"])
+@pytest.mark.parametrize("damage", ["sample", "roles", "role-width", "outcome"])
 def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
     job, report = telemetry()
     if damage == "sample":
@@ -171,6 +164,9 @@ def test_invalid_telemetry_is_not_a_draw(damage: str) -> None:
     elif damage == "roles":
         report["snapshots"][1]["teams"][0]["units_by_role"] = [1, 0, 0, 0, 0]
         message = "Role counts disagree"
+    elif damage == "role-width":
+        report["snapshots"][1]["teams"][0]["units_by_role"] = [12, 0, 0]
+        message = "Role counts differ"
     else:
         report["winner"] = 0
         message = "Invalid time-cap draw"

@@ -282,10 +282,7 @@ def validate_teams(snapshot: JsonObject) -> None:
         for field in TEAM_FIELDS:
             if number(team.get(field), field) < 0:
                 raise ValueError(f"Negative telemetry {field}")
-        if (
-            not isinstance(team.get("units_by_role"), list)
-            or not team["units_by_role"]
-        ):
+        if not isinstance(team.get("units_by_role"), list) or not team["units_by_role"]:
             raise ValueError("Missing role counts")
         if (
             sum(number(count, "role count") for count in team["units_by_role"])
