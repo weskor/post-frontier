@@ -100,6 +100,10 @@ struct FContext
 	const FJevIntentModel* JevIntent = nullptr;
 	// The controller's request: false while Attack targeting or placement needs the world.
 	bool bExpanded = true;
+	// The planning phase is running (ui.md surface 10): the READY slot replaces Pause, the KIT bar replaces the build bar and
+	// the planning panel takes the deck. bKitReady is the local commander's Ready, which locks the kit and the unit type.
+	bool bPlanning = false;
+	bool bKitReady = false;
 	// Set by F4 (or a selected building) when the deck does not fit beside the cards.
 	bool bDeckPinned = false;
 	// Own selectable forces in force-number order: one card each.
@@ -139,7 +143,11 @@ enum class EBlock : uint8
 	Chosen,
 	ForceCap,
 	// The building is upgrading to its branch and its production waits.
-	Upgrading
+	Upgrading,
+	// Closed until 0:00 (the planning phase is running).
+	Planning,
+	// Ready locks the kit and the unit type until un-Ready.
+	Locked
 };
 
 struct FButton

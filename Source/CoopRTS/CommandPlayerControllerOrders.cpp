@@ -6,6 +6,7 @@
 #include "CommandGameState.h"
 #include "CommandHUD.h"
 #include "Commands/OrderCommandComponent.h"
+#include "Commands/PlanningCommandComponent.h"
 #include "Commands/OrderGraph.h"
 #include "FailoverNode.h"
 #include "GroundHeight.h"
@@ -76,20 +77,27 @@ FOrderInputPreview ACommandPlayerController::GetOrderPreview(const FVector2D& Po
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const ACommandPlayerState* Commander = GetPlayerState<ACommandPlayerState>();
 	FContext Context;
+	// While planning the one "force" is the kit's, unless Ready has locked it: the order goes to the first-order command.
+	const bool bPlanning = State && State->IsPlanning();
+	ForceOrderInput::FForce KitForce;
+	const bool bKit = bPlanning && GetPlanningOrderForce(KitForce);
 	Context.bAvailable = State && State->MatchResult == EMatchResult::Ongoing && IsValid(Commander)
-		&& Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5
+		&& Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0 && Commander->CommanderIndex < 5 && (!bPlanning || bKit)
 		&& GetUIScreen() == ECommandScreen::Game && !bPlacingBuilding && !bFortifyTargeting && !IsBuildHotkeyPending();
 	Context.bAttack = bAssigningOrder;
 	Context.bQueue = bQueue;
-	Context.bProducerSelected = IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer();
+	Context.bProducerSelected = !bPlanning && IsOwnedBuilding(SelectedBuilding) && SelectedBuilding->IsProducer();
 	uint64 Graph[ForceOrders::MaxRegions];
 	TArray<FForce, TInlineAllocator<5>> Forces;
 	if (State)
 	{
 		Context.Graph = MakeArrayView(Graph, ForceOrderGraph::ReadGraph(*State, Graph));
-		for (const AArmyGroup* Force : SelectedForces)
-			Forces.Add({ IsOwnedForce(Force), IsValid(Force) ? ForceOrderGraph::SourceRegion(*Force, *State) : INDEX_NONE,
-				IsValid(Force) ? Force->Orders.Num() : 0 });
+		if (bKit)
+			Forces.Add(KitForce);
+		else
+			for (const AArmyGroup* Force : SelectedForces)
+				Forces.Add({ IsOwnedForce(Force), IsValid(Force) ? ForceOrderGraph::SourceRegion(*Force, *State) : INDEX_NONE,
+					IsValid(Force) ? Force->Orders.Num() : 0 });
 		Context.Forces = Forces;
 		if (Context.bProducerSelected)
 		{
@@ -125,6 +133,13 @@ void ACommandPlayerController::SendResolvedOrder(const FOrderInputPreview& Previ
 	if (Preview.Resolution == EResolution::Rally)
 	{
 		OrderCommands->ServerSetRallyPoint(SelectedBuilding, Preview.RegionIndex);
+		return;
+	}
+	if (IsPlanningActive())
+	{
+		SetFeedback(TEXT("First order sent; awaiting server."));
+		PlanningCommands->ServerSetFirstOrder(Preview.Resolution == EResolution::Attack ? EForceVerb::Attack : EForceVerb::MoveHold,
+			Preview.RegionIndex, Preview.Structure, bQueue);
 		return;
 	}
 	TArray<AArmyGroup*> Forces;
@@ -166,7 +181,8 @@ void ACommandPlayerController::BeginForceAttack()
 {
 	if (GetUIScreen() != ECommandScreen::Game || !CanIssueGameplayCommand())
 		return;
-	if (SelectedForces.IsEmpty())
+	// Planning has no forces yet: the Attack mode queues the kit's first order instead.
+	if (SelectedForces.IsEmpty() && !IsPlanningActive())
 	{
 		SetCommandFeedback(TEXT("Select your forces first."), false);
 		return;
@@ -176,7 +192,7 @@ void ACommandPlayerController::BeginForceAttack()
 	if (++AttackInputId == 0)
 		++AttackInputId;
 	PendingVerb = EForceVerb::Attack;
-	bHUDExpanded = false;
+	bHUDExpanded = IsPlanningActive();
 	SetFeedback(TEXT("Attack: LMB a region on ground or minimap; Shift queues; RMB/Esc cancels."));
 }
 

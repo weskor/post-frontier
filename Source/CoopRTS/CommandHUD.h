@@ -82,7 +82,18 @@ enum class EHUDAction : uint8
 	TeamLogUp = 74,
 	TeamLogDown = 75,
 	// A teammate's read-only force card: opens the Team panel with its owner chosen.
-	GiftTeammateForce = 76
+	GiftTeammateForce = 76,
+	// The planning phase (ui.md surface 10): the READY slot in Pause's place, the five unit-type chips, LOOK AT JEV BASE,
+	// the first-order queue's CLEAR, and the panel's body (a click on it is consumed). PlanUnit0..PlanUnit4 are contiguous.
+	PlanReady = 77,
+	PlanUnit0 = 78,
+	PlanUnit1 = 79,
+	PlanUnit2 = 80,
+	PlanUnit3 = 81,
+	PlanUnit4 = 82,
+	PlanLookJev = 83,
+	PlanClearOrders = 84,
+	PlanPanel = 85
 };
 
 // Registry indices, independent of the stable action ordinals used by HUD probes.

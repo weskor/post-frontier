@@ -55,13 +55,6 @@ FPlanningKit* EditableKit(ACommandPlayerState* Commander, FCommandResult& Refusa
 	return Kit;
 }
 
-// The region the Barracks' force starts from: the Barracks' own, or the team main while it is unplaced.
-int32 SourceRegion(const ACommandGameState& State, const FPlanningKit& Kit)
-{
-	const AMapRegion* Region = IsValid(Kit.Barracks) ? State.FindRegionAt(Kit.Barracks->GetActorLocation()) : nullptr;
-	return Region ? Region->RegionIndex : ForceOrderGraph::TeamMain(State, 0);
-}
-
 bool ValidTarget(const ACommandGameState& State, const FPlanningKit& Kit, EForceVerb Verb, int32& RegionIndex,
 	AActor* Structure, FString& OutReason)
 {
@@ -85,13 +78,19 @@ bool ValidTarget(const ACommandGameState& State, const FPlanningKit& Kit, EForce
 	uint64 Graph[ForceOrders::MaxRegions];
 	const int32 Count = ForceOrderGraph::ReadGraph(State, Graph);
 	if (!ForceOrderGraph::Region(State, RegionIndex)
-		|| ForceOrders::NextWaypoint(Graph, Count, SourceRegion(State, Kit), RegionIndex) == INDEX_NONE)
+		|| ForceOrders::NextWaypoint(Graph, Count, FPlanningCommands::SourceRegion(State, Kit), RegionIndex) == INDEX_NONE)
 	{
 		OutReason = TEXT("First order rejected: choose a reachable region.");
 		return false;
 	}
 	return true;
 }
+}
+
+int32 FPlanningCommands::SourceRegion(const ACommandGameState& State, const FPlanningKit& Kit)
+{
+	const AMapRegion* Region = IsValid(Kit.Barracks) ? State.FindRegionAt(Kit.Barracks->GetActorLocation()) : nullptr;
+	return Region ? Region->RegionIndex : ForceOrderGraph::TeamMain(State, 0);
 }
 
 FCommandResult FPlanningCommands::SetReady(ACommandPlayerState* Commander, bool bReady)

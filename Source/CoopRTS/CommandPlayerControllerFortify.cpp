@@ -50,6 +50,11 @@ void ACommandPlayerController::ToggleFortifyTargeting()
 		CancelPointerMode();
 		return;
 	}
+	if (IsPlanningActive())
+	{
+		SetCommandFeedback(TEXT("Opens at 0:00"), false);
+		return;
+	}
 	if (!CanIssueGameplayCommand())
 		return;
 	CancelMode();

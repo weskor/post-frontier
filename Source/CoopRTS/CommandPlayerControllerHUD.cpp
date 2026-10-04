@@ -15,7 +15,7 @@
 
 void ACommandPlayerController::ToggleHUD()
 {
-	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningOrder)
+	if (GetUIScreen() != ECommandScreen::Game || bPlacingBuilding || bAssigningOrder || IsPlanningActive())
 		return;
 	const ACommandHUD* HUD = Cast<ACommandHUD>(GetHUD());
 	const bool bOpen = HUD ? HUD->IsDeckOpen() : bHUDExpanded;
@@ -70,6 +70,8 @@ bool ACommandPlayerController::HandleHUDClick(const FVector2D& Position)
 
 bool ACommandPlayerController::HandleGlobalHUDAction(EHUDAction Action)
 {
+	if (HandlePlanningAction(Action))
+		return true;
 	if (Action == EHUDAction::ActivePause)
 	{
 		ToggleActivePause();

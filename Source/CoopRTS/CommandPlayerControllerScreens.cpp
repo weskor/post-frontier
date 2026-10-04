@@ -49,12 +49,15 @@ float ACommandPlayerController::GetMasterVolume() const
 	return Audio ? Audio->GetMasterVolume() : 1.f;
 }
 
+// Enter: restart on the Result screen, Play Solo on the Main Menu, Ready / un-Ready while the planning phase runs.
 void ACommandPlayerController::RequestRestart()
 {
 	if (GetUIScreen() == ECommandScreen::Result)
 		MatchCommands->ServerRequestRestart();
 	else if (GetUIScreen() == ECommandScreen::MainMenu)
 		HandleHUDAction(EHUDAction::PlaySolo);
+	else if (GetUIScreen() == ECommandScreen::Game)
+		HandlePlanningReady();
 }
 
 void ACommandPlayerController::ToggleActivePause()

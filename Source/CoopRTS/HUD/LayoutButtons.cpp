@@ -1,5 +1,6 @@
 #include "HUDPanels.h"
 #include "TeamPanel.h"
+#include "PlanningPanel.h"
 #include "CommandPlayerController.h"
 #include "CommandGameState.h"
 #include "Content/MatchContent.h"
@@ -117,8 +118,12 @@ static void BuildButtons(const FContext& Context, const FLayout& Layout, TFuncti
 		const UBuildingDefinition* Definition = Content->Building(Index);
 		if (Definition)
 		{
-			const EBlock Cap = Definition->bProducesForces && Context.ForceSlots.IsFull() ? EBlock::ForceCap : EBlock::None;
-			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Definition->BuildCost, Cap,
+			// A kit piece is free and placed before 0:00; everything else opens after it. Ready locks the kit.
+			const EBlock Cap = Context.bPlanning                             ? (!IsKitBuilding(*Definition) ? EBlock::Planning : Context.bKitReady ? EBlock::Locked
+																																				   : EBlock::None)
+				: Definition->bProducesForces && Context.ForceSlots.IsFull() ? EBlock::ForceCap
+																			 : EBlock::None;
+			EmitButton(Context, Visit, BuildActions[Index], BuildCard(Layout.Build, Index, BuildCount), Context.bPlanning ? 0 : Definition->BuildCost, Cap,
 				Context.Controller->IsPlacingBuilding() && Context.Controller->GetPlacementIndex() == Index);
 		}
 	}
@@ -204,12 +209,17 @@ void ForEachButton(const FContext& Context, const FLayout& Layout, TFunctionRef<
 	Visit(FButton{ EHUDAction::Menu, Layout.Menu, EBlock::None, false, 0 });
 	Visit(FButton{ EHUDAction::Fortify, Layout.FortifyDock, EBlock::None,
 		Context.Controller->IsFortifyTargeting(), 0 });
-	const bool bSpent = Context.State && Context.State->IsCoopPauseSpent() && !Context.State->IsActivePaused();
-	Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
-		Context.State && Context.State->IsActivePaused(), 0 });
+	if (Context.bPlanning)
+		ForEachPlanningButton(Context, Layout, Visit);
+	else
+	{
+		const bool bSpent = Context.State && Context.State->IsCoopPauseSpent() && !Context.State->IsActivePaused();
+		Visit(FButton{ EHUDAction::ActivePause, Layout.Pause, bSpent ? EBlock::Chosen : EBlock::None,
+			Context.State && Context.State->IsActivePaused(), 0 });
+	}
 	ForEachTeamButton(Context, Layout, Visit);
 	BuildButtons(Context, Layout, Visit);
-	if (!Layout.bDeck)
+	if (!Layout.bDeck || Context.bPlanning)
 		return;
 	const ACommandBuilding* Building = Context.Building;
 	if (!Building)

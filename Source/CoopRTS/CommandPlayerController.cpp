@@ -9,6 +9,7 @@
 #include "Commands/AbilityCommandComponent.h"
 #include "Commands/BranchCommandComponent.h"
 #include "Commands/GiftCommandComponent.h"
+#include "Commands/PlanningCommandComponent.h"
 #include "WorldOverlay.h"
 
 ACommandPlayerController::ACommandPlayerController()
@@ -24,6 +25,7 @@ ACommandPlayerController::ACommandPlayerController()
 	AbilityCommands = CreateDefaultSubobject<UAbilityCommandComponent>(TEXT("AbilityCommands"));
 	BranchCommands = CreateDefaultSubobject<UBranchCommandComponent>(TEXT("BranchCommands"));
 	GiftCommands = CreateDefaultSubobject<UGiftCommandComponent>(TEXT("GiftCommands"));
+	PlanningCommands = CreateDefaultSubobject<UPlanningCommandComponent>(TEXT("PlanningCommands"));
 }
 
 void ACommandPlayerController::BeginPlay()
@@ -69,6 +71,9 @@ void ACommandPlayerController::ResetLocalMatchView()
 	TeamRefusal.Reset();
 	bGiftPending = false;
 	GiftSeenThrough = -1.f;
+	PlanningConfirmAsked = -1000.;
+	PlanningGhosts = CommandHUDPanels::FPlanningGhosts();
+	PlanningGhostsAt = -1000.;
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;
@@ -121,6 +126,7 @@ void ACommandPlayerController::PlayerTick(float DeltaTime)
 	SelectPlacedBuilding();
 	PruneSelection();
 	UpdateTeamPanel();
+	UpdatePlanning();
 	UpdateCamera(DeltaTime);
 	if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
 		DrawWorldOverlay(*Overlay);

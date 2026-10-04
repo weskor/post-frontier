@@ -41,7 +41,8 @@ bool ACommandPlayerController::CanPlaceBuildingAt(int32 BuildingIndex, const FVe
 	if (!State->ValidateBuildingPlacement(BuildingIndex, 0, Location, Reason))
 		return false;
 	const int32 Cost = ACommandBuilding::GetBuildCost(*State->Content->Building(BuildingIndex));
-	if (Wallet->Resources < Cost)
+	// A kit piece is free; the server's planning command decides everything else.
+	if (!IsPlanningActive() && Wallet->Resources < Cost)
 	{
 		Reason = FString::Printf(TEXT("Need %d more resources."), Cost - Wallet->Resources);
 		return false;
@@ -66,8 +67,10 @@ void ACommandPlayerController::BeginBuildingPlacement(int32 BuildIndex)
 	bBuildHotkeyPending = false;
 	bAssigningOrder = false;
 	bFortifyTargeting = false;
-	bHUDExpanded = false;
-	SetFeedback(TEXT("Left-click valid ground; Shift+LMB places another; right-click/Esc cancels."));
+	// The planning panel stays up: it carries the placement hints, and kit pieces are free.
+	bHUDExpanded = IsPlanningActive();
+	SetFeedback(IsPlanningActive() ? TEXT("Left-click valid ground to place or move it; right-click/Esc cancels.")
+								   : TEXT("Left-click valid ground; Shift+LMB places another; right-click/Esc cancels."));
 }
 
 void ACommandPlayerController::ClickPlacement()
@@ -91,6 +94,11 @@ void ACommandPlayerController::PlaceBuildingAt(const FVector& Requested, bool bR
 	FString Reason;
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const FVector Location = State ? State->ResolveBuildingLocation(PlacementIndex, Requested) : Requested;
+	if (IsPlanningActive())
+	{
+		SendKitPlacement(Location);
+		return;
+	}
 	if (!CanPlaceBuildingAt(PlacementIndex, Location, Reason))
 	{
 		SetFeedback(Reason);

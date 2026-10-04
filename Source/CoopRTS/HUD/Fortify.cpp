@@ -12,14 +12,19 @@ void DrawFortifyDock(const FPainter& Paint, const FContext& Context, const FButt
 {
 	const float Now = Context.State ? Context.State->GetServerWorldTimeSeconds() : 0.f;
 	const auto Dock = FortifyPolicy::Dock(Now, Context.Wallet ? Context.Wallet->FortifyReadyAt : 0.f, Context.DataBalance);
-	const FLinearColor Color = Button.bActive || Dock.State == FortifyPolicy::EDockState::Ready ? Palette::Good : Palette::Warn;
+	// Nothing is spent or cast before 0:00: the dock is muted and says when it opens.
+	const FLinearColor Color = Context.bPlanning                           ? Palette::Muted
+		: Button.bActive || Dock.State == FortifyPolicy::EDockState::Ready ? Palette::Good
+																		   : Palette::Warn;
 	const FRect& Rect = Button.Rect;
 	Paint.Fill(Rect, bHover ? Palette::CardHover : Palette::Panel);
 	Paint.Outline(Rect, Color);
 	Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, Color);
 	Paint.Text(TEXT("Fortify [H]"), Rect.X + 9.f, Rect.Y + 3.f, 10.f, Palette::Text, true);
 	TStringBuilder<64> Status;
-	if (Button.bActive)
+	if (Context.bPlanning)
+		Status << TEXT("Opens at 0:00");
+	else if (Button.bActive)
 		Status << TEXT("Pick a region \u00B7 Esc");
 	else if (Dock.State == FortifyPolicy::EDockState::Cooldown)
 	{

@@ -45,6 +45,7 @@ void ACommandPlayerController::DrawWorldOverlay(AWorldOverlay& Overlay) const
 	if (bPlacingBuilding)
 		DrawPlacementOverlay(Overlay);
 	DrawRegionOverlay(Overlay);
+	DrawPlanningOverlay(Overlay);
 	DrawFortifyOverlay(Overlay);
 	DrawSelectionOverlay(Overlay);
 }
@@ -93,7 +94,7 @@ void ACommandPlayerController::DrawRegionOverlay(AWorldOverlay& Overlay) const
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const AMapRegion* HoveredRegion = nullptr;
 	float MouseX, MouseY;
-	if (bAssigningOrder && !SelectedForces.IsEmpty() && GetMousePosition(MouseX, MouseY))
+	if (bAssigningOrder && (!SelectedForces.IsEmpty() || IsPlanningActive()) && GetMousePosition(MouseX, MouseY))
 	{
 		const int32 RegionIndex = GetOrderPreview(FVector2D(MouseX, MouseY),
 			IsInputKeyDown(EKeys::LeftShift) || IsInputKeyDown(EKeys::RightShift))
@@ -107,6 +108,18 @@ void ACommandPlayerController::DrawRegionOverlay(AWorldOverlay& Overlay) const
 			OutlineRegion(Overlay, Target, VerbColor(SelectedBuilding->ForceGroup->Verb));
 	}
 	OutlineRegion(Overlay, HoveredRegion, FColor::Cyan);
+}
+
+// The regions the kit's queued first orders point at, in the verb's colour, like a selected producer's target.
+void ACommandPlayerController::DrawPlanningOverlay(AWorldOverlay& Overlay) const
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const ACommandPlayerState* Commander = GetPlayerState<ACommandPlayerState>();
+	const FPlanningKit* Kit = State && State->IsPlanning() && IsValid(Commander) ? State->FindKit(Commander) : nullptr;
+	if (!Kit)
+		return;
+	for (const FPlanningOrder& Order : Kit->Orders)
+		OutlineRegion(Overlay, FindRegion(State, Order.RegionIndex), VerbColor(Order.Verb));
 }
 
 void ACommandPlayerController::DrawSelectionOverlay(AWorldOverlay& Overlay) const

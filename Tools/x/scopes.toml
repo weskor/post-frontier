@@ -315,6 +315,12 @@ commands = [
   ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "gifts"],
 ]
 
+[scopes.planning-ui]
+kind = "automation"
+filter = "CoopRTS.Planning.UI"
+map = "default"
+rendered = true
+
 [scopes.rules]
 kind = "automation"
 filter = "CoopRTS.Rules"
@@ -1013,3 +1019,16 @@ rendered = true
 "Source/CoopRTS/HUD/TeamPanel*" = ["team-panel", "team-panel-network"]
 "Tools/harness/network_gifts.py" = ["team-panel-network", "tools"]
 "Tools/harness/hud_team.py" = ["tools"]
+
+# Planning UI (ui.md surface 10): the pure rules, the world flow on a real controller and HUD, and the owning RPC component;
+# the controller and HUD files it edits run it too (distinct glob spellings keep the neighbouring entries untouched).
+"Source/CoopRTS/PlanningHudRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/PlanningUi*" = ["planning-ui"]
+"Source/CoopRTS/Rules/PlanningHudPolicy.*" = ["rules", "planning-ui"]
+"Source/CoopRTS/Commands/PlanningCommandComponent.*" = ["planning-ui", "planning-network"]
+"Source/CoopRTS/Commands/PlanningCommands.*" = ["planning-ui"]
+"Source/CoopRTS/CommandPlayerControllerPlanning.cpp" = ["planning-ui", "planning-network"]
+"Source/CoopRTS/CommandPlayerController*.[ch]*" = ["planning-ui"]
+"Source/CoopRTS/HUD/**/*.[chp]*" = ["planning-ui"]
+"Source/CoopRTS/CommandHUD.[chp]*" = ["planning-ui"]
+"Tools/harness/hud_planning.py" = ["tools"]

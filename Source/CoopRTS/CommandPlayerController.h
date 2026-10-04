@@ -9,6 +9,7 @@
 #include "ForceOrders.h"
 #include "HUD/OrderInputPreview.h"
 #include "HUD/FortifyPreview.h"
+#include "HUD/PlanningGhosts.h"
 #include "Rules/TeamPanelPolicy.h"
 #include "CommandPlayerController.generated.h"
 
@@ -30,6 +31,8 @@ class UPingCommandComponent;
 class UAbilityCommandComponent;
 class UBranchCommandComponent;
 class UGiftCommandComponent;
+class UPlanningCommandComponent;
+enum class EPlanningEdit : uint8;
 
 enum class ECommandScreen : uint8
 {
@@ -114,6 +117,8 @@ public:
 	TObjectPtr<UBranchCommandComponent> BranchCommands;
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UGiftCommandComponent> GiftCommands;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UPlanningCommandComponent> PlanningCommands;
 	void SetCommandFeedback(const FString& Message, bool bAccepted);
 	void SetPlacementFeedback(const FString& Message, bool bAccepted, ACommandBuilding* Building, uint64 BuildingNetGUID);
 	// Fortify targeting (CommandPlayerControllerFortify.cpp): H or the dock arms it, LMB on ground or minimap casts,
@@ -138,6 +143,17 @@ public:
 	bool GetTeamRefusal(FString& OutText, float& OutOpacity) const;
 	bool HasUnseenGift() const;
 	void CompleteGiftInput(const FString& Message, bool bAccepted);
+	// Planning (ui.md surface 10), in CommandPlayerControllerPlanning.cpp: Enter or the READY button toggles Ready, the KIT
+	// bar and panel place the kit and pick its unit type, RMB / A queue a first order. Every edit goes through
+	// PlanningCommands and FPlanningCommands; the commands refuse what the phase or Ready forbids.
+	bool IsPlanningActive() const;
+	// Enter or the READY button: Ready, un-Ready, or the one-line question about a kit piece left to its default spot.
+	void HandlePlanningReady();
+	// Applies a planning button or a KIT card; false when Action is neither (or planning is over).
+	bool HandlePlanningAction(EHUDAction Action);
+	void CompletePlanningInput(const FString& Message, bool bAccepted, EPlanningEdit Edit);
+	// The default-spot ghosts of the kit pieces still unplaced, refreshed a few times a second.
+	const CommandHUDPanels::FPlanningGhosts& GetPlanningGhosts() const { return PlanningGhosts; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -191,6 +207,10 @@ private:
 	// A gift is sent and its verdict has not arrived: Send waits.
 	bool bGiftPending = false;
 	FString PendingGiftText;
+	// Planning: when Enter last asked about a kit piece left to its default spot, and the ghosts of those pieces.
+	double PlanningConfirmAsked = -1000.;
+	CommandHUDPanels::FPlanningGhosts PlanningGhosts;
+	double PlanningGhostsAt = -1000.;
 	uint32 AttackInputId = 0;
 	bool bHUDExpanded = true;
 	// Keeps the deck open over the world when it does not fit beside the force cards.
@@ -261,6 +281,13 @@ private:
 	void SendGift();
 	void SetTeamRefusal(const FString& Text);
 	int32 TeammateSlotOfRow(int32 Row) const;
+	// Planning, in CommandPlayerControllerPlanning.cpp.
+	void UpdatePlanning();
+	void SendKitPlacement(const FVector& Location);
+	void SendPlanningUnitType(int32 ChipIndex);
+	void FocusJevBase();
+	// The first order's preview context: one force at the kit's source region carrying the queue, while the kit is editable.
+	bool GetPlanningOrderForce(ForceOrderInput::FForce& OutForce) const;
 	bool IsHUDActionBlocked(EHUDAction Action);
 	void HandleBuildingAction(EHUDAction Action);
 	// Menu screens, in CommandPlayerControllerScreens.cpp; each returns true when the action applied.
@@ -279,4 +306,5 @@ private:
 	void DrawRegionOverlay(AWorldOverlay& Overlay) const;
 	void DrawSelectionOverlay(AWorldOverlay& Overlay) const;
 	void DrawFortifyOverlay(AWorldOverlay& Overlay) const;
+	void DrawPlanningOverlay(AWorldOverlay& Overlay) const;
 };

@@ -4,6 +4,7 @@
 #include "GuardedHqPanels.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
+#include "PlanningPanel.h"
 #include "ObjectiveAnnouncer.h"
 #include "TeamPanel.h"
 #include "Rules/AnnouncerPolicy.h"
@@ -22,9 +23,15 @@ int32 ObjectiveForceColumns(const FRect& Strip)
 	return FMath::Max(1, FMath::FloorToInt((ObjectiveContributors(Strip).W + RowGap) / (90.f + RowGap)));
 }
 
-static void DrawLatestObjective(const FPainter& Paint, const FContext& Context, const FRect& Strip)
+static void DrawLatestObjective(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
+	const FRect& Strip = Layout.Objectives;
 	const FRect Contributors = ObjectiveContributors(Strip);
+	if (Context.bPlanning)
+	{
+		DrawPlanningStrip(Paint, Context, Layout);
+		return;
+	}
 	const UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Context.State);
 	if (!Announcer || Announcer->GetEvents().IsEmpty())
 	{
@@ -69,8 +76,9 @@ static void DrawLatestObjective(const FPainter& Paint, const FContext& Context, 
 	}
 }
 
-static void DrawObjectiveStrip(const FPainter& Paint, const FContext& Context, const FRect& Strip)
+static void DrawObjectiveStrip(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
+	const FRect& Strip = Layout.Objectives;
 	Paint.Panel(Strip);
 	if (!Context.State)
 	{
@@ -105,7 +113,7 @@ static void DrawObjectiveStrip(const FPainter& Paint, const FContext& Context, c
 	};
 	DrawRow(Hardline, FriendlyRegions, Context.State->FriendlyHeadquarters, Palette::Friendly);
 	DrawRow(Lattice, EnemyRegions, Context.State->EnemyHeadquarters, Palette::Enemy);
-	DrawLatestObjective(Paint, Context, Strip);
+	DrawLatestObjective(Paint, Context, Layout);
 }
 
 // The economy line: Power stays gold; Data is white with a chip glyph and the word, since STYLE.md has no Data colour.
@@ -164,7 +172,7 @@ void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& F
 {
 	const FRect& Top = Layout.Top;
 	Paint.Panel(Top);
-	DrawObjectiveStrip(Paint, Context, Layout.Objectives);
+	DrawObjectiveStrip(Paint, Context, Layout);
 	if (!Context.State)
 	{
 		Paint.TextIn(TEXT("Syncing commander, wallet and territory..."), Top, 10.f, Palette::Warn, false, EAlign::Left, Pad);
@@ -177,7 +185,10 @@ void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& F
 	}
 	else
 		Paint.TextIn(TEXT("Syncing commander and wallet..."), Top, 10.f, Palette::Warn, false, EAlign::Left, Pad);
-	DrawBattleClock(Paint, Context, Layout);
+	if (Context.bPlanning)
+		DrawPlanningClock(Paint, Context, Layout);
+	else
+		DrawBattleClock(Paint, Context, Layout);
 	Paint.TextIn(TEXT("Space: alerts   F: selection"), { Top.Right() - Pad - TopHintWidth, Top.Y, TopHintWidth, Top.H },
 		9.f, Palette::Muted, false, EAlign::Right);
 }

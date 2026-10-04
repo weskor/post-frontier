@@ -29,6 +29,9 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	Context.bTerminal = Context.State && Context.State->MatchResult != EMatchResult::Ongoing;
 	Context.bExpanded = Controller->IsHUDExpanded();
 	Context.bDeckPinned = Controller->IsDeckPinned();
+	Context.bPlanning = Context.State && Context.State->IsPlanning();
+	const FPlanningKit* Kit = Context.bPlanning && Context.Wallet ? Context.State->FindKit(Context.Wallet) : nullptr;
+	Context.bKitReady = Kit && Kit->bReady;
 	CollectOwnForces(Context, Context.Forces);
 	// The controller drops selections that stop being owned, so these are the local commander's.
 	const ACommandBuilding* Building = Controller->GetSelectedBuilding();
@@ -126,7 +129,8 @@ static void PlaceFooter(const FContext& Context, FLayout& Layout)
 	const bool bTeammate = CanPingInspectedForce(Context);
 	const float BesideX = Count > 0 ? Layout.ForceBar.Right() + Gap : Margin;
 	const bool bBeside = !bTeammate && Layout.Width - Margin - BesideX >= InspectorWidth;
-	Layout.bDeck = Context.bExpanded && (bBeside || Context.bDeckPinned || Context.Building);
+	// The planning panel is pinned open: it is the deck while the phase runs, whatever else is armed.
+	Layout.bDeck = Context.bPlanning || (Context.bExpanded && (bBeside || Context.bDeckPinned || Context.Building));
 	if (bBeside)
 	{
 		Layout.Inspector = { BesideX, RowBottom - DeckHeight, InspectorWidth, DeckHeight };

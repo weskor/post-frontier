@@ -21,4 +21,7 @@ struct COOPRTS_API FPlanningCommands
 	static FCommandResult SetFirstOrder(ACommandPlayerState* Commander, EForceVerb Verb, int32 RegionIndex,
 		AActor* Structure = nullptr, bool bQueue = false);
 	static FCommandResult ClearFirstOrders(ACommandPlayerState* Commander);
+	// The region the Barracks' force starts from: the Barracks' own, or the team main while it is unplaced. The first
+	// order's reachability starts here, on the server and in the controller's preview alike.
+	static int32 SourceRegion(const class ACommandGameState& State, const struct FPlanningKit& Kit);
 };

@@ -42,16 +42,16 @@ FLinearColor VerbColor(JevPlanner::EVerb Verb, bool bEscalated)
 																		  : Cyan;
 }
 
-// Right-aligned in Rect; returns the width drawn.
-float DrawCountdown(const FPainter& Paint, const FRect& Rect, float Seconds)
+// Right-aligned in Rect; returns the width drawn. Muted countdowns are JEV's first plans while planning: nothing runs yet.
+float DrawCountdown(const FPainter& Paint, const FRect& Rect, float Seconds, bool bMuted)
 {
 	TStringBuilder<16> Count;
 	if (Seconds > 0.f)
 		JevIntent::AppendCountdown(Count, Seconds);
 	else
 		Count << TEXT("ARRIVED");
-	return Paint.Text(Count.ToView(), Rect.Right(), Rect.Y, Seconds > 0.f ? 10.5f : 8.5f, Seconds > 0.f ? Pearl : Palette::Faint,
-		true, EAlign::Right, Rect.W);
+	return Paint.Text(Count.ToView(), Rect.Right(), Rect.Y, Seconds > 0.f ? 10.5f : 8.5f,
+		Seconds > 0.f ? (bMuted ? Palette::Muted : Pearl) : Palette::Faint, true, EAlign::Right, Rect.W);
 }
 
 // Two lines at most: the first breaks at the last whole word that fits, the second clips.
@@ -85,12 +85,13 @@ void DrawWrapped(const FPainter& Paint, FStringView Text, const FRect& Rect, flo
 
 void DrawTimelineCell(const FPainter& Paint, const FContext& Context, const FRect& Cell, const JevIntent::FTimelineEntry& Entry)
 {
+	const bool bMuted = Context.bPlanning;
 	const float X = Cell.X + 7.f;
-	const float CountWidth = DrawCountdown(Paint, { Cell.X, Cell.Y + 5.f, Cell.W - 7.f, 14.f }, Entry.Seconds);
-	Paint.Text(JevIntentView::RegionName(*Context.State, Entry.Target), X, Cell.Y + 4.5f, 9.5f, Pearl, true,
+	const float CountWidth = DrawCountdown(Paint, { Cell.X, Cell.Y + 5.f, Cell.W - 7.f, 14.f }, Entry.Seconds, bMuted);
+	Paint.Text(JevIntentView::RegionName(*Context.State, Entry.Target), X, Cell.Y + 4.5f, 9.5f, bMuted ? Palette::Muted : Pearl, true,
 		EAlign::Left, Cell.W - 21.f - CountWidth);
 	const float TagWidth = Paint.Text(JevVerbTag(Entry.Verb, Entry.bEscalated), X, Cell.Y + 22.f, 8.f,
-		VerbColor(Entry.Verb, Entry.bEscalated), true, EAlign::Left, Cell.W - 14.f);
+		Faded(VerbColor(Entry.Verb, Entry.bEscalated), 1.f, bMuted ? .6f : 1.f), true, EAlign::Left, Cell.W - 14.f);
 	TStringBuilder<24> Size;
 	Size.Appendf(TEXT("~%d units"), Entry.SizeBand);
 	const float SizeX = X + TagWidth + 6.f;
@@ -128,6 +129,25 @@ void DrawEmptyTimeline(const FPainter& Paint, const FContext& Context, const FRe
 	Paint.TextIn(Text.ToView(), { X, Bar.Y, Bar.Right() - X - 8.f, Bar.H }, 10.f, Faded(Pearl, 1.f, .8f));
 }
 
+// Under the title: the plan count, or while planning that nothing of JEV's runs yet; two short lines fit the 84 px header.
+void DrawTimelineCount(const FPainter& Paint, const FContext& Context, const FRect& Bar, const JevIntent::FTimeline& Timeline)
+{
+	if (Context.bPlanning)
+	{
+		Paint.Text(TEXT("frozen:"), Bar.X + 17.f, Bar.Y + 15.f, 8.f, Palette::Muted);
+		Paint.Text(TEXT("starts 0:00"), Bar.X + 17.f, Bar.Y + 26.f, 8.f, Palette::Muted);
+		return;
+	}
+	const int32 Total = Timeline.Num();
+	const int32 Plans = Total - (Total > 0 && Timeline[0].Kind == JevIntent::EEntryKind::Release ? 1 : 0);
+	TStringBuilder<24> Count;
+	if (Total > JevIntent::TimelineEntries)
+		Count.Appendf(TEXT("+%d more"), Total - JevIntent::TimelineEntries);
+	else
+		Count.Appendf(TEXT("%d active"), Plans);
+	Paint.Text(Count.ToView(), Bar.X + 17.f, Bar.Y + 21.f, 9.f, Total > JevIntent::TimelineEntries ? Palette::Warn : Palette::Muted);
+}
+
 void DrawTimeline(const FPainter& Paint, const FContext& Context, const FRect& Bar, const FJevIntentModel& Model)
 {
 	Paint.Fill(Bar, MachinePanel);
@@ -135,13 +155,7 @@ void DrawTimeline(const FPainter& Paint, const FContext& Context, const FRect& B
 	Paint.Fill({ Bar.X + 7.f, Bar.Y + 7.f, 5.f, 5.f }, Lens);
 	Paint.Text(TEXT("JEV PLANS"), Bar.X + 17.f, Bar.Y + 4.f, 8.5f, Cyan, true);
 	const int32 Total = Model.Timeline.Num();
-	const int32 Plans = Total - (Total > 0 && Model.Timeline[0].Kind == JevIntent::EEntryKind::Release ? 1 : 0);
-	TStringBuilder<24> Count;
-	if (Total > JevIntent::TimelineEntries)
-		Count.Appendf(TEXT("+%d more"), Total - JevIntent::TimelineEntries);
-	else
-		Count.Appendf(TEXT("%d active"), Plans);
-	Paint.Text(Count.ToView(), Bar.X + 17.f, Bar.Y + 21.f, 9.f, Total > JevIntent::TimelineEntries ? Palette::Warn : Palette::Muted);
+	DrawTimelineCount(Paint, Context, Bar, Model.Timeline);
 	if (Total == 0)
 		DrawEmptyTimeline(Paint, Context, Bar);
 	for (int32 Index = 0; Index < FMath::Min(Total, JevIntent::TimelineEntries); ++Index)

@@ -112,6 +112,11 @@ def execute(
 
         team_scenario(run, resolutions)
         print(f"PASS: Team panel; evidence: {run.run}")
+    elif label == "planning":
+        from harness.hud_planning import scenario as planning_scenario
+
+        planning_scenario(run, resolutions)
+        print(f"PASS: planning phase at {count} viewports; evidence: {run.run}")
     elif label == "fortify":
         from harness.hud_fortify import scenario as fortify_scenario
 
@@ -133,7 +138,7 @@ def main() -> None:
     args = parser.parse_args()
     resolutions = args.res or (
         [(1600, 900), (1280, 720)]
-        if args.quick in ("fortify", "map-presentation", "pressure", "team")
+        if args.quick in ("fortify", "map-presentation", "pressure", "team", "planning")
         else [(1600, 900)]
     )
     run = NetworkRun(
