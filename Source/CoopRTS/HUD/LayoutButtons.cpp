@@ -125,9 +125,9 @@ static void BuildButtons(const FContext& Context, const FLayout& Layout, TFuncti
 
 FRect RecipeChip(const FRect& ColumnRect, int32 Slot)
 {
-	constexpr float ChipHeight = 28.f, Between = 4.f;
+	constexpr float ChipHeight = 28.f, Between = 4.f, VerticalGap = 3.f;
 	const float Width = (ColumnRect.W - Between) * .5f;
-	return { ColumnRect.X + (Slot % 2) * (Width + Between), ColumnRect.Y + 16.f + (Slot / 2) * (ChipHeight + Between), Width, ChipHeight };
+	return { ColumnRect.X + (Slot % 2) * (Width + Between), ColumnRect.Y + 14.f + (Slot / 2) * (ChipHeight + VerticalGap), Width, ChipHeight };
 }
 
 FRect BranchArea(const FRect& ColumnRect)
