@@ -86,7 +86,7 @@ FString Execute(UWorld* World, const TSharedPtr<FJsonObject>& Request)
 	Probe.State = World->GetGameState<ACommandGameState>();
 	FString Error;
 	if (HandleMatchAction(Probe, Error) || HandleCommandAction(Probe, Error) || HandleInputAction(Probe, Error)
-		|| HandleAbilityAction(Probe, Error))
+		|| HandleAbilityAction(Probe, Error) || HandlePlanningClient(Probe, Error))
 		return Error;
 	return ExecuteFixture(Probe);
 }

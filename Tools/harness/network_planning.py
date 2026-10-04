@@ -6,7 +6,7 @@ from collections.abc import Callable
 import os
 from typing import cast
 
-from harness.network import RANGED, NetworkRun, require
+from harness.network import FRONTLINE, RANGED, NetworkRun, require
 from harness.verify import JsonObject
 
 # The game process keeps the real planning phase (every other probe skips it) when this is set.
@@ -95,9 +95,14 @@ def frozen_and_counting(run: NetworkRun, names: list[str]) -> None:
     )
 
 
-def place_kit(run: NetworkRun, names: list[str], slot: int) -> None:
-    run.request("host", "planningPlace", owner=slot, piece="barracks")
-    run.request("host", "planningPlace", owner=slot, piece="rig")
+def place_kit(run: NetworkRun, names: list[str], slot: int, through: str) -> None:
+    """Place a commander's kit: `through` is the peer that sends it as its own commander (an RPC), or the host fixture."""
+    if through == "host":
+        run.request("host", "planningPlace", owner=slot, piece="barracks")
+        run.request("host", "planningPlace", owner=slot, piece="rig")
+    else:
+        run.request(through, "planningClientPlace", piece="barracks")
+        run.request(through, "planningClientPlace", piece="rig")
     states = await_all(
         run,
         names,
@@ -115,6 +120,47 @@ def place_kit(run: NetworkRun, names: list[str], slot: int) -> None:
         require(client_kit["power"] == 200, f"{name}: placing the kit cost Power")
 
 
+def neighbour_region(state: JsonObject) -> int:
+    """A region next to the friendly home region: reachable from the Barracks for a first order."""
+    home = next(r for r in state["regions"] if r["homeTeam"] == 0)
+    return int(home["neighbours"][0])
+
+
+def client_edits(run: NetworkRun, names: list[str], client: str, remote: int) -> None:
+    """The remote commander picks a type and a first order through its RPC component, and Ready locks both."""
+    run.request(client, "planningClientType", role=RANGED)
+    run.request(
+        client, "planningClientOrder", region=neighbour_region(run.observe("host"))
+    )
+    await_all(
+        run,
+        names,
+        lambda s: kit(s, remote)["role"] == RANGED and len(kit(s, remote)["orders"]) == 1,
+        "the remote client's unit type and first order, sent over the wire, reach every peer",
+    )
+    run.request(client, "planningClientReady", ready=True)
+    await_all(
+        run,
+        names,
+        lambda s: bool(kit(s, remote)["ready"]) and s["planning"]["active"],
+        "the remote client's Ready, sent over the wire, is visible everywhere and planning goes on",
+    )
+    # Ready locks the kit: this pick is refused. The un-Ready after it is handled later on the same channel, so once it
+    # is visible the refused pick has been decided.
+    run.request(client, "planningClientType", role=FRONTLINE)
+    run.request(client, "planningClientReady", ready=False)
+    states = await_all(
+        run,
+        names,
+        lambda s: not kit(s, remote)["ready"],
+        "the remote client un-readies over the wire",
+    )
+    require(
+        all(kit(s, remote)["role"] == RANGED for s in states.values()),
+        "a unit type sent while Ready was accepted",
+    )
+
+
 def planning_scenario(run: NetworkRun) -> None:
     require(run.clients >= 1, "planning proof requires a real remote client")
     names = ["host", *(f"c{i}" for i in range(1, run.clients + 1))]
@@ -129,15 +175,10 @@ def planning_scenario(run: NetworkRun) -> None:
     run.phase("host and remote client open in one frozen planning phase")
     frozen_and_counting(run, names)
     remote = slots[names[-1]]
-    for slot in slots.values():
-        place_kit(run, names, slot)
-    run.request("host", "planningType", owner=remote, role=RANGED)
-    await_all(
-        run,
-        names,
-        lambda s: kit(s, remote)["role"] == RANGED,
-        "the remote commander's unit type pick reaches every peer",
-    )
+    # The host's kit first, so the client's placements see it replicated.
+    for name in names:
+        place_kit(run, names, slots[name], name)
+    client_edits(run, names, names[-1], remote)
     for name in names[:-1]:
         run.request("host", "planningReady", owner=slots[name], ready=True)
     await_all(
@@ -152,7 +193,7 @@ def planning_scenario(run: NetworkRun) -> None:
         "every Ready but the remote client's is visible everywhere and planning goes on",
     )
     before = run.observe("host")["worldTime"]
-    run.request("host", "planningReady", owner=remote, ready=True)
+    run.request(names[-1], "planningClientReady", ready=True)
     states = run.await_states(
         names,
         lambda v: (
@@ -161,12 +202,12 @@ def planning_scenario(run: NetworkRun) -> None:
             )
             and v["host"]["worldTime"] > before + 1
         ),
-        "the last Ready ends planning once and unfreezes every peer",
+        "the remote client's Ready, the last one, ends planning once and unfreezes every peer",
     )
     require(
         all(s["planning"]["clockStart"] >= 0 for s in states.values()),
         "the battle clock start is not published after planning",
     )
     run.phase(
-        "kit layouts, unit type, Ready and the countdown replicated to the remote client; the last Ready unfroze both"
+        "the remote client placed its kit, picked a type, queued an order and Readied through its RPC component; layouts, orders and Ready replicated; the last Ready unfroze both"
     )

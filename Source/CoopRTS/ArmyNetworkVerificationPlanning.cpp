@@ -1,11 +1,13 @@
-// Probe snapshot and authority fixtures for the planning scenario. Round 1 has no player-facing planning RPC, so the
-// host issues FPlanningCommands for a commander slot (like the other authority fixtures) and every peer reports what
-// the replicated Planning state shows.
+// Probe snapshot and fixtures for the planning scenario. The host can issue FPlanningCommands for any commander slot
+// (an authority fixture), and any peer can plan as its own commander through the controller's UPlanningCommandComponent
+// (planningClient*); every peer reports what the replicated Planning state shows.
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "ArmyNetworkVerification.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
+#include "CommandPlayerController.h"
 #include "CommandPlayerState.h"
+#include "Commands/PlanningCommandComponent.h"
 #include "Commands/PlanningCommands.h"
 #include "DepositSite.h"
 #include "Headquarters.h"
@@ -137,6 +139,64 @@ bool HandlePlanningFixture(const FProbeRequest& Probe, FString& Error)
 		return true;
 	}
 	Error = Result.IsAccepted() ? FString() : Result.Message;
+	return true;
+}
+
+namespace
+{
+// The first deposit the local commander's team holds, free and uncontested, as the replicated world shows it.
+bool FindFreeOwnDeposit(const ACommandGameState& State, FVector& OutLocation)
+{
+	for (const ADepositSite* Deposit : State.Deposits)
+		if (IsValid(Deposit) && !IsValid(Deposit->Extractor) && Deposit->Remaining > 0 && State.GetRegionController(Deposit->RegionIndex) == 0
+			&& !State.IsRegionContested(Deposit->RegionIndex, 0))
+		{
+			OutLocation = Deposit->GetActorLocation();
+			return true;
+		}
+	return false;
+}
+
+FString ClientPlace(const FProbeRequest& Probe)
+{
+	FVector Spot;
+	if (Probe.Request->GetStringField(TEXT("piece")) == TEXT("rig"))
+	{
+		if (!FindFreeOwnDeposit(*Probe.State, Spot))
+			return TEXT("no free own deposit is replicated locally");
+		Probe.PC->PlanningCommands->ServerPlaceKit(EBuildingKind::Extractor, Spot);
+		return FString();
+	}
+	if (!FindBarracksSpot(*Probe.State, Spot))
+		return TEXT("no legal Barracks spot is replicated locally");
+	Probe.PC->PlanningCommands->ServerPlaceKit(EBuildingKind::Barracks, Spot);
+	return FString();
+}
+}
+
+// The local commander plans through its owning controller's RPC component, as the KIT bar, the chips and Enter do:
+// planningClientPlace (piece), planningClientType (role), planningClientOrder (region), planningClientReady (ready).
+// The verdict is not returned; the scenario reads the replicated Planning state.
+bool HandlePlanningClient(const FProbeRequest& Probe, FString& Error)
+{
+	if (!Probe.Action.StartsWith(TEXT("planningClient")))
+		return false;
+	if (!Probe.PC || !Probe.State || !Probe.Own)
+	{
+		Error = TEXT("planning client controller unavailable");
+		return true;
+	}
+	UPlanningCommandComponent& Commands = *Probe.PC->PlanningCommands;
+	if (Probe.Action == TEXT("planningClientPlace"))
+		Error = ClientPlace(Probe);
+	else if (Probe.Action == TEXT("planningClientType"))
+		Commands.ServerSetUnitType(static_cast<EUnitRole>(Probe.Request->GetIntegerField(TEXT("role"))));
+	else if (Probe.Action == TEXT("planningClientOrder"))
+		Commands.ServerSetFirstOrder(EForceVerb::MoveHold, static_cast<int32>(Probe.Request->GetIntegerField(TEXT("region"))), nullptr, false);
+	else if (Probe.Action == TEXT("planningClientReady"))
+		Commands.ServerSetReady(Probe.Request->GetBoolField(TEXT("ready")));
+	else
+		Error = TEXT("unknown planning client action");
 	return true;
 }
 }

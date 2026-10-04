@@ -1,11 +1,17 @@
 #include "HUDPanels.h"
 #include "CommandGameState.h"
 #include "TeamPanel.h"
+#include "PlanningPanel.h"
 
 namespace CommandHUDPanels
 {
 void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover)
 {
+	if (IsPlanningAction(Button.Action))
+	{
+		DrawPlanningButton(Paint, Context, Button, bHover);
+		return;
+	}
 	if (BuildSlot(Button.Action) != INDEX_NONE)
 	{
 		DrawBuildCard(Paint, Context, Button, bHover);

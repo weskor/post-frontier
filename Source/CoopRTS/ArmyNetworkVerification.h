@@ -68,6 +68,8 @@ bool HandleInputAction(const FProbeRequest& Probe, FString& Error);
 bool HandleAbilityAction(const FProbeRequest& Probe, FString& Error);
 bool HandleAbilityFixture(const FProbeRequest& Probe, FString& Error);
 bool HandlePlanningFixture(const FProbeRequest& Probe, FString& Error);
+// Runs on any peer: the local commander plans through its own controller's RPC component.
+bool HandlePlanningClient(const FProbeRequest& Probe, FString& Error);
 bool HandleEconomyFixture(const FProbeRequest& Probe, FString& Error);
 bool HandleScenarioFixture(const FProbeRequest& Probe, FString& Error);
 bool HandleForceFixture(const FProbeRequest& Probe, AArmyGroup& Army, FString& Error);
