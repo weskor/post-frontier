@@ -318,9 +318,9 @@ def select_order_region(
     """First reachable neutral region far from the producer, in graph order.
 
     `nearest_to` picks the candidate closest to that region's anchor instead.
-    A marching force captures every uncontrolled region it physically crosses
-    (ForceOrders.cpp march rule), so a retarget pair must be chosen close
-    together or the trip sweeps up a third region the scenario still needs.
+    Workaround for a game bug (a march captures an off-route region whose
+    polygon the navmesh path clips): keep a retarget pair close together so the
+    return trip crosses no third region the scenario still needs.
     """
     producer = building(state, index)
     source = next(

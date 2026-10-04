@@ -62,6 +62,15 @@ def capture_region(
         for r in state["regions"]
         if r["controller"] == 0 or r["index"] not in deposit_regions
     )
+    require(
+        any(
+            r["homeTeam"] == -1
+            and r["controller"] != 0
+            and r["index"] in deposit_regions
+            for r in state["regions"]
+        ),
+        "every neutral deposit region is already controlled by the commander's team",
+    )
     target = select_order_region(state, index, exclude=excluded)["index"]
     after = event_sequence(state)
     force_number = building(state, index)["forceNumber"]
