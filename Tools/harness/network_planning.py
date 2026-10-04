@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
+import os
+from typing import cast
 
 from harness.network import RANGED, NetworkRun, require
 from harness.verify import JsonObject
@@ -16,18 +17,20 @@ def kit(state: JsonObject, slot: int) -> JsonObject:
     """The commander's kit as this peer replicates it, or an empty one before it arrives."""
     for entry in state["planning"]["kits"]:
         if entry["slot"] == slot:
-            return entry  # type: ignore[no-any-return]
+            return cast(JsonObject, entry)
     return {"ready": False, "role": -1, "power": -1, "barracks": None, "rig": None}
 
 
 def finished(piece: JsonObject | None) -> bool:
-    return bool(piece) and bool(piece["complete"])  # type: ignore[index]
+    return piece is not None and bool(piece["complete"])
 
 
 def same_place(a: JsonObject | None, b: JsonObject | None) -> bool:
     if not a or not b:
         return False
-    return all(abs(x - y) < 1.0 for x, y in zip(a["location"], b["location"], strict=True))
+    return all(
+        abs(x - y) < 1.0 for x, y in zip(a["location"], b["location"], strict=True)
+    )
 
 
 def await_all(
@@ -140,20 +143,24 @@ def planning_scenario(run: NetworkRun) -> None:
     await_all(
         run,
         names,
-        lambda s: all(kit(s, slots[n])["ready"] for n in names[:-1])
-        and not kit(s, remote)["ready"]
-        and s["planning"]["active"]
-        and s["worldPaused"],
+        lambda s: (
+            all(kit(s, slots[n])["ready"] for n in names[:-1])
+            and not kit(s, remote)["ready"]
+            and s["planning"]["active"]
+            and s["worldPaused"]
+        ),
         "every Ready but the remote client's is visible everywhere and planning goes on",
     )
     before = run.observe("host")["worldTime"]
     run.request("host", "planningReady", owner=remote, ready=True)
     states = run.await_states(
         names,
-        lambda v: all(
-            not s["planning"]["active"] and not s["worldPaused"] for s in v.values()
-        )
-        and v["host"]["worldTime"] > before + 1,
+        lambda v: (
+            all(
+                not s["planning"]["active"] and not s["worldPaused"] for s in v.values()
+            )
+            and v["host"]["worldTime"] > before + 1
+        ),
         "the last Ready ends planning once and unfreezes every peer",
     )
     require(

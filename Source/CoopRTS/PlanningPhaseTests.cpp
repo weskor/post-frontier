@@ -68,23 +68,7 @@ private:
 			}
 		AArmyGroup* Friendly = ArmyTestSetup::SpawnGroup(World, PC, 0, Arena - FVector(125.f, 0.f, 0.f));
 		AArmyGroup* Hostile = ArmyTestSetup::SpawnGroup(World, nullptr, -1, Arena + FVector(125.f, 0.f, 0.f));
-		const int32 HomeRegion = ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation());
-		const TCHAR* Locked = TEXT("Nothing runs during planning.");
-		const auto Refused = [Locked](const FCommandResult& Result) { return !Result.IsAccepted() && Result.Message == Locked; };
-		if (!Check(Friendly && Hostile, TEXT("Combat fixtures spawn while frozen"))
-			|| !Check(Refused(FCommandService::ConfigureProduction(Host, Placed.Building, EUnitRole::Ranged, true))
-					&& Refused(FCommandService::PlaceBuilding(Host, ArmyTestSetup::BarracksIndex, Spot))
-					&& Refused(FCommandService::CancelBuilding(Host, Placed.Building))
-					&& Refused(FCommandService::IssueForceOrder(Host, Friendly, EForceVerb::MoveHold, HomeRegion))
-					&& Refused(FCommandService::SetRetreatThreshold(Host, Friendly, ERetreatThreshold::Never))
-					&& Refused(FCommandService::SetRallyPoint(Host, Placed.Building, HomeRegion))
-					&& Refused(FCommandService::Research(Host, Placed.Building, EArmyDoctrine::FieldRepairs))
-					&& Refused(FCommandService::Gift(Host, Guest, EEconomyResource::Power, 10))
-					&& Refused(FCommandService::Resume(PC)),
-				TEXT("Every command except planning and pings is refused during planning, with the planning reason"))
-			|| !Check(!Placed.Building->bForceConfigured && Host->Resources == 200 && Guest->Resources == 200,
-				TEXT("A refused production command changes neither the Barracks nor a wallet"))
-			|| !Check(FCommandService::Ping(PC, ArmyTestSetup::FromFriendlyHQ(State, 800.f, 0.f, 5.f)).IsAccepted(), TEXT("Pings still work during planning")))
+		if (!CommandsLocked(Friendly, Hostile, Spot, Placed.Building))
 			return Done();
 		// Fixture: a producer already running, as before planning existed, so the frozen world has work to skip.
 		State->Planning.bActive = false;
@@ -105,6 +89,29 @@ private:
 		Battle0 = State->MatchTelemetry->GetBattleSeconds();
 		Enter(1);
 		return false;
+	}
+
+	// Every command but planning's own and pings is refused while the phase runs, naming the planning reason.
+	bool CommandsLocked(AArmyGroup* Friendly, AArmyGroup* Hostile, const FVector& Spot, ACommandBuilding* Barracks)
+	{
+		ACommandPlayerState* Guest = GuestPtr.Get();
+		const int32 HomeRegion = ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation());
+		const TCHAR* Locked = TEXT("Nothing runs during planning.");
+		const auto Refused = [Locked](const FCommandResult& Result) { return !Result.IsAccepted() && Result.Message == Locked; };
+		return Check(Friendly && Hostile, TEXT("Combat fixtures spawn while frozen"))
+			&& Check(Refused(FCommandService::ConfigureProduction(Host, Barracks, EUnitRole::Ranged, true))
+					&& Refused(FCommandService::PlaceBuilding(Host, ArmyTestSetup::BarracksIndex, Spot))
+					&& Refused(FCommandService::CancelBuilding(Host, Barracks))
+					&& Refused(FCommandService::IssueForceOrder(Host, Friendly, EForceVerb::MoveHold, HomeRegion))
+					&& Refused(FCommandService::SetRetreatThreshold(Host, Friendly, ERetreatThreshold::Never))
+					&& Refused(FCommandService::SetRallyPoint(Host, Barracks, HomeRegion))
+					&& Refused(FCommandService::Research(Host, Barracks, EArmyDoctrine::FieldRepairs))
+					&& Refused(FCommandService::Gift(Host, Guest, EEconomyResource::Power, 10))
+					&& Refused(FCommandService::Resume(PC)),
+				TEXT("Every command except planning and pings is refused during planning, with the planning reason"))
+			&& Check(!Barracks->bForceConfigured && Host->Resources == 200 && Guest->Resources == 200,
+				TEXT("A refused production command changes neither the Barracks nor a wallet"))
+			&& Check(FCommandService::Ping(PC, ArmyTestSetup::FromFriendlyHQ(State, 800.f, 0.f, 5.f)).IsAccepted(), TEXT("Pings still work during planning"));
 	}
 
 	bool Frozen()
