@@ -54,7 +54,7 @@ Research: [input.md](../Research/input.md).
 
 **Force ETA [Built]:** length of the active replicated intent route, divided by the force's effective march speed ([forces.md](forces.md)). The card and world/minimap path use the same polyline builder, including accepted formation destinations and structure endpoint corrections; no shortest-path route is recomputed on the client. Queued and retained recovery legs are excluded until active. The travel estimate excludes combat, capture waits and local navigation/crowd detours; no client navigation mesh is required. It refreshes every 0.5 seconds or when an order or waypoint changes. JEV's authoritative plan ETA is not replaced by this client-side estimate.
 
-**Force-card future badges [New]:** supply cutoff and upgrade availability arrive with their mechanics in [forces.md](forces.md); neither is shown early.
+**Force-card future badges [New]:** supply cutoff and upgrade availability arrive with their mechanics in [forces.md](forces.md); neither is shown early. Their placement and the refit badge are decided in "Step 1b surfaces" below (proposal, orchestrator review pending).
 
 **Order-state presentation [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: the card keeps the withdrawal's joined strength and resume count while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md).
 
@@ -87,22 +87,118 @@ Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the onl
 - [Built] **Alert feed:** objective rows take priority over ping rows, newest first within each history, so ping traffic cannot hide a live objective alert. Objective entries last 8 s and fade over their final 2 s. Clicking a visible entry focuses its event location without changing selection. The feed occupies the right-hand column above the build bar, without covering the footer or force cards.
 - [Built] **Space jumps to the latest objective alert;** pressing it again steps back through retained objective history, clamped at the oldest entry. Pings are excluded from Space history and use their feed's click-to-focus shortcut instead. A new objective event resets the next jump to the newest. The latest 64 objective events remain navigable after their feed entries fade. Jumping is optional: the strip and announcer carry the state.
 - [Built] **Team pings:** **G** pings at the cursor on the ground or minimap. A teammate's force, or its read-only inspector's ping button, sends **Need help here** at the authoritative force centre; any other spot sends **Look here**. Every connected teammate sees commander-coloured markers on the map and minimap and a feed entry naming the sender for **6 s** (starting value), plus a short UI cue. Need-help rows also name the target force's owner. Matching announcer speech plays only when speech is idle with no pending lines; busy pings drop their voice line rather than delaying or evicting objective speech, without suppressing their cue or feed entry. Receiving a ping never moves the camera; clicking its feed entry focuses the spot. The command layer delivers only to the sender's human team, never JEV. Each player can send one ping every **2 real-time seconds** (starting value); a throttled request explains the limit. Marker/feed lifetime uses synchronized battle time.
-- [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist.
+- [New] **Failover Node/exposure events, nodes left and the hold timer:** arrive with the guarded-HQ objectives in [battle.md](battle.md); they are not displayed before those mechanics exist. Their strip, bar and wording are proposed in "Step 1b surfaces" below (proposal, orchestrator review pending).
 
 ## JEV intent display [Built] / [New]
 
 Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent-built)). Nothing is computed on the client that could disagree with a plan.
 
-- **[Built] Timeline bar:** under the objective strip, left of the alert feed, so it never covers the strip, the alerts, the build bar or the deck. Up to 4 cells, soonest arrival first. Each cell shows the plan's verb (*ESCALATED* for a defense), target region, size band (`~8 units`) and a countdown. The countdown runs from the server time the planner computed the ETA, which is published with the plan; it stops at 0:00 and then reads *ARRIVED*. More plans than cells show *+N more*. The bar takes no space while JEV has no plan. **[New]** Version releases and JEV calldowns join the bar in step 1b ([battle.md](battle.md)); an entry is a kind plus a countdown, so they slot in beside plans.
+- **[Built] Timeline bar:** under the objective strip, left of the alert feed, so it never covers the strip, the alerts, the build bar or the deck. Up to 4 cells, soonest arrival first. Each cell shows the plan's verb (*ESCALATED* for a defense), target region, size band (`~8 units`) and a countdown. The countdown runs from the server time the planner computed the ETA, which is published with the plan; it stops at 0:00 and then reads *ARRIVED*. More plans than cells show *+N more*. Today the bar takes no space while JEV has no plan; **[New]** step 1b keeps it on screen (see "Step 1b surfaces" below). **[New]** Version releases and JEV calldowns join the bar in step 1b ([battle.md](battle.md)); an entry is a kind plus a countdown, so they slot in beside plans.
 - **[Built] Region badges:** every region a plan targets carries a badge above its region label on the world map and a marker with its countdown on the minimap (`ESC` while defending). The badge names the target region and the verb (`JEV  Attack  Fusion Works  0:20`); an escalated plan reads *Escalated: defending X* in place of a countdown. Two plans on one region show the sooner one and `x2`. The world region label shows the region's display name from the map data (the name the timeline and memos print) instead of `REGION n`.
 - **[Built] Memo feed:** below the timeline bar, separate from the team announcer's alerts, in the Machine's voice: the Machine colours of [STYLE.md](../../Art/UI/STYLE.md) (pearl text, cyan trim, red lens) and a `JEV` tag, never the team panels' blue-grey. A plan posts its memo (the [jev.md](jev.md) template text, verbatim) when it is first published or when what the memo prints changes: its ticket, verb, target region, size band or escalation. ETA drift or a changed target structure posts nothing. Newest first, 3 rows, each held for 12 s and faded over 2 s (starting values); the feed remembers the latest 8.
+
+## Step 1b surfaces [New] — proposal (orchestrator review pending)
+
+Step 1b adds ten player-facing surfaces. Every entry below is **(proposal, orchestrator review pending)**; mechanics, costs and durations live in the topic files they link, never here. Layout numbers are virtual pixels at HUD scale 1.0 (1600×900 and 1280×720 are both 1.0). They follow the binding rules above: no drag-only actions, no hover-only information, an on-screen prompt for every key, large snap targets (28 px minimum for any button), and state is never carried by colour alone (each state has a glyph or a word).
+
+**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which only restarts on the Result screen). Esc cancels the armed mode first, then closes the Team panel, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
+
+| Key | Action | Where it also sits on screen |
+|---|---|---|
+| **H** | Arm Fortify targeting | The Fortify dock button |
+| **Tab** | Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
+| **Enter** | Ready / un-ready | The **READY** button, planning only |
+
+### 1. Data, rates and supply-cut state [New]
+
+- **Top bar text:** `C1  604 Power +2/s   40 Data +1/s   Forces 2   Regions 4/5`. Power stays gold. Data is white with a chip glyph and the word, because [STYLE.md](../../Art/UI/STYLE.md) has no Data colour (art may choose one).
+- **Rates:** each figure shows **your own** share of the team pool ([economy.md](economy.md)), with one decimal only when it is fractional. Teammates' rates and the pool total are in the Team panel (surface 3).
+- **Supply-cut state:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. Clicking it focuses the first cut region; repeated clicks cycle.
+- **Why:** the top bar leaves about 540 px free at every window size, so nothing else moves, and the chip is a glyph plus words.
+
+### 2. Supply cuts on the map and the force card [New]
+
+- **World:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut.
+- **Region and Drill Rigs:** the region's chip row (surface 4) gets a **CUT OFF** chip. Its Drill Rigs go greyscale with a chain glyph, and their deposit label reads `POWER 1200 · OFFLINE` in place of the rate.
+- **Minimap:** the node gets a red hatched outline.
+- **Feed:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline`; clicking it focuses the region. It is a team row (see surface 3).
+- **Force card:** a **CUT OFF** chip in the header between unit type and strength, and the refill line reads `Refill: HELD · cut off · 1 recruit waiting` ([forces.md](forces.md)). A card shows at most two chips (CUT OFF, REFIT n/m, `▲ T2`), then `+N`.
+
+### 3. Gifting and the Team panel [New]
+
+- **Opening:** the **TEAM [Tab]** button (96×32) sits left of the Pause button; Tab toggles. A gold dot marks an unseen gift. The panel is 390 px wide and **replaces the alert feed column while open**; the strip, timeline and announcer keep working.
+- **Rows:** teammates only (up to four, 28 px high, the whole row is the target): colour swatch, `C2`, Power with rate, Data with rate, and a `FORTIFY ready` / `FORTIFY 0:47` chip, which is each commander's cooldown display.
+- **Gift flow:** click a teammate; click the `POWER` or `DATA` toggle; click a preset (Power 50 / 100 / 200 / ALL, Data 10 / 25 / 50 / ALL) or `−` / `+` (Power ±10, Data ±5); click the full-width `SEND 100 Power to C2` button. A teammate's read-only force card gets a `Gift…` button that opens the panel with them selected.
+- **Rejections** show inline under Send with the existing 3 s hold and 1 s fade, and a disabled Send still explains itself on click: `Not enough Power: you have 340`, `Pick an amount above 0`, `C2 left the team`, `Gifting opens at 0:00`.
+- **Log:** the last 20 gifts ([economy.md](economy.md)) in the panel, three rows with ▲ / ▼ buttons so scrolling never needs the wheel. An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
+- **Team rows in the feed:** gifts, Fortify casts and supply cuts rank below objective rows and above ping rows, and stay out of Space history.
+- **Controller [Later]:** focus order rows → toggle → presets → stepper → Send; the D-pad moves, A activates.
+- **Why:** no drag, hover or typing; four teammates need 297 px, inside the 296–304 px column at 1280×720.
+
+### 4. Fortify [New]
+
+- **Button:** the **Fortify [H]** dock, 144×42 at the left edge, 66 px above the minimap's top, directly above its legend. Two lines: the name, then the cost, `Ready in 0:47` with a drain bar, or `Need 12 more Data`. JEV memo rows clamp above it on short windows. Later commander ability and ultimate slots grow to its right.
+- **Input:** H or a click arms a targeting mode like **A**: the mode bar reads `FORTIFY` with `LMB Cast` and `RMB / Esc Cancel`, the dock reads `Pick a region · Esc`, and the minimap legend reads `LMB FORTIFY / RMB CANCEL`. LMB on a ground region or the minimap casts. The mode ends on acceptance and stays open on rejection; H again, Esc or RMB cancels.
+- **Cursor preview** (the order cursor's resolver): green `LMB: Fortify <Region> · <cost>` with the effects line from [commanders.md](commanders.md); amber `LMB: Refresh Fortify at <Region> · 0:41 left` (allowed, it only warns); red `Not allowed: <reason>` with `<Region> is held by JEV`, `<Region> is neutral`, `Need 12 more Data`, `Cooldown 0:47` or `Opens at 0:00`. While armed, valid regions get a dashed green border and the rest dim, on the minimap too.
+- **Active badge:** a chip in the region's chip row, a shield glyph with `FORTIFIED C2 0:42`, a caster-colour stripe and a 3 px drain bar that pulses at 1 Hz for its last 10 s. The minimap node gets a cyan dashed ring that drains clockwise. If the team loses the region the badge drops and the feed posts `Fortify at X ended: region lost`.
+- **Teammates' casts:** one expanding ring at the region, a badge with their stripe and `C2`, and the feed row `Commander 2 fortified X` (cyan stripe, click focuses; the camera never moves).
+- **Why:** A-mode is already learned, H is free, and the dock is the only pocket that survives 1280×720 with five force cards and the deck open.
+
+### 5. Tier-2 branch in the production panel [New]
+
+- **Placement:** once a Barracks' unit type is locked, its FORCE TYPE column shows the locked row and a 30 px `TIER 2 BRANCH` button below it, e.g. `MARKSMAN +20% range · 100 Power + 50 Data · 20 s`, with the text taken from the unit data ([forces.md](forces.md), [units.md](units.md)). No hotkey: it is a rare, costly decision.
+- **States:** `Lock a type first`; unaffordable and greyed, `Need 50 more Data` (a click explains); `Opens at 0:00` during planning; buying, a bar `Upgrading to Marksman 12 / 20 s` with an amber `UPGRADING` header pill; done, a static `✓ MARKSMAN +20% range`.
+- **Paused production:** the FORCE column reads `Production paused while upgrading` and its pause / resume toggle is disabled with that reason.
+- **Force card:** an amber `REFIT 2/5` chip and the refill line `Refit 2/5 → Marksman · cut-off members keep old form`. A `▲ T2` chip shows while the branch is affordable; clicking it selects the producer and opens the deck.
+- **Unit type picker:** an unlocked Barracks lists five types in a two-column grid of 26 px chips, because `Layout::Row` would shrink a five-row list to about 14 px.
+- **Why:** the 720 px deck keeps three columns; progress shows both where the player looks (the card) and where they decided (the panel).
+
+### 6. Shields, Scrambler pulse and building stun [New]
+
+- **Unit bar (36 px):** a 3 px shield bar above the 5 px HP bar, pale cyan for both teams. The existing show rule applies (damaged or in a highlighted force); a unit with no shield draws none.
+- **Pulse on units:** the shield bar flashes white for 0.25 s, then shows an empty outline for the regeneration delay; regeneration refills it ([units.md](units.md)).
+- **Pulse cue:** a ring expanding to the pulse radius over 0.4 s at the Scrambler, and a spark on each hit shield bar or building; no numbers. The pulse cooldown is not shown, because it is not replicated.
+- **Stun:** a yellow `STUN 2.4s` chip (bolt glyph, drain bar) in the building's chip row, refreshed by a new stun. Its production, construction and research bars freeze and desaturate, and the panel header reads `STUNNED`. Your own buildings post `Barracks 1 stunned by a Scrambler` (at most one per 5 s per building).
+- **Why:** the HP bar keeps its position; the ring and the chip both appear at t = 0, so it reads within 1 s.
+
+### 7. Region trait icons [New]
+
+- **World:** a 14 px glyph left of the name on the region label plate, and the trait word in 7.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)).
+- **Stack above a region anchor,** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
+- **Minimap:** an 8 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node.
+- **War-table zoom:** the plate collapses to a 24 px glyph plus the name.
+- **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
+
+### 8. JEV timeline and the battle clock [New]
+
+- **Always drawn:** the timeline bar keeps its 40 px even with no plans, so the memo feed never jumps. Empty text: `No JEV plans · next release v1.1 in 1:42`.
+- **Release cell:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +15% SPEED`, `OVERRUN`.
+- **Waves:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. Clicking a cell focuses its target (a release focuses JEV's main).
+- **Battle clock:** the top bar's right end, `JEV v1.1  4:12`, minutes and seconds counting up, frozen while paused.
+- **Why:** [battle.md](battle.md) says the HUD counts down to the next release and [jev.md](jev.md) says the cell appears 30 s ahead; the empty text and the cell are both true.
+
+### 9. Guarded HQs and the objective strip [New]
+
+- **Nodes row:** under each HQ bar, `Nodes ◆◆` (filled standing, hollow lost, a double outline while the plating lasts, [buildings.md](buildings.md)). While a node stands the HQ bar is hatched with a shield glyph, its world label reads `LATTICE HQ 900/900 · immune (2 nodes)`, and the Attack cursor chip warns `Attack Lattice HQ · immune while Nodes stand` (allowed). A node loss posts `Hardline Failover Node lost · 1 left`.
+- **Offline hold:** the HQ bar becomes the hold bar, same 225×20: `HARDLINE OFFLINE … 0:38 / 1:15`, with ticks at 50% and 75% (75% is the solo half-speed trigger above). The state line under it: `▲ JEV HOLDING THE MAIN` (red), `‖ PAUSED: defenders in the main` (amber), `▼ DECAYING: main is clear` (green). For the Lattice: `THE LATTICE OFFLINE`, `▲ UPLINK HELD`, `‖ PAUSED: JEV in the main`, `▼ DECAYING: send a force in`. Back online posts `Hardline HQ back online at 25%`.
+- **Emergency wave:** the latest-event title reads `Hardline HQ offline. Emergency forces deployed.` and its forces carry an `EMERGENCY` badge.
+- **Standing sentence** replaces `No objective alerts yet`: `Objective: break the Lattice's Failover Nodes, take its HQ offline, then hold the uplink 1:15`; once the nodes are gone, `Destroy the Lattice HQ to take it offline.` ([battle.md](battle.md)).
+- **Why:** it reuses the strip's two bars, so the hold is a state of the bar, not a new panel.
+
+### 10. Planning phase [New]
+
+- **Clock slot:** `PLANNING 0:47`, an amber real-time countdown that pulses in its last 10 s. The battle clock stays hidden until 0:00, so there is only one clock. The timeline shows JEV's first plans with muted countdowns and `frozen: starts 0:00`.
+- **Ready:** the Pause button slot becomes **READY (1/3)** with an **Enter** prompt; P explains `Nothing runs during planning`. The strip shows roster chips: `C1 PLACING`, `C2 ✓ READY`, `C3 AI · READY`. Enter toggles; with an unplaced kit one line asks `Barracks not placed: default spot. Press Enter again`.
+- **Kit placement:** the build bar becomes a KIT bar with Barracks (`B Q`) and Drill Rig (`B W`): `FREE KIT · place`, then `PLACED · click to move`; the Workshop is greyed `after 0:00`. Placement is the existing placement mode. An unplaced kit shows a dashed default-spot ghost, `auto-placed at 0:00 if unplaced`.
+- **Planning panel:** it takes the deck slot, 720×186, pinned open: place Barracks, place Drill Rig, unit type (five chips, 104×30, one row), first order (the existing RMB, A and Shift input; the panel lists the queue), and a `LOOK AT JEV BASE` button. Kit and unit type stay changeable until Ready or 0:00.
+- **Why:** every control reuses a slot that is free before the first force exists; only Enter is new.
 
 ## Feedback and presentation — decided
 
 | What | How it's shown |
 |---|---|
 | Counters | Hit flashes coloured by effectiveness: bonus hits flash bright, normal hits plain. Every force badge, including JEV's, shows its armor and damage icons. No floating numbers. |
-| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours. A cut snaps the cable, flashes the region and greys its Drill Rigs. |
+| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours. A cut snaps the cable, flashes the region and greys its Drill Rigs. [New] The cut's map, minimap, top-bar and force-card presentation is proposed in "Step 1b surfaces" above. |
 | Alerts | [Built] Objective feed, global announcer and explicit camera jumps described above. [New] Voiced supply cuts, JEV releases and calldowns follow their mechanics in [economy.md](economy.md) and [jev.md](jev.md). |
 | Incident report (after each battle) | A timeline graph of income, forces and regions with key events; **3 "why" callouts**, e.g. *Line cut at 4:12 cost 600 Power*; plus a Machine memo for the joke |
 | Contribution card | **1–2 positive highlights per player**, e.g. *Saved West Cut at 6:40* or *Gifted 800 Power*, plus personal stats. It never ranks players. |
