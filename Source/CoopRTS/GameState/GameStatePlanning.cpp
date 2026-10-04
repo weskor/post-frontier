@@ -9,7 +9,6 @@
 #include "CommandPlayerController.h"
 #include "DepositSite.h"
 #include "EnemyCommander.h"
-#include "EnemyCommanderTurn.h"
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
 #include "GameState/GameStateRegistry.h"
@@ -239,29 +238,6 @@ bool ACommandGameState::PlaceDefaultRig(FPlanningKit& Kit)
 
 namespace
 {
-// JEV's kit forces are made by the game state, not commanded, so the player lock (commands refuse while planning)
-// lifts for that one call. The role follows JEV's own producer rule; no human has a unit during planning.
-void ConfigureJevKitForces(ACommandGameState& State, TArray<FPlanningKit>& Kits, bool& bChanged)
-{
-	static const EDamageType NoSlotDamage[JevExecution::RoleSlots] = {};
-	int32 Roles[JevExecution::RoleSlots] = {};
-	for (const FPlanningKit& Kit : Kits)
-		if (IsValid(Kit.Barracks) && Kit.Barracks->bForceConfigured)
-			++Roles[RoleSlot(Kit.Barracks->ProductionRole)];
-	for (FPlanningKit& Kit : Kits)
-	{
-		if (!IsValid(Kit.Barracks) || !Kit.Barracks->IsComplete() || Kit.Barracks->bForceConfigured)
-			continue;
-		const int32 Slot = JevExecution::NextRoleSlot(Roles, JevRelease::FArmorCounts(), NoSlotDamage);
-		TGuardValue<bool> Lift(State.Planning.bActive, false);
-		if (FCommandService::ConfigureProduction(State.EnemyCommander, Kit.Barracks, SlotRole(Slot), true).IsAccepted())
-		{
-			++Roles[Slot];
-			bChanged = true;
-		}
-	}
-}
-
 // A removed JEV kit gives back what its force cost to configure.
 void RefundJevKitForce(ACommandPlayerState& Commander, const FPlanningKit& Kit)
 {
@@ -310,7 +286,6 @@ void ACommandGameState::PlaceJevKit(bool bForce)
 		if (!IsValid(Kit.Rig))
 			bChanged |= PlaceDefaultRig(Kit);
 	}
-	ConfigureJevKitForces(*this, Planning.JevKits, bChanged);
 	if (bChanged)
 		PlanJevKitForces(*GetWorld());
 	ForceNetUpdate();

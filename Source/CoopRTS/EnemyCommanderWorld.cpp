@@ -145,8 +145,7 @@ void ScanBuildings(FJevTurn& Turn)
 void ScanForces(FJevTurn& Turn)
 {
 	for (TActorIterator<AArmyGroup> It(Turn.World); It; ++It)
-		if (It->GetOwningPlayerState() == Turn.Commander
-			&& JevExecution::IsPlanned(It->GetAliveCount(), IsValid(It->GetProductionBuilding())))
+		if (It->GetOwningPlayerState() == Turn.Commander && It->GetAliveCount() > 0)
 			Turn.Forces.Add(*It);
 	Turn.Forces.Sort([](const AArmyGroup& A, const AArmyGroup& B) { return A.ForceNumber < B.ForceNumber; });
 	for (const AArmyGroup* Force : Turn.Forces)

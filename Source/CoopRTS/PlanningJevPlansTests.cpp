@@ -1,4 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "ArmyUnit.h"
+#include "EnemyCommander.h"
+#include "EngineUtils.h"
 #include "PlanningFixture.h"
 
 // JEV's first plans (battle.md "Opening", jev.md "Published intent"): its kit forces are planned and published on
@@ -215,7 +218,28 @@ private:
 		}
 		if (StageGameSeconds() < 6.)
 			return false;
-		SamePlans(TEXT("After the first units arrived"));
+		if (!SamePlans(TEXT("After the first units arrived")))
+			return Done();
+		return Wiped();
+	}
+
+	// A force wiped out is not planned while it refills, as before: its plan and ticket go until a unit returns.
+	bool Wiped()
+	{
+		AArmyGroup* Victim = nullptr;
+		for (const FRecorded& Was : Plans)
+			if (Was.Force.IsValid() && Was.Force->GetAliveCount() > 0)
+				Victim = Was.Force.Get();
+		if (!Check(Victim && PlanOf(Victim), TEXT("A fielded kit force has a plan before it is wiped out")))
+			return Done();
+		const TArray<TObjectPtr<AArmyUnit>> Units = Victim->GetUnits();
+		for (AArmyUnit* Unit : Units)
+			if (IsValid(Unit))
+				Unit->Destroy();
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			if (It->TeamIndex == 5)
+				It->EvaluatePlan();
+		Check(Victim->GetAliveCount() == 0 && !PlanOf(Victim), TEXT("A wiped-out force keeps no plan while it has no unit"));
 		return Done();
 	}
 

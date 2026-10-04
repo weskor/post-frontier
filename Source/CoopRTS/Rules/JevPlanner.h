@@ -102,6 +102,9 @@ struct FPlan
 	bool bRequiresUnownedTarget = false;
 	// Committed during planning, when commands are locked: the force has not been given this plan's order yet.
 	bool bUnissued = false;
+	// The force has had living units when this plan was made or any plan before it. An empty force with this set was
+	// wiped out, not newly built.
+	bool bFielded = false;
 };
 
 struct FCandidate

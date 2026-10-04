@@ -73,8 +73,8 @@ bool FJevFirstPlansTest::RunTest(const FString&)
 	TestTrue(TEXT("After the commitment the force decides afresh"), Decide(World, Empty, Clock + CommitmentSeconds, &First, Expired));
 	TestEqual(TEXT("The next commitment runs 25 s from its own clock"), Expired.CommittedUntil, Clock + 2.f * CommitmentSeconds);
 
-	TestFalse(TEXT("A force with neither units nor a producer is not planned"), JevExecution::IsPlanned(0, false));
-	TestTrue(TEXT("A force with a producer is planned before its first unit"), JevExecution::IsPlanned(0, true));
+	TestFalse(TEXT("A force with neither units nor an unfielded producer is not planned"), JevExecution::IsPlanned(0, false));
+	TestTrue(TEXT("A producer's force that never fielded a unit is planned before its first"), JevExecution::IsPlanned(0, true));
 	TestTrue(TEXT("A force with units is planned"), JevExecution::IsPlanned(1, false));
 	return true;
 }

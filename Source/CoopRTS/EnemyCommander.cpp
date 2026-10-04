@@ -38,9 +38,10 @@ bool ResolveContent(FJevTurn& Turn)
 	return true;
 }
 
-bool IsPlanned(const AArmyGroup& Force)
+// A committed force stays while it has living units, or is a producer's force that has never fielded one.
+bool KeepsEntry(const FJevCommittedForce& Entry)
 {
-	return JevExecution::IsPlanned(Force.GetAliveCount(), IsValid(Force.GetProductionBuilding()));
+	return JevExecution::IsPlanned(Entry.Force->GetAliveCount(), IsValid(Entry.Force->GetProductionBuilding()) && !Entry.Plan.bFielded);
 }
 }
 
@@ -100,12 +101,14 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 	Turn.bRush = IsRushAutopilot();
 	Turn.Now = GetWorld()->GetTimeSeconds();
 	CommittedForces.RemoveAllSwap([&](const FJevCommittedForce& Entry) {
-		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander || !IsPlanned(*Entry.Force);
+		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander || !KeepsEntry(Entry);
 	});
 	WaveForces.RemoveAllSwap([](const TWeakObjectPtr<AArmyGroup>& Force) { return !Force.IsValid() || Force->GetAliveCount() == 0; });
 	if (TeamIndex == 5)
 		State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) {
-			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander || !IsPlanned(*Entry.Force);
+			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander
+				|| (Entry.Force->GetAliveCount() == 0
+					&& !CommittedForces.ContainsByPredicate([&](const FJevCommittedForce& Held) { return Held.Force == Entry.Force; }));
 		});
 	if (!ResolveContent(Turn))
 		return false;
@@ -131,8 +134,11 @@ void AEnemyCommander::EvaluatePlan()
 	if (!bPlanning)
 		JevEconomy::BuildExtractor(Turn);
 	JevWorld::Finish(Turn);
-	if (!bPlanning)
+	{
+		// JEV's kit forces are made by the game, not by a player command: the planning lock lifts for this call.
+		TGuardValue<bool> Unlocked(Turn.State->Planning.bActive, false);
 		JevEconomy::ConfigureProduction(Turn);
+	}
 	ExecuteForces(Turn);
 	if (TeamIndex == 5 && !bPlanning)
 		AdvanceReleases(Turn);

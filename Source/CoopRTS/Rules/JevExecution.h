@@ -71,9 +71,9 @@ void AdoptRetreatRegion(const JevPlanner::FWorld& World, const JevPlanner::FForc
 	JevPlanner::FPlan& Plan);
 bool IsEscalation(const JevPlanner::FPlan* Current, const JevPlanner::FPlan& Next);
 
-// A force is planned while it has living units or a producer that will fill it: JEV's kit forces are planned
-// before their first unit exists (battle.md "Opening").
-inline bool IsPlanned(int32 LivingUnits, bool bProducerBacked) { return LivingUnits > 0 || bProducerBacked; }
+// A force is planned while it has living units, or while it is a producer's force that has never fielded one: JEV's
+// kit forces are planned before their first unit exists (battle.md "Opening"). A force wiped out and refilling is not.
+inline bool IsPlanned(int32 LivingUnits, bool bUnfieldedProducerBacked) { return LivingUnits > 0 || bUnfieldedProducerBacked; }
 
 struct FOrderChange
 {

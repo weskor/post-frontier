@@ -198,10 +198,28 @@ bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
 	return Step.Force->GetAliveCount() > 0 && !Step.bRecovering && !Step.Snapshot.bRetreating
 		&& !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
 }
+
+// Producer-backed forces with no unit yet that JEV plans: every one while planning (nothing has been fielded), and
+// afterwards those whose plan has never seen a unit. A force wiped out and refilling is not among them.
+void AddUnfieldedForces(FJevTurn& Turn, TConstArrayView<FJevCommittedForce> Held)
+{
+	for (const ACommandBuilding* Producer : Turn.Barracks)
+	{
+		AArmyGroup* Force = Producer->ForceGroup;
+		if (!IsValid(Force) || Force->GetAliveCount() > 0 || Force->GetOwningPlayerState() != Turn.Commander
+			|| Turn.Forces.Contains(Force))
+			continue;
+		const FJevCommittedForce* Entry = Held.FindByPredicate([Force](const FJevCommittedForce& Candidate) { return Candidate.Force == Force; });
+		if (Turn.State->IsPlanning() || (Entry && !Entry->Plan.bFielded))
+			Turn.Forces.Add(Force);
+	}
+	Turn.Forces.Sort([](const AArmyGroup& A, const AArmyGroup& B) { return A.ForceNumber < B.ForceNumber; });
+}
 }
 
 void AEnemyCommander::ExecuteForces(FJevTurn& Turn)
 {
+	AddUnfieldedForces(Turn, CommittedForces);
 	for (const FJevCommittedForce& Entry : CommittedForces)
 		if (JevExecution::HoldsClaim(Turn.Summary, Entry.Plan, Turn.Now))
 		{
@@ -251,6 +269,7 @@ void AEnemyCommander::ExecuteWaveForce(FJevTurn& Turn, AArmyGroup* Force, int32 
 void AEnemyCommander::Commit(FJevTurn& Turn, FJevForceStep& Step)
 {
 	const JevPlanner::FPlan* Prior = Step.Current ? &Step.Current->Plan : nullptr;
+	Step.Next.bFielded = Step.Snapshot.UnitCount > 0 || (Prior && Prior->bFielded);
 	Step.bNewCommitment = JevExecution::NewCommitment(Prior, Step.Next);
 	Step.bEscalation = JevExecution::IsEscalation(Prior, Step.Next);
 	if (Step.bChanged)
