@@ -30,9 +30,10 @@ bool FArmyCombatScenario::CheckCounterAcquisition(const ACommandGameState* State
 			TEXT("Counter and persistent-lock probes exercise local Attack combat, not shared-post Holding")))
 		return false;
 	bool bOk = CheckCounterPreference(Anchor);
-	if (!CheckStructurePriority(HQ, bOk) || !CheckPersistentLock(State, Anchor, bOk))
+	AArmyUnit* Heavy = nullptr;
+	if (!CheckStructurePriority(HQ, bOk) || !CheckPersistentLock(State, Anchor, Heavy, bOk))
 		return false;
-	CheckChaseBounds(Enemy->GetUnits()[0], bOk);
+	CheckChaseBounds(Heavy, bOk);
 	for (int32 Index = 0; Index < 6; ++Index)
 	{
 		Army->GetUnits()[Index]->SetActorLocation(FriendlyPositions[Index], false, nullptr, ETeleportType::TeleportPhysics);
@@ -89,7 +90,7 @@ bool FArmyCombatScenario::CheckStructurePriority(AHeadquarters* HQ, bool& bOk)
 	return true;
 }
 
-bool FArmyCombatScenario::CheckPersistentLock(const ACommandGameState* State, const FVector& Anchor, bool& bOk)
+bool FArmyCombatScenario::CheckPersistentLock(const ACommandGameState* State, const FVector& Anchor, AArmyUnit*& Heavy, bool& bOk)
 {
 	// Establish a non-counter lock through normal acquisition, not a seeded Target.
 	// All Light candidates are outside the leash until the Heavy lock is real.
@@ -103,7 +104,7 @@ bool FArmyCombatScenario::CheckPersistentLock(const ACommandGameState* State, co
 			TEXT("Non-counter lock fixture remains in the ordinary local Attack phase")))
 		return false;
 	AArmyUnit* Frontline = Army->GetUnits()[0];
-	AArmyUnit* Heavy = Enemy->GetUnits()[0];
+	Heavy = Enemy->GetUnits()[0];
 	AArmyUnit* Light = Enemy->GetUnits()[2];
 	for (AArmyUnit* Unit : Enemy->GetUnits())
 		Unit->SetActorLocation(Army->Destination + FVector(0.f, Army->PursuitRadius + 700.f, 0.f),
