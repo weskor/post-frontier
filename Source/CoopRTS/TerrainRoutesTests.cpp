@@ -192,8 +192,7 @@ private:
 		if (!Arrived(Leg.Hops[Hop], LowestZ))
 			return false;
 		const AMapRegion* Region = State.FindRegionAt(State.GetRegionAnchor(Leg.Hops[Hop]));
-		const bool bPlateau = Region && GroundHeight::At(*Force->GetWorld(), State.GetRegionAnchor(Region->RegionIndex).X,
-										 State.GetRegionAnchor(Region->RegionIndex).Y) > 250.;
+		const bool bPlateau = Region && GroundHeight::At(*Force->GetWorld(), State.GetRegionAnchor(Region->RegionIndex).X, State.GetRegionAnchor(Region->RegionIndex).Y) > 250.;
 		if (bPlateau && LowestZ < 250.)
 			return Fail(FString::Printf(TEXT("%s: hold in plateau region %d must stand on the plateau (lowest unit z %.0f)"), *Leg.Label, Leg.Hops[Hop], LowestZ));
 		if (++Hop < Leg.Hops.Num())

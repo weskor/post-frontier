@@ -80,13 +80,13 @@ map = "/Game/Maps/AvailabilityZoneV2"
 
 [scopes.terrain-v2]
 kind = "automation"
-filter = "CoopRTS.Map.Terrain."
+filter = "CoopRTS.Map.Terrain"
 map = "/Game/Maps/AvailabilityZoneV2"
 
 # Rendered captures of the real game, run on request (./x test terrain-view); the PNGs are inspected by a person.
 [scopes.terrain-view]
 kind = "automation"
-filter = "CoopRTS.Map.TerrainView"
+filter = "CoopRTS.Visual.TerrainCaptures"
 map = "/Game/Maps/AvailabilityZoneV2"
 rendered = true
 

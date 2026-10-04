@@ -8,7 +8,7 @@
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTerrainViewCaptureTest, "CoopRTS.Map.TerrainView.Captures",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTerrainViewCaptureTest, "CoopRTS.Visual.TerrainCaptures.Overview",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 // Rendered proof for Habitable Zone v2 (scope terrain-view, run on request): the real game renders an overview, a
