@@ -20,5 +20,6 @@
   {"id": "enemy_emergency", "text": "The Lattice HQ offline. Emergency forces deployed."},
   {"id": "own_hq_online", "text": "Hardline HQ back online."},
   {"id": "enemy_hq_online", "text": "The Lattice HQ back online."},
-  {"id": "split_brain_cut", "text": "Split-Brain Cut in thirty seconds. Hold your supply necks."}
+  {"id": "split_brain_cut", "text": "Split-Brain Cut in thirty seconds. Hold your supply necks."},
+  {"id": "split_brain_cut_solo", "text": "Split-Brain Cut in thirty seconds. Hold your supply neck."}
 ]

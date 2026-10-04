@@ -159,29 +159,37 @@ FJevCutPlan CutPlan(const FJevTurn& Turn, const FJevMemoTemplates& Memos, int32 
 	return Plan;
 }
 
-void AnnounceCut(const FJevTurn& Turn, int32 Region)
+void AnnounceCut(const FJevTurn& Turn, int32 Region, bool bSolo)
 {
 	if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(Turn.State))
-		Announcer->Raise(FName(JevThreat::AnnouncerId), 0, GameStateTerritory::RegionAnchor(*Turn.State, Region), {});
+		Announcer->Raise(FName(bSolo ? JevThreat::SoloAnnouncerId : JevThreat::AnnouncerId), 0,
+			GameStateTerritory::RegionAnchor(*Turn.State, Region), {});
 }
 
-// The catalogue index of each unit one cut force buys with Budget (JevThreat::Compose); empty when the catalogue has no
-// Assault unit or the budget buys none.
-TArray<int32> CutRoster(const FJevTurn& Turn, int32 Budget)
+struct FCutBuy
+{
+	TArray<int32> Roster;
+	int32 Spent = 0;
+};
+
+// One cut force: the catalogue index of each unit JevThreat::Compose keeps within Cap and what they cost; empty when the
+// catalogue has no Assault unit or the cap buys none.
+FCutBuy BuyCut(const FJevTurn& Turn, int32 Cap)
 {
 	const int32 Assault = Turn.Content->UnitIndexForRole(EUnitRole::Assault);
 	const int32 Escort = Turn.Content->UnitIndexForRole(EUnitRole::Frontline);
 	const UArmyUnitDefinition* AssaultUnit = Turn.Content->Unit(Assault);
 	const UArmyUnitDefinition* EscortUnit = Turn.Content->Unit(Escort);
-	TArray<int32> Roster;
+	FCutBuy Buy;
 	if (!AssaultUnit)
-		return Roster;
-	const JevThreat::FComposition Bought = JevThreat::Compose(Budget, AssaultUnit->UnitCost, AssaultUnit->Capacity,
+		return Buy;
+	const JevThreat::FComposition Bought = JevThreat::Compose(Cap, AssaultUnit->UnitCost, AssaultUnit->Capacity,
 		EscortUnit ? EscortUnit->UnitCost : 0);
-	Roster.Init(Assault, Bought.Assault);
+	Buy.Roster.Init(Assault, Bought.Assault);
 	for (int32 Count = 0; Count < Bought.Escort; ++Count)
-		Roster.Add(Escort);
-	return Roster;
+		Buy.Roster.Add(Escort);
+	Buy.Spent = Bought.Spent;
+	return Buy;
 }
 }
 
@@ -284,16 +292,16 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 		return;
 	}
 	const JevThreat::FTargets Targets = JevThreat::ChooseTargets(Turn.Summary, Choice.Pair, Humans);
-	const int32 Budget = JevThreat::ForceBudget(Humans);
-	const TArray<int32> Roster = CutRoster(Turn, Budget);
+	const int32 Cap = JevThreat::BudgetCap(Humans);
+	const FCutBuy Buy = BuyCut(Turn, Cap);
 	const float Lead = FMath::Max(0.f, JevThreat::LaunchTime() - GetMatchSeconds());
 	const float SpeedFactor = JevRelease::BehaviourFor(JevThreat::TriggerRelease).SpeedFactor;
 	for (int32 Index = 0; Index < Targets.Count; ++Index)
 	{
 		FPendingCut Cut;
 		Cut.Target = Targets.Region[Index];
-		Cut.Budget = Budget;
-		Cut.Roster = Roster;
+		Cut.Spent = Buy.Spent;
+		Cut.Roster = Buy.Roster;
 		const float March = Cut.Roster.IsEmpty() ? -1.f : MarchSeconds(Turn, Cut.Roster, SpeedFactor, Cut.Target);
 		if (March < 0.f)
 		{
@@ -307,11 +315,11 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 	if (PendingCuts.IsEmpty())
 		return;
 	ThreatStage = JevThreat::EStage::Published;
-	AnnounceCut(Turn, PendingCuts[0].Target);
+	AnnounceCut(Turn, PendingCuts[0].Target, Targets.Count == 1);
 	ForceNetUpdate();
-	UE_LOG(LogJevRelease, Display, TEXT("JEV %s published at=%.1f pair=%d,%d held=%d fallback=%d forces=%d budget=%d humans=%d"),
-		JevThreat::Name, GetMatchSeconds(), Choice.Pair.A, Choice.Pair.B, Choice.Held, Choice.bFallback, PendingCuts.Num(), Budget,
-		Humans);
+	UE_LOG(LogJevRelease, Display,
+		TEXT("JEV %s published at=%.1f pair=%d,%d held=%d fallback=%d forces=%d spent=%d cap=%d humans=%d"), JevThreat::Name,
+		GetMatchSeconds(), Choice.Pair.A, Choice.Pair.B, Choice.Held, Choice.bFallback, PendingCuts.Num(), Buy.Spent, Cap, Humans);
 }
 
 void AEnemyCommander::LaunchThreat(FJevTurn& Turn)
@@ -329,7 +337,7 @@ void AEnemyCommander::LaunchThreat(FJevTurn& Turn)
 		Event.Release = JevThreat::TriggerRelease;
 		Event.bCut = true;
 		Event.MatchSeconds = GetMatchSeconds();
-		Event.Budget = Cut.Budget;
+		Event.Budget = Cut.Spent;
 		Event.TargetRegion = Cut.Target;
 		if (Force)
 		{
@@ -353,8 +361,8 @@ void AEnemyCommander::LaunchThreat(FJevTurn& Turn)
 		}
 		RecordWave(Event);
 		--Release.WaveCount; // Published like a wave, but no release wave.
-		UE_LOG(LogJevRelease, Display, TEXT("JEV %s launched at=%.1f target=%d units=%d budget=%d"), JevThreat::Name,
-			Event.MatchSeconds, Cut.Target, Event.Units, Cut.Budget);
+		UE_LOG(LogJevRelease, Display, TEXT("JEV %s launched at=%.1f target=%d units=%d spent=%d"), JevThreat::Name,
+			Event.MatchSeconds, Cut.Target, Event.Units, Cut.Spent);
 	}
 	PendingCuts.Reset();
 	ForceNetUpdate();

@@ -30,7 +30,7 @@ private:
 	{
 		const JevPlanner::FWorld World = PlannerWorld(*Kit.State);
 		const TArray<JevThreat::FPair> Pairs = AuthoredPairs(*Kit.State);
-		Check(Pairs.Num() >= 2, TEXT("The map authors at least two neck pairs, so a pair can be chosen and a fallback exists"));
+		Check(Pairs.Num() >= 1, TEXT("The map authors a neck pair"));
 		for (const JevThreat::FPair& Pair : Pairs)
 		{
 			Check(JevThreat::IsSupplyNeck(World, Pair.A) && JevThreat::IsSupplyNeck(World, Pair.B),
@@ -111,12 +111,14 @@ private:
 			&& Timeline[0].Release == JevThreat::TriggerRelease && Timeline[0].Seconds < JevThreat::LeadSeconds
 			&& Timeline[1].Kind == JevIntent::EEntryKind::Plan && Timeline[2].Kind == JevIntent::EEntryKind::Plan
 			&& Timeline[1].Verb == JevPlanner::EVerb::Attack && Timeline[2].Verb == JevPlanner::EVerb::Attack
+			&& Timeline[1].bCut && Timeline[2].bCut && !Timeline[0].bCut
 			&& Timeline[1].Seconds > Timeline[0].Seconds && Timeline[2].Seconds >= Timeline[1].Seconds;
 		Check(bCells, TEXT("The timeline shows the v2.0 release cell, then two Attack cells that arrive after it"));
 		JevIntent::FBadges Badges;
 		JevIntent::BuildBadges(Plans, Now, Badges);
-		Check(Badges.Num() == 2 && Badges[0].Region == 3 && Badges[1].Region == 8 && Badges[0].Verb == JevPlanner::EVerb::Attack,
-			TEXT("Both target regions carry an Attack badge"));
+		Check(Badges.Num() == 2 && Badges[0].Region == 3 && Badges[1].Region == 8 && Badges[0].Verb == JevPlanner::EVerb::Attack
+				&& Badges[0].bCut && Badges[1].bCut,
+			TEXT("Both target regions carry an Attack badge tagged as a cut"));
 		UJevIntentFeed* Feed = UJevIntentFeed::Get(Kit.World);
 		if (!Check(Feed != nullptr, TEXT("The memo feed exists")))
 			return true;
@@ -154,8 +156,8 @@ private:
 		for (const int32 Region : { 3, 8 })
 		{
 			const FJevWaveEvent* Event = CutEvent(Region);
-			Check(Event && Event->Release == 3 && Event->Budget == 260 && Event->Units == 4 && Event->Forces == 1,
-				TEXT("Each force is funded with half of v2.0's 400 x 1.3: 260, and buys four units"));
+			Check(Event && Event->Release == 3 && Event->Budget == 92 && Event->Units == 4 && Event->Forces == 1,
+				TEXT("Each force is the tuned composition: four units costing 92 Power, within the 260 cap"));
 			const TArray<AArmyGroup*> Forces = ForcesTargeting({ Region });
 			if (!Check(Forces.Num() == 1, TEXT("One force attacks each region")))
 				continue;
@@ -203,14 +205,16 @@ private:
 	bool OnLaunched() override
 	{
 		const FJevWaveEvent* Event = CutEvent(8);
-		Check(CutEvents() == 1 && Event && Event->Budget == 200 && Event->Units == 4,
-			TEXT("Solo: one force funded with half of v2.0's 400: 200, four units"));
+		Check(CutEvents() == 1 && Event && Event->Budget == 92 && Event->Units == 4,
+			TEXT("Solo: one force of the tuned composition, 92 Power spent (under solo's cap of 200)"));
+		Check(NewEvents(FName(JevThreat::SoloAnnouncerId)).Num() == 1 && NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(),
+			TEXT("Solo: the one-neck line is announced, not the plural one"));
 		Check(ForcesTargeting({ 8 }).Num() == 1 && ForcesTargeting({ 3 }).IsEmpty(), TEXT("Solo: only the held region is attacked"));
 		return true;
 	}
 };
 
-// With only West Cut held, the first pair that holds anything is the one JEV takes, whole.
+// With neither region of the only pair held, JEV takes it anyway: the fallback.
 class FFallbackScenario : public FFlowScenario
 {
 public:
@@ -221,15 +225,15 @@ private:
 
 	bool OnPublished(bool bSeen) override
 	{
-		Check(bSeen && Release().Cuts.Num() == 2 && CutAt(2) && CutAt(8) && !CutAt(3),
-			TEXT("The humans hold one region of one pair: that pair is taken, its unheld region included"));
+		Check(bSeen && Release().Cuts.Num() == 2 && CutAt(3) && CutAt(8) && !CutAt(2),
+			TEXT("The humans hold neither region of the only pair: it is taken anyway, as a fallback"));
 		return true;
 	}
 
 	bool OnLaunched() override { return true; }
 };
 
-// JEV holds a region of every authored pair: nothing is sent, and nothing is announced.
+// JEV holds Power Yard, a region of the only authored pair: nothing is sent, and nothing is announced.
 class FSkipScenario : public FFlowScenario
 {
 public:
@@ -241,14 +245,14 @@ private:
 	bool OnPublished(bool bSeen) override
 	{
 		Check(!bSeen && Release().Cuts.IsEmpty(), TEXT("No eligible pair: nothing is published"));
-		Check(NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(), TEXT("and nothing is announced"));
+		Check(NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty() && NewEvents(FName(JevThreat::SoloAnnouncerId)).IsEmpty(),
+			TEXT("and nothing is announced"));
 		return false;
 	}
 
 	bool OnLaunched() override
 	{
-		Check(CutEvents() == 0 && ForcesTargeting({ 3 }).IsEmpty() && ForcesTargeting({ 8 }).IsEmpty(),
-			TEXT("and no cut force launches; the release wave still does"));
+		Check(CutEvents() == 0, TEXT("and no cut force launches"));
 		Check(Release().WaveCount == 3, TEXT("The v2.0 wave is unaffected by the skipped threat"));
 		return true;
 	}

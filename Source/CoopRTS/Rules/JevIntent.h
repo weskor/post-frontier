@@ -28,6 +28,8 @@ struct FPlanView
 	// Server time at which EtaSeconds was computed; the countdown runs from there.
 	float EtaIssuedAt = 0.f;
 	bool bEscalated = false;
+	// A published Split-Brain Cut plan (JevThreat), not a live force's plan.
+	bool bCut = false;
 	FStringView Memo;
 };
 
@@ -48,6 +50,8 @@ struct FTimelineEntry
 	int32 SizeBand = 2;
 	float Seconds = 0.f;
 	bool bEscalated = false;
+	// A Split-Brain Cut plan: the cell is tagged with the threat's name instead of its verb.
+	bool bCut = false;
 	// Release cells: the release index (0 is v1.0) and, for v1.2, the armor class the wave will counter.
 	int32 Release = INDEX_NONE;
 	EArmorClass CounterArmor = EArmorClass::Unset;
@@ -94,6 +98,8 @@ struct FRegionBadge
 	int32 Plans = 0;
 	// True when any plan targeting the region is a defense of it.
 	bool bEscalated = false;
+	// True when the soonest plan targeting the region is a Split-Brain Cut plan.
+	bool bCut = false;
 };
 
 struct FMemo

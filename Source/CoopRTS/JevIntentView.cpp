@@ -49,6 +49,7 @@ void Snapshot(const ACommandGameState& State, FPlans& Out)
 				View.Ticket = Cut.Ticket;
 				View.Force = 0x80000000u | static_cast<uint32>(Cut.Ticket);
 				View.Verb = JevPlanner::EVerb::Attack;
+				View.bCut = true;
 				View.Target = Cut.Target;
 				View.SizeBand = Cut.SizeBand;
 				View.EtaSeconds = Cut.EtaSeconds;

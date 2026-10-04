@@ -28,11 +28,10 @@ def test_every_authored_pair_is_two_non_adjacent_necks(v2_map: MapData) -> None:
     pairs = v2_map["split_brain_pairs"]
     neighbours = {r["index"]: set(r["neighbours"]) for r in v2_map["regions"]}
     necks = set(human_supply_necks(v2_map))
-    assert len(pairs) >= 2
+    assert pairs
     for first, second in pairs:
         assert {first, second} <= necks
         assert second not in neighbours[first]
-
 
 @pytest.mark.parametrize(
     ("pairs", "message"),

@@ -254,7 +254,8 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
-		if (Event.Id != FName(JevThreat::AnnouncerId) || !AppendCutTargets(Context, Region))
+		const bool bCutRow = Event.Id == FName(JevThreat::AnnouncerId) || Event.Id == FName(JevThreat::SoloAnnouncerId);
+		if (!bCutRow || !AppendCutTargets(Context, Region))
 			AlertSubtitle(Event, bPing, bGift, bLocal, bAbility, Region);
 		else
 			Region << TEXT("  |  Click to focus");

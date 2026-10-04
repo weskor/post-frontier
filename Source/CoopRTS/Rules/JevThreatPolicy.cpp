@@ -92,7 +92,7 @@ int32 TargetCount(int32 HumanCommanders)
 	return HumanCommanders >= CoopCommanders ? MaxTargets : 1;
 }
 
-int32 ForceBudget(int32 HumanCommanders)
+int32 BudgetCap(int32 HumanCommanders)
 {
 	return JevRelease::WaveBudget(TriggerRelease, HumanCommanders) / 2;
 }
@@ -227,17 +227,21 @@ FTargets ChooseTargets(const FWorld& World, const FPair& Pair, int32 HumanComman
 	return Targets;
 }
 
-FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost)
+FComposition Compose(int32 Cap, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost)
 {
 	FComposition Out;
-	int32 Left = FMath::Max(0, Budget);
+	int32 Left = FMath::Max(0, Cap);
 	if (AssaultCost > 0)
 	{
 		Out.Assault = FMath::Clamp(Left / AssaultCost, 0, FMath::Max(0, AssaultSquad));
 		Left -= Out.Assault * AssaultCost;
+		Out.Spent += Out.Assault * AssaultCost;
 	}
 	if (EscortCost > 0)
+	{
 		Out.Escort = FMath::Min(EscortUnits, Left / EscortCost);
+		Out.Spent += Out.Escort * EscortCost;
+	}
 	return Out;
 }
 }

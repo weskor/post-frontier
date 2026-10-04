@@ -5,7 +5,8 @@
 
 // The tuning target of Split-Brain Cut: a full Brawler squad (six, tier 1) holding a neck loses it to the cut force without
 // Fortify and keeps it with Fortify. Both cases run the real threat from the real schedule against identical armies, on
-// both regions of the first authored pair; only the cast differs.
+// both regions of the authored pair (Skyhook and Reactor Yard); only the cast differs. The fights are chaotic: a scenario
+// run earlier in the same world changes them, so the numbers hold for this scope's order (docs: battle.md).
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainUnfortifiedTest, "CoopRTS.Enemy.SplitBrain.Fight.Unfortified",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -20,8 +21,9 @@ using namespace JevThreatKit;
 
 // Server game seconds after the launch within which both regions must be settled.
 constexpr double SettleBound = 200.;
-// The cast goes out when the cut force is this close to the region's anchor (the plan's ETA tells a player when).
-constexpr float CastDistance = 2000.f;
+// The cast goes out when the cut force is this close to the region's anchor: about ten seconds before it arrives, as a
+// player reading the plan's ETA would cast, so the first shots already meet a Fortified squad.
+constexpr float CastDistance = 4000.f;
 
 struct FHeld
 {
@@ -47,10 +49,13 @@ int32 Durability(const AArmyGroup* Force)
 class FFightScenario : public FFlowScenario
 {
 public:
-	FFightScenario(FAutomationTestBase* InTest, bool bInFortify) : FFlowScenario(InTest, true), bFortify(bInFortify) {}
+	FFightScenario(FAutomationTestBase* InTest, bool bInFortify)
+		: FFlowScenario(InTest, true), bFortify(bInFortify), PairRegions{ 3, 8 }
+	{
+	}
 
 private:
-	bool Place() override { return Arrange({ 3, 8 }); }
+	bool Place() override { return Arrange({ PairRegions[0], PairRegions[1] }); }
 
 	// Identical armies: six Brawlers hold each region under Move & Hold, in the humans' hands.
 	bool OnPublished(bool bSeen) override
@@ -60,11 +65,12 @@ private:
 		const int32 Brawler = ArmyTestSetup::UnitIndex(Kit.State, EUnitRole::Frontline);
 		Kit.Wallet->Data = Other->Data = FortifyPolicy::DataCost + 10;
 		int32 Number = 7;
-		for (const int32 Region : { 3, 8 })
+		for (int32 Slot = 0; Slot < 2; ++Slot)
 		{
+			const int32 Region = PairRegions[Slot];
 			FHeld& Held = Regions.AddDefaulted_GetRef();
 			Held.Region = Region;
-			Held.Caster = Region == 3 ? Kit.Wallet : Other;
+			Held.Caster = Slot == 0 ? Kit.Wallet : Other;
 			const TArray<int32> Squad = { Brawler, Brawler, Brawler, Brawler, Brawler, Brawler };
 			Held.Defenders = AArmyGroup::SpawnFreeForce(*Kit.World, *Kit.Wallet, Kit.State->GetRegionAnchor(Region), Squad, Number++, 1.f);
 			if (!Check(Held.Defenders != nullptr, TEXT("The holding squad spawned")))
@@ -78,10 +84,13 @@ private:
 
 	bool OnLaunched() override
 	{
-		// The v2.0 wave and anything else JEV launched is not under test; only the two cut forces fight.
-		DestroyForces(Kit.World, [](const AArmyGroup& Force) {
-			return Force.GetTeamIndex() == 5 && !(Force.Verb == EForceVerb::Attack && (Force.TargetRegionIndex == 3 || Force.TargetRegionIndex == 8));
-		});
+		// The v2.0 wave (which also raids a region next to the human main) and anything else JEV launched is not under test;
+		// the cut forces are the newest JEV forces by force number, one per cut event.
+		const TArray<AArmyGroup*> All = EnemyForces(Kit.World);
+		TSet<const AArmyGroup*> Cuts;
+		for (int32 Index = FMath::Max(0, All.Num() - CutEvents()); Index < All.Num(); ++Index)
+			Cuts.Add(All[Index]);
+		DestroyForces(Kit.World, [&Cuts](const AArmyGroup& Force) { return Force.GetTeamIndex() == 5 && !Cuts.Contains(&Force); });
 		for (FHeld& Held : Regions)
 		{
 			const TArray<AArmyGroup*> Forces = ForcesTargeting({ Held.Region });
@@ -138,6 +147,7 @@ private:
 	}
 
 	bool bFortify;
+	int32 PairRegions[2];
 	TArray<FHeld> Regions;
 };
 }

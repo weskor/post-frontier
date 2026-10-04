@@ -2,6 +2,7 @@
 
 #include "CommandCamera.h"
 #include "HAL/FileManager.h"
+#include "HUD/PressureView.h"
 #include "JevThreatWorldFixture.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
@@ -64,6 +65,10 @@ private:
 		case 2:
 			if (Release().Cuts.IsEmpty())
 				return InStage() > 3. ? Fail(TEXT("The threat did not publish")) : false;
+			// The HUD reads the game state's battle clock, which SkipTo does not move; give it the same skew so the bar,
+			// the release cell and the clock show the true 331 s.
+			if (UPressureView* Pressure = UPressureView::Get(Kit.State))
+				Pressure->SetClockSkew(Kit.Planner->GetMatchSeconds() - (Kit.State->GetServerWorldTimeSeconds() - Kit.State->GetBattleClockStartServerTime()));
 			Enter(3);
 			return false;
 		default:
@@ -93,10 +98,10 @@ private:
 			bRequested = true;
 			return false;
 		}
-		// Let the camera and the feed settle, then capture while the alert row (8 s) and the cut plans (to 360 s) still stand.
-		if (++Frames == 30)
+		// Let the camera and the feed settle (1.5 s), then capture while the alert row (8 s) and the cut plans still stand.
+		if (++Frames == 90)
 			FScreenshotRequest::RequestScreenshot(Path, false, false);
-		if (Frames > 30 && IFileManager::Get().FileSize(*Path) > 0)
+		if (Frames > 90 && IFileManager::Get().FileSize(*Path) > 0)
 		{
 			Check(!Release().Cuts.IsEmpty() && !NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(),
 				TEXT("The plans and the alert event still stood when the shot was taken"));
@@ -105,7 +110,7 @@ private:
 			bRequested = false;
 			return false;
 		}
-		return Frames > 600 ? Fail(*FString::Printf(TEXT("No screenshot produced for %s"), Shot.Name)) : false;
+		return Frames > 900 ? Fail(*FString::Printf(TEXT("No screenshot produced for %s"), Shot.Name)) : false;
 	}
 
 	int32 Index = 0;

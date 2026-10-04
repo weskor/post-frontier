@@ -35,7 +35,7 @@ struct FJevWaveEvent
 	int32 Release = 0;
 	UPROPERTY()
 	float MatchSeconds = 0.f;
-	// Power-equivalent the wave bought with, including the carry from earlier waves.
+	// Power-equivalent the wave bought with, including the carry from earlier waves. A cut force: what its units cost.
 	UPROPERTY()
 	int32 Budget = 0;
 	UPROPERTY()
@@ -180,8 +180,8 @@ private:
 	struct FPendingCut
 	{
 		int32 Target = INDEX_NONE;
-		// The Power-equivalent the force was funded with.
-		int32 Budget = 0;
+		// The Power-equivalent the force's units cost; the budget cap only limits it.
+		int32 Spent = 0;
 		// Catalogue unit index of each unit bought.
 		TArray<int32> Roster;
 	};

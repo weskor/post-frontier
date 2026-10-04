@@ -1,7 +1,10 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "Misc/AutomationTest.h"
+#include "Rules/JevIntent.h"
 #include "Rules/JevThreatPolicy.h"
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatCellTest, "CoopRTS.Rules.JevThreat.Cell",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatScheduleTest, "CoopRTS.Rules.JevThreat.Schedule",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatBudgetTest, "CoopRTS.Rules.JevThreat.Budget",
@@ -82,12 +85,12 @@ bool FJevThreatBudgetTest::RunTest(const FString&)
 	TestEqual(TEXT("No commander or one sends one force"), TargetCount(0) + TargetCount(1), 2);
 	TestEqual(TEXT("Two commanders send two"), TargetCount(2), 2);
 	TestEqual(TEXT("and more than two still send two"), TargetCount(4), 2);
-	TestEqual(TEXT("Solo: half the 400 v2.0 budget"), ForceBudget(1), 200);
-	TestEqual(TEXT("Two commanders: half of 400 x 1.3"), ForceBudget(2), 260);
-	TestEqual(TEXT("Three commanders: half of 400 x 1.6"), ForceBudget(3), 320);
-	TestEqual(TEXT("Two cut forces together carry exactly one more v2.0 wave budget"), 2 * ForceBudget(2),
-		JevRelease::WaveBudget(TriggerRelease, 2));
-	TestEqual(TEXT("A budget below zero commanders reads as one commander"), ForceBudget(0), ForceBudget(1));
+	TestEqual(TEXT("Solo's cap: half the 400 v2.0 budget"), BudgetCap(1), 200);
+	TestEqual(TEXT("Two commanders' cap: half of 400 x 1.3"), BudgetCap(2), 260);
+	TestEqual(TEXT("Three commanders' cap: half of 400 x 1.6"), BudgetCap(3), 320);
+	TestEqual(TEXT("Two caps together are exactly one v2.0 wave budget"), 2 * BudgetCap(2), JevRelease::WaveBudget(TriggerRelease, 2));
+	TestEqual(TEXT("No commander reads as one commander"), BudgetCap(0), BudgetCap(1));
+	TestTrue(TEXT("Even solo's cap pays for the tuned 92-Power force with room to spare"), BudgetCap(1) > 92);
 	return true;
 }
 
@@ -216,29 +219,58 @@ bool FJevThreatUnitsTest::RunTest(const FString&)
 {
 	using namespace JevThreat;
 	// The catalogue: Lancer 24 Power in squads of three, Brawler 20.
-	FComposition Bought = Compose(ForceBudget(2), 24, 3, 20);
-	TestTrue(TEXT("Two commanders' 260 buys a full Lancer squad and the Brawler escort"), Bought.Assault == 3 && Bought.Escort == 1 && Bought.Units() == 4);
-	Bought = Compose(ForceBudget(1), 24, 3, 20);
-	TestTrue(TEXT("Solo's 200 buys the same force"), Bought.Assault == 3 && Bought.Escort == 1);
-	Bought = Compose(92, 24, 3, 20);
-	TestTrue(TEXT("92 is exactly three Lancers and a Brawler"), Bought.Assault == 3 && Bought.Escort == 1);
-	Bought = Compose(91, 24, 3, 20);
-	TestTrue(TEXT("91 leaves no escort: the Lancers come first"), Bought.Assault == 3 && Bought.Escort == 0);
-	Bought = Compose(50, 24, 3, 20);
-	TestTrue(TEXT("50 buys two Lancers and, with 2 left, no escort"), Bought.Assault == 2 && Bought.Escort == 0);
-	Bought = Compose(68, 24, 3, 20);
-	TestTrue(TEXT("68 buys two Lancers and the escort"), Bought.Assault == 2 && Bought.Escort == 1);
+	FComposition Bought = Compose(BudgetCap(2), 24, 3, 20);
+	TestTrue(TEXT("The two-commander cap (260) leaves the tuned force whole: a Lancer squad and the Brawler escort, 92 Power"),
+		Bought.Assault == 3 && Bought.Escort == 1 && Bought.Units() == 4 && Bought.Spent == 92);
+	Bought = Compose(BudgetCap(1), 24, 3, 20);
+	TestTrue(TEXT("Solo's cap (200) leaves the same force, spending the same 92"), Bought.Assault == 3 && Bought.Escort == 1 && Bought.Spent == 92);
 	Bought = Compose(10000, 24, 3, 20);
-	TestTrue(TEXT("A rich budget never grows the force: one squad, one escort"), Bought.Assault == 3 && Bought.Escort == EscortUnits);
+	TestTrue(TEXT("A richer cap never forces extra units: still 92"), Bought.Units() == 4 && Bought.Spent == 92);
+	Bought = Compose(92, 24, 3, 20);
+	TestTrue(TEXT("A cap of exactly 92 is the whole force"), Bought.Assault == 3 && Bought.Escort == 1 && Bought.Spent == 92);
+	Bought = Compose(91, 24, 3, 20);
+	TestTrue(TEXT("91 cannot pay the escort: the Lancers come first, 72 spent"), Bought.Assault == 3 && Bought.Escort == 0 && Bought.Spent == 72);
+	Bought = Compose(50, 24, 3, 20);
+	TestTrue(TEXT("50 pays two Lancers and, with 2 left, no escort"), Bought.Assault == 2 && Bought.Escort == 0 && Bought.Spent == 48);
+	Bought = Compose(68, 24, 3, 20);
+	TestTrue(TEXT("68 pays two Lancers and the escort"), Bought.Assault == 2 && Bought.Escort == 1 && Bought.Spent == 68);
 	Bought = Compose(23, 24, 3, 20);
-	TestTrue(TEXT("A budget under a Lancer buys the escort alone"), Bought.Assault == 0 && Bought.Escort == 1);
+	TestTrue(TEXT("A cap under a Lancer pays the escort alone"), Bought.Assault == 0 && Bought.Escort == 1 && Bought.Spent == 20);
 	Bought = Compose(-50, 24, 3, 20);
-	TestEqual(TEXT("A budget below zero buys nothing"), Bought.Units(), 0);
+	TestTrue(TEXT("A cap below zero pays for nothing"), Bought.Units() == 0 && Bought.Spent == 0);
 	Bought = Compose(260, 0, 3, 20);
-	TestTrue(TEXT("A Lancer that costs nothing is never bought, the escort still is"), Bought.Assault == 0 && Bought.Escort == 1);
+	TestTrue(TEXT("A Lancer that costs nothing is never bought, the escort still is"), Bought.Assault == 0 && Bought.Escort == 1 && Bought.Spent == 20);
 	Bought = Compose(260, 24, 3, 0);
-	TestTrue(TEXT("An escort that costs nothing is never bought"), Bought.Assault == 3 && Bought.Escort == 0);
+	TestTrue(TEXT("An escort that costs nothing is never bought"), Bought.Assault == 3 && Bought.Escort == 0 && Bought.Spent == 72);
 	TestEqual(TEXT("A squad size of zero buys no Lancers"), Compose(260, 24, 0, 20).Assault, 0);
+	return true;
+}
+
+bool FJevThreatCellTest::RunTest(const FString&)
+{
+	// An ordinary Attack plan arrives at 50 s and a cut plan at 70 s, both on region 3; a second cut plan alone on region 8.
+	JevIntent::FPlanView Ordinary, Cut, Lone;
+	Ordinary.Ticket = 1;
+	Ordinary.Verb = JevPlanner::EVerb::Attack;
+	Ordinary.Target = 3;
+	Ordinary.EtaSeconds = 50.f;
+	Cut = Ordinary;
+	Cut.Ticket = 2;
+	Cut.EtaSeconds = 70.f;
+	Cut.bCut = true;
+	Lone = Cut;
+	Lone.Ticket = 3;
+	Lone.Target = 8;
+	const JevIntent::FPlanView Plans[] = { Cut, Ordinary, Lone };
+	JevIntent::FTimeline Timeline;
+	JevIntent::BuildTimeline(Plans, JevIntent::FReleaseView(), 0.f, Timeline);
+	TestTrue(TEXT("Only the cut plans' cells carry the threat's tag"),
+		Timeline.Num() == 3 && !Timeline[0].bCut && Timeline[1].bCut && Timeline[2].bCut);
+	JevIntent::FBadges Badges;
+	JevIntent::BuildBadges(Plans, 0.f, Badges);
+	TestTrue(TEXT("A region's badge is the soonest plan's: the ordinary one on 3, the cut one on 8"),
+		Badges.Num() == 2 && Badges[0].Region == 3 && !Badges[0].bCut && Badges[1].Region == 8 && Badges[1].bCut);
+	TestEqual(TEXT("The cell reads SPLIT-BRAIN CUT"), FString(JevThreat::CellTag), FString(TEXT("SPLIT-BRAIN CUT")));
 	return true;
 }
 

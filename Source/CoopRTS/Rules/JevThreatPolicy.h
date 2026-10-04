@@ -4,11 +4,12 @@
 #include "JevPlanner.h"
 #include "JevReleasePolicy.h"
 
-// Split-Brain Cut, JEV's first two-commander threat (decision X1; docs: Design/battle.md, Design/jev.md). At v2.0 JEV
-// sends two extra free assault forces at once to two authored, non-adjacent human supply necks, each funded with half
-// the v2.0 wave budget, on top of the normal v2.0 wave. Both plans are published 30 s ahead. With one human it sends
-// one force. Everything here is pure: the schedule, the authored pairs, the pair and target choice, the budget and the
-// composition. The executor (EnemyCommanderWave.cpp, EnemyCommanderRelease.cpp) applies it.
+// Split-Brain Cut, JEV's first two-commander threat (decision X1 as amended; docs: Design/battle.md, Design/jev.md). At
+// v2.0 JEV sends two extra free assault forces at once to two authored, non-adjacent human supply necks, on top of the
+// normal v2.0 wave. Each force is the threat's tuned composition, capped at half the v2.0 wave budget times the player-count
+// factor. Both plans are published 30 s ahead. With one human it sends one force. Everything here is pure: the schedule,
+// the authored pairs, the pair and target choice, the cap and the composition. The executor (EnemyCommanderWave.cpp,
+// EnemyCommanderRelease.cpp) applies it.
 namespace JevThreat
 {
 // The release the threat rides on (v2.0) and the commanders it needs for two targets.
@@ -18,14 +19,18 @@ constexpr int32 MaxTargets = 2;
 constexpr int32 MaxPairs = 8;
 constexpr float LeadSeconds = JevRelease::TimelineLeadSeconds;
 // A cut force is JEV's assault squad: one full squad of the Assault unit (the Lancer, three) with a Frontline escort of
-// EscortUnits (one Brawler). The mix is the strength tuned so that one full Brawler squad (six, tier 1) holding a neck
-// loses it without Fortify and keeps it with Fortify; the measured sweep is in Docs/Design/battle.md. The funded budget is
-// a ceiling that buys whole units.
+// EscortUnits (one Brawler), 92 Power at today's costs. The mix is the strength tuned so that one full Brawler squad (six,
+// tier 1) holding a neck loses it without Fortify and keeps it with Fortify; the measured sweep is in
+// Docs/Design/battle.md.
 constexpr int32 EscortUnits = 1;
 // What the threat is called on the timeline, in the feed and in the log.
 inline constexpr const TCHAR* Name = TEXT("Split-Brain Cut");
 // The announcer event raised when the plans are published (Rules/AnnouncerPolicy).
 inline constexpr const TCHAR* AnnouncerId = TEXT("split_brain_cut");
+// The same with one target, so the line does not speak of necks in the plural.
+inline constexpr const TCHAR* SoloAnnouncerId = TEXT("split_brain_cut_solo");
+// What a cut plan's timeline cell reads in place of its verb.
+inline constexpr const TCHAR* CellTag = TEXT("SPLIT-BRAIN CUT");
 // An authored pair k tags both of its region actors "SplitBrain.k" (Build/GenerateAvailabilityZoneV2.py).
 inline constexpr const TCHAR* TagPrefix = TEXT("SplitBrain.");
 
@@ -53,8 +58,9 @@ EStep NextStep(EStage Stage, float MatchSeconds);
 
 // Forces sent: two with two or more human commanders, else one.
 int32 TargetCount(int32 HumanCommanders);
-// The budget of one cut force: half the v2.0 wave budget for these commanders.
-int32 ForceBudget(int32 HumanCommanders);
+// The cap on one cut force: half the v2.0 wave budget for these commanders, player-count factor included. It limits the
+// tuned force and never grows it.
+int32 BudgetCap(int32 HumanCommanders);
 
 struct FPair
 {
@@ -111,13 +117,16 @@ struct FTargets
 // nearer their main, else A.
 FTargets ChooseTargets(const JevPlanner::FWorld& World, const FPair& Pair, int32 HumanCommanders);
 
-// What one cut force buys with Budget: Lancers first, up to AssaultSquad (the catalogue squad size), then the escort from
-// what is left. Whatever the budget does not buy is not carried. A unit that costs nothing is never bought.
+// What one cut force is: the tuning rule's force (one full squad of the Assault unit, then the escort), cut down only when
+// Cap cannot pay for it, Lancers first. The cap never forces extra units, so a richer cap changes nothing, and whatever
+// goes unspent is not carried. A unit that costs nothing is never bought.
 struct FComposition
 {
 	int32 Assault = 0;
 	int32 Escort = 0;
+	// The Power-equivalent the units cost: what the force really spends, at most Cap.
+	int32 Spent = 0;
 	int32 Units() const { return Assault + Escort; }
 };
-FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost);
+FComposition Compose(int32 Cap, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost);
 }

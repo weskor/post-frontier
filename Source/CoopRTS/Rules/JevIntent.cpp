@@ -119,6 +119,7 @@ void BuildTimeline(TConstArrayView<FPlanView> Plans, const FReleaseView& Release
 		Entry.SizeBand = Plan.SizeBand;
 		Entry.Seconds = EtaRemaining(Plan, Now);
 		Entry.bEscalated = Plan.bEscalated;
+		Entry.bCut = Plan.bCut;
 	}
 	Out.Sort([](const FTimelineEntry& A, const FTimelineEntry& B) {
 		if (A.Seconds != B.Seconds)
@@ -158,6 +159,7 @@ void BuildBadges(TConstArrayView<FPlanView> Plans, float Now, FBadges& Out)
 			Badge->Seconds = Seconds;
 			Badge->Ticket = Plan.Ticket;
 			Badge->Verb = Plan.Verb;
+			Badge->bCut = Plan.bCut;
 		}
 	}
 	Out.Sort([](const FRegionBadge& A, const FRegionBadge& B) { return A.Region < B.Region; });
