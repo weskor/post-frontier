@@ -46,6 +46,16 @@ void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<Planning
 	}
 }
 
+// A free deposit within Clearance of Location in the plane.
+bool CrowdsFreeDeposit(const ACommandGameState& State, const FVector& Location, float Clearance)
+{
+	for (const ADepositSite* Deposit : State.Deposits)
+		if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
+			&& FVector::DistSquared2D(Location, Deposit->GetActorLocation()) < FMath::Square(Clearance))
+			return true;
+	return false;
+}
+
 int32 SlotOf(const FPlanningKit& Kit)
 {
 	return IsValid(Kit.Commander) ? Kit.Commander->CommanderIndex : INDEX_NONE;
@@ -57,6 +67,15 @@ bool GameStatePlanning::NavigationReady(UWorld* World)
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 	return !Navigation || !Navigation->GetDefaultNavDataInstance(FNavigationSystem::DontCreate)
 		|| !Navigation->IsNavigationBuildInProgress();
+}
+
+// Kits stand on the navmesh, which only builds and updates while its system ticks; a paused world stops that
+// unless the system is told otherwise. The flag is protected, so it is set by reflection.
+static void SetNavigationTicksWhilePaused(UWorld* World, bool bTicks)
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+	if (const FBoolProperty* Flag = Navigation ? FindFProperty<FBoolProperty>(UNavigationSystemV1::StaticClass(), TEXT("bTickWhilePaused")) : nullptr)
+		Flag->SetPropertyValue_InContainer(Navigation, bTicks);
 }
 
 float ACommandGameState::GetBattleClockStartServerTime() const
@@ -93,6 +112,7 @@ void ACommandGameState::BeginPlanning()
 		Commander->ResetForNewMatch();
 	EnemyCommander->ResetForNewMatch();
 	ReconcilePlanningRoster();
+	SetNavigationTicksWhilePaused(World, true);
 	SyncWorldPause(nullptr);
 	ForceNetUpdate();
 }
@@ -175,8 +195,11 @@ bool ACommandGameState::PlaceDefaultBarracks(FPlanningKit& Kit)
 	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Team);
 	if (!Home)
 		return false;
-	// Rings around the headquarters, mirrored with the side; the first legal spot wins.
+	// Rings around the headquarters, mirrored with the side; the first legal spot wins. A spot that would crowd a
+	// free deposit is skipped, so a later Drill Rig still fits (as JEV's own placement does).
 	const float Orientation = Team == 5 ? -1.f : 1.f;
+	const UBuildingDefinition* Barracks = Content->Building(FirstBuildingWith(*Content, &UBuildingDefinition::bProducesForces));
+	const float Clearance = Barracks ? Barracks->FootprintRadius * UE_SQRT_2 + 200.f : 0.f;
 	FString Reason;
 	for (int32 Ring = 0; Ring < 9; ++Ring)
 		for (int32 Direction = 0; Direction < 32; ++Direction)
@@ -185,7 +208,8 @@ bool ACommandGameState::PlaceDefaultBarracks(FPlanningKit& Kit)
 			FVector Location = Home->GetActorLocation()
 				+ FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * ((380.f + Ring * 160.f) * Orientation);
 			Location.Z = 5.f;
-			if (PlaceKitPiece(Kit, false, Location, Reason))
+			const bool bCrowds = CrowdsFreeDeposit(*this, Location, Clearance);
+			if (!bCrowds && PlaceKitPiece(Kit, false, Location, Reason))
 				return true;
 		}
 	return false;
@@ -303,7 +327,8 @@ void ACommandGameState::EndPlanning(EPlanningEnd Reason)
 			DestroyKit(Kit);
 		for (ACommandPlayerState* Commander : FGameStateEconomy::Roster(*this))
 			Commander->Resources = GameStatePlanning::FixtureStartingResources;
-		EnemyCommander->Resources = GameStatePlanning::FixtureStartingResources;
+		if (IsValid(EnemyCommander))
+			EnemyCommander->Resources = GameStatePlanning::FixtureStartingResources;
 #endif
 	}
 	else
@@ -315,6 +340,7 @@ void ACommandGameState::EndPlanning(EPlanningEnd Reason)
 	++PlanningEndCount;
 	if (Reason != EPlanningEnd::Fixture)
 		BattleClockStartServerTime = GetServerWorldTimeSeconds();
+	SetNavigationTicksWhilePaused(GetWorld(), false);
 	SyncWorldPause(nullptr);
 	if (Reason != EPlanningEnd::Fixture)
 		StartKitForces();
@@ -350,6 +376,8 @@ void ACommandGameState::StartKitForces()
 }
 
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+bool ACommandGameState::bPlanningHeldByTest = false;
+
 void ACommandGameState::CompletePlanningForHarness(bool bWithKits)
 {
 	if (!Planning.bActive || bPlanningHeldByTest)

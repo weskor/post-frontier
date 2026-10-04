@@ -74,6 +74,7 @@ file-length = [
     "Tools/harness/hud_*.py", "Tools/harness/verify.py", "Tools/harness/network_desktop.py",
     "Tools/harness/verification_readiness.py",
     "Build/ContentText.py", "Build/GenerateGameplayConstants.py", "Build/GenerateMatchContent.py",
+    "Source/CoopRTS/Commands/PlanningCommands.*", "Source/CoopRTS/Planning*", "Source/CoopRTS/ArmyTestSetup.h",
 ]
 function-length = [
     "Source/CoopRTS/HUD/**", "Source/CoopRTS/CommandHUD.*",
@@ -102,6 +103,7 @@ function-length = [
     "Tools/harness/simulate_matches.py", "Tools/harness/simulation_*.py",
     "Tools/harness/hud_*.py", "Tools/harness/verification_readiness.py",
     "Build/ContentText.py", "Build/GenerateGameplayConstants.py", "Build/GenerateMatchContent.py",
+    "Source/CoopRTS/Commands/PlanningCommands.*", "Source/CoopRTS/Planning*", "Source/CoopRTS/ArmyTestSetup.h",
 ]
 format = [
     "Source/**/*.h", "Source/**/*.cpp", "Tools/x/**/*.py", "Tools/tests/**/*.py", "Tools/harness/**/*.py", "x",
@@ -145,6 +147,7 @@ identifiers = [
     "ArmyTestSetup", "IMPLEMENT_SIMPLE_AUTOMATION_TEST", "IMPLEMENT_COMPLEX_AUTOMATION_TEST",
     "CoopRTSNetworkVerification", "VerifySession", "VerifySteamSession",
     "bVerifyPendingRejection", "FindActionScreenPosition", "SpawnUnits", "InitialUnitCount",
+    "CompletePlanningForHarness", "bPlanningHeldByTest", "FixtureStartingResources",
 ]
 flags = [
     "autopilot", "SimDuel", "SimSeed", "SimHumanBaseline", "SimJevBaseline", "SimNormalRate", "SimRichRate",

@@ -308,6 +308,26 @@ kind = "automation"
 filter = "CoopRTS.Pause"
 map = "default"
 
+[scopes.planning-phase]
+kind = "automation"
+filter = "CoopRTS.Planning.Phase"
+map = "default"
+
+[scopes.planning-expiry]
+kind = "automation"
+filter = "CoopRTS.Planning.Expiry"
+map = "default"
+
+[scopes.planning-kit]
+kind = "automation"
+filter = "CoopRTS.Planning.Kit"
+map = "default"
+
+[scopes.planning-restart]
+kind = "automation"
+filter = "CoopRTS.Planning.Restart"
+map = "default"
+
 [scopes.pause-network]
 kind = "script"
 commands = [
@@ -895,3 +915,19 @@ rendered = true
 "Source/CoopRTS/BranchContentTests.cpp" = ["branch"]
 "Build/Content/units.json" = ["branch", "branch-card", "tools"]
 "Source/CoopRTS/MatchSimulationDuelRunner.cpp" = ["branch"]
+
+# Planning phase: the rules, the four world scopes and the runtime they exercise (entries are unioned).
+"Source/CoopRTS/PlanningRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/Rules/PlanningPolicy.*" = ["rules", "planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/PlanningFixture.*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/PlanningPhaseTests.cpp" = ["planning-phase"]
+"Source/CoopRTS/PlanningExpiryTests.cpp" = ["planning-expiry"]
+"Source/CoopRTS/PlanningKitTests.cpp" = ["planning-kit"]
+"Source/CoopRTS/PlanningRestartTests.cpp" = ["planning-restart"]
+"Source/CoopRTS/ArmyTestSetup.[h]" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/CommandGameState.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/MatchTelemetry.cpp" = ["planning-phase"]

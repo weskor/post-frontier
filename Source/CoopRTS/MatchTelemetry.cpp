@@ -187,9 +187,14 @@ void UMatchTelemetry::RecordAccepted(ACommandPlayerState* Player, EMatchDecision
 
 double UMatchTelemetry::GetBattleSeconds() const
 {
-	return bFlushed  ? EndedBattleSeconds
-		: GetWorld() ? FMath::Max(0., static_cast<double>(GetWorld()->GetTimeSeconds()) - StartedSimulationSeconds)
-					 : 0.;
+	if (bFlushed)
+		return EndedBattleSeconds;
+	if (!GetWorld())
+		return 0.;
+	// 0:00 is the end of planning (the same clock JEV's schedule reads); before it, the battle has not started.
+	const ACommandGameState* State = Cast<ACommandGameState>(GetOwner());
+	const double Start = State ? State->GetBattleClockStartServerTime() : StartedSimulationSeconds;
+	return FMath::Max(0., static_cast<double>(GetWorld()->GetTimeSeconds()) - Start);
 }
 
 void UMatchTelemetry::FlushMatch()

@@ -273,8 +273,8 @@ public:
 	// Ends an active planning phase at once as a harness would: the legacy start (no kit, 600 Power) for a
 	// fixture, or all Ready with default kits when bWithKits. A no-op once planning is over.
 	void CompletePlanningForHarness(bool bWithKits);
-	// A planning test keeps the automation net from completing its phase.
-	bool bPlanningHeldByTest = false;
+	// A planning test keeps the harness from completing planning, in this world and after a restart.
+	static bool bPlanningHeldByTest;
 #endif
 private:
 	friend class FCommandService;

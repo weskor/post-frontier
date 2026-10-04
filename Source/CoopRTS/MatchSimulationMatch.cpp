@@ -20,6 +20,8 @@ bool FMatchSimulation::StartMatch(ACommandGameState& State)
 	if (!FindMatchActors(State) || !SpawnAutopilot())
 		return false;
 	StartWorldTime = GetWorld()->GetTimeSeconds();
+	// Planning ran before this tick on the game state's harness net; the match clock starts after it.
+	Report->SetNumberField(TEXT("planning_seconds"), State.GetPlanningSeconds());
 	if (FSimulationSettings::Get().Scenario == ESimulationScenario::Rush)
 	{
 		const AMapRegion* Target = State.FindRegionAt(State.EnemyHeadquarters->GetActorLocation());
