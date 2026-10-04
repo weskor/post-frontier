@@ -84,6 +84,23 @@ static void DrawUpgradePill(const FPainter& Paint, const FRect& Inspector)
 	Paint.TextIn(TEXT("UPGRADING"), Pill, 9.f, Palette::Warn, true, EAlign::Center);
 }
 
+static void DrawRallyColumn(const FPainter& Paint, const FContext& Context, const FRect& Rally)
+{
+	ColumnLabel(Paint, Rally, TEXT("RALLY POINT"));
+	const AMapRegion* RallyRegion = nullptr;
+	if (Context.State)
+		for (const AMapRegion* Region : Context.State->Regions)
+			if (IsValid(Region) && Region->RegionIndex == Context.Building->RallyRegionIndex)
+			{
+				RallyRegion = Region;
+				break;
+			}
+	Paint.Text(RallyRegion ? RallyRegion->DisplayName.ToString() : TEXT("Own region by default"),
+		Rally.X, Row(Rally, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Rally.W);
+	Paint.DrawKey(Rally.X, Row(Rally, 1).Y, TEXT("RMB"), TEXT("Set rally region"));
+	Paint.Text(TEXT("Select force to give orders"), Rally.X, Row(Rally, 2).Y, 9.f, Palette::Muted, false, EAlign::Left, Rally.W);
+}
+
 static void DrawProductionInspector(const FPainter& Paint, const FContext& Context, const FRect& Inspector, const FLinearColor& Accent, FStringView Title, FStringView Subtitle, int32 Owner)
 {
 	const ACommandBuilding* Building = Context.Building;
@@ -112,19 +129,7 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	TStringBuilder<32> ForceCounts;
 	ForceCounts.Appendf(TEXT("joined %d/%d"), Joined, Capacity);
 	ColumnLabel(Paint, Production, TEXT("FORCE"), ForceCounts.ToView());
-	ColumnLabel(Paint, Rally, TEXT("RALLY POINT"));
-	const AMapRegion* RallyRegion = nullptr;
-	if (Context.State)
-		for (const AMapRegion* Region : Context.State->Regions)
-			if (IsValid(Region) && Region->RegionIndex == Building->RallyRegionIndex)
-			{
-				RallyRegion = Region;
-				break;
-			}
-	Paint.Text(RallyRegion ? RallyRegion->DisplayName.ToString() : TEXT("Own region by default"),
-		Rally.X, Row(Rally, 0).Y, 10.f, Palette::Text, true, EAlign::Left, Rally.W);
-	Paint.DrawKey(Rally.X, Row(Rally, 1).Y, TEXT("RMB"), TEXT("Set rally region"));
-	Paint.Text(TEXT("Select force to give orders"), Rally.X, Row(Rally, 2).Y, 9.f, Palette::Muted, false, EAlign::Left, Rally.W);
+	DrawRallyColumn(Paint, Context, Rally);
 
 	const FRect Progress = Row(Production, 0);
 	const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);

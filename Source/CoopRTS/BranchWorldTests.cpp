@@ -48,8 +48,7 @@ protected:
 			return true;
 		Producer->StunEndServerTime = -1.;
 
-		if (!Buy() || !Check(Wallet->Resources == 9900 && Wallet->Data == 150 && Producer->IsUpgrading() && Producer->Branch.ProgressSeconds == 0.f,
-				TEXT("The purchase spends exactly 100 Power and 50 Data and starts the upgrade")))
+		if (!Buy() || !Check(Wallet->Resources == 9900 && Wallet->Data == 150 && Producer->IsUpgrading() && Producer->Branch.ProgressSeconds == 0.f, TEXT("The purchase spends exactly 100 Power and 50 Data and starts the upgrade")))
 			return true;
 		Check(Reject() == TEXT("Already upgrading") && Untouched(9900, 150), TEXT("A second purchase during the upgrade spends nothing"));
 		Producer->Branch = { EBranchPhase::Done, BranchPolicy::UpgradeSeconds };
@@ -79,8 +78,7 @@ protected:
 		switch (Stage)
 		{
 		case 2:
-			if (!Buy() || !Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, true).IsAccepted(),
-					TEXT("Production is enabled while the upgrade runs")))
+			if (!Buy() || !Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, true).IsAccepted(), TEXT("Production is enabled while the upgrade runs")))
 				return true;
 			Paid = Wallet->Resources;
 			SetStage(3);
@@ -100,7 +98,7 @@ private:
 		const double Elapsed = StageSeconds();
 		if (Producer->IsUpgrading())
 			return !Check(Elapsed < 20.4 && Producer->ProductionProgressSeconds == 0.f && Force->GetPendingRecruitCount() == 0
-						&& Producer->GetProductionState() == EProductionState::Paused && Wallet->Resources == Paid,
+					&& Producer->GetProductionState() == EProductionState::Paused && Wallet->Resources == Paid,
 				TEXT("Production does not progress or pay while the building upgrades"));
 		if (!Check(Elapsed >= 19.8 && Elapsed <= 20.4 && Producer->Branch.Phase == EBranchPhase::Done && Producer->Branch.ProgressSeconds == BranchPolicy::UpgradeSeconds,
 				TEXT("The upgrade takes 20 s")))

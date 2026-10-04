@@ -97,7 +97,7 @@ void DrawBranchButton(const FPainter& Paint, const FContext& Context, const FBut
 	}
 	else
 		BranchPolicy::AppendReason(Line, Decision);
-	const FLinearColor LineColor = bReady ? Palette::Gold
+	const FLinearColor LineColor = bReady                           ? Palette::Gold
 		: Decision.Verdict == BranchPolicy::EVerdict::NeedResources ? Palette::Warn
 																	: Palette::Faint;
 	Paint.Text(Line.ToView(), Rect.X + 9.f, Rect.Y + 17.f, 8.5f, LineColor, false, EAlign::Left, Rect.W - 14.f);

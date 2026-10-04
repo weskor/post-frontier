@@ -7,6 +7,8 @@
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchEligibilityTest, "CoopRTS.Rules.Branch.Eligibility",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchPreconditionsTest, "CoopRTS.Rules.Branch.Preconditions",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchUpgradeTest, "CoopRTS.Rules.Branch.Upgrade",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBranchRefitQueueTest, "CoopRTS.Rules.Branch.RefitQueue",
@@ -96,6 +98,11 @@ bool FBranchEligibilityTest::RunTest(const FString& Parameters)
 	Rich.Power = 5000;
 	Rich.Data = 5000;
 	TestTrue(TEXT("More than the price is accepted"), Evaluate(Rich).IsAccepted());
+	return true;
+}
+
+bool FBranchPreconditionsTest::RunTest(const FString& Parameters)
+{
 
 	FInput Foreign = Ready();
 	Foreign.bOwner = false;
