@@ -17,12 +17,6 @@
 # they are produced by manual `./x gen` runs and imported by the entries below.
 
 [[generated]]
-name = "match-content"
-gen = ["generate-match-content"]
-sources = ["Build/GenerateMatchContent.py", "Build/ContentText.py", "Build/Content/**"]
-outputs = ["Content/Units/**", "Content/Content/**"]
-
-[[generated]]
 name = "shared-material"
 gen = ["build-shared-material"]
 sources = ["Build/BuildSharedMaterial.py", "Build/ArtMaterials.py", "Art/Textures/**/*.jpg"]
@@ -46,6 +40,13 @@ name = "building-meshes"
 gen = ["import-building-meshes"]
 sources = ["Build/ImportBuildingMeshes.py", "Build/ArtMaterials.py", "Art/Buildings/*.fbx"]
 outputs = ["Content/Art/Buildings/**"]
+
+[[generated]]
+# Runs after unit-meshes and building-meshes: the definitions reference their imported meshes.
+name = "match-content"
+gen = ["generate-match-content"]
+sources = ["Build/GenerateMatchContent.py", "Build/ContentText.py", "Build/Content/**"]
+outputs = ["Content/Units/**", "Content/Content/**"]
 
 [[generated]]
 name = "environment-kit"
