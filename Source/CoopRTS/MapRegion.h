@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Rules/RegionTraitPolicy.h"
 #include "MapRegion.generated.h"
 
 class ACapturePoint;
@@ -24,6 +25,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	bool Contains(const FVector& WorldLocation) const;
 	const TArray<FVector>& GetDefendPosts() const { return DefendPosts; }
+	ERegionTrait GetTrait() const { return Trait; }
 
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	int32 RegionIndex = INDEX_NONE;
@@ -41,4 +43,7 @@ public:
 	TArray<int32> Neighbours;
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
 	TObjectPtr<ACapturePoint> Anchor;
+	// What the region does to units standing inside it; the map generator sets it by name.
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Territory")
+	ERegionTrait Trait = ERegionTrait::None;
 };

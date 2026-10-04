@@ -23,13 +23,13 @@ A full barracks of each type was worth very different amounts. Before the step 1
 |---|---|---|
 | Light | Unarmored, fast, cheap | Kinetic |
 | Heavy | Armor plating, slow, high HP | Piercing |
-| Shielded [New] | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
+| Shielded [Built] | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
 | Structure | Buildings and HQs | Demolition |
 
 - **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the [damage pipeline](#damage-pipeline-change) orders the class bonus against every other modifier. EMP has no HP bonus against any class; its shield rule is below.
 - **Targeting [Built]:** follows the rule in [forces.md](forces.md). That topic owns explicit-target priority, retained-target lifetime, automatic acquisition and the pending force-card presentation.
 - **Artillery splash [Built]:** each impact damages hostile units, buildings and HQs within 200 cm in the ground plane. Damage falls linearly from 100% at the centre to 50% at the inclusive edge, with no damage outside. Each victim's class bonus applies before falloff. Allies are never hit.
-- **Shields [New] — decided:**
+- **Shields [Built] — decided:**
   - Shield points absorb damage before HP.
   - Any damage taken, to shield or HP, and any Scrambler pulse restarts the **4 s** regen delay. Regen is **10% of max shield per second** with fractional carry, capped at max (carry and pulse restart: starting value, orchestrator 2026-10-04).
   - **EMP deals ×2 to shield points**; this replaces EMP's ×1.5 class bonus. EMP is "strong against" Shielded for target preference, and has no HP bonus against any class (starting value, orchestrator 2026-10-04).
@@ -45,9 +45,9 @@ One shared policy orders every modifier. Each hit runs these steps in order (sta
 2. **Outgoing multipliers:** class bonus, splash falloff and Workshop modifiers.
 3. **Incoming multipliers:** region Cover ([map.md](map.md#region-traits-new--decided)), Fortify ([commanders.md](commanders.md)) and Entrenched Frontline. They multiply together.
 4. **Shield absorption:** shield damage is the damage × 2 for EMP and × 1 otherwise. Excess shield damage converts back to HP damage, divided by the same factor.
-5. **HP:** truncated per the existing rule.
+5. **HP:** the remainder after shield absorption.
 
-Today [Built] fractional HP truncates before the Workshop modifiers. The order above moves truncation to the end.
+[Built] Every fractional step still truncates where it did before (falloff, Workshop, the combined incoming multiplier), so today's units deal and take identical damage; only the shield step is new, and it works in whole points.
 
 ## Unit rules — decided
 

@@ -14,6 +14,8 @@ enum class EUnitRole : uint8
 	Frontline,
 	Ranged,
 	Siege,
+	Assault,
+	Support,
 	Unset UMETA(Hidden)
 };
 
@@ -61,6 +63,16 @@ public:
 	EArmorClass ArmorClass = EArmorClass::Unset;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	EDamageType DamageType = EDamageType::Unset;
+	// Shield points above HP; 0 = no shield. Regenerates per ShieldPolicy.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	int32 MaxShield = 0;
+	// Automatic pulse (Scrambler): 0 interval = no pulse. Strips hostile shields and stuns hostile buildings in the radius.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pulse")
+	float PulseInterval = 0.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pulse")
+	float PulseRadius = 0.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pulse")
+	float PulseBuildingStunSeconds = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement")
 	float MoveSpeed = 0.f;
 };

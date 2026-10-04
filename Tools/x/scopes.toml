@@ -321,6 +321,21 @@ filter = "CoopRTS.HUD.ForceBar"
 map = "default"
 rendered = true
 
+[scopes.shields]
+kind = "automation"
+filter = "CoopRTS.Combat.Shield"
+map = "default"
+
+[scopes.pulse-stun]
+kind = "automation"
+filter = "CoopRTS.Combat.Pulse"
+map = "default"
+
+[scopes.region-traits]
+kind = "automation"
+filter = "CoopRTS.Combat.Traits"
+map = "default"
+
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
 "*.md" = ["lint"]
@@ -681,3 +696,24 @@ rendered = true
 "Source/CoopRTS/CommandPlayerControllerForceBar.cpp" = ["force-bar"]
 "Source/CoopRTS/HUD/Layout*" = ["force-bar"]
 "Source/CoopRTS/HUD/ForceCardText.cpp" = ["force-bar"]
+
+# Shields, pulse, stun and region traits: pure rules plus world fixtures on real units and buildings.
+"Source/CoopRTS/DamageRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/ShieldRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/RegionTraitRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/CombatTraitFixture.h" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/ArmyShieldTests.cpp" = ["shields"]
+"Source/CoopRTS/ArmyPulseTests.cpp" = ["pulse-stun"]
+"Source/CoopRTS/ArmyRegionTraitTests.cpp" = ["region-traits"]
+"Source/CoopRTS/Rules/DamagePolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Rules/ShieldPolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Rules/RegionTraitPolicy.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "simulation-duel", "shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/ArmyUnitShield.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit", "simulation-duel", "shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/ArmyUnitRegion.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy", "pursuit", "simulation-duel", "shields", "pulse-stun", "region-traits"]
+# Existing runtime files these fixtures exercise; matching entries are unioned.
+"Source/CoopRTS/ArmyUnit.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/CommandBuilding.[ch]*" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Headquarters.[ch]*" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/MapRegion.[ch]*" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Content/UnitDefinition.[h]" = ["shields", "pulse-stun", "region-traits"]
+"Source/CoopRTS/Rules/CombatPolicy.[ch]*" = ["simulation-duel", "shields", "pulse-stun", "region-traits"]

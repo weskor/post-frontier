@@ -14,7 +14,7 @@ bool FCounterMatrixTest::RunTest(const FString& Parameters)
 {
 	const EArmorClass Armors[] = { EArmorClass::Light, EArmorClass::Heavy, EArmorClass::Shielded, EArmorClass::Structure };
 	const EDamageType Types[] = { EDamageType::Kinetic, EDamageType::Piercing, EDamageType::Demolition, EDamageType::EMP };
-	// Independent matrix: EMP's shield behavior is not an HP class bonus.
+	// Independent matrix: EMP is preferred against Shielded but deals no HP bonus.
 	const int32 Expected[][4] = {
 		{ 60, 40, 40, 40 },
 		{ 40, 60, 40, 40 },
@@ -26,8 +26,8 @@ bool FCounterMatrixTest::RunTest(const FString& Parameters)
 		{
 			const FString Label = FString::Printf(TEXT("Damage type %d against armor %d"), Type, Armor);
 			TestEqual(Label, CombatPolicy::Damage(40, Types[Type], Armors[Armor]), Expected[Type][Armor]);
-			TestEqual(Label + TEXT(" bonus classification"), CombatPolicy::IsStrongAgainst(Types[Type], Armors[Armor]),
-				Expected[Type][Armor] == 60);
+			TestEqual(Label + TEXT(" preference"), CombatPolicy::IsStrongAgainst(Types[Type], Armors[Armor]),
+				Expected[Type][Armor] == 60 || (Types[Type] == EDamageType::EMP && Armors[Armor] == EArmorClass::Shielded));
 		}
 	TestEqual(TEXT("Half HP from an odd boosted hit truncates"), CombatPolicy::Damage(15, EDamageType::Kinetic, EArmorClass::Light), 22);
 	TestEqual(TEXT("Zero damage stays zero"), CombatPolicy::Damage(0, EDamageType::Demolition, EArmorClass::Structure), 0);

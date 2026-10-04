@@ -76,6 +76,7 @@ void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InComma
 	UnitRole = Definition->Role;
 	GetCharacterMovement()->MaxWalkSpeed = Definition->MoveSpeed;
 	Health = MaxHealth();
+	Shield = MaxShield();
 	bReinforcing = bInReinforcing;
 }
 
@@ -87,6 +88,8 @@ void AArmyUnit::BeginPlay()
 	bDeathAudioPlayed = Health <= 0;
 	bAudioStateInitialized = true;
 	OnRep_Appearance();
+	if (HasAuthority())
+		RefreshRegion();
 }
 void AArmyUnit::Tick(float DeltaSeconds)
 {
@@ -120,6 +123,9 @@ void AArmyUnit::Tick(float DeltaSeconds)
 			if (Health >= MaxHealth())
 				HealAccumulator = 0.f;
 		}
+		TickShield(DeltaSeconds);
+		TickRegion(DeltaSeconds);
+		TickPulse();
 	}
 }
 
@@ -193,6 +199,20 @@ int32 AArmyUnit::MaxHealth() const
 	return Definition ? Definition->MaxHealth : 0;
 }
 
+int32 AArmyUnit::MaxShield() const
+{
+	return Definition ? Definition->MaxShield : 0;
+}
+
+void AArmyUnit::StripShield()
+{
+	if (!HasAuthority() || !IsAlive())
+		return;
+	Shield = 0;
+	ShieldPolicy::RestartRegen(ShieldClock);
+	ForceNetUpdate();
+}
+
 EArmyDoctrine AArmyUnit::GetDoctrine() const
 {
 	return IsValid(Group) ? Group->GetDoctrine() : EArmyDoctrine::None;
@@ -206,7 +226,10 @@ void AArmyUnit::ResetRepairTimer()
 
 float AArmyUnit::WeaponRange() const
 {
-	return Definition ? Definition->Range * (UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics ? 1.25f : 1.f) : 0.f;
+	if (!Definition)
+		return 0.f;
+	const float Doctrine = UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics ? 1.25f : 1.f;
+	return Definition->Range * Doctrine * RegionTraitPolicy::RangeMultiplier(GetRegionTrait());
 }
 
 float AArmyUnit::AttackInterval() const
@@ -260,13 +283,18 @@ void AArmyUnit::FireAt(AActor* Victim)
 		const float DistanceSquared = FVector::DistSquared2D(Impact, Other->GetActorLocation());
 		if (UnitRole == EUnitRole::Siege && DistanceSquared > FMath::Square(CombatPolicy::ArtillerySplashRadius))
 			return;
-		int32 Damage = CombatPolicy::Damage(Definition->AttackDamage, GetDamageType(), CombatTarget::ArmorClass(Other));
+		DamagePolicy::FOutgoing Outgoing;
+		Outgoing.Base = Definition->AttackDamage;
+		Outgoing.Type = GetDamageType();
+		Outgoing.Armor = CombatTarget::ArmorClass(Other);
 		if (UnitRole == EUnitRole::Siege)
-			Damage = CombatPolicy::SplashDamage(Damage, FMath::Sqrt(DistanceSquared));
-		// Apply each victim's class bonus and falloff before Workshop tradeoffs.
-		if (UnitRole == EUnitRole::Siege && GetDoctrine() == EArmyDoctrine::SiegeOptics)
-			Damage = Damage * 3 / 4;
-		CombatTarget::ReceiveAttack(Other, Damage, this);
+		{
+			Outgoing.SplashDistance = FMath::Sqrt(DistanceSquared);
+			// Each victim's class bonus and falloff precede the Workshop tradeoff.
+			if (GetDoctrine() == EArmyDoctrine::SiegeOptics)
+				Outgoing.WorkshopMultiplier = DamagePolicy::SiegeOpticsOutgoingMultiplier;
+		}
+		CombatTarget::ReceiveAttack(Other, DamagePolicy::Outgoing(Outgoing), this);
 	};
 	Hit(Victim);
 	if (UnitRole != EUnitRole::Siege)
@@ -295,20 +323,41 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		|| Attacker->TeamIndex == TeamIndex || Damage <= 0)
 		return;
 	ResetRepairTimer();
-	const int32 AppliedDamage = !bReinforcing && UnitRole == EUnitRole::Frontline
-			&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
-			&& IsValid(Group) && Group->Verb == EForceVerb::MoveHold && Group->Status == EForceStatus::Holding
-			&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f)
-		? Damage * 3 / 4
-		: Damage;
-	if (State && AppliedDamage > 0)
+	TArray<float, TInlineAllocator<4>> Incoming;
+	if (!bReinforcing && UnitRole == EUnitRole::Frontline
+		&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
+		&& IsValid(Group) && Group->Verb == EForceVerb::MoveHold && Group->Status == EForceStatus::Holding
+		&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f))
+		Incoming.Add(DamagePolicy::EntrenchedIncomingMultiplier);
+	if (const float Cover = RegionTraitPolicy::IncomingMultiplier(GetRegionTrait()); Cover != 1.f)
+		Incoming.Add(Cover);
+	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), Shield, Incoming);
+	if (State && Result.Any())
 		State->NotifyRegionDamage(this, TeamIndex, Attacker);
-	Health = FMath::Max(0, Health - AppliedDamage);
+	ApplyDurabilityLoss(Result, Attacker);
+}
+
+void AArmyUnit::ReceiveEnvironmentalDamage(int32 Damage)
+{
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (!HasAuthority() || !IsAlive() || (State && State->MatchResult != EMatchResult::Ongoing) || Damage <= 0)
+		return;
+	ResetRepairTimer();
+	ApplyDurabilityLoss(DamagePolicy::Environmental(Damage, Shield), nullptr);
+}
+
+void AArmyUnit::ApplyDurabilityLoss(const DamagePolicy::FResult& Result, const AArmyUnit* Killer)
+{
+	if (Result.Any())
+		ShieldPolicy::RestartRegen(ShieldClock);
+	Shield = FMath::Max(0, Shield - Result.ShieldLoss);
+	Health = FMath::Max(0, Health - Result.HealthLoss);
 	OnRep_Appearance();
 	ForceNetUpdate();
 	if (Health == 0)
 	{
-		UE_LOG(LogTemp, Display, TEXT("Combat death %s role=%d killer=%s"), *GetName(), static_cast<int32>(UnitRole), *Attacker->GetName());
+		UE_LOG(LogTemp, Display, TEXT("Combat death %s role=%d killer=%s"), *GetName(), static_cast<int32>(UnitRole),
+			Killer ? *Killer->GetName() : TEXT("environment"));
 		if (AAIController* AI = Cast<AAIController>(GetController()))
 			AI->StopMovement();
 		if (AController* Controller = GetController())
@@ -337,6 +386,7 @@ void AArmyUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(AArmyUnit, CompositionSlot);
 	DOREPLIFETIME(AArmyUnit, bReinforcing);
 	DOREPLIFETIME(AArmyUnit, Health);
+	DOREPLIFETIME(AArmyUnit, Shield);
 	DOREPLIFETIME(AArmyUnit, Target);
 	DOREPLIFETIME(AArmyUnit, AttackCount);
 }

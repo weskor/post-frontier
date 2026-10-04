@@ -3,11 +3,16 @@
 #include "CoreMinimal.h"
 #include "Content/UnitDefinition.h"
 #include "GameFramework/Character.h"
+#include "Rules/DamagePolicy.h"
+#include "Rules/RegionTraitPolicy.h"
+#include "Rules/ShieldPolicy.h"
 #include "ArmyUnit.generated.h"
 
 class AArmyGroup;
 enum class EArmyDoctrine : uint8;
 class UStaticMeshComponent;
+class AMapRegion;
+class ACommandGameState;
 class UStaticMesh;
 
 UCLASS()
@@ -44,6 +49,15 @@ public:
 	float AttackInterval() const;
 	EArmyDoctrine GetDoctrine() const;
 	bool IsAlive() const { return Health > 0; }
+	int32 GetShield() const { return Shield; }
+	int32 MaxShield() const;
+	// Wipes the shield without HP damage and restarts regen (the Scrambler pulse).
+	void StripShield();
+	// Attacker-independent damage (Hazard): shield first, then HP, no class or incoming multipliers.
+	void ReceiveEnvironmentalDamage(int32 Damage);
+	// Re-reads the region under the unit into the cache; Tick does this on a short clock.
+	void RefreshRegion();
+	ERegionTrait GetRegionTrait() const;
 	// Visual identity only; combat/capture allegiance uses TeamIndex.
 	static FLinearColor GetCommanderColor(int32 InCommanderIndex);
 
@@ -95,6 +109,9 @@ private:
 	// Stable unique slot within the producer's capacity; fixtures retain slots 0..5.
 	UPROPERTY(Replicated)
 	int32 CompositionSlot = -1;
+	// Current shield points; 0 for unshielded units. Regenerates 4 s after the last damage.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	int32 Shield = 0;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army", meta = (AllowPrivateAccess = "true"))
 	bool bReinforcing = false;
 	// Authority-only desired rendezvous and its accepted navigation projection.
@@ -104,11 +121,26 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Army")
 	TObjectPtr<UStaticMeshComponent> Body;
 
+	// Server-only shield state; Shield itself replicates.
+	ShieldPolicy::FShieldClock ShieldClock;
+	// Server-only region cache, refreshed on a short clock rather than per hit or frame.
+	TWeakObjectPtr<const AMapRegion> CurrentRegion;
+	float NextRegionRefreshTime = 0.f;
+	float HazardInsideSeconds = 0.f;
+	double NextPulseReadyAt = 0.;
+	float NextPulseScanTime = 0.f;
+
 	// Local baselines suppress initial replication and repeated appearance notifications.
 	bool bAudioStateInitialized = false;
 	bool bDeathAudioPlayed = false;
 	int32 LastAudioHealth = 0;
 	uint32 LastAudioAttackCount = 0;
+
+	void ApplyDurabilityLoss(const DamagePolicy::FResult& Result, const AArmyUnit* Killer);
+	void TickShield(float DeltaSeconds);
+	void TickRegion(float DeltaSeconds);
+	void TickPulse();
+	void CastPulse(const ACommandGameState& State);
 
 	UFUNCTION()
 	void OnRep_Appearance();

@@ -60,7 +60,8 @@ void AHeadquarters::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		return;
 	const int32 PreviousHealth = Health;
 	State->NotifyRegionDamage(this, TeamIndex, Attacker);
-	Health = FMath::Max(0, Health - Damage);
+	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, {});
+	Health = FMath::Max(0, Health - Result.HealthLoss);
 	OnRep_Appearance();
 	ForceNetUpdate();
 	if (UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(this))

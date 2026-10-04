@@ -89,6 +89,21 @@ int32 ACommandBuilding::MaxHealth() const
 	return Definition ? Definition->MaxHealth : 0;
 }
 
+bool ACommandBuilding::IsStunned() const
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	return State && ShieldPolicy::IsStunned(State->GetServerWorldTimeSeconds(), StunEndServerTime);
+}
+
+void ACommandBuilding::ApplyStun(float Seconds)
+{
+	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	if (!HasAuthority() || IsActorBeingDestroyed() || !IsAlive() || !State || Seconds <= 0.f)
+		return;
+	StunEndServerTime = ShieldPolicy::StunEndTime(State->GetServerWorldTimeSeconds(), StunEndServerTime, Seconds);
+	ForceNetUpdate();
+}
+
 void ACommandBuilding::BeginPlay()
 {
 	Super::BeginPlay();
@@ -167,20 +182,22 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 		ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 		if (!State || State->MatchResult != EMatchResult::Ongoing || !IsAlive())
 			return;
+		const bool bStunned = IsStunned();
 		if (!IsComplete())
 		{
 			const UBuildingDefinition* Definition = GetDefinition();
 			const float Duration = Definition ? GetBuildDuration(*Definition) : 0.f;
 			if (Duration <= 0.f)
 				return;
-			ConstructionProgress = FMath::Min(1.f, ConstructionProgress + DeltaSeconds / Duration);
+			if (!bStunned)
+				ConstructionProgress = FMath::Min(1.f, ConstructionProgress + DeltaSeconds / Duration);
 			if (IsComplete())
 			{
 				OnRep_Appearance();
 				ForceNetUpdate();
 			}
 		}
-		else
+		else if (!bStunned)
 			TickProduction(DeltaSeconds);
 		InitializeRallyPoint();
 	}
@@ -304,7 +321,8 @@ void ACommandBuilding::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		|| Attacker->GetTeamIndex() == TeamIndex || Damage <= 0 || !State || State->MatchResult != EMatchResult::Ongoing)
 		return;
 	State->NotifyRegionDamage(this, TeamIndex, Attacker);
-	Health = FMath::Max(0, Health - Damage);
+	const DamagePolicy::FResult Result = DamagePolicy::Resolve(Damage, Attacker->GetDamageType(), 0, {});
+	Health = FMath::Max(0, Health - Result.HealthLoss);
 	OnRep_Appearance();
 	ForceNetUpdate();
 	if (!IsAlive())
@@ -488,4 +506,5 @@ void ACommandBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(ACommandBuilding, PlacementCommittedServerTime);
 	DOREPLIFETIME(ACommandBuilding, DeploymentCount);
 	DOREPLIFETIME(ACommandBuilding, ResearchCount);
+	DOREPLIFETIME(ACommandBuilding, StunEndServerTime);
 }

@@ -28,4 +28,5 @@ void AMapRegion::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AMapRegion, DefendPosts);
 	DOREPLIFETIME(AMapRegion, Neighbours);
 	DOREPLIFETIME(AMapRegion, Anchor);
+	DOREPLIFETIME(AMapRegion, Trait);
 }

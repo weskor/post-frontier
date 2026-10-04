@@ -59,6 +59,9 @@ public:
 	EArmorClass GetArmorClass() const { return EArmorClass::Structure; }
 	int32 MaxHealth() const;
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
+	bool IsStunned() const;
+	// Pauses construction and production until Seconds from now; a re-stun refreshes and never stacks.
+	void ApplyStun(float Seconds);
 	void NotifyPlacementCommitted();
 	bool TrySpend(int32 Cost);
 
@@ -105,6 +108,9 @@ public:
 	float ProductionProgressSeconds = 0.f;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Production")
 	int32 RallyRegionIndex = INDEX_NONE;
+	// Server time until which construction and production are paused (Scrambler pulse); extraction and capture continue.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Building")
+	double StunEndServerTime = -1.;
 
 private:
 	friend class FCommandService;

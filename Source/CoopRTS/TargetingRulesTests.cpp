@@ -34,7 +34,11 @@ bool FTargetingOrderTest::RunTest(const FString& Parameters)
 	FTargetSelection EMP;
 	EMP.Consider(EDamageType::EMP, 0, EArmorClass::Shielded, 100.);
 	EMP.Consider(EDamageType::EMP, 1, EArmorClass::Heavy, 25.);
-	TestEqual(TEXT("EMP has no HP preference until shield rules are built"), EMP.Index, 1);
+	TestEqual(TEXT("EMP prefers a Shielded target over a nearer non-Shielded one"), EMP.Index, 0);
+	FTargetSelection EMPFallback;
+	EMPFallback.Consider(EDamageType::EMP, 0, EArmorClass::Light, 100.);
+	EMPFallback.Consider(EDamageType::EMP, 1, EArmorClass::Heavy, 25.);
+	TestEqual(TEXT("EMP has no HP preference among other classes: nearest wins"), EMPFallback.Index, 1);
 	return true;
 }
 

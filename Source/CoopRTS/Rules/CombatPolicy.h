@@ -25,9 +25,9 @@ enum class EDamageType : uint8
 
 namespace CombatPolicy
 {
-// EMP's shield-point rule is deferred until shielded units exist; no HP bonus.
+// Target preference: Kinetic vs Light, Piercing vs Heavy, Demolition vs Structure, EMP vs Shielded.
 bool IsStrongAgainst(EDamageType Type, EArmorClass Armor);
-// Apply the class bonus before Workshop modifiers; truncate fractional HP.
+// Apply the class bonus before Workshop modifiers; truncate fractional HP. EMP has no HP bonus.
 int32 Damage(int32 BaseDamage, EDamageType Type, EArmorClass Armor);
 inline constexpr float ArtillerySplashRadius = 200.f;
 // Centre gets full damage; the inclusive edge gets half. Truncate fractional HP.
