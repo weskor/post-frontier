@@ -74,7 +74,7 @@ bool AArmyGroup::IsEngagementPermitted(const AArmyUnit& Unit, AActor* Enemy) con
 	ArmyGroupPolicy::FEngagement Engagement;
 	Engagement.bAttackOrder = Order == EArmyOrder::Attack;
 	Engagement.bMarching = Status == EForceStatus::Marching;
-	Engagement.UnitToEnemy = FVector::DistSquared2D(UnitLocation, EnemyLocation);
+	Engagement.UnitToEnemy = static_cast<float>(FVector::DistSquared2D(UnitLocation, EnemyLocation));
 	Engagement.EnemyToAnchor = FVector::DistSquared2D(EnemyLocation, Destination);
 	Engagement.UnitToAnchor = FVector::DistSquared2D(UnitLocation, Destination);
 	Engagement.WeaponRange = Unit.WeaponRange();

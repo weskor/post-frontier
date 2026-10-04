@@ -58,21 +58,21 @@ bool FArmyGroupEngagementRulesTest::RunTest(const FString& Parameters)
 	FEngagement Engagement;
 	Engagement.WeaponRange = 500.f;
 	Engagement.PursuitRadius = 1000.f;
-	Engagement.UnitToEnemy = FMath::Square(500.);
+	Engagement.UnitToEnemy = FMath::Square(500.f);
 	Engagement.EnemyToAnchor = FMath::Square(5000.);
 	Engagement.UnitToAnchor = FMath::Square(5000.);
 	TestTrue(TEXT("Without an Attack order, weapon range is enough"), EngagementPermitted(Engagement));
-	Engagement.UnitToEnemy = FMath::Square(501.);
+	Engagement.UnitToEnemy = FMath::Square(501.f);
 	TestFalse(TEXT("Without an Attack order, nothing beyond range is engaged"), EngagementPermitted(Engagement));
 
 	Engagement.bAttackOrder = true;
-	Engagement.UnitToEnemy = FMath::Square(1400.);
+	Engagement.UnitToEnemy = FMath::Square(1400.f);
 	Engagement.EnemyToAnchor = FMath::Square(900.);
 	Engagement.UnitToAnchor = FMath::Square(900.);
 	TestTrue(TEXT("Near the anchor an Attack order reaches beyond weapon range"), EngagementPermitted(Engagement));
-	Engagement.UnitToEnemy = FMath::Square(1451.);
+	Engagement.UnitToEnemy = FMath::Square(1451.f);
 	TestFalse(TEXT("The acquire distance caps anchor engagement"), EngagementPermitted(Engagement));
-	Engagement.UnitToEnemy = FMath::Square(1400.);
+	Engagement.UnitToEnemy = FMath::Square(1400.f);
 	Engagement.EnemyToAnchor = FMath::Square(1001.);
 	TestFalse(TEXT("An enemy outside the pursuit radius is not near the anchor"), EngagementPermitted(Engagement));
 	Engagement.EnemyToAnchor = FMath::Square(900.);
@@ -81,7 +81,7 @@ bool FArmyGroupEngagementRulesTest::RunTest(const FString& Parameters)
 
 	Engagement.bMarching = true;
 	TestFalse(TEXT("En route, enemies beyond weapon range are ignored"), EngagementPermitted(Engagement));
-	Engagement.UnitToEnemy = FMath::Square(500.);
+	Engagement.UnitToEnemy = FMath::Square(500.f);
 	TestTrue(TEXT("En route, enemies in weapon range are engaged"), EngagementPermitted(Engagement));
 	Engagement.bMarching = false;
 	TestFalse(TEXT("Only a marching force engages en route"), EngagementPermitted(Engagement));

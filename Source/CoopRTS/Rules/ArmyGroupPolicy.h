@@ -28,12 +28,13 @@ constexpr float MaxAcquireDistance = 1450.f;
 // Whether a living hostile may be engaged by a unit. Without an Attack order that is its weapon
 // range. An Attack order engages targets near its anchor within MaxAcquireDistance, and, while
 // marching, anything already in weapon range once the unit has left the anchor's pursuit radius.
-// All distances are squared and planar.
+// All distances are squared and planar. UnitToEnemy is single precision, as the unit's targeting
+// has always rounded it; the anchor distances keep double precision.
 struct FEngagement
 {
 	bool bAttackOrder = false;
 	bool bMarching = false;
-	double UnitToEnemy = 0.;
+	float UnitToEnemy = 0.f;
 	double EnemyToAnchor = 0.;
 	double UnitToAnchor = 0.;
 	float WeaponRange = 0.f;
