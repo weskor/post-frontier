@@ -66,10 +66,10 @@ def quick(run: NetworkRun, label: str, resolution: tuple[int, int]) -> None:
 
         jev_intent_scenario(run, resolution)
         return
-    if label == "new-units":
+    if label in ("new-units", "new-units-support-first"):
         from harness.hud_units import scenario
 
-        scenario(run, resolution)
+        scenario(run, resolution, label == "new-units-support-first")
         return
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)

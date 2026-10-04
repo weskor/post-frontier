@@ -47,14 +47,25 @@ def produce_squad(
     return int(index)
 
 
-def scenario(run: NetworkRun, resolution: tuple[int, int]) -> None:
+def scenario(run: NetworkRun, resolution: tuple[int, int], support_first: bool) -> None:
+    """Force 1 stands in the open and force 2 behind the second Barracks, so each order shows one squad clearly."""
     capture = Capture(run)
     pid, state = boot(run, capture, resolution)
     owner = state["localIndex"]
-    produce_squad(run, capture, owner, 1, ASSAULT, "lancer")
-    produce_squad(run, capture, owner, 2, SUPPORT, "scrambler")
+    order = [(SUPPORT, "scrambler"), (ASSAULT, "lancer")] if support_first else [(ASSAULT, "lancer"), (SUPPORT, "scrambler")]
+    for count, (role, label) in enumerate(order, start=1):
+        produce_squad(run, capture, owner, count, role, label)
     capture.shot("both-squads")
-    no_compositor_windows(run, pid)
+    final = capture.state()
     run.event(
-        "PASS", captures=capture.count, resolutions=[resolution], quick="new-units"
+        "UNIT_POSITIONS",
+        units=[
+            dict(role=unit["role"], position=unit["position"])
+            for army in final["armies"]
+            for unit in army["units"]
+            if unit["health"] > 0
+        ],
     )
+    no_compositor_windows(run, pid)
+    quick = "new-units-support-first" if support_first else "new-units"
+    run.event("PASS", captures=capture.count, resolutions=[resolution], quick=quick)
