@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 
 #include "JevThreatWorldFixture.h"
+#include "JevIntentView.h"
 #include "ObjectiveAnnouncer.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainMapTest, "CoopRTS.Enemy.SplitBrain.Map",
@@ -85,7 +86,46 @@ private:
 		}
 		Check(EnemyForces(Kit.World).IsEmpty() && CutEvents() == 0 && Release().WaveCount == 2,
 			TEXT("Nothing has launched: the plans are out ahead of their forces"));
-		return Announced();
+		return Announced() || ShowsOnTimeline();
+	}
+
+	// The HUD reads the published cut plans through the functions it draws with: two plan cells, a badge on each target
+	// and a memo naming the threat, none of them yet backed by a force.
+	bool ShowsOnTimeline()
+	{
+		JevIntentView::FPlans Plans;
+		JevIntentView::Snapshot(*Kit.State, Plans);
+		if (!Check(Plans.Num() == 2, TEXT("The intent view holds one plan per cut")))
+			return true;
+		const float Now = JevIntentView::Now(*Kit.State);
+		JevIntent::FReleaseView Schedule;
+		Schedule.bKnown = true;
+		Schedule.Current = Release().Current;
+		Schedule.Next = Release().Next;
+		Schedule.NextAt = Release().NextAt;
+		Schedule.ClockStartServerTime = Release().ClockStartServerTime;
+		JevIntent::FTimeline Timeline;
+		JevIntent::BuildTimeline(Plans, Schedule, Now, Timeline);
+		// The v2.0 release itself is on the bar for its last 30 s (the first cell); the cuts follow, soonest first.
+		const bool bCells = Timeline.Num() == 3 && Timeline[0].Kind == JevIntent::EEntryKind::Release
+			&& Timeline[0].Release == JevThreat::TriggerRelease && Timeline[0].Seconds < JevThreat::LeadSeconds
+			&& Timeline[1].Kind == JevIntent::EEntryKind::Plan && Timeline[2].Kind == JevIntent::EEntryKind::Plan
+			&& Timeline[1].Verb == JevPlanner::EVerb::Attack && Timeline[2].Verb == JevPlanner::EVerb::Attack
+			&& Timeline[1].Seconds > Timeline[0].Seconds && Timeline[2].Seconds >= Timeline[1].Seconds;
+		Check(bCells, TEXT("The timeline shows the v2.0 release cell, then two Attack cells that arrive after it"));
+		JevIntent::FBadges Badges;
+		JevIntent::BuildBadges(Plans, Now, Badges);
+		Check(Badges.Num() == 2 && Badges[0].Region == 3 && Badges[1].Region == 8 && Badges[0].Verb == JevPlanner::EVerb::Attack,
+			TEXT("Both target regions carry an Attack badge"));
+		UJevIntentFeed* Feed = UJevIntentFeed::Get(Kit.World);
+		if (!Check(Feed != nullptr, TEXT("The memo feed exists")))
+			return true;
+		Feed->Observe(*Kit.State);
+		int32 Named = 0;
+		for (const JevIntent::FMemo& Memo : Feed->GetFeed().History())
+			Named += Memo.Text.Contains(JevThreat::Name) && Memo.PostedAt >= Now - 1.f;
+		Check(Named == 2, *FString::Printf(TEXT("The memo feed posts one memo per plan naming Split-Brain Cut (%d)"), Named));
+		return false;
 	}
 
 	// One alert event, raised once when the plans publish, at the first target (the announcer pipeline voices it).
@@ -131,6 +171,15 @@ private:
 		}
 		Check(ForcesTargeting({ 3, 8 }).Num() == 2 && EnemyForces(Kit.World).Num() > 2,
 			TEXT("The normal v2.0 wave launched on top of the two cut forces"));
+		JevIntentView::FPlans Plans;
+		JevIntentView::Snapshot(*Kit.State, Plans);
+		int32 AtThree = 0, AtEight = 0;
+		for (const JevIntent::FPlanView& Plan : Plans)
+		{
+			AtThree += Plan.Target == 3;
+			AtEight += Plan.Target == 8;
+		}
+		Check(AtThree == 1 && AtEight == 1, TEXT("At launch each cut region shows one plan: the force's own has replaced the cut plan"));
 		return true;
 	}
 

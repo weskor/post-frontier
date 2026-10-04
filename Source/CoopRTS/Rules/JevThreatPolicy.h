@@ -120,8 +120,4 @@ struct FComposition
 	int32 Units() const { return Assault + Escort; }
 };
 FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 EscortCost);
-
-// The memo the feed posts for a published cut: "Ticket #12 · Attack: Split-Brain Cut sends ~4 units to West Cut · ETA 1:05".
-// Region is the target's display name; EtaSeconds counts from the moment of publication.
-void AppendMemo(FStringBuilderBase& Out, int32 Ticket, int32 SizeBand, FStringView Region, float EtaSeconds);
 }

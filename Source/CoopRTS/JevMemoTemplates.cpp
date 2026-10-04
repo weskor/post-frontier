@@ -16,8 +16,23 @@ constexpr FTemplateDefinition Definitions[] = {
 	{ TEXT("MoveAndHold"), TEXT("Move & Hold:") },
 	{ TEXT("Attack"), TEXT("Attack:") },
 	{ TEXT("Retreat"), TEXT("Retreat:") },
-	{ TEXT("Escalated"), TEXT("Escalated: defending {Region}") }
+	{ TEXT("Escalated"), TEXT("Escalated: defending {Region}") },
+	{ TEXT("SplitBrainCut"), TEXT("Split-Brain Cut:") }
 };
+
+constexpr int32 CutTemplate = 4;
+
+// The writer's template with the plan's values; the region text goes in last, so token-like names are never interpreted.
+FString Fill(const FString& Template, int32 TicketNumber, int32 SizeBand, float EtaSeconds, const FString& RegionName)
+{
+	const int32 Eta = FMath::CeilToInt(EtaSeconds);
+	FString Memo = Template;
+	Memo.ReplaceInline(TEXT("{Ticket}"), *FString::FromInt(TicketNumber), ESearchCase::CaseSensitive);
+	Memo.ReplaceInline(TEXT("{Size}"), *FString::Printf(TEXT("~%d units"), SizeBand), ESearchCase::CaseSensitive);
+	Memo.ReplaceInline(TEXT("{ETA}"), *FString::Printf(TEXT("%d:%02d"), Eta / 60, Eta % 60), ESearchCase::CaseSensitive);
+	Memo.ReplaceInline(TEXT("{Region}"), *RegionName, ESearchCase::CaseSensitive);
+	return Memo;
+}
 
 struct FToken
 {
@@ -129,12 +144,15 @@ FString FJevMemoTemplates::Format(const JevPlanner::FPlan& Plan, int32 TicketNum
 	}
 	if (Plan.bEscalated)
 		Index = 3;
-	const int32 Eta = FMath::CeilToInt(Plan.EtaSeconds);
-	FString Memo = Templates[Index];
-	Memo.ReplaceInline(TEXT("{Ticket}"), *FString::FromInt(TicketNumber), ESearchCase::CaseSensitive);
-	Memo.ReplaceInline(TEXT("{Size}"), *FString::Printf(TEXT("~%d units"), Plan.SizeBand), ESearchCase::CaseSensitive);
-	Memo.ReplaceInline(TEXT("{ETA}"), *FString::Printf(TEXT("%d:%02d"), Eta / 60, Eta % 60), ESearchCase::CaseSensitive);
-	// Insert writer-independent region text last, so token-like region names are never interpreted.
-	Memo.ReplaceInline(TEXT("{Region}"), *RegionName, ESearchCase::CaseSensitive);
-	return Memo;
+	return Fill(Templates[Index], TicketNumber, Plan.SizeBand, Plan.EtaSeconds, RegionName);
+}
+
+FString FJevMemoTemplates::FormatCut(int32 TicketNumber, int32 SizeBand, float EtaSeconds, const FString& RegionName) const
+{
+	if (!bLoaded || !FMath::IsFinite(EtaSeconds) || EtaSeconds < 0.f || EtaSeconds >= static_cast<float>(MAX_int32))
+	{
+		UE_LOG(LogJevMemos, Error, TEXT("Cannot format cut ticket %d: templates not loaded or invalid ETA"), TicketNumber);
+		return FString();
+	}
+	return Fill(Templates[CutTemplate], TicketNumber, SizeBand, EtaSeconds, RegionName);
 }

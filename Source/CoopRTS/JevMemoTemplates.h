@@ -16,7 +16,10 @@ public:
 	// Returns empty if templates have not loaded or the plan cannot be represented faithfully.
 	FString Format(const JevPlanner::FPlan& Plan, int32 TicketNumber, const FString& RegionName) const;
 
+	// The memo of a published Split-Brain Cut plan, from the SplitBrainCut template. Same rounding and empty result.
+	FString FormatCut(int32 TicketNumber, int32 SizeBand, float EtaSeconds, const FString& RegionName) const;
+
 private:
-	FString Templates[4];
+	FString Templates[5];
 	bool bLoaded = false;
 };

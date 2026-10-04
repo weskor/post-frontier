@@ -144,7 +144,8 @@ float MarchSeconds(const FJevTurn& Turn, TConstArrayView<int32> Roster, float Sp
 }
 
 // The plan clients see until the force exists: it arrives Lead seconds from now plus its march.
-FJevCutPlan CutPlan(const FJevTurn& Turn, int32 Ticket, int32 Target, int32 Units, float Lead, float March)
+FJevCutPlan CutPlan(const FJevTurn& Turn, const FJevMemoTemplates& Memos, int32 Ticket, int32 Target, int32 Units, float Lead,
+	float March)
 {
 	FJevCutPlan Plan;
 	Plan.Ticket = Ticket;
@@ -153,10 +154,8 @@ FJevCutPlan CutPlan(const FJevTurn& Turn, int32 Ticket, int32 Target, int32 Unit
 	Plan.SizeBand = JevPlanner::SizeBand(Units);
 	Plan.EtaSeconds = Lead + March;
 	Plan.EtaIssuedAt = Turn.State->GetServerWorldTimeSeconds();
-	TStringBuilder<192> Memo;
-	JevThreat::AppendMemo(Memo, Ticket, Plan.SizeBand, Turn.Regions[Target] ? Turn.Regions[Target]->DisplayName.ToString() : FString(),
-		Plan.EtaSeconds);
-	Plan.Memo = Memo.ToString();
+	Plan.Memo = Memos.FormatCut(Ticket, Plan.SizeBand, Plan.EtaSeconds,
+		Turn.Regions[Target] ? Turn.Regions[Target]->DisplayName.ToString() : FString());
 	return Plan;
 }
 
@@ -302,7 +301,7 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 				Cut.Target);
 			continue;
 		}
-		Release.Cuts.Add(CutPlan(Turn, NextTicketNumber++, Cut.Target, Cut.Roster.Num(), Lead, March));
+		Release.Cuts.Add(CutPlan(Turn, MemoTemplates, NextTicketNumber++, Cut.Target, Cut.Roster.Num(), Lead, March));
 		PendingCuts.Add(MoveTemp(Cut));
 	}
 	if (PendingCuts.IsEmpty())

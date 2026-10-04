@@ -3,6 +3,8 @@
 #include "ArmyGroup.h"
 #include "CommandGameState.h"
 #include "Engine/World.h"
+#include "EnemyCommander.h"
+#include "EngineUtils.h"
 #include "MapRegion.h"
 
 namespace JevIntentView
@@ -37,6 +39,22 @@ void Snapshot(const ACommandGameState& State, FPlans& Out)
 		View.bEscalated = Plan.bEscalated;
 		View.Memo = Plan.Memo;
 	}
+	// Split-Brain Cut plans, published ahead of their forces, read like any other plan; at launch the forces' own plans above
+	// replace them. No force exists yet, so the plan's identity is its ticket, in a range actor ids never reach.
+	for (TActorIterator<AEnemyCommander> It(State.GetWorld()); It; ++It)
+		if (It->TeamIndex == 5)
+			for (const FJevCutPlan& Cut : It->Release.Cuts)
+			{
+				JevIntent::FPlanView& View = Out.AddDefaulted_GetRef();
+				View.Ticket = Cut.Ticket;
+				View.Force = 0x80000000u | static_cast<uint32>(Cut.Ticket);
+				View.Verb = JevPlanner::EVerb::Attack;
+				View.Target = Cut.Target;
+				View.SizeBand = Cut.SizeBand;
+				View.EtaSeconds = Cut.EtaSeconds;
+				View.EtaIssuedAt = Cut.EtaIssuedAt;
+				View.Memo = Cut.Memo;
+			}
 }
 
 float Now(const ACommandGameState& State)

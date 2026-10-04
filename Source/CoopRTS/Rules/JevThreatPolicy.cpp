@@ -1,7 +1,5 @@
 #include "JevThreatPolicy.h"
 
-#include "JevIntent.h"
-
 namespace JevThreat
 {
 namespace
@@ -241,12 +239,5 @@ FComposition Compose(int32 Budget, int32 AssaultCost, int32 AssaultSquad, int32 
 	if (EscortCost > 0)
 		Out.Escort = FMath::Min(EscortUnits, Left / EscortCost);
 	return Out;
-}
-
-void AppendMemo(FStringBuilderBase& Out, int32 Ticket, int32 SizeBand, FStringView Region, float EtaSeconds)
-{
-	Out.Appendf(TEXT("Ticket #%d \u00B7 Attack: %s sends ~%d units to "), Ticket, Name, SizeBand);
-	Out << Region << TEXT(" \u00B7 ETA ");
-	JevIntent::AppendCountdown(Out, EtaSeconds);
 }
 }

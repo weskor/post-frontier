@@ -16,8 +16,6 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatTargetsTest, "CoopRTS.Rules.JevThreat
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatUnitsTest, "CoopRTS.Rules.JevThreat.Units",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevThreatMemoTest, "CoopRTS.Rules.JevThreat.Memo",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -244,12 +242,4 @@ bool FJevThreatUnitsTest::RunTest(const FString&)
 	return true;
 }
 
-bool FJevThreatMemoTest::RunTest(const FString&)
-{
-	TStringBuilder<128> Memo;
-	JevThreat::AppendMemo(Memo, 12, 6, TEXT("Uplink"), 64.2f);
-	TestEqual(TEXT("The memo names the threat, the band, the region and the countdown"), FString(Memo.ToView()),
-		FString(TEXT("Ticket #12 \u00B7 Attack: Split-Brain Cut sends ~6 units to Uplink \u00B7 ETA 1:05")));
-	return true;
-}
 #endif

@@ -43,6 +43,25 @@ bool FJevMemoDataTest::RunTest(const FString&)
 		GConfig->SetString(TEXT("JevMemos"), TEXT("Attack"), *Original, GGameIni);
 		TestFalse(TEXT("Broken or contradictory writer data cannot silently load"), bLoaded);
 	}
+	// The Split-Brain Cut template is writer data like the others: it names the threat, takes the same values and cannot
+	// load broken or claiming another order.
+	const FString Cut = Templates.FormatCut(12, 4, 64.2f, Region);
+	TestTrue(TEXT("A cut memo names the threat, its ticket, its band, its region and the rounded-up ETA"),
+		Cut.Contains(TEXT("Split-Brain Cut")) && Cut.Contains(TEXT("#12")) && Cut.Contains(TEXT("~4 units")) && Cut.Contains(Region)
+			&& Cut.Contains(TEXT("1:05")));
+	AddExpectedError(TEXT(""), EAutomationExpectedErrorFlags::Contains, 1);
+	TestTrue(TEXT("A cut memo with an invalid ETA is refused"), Templates.FormatCut(12, 4, -1.f, Region).IsEmpty());
+	FString OriginalCut;
+	GConfig->GetString(TEXT("JevMemos"), TEXT("SplitBrainCut"), OriginalCut, GGameIni);
+	for (const FString& Invalid : { OriginalCut + TEXT(" {Unknown}"), OriginalCut + TEXT(" Attack:"), FString(TEXT("Split-Brain Cut: {Ticket} {Size} {Region}")) })
+	{
+		GConfig->SetString(TEXT("JevMemos"), TEXT("SplitBrainCut"), *Invalid, GGameIni);
+		FJevMemoTemplates InvalidTemplates;
+		AddExpectedError(TEXT(""), EAutomationExpectedErrorFlags::Contains, 1);
+		const bool bLoaded = InvalidTemplates.Load();
+		GConfig->SetString(TEXT("JevMemos"), TEXT("SplitBrainCut"), *OriginalCut, GGameIni);
+		TestFalse(TEXT("A broken or contradictory cut template cannot silently load"), bLoaded);
+	}
 	return true;
 }
 #endif
