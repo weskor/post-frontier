@@ -31,6 +31,7 @@ struct FTeamEconomyFixture
 
 	// Chain 0-2-3, or with Alternate the ring 0-2-3 and 0-4-3.
 	void SetTopology(bool bAlternatePath);
+	void SetNeighbours(int32 RegionIndex, std::initializer_list<int32> Neighbours);
 	void SetController(int32 RegionIndex, int32 Team);
 	void SetRole(int32 RegionIndex, ERegionRole Role);
 	ADepositSite* DepositIn(int32 RegionIndex) const;

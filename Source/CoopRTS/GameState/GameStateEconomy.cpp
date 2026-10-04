@@ -22,12 +22,6 @@ bool IsPayingExtractor(const ACommandBuilding* Building, const ADepositSite* Dep
 		&& Building->Kind == EBuildingKind::Extractor && Building->Deposit == Deposit;
 }
 
-// The authority reads the live rule; clients read what the server replicated.
-uint64 ConnectedMask(const ACommandGameState& State, int32 Team)
-{
-	return State.HasAuthority() ? GameStateTerritory::TeamConnectedMask(State, Team) : State.GetConnectedMask(Team);
-}
-
 bool IsConnected(uint64 Mask, int32 RegionIndex)
 {
 	return RegionIndex >= 0 && RegionIndex < ForceOrders::MaxRegions && (Mask & (uint64(1) << RegionIndex)) != 0;
@@ -41,10 +35,9 @@ FExtractorPaymentInput ExtractorInput(const ADepositSite& Deposit, uint64 TeamMa
 		bPaying, bPaying && IsConnected(TeamMask, Deposit.RegionIndex) };
 }
 
-// Per-second rate of every extractor of the team that is paying now.
-int32 ExtractionPerSecond(const ACommandGameState& State, int32 Team)
+// Per-second rate of every extractor of the team that is paying now, given its connected regions.
+int32 ExtractionPerSecond(const ACommandGameState& State, int32 Team, uint64 Mask)
 {
-	const uint64 Mask = ConnectedMask(State, Team);
 	int32 Rate = 0;
 	for (const ADepositSite* Deposit : State.Deposits)
 		if (IsValid(Deposit))
@@ -57,9 +50,8 @@ int32 ExtractionPerSecond(const ACommandGameState& State, int32 Team)
 }
 
 // Reward regions the human team controls and reaches from its main.
-int32 ConnectedRewardRegions(const ACommandGameState& State)
+int32 ConnectedRewardRegions(const ACommandGameState& State, uint64 Mask)
 {
-	const uint64 Mask = ConnectedMask(State, 0);
 	int32 Count = 0;
 	for (const AMapRegion* Region : State.Regions)
 		if (IsValid(Region) && Region->RegionRole == ERegionRole::Reward && IsConnected(Mask, Region->RegionIndex))
@@ -98,7 +90,8 @@ void FGameStateEconomy::PayHumanPool(ACommandGameState& State)
 	const TArray<ACommandPlayerState*> Roster = FGameStateEconomy::Roster(State);
 	if (Roster.IsEmpty())
 		return;
-	const uint64 Mask = ConnectedMask(State, 0);
+	// Payment reads the live rule, never a copy that could lag a controller change.
+	const uint64 Mask = GameStateTerritory::TeamConnectedMask(State, 0);
 	int32 Power = Roster.Num() * State.GetHumanBaselineIncomePerSecond() * PaymentSeconds;
 	for (ADepositSite* Deposit : State.Deposits)
 	{
@@ -114,7 +107,7 @@ void FGameStateEconomy::PayHumanPool(ACommandGameState& State)
 		Deposit->Remaining = Payment.Remaining;
 		Deposit->ForceNetUpdate();
 	}
-	const int32 Data = ConnectedRewardRegions(State) * EconomyPolicy::RewardRegionPoolData(Roster.Num(), PaymentSeconds);
+	const int32 Data = ConnectedRewardRegions(State, Mask) * EconomyPolicy::RewardRegionPoolData(Roster.Num(), PaymentSeconds);
 	DistributePool(Roster, Power, Data);
 }
 
@@ -131,7 +124,7 @@ void FGameStateEconomy::PayEnemyExtractors(ACommandGameState& State)
 {
 	if (!IsValid(State.EnemyCommander) || State.EnemyCommander->GetWorld() != State.GetWorld())
 		return;
-	const uint64 Mask = ConnectedMask(State, 5);
+	const uint64 Mask = GameStateTerritory::TeamConnectedMask(State, 5);
 	for (ADepositSite* Deposit : State.Deposits)
 	{
 		if (!IsValid(Deposit))
@@ -218,18 +211,18 @@ double FGameStateEconomy::PowerRate(const ACommandGameState& State, const AComma
 	if (!IsValid(Commander))
 		return 0.;
 	if (Commander == State.EnemyCommander)
-		return EnemyBaselineIncomePerSecond(State) + ExtractionPerSecond(State, 5);
+		return EnemyBaselineIncomePerSecond(State) + ExtractionPerSecond(State, 5, State.GetConnectedMask(5));
 	const TArray<ACommandPlayerState*> Recipients = Roster(State);
 	if (!Recipients.Contains(Commander))
 		return 0.;
-	return State.GetHumanBaselineIncomePerSecond() + static_cast<double>(ExtractionPerSecond(State, 0)) / Recipients.Num();
+	return State.GetHumanBaselineIncomePerSecond() + static_cast<double>(ExtractionPerSecond(State, 0, State.GetConnectedMask(0))) / Recipients.Num();
 }
 
 double FGameStateEconomy::DataRate(const ACommandGameState& State, const ACommandPlayerState* Commander)
 {
 	if (!IsValid(Commander) || !Roster(State).Contains(Commander))
 		return 0.;
-	return static_cast<double>(ConnectedRewardRegions(State)) * EconomyPolicy::RewardRegionDataRate;
+	return static_cast<double>(ConnectedRewardRegions(State, State.GetConnectedMask(0))) * EconomyPolicy::RewardRegionDataRate;
 }
 
 int32 FGameStateEconomy::IncomePerSecond(const ACommandGameState& State, const ACommandPlayerState* Commander)

@@ -20,6 +20,7 @@ public:
 	// Whole Power per second, rounded down from PowerRate.
 	static int32 IncomePerSecond(const ACommandGameState& State, const ACommandPlayerState* Commander);
 	// Exact per-second share of the human pool for a roster commander; JEV's own income for its commander.
+	// Estimates read the published connected mask, the one clients see; payment reads the live rule.
 	static double PowerRate(const ACommandGameState& State, const ACommandPlayerState* Commander);
 	static double DataRate(const ACommandGameState& State, const ACommandPlayerState* Commander);
 	// Human commanders of the current roster in slot order: team 0, slot 0 to 4, one wallet per slot.

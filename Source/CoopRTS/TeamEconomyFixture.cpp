@@ -115,25 +115,27 @@ AMapRegion* Mutable(ACommandGameState& State, int32 Index)
 }
 }
 
+void FTeamEconomyFixture::SetNeighbours(int32 RegionIndex, std::initializer_list<int32> Neighbours)
+{
+	if (AMapRegion* Region = Mutable(*State, RegionIndex))
+		Region->Neighbours = TArray<int32>(Neighbours);
+}
+
 void FTeamEconomyFixture::SetTopology(bool bAlternatePath)
 {
-	const auto Link = [&](int32 From, std::initializer_list<int32> To) {
-		if (AMapRegion* Region = Mutable(*State, From))
-			Region->Neighbours = TArray<int32>(To);
-	};
 	if (bAlternatePath)
 	{
-		Link(0, { Neck, Alternate });
-		Link(Neck, { 0, Far });
-		Link(Far, { Neck, Alternate });
-		Link(Alternate, { 0, Far });
+		SetNeighbours(0, { Neck, Alternate });
+		SetNeighbours(Neck, { 0, Far });
+		SetNeighbours(Far, { Neck, Alternate });
+		SetNeighbours(Alternate, { 0, Far });
 	}
 	else
 	{
-		Link(0, { Neck });
-		Link(Neck, { 0, Far });
-		Link(Far, { Neck });
-		Link(Alternate, {});
+		SetNeighbours(0, { Neck });
+		SetNeighbours(Neck, { 0, Far });
+		SetNeighbours(Far, { Neck });
+		SetNeighbours(Alternate, {});
 	}
 }
 

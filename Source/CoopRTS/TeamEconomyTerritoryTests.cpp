@@ -9,6 +9,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamAlternatePathTest, "CoopRTS.Economy.Team.A
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamRewardDataTest, "CoopRTS.Economy.Team.RewardData",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamJevCutTest, "CoopRTS.Economy.Team.JevCut",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTeamConnectionTimeTest, "CoopRTS.Economy.Team.ConnectionChangeTime",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
@@ -99,6 +101,44 @@ bool FTeamRewardDataTest::RunTest(const FString&)
 		F.SetController(F.Far, 5);
 		F.Pay();
 		T.TestEqual(TEXT("A reward region the enemy holds pays nothing; the neck still does"), F.Wallets[0]->Data, 8);
+	}));
+	return true;
+}
+
+bool FTeamJevCutTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FTeamEconomyScenario(this, 1, [](FTeamEconomyFixture& F) {
+		FAutomationTestBase& T = *F.Test;
+		// JEV's chain: its main (1), then the neck and the far region, both JEV-held.
+		F.SetNeighbours(0, {});
+		F.SetNeighbours(1, { F.Neck });
+		F.SetNeighbours(F.Neck, { 1, F.Far });
+		F.SetNeighbours(F.Far, { F.Neck });
+		F.SetController(F.Neck, 5);
+		F.SetController(F.Far, 5);
+		ADepositSite* Deposit = F.DepositIn(F.Far);
+		if (!T.TestNotNull(TEXT("JEV's rig spawns"), F.SpawnRig(F.Far, nullptr, 5)))
+			return;
+		ACommandPlayerState* Jev = F.State->EnemyCommander;
+		// One commander makes JEV's baseline exactly 4 per payment, whatever fraction it carries.
+		int32 Before = Jev->Resources;
+		F.Pay();
+		T.TestTrue(TEXT("JEV's far region is connected from its main"), F.State->IsRegionConnected(5, F.Far));
+		T.TestEqual(TEXT("A connected JEV rig pays JEV its baseline and extraction"), Jev->Resources - Before, 4 + 8);
+		T.TestEqual(TEXT("and drains"), Deposit->Remaining, 1200 - 8);
+		// The humans take the neck: JEV's rig is cut from its own main.
+		F.SetController(F.Neck, 0);
+		Before = Jev->Resources;
+		F.Pay();
+		T.TestFalse(TEXT("The cut JEV region is disconnected"), F.State->IsRegionConnected(5, F.Far));
+		T.TestEqual(TEXT("A cut JEV rig pays nothing; the baseline still arrives"), Jev->Resources - Before, 4);
+		T.TestEqual(TEXT("and does not deplete"), Deposit->Remaining, 1200 - 8);
+		T.TestTrue(TEXT("JEV's estimate falls to its baseline"), FMath::IsNearlyEqual(F.State->GetPowerRate(Jev), 2., 1.e-9));
+		F.SetController(F.Neck, 5);
+		Before = Jev->Resources;
+		F.Pay();
+		T.TestEqual(TEXT("Reconnected, it pays and depletes again"), Jev->Resources - Before, 4 + 8);
+		T.TestEqual(TEXT("depletion resumes"), Deposit->Remaining, 1200 - 16);
 	}));
 	return true;
 }
