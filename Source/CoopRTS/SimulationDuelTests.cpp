@@ -56,55 +56,7 @@ public:
 		if (!State || !IsValid(State->Content) || !IsValid(State->Arena) || State->Regions.IsEmpty())
 			return false;
 		if (!Runner)
-		{
-			if (Phase == EPhase::FullMatrix)
-			{
-				MaxFPS = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
-				if (MaxFPS)
-				{
-					OriginalMaxFPS = MaxFPS->GetFloat();
-					MaxFPS->Set(0.f, ECVF_SetByCode);
-				}
-				FApp::SetFixedDeltaTime(1. / 60.);
-				FApp::SetUseFixedTimeStep(true);
-			}
-			Runner = MakeUnique<FSimulationDuelRunner>();
-			const int32 Seed = Phase == EPhase::ShortCap ? 2 : 1;
-			if (!Runner->Start(*State, Seed))
-			{
-				Test->AddError(Runner->GetError());
-				return true;
-			}
-			int32 Living[2] = {};
-			for (TActorIterator<AArmyUnit> It(World); It; ++It)
-				if (It->IsAlive())
-					++Living[It->GetTeamIndex() == 0 ? 0 : 1];
-			Test->TestTrue(TEXT("Both opposed squads actually spawn"), Living[0] > 0 && Living[1] > 0);
-			const TArray<TSharedPtr<FJsonValue>>& Initial = Runner->GetReport()->GetObjectField(TEXT("current_duel"))->GetArrayField(TEXT("initial_units"));
-			Test->TestEqual(TEXT("Left telemetry counts actual spawned units"), static_cast<int32>(Initial[0]->AsNumber()), Living[0]);
-			Test->TestEqual(TEXT("Right telemetry counts actual spawned units"), static_cast<int32>(Initial[1]->AsNumber()), Living[1]);
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				Test->TestTrue(TEXT("Both squads engage on Attack"), It->Order == EArmyOrder::Attack);
-			if (Phase == EPhase::PausedEncounter)
-			{
-				// Hold approach longer than the stall timeout, then allow real contact.
-				SetCombatTicks(*World, false);
-				const TSharedPtr<FJsonObject> First = Runner->GetReport()->GetObjectField(TEXT("current_duel"));
-				const TArray<TSharedPtr<FJsonValue>>& Definitions = Runner->GetReport()->GetArrayField(TEXT("unit_definitions"));
-				ExpectedStallTimeout = FMath::Max(30., 10. * Definitions[0]->AsObject()->GetNumberField(TEXT("attack_interval")));
-				Test->TestEqual(TEXT("Stall timeout accounts for the current pair's attack interval"),
-					First->GetNumberField(TEXT("stall_timeout_seconds")), ExpectedStallTimeout);
-			}
-			if (TActorIterator<AEnemyCommander> It(World); It)
-			{
-				Test->AddError(TEXT("JEV remains active in the duel"));
-				return true;
-			}
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				Test->TestFalse(TEXT("No paid production in duel"), It->bProductionEnabled);
-			// Do not charge the encounter for the frame before its actors spawned.
-			return false;
-		}
+			return StartEncounter(World, State);
 		const float Cap = Phase == EPhase::ShortCap ? 1.f / 60.f : Phase == EPhase::NaturalMatrix ? 25.f
 			: Phase == EPhase::PausedEncounter                                                    ? 3.f * ExpectedStallTimeout + 60.f
 																								  : 60.f;
@@ -139,6 +91,57 @@ private:
 		PausedEncounter
 	};
 
+	bool StartEncounter(UWorld* World, ACommandGameState* State)
+	{
+		if (Phase == EPhase::FullMatrix)
+		{
+			MaxFPS = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+			if (MaxFPS)
+			{
+				OriginalMaxFPS = MaxFPS->GetFloat();
+				MaxFPS->Set(0.f, ECVF_SetByCode);
+			}
+			FApp::SetFixedDeltaTime(1. / 60.);
+			FApp::SetUseFixedTimeStep(true);
+		}
+		Runner = MakeUnique<FSimulationDuelRunner>();
+		const int32 Seed = Phase == EPhase::ShortCap ? 2 : 1;
+		if (!Runner->Start(*State, Seed))
+		{
+			Test->AddError(Runner->GetError());
+			return true;
+		}
+		int32 Living[2] = {};
+		for (TActorIterator<AArmyUnit> It(World); It; ++It)
+			if (It->IsAlive())
+				++Living[It->GetTeamIndex() == 0 ? 0 : 1];
+		Test->TestTrue(TEXT("Both opposed squads actually spawn"), Living[0] > 0 && Living[1] > 0);
+		const TArray<TSharedPtr<FJsonValue>>& Initial = Runner->GetReport()->GetObjectField(TEXT("current_duel"))->GetArrayField(TEXT("initial_units"));
+		Test->TestEqual(TEXT("Left telemetry counts actual spawned units"), static_cast<int32>(Initial[0]->AsNumber()), Living[0]);
+		Test->TestEqual(TEXT("Right telemetry counts actual spawned units"), static_cast<int32>(Initial[1]->AsNumber()), Living[1]);
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+			Test->TestTrue(TEXT("Both squads engage on Attack"), It->Order == EArmyOrder::Attack);
+		if (Phase == EPhase::PausedEncounter)
+		{
+			// Hold approach longer than the stall timeout, then allow real contact.
+			SetCombatTicks(*World, false);
+			const TSharedPtr<FJsonObject> First = Runner->GetReport()->GetObjectField(TEXT("current_duel"));
+			const TArray<TSharedPtr<FJsonValue>>& Definitions = Runner->GetReport()->GetArrayField(TEXT("unit_definitions"));
+			ExpectedStallTimeout = FMath::Max(30., 10. * Definitions[0]->AsObject()->GetNumberField(TEXT("attack_interval")));
+			Test->TestEqual(TEXT("Stall timeout accounts for the current pair's attack interval"),
+				First->GetNumberField(TEXT("stall_timeout_seconds")), ExpectedStallTimeout);
+		}
+		if (TActorIterator<AEnemyCommander> It(World); It)
+		{
+			Test->AddError(TEXT("JEV remains active in the duel"));
+			return true;
+		}
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			Test->TestFalse(TEXT("No paid production in duel"), It->bProductionEnabled);
+		// Do not charge the encounter for the frame before its actors spawned.
+		return false;
+	}
+
 	void AdvancePhase()
 	{
 		Runner.Reset();
@@ -158,38 +161,7 @@ private:
 	bool CheckPausedEncounter(UWorld& World, const TSharedRef<FJsonObject>& Report, float Delta)
 	{
 		if (!bContactPaused)
-		{
-			if (!Runner->GetError().IsEmpty() || Runner->IsComplete())
-			{
-				Test->AddError(TEXT("Encounter terminated before the post-contact stall fixture"));
-				return true;
-			}
-			const TSharedPtr<FJsonObject> Current = Report->GetObjectField(TEXT("current_duel"));
-			if (!bCombatResumed)
-			{
-				PausedElapsed += Delta;
-				Test->TestEqual(TEXT("Approach time does not start the no-damage clock"),
-					Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
-				if (PausedElapsed >= ExpectedStallTimeout + 1.)
-				{
-					SetCombatTicks(World, true);
-					bCombatResumed = true;
-				}
-				return false;
-			}
-			const TArray<TSharedPtr<FJsonValue>>& Attacks = Current->GetArrayField(TEXT("attacks"));
-			if (Attacks[0]->AsNumber() + Attacks[1]->AsNumber() == 0.)
-				return false;
-			ContactElapsed = Current->GetNumberField(TEXT("duration"));
-			for (int32 Side = 0; Side < 2; ++Side)
-				ContactDamage[Side] = Current->GetArrayField(TEXT("damage_dealt"))[Side]->AsNumber();
-			Test->TestEqual(TEXT("First attack arms the clock without charging approach time"),
-				Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
-			SetCombatTicks(World, false);
-			bContactPaused = true;
-			PausedElapsed = 0.;
-			return false;
-		}
+			return CheckBeforeContact(World, Report, Delta);
 		PausedElapsed += Delta;
 		if (PausedElapsed < ExpectedStallTimeout)
 		{
@@ -220,6 +192,40 @@ private:
 		Test->TestEqual(TEXT("Invalid encounter is never appended as a completed duel"),
 			Report->GetArrayField(TEXT("duels")).Num(), 0);
 		return true;
+	}
+
+	bool CheckBeforeContact(UWorld& World, const TSharedRef<FJsonObject>& Report, float Delta)
+	{
+		if (!Runner->GetError().IsEmpty() || Runner->IsComplete())
+		{
+			Test->AddError(TEXT("Encounter terminated before the post-contact stall fixture"));
+			return true;
+		}
+		const TSharedPtr<FJsonObject> Current = Report->GetObjectField(TEXT("current_duel"));
+		if (!bCombatResumed)
+		{
+			PausedElapsed += Delta;
+			Test->TestEqual(TEXT("Approach time does not start the no-damage clock"),
+				Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
+			if (PausedElapsed >= ExpectedStallTimeout + 1.)
+			{
+				SetCombatTicks(World, true);
+				bCombatResumed = true;
+			}
+			return false;
+		}
+		const TArray<TSharedPtr<FJsonValue>>& Attacks = Current->GetArrayField(TEXT("attacks"));
+		if (Attacks[0]->AsNumber() + Attacks[1]->AsNumber() == 0.)
+			return false;
+		ContactElapsed = Current->GetNumberField(TEXT("duration"));
+		for (int32 Side = 0; Side < 2; ++Side)
+			ContactDamage[Side] = Current->GetArrayField(TEXT("damage_dealt"))[Side]->AsNumber();
+		Test->TestEqual(TEXT("First attack arms the clock without charging approach time"),
+			Current->GetNumberField(TEXT("no_damage_seconds")), 0.);
+		SetCombatTicks(World, false);
+		bContactPaused = true;
+		PausedElapsed = 0.;
+		return false;
 	}
 
 	void CheckInvalidStall(const TSharedRef<FJsonObject>& Report)

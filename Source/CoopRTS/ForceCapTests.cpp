@@ -31,131 +31,139 @@ public:
 		if (!Wallet || Wallet->CommanderIndex < 0 || !MapReady(State) || !State->Content || !IsValid(State->EnemyCommander))
 			return false;
 		if (Stage == 0)
-		{
-			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-				It->Destroy();
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				It->Destroy();
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				It->Destroy();
-			State->bVerificationIncomePaused = true;
-			Wallet->Resources = State->EnemyCommander->Resources = 10000;
-			Foreign = World->SpawnActor<ACommandPlayerState>();
-			if (!Foreign.IsValid())
-				return Fail(TEXT("Second human roster fixture could not spawn"));
-			Foreign->CommanderIndex = Wallet->CommanderIndex == 0 ? 1 : 0;
-			Foreign->Resources = 10000;
-			State->AddPlayerState(Foreign.Get());
-			if (!Place(State, Foreign.Get(), BarracksIndex) || !Place(State, Wallet, WorkshopIndex))
-				return true;
-			for (int32 Index = 0; Index < 4; ++Index)
-			{
-				ACommandBuilding* Producer = Place(State, Wallet, BarracksIndex);
-				if (!Producer)
-					return true;
-				if (Index == 0)
-					First = Producer;
-				if (!Check(!Producer->IsComplete(), TEXT("Unfinished producers reserve force slots before recruitment")))
-					return true;
-			}
-			const CommandForceCap::FOccupancy Coop = CommandForceCap::Read(*State, *Wallet);
-			if (!Check(Coop.Count == 4 && Coop.Limit == 4, TEXT("Co-op counts only this commander's living producers, not workshop or teammate"))
-				|| !Rejected(State, Wallet, 4) || !HUDState(PC, 4, 4, true))
-				return true;
-			for (int32 Index = 0; Index < 6; ++Index)
-				if (!Place(State, State->EnemyCommander, BarracksIndex))
-					return true;
-			const CommandForceCap::FOccupancy Enemy = CommandForceCap::Read(*State, *State->EnemyCommander);
-			if (!Check(Enemy.Count == 6 && !Enemy.IsFull(), TEXT("JEV places six paid producers without the human force cap")))
-				return true;
-			Stage = 1;
-			return false;
-		}
+			return RunStage0(World, State, Wallet, PC);
 		UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 		if (!Nav || Nav->IsNavigationBuildInProgress())
 			return false;
 		if (Stage == 1)
-		{
-			if (!First.IsValid())
-				return Fail(TEXT("First producer disappeared before orphan proof"));
-			First->Tick(60.f);
-			if (!Check(FCommandService::ConfigureProduction(Wallet, First.Get(), EUnitRole::Frontline, true).IsAccepted(),
-					TEXT("Completed paid producer configures its force")))
-				return true;
-			First->TickProduction(First->GetProductionDuration());
-			FCommandService::ConfigureProduction(Wallet, First.Get(), EUnitRole::Frontline, false);
-			Orphan = First->ForceGroup;
-			if (!Check(Orphan.IsValid() && Orphan->GetUnits().Num() == 1, TEXT("Paid production creates a real survivor before destroying its producer")))
-				return true;
-			Orphan->SetActorTickEnabled(false);
-			Survivor = Orphan->GetUnits()[0];
-			Survivor->SetActorTickEnabled(false);
-			AArmyGroup* Enemy = SpawnGroup(World, nullptr, -1, HostileStaging(State));
-			if (!Enemy || Enemy->GetUnits().IsEmpty())
-				return Fail(TEXT("Isolated hostile damage fixture could not spawn"));
-			Enemy->SetActorTickEnabled(false);
-			for (AArmyUnit* Unit : Enemy->GetUnits())
-				Unit->SetActorTickEnabled(false);
-			First->ReceiveAttack(First->MaxHealth(), Enemy->GetUnits()[0]);
-			if (!Check(!First.IsValid() && Orphan.IsValid() && Survivor->IsAlive() && !Orphan->GetProductionBuilding()
-						&& CommandForceCap::Read(*State, *Wallet).Count == 3,
-					TEXT("Lethal producer damage frees a slot while its living orphan does not count")))
-				return true;
-			if (!HUDState(PC, 3, 4, false))
-				return true;
-			Stage = 2;
-			return false;
-		}
+			return RunStage1(World, State, Wallet, PC);
 		if (Stage == 2)
-		{
-			Replacement = Place(State, Wallet, BarracksIndex);
-			if (!Replacement.IsValid())
-				return true;
-			Replacement->Tick(60.f);
-			Stage = 3;
-			return false;
-		}
+			return RunStage2(State, Wallet);
 		if (Stage == 3)
-		{
-			if (!Check(Replacement.IsValid() && Replacement->ForceNumber == 5
-						&& FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, true).IsAccepted(),
-					TEXT("Living orphan reserves number one, so the paid co-op replacement receives force number five")))
-				return true;
-			Replacement->TickProduction(Replacement->GetProductionDuration());
-			FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, false);
-			const AArmyGroup* Fifth = Replacement->ForceGroup;
-			if (!Check(IsValid(Fifth) && Fifth->GetUnits().Num() == 1, TEXT("Replacement force five has a real paid recruit")))
-				return true;
-			if (!Check(Orphan.IsValid() && Survivor.IsValid() && Survivor->IsAlive()
-						&& CommandForceCap::Read(*State, *Wallet).Count == 4,
-					TEXT("Paid replacement fills the freed slot without counting the surviving orphan"))
-				|| !Rejected(State, Wallet, 4))
-				return true;
-			PC->SelectForce(Orphan.Get());
-			PC->SelectForceNumber(5);
-			if (!Check(PC->GetInspectedForce() == Orphan.Get() && !PC->IsForceSelected(Fifth),
-					TEXT("Two humans disable key five even in a standalone fixture world")))
-				return true;
-			State->RemovePlayerState(Foreign.Get());
-			Foreign->Destroy();
-			if (!Check(CommandForceCap::Read(*State, *Wallet).Limit == 5, TEXT("One human roster entry restores the solo cap"))
-				|| !HUDState(PC, 4, 5, false))
-				return true;
-			PC->SelectForceNumber(5);
-			if (!Check(PC->GetInspectedForce() == Fifth && PC->IsForceSelected(Fifth),
-					TEXT("Removing the second human enables key five without changing network mode")))
-				return true;
-			if (!Place(State, Wallet, BarracksIndex))
-				return true;
-			if (!Check(CommandForceCap::Read(*State, *Wallet).Count == 5, TEXT("Solo can place its fifth producer"))
-				|| !Rejected(State, Wallet, 5) || !HUDState(PC, 5, 5, true))
-				return true;
-			Test->AddInfo(TEXT("Force cap: unfinished co-op 4, foreign/non-producer exclusion, no debit or spawn on rejection, lethal destruction frees a slot, live orphan excluded, solo fifth accepted/sixth rejected, six paid JEV producers accepted."));
-			return true;
-		}
+			return RunStage3(State, Wallet, PC);
 		return Fail(TEXT("Unexpected force-cap scenario stage"));
 	}
 private:
+	bool RunStage0(UWorld* World, ACommandGameState* State, ACommandPlayerState* Wallet, ACommandPlayerController* PC)
+	{
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			It->Destroy();
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+			It->Destroy();
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			It->Destroy();
+		State->bVerificationIncomePaused = true;
+		Wallet->Resources = State->EnemyCommander->Resources = 10000;
+		Foreign = World->SpawnActor<ACommandPlayerState>();
+		if (!Foreign.IsValid())
+			return Fail(TEXT("Second human roster fixture could not spawn"));
+		Foreign->CommanderIndex = Wallet->CommanderIndex == 0 ? 1 : 0;
+		Foreign->Resources = 10000;
+		State->AddPlayerState(Foreign.Get());
+		if (!Place(State, Foreign.Get(), BarracksIndex) || !Place(State, Wallet, WorkshopIndex))
+			return true;
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			ACommandBuilding* Producer = Place(State, Wallet, BarracksIndex);
+			if (!Producer)
+				return true;
+			if (Index == 0)
+				First = Producer;
+			if (!Check(!Producer->IsComplete(), TEXT("Unfinished producers reserve force slots before recruitment")))
+				return true;
+		}
+		const CommandForceCap::FOccupancy Coop = CommandForceCap::Read(*State, *Wallet);
+		if (!Check(Coop.Count == 4 && Coop.Limit == 4, TEXT("Co-op counts only this commander's living producers, not workshop or teammate"))
+			|| !Rejected(State, Wallet, 4) || !HUDState(PC, 4, 4, true))
+			return true;
+		for (int32 Index = 0; Index < 6; ++Index)
+			if (!Place(State, State->EnemyCommander, BarracksIndex))
+				return true;
+		const CommandForceCap::FOccupancy Enemy = CommandForceCap::Read(*State, *State->EnemyCommander);
+		if (!Check(Enemy.Count == 6 && !Enemy.IsFull(), TEXT("JEV places six paid producers without the human force cap")))
+			return true;
+		Stage = 1;
+		return false;
+	}
+	bool RunStage1(UWorld* World, ACommandGameState* State, ACommandPlayerState* Wallet, ACommandPlayerController* PC)
+	{
+		if (!First.IsValid())
+			return Fail(TEXT("First producer disappeared before orphan proof"));
+		First->Tick(60.f);
+		if (!Check(FCommandService::ConfigureProduction(Wallet, First.Get(), EUnitRole::Frontline, true).IsAccepted(),
+				TEXT("Completed paid producer configures its force")))
+			return true;
+		First->TickProduction(First->GetProductionDuration());
+		FCommandService::ConfigureProduction(Wallet, First.Get(), EUnitRole::Frontline, false);
+		Orphan = First->ForceGroup;
+		if (!Check(Orphan.IsValid() && Orphan->GetUnits().Num() == 1, TEXT("Paid production creates a real survivor before destroying its producer")))
+			return true;
+		Orphan->SetActorTickEnabled(false);
+		Survivor = Orphan->GetUnits()[0];
+		Survivor->SetActorTickEnabled(false);
+		AArmyGroup* Enemy = SpawnGroup(World, nullptr, -1, HostileStaging(State));
+		if (!Enemy || Enemy->GetUnits().IsEmpty())
+			return Fail(TEXT("Isolated hostile damage fixture could not spawn"));
+		Enemy->SetActorTickEnabled(false);
+		for (AArmyUnit* Unit : Enemy->GetUnits())
+			Unit->SetActorTickEnabled(false);
+		First->ReceiveAttack(First->MaxHealth(), Enemy->GetUnits()[0]);
+		if (!Check(!First.IsValid() && Orphan.IsValid() && Survivor->IsAlive() && !Orphan->GetProductionBuilding()
+					&& CommandForceCap::Read(*State, *Wallet).Count == 3,
+				TEXT("Lethal producer damage frees a slot while its living orphan does not count")))
+			return true;
+		if (!HUDState(PC, 3, 4, false))
+			return true;
+		Stage = 2;
+		return false;
+	}
+	bool RunStage2(ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
+		Replacement = Place(State, Wallet, BarracksIndex);
+		if (!Replacement.IsValid())
+			return true;
+		Replacement->Tick(60.f);
+		Stage = 3;
+		return false;
+	}
+	bool RunStage3(ACommandGameState* State, ACommandPlayerState* Wallet, ACommandPlayerController* PC)
+	{
+		if (!Check(Replacement.IsValid() && Replacement->ForceNumber == 5
+					&& FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, true).IsAccepted(),
+				TEXT("Living orphan reserves number one, so the paid co-op replacement receives force number five")))
+			return true;
+		Replacement->TickProduction(Replacement->GetProductionDuration());
+		FCommandService::ConfigureProduction(Wallet, Replacement.Get(), EUnitRole::Frontline, false);
+		const AArmyGroup* Fifth = Replacement->ForceGroup;
+		if (!Check(IsValid(Fifth) && Fifth->GetUnits().Num() == 1, TEXT("Replacement force five has a real paid recruit")))
+			return true;
+		if (!Check(Orphan.IsValid() && Survivor.IsValid() && Survivor->IsAlive()
+					&& CommandForceCap::Read(*State, *Wallet).Count == 4,
+				TEXT("Paid replacement fills the freed slot without counting the surviving orphan"))
+			|| !Rejected(State, Wallet, 4))
+			return true;
+		PC->SelectForce(Orphan.Get());
+		PC->SelectForceNumber(5);
+		if (!Check(PC->GetInspectedForce() == Orphan.Get() && !PC->IsForceSelected(Fifth),
+				TEXT("Two humans disable key five even in a standalone fixture world")))
+			return true;
+		State->RemovePlayerState(Foreign.Get());
+		Foreign->Destroy();
+		if (!Check(CommandForceCap::Read(*State, *Wallet).Limit == 5, TEXT("One human roster entry restores the solo cap"))
+			|| !HUDState(PC, 4, 5, false))
+			return true;
+		PC->SelectForceNumber(5);
+		if (!Check(PC->GetInspectedForce() == Fifth && PC->IsForceSelected(Fifth),
+				TEXT("Removing the second human enables key five without changing network mode")))
+			return true;
+		if (!Place(State, Wallet, BarracksIndex))
+			return true;
+		if (!Check(CommandForceCap::Read(*State, *Wallet).Count == 5, TEXT("Solo can place its fifth producer"))
+			|| !Rejected(State, Wallet, 5) || !HUDState(PC, 5, 5, true))
+			return true;
+		Test->AddInfo(TEXT("Force cap: unfinished co-op 4, foreign/non-producer exclusion, no debit or spawn on rejection, lethal destruction frees a slot, live orphan excluded, solo fifth accepted/sixth rejected, six paid JEV producers accepted."));
+		return true;
+	}
 	bool HUDState(ACommandPlayerController* PC, int32 Count, int32 Limit, bool bCapped)
 	{
 		using namespace CommandHUDPanels;

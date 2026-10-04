@@ -47,152 +47,18 @@ public:
 			|| !State->Content || !IsValid(State->EnemyCommander))
 			return false;
 		if (Stage == 0)
-		{
-			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-				It->Destroy();
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				if (It->TeamIndex == 5)
-					It->Destroy();
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-			{
-				if (It->GetTeamIndex() == 0)
-					return Fail(TEXT("Normal new match must not spawn fixed friendly armies"));
-				It->Destroy();
-			}
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				if (It->TeamIndex == 0)
-					return Fail(TEXT("Normal new match must not spawn friendly buildings"));
-			State->bVerificationIncomePaused = true;
-			Wallet->Resources = 4000; // Isolated budgets; placement and each recruit still use paid authority paths.
-			State->EnemyCommander->Resources = 4000;
-			ForeignWallet = World->SpawnActor<ACommandPlayerState>();
-			if (!ForeignWallet.IsValid())
-				return Fail(TEXT("Foreign commander wallet fixture could not spawn"));
-			ForeignWallet->CommanderIndex = Wallet->CommanderIndex == 0 ? 1 : 0;
-			ForeignWallet->Resources = 4000;
-			State->AddPlayerState(ForeignWallet.Get());
-			First = Place(State, BarracksIndex, Wallet, 0);
-			Second = Place(State, BarracksIndex, Wallet, 0);
-			Foreign = Place(State, BarracksIndex, ForeignWallet.Get(), 0);
-			Enemy = Place(State, BarracksIndex, State->EnemyCommander.Get(), 5);
-			Workshop = Place(State, WorkshopIndex, Wallet, 0);
-			if (!First.IsValid() || !Second.IsValid() || !Foreign.IsValid() || !Enemy.IsValid() || !Workshop.IsValid())
-				return true;
-			if (!Check(First->ForceNumber == 1 && Second->ForceNumber == 2,
-					TEXT("Two living producers of one commander receive force numbers 1 and 2")))
-				return true;
-			if (!Check(Foreign->ForceNumber == 1 && Enemy->ForceNumber == 1,
-					TEXT("Another friendly commander and the enemy each start their own force numbering at 1")))
-				return true;
-			if (!Check(Workshop->ForceNumber == 0, TEXT("A non-producing workshop has no force number")))
-				return true;
-			Stage = 1;
-			return false; // Allow the dynamic navmesh to incorporate all paid building footprints.
-		}
+			return RunStage0(World, State, Wallet);
 		UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 		if (!Nav || Nav->IsNavigationBuildInProgress())
 			return false;
 		if (!Foreign.IsValid() || !Enemy.IsValid() || (Stage == 1 && !Second.IsValid()))
 			return Fail(TEXT("Isolated producer disappeared"));
 		if (Stage == 1)
-		{
-			if (!First.IsValid())
-				return Fail(TEXT("First force producer disappeared before recruitment"));
-			OwnedUnit = Recruit(First.Get(), State);
-			SecondUnit = Recruit(Second.Get(), State);
-			ForeignUnit = Recruit(Foreign.Get(), State);
-			EnemyUnit = Recruit(Enemy.Get(), State);
-			if (!OwnedUnit.IsValid() || !SecondUnit.IsValid() || !ForeignUnit.IsValid() || !EnemyUnit.IsValid())
-				return true;
-			SurvivorForce = First->ForceGroup;
-			if (!Check(SurvivorForce->ForceNumber == 1 && Second->ForceGroup->ForceNumber == 2
-						&& Foreign->ForceGroup->ForceNumber == 1 && Enemy->ForceGroup->ForceNumber == 1,
-					TEXT("Each recruited force snapshots its own producer's number")))
-				return true;
-			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
-					TEXT("Selecting an owned paid recruit selects its force, not its producer")))
-				return true;
-			PC->SelectActor(SecondUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(Second->ForceGroup)
-						&& !PC->IsForceSelected(SurvivorForce.Get()),
-					TEXT("Selecting another owned recruit replaces the selected force")))
-				return true;
-			PC->SelectActor(ForeignUnit.Get());
-			if (!Check(PC->GetSelectedForces().IsEmpty() && PC->GetInspectedForce() == Foreign->ForceGroup,
-					TEXT("A teammate recruit sharing force number 1 is inspected read-only")))
-				return true;
-			PC->SelectActor(OwnedUnit.Get());
-			PC->SelectActor(EnemyUnit.Get());
-			if (!Check(!PC->IsForceSelected(Enemy->ForceGroup),
-					TEXT("An enemy recruit sharing force number 1 cannot join command selection")))
-				return true;
-			SecondUnit->ReceiveAttack(SecondUnit->MaxHealth(), EnemyUnit.Get());
-			if (!Check(!SecondUnit->IsAlive() && Second->IsAlive(),
-					TEXT("Real lethal damage kills the owned recruit without destroying its producer")))
-				return true;
-			PC->SelectActor(OwnedUnit.Get());
-			PC->SelectActor(SecondUnit.Get());
-			if (!Check(!PC->IsForceSelected(Second->ForceGroup), TEXT("A dead owned recruit cannot select its living force")))
-				return true;
-			RememberedRegion = SurvivorForce->TargetRegionIndex;
-			RememberedVerb = SurvivorForce->Verb;
-			First->ReceiveAttack(First->MaxHealth(), EnemyUnit.Get());
-			if (!Check(!First.IsValid() && SurvivorForce.IsValid() && OwnedUnit->IsAlive()
-						&& !IsValid(SurvivorForce->GetProductionBuilding()) && SurvivorForce->ForceNumber == 1
-						&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
-					TEXT("Destroying producer 1 leaves a living orphan force with number 1 and its last region order")))
-				return true;
-			PC->SelectActor(Second.Get());
-			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
-					TEXT("Selecting an orphan survivor selects its retained force")))
-				return true;
-			Second->ReceiveAttack(Second->MaxHealth(), EnemyUnit.Get());
-			if (!Check(!Second.IsValid(), TEXT("Destroying empty producer 2 releases its number")))
-				return true;
-			Stage = 2;
-			return false; // Let navigation remove the destroyed producer's footprint before paid replacement.
-		}
+			return RunStage1(PC, State);
 		if (Stage == 2)
-		{
-			Replacement = Place(State, BarracksIndex, Wallet, 0);
-			if (!Replacement.IsValid())
-				return true;
-			if (!Check(Replacement->ForceNumber == 2
-						&& Foreign->ForceNumber == 1 && SurvivorForce.IsValid() && SurvivorForce->ForceNumber == 1,
-					TEXT("New producer gets 2 while living orphan force 1 reserves its number")))
-				return true;
-			Stage = 3;
-			return false;
-		}
+			return RunStage2(State, Wallet);
 		if (Stage == 3)
-		{
-			if (!Replacement.IsValid() || !SurvivorForce.IsValid() || !OwnedUnit.IsValid())
-				return Fail(TEXT("Replacement producer or orphan survivor disappeared"));
-			const int32 Frontline = UnitIndex(State, EUnitRole::Frontline);
-			if (!Check(FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, true).IsAccepted() && IsValid(Replacement->ForceGroup),
-					TEXT("The paid replacement producer can configure its own force")))
-				return true;
-			FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, false);
-			if (!Check(Replacement->ForceGroup != SurvivorForce.Get() && Replacement->ForceGroup->ForceNumber == 2
-						&& Replacement->ForceGroup->GetUnits().IsEmpty() && OwnedUnit->GetGroup() == SurvivorForce.Get()
-						&& SurvivorForce->ForceNumber == 1 && !IsValid(SurvivorForce->GetProductionBuilding())
-						&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
-					TEXT("New force 2 does not adopt orphan survivors or change their number and order")))
-				return true;
-			PC->SelectActor(Replacement.Get());
-			PC->SelectActor(OwnedUnit.Get());
-			if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get())
-						&& !PC->IsForceSelected(Replacement->ForceGroup),
-					TEXT("An orphan survivor selects its own force rather than unrelated replacement")))
-				return true;
-			OwnedUnit->ReceiveAttack(OwnedUnit->MaxHealth(), EnemyUnit.Get());
-			if (!Check(!OwnedUnit->IsAlive(), TEXT("Real lethal damage kills the last orphan unit")))
-				return true;
-			Stage = 4;
-			return false;
-		}
+			return RunStage3(PC, State, Wallet);
 		ACommandBuilding* Reused = Place(State, BarracksIndex, Wallet, 0);
 		if (!Reused)
 			return true;
@@ -203,6 +69,152 @@ public:
 		return true;
 	}
 private:
+	bool RunStage0(UWorld* World, ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			It->Destroy();
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			if (It->TeamIndex == 5)
+				It->Destroy();
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+		{
+			if (It->GetTeamIndex() == 0)
+				return Fail(TEXT("Normal new match must not spawn fixed friendly armies"));
+			It->Destroy();
+		}
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			if (It->TeamIndex == 0)
+				return Fail(TEXT("Normal new match must not spawn friendly buildings"));
+		State->bVerificationIncomePaused = true;
+		Wallet->Resources = 4000; // Isolated budgets; placement and each recruit still use paid authority paths.
+		State->EnemyCommander->Resources = 4000;
+		ForeignWallet = World->SpawnActor<ACommandPlayerState>();
+		if (!ForeignWallet.IsValid())
+			return Fail(TEXT("Foreign commander wallet fixture could not spawn"));
+		ForeignWallet->CommanderIndex = Wallet->CommanderIndex == 0 ? 1 : 0;
+		ForeignWallet->Resources = 4000;
+		State->AddPlayerState(ForeignWallet.Get());
+		First = Place(State, BarracksIndex, Wallet, 0);
+		Second = Place(State, BarracksIndex, Wallet, 0);
+		Foreign = Place(State, BarracksIndex, ForeignWallet.Get(), 0);
+		Enemy = Place(State, BarracksIndex, State->EnemyCommander.Get(), 5);
+		Workshop = Place(State, WorkshopIndex, Wallet, 0);
+		if (!First.IsValid() || !Second.IsValid() || !Foreign.IsValid() || !Enemy.IsValid() || !Workshop.IsValid())
+			return true;
+		if (!Check(First->ForceNumber == 1 && Second->ForceNumber == 2,
+				TEXT("Two living producers of one commander receive force numbers 1 and 2")))
+			return true;
+		if (!Check(Foreign->ForceNumber == 1 && Enemy->ForceNumber == 1,
+				TEXT("Another friendly commander and the enemy each start their own force numbering at 1")))
+			return true;
+		if (!Check(Workshop->ForceNumber == 0, TEXT("A non-producing workshop has no force number")))
+			return true;
+		Stage = 1;
+		return false; // Allow the dynamic navmesh to incorporate all paid building footprints.
+	}
+	bool RunStage1(ACommandPlayerController* PC, ACommandGameState* State)
+	{
+		if (!First.IsValid())
+			return Fail(TEXT("First force producer disappeared before recruitment"));
+		OwnedUnit = Recruit(First.Get(), State);
+		SecondUnit = Recruit(Second.Get(), State);
+		ForeignUnit = Recruit(Foreign.Get(), State);
+		EnemyUnit = Recruit(Enemy.Get(), State);
+		if (!OwnedUnit.IsValid() || !SecondUnit.IsValid() || !ForeignUnit.IsValid() || !EnemyUnit.IsValid())
+			return true;
+		SurvivorForce = First->ForceGroup;
+		if (!Check(SurvivorForce->ForceNumber == 1 && Second->ForceGroup->ForceNumber == 2
+					&& Foreign->ForceGroup->ForceNumber == 1 && Enemy->ForceGroup->ForceNumber == 1,
+				TEXT("Each recruited force snapshots its own producer's number")))
+			return true;
+		PC->SelectActor(OwnedUnit.Get());
+		if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
+				TEXT("Selecting an owned paid recruit selects its force, not its producer")))
+			return true;
+		PC->SelectActor(SecondUnit.Get());
+		if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(Second->ForceGroup)
+					&& !PC->IsForceSelected(SurvivorForce.Get()),
+				TEXT("Selecting another owned recruit replaces the selected force")))
+			return true;
+		PC->SelectActor(ForeignUnit.Get());
+		if (!Check(PC->GetSelectedForces().IsEmpty() && PC->GetInspectedForce() == Foreign->ForceGroup,
+				TEXT("A teammate recruit sharing force number 1 is inspected read-only")))
+			return true;
+		PC->SelectActor(OwnedUnit.Get());
+		PC->SelectActor(EnemyUnit.Get());
+		if (!Check(!PC->IsForceSelected(Enemy->ForceGroup),
+				TEXT("An enemy recruit sharing force number 1 cannot join command selection")))
+			return true;
+		SecondUnit->ReceiveAttack(SecondUnit->MaxHealth(), EnemyUnit.Get());
+		if (!Check(!SecondUnit->IsAlive() && Second->IsAlive(),
+				TEXT("Real lethal damage kills the owned recruit without destroying its producer")))
+			return true;
+		PC->SelectActor(OwnedUnit.Get());
+		PC->SelectActor(SecondUnit.Get());
+		if (!Check(!PC->IsForceSelected(Second->ForceGroup), TEXT("A dead owned recruit cannot select its living force")))
+			return true;
+		return FinishStage1(PC);
+	}
+	bool FinishStage1(ACommandPlayerController* PC)
+	{
+		RememberedRegion = SurvivorForce->TargetRegionIndex;
+		RememberedVerb = SurvivorForce->Verb;
+		First->ReceiveAttack(First->MaxHealth(), EnemyUnit.Get());
+		if (!Check(!First.IsValid() && SurvivorForce.IsValid() && OwnedUnit->IsAlive()
+					&& !IsValid(SurvivorForce->GetProductionBuilding()) && SurvivorForce->ForceNumber == 1
+					&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
+				TEXT("Destroying producer 1 leaves a living orphan force with number 1 and its last region order")))
+			return true;
+		PC->SelectActor(Second.Get());
+		PC->SelectActor(OwnedUnit.Get());
+		if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get()),
+				TEXT("Selecting an orphan survivor selects its retained force")))
+			return true;
+		Second->ReceiveAttack(Second->MaxHealth(), EnemyUnit.Get());
+		if (!Check(!Second.IsValid(), TEXT("Destroying empty producer 2 releases its number")))
+			return true;
+		Stage = 2;
+		return false; // Let navigation remove the destroyed producer's footprint before paid replacement.
+	}
+	bool RunStage2(ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
+		Replacement = Place(State, BarracksIndex, Wallet, 0);
+		if (!Replacement.IsValid())
+			return true;
+		if (!Check(Replacement->ForceNumber == 2
+					&& Foreign->ForceNumber == 1 && SurvivorForce.IsValid() && SurvivorForce->ForceNumber == 1,
+				TEXT("New producer gets 2 while living orphan force 1 reserves its number")))
+			return true;
+		Stage = 3;
+		return false;
+	}
+	bool RunStage3(ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
+		if (!Replacement.IsValid() || !SurvivorForce.IsValid() || !OwnedUnit.IsValid())
+			return Fail(TEXT("Replacement producer or orphan survivor disappeared"));
+		const int32 Frontline = UnitIndex(State, EUnitRole::Frontline);
+		if (!Check(FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, true).IsAccepted() && IsValid(Replacement->ForceGroup),
+				TEXT("The paid replacement producer can configure its own force")))
+			return true;
+		FCommandService::ConfigureProduction(Wallet, Replacement.Get(), State->Content->Unit(Frontline)->Role, false);
+		if (!Check(Replacement->ForceGroup != SurvivorForce.Get() && Replacement->ForceGroup->ForceNumber == 2
+					&& Replacement->ForceGroup->GetUnits().IsEmpty() && OwnedUnit->GetGroup() == SurvivorForce.Get()
+					&& SurvivorForce->ForceNumber == 1 && !IsValid(SurvivorForce->GetProductionBuilding())
+					&& SurvivorForce->TargetRegionIndex == RememberedRegion && SurvivorForce->Verb == RememberedVerb,
+				TEXT("New force 2 does not adopt orphan survivors or change their number and order")))
+			return true;
+		PC->SelectActor(Replacement.Get());
+		PC->SelectActor(OwnedUnit.Get());
+		if (!Check(PC->GetSelectedBuilding() == nullptr && PC->IsForceSelected(SurvivorForce.Get())
+					&& !PC->IsForceSelected(Replacement->ForceGroup),
+				TEXT("An orphan survivor selects its own force rather than unrelated replacement")))
+			return true;
+		OwnedUnit->ReceiveAttack(OwnedUnit->MaxHealth(), EnemyUnit.Get());
+		if (!Check(!OwnedUnit->IsAlive(), TEXT("Real lethal damage kills the last orphan unit")))
+			return true;
+		Stage = 4;
+		return false;
+	}
 	bool Check(bool Value, const TCHAR* Message)
 	{
 		if (!Value)

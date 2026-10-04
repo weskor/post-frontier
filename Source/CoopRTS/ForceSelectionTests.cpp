@@ -34,127 +34,25 @@ public:
 			return false;
 		ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		if (Stage == EStage::Setup)
-		{
-			PC = ArmyTestSetup::Controller(World);
-			if (!PC.IsValid() || !MapReady(State) || !State->Content
-				|| !PC->GetPlayerState<ACommandPlayerState>() || PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
-				return false;
-			Camera = Cast<ACommandCamera>(PC->GetPawn());
-			if (!Check(Camera.IsValid(), TEXT("Selection scenario has the local command camera")) || !Setup(World, State))
-				return true;
-			if (!ExerciseActorSelection())
-				return true;
-			Stage = EStage::BuildingClicks;
-			return false;
-		}
+			return RunSetup(World, State);
 		if (!Check(PC.IsValid() && Camera.IsValid() && State, TEXT("Selection controller, camera and match survive")))
 			return true;
 		switch (Stage)
 		{
 		case EStage::BuildingClicks:
-			BeforeCamera = Camera->GetActorLocation();
-			PC->SelectActor(Buildings[0].Get());
-			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty()
-						&& PC->IsForceHighlighted(Owned[0].Get()) && !PC->IsForceSelected(Owned[0].Get()),
-					TEXT("First building click opens only its panel and highlights its force")))
-				return true;
-			// Both clicks use the cursor's world-hit entry in the same world frame.
-			PC->SelectActor(Buildings[0].Get());
-			if (!Check(Only(Owned[0].Get()), TEXT("Immediate second click on the same producer selects its force and closes its panel")))
-				return true;
-			PC->SelectActor(Buildings[0].Get());
-			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
-					TEXT("A third building click starts a fresh single-click window")))
-				return true;
-			BuildingClickStarted = World->GetRealTimeSeconds();
-			Stage = EStage::ExpiredBuildingClick;
-			break;
+			return RunBuildingClicks(World);
 		case EStage::ExpiredBuildingClick:
-			if (World->GetRealTimeSeconds() - BuildingClickStarted <= .35)
-				return false;
-			PC->SelectActor(Buildings[0].Get());
-			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
-					TEXT("Same-building click after the 0.3-second real-time window opens its panel instead of selecting its force")))
-				return true;
-			PC->SelectActor(Buildings[1].Get());
-			if (!Check(PC->GetSelectedBuilding() == Buildings[1].Get() && PC->GetSelectedForces().IsEmpty(),
-					TEXT("Clicking a distinct producer opens that building's panel")))
-				return true;
-			PC->SelectActor(Buildings[0].Get());
-			if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
-					TEXT("Intervening distinct-building click prevents a double-click on the original producer"))
-				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01),
-					TEXT("Short, expired and interrupted building click windows never move the camera")))
-				return true;
-			NumberIndex = 0;
-			Stage = EStage::PressNumber;
-			break;
+			return RunExpiredBuildingClick(World);
 		case EStage::PressNumber:
-			PC->SelectActor(nullptr);
-			BeforeCamera = Camera->GetActorLocation();
-			Key(NumberKeys[NumberIndex], IE_Pressed);
-			Stage = EStage::CheckNumber;
-			break;
+			return RunPressNumber();
 		case EStage::CheckNumber:
-			Key(NumberKeys[NumberIndex], IE_Released);
-			if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("%s key %d selects force number %d, not army array index"), bSoloNumberPass ? TEXT("Solo") : TEXT("Co-op"), NumberIndex + 1, NumberIndex + 1))
-				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Single number key does not move camera")))
-				return true;
-			if (++NumberIndex < (bSoloNumberPass ? 5 : 4))
-				Stage = EStage::PressNumber;
-			else if (!bSoloNumberPass)
-			{
-				PC->SelectActor(Owned[0].Get());
-				BeforeCamera = Camera->GetActorLocation();
-				Key(EKeys::Five, IE_Pressed);
-				Stage = EStage::CheckCoopFive;
-			}
-			else
-			{
-				State->AddPlayerState(ForeignWallet.Get());
-				PC->SelectActor(Owned[0].Get());
-				PC->SelectForce(Owned[1].Get(), true);
-				Camera->FocusOn(FromFriendlyHQ(State, 0.f, -1800.f, 0.f));
-				BeforeCamera = Camera->GetActorLocation();
-				Key(EKeys::F, IE_Pressed);
-				Stage = EStage::CheckFocus;
-			}
-			break;
+			return RunCheckNumber(State);
 		case EStage::CheckCoopFive:
-			Key(EKeys::Five, IE_Released);
-			if (!Check(Only(Owned[0].Get()), TEXT("Two-human roster rejects key five without changing the existing selection"))
-				|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Rejected co-op key five does not move camera")))
-				return true;
-			State->RemovePlayerState(ForeignWallet.Get());
-			bSoloNumberPass = true;
-			NumberIndex = 0;
-			Stage = EStage::PressNumber;
-			break;
+			return RunCheckCoopFive(State);
 		case EStage::CheckFocus:
-			Key(EKeys::F, IE_Released);
-			if (!Check(FVector::Dist2D(Camera->GetActorLocation(), (Owned[0]->GetCenter() + Owned[1]->GetCenter()) * .5) < 1.,
-					TEXT("F centres on the midpoint of the selected forces"))
-				|| !Check(!Camera->GetActorLocation().Equals(BeforeCamera, 1.), TEXT("F actually moves the displaced camera")))
-				return true;
-			// Two dispatches in one frame make the timing boundary deterministic;
-			// real number-key mappings have already been exercised above.
-			PC->SelectForceNumber(2);
-			Camera->FocusOn(FromFriendlyHQ(State, 0.f, -1800.f, 0.f));
-			PC->SelectForceNumber(2);
-			if (!Check(Only(Owned[1].Get()) && FVector::Dist2D(Camera->GetActorLocation(), Owned[1]->GetCenter()) < 1.,
-					TEXT("Double-tapping a force number centres on that force")))
-				return true;
-			Camera->FocusOn((Owned[0]->GetCenter() + Owned[1]->GetCenter()) * .5);
-			Stage = EStage::HUD;
-			break;
+			return RunCheckFocus(State);
 		case EStage::HUD:
-			if (!ExerciseHUD())
-				return true;
-			if (!ExerciseOrphan())
-				return true;
-			PC->SelectActor(nullptr);
-			Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, co-op keys 1–4 and key-5 rejection, one-human roster keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, building panel/highlight and real-time short/expired/interrupted double-click windows, enemy/dead exclusions and teammate read-only inspection."));
-			return true;
+			return RunHUD();
 		default:
 			break;
 		}
@@ -173,6 +71,138 @@ private:
 		CheckFocus,
 		HUD
 	};
+	bool RunSetup(UWorld* World, ACommandGameState* State)
+	{
+		PC = ArmyTestSetup::Controller(World);
+		if (!PC.IsValid() || !MapReady(State) || !State->Content
+			|| !PC->GetPlayerState<ACommandPlayerState>() || PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
+			return false;
+		Camera = Cast<ACommandCamera>(PC->GetPawn());
+		if (!Check(Camera.IsValid(), TEXT("Selection scenario has the local command camera")) || !Setup(World, State))
+			return true;
+		if (!ExerciseActorSelection())
+			return true;
+		Stage = EStage::BuildingClicks;
+		return false;
+	}
+	bool RunBuildingClicks(UWorld* World)
+	{
+		BeforeCamera = Camera->GetActorLocation();
+		PC->SelectActor(Buildings[0].Get());
+		if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty()
+					&& PC->IsForceHighlighted(Owned[0].Get()) && !PC->IsForceSelected(Owned[0].Get()),
+				TEXT("First building click opens only its panel and highlights its force")))
+			return true;
+		// Both clicks use the cursor's world-hit entry in the same world frame.
+		PC->SelectActor(Buildings[0].Get());
+		if (!Check(Only(Owned[0].Get()), TEXT("Immediate second click on the same producer selects its force and closes its panel")))
+			return true;
+		PC->SelectActor(Buildings[0].Get());
+		if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+				TEXT("A third building click starts a fresh single-click window")))
+			return true;
+		BuildingClickStarted = World->GetRealTimeSeconds();
+		Stage = EStage::ExpiredBuildingClick;
+		return false;
+	}
+	bool RunExpiredBuildingClick(UWorld* World)
+	{
+		if (World->GetRealTimeSeconds() - BuildingClickStarted <= .35)
+			return false;
+		PC->SelectActor(Buildings[0].Get());
+		if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+				TEXT("Same-building click after the 0.3-second real-time window opens its panel instead of selecting its force")))
+			return true;
+		PC->SelectActor(Buildings[1].Get());
+		if (!Check(PC->GetSelectedBuilding() == Buildings[1].Get() && PC->GetSelectedForces().IsEmpty(),
+				TEXT("Clicking a distinct producer opens that building's panel")))
+			return true;
+		PC->SelectActor(Buildings[0].Get());
+		if (!Check(PC->GetSelectedBuilding() == Buildings[0].Get() && PC->GetSelectedForces().IsEmpty(),
+				TEXT("Intervening distinct-building click prevents a double-click on the original producer"))
+			|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01),
+				TEXT("Short, expired and interrupted building click windows never move the camera")))
+			return true;
+		NumberIndex = 0;
+		Stage = EStage::PressNumber;
+		return false;
+	}
+	bool RunPressNumber()
+	{
+		PC->SelectActor(nullptr);
+		BeforeCamera = Camera->GetActorLocation();
+		Key(NumberKeys[NumberIndex], IE_Pressed);
+		Stage = EStage::CheckNumber;
+		return false;
+	}
+	bool RunCheckNumber(ACommandGameState* State)
+	{
+		Key(NumberKeys[NumberIndex], IE_Released);
+		if (!Check(Only(Owned[NumberIndex].Get()), FString::Printf(TEXT("%s key %d selects force number %d, not army array index"), bSoloNumberPass ? TEXT("Solo") : TEXT("Co-op"), NumberIndex + 1, NumberIndex + 1))
+			|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Single number key does not move camera")))
+			return true;
+		if (++NumberIndex < (bSoloNumberPass ? 5 : 4))
+			Stage = EStage::PressNumber;
+		else if (!bSoloNumberPass)
+		{
+			PC->SelectActor(Owned[0].Get());
+			BeforeCamera = Camera->GetActorLocation();
+			Key(EKeys::Five, IE_Pressed);
+			Stage = EStage::CheckCoopFive;
+		}
+		else
+		{
+			State->AddPlayerState(ForeignWallet.Get());
+			PC->SelectActor(Owned[0].Get());
+			PC->SelectForce(Owned[1].Get(), true);
+			Camera->FocusOn(FromFriendlyHQ(State, 0.f, -1800.f, 0.f));
+			BeforeCamera = Camera->GetActorLocation();
+			Key(EKeys::F, IE_Pressed);
+			Stage = EStage::CheckFocus;
+		}
+		return false;
+	}
+	bool RunCheckCoopFive(ACommandGameState* State)
+	{
+		Key(EKeys::Five, IE_Released);
+		if (!Check(Only(Owned[0].Get()), TEXT("Two-human roster rejects key five without changing the existing selection"))
+			|| !Check(Camera->GetActorLocation().Equals(BeforeCamera, .01), TEXT("Rejected co-op key five does not move camera")))
+			return true;
+		State->RemovePlayerState(ForeignWallet.Get());
+		bSoloNumberPass = true;
+		NumberIndex = 0;
+		Stage = EStage::PressNumber;
+		return false;
+	}
+	bool RunCheckFocus(ACommandGameState* State)
+	{
+		Key(EKeys::F, IE_Released);
+		if (!Check(FVector::Dist2D(Camera->GetActorLocation(), (Owned[0]->GetCenter() + Owned[1]->GetCenter()) * .5) < 1.,
+				TEXT("F centres on the midpoint of the selected forces"))
+			|| !Check(!Camera->GetActorLocation().Equals(BeforeCamera, 1.), TEXT("F actually moves the displaced camera")))
+			return true;
+		// Two dispatches in one frame make the timing boundary deterministic;
+		// real number-key mappings have already been exercised above.
+		PC->SelectForceNumber(2);
+		Camera->FocusOn(FromFriendlyHQ(State, 0.f, -1800.f, 0.f));
+		PC->SelectForceNumber(2);
+		if (!Check(Only(Owned[1].Get()) && FVector::Dist2D(Camera->GetActorLocation(), Owned[1]->GetCenter()) < 1.,
+				TEXT("Double-tapping a force number centres on that force")))
+			return true;
+		Camera->FocusOn((Owned[0]->GetCenter() + Owned[1]->GetCenter()) * .5);
+		Stage = EStage::HUD;
+		return false;
+	}
+	bool RunHUD()
+	{
+		if (!ExerciseHUD())
+			return true;
+		if (!ExerciseOrphan())
+			return true;
+		PC->SelectActor(nullptr);
+		Test->AddInfo(TEXT("Force selection proof: living/orphan unit selection, Shift add/remove, co-op keys 1–4 and key-5 rejection, one-human roster keys 1–5, no selection camera jump, F multi-force focus, number double-tap focus, building panel/highlight and real-time short/expired/interrupted double-click windows, enemy/dead exclusions and teammate read-only inspection."));
+		return true;
+	}
 
 	bool Check(bool bValue, const FString& Message)
 	{
@@ -357,6 +387,10 @@ private:
 		PC->SelectForceBox(FVector2D::ZeroVector, FVector2D(Width, Height));
 		if (!Check(!PC->IsForceSelected(Foreign.Get()) && !PC->IsForceSelected(Enemy.Get()), TEXT("Viewport box never adds teammate or enemy forces")))
 			return false;
+		return ExerciseHUDCommands(HUD, CameraBefore);
+	}
+	bool ExerciseHUDCommands(ACommandHUD* HUD, const FVector& CameraBefore)
+	{
 		PC->SelectActorWithModifiers(Buildings[0].Get(), false, false);
 		FVector2D Action;
 		if (!Check(HUD->FindActionScreenPosition(EHUDAction::SelectForce, Action) && PC->HandleHUDClick(Action) && Only(Owned[0].Get()),

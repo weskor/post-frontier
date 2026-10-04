@@ -27,27 +27,7 @@ public:
 			|| !IsValid(State->EnemyCommander))
 			return false;
 		if (Stage == 0)
-		{
-			// Only the real game-state income tick may change these wallets.
-			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-				It->Destroy();
-			for (TActorIterator<ACommandBuilding> It(World); It; ++It)
-				It->Destroy();
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				It->Destroy();
-			Other = World->SpawnActor<ACommandPlayerState>();
-			InvalidSlot = World->SpawnActor<ACommandPlayerState>();
-			if (!Other.IsValid() || !InvalidSlot.IsValid())
-				return Fail(TEXT("Roster fixtures could not spawn"));
-			Other->CommanderIndex = -1; // A spectator is not a human commander.
-			InvalidSlot->CommanderIndex = 5;
-			Other->Resources = InvalidSlot->Resources = 0;
-			State->AddPlayerState(Other.Get());
-			State->AddPlayerState(InvalidSlot.Get());
-			Wallet->Resources = State->EnemyCommander->Resources = 0;
-			Stage = 1;
-			return false;
-		}
+			return Setup(World, State, Wallet);
 		if (!Other.IsValid() || !InvalidSlot.IsValid()
 			|| State->GetIncomePerSecond(Wallet) != 2 || InvalidSlot->Resources != 0)
 			return Fail(TEXT("Human income stays unscaled; invalid slots receive no baseline"));
@@ -63,6 +43,34 @@ public:
 		HumanExpected += 4;
 		if (Wallet->Resources != HumanExpected)
 			return Fail(TEXT("Human commander receives exactly four per two-second income payment"));
+		return CheckPayment(State, Wallet);
+	}
+
+private:
+	bool Setup(UWorld* World, ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
+		// Only the real game-state income tick may change these wallets.
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			It->Destroy();
+		for (TActorIterator<ACommandBuilding> It(World); It; ++It)
+			It->Destroy();
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+			It->Destroy();
+		Other = World->SpawnActor<ACommandPlayerState>();
+		InvalidSlot = World->SpawnActor<ACommandPlayerState>();
+		if (!Other.IsValid() || !InvalidSlot.IsValid())
+			return Fail(TEXT("Roster fixtures could not spawn"));
+		Other->CommanderIndex = -1; // A spectator is not a human commander.
+		InvalidSlot->CommanderIndex = 5;
+		Other->Resources = InvalidSlot->Resources = 0;
+		State->AddPlayerState(Other.Get());
+		State->AddPlayerState(InvalidSlot.Get());
+		Wallet->Resources = State->EnemyCommander->Resources = 0;
+		Stage = 1;
+		return false;
+	}
+	bool CheckPayment(ACommandGameState* State, ACommandPlayerState* Wallet)
+	{
 		switch (Stage)
 		{
 		case 1:
@@ -99,8 +107,6 @@ public:
 		}
 		return false;
 	}
-
-private:
 	bool Fail(const TCHAR* Message)
 	{
 		Test->AddError(Message);

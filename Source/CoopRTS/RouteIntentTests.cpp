@@ -27,35 +27,7 @@ public:
 		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
 		const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 		if (!Force.IsValid())
-		{
-			for (TActorIterator<AArmyGroup> It(World); It; ++It)
-				if (It->GetOwner() == PC && It->GetArmyIndex() == 0)
-					Force = *It;
-			if (!Force.IsValid())
-				return false;
-			Home = ForceOrderGraph::SourceRegion(*Force, *State);
-			Away = ArmyTestSetup::TravelRegion(Force.Get(), State->EnemyHeadquarters->GetActorLocation());
-			Force->RetreatThreshold = ERetreatThreshold::Never;
-			const auto Result = FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::Attack, Away);
-			if (!Result.IsAccepted())
-			{
-				Force.Reset();
-				return false;
-			}
-			CheckRoutes(*State);
-			Test->TestTrue(TEXT("Queue accepts return leg"), FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::MoveHold, Home, nullptr, true).IsAccepted());
-			Test->TestEqual(TEXT("Active plus queue publishes two paths"), Force->GetIntentRoutes().Num(), 2);
-			CheckRoutes(*State);
-			PC->SelectForce(Force.Get());
-			bool bSelected = false;
-			ForceRoutePresentation::Visit(*PC, [&](const ForceRoutePresentation::FRoute& Route) {
-				if (!Route.bPreview && Route.bSelected && Route.OrderIndex == 1)
-					bSelected = Route.Line.Count >= 2 && Route.Line.Points[Route.Line.Count - 1].Equals(State->GetRegionAnchor(Home));
-			});
-			Test->TestTrue(TEXT("Selected-force surface exposes queued return target"), bSelected);
-			Source = ForceOrderGraph::SourceRegion(*Force, *State);
-			return false;
-		}
+			return Setup(World, PC, State);
 		if (ForceOrderGraph::SourceRegion(*Force, *State) == Source)
 			return false;
 		// Characters and the order driver have independent tick intervals; observe
@@ -81,6 +53,36 @@ public:
 		return true;
 	}
 private:
+	bool Setup(UWorld* World, ACommandPlayerController* PC, const ACommandGameState* State)
+	{
+		for (TActorIterator<AArmyGroup> It(World); It; ++It)
+			if (It->GetOwner() == PC && It->GetArmyIndex() == 0)
+				Force = *It;
+		if (!Force.IsValid())
+			return false;
+		Home = ForceOrderGraph::SourceRegion(*Force, *State);
+		Away = ArmyTestSetup::TravelRegion(Force.Get(), State->EnemyHeadquarters->GetActorLocation());
+		Force->RetreatThreshold = ERetreatThreshold::Never;
+		const auto Result = FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::Attack, Away);
+		if (!Result.IsAccepted())
+		{
+			Force.Reset();
+			return false;
+		}
+		CheckRoutes(*State);
+		Test->TestTrue(TEXT("Queue accepts return leg"), FCommandService::IssueForceOrder(PC->GetPlayerState<ACommandPlayerState>(), Force.Get(), EForceVerb::MoveHold, Home, nullptr, true).IsAccepted());
+		Test->TestEqual(TEXT("Active plus queue publishes two paths"), Force->GetIntentRoutes().Num(), 2);
+		CheckRoutes(*State);
+		PC->SelectForce(Force.Get());
+		bool bSelected = false;
+		ForceRoutePresentation::Visit(*PC, [&](const ForceRoutePresentation::FRoute& Route) {
+			if (!Route.bPreview && Route.bSelected && Route.OrderIndex == 1)
+				bSelected = Route.Line.Count >= 2 && Route.Line.Points[Route.Line.Count - 1].Equals(State->GetRegionAnchor(Home));
+		});
+		Test->TestTrue(TEXT("Selected-force surface exposes queued return target"), bSelected);
+		Source = ForceOrderGraph::SourceRegion(*Force, *State);
+		return false;
+	}
 	void CheckRoutes(const ACommandGameState& State)
 	{
 		const auto& Routes = Force->GetIntentRoutes();

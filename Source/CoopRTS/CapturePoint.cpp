@@ -14,6 +14,26 @@
 #include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
+namespace
+{
+const AArmyUnit* FindCaptureContributor(const AArmyGroup& Group, const ACapturePoint& Point, bool& bFriendly, bool& bEnemy)
+{
+	const AArmyUnit* PresentUnit = nullptr;
+	for (const AArmyUnit* Unit : Group.GetUnits())
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive()
+			|| FVector::DistSquared2D(Unit->GetActorLocation(), Point.GetActorLocation()) > FMath::Square(Point.CaptureRadius))
+			continue;
+		if (Group.GetTeamIndex() == 0)
+			bFriendly = true;
+		else if (Group.GetTeamIndex() == 5)
+			bEnemy = true;
+		PresentUnit = Unit;
+	}
+	return PresentUnit;
+}
+}
+
 ACapturePoint::ACapturePoint()
 {
 	bReplicates = true;
@@ -75,18 +95,7 @@ void ACapturePoint::AdvanceCapture(float Seconds)
 	TArray<const AArmyUnit*, TInlineAllocator<8>> ContributingUnits;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 	{
-		const AArmyUnit* PresentUnit = nullptr;
-		for (const AArmyUnit* Unit : It->GetUnits())
-		{
-			if (!IsValid(Unit) || !Unit->IsAlive()
-				|| FVector::DistSquared2D(Unit->GetActorLocation(), GetActorLocation()) > FMath::Square(CaptureRadius))
-				continue;
-			if (It->GetTeamIndex() == 0)
-				bFriendly = true;
-			else if (It->GetTeamIndex() == 5)
-				bEnemy = true;
-			PresentUnit = Unit;
-		}
+		const AArmyUnit* PresentUnit = FindCaptureContributor(**It, *this, bFriendly, bEnemy);
 		if (PresentUnit)
 			ContributingUnits.Add(PresentUnit);
 	}

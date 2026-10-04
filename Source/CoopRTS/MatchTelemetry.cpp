@@ -12,6 +12,44 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
+namespace
+{
+void WriteTelemetryPlayers(const TSharedRef<FJsonObject>& Root, TArray<FMatchTelemetryPlayer>& Players, double EndedBattleSeconds)
+{
+	TArray<TSharedPtr<FJsonValue>> PlayerValues;
+	PlayerValues.Reserve(Players.Num());
+	for (FMatchTelemetryPlayer& Entry : Players)
+	{
+		if (!Entry.bDisconnected && Entry.State.IsValid())
+			Entry.CommanderIndex = Entry.State->CommanderIndex;
+		const double Participation = Entry.ParticipationSeconds
+			+ (Entry.bDisconnected ? 0. : FMath::Max(0., EndedBattleSeconds - Entry.ConnectedSinceSeconds));
+		const double PerMinute = Participation > 0. ? 60. / Participation : 0.;
+		const TSharedRef<FJsonObject> Player = MakeShared<FJsonObject>();
+		Player->SetStringField(TEXT("player_id"), Entry.PlayerId);
+		Player->SetNumberField(TEXT("commander_index"), Entry.CommanderIndex);
+		Player->SetBoolField(TEXT("disconnected"), Entry.bDisconnected);
+		Player->SetNumberField(TEXT("joined_seconds"), Entry.JoinedSeconds);
+		if (Entry.bHasLeft)
+			Player->SetNumberField(TEXT("left_seconds"), Entry.LeftSeconds);
+		else
+			Player->SetField(TEXT("left_seconds"), MakeShared<FJsonValueNull>());
+		Player->SetNumberField(TEXT("participation_seconds"), Participation);
+		Player->SetNumberField(TEXT("orders"), Entry.Orders);
+		Player->SetNumberField(TEXT("builds"), Entry.Builds);
+		Player->SetNumberField(TEXT("pings"), Entry.Pings);
+		// Rates use accumulated connected simulation time, excluding prejoin and
+		// disconnection gaps. Zero participation produces finite zero rates.
+		Player->SetNumberField(TEXT("orders_per_minute"), Entry.Orders * PerMinute);
+		Player->SetNumberField(TEXT("builds_per_minute"), Entry.Builds * PerMinute);
+		Player->SetNumberField(TEXT("pings_per_minute"), Entry.Pings * PerMinute);
+		Player->SetNumberField(TEXT("decisions_per_minute"), (Entry.Orders + Entry.Builds + Entry.Pings) * PerMinute);
+		PlayerValues.Add(MakeShared<FJsonValueObject>(Player));
+	}
+	Root->SetArrayField(TEXT("players"), PlayerValues);
+}
+}
+
 UMatchTelemetry::UMatchTelemetry()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -179,37 +217,7 @@ void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
 	Root->SetStringField(TEXT("result"), bAbandoned ? TEXT("Abandoned") : State->MatchResult == EMatchResult::Victory ? TEXT("Victory")
 																													  : TEXT("Defeat"));
 
-	TArray<TSharedPtr<FJsonValue>> PlayerValues;
-	PlayerValues.Reserve(Players.Num());
-	for (FMatchTelemetryPlayer& Entry : Players)
-	{
-		if (!Entry.bDisconnected && Entry.State.IsValid())
-			Entry.CommanderIndex = Entry.State->CommanderIndex;
-		const double Participation = Entry.ParticipationSeconds
-			+ (Entry.bDisconnected ? 0. : FMath::Max(0., EndedBattleSeconds - Entry.ConnectedSinceSeconds));
-		const double PerMinute = Participation > 0. ? 60. / Participation : 0.;
-		const TSharedRef<FJsonObject> Player = MakeShared<FJsonObject>();
-		Player->SetStringField(TEXT("player_id"), Entry.PlayerId);
-		Player->SetNumberField(TEXT("commander_index"), Entry.CommanderIndex);
-		Player->SetBoolField(TEXT("disconnected"), Entry.bDisconnected);
-		Player->SetNumberField(TEXT("joined_seconds"), Entry.JoinedSeconds);
-		if (Entry.bHasLeft)
-			Player->SetNumberField(TEXT("left_seconds"), Entry.LeftSeconds);
-		else
-			Player->SetField(TEXT("left_seconds"), MakeShared<FJsonValueNull>());
-		Player->SetNumberField(TEXT("participation_seconds"), Participation);
-		Player->SetNumberField(TEXT("orders"), Entry.Orders);
-		Player->SetNumberField(TEXT("builds"), Entry.Builds);
-		Player->SetNumberField(TEXT("pings"), Entry.Pings);
-		// Rates use accumulated connected simulation time, excluding prejoin and
-		// disconnection gaps. Zero participation produces finite zero rates.
-		Player->SetNumberField(TEXT("orders_per_minute"), Entry.Orders * PerMinute);
-		Player->SetNumberField(TEXT("builds_per_minute"), Entry.Builds * PerMinute);
-		Player->SetNumberField(TEXT("pings_per_minute"), Entry.Pings * PerMinute);
-		Player->SetNumberField(TEXT("decisions_per_minute"), (Entry.Orders + Entry.Builds + Entry.Pings) * PerMinute);
-		PlayerValues.Add(MakeShared<FJsonValueObject>(Player));
-	}
-	Root->SetArrayField(TEXT("players"), PlayerValues);
+	WriteTelemetryPlayers(Root, Players, EndedBattleSeconds);
 
 	const TSharedRef<FJsonObject> Ending = MakeShared<FJsonObject>();
 	const bool bDefeat = State->MatchResult == EMatchResult::Defeat;

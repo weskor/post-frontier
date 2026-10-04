@@ -45,80 +45,90 @@ public:
 		if (FPlatformTime::Seconds() - Started > 25.)
 			return Fail(TEXT("Solo pause scenario timed out"));
 		if (!State.IsValid())
-		{
-			UWorld* World = ArmyTestSetup::World();
-			if (!World)
-				return false;
-			ACommandGameState* Match = World->GetGameState<ACommandGameState>();
-			ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
-			if (!ArmyTestSetup::MapReady(Match) || !PC || !PC->GetPlayerState<ACommandPlayerState>()
-				|| PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
-				return false;
-			for (TActorIterator<AEnemyCommander> It(World); It; ++It)
-				It->Destroy();
-			for (ACommandBuilding* Building : Match->Buildings)
-				if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
-					FCommandService::ConfigureProduction(Match->EnemyCommander, Building,
-						Building->bForceConfigured ? Building->ProductionRole : static_cast<EUnitRole>(255), false);
-			State = Match;
-			Controller = PC;
-			Army = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(Match, 1700.f, 600.f, 100.f));
-			if (!Army.IsValid())
-				return Fail(TEXT("Pause fixture army could not spawn"));
-			TargetRegion = ArmyTestSetup::TravelRegion(Army.Get(), Match->EnemyHeadquarters->GetActorLocation());
-			Destination = Match->GetRegionAnchor(TargetRegion);
-			StageStarted = ArmyTestSetup::GameSeconds(World);
-			return false;
-		}
+			return Setup();
 		if (!Controller.IsValid() || !Army.IsValid())
 			return Fail(TEXT("Pause fixture disappeared"));
 		UWorld* World = State->GetWorld();
 		ACommandPlayerState* Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 		if (Stage == 0 && ArmyTestSetup::GameSeconds(World) - StageStarted >= 3. && ArmyTestSetup::NavigationReady(World))
-		{
-			// Wait for real navmesh readiness before pausing; path queries still run while paused.
-			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
-				return false;
-			FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(Army.Get()));
-			Controller->ServerPause();
-			Test->TestFalse(TEXT("Engine pause RPC cannot bypass the command budget"), World->IsPaused());
-			if (!FCommandService::Pause(Controller.Get()))
-				return Fail(TEXT("Solo pause command rejected"));
-			Test->TestTrue(TEXT("Pause freezes the actual world with game UI still open"), World->IsPaused() && State->IsActivePaused() && Controller->GetUIScreen() == ECommandScreen::Game);
-			Controller->ServerPause();
-			Test->TestTrue(TEXT("Engine pause RPC cannot resume active pause"), World->IsPaused());
-			SimulationTime = World->GetTimeSeconds();
-			Balance = Wallet->Resources;
-			Center = Army->GetCenter();
-			if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
-				return Fail(TEXT("Order given during pause rejected"));
-			Test->TestTrue(TEXT("Order intent applies immediately while paused"), Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == TargetRegion);
-			Next(World->GetRealTimeSeconds());
-		}
-		else if (Stage == 1 && World->GetRealTimeSeconds() - StageStarted >= 1.) // Game time is frozen while paused.
-		{
-			Test->TestEqual(TEXT("Simulation clock stays frozen across real time"), World->GetTimeSeconds(), SimulationTime);
-			Test->TestEqual(TEXT("Income stops while paused"), Wallet->Resources, Balance);
-			Test->TestTrue(TEXT("Paused order cannot move characters"), FVector::Dist2D(Army->GetCenter(), Center) < 1.);
-			State->RefreshSoloMenuPause(Controller.Get(), true);
-			State->RefreshSoloMenuPause(Controller.Get(), false);
-			Test->TestTrue(TEXT("Closing menu preserves active pause"), World->IsPaused() && State->IsActivePaused());
-			if (!FCommandService::Resume(Controller.Get()))
-				return Fail(TEXT("Solo resume command rejected"));
-			Next(ArmyTestSetup::GameSeconds(World));
-		}
-		else if (Stage == 2 && World->GetTimeSeconds() >= SimulationTime + 2.)
-		{
-			Test->TestFalse(TEXT("Resume clears world pause"), World->IsPaused());
-			Test->TestTrue(TEXT("Orders given paused physically execute after resume"), FVector::Dist2D(Army->GetCenter(), Destination) + 100. < FVector::Dist2D(Center, Destination));
-			Test->TestTrue(TEXT("Income resumes with simulation"), Wallet->Resources > Balance);
-			Test->TestTrue(TEXT("Solo pause is reusable"), FCommandService::Pause(Controller.Get()).IsAccepted());
-			Test->TestTrue(TEXT("Second solo resume succeeds"), FCommandService::Resume(Controller.Get()).IsAccepted());
-			return true;
-		}
+			return BeginPause(World, Wallet);
+		if (Stage == 1 && World->GetRealTimeSeconds() - StageStarted >= 1.) // Game time is frozen while paused.
+			return ResumePause(World, Wallet);
+		if (Stage == 2 && World->GetTimeSeconds() >= SimulationTime + 2.)
+			return CheckResumed(World, Wallet);
 		return false;
 	}
 private:
+	bool Setup()
+	{
+		UWorld* World = ArmyTestSetup::World();
+		if (!World)
+			return false;
+		ACommandGameState* Match = World->GetGameState<ACommandGameState>();
+		ACommandPlayerController* PC = ArmyTestSetup::Controller(World);
+		if (!ArmyTestSetup::MapReady(Match) || !PC || !PC->GetPlayerState<ACommandPlayerState>()
+			|| PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
+			return false;
+		for (TActorIterator<AEnemyCommander> It(World); It; ++It)
+			It->Destroy();
+		for (ACommandBuilding* Building : Match->Buildings)
+			if (IsValid(Building) && Building->TeamIndex == 5 && Building->IsProducer())
+				FCommandService::ConfigureProduction(Match->EnemyCommander, Building,
+					Building->bForceConfigured ? Building->ProductionRole : static_cast<EUnitRole>(255), false);
+		State = Match;
+		Controller = PC;
+		Army = ArmyTestSetup::SpawnGroup(World, PC, 0, ArmyTestSetup::FromFriendlyHQ(Match, 1700.f, 600.f, 100.f));
+		if (!Army.IsValid())
+			return Fail(TEXT("Pause fixture army could not spawn"));
+		TargetRegion = ArmyTestSetup::TravelRegion(Army.Get(), Match->EnemyHeadquarters->GetActorLocation());
+		Destination = Match->GetRegionAnchor(TargetRegion);
+		StageStarted = ArmyTestSetup::GameSeconds(World);
+		return false;
+	}
+	bool BeginPause(UWorld* World, ACommandPlayerState* Wallet)
+	{
+		// Wait for real navmesh readiness before pausing; path queries still run while paused.
+		if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
+			return false;
+		FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, ArmyTestSetup::CurrentRegion(Army.Get()));
+		Controller->ServerPause();
+		Test->TestFalse(TEXT("Engine pause RPC cannot bypass the command budget"), World->IsPaused());
+		if (!FCommandService::Pause(Controller.Get()))
+			return Fail(TEXT("Solo pause command rejected"));
+		Test->TestTrue(TEXT("Pause freezes the actual world with game UI still open"), World->IsPaused() && State->IsActivePaused() && Controller->GetUIScreen() == ECommandScreen::Game);
+		Controller->ServerPause();
+		Test->TestTrue(TEXT("Engine pause RPC cannot resume active pause"), World->IsPaused());
+		SimulationTime = World->GetTimeSeconds();
+		Balance = Wallet->Resources;
+		Center = Army->GetCenter();
+		if (!FCommandService::IssueForceOrder(Wallet, Army.Get(), EForceVerb::MoveHold, TargetRegion))
+			return Fail(TEXT("Order given during pause rejected"));
+		Test->TestTrue(TEXT("Order intent applies immediately while paused"), Army->Verb == EForceVerb::MoveHold && Army->TargetRegionIndex == TargetRegion);
+		Next(World->GetRealTimeSeconds());
+		return false;
+	}
+	bool ResumePause(UWorld* World, ACommandPlayerState* Wallet)
+	{
+		Test->TestEqual(TEXT("Simulation clock stays frozen across real time"), World->GetTimeSeconds(), SimulationTime);
+		Test->TestEqual(TEXT("Income stops while paused"), Wallet->Resources, Balance);
+		Test->TestTrue(TEXT("Paused order cannot move characters"), FVector::Dist2D(Army->GetCenter(), Center) < 1.);
+		State->RefreshSoloMenuPause(Controller.Get(), true);
+		State->RefreshSoloMenuPause(Controller.Get(), false);
+		Test->TestTrue(TEXT("Closing menu preserves active pause"), World->IsPaused() && State->IsActivePaused());
+		if (!FCommandService::Resume(Controller.Get()))
+			return Fail(TEXT("Solo resume command rejected"));
+		Next(ArmyTestSetup::GameSeconds(World));
+		return false;
+	}
+	bool CheckResumed(UWorld* World, ACommandPlayerState* Wallet)
+	{
+		Test->TestFalse(TEXT("Resume clears world pause"), World->IsPaused());
+		Test->TestTrue(TEXT("Orders given paused physically execute after resume"), FVector::Dist2D(Army->GetCenter(), Destination) + 100. < FVector::Dist2D(Center, Destination));
+		Test->TestTrue(TEXT("Income resumes with simulation"), Wallet->Resources > Balance);
+		Test->TestTrue(TEXT("Solo pause is reusable"), FCommandService::Pause(Controller.Get()).IsAccepted());
+		Test->TestTrue(TEXT("Second solo resume succeeds"), FCommandService::Resume(Controller.Get()).IsAccepted());
+		return true;
+	}
 	bool Fail(const TCHAR* Reason)
 	{
 		Test->AddError(Reason);

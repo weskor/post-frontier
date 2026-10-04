@@ -36,81 +36,95 @@ public:
 		// Same clock as the authoritative ping throttle.
 		const double ThrottleNow = World->GetRealTimeSeconds();
 		if (Stage == 0)
-		{
-			if (!Setup(World, PC, State))
-				return true;
-			Ground = ArmyTestSetup::FromFriendlyHQ(State, 550.f, -500.f, 0.f);
-			if (!Check(State->Arena->ContainsTravel(Ground), TEXT("Map-derived ground ping is inside the arena")))
-				return true;
-			if (!Check(FCommandService::Ping(PC, Ground).IsAccepted(), TEXT("Ground command is accepted"))
-				|| !Delivery(PC, Sender, TEXT("ping_look_here"), Ground, 0, 1))
-				return true;
-			const FCommandResult Throttled = FCommandService::Ping(PC, Ground + FVector(75.f, 0.f, 0.f));
-			if (!Check(!Throttled.IsAccepted() && !Throttled.Message.IsEmpty(),
-					TEXT("Immediate second ping is authoritatively throttled with an explanation"))
-				|| !Counts(PC, 1))
-				return true;
-			FirstTime = PC->PingCommands->GetEvents().Last().ServerTime;
-			LastAccepted = ThrottleNow;
-			Stage = 1;
-			return false;
-		}
+			return RunStage0(World, PC, State, Sender, ThrottleNow);
 		if (!Ally.IsValid() || !Opponent.IsValid() || !TeammateForce.IsValid() || !EnemyForce.IsValid() || !OwnForce.IsValid())
 			return Fail(TEXT("Isolated ping participants must survive"));
 		if (Stage <= 3 && ThrottleNow - LastAccepted < 2.05)
 			return false;
 		if (Stage == 1)
-		{
-			PC->SelectActor(TeammateForce.Get());
-			if (!Check(PC->GetInspectedForce() == TeammateForce.Get() && PC->GetSelectedBuilding() == nullptr,
-					TEXT("Selecting a teammate force opens only its read-only inspection")))
-				return true;
-			const FVector Center = TeammateForce->GetCenter();
-			// The supplied location is deliberately elsewhere: authority must resolve
-			// the real teammate center, not trust the requested need-help coordinates.
-			const FVector Spoofed = State->EnemyHeadquarters->GetActorLocation();
-			if (!Check(!Center.Equals(Spoofed, 1.f), TEXT("Force-center probe differs from its supplied coordinates"))
-				|| !Check(FCommandService::Ping(PC, Spoofed, TeammateForce.Get()).IsAccepted(),
-					TEXT("Teammate force ping is accepted after the two-second cooldown"))
-				|| !Delivery(PC, Sender, TEXT("ping_need_help"), Center, TeammateForce->ForceNumber, 2))
-				return true;
-			LastAccepted = ThrottleNow;
-			Stage = 2;
-			return false;
-		}
+			return RunStage1(PC, State, Sender, ThrottleNow);
 		if (Stage == 2)
-		{
-			PC->SelectActor(EnemyForce.Get());
-			if (!Check(PC->GetInspectedForce() == TeammateForce.Get() && PC->GetSelectedBuilding() == nullptr,
-					TEXT("An enemy click preserves the read-only teammate inspection without gaining owned control")))
-				return true;
-			const FVector Spot = Ground + FVector(100.f, 0.f, 0.f);
-			if (!Check(FCommandService::Ping(PC, Spot, EnemyForce.Get()).IsAccepted(),
-					TEXT("An enemy target still permits an ordinary spot ping"))
-				|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 3))
-				return true;
-			UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State);
-			if (!Check(Announcer != nullptr, TEXT("Objective history exists for priority regression")))
-				return true;
-			Announcer->Raise(TEXT("region_lost"), 0, Ground, {});
-			LastAccepted = ThrottleNow;
-			Stage = 3;
-			return false;
-		}
+			return RunStage2(PC, State, Sender, ThrottleNow);
 		if (Stage == 3)
-		{
-			const FVector Spot = Ground + FVector(200.f, 0.f, 0.f);
-			if (!RejectForeignWorld(PC)
-				|| !Check(FCommandService::Ping(PC, Spot, OwnForce.Get()).IsAccepted(),
-					TEXT("An owned force cannot impersonate a teammate need-help request"))
-				|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 4))
-				return true;
-			if (!CheckObjectivePriority(PC, State))
-				return true;
-			LastTime = PC->PingCommands->GetEvents().Last().ServerTime;
-			Stage = 4;
-			return false;
-		}
+			return RunStage3(PC, State, Sender);
+		return CheckExpiry(PC, State);
+	}
+
+private:
+	bool RunStage0(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Sender, double ThrottleNow)
+	{
+		if (!Setup(World, PC, State))
+			return true;
+		Ground = ArmyTestSetup::FromFriendlyHQ(State, 550.f, -500.f, 0.f);
+		if (!Check(State->Arena->ContainsTravel(Ground), TEXT("Map-derived ground ping is inside the arena")))
+			return true;
+		if (!Check(FCommandService::Ping(PC, Ground).IsAccepted(), TEXT("Ground command is accepted"))
+			|| !Delivery(PC, Sender, TEXT("ping_look_here"), Ground, 0, 1))
+			return true;
+		const FCommandResult Throttled = FCommandService::Ping(PC, Ground + FVector(75.f, 0.f, 0.f));
+		if (!Check(!Throttled.IsAccepted() && !Throttled.Message.IsEmpty(),
+				TEXT("Immediate second ping is authoritatively throttled with an explanation"))
+			|| !Counts(PC, 1))
+			return true;
+		FirstTime = PC->PingCommands->GetEvents().Last().ServerTime;
+		LastAccepted = ThrottleNow;
+		Stage = 1;
+		return false;
+	}
+	bool RunStage1(ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Sender, double ThrottleNow)
+	{
+		PC->SelectActor(TeammateForce.Get());
+		if (!Check(PC->GetInspectedForce() == TeammateForce.Get() && PC->GetSelectedBuilding() == nullptr,
+				TEXT("Selecting a teammate force opens only its read-only inspection")))
+			return true;
+		const FVector Center = TeammateForce->GetCenter();
+		// The supplied location is deliberately elsewhere: authority must resolve
+		// the real teammate center, not trust the requested need-help coordinates.
+		const FVector Spoofed = State->EnemyHeadquarters->GetActorLocation();
+		if (!Check(!Center.Equals(Spoofed, 1.f), TEXT("Force-center probe differs from its supplied coordinates"))
+			|| !Check(FCommandService::Ping(PC, Spoofed, TeammateForce.Get()).IsAccepted(),
+				TEXT("Teammate force ping is accepted after the two-second cooldown"))
+			|| !Delivery(PC, Sender, TEXT("ping_need_help"), Center, TeammateForce->ForceNumber, 2))
+			return true;
+		LastAccepted = ThrottleNow;
+		Stage = 2;
+		return false;
+	}
+	bool RunStage2(ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Sender, double ThrottleNow)
+	{
+		PC->SelectActor(EnemyForce.Get());
+		if (!Check(PC->GetInspectedForce() == TeammateForce.Get() && PC->GetSelectedBuilding() == nullptr,
+				TEXT("An enemy click preserves the read-only teammate inspection without gaining owned control")))
+			return true;
+		const FVector Spot = Ground + FVector(100.f, 0.f, 0.f);
+		if (!Check(FCommandService::Ping(PC, Spot, EnemyForce.Get()).IsAccepted(),
+				TEXT("An enemy target still permits an ordinary spot ping"))
+			|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 3))
+			return true;
+		UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State);
+		if (!Check(Announcer != nullptr, TEXT("Objective history exists for priority regression")))
+			return true;
+		Announcer->Raise(TEXT("region_lost"), 0, Ground, {});
+		LastAccepted = ThrottleNow;
+		Stage = 3;
+		return false;
+	}
+	bool RunStage3(ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Sender)
+	{
+		const FVector Spot = Ground + FVector(200.f, 0.f, 0.f);
+		if (!RejectForeignWorld(PC)
+			|| !Check(FCommandService::Ping(PC, Spot, OwnForce.Get()).IsAccepted(),
+				TEXT("An owned force cannot impersonate a teammate need-help request"))
+			|| !Delivery(PC, Sender, TEXT("ping_look_here"), Spot, 0, 4))
+			return true;
+		if (!CheckObjectivePriority(PC, State))
+			return true;
+		LastTime = PC->PingCommands->GetEvents().Last().ServerTime;
+		Stage = 4;
+		return false;
+	}
+	bool CheckExpiry(ACommandPlayerController* PC, ACommandGameState* State)
+	{
 		const float ServerNow = State->GetServerWorldTimeSeconds();
 		if (!Counts(PC, 4))
 			return true;
@@ -130,8 +144,6 @@ public:
 		Test->AddInfo(TEXT("Ping proof: exact ground location and sender, explained authoritative throttle, teammate center/force number, enemy/owned targets remain Look here, cross-world force rejected, team-only delivery and six-second activity expiry with retained history."));
 		return true;
 	}
-
-private:
 	bool CheckObjectivePriority(ACommandPlayerController* PC, ACommandGameState* State)
 	{
 		UObjectiveAnnouncer* Announcer = UObjectiveAnnouncer::Get(State);

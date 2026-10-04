@@ -23,6 +23,59 @@
 #include "Rules/OutcomePolicy.h"
 #include "GameFramework/WorldSettings.h"
 
+namespace
+{
+void DiscoverMatchActors(UWorld* World, ACommandGameState* State)
+{
+	for (TActorIterator<AArenaBounds> It(World); It; ++It)
+	{
+		if (State->Arena)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Level places more than one ArenaBounds; using %s"), *State->Arena->GetName());
+		}
+		else
+			State->Arena = *It;
+	}
+	for (TActorIterator<AHeadquarters> It(World); It; ++It)
+	{
+		TObjectPtr<AHeadquarters>& Slot = It->TeamIndex == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
+		if (Slot)
+		{
+			UE_LOG(LogTemp, Error, TEXT("Level places more than one team %d Headquarters; using %s"), It->TeamIndex, *Slot->GetName());
+		}
+		else
+			Slot = *It;
+	}
+	for (TActorIterator<ACapturePoint> It(World); It; ++It)
+		State->CaptureSites.Add(*It);
+	// Fixtures address sectors by index (CaptureSites[0]); placement order in the level is irrelevant.
+	State->CaptureSites.Sort([](const ACapturePoint& A, const ACapturePoint& B) { return A.SiteIndex < B.SiteIndex; });
+	for (TActorIterator<AMapRegion> It(World); It; ++It)
+		State->Regions.Add(*It);
+	State->Regions.Sort([](const AMapRegion& A, const AMapRegion& B) { return A.RegionIndex < B.RegionIndex; });
+	for (AMapRegion* Region : State->Regions)
+	{
+		if (Region->RegionRole == ERegionRole::Main)
+			Region->Anchor = nullptr;
+		else if (!IsValid(Region->Anchor))
+			for (ACapturePoint* Site : State->CaptureSites)
+				if (Site->SiteIndex == Region->RegionIndex)
+				{
+					Region->Anchor = Site;
+					break;
+				}
+	}
+	for (TActorIterator<ADepositSite> It(World); It; ++It)
+		State->Deposits.Add(*It);
+	State->Deposits.Sort([](const ADepositSite& A, const ADepositSite& B) {
+		if (A.RegionIndex != B.RegionIndex)
+			return A.RegionIndex < B.RegionIndex;
+		const FVector ALocation = A.GetActorLocation(), BLocation = B.GetActorLocation();
+		return ALocation.X != BLocation.X ? ALocation.X < BLocation.X : ALocation.Y < BLocation.Y;
+	});
+}
+}
+
 ACommandGameMode::ACommandGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -100,52 +153,7 @@ void ACommandGameMode::InitGameState()
 	ACommandGameState* State = GetGameState<ACommandGameState>();
 	if (!State)
 		return;
-	for (TActorIterator<AArenaBounds> It(GetWorld()); It; ++It)
-	{
-		if (State->Arena)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Level places more than one ArenaBounds; using %s"), *State->Arena->GetName());
-		}
-		else
-			State->Arena = *It;
-	}
-	for (TActorIterator<AHeadquarters> It(GetWorld()); It; ++It)
-	{
-		TObjectPtr<AHeadquarters>& Slot = It->TeamIndex == 5 ? State->EnemyHeadquarters : State->FriendlyHeadquarters;
-		if (Slot)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Level places more than one team %d Headquarters; using %s"), It->TeamIndex, *Slot->GetName());
-		}
-		else
-			Slot = *It;
-	}
-	for (TActorIterator<ACapturePoint> It(GetWorld()); It; ++It)
-		State->CaptureSites.Add(*It);
-	// Fixtures address sectors by index (CaptureSites[0]); placement order in the level is irrelevant.
-	State->CaptureSites.Sort([](const ACapturePoint& A, const ACapturePoint& B) { return A.SiteIndex < B.SiteIndex; });
-	for (TActorIterator<AMapRegion> It(GetWorld()); It; ++It)
-		State->Regions.Add(*It);
-	State->Regions.Sort([](const AMapRegion& A, const AMapRegion& B) { return A.RegionIndex < B.RegionIndex; });
-	for (AMapRegion* Region : State->Regions)
-	{
-		if (Region->RegionRole == ERegionRole::Main)
-			Region->Anchor = nullptr;
-		else if (!IsValid(Region->Anchor))
-			for (ACapturePoint* Site : State->CaptureSites)
-				if (Site->SiteIndex == Region->RegionIndex)
-				{
-					Region->Anchor = Site;
-					break;
-				}
-	}
-	for (TActorIterator<ADepositSite> It(GetWorld()); It; ++It)
-		State->Deposits.Add(*It);
-	State->Deposits.Sort([](const ADepositSite& A, const ADepositSite& B) {
-		if (A.RegionIndex != B.RegionIndex)
-			return A.RegionIndex < B.RegionIndex;
-		const FVector ALocation = A.GetActorLocation(), BLocation = B.GetActorLocation();
-		return ALocation.X != BLocation.X ? ALocation.X < BLocation.X : ALocation.Y < BLocation.Y;
-	});
+	DiscoverMatchActors(GetWorld(), State);
 	bLevelValid = State->Arena && State->FriendlyHeadquarters && State->EnemyHeadquarters
 		&& !State->Regions.IsEmpty() && !State->Deposits.IsEmpty();
 	if (!bLevelValid)

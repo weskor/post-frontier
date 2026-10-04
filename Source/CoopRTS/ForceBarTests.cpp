@@ -41,73 +41,81 @@ public:
 			|| PC->GetPlayerState<ACommandPlayerState>()->CommanderIndex < 0)
 			return false;
 		if (Stage == 0)
-		{
-			if (!ArmyTestSetup::NavigationReady(World))
-				return false;
-			if (!Prepare(World, State) || !States(State) || !SelectionAndLayout(State))
-				return true;
-			PC->SelectForce(Own.Get());
-			Key(EKeys::A);
-			Stage = 1;
-			return false;
-		}
+			return RunStage0(World, State);
 		if (Stage == 1)
-		{
-			Key(EKeys::A, IE_Released);
-			Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack, TEXT("A opens selected-force Attack"));
-			Key(EKeys::Escape);
-			Stage = 2;
-			return false;
-		}
+			return RunStage1();
 		if (Stage == 2)
-		{
-			Key(EKeys::Escape, IE_Released);
-			if (!Click(Own.Get(), EHUDAction::ForceCardAttack))
-				return true;
-			Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack, TEXT("Attack card opens the same selected-force mode as A"));
-			FVector2D Point;
-			const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
-			FVector2D Origin;
-			float Size;
-			if (!Check(HUD && HUD->GetMinimapScreenRect(Origin, Size), TEXT("Attack card has a live minimap target surface")))
-				return true;
-			const FVector Anchor = State->GetRegionAnchor(Target);
-			Point = Origin + FVector2D((Anchor.Y + State->Arena->HalfExtent.Y) / (2.f * State->Arena->HalfExtent.Y), (State->Arena->HalfExtent.X - Anchor.X) / (2.f * State->Arena->HalfExtent.X)) * Size;
-			PC->HandleHUDClick(Point);
-			Check(Own->Verb == EForceVerb::Attack && Own->TargetRegionIndex == Target && !PC->IsAssigningOrder(),
-				TEXT("Card Attack confirms a real owned Attack through the shared target input"));
-			AttackSerial = Own->OrderSerial;
-			Key(EKeys::R);
-			Stage = 3;
-			return false;
-		}
+			return RunStage2(State);
 		if (Stage == 3)
-		{
-			Key(EKeys::R, IE_Released);
-			Check(Own->Verb == EForceVerb::Retreat && Own->OrderSerial != AttackSerial, TEXT("R commits a real immediate Retreat"));
-			const uint32 KeySerial = Own->OrderSerial;
-			Click(Own.Get(), EHUDAction::ForceCardRetreat);
-			Check(Own->Verb == EForceVerb::Retreat && Own->OrderSerial != KeySerial, TEXT("Retreat card commits the same verb as R"));
-			Click(Own.Get(), EHUDAction::ForceCardNever);
-			Check(Own->RetreatThreshold == ERetreatThreshold::Never, TEXT("Never threshold changes the owned force"));
-			Click(Own.Get(), EHUDAction::ForceCard25);
-			Check(Own->RetreatThreshold == ERetreatThreshold::Percent25, TEXT("25% threshold changes the owned force"));
-			Click(Own.Get(), EHUDAction::ForceCard40);
-			Check(Own->RetreatThreshold == ERetreatThreshold::Percent40, TEXT("40% threshold changes the owned force"));
-			Click(Own.Get(), EHUDAction::ForceCard60);
-			Check(Own->RetreatThreshold == ERetreatThreshold::Percent60, TEXT("60% threshold changes the owned force"));
-			Click(Own.Get(), EHUDAction::ForceCardProduction);
-			Check(Producer->bProductionEnabled, TEXT("Card resumes its actual producer without selecting the building"));
-			Click(Own.Get(), EHUDAction::ForceCardProduction);
-			Check(!Producer->bProductionEnabled, TEXT("Card pauses its producer without unlocking its unit type"));
-			Teammate(State);
-			Layouts(State);
-			EmptyForceETA(State);
-			return true;
-		}
+			return RunStage3(State);
 		return false;
 	}
 private:
+	bool RunStage0(UWorld* World, ACommandGameState* State)
+	{
+		if (!ArmyTestSetup::NavigationReady(World))
+			return false;
+		if (!Prepare(World, State) || !States(State) || !SelectionAndLayout(State))
+			return true;
+		PC->SelectForce(Own.Get());
+		Key(EKeys::A);
+		Stage = 1;
+		return false;
+	}
+	bool RunStage1()
+	{
+		Key(EKeys::A, IE_Released);
+		Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack, TEXT("A opens selected-force Attack"));
+		Key(EKeys::Escape);
+		Stage = 2;
+		return false;
+	}
+	bool RunStage2(ACommandGameState* State)
+	{
+		Key(EKeys::Escape, IE_Released);
+		if (!Click(Own.Get(), EHUDAction::ForceCardAttack))
+			return true;
+		Check(PC->IsAssigningOrder() && PC->GetPendingVerb() == EForceVerb::Attack, TEXT("Attack card opens the same selected-force mode as A"));
+		FVector2D Point;
+		const ACommandHUD* HUD = Cast<ACommandHUD>(PC->GetHUD());
+		FVector2D Origin;
+		float Size;
+		if (!Check(HUD && HUD->GetMinimapScreenRect(Origin, Size), TEXT("Attack card has a live minimap target surface")))
+			return true;
+		const FVector Anchor = State->GetRegionAnchor(Target);
+		Point = Origin + FVector2D((Anchor.Y + State->Arena->HalfExtent.Y) / (2.f * State->Arena->HalfExtent.Y), (State->Arena->HalfExtent.X - Anchor.X) / (2.f * State->Arena->HalfExtent.X)) * Size;
+		PC->HandleHUDClick(Point);
+		Check(Own->Verb == EForceVerb::Attack && Own->TargetRegionIndex == Target && !PC->IsAssigningOrder(),
+			TEXT("Card Attack confirms a real owned Attack through the shared target input"));
+		AttackSerial = Own->OrderSerial;
+		Key(EKeys::R);
+		Stage = 3;
+		return false;
+	}
+	bool RunStage3(ACommandGameState* State)
+	{
+		Key(EKeys::R, IE_Released);
+		Check(Own->Verb == EForceVerb::Retreat && Own->OrderSerial != AttackSerial, TEXT("R commits a real immediate Retreat"));
+		const uint32 KeySerial = Own->OrderSerial;
+		Click(Own.Get(), EHUDAction::ForceCardRetreat);
+		Check(Own->Verb == EForceVerb::Retreat && Own->OrderSerial != KeySerial, TEXT("Retreat card commits the same verb as R"));
+		Click(Own.Get(), EHUDAction::ForceCardNever);
+		Check(Own->RetreatThreshold == ERetreatThreshold::Never, TEXT("Never threshold changes the owned force"));
+		Click(Own.Get(), EHUDAction::ForceCard25);
+		Check(Own->RetreatThreshold == ERetreatThreshold::Percent25, TEXT("25% threshold changes the owned force"));
+		Click(Own.Get(), EHUDAction::ForceCard40);
+		Check(Own->RetreatThreshold == ERetreatThreshold::Percent40, TEXT("40% threshold changes the owned force"));
+		Click(Own.Get(), EHUDAction::ForceCard60);
+		Check(Own->RetreatThreshold == ERetreatThreshold::Percent60, TEXT("60% threshold changes the owned force"));
+		Click(Own.Get(), EHUDAction::ForceCardProduction);
+		Check(Producer->bProductionEnabled, TEXT("Card resumes its actual producer without selecting the building"));
+		Click(Own.Get(), EHUDAction::ForceCardProduction);
+		Check(!Producer->bProductionEnabled, TEXT("Card pauses its producer without unlocking its unit type"));
+		Teammate(State);
+		Layouts(State);
+		EmptyForceETA(State);
+		return true;
+	}
 	bool Check(bool Value, const TCHAR* Message)
 	{
 		if (!Value)
