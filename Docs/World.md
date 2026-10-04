@@ -324,14 +324,14 @@ The procedure and ordered dependencies live only in [`./x help gen`](../x). Each
 | --- | --- | --- |
 | `./x gen fetch-textures` | Licensed CC0 texture inputs. | |
 | `./x gen generate-unit-meshes` | Ten units and two HQs, FBXs with baked masks, editable blend and previews. | `UNIT_MESHES_DONE`. |
-| `./x gen generate-building-meshes` | Twelve buildings and three scaffolds with baked masks. | `BUILDING_MESHES_DONE`. |
+| `./x gen generate-building-meshes` | Sixteen buildings (eight per faction, with Lancer and Scrambler Barracks variants) and three scaffolds with baked masks. | `BUILDING_MESHES_DONE`. |
 | `./x gen generate-environment-kit` | Seventeen campus kit pieces. | `ENVIRONMENT_KIT_DONE`. |
 | `./x gen master-materials` | Blender material prototype and comparison previews. | |
 | `./x gen build-shared-material` | Seven mask textures, `MF_Triplanar_Local`, `MF_SC2_Wear`, `M_Shared` and 32 faction/scope instances. | `SC2_TEXTURES_IMPORTED 7`, `M_SHARED_COMPILED`, `SC2_INSTANCES_BUILT 32`, and **no `Failed to compile Material` line**. |
 | `./x gen import-unit-meshes` | Twelve imported meshes and UnitGallery. | `UNIT_MESHES_IMPORTED 12` and `UNIT_GALLERY_GENERATED`. |
 | `./x gen import-building-meshes` | Nineteen imported building/scaffold meshes. | `BUILDING_MESHES_IMPORTED 19`. |
 | `./x gen import-environment-kit` | Seventeen imported kit meshes and collision. | `ENV_KIT_IMPORTED 17`. |
-| `./x gen verify-masks` | Read-back validation of all 40 imported meshes against baked Blender masks. | `MASKS_VERIFIED 40`. |
+| `./x gen verify-masks` | Read-back validation of all 48 imported meshes (one per source FBX) against baked Blender masks. | `MASKS_VERIFIED 48`. |
 | `./x gen build-art-gallery` | All mesh classes under Server Moon dusk lighting for visual comparison. | `ART_GALLERY_GENERATED`. |
 | `./x gen generate-campus-zero` | Server Moon match world. | `CAMPUS_ZERO_GENERATED` with `blocking=47`. |
 

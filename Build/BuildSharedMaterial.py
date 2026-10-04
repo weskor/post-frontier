@@ -31,7 +31,7 @@ Parameters, static switches and the graph follow UNREAL.md section 2. Two implem
 USE_BAKED_MASKS: the meshes carry the baked SC2Mask vertex colours (R Edge, G Cavity, B Ground) only after
 ImportUnitMeshes / ImportBuildingMeshes / ImportEnvironmentKit imported them with Vertex Color Import Option Replace,
 and a mesh without vertex colours reads white (everything "worn and in a crevice"). It is True because Build/VerifyMasks.py
-read the masks back from all 40 imported meshes (MASKS_VERIFIED 40, Ground within 0.002 of the formula, so the import
+read the masks back from all imported meshes (MASKS_VERIFIED 40 when it was set, 48 after the Lancer and Scrambler; Ground within 0.002 of the formula, so the import
 is linear). Set it False to rebuild the instances for meshes imported without masks; it sets the `UseBakedMasks`
 static switch on every instance.
 """

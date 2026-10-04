@@ -15,8 +15,12 @@ What is checked, per mesh (Blender wrote R Edge, G Cavity, B Ground, A 1 linear;
 * B follows the Ground formula of MasterMaterials.bake_masks, (1 - (z - zmin) / height)^2 with height 45 / 80 / 120 cm
   for units / buildings / kit, and equals 1 at the lowest vertex. This is the one channel that can be recomputed from
   the geometry alone. A gamma-encoded import (sRGB round trip) would give sqrt-like values far from the formula;
-* R (Edge) and G (Cavity) are not constant: some vertices have Edge, and Cavity varies.
+* R (Edge) and G (Cavity) are not constant: some vertices have Edge, and Cavity varies;
+* the number of meshes checked equals the number of Art/{Units,Buildings,Environment}/SM_*.fbx sources, so a new mesh
+  that is generated but not imported (or imported but not generated) fails here instead of a hardcoded total.
 """
+import os
+
 import unreal
 
 GEOMETRY_READ = unreal.GeometryScriptCopyMeshFromAssetOptions()
@@ -77,5 +81,11 @@ def verify(folder, key):
 
 
 rows = verify("/Game/Art/Units", "Units") + verify("/Game/Art/Buildings", "Buildings") + verify("/Game/Art/Environment", "Environment")
-require(len(rows) == 8 + 15 + 17, "Expected 40 meshes, checked %d" % len(rows))
+# Every FBX the generators wrote is imported by its importer, so the expected count is the number of source FBXs.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+expected = sum(
+    len([f for f in os.listdir(os.path.join(ROOT, "Art", folder)) if f.startswith("SM_") and f.endswith(".fbx")])
+    for folder in ("Units", "Buildings", "Environment")
+)
+require(len(rows) == expected, "Expected %d meshes (one per source FBX), checked %d" % (expected, len(rows)))
 unreal.log("MASKS_VERIFIED %d worst_ground_error=%.4f" % (len(rows), max(error for _n, error in rows)))
