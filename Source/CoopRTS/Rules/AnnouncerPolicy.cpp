@@ -25,7 +25,8 @@ const FDefinition Entries[] = {
 	{ TEXT("own_emergency"), TEXT("Hardline HQ offline. Emergency forces deployed."), true, false, false },
 	{ TEXT("enemy_emergency"), TEXT("The Lattice HQ offline. Emergency forces deployed."), true, false, false },
 	{ TEXT("own_hq_online"), TEXT("Hardline HQ back online."), true, false, false },
-	{ TEXT("enemy_hq_online"), TEXT("The Lattice HQ back online."), true, false, false }
+	{ TEXT("enemy_hq_online"), TEXT("The Lattice HQ back online."), true, false, false },
+	{ TEXT("split_brain_cut"), TEXT("Split-Brain Cut in thirty seconds. Hold your supply necks."), true, false, false }
 };
 }
 

@@ -119,6 +119,7 @@ class MapData(TypedDict):
     blockers: list[Blocker]
     navigation: Navigation
     terrain: dict[str, Any]
+    split_brain_pairs: list[list[int]]
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -537,6 +538,8 @@ def derive() -> None:
             bounds_volume=dict(centre=[0, 0, 0], half_extent=[10200, 10200, 1400])
         ),
         terrain=previous["terrain"],
+        # Authored threat targets, like the defend posts: re-deriving the outlines keeps them.
+        split_brain_pairs=previous["split_brain_pairs"],
     )
     # Closed borders (plateau cliffs without a ramp, rock walls) are not neighbours.
     reduced = TerrainPlan.Terrain(data).neighbours()
@@ -667,6 +670,66 @@ def failover_node_errors(data: MapData) -> list[str]:
     return errors
 
 
+def hop_distances(
+    neighbours: dict[int, set[int]], source: int, banned: int | None = None
+) -> dict[int, int]:
+    """Fewest region hops from source over the neighbour graph, never entering banned."""
+    dist = {source: 0}
+    queue = deque([source])
+    while queue:
+        here = queue.popleft()
+        for there in sorted(neighbours[here]):
+            if there != banned and there not in dist:
+                dist[there] = dist[here] + 1
+                queue.append(there)
+    return dist
+
+
+def human_supply_necks(data: MapData) -> list[int]:
+    """The regions the humans' supply must cross: non-main regions strictly nearer the human main than JEV's main
+    (in hops) that lie on every shortest hop path from the human main to some other region, so losing one lengthens
+    or cuts that supply line. The same rule as JevThreat::IsSupplyNeck."""
+    neighbours = {r["index"]: set(r["neighbours"]) for r in data["regions"]}
+    mains = {r["home_team"]: r["index"] for r in data["regions"] if r["role"] == "main"}
+    human, jev = hop_distances(neighbours, mains[0]), hop_distances(neighbours, mains[5])
+    necks = []
+    for region in sorted(neighbours):
+        if region in mains.values() or human[region] >= jev[region]:
+            continue
+        without = hop_distances(neighbours, mains[0], banned=region)
+        if any(
+            other != region and without.get(other, math.inf) > human[other]
+            for other in human
+        ):
+            necks.append(region)
+    return necks
+
+
+def split_brain_pair_errors(data: MapData) -> list[str]:
+    """Split-Brain Cut targets: every authored pair is two distinct, non-adjacent human supply necks, listed once."""
+    pairs = data.get("split_brain_pairs", [])
+    errors: list[str] = []
+    if not pairs:
+        errors.append("Split-Brain Cut needs at least one authored neck pair")
+    neighbours = {r["index"]: set(r["neighbours"]) for r in data["regions"]}
+    necks = set(human_supply_necks(data))
+    seen: set[tuple[int, int]] = set()
+    for pair in pairs:
+        if len(pair) != 2 or pair[0] == pair[1] or not set(pair) <= neighbours.keys():
+            errors.append(f"Neck pair {pair} must name two distinct regions")
+            continue
+        first, second = pair
+        if second in neighbours[first]:
+            errors.append(f"Neck pair {pair} is adjacent")
+        for region in pair:
+            if region not in necks:
+                errors.append(f"Neck pair {pair}: region {region} is not a human supply neck {sorted(necks)}")
+        if (min(pair), max(pair)) in seen:
+            errors.append(f"Neck pair {pair} is listed twice")
+        seen.add((min(pair), max(pair)))
+    return errors
+
+
 def failover_clearance_errors(
     data: MapData, terrain: TerrainPlan.Terrain, node: FailoverNode
 ) -> list[str]:
@@ -793,6 +856,7 @@ def symmetry_errors(data: MapData) -> list[str]:
 def audit(data: MapData) -> None:
     errors = region_errors(data) + site_errors(data) + defend_post_errors(data)
     errors += failover_node_errors(data)
+    errors += split_brain_pair_errors(data)
     errors += TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
     regions = data["regions"]
     edge_count, boundary_length, edge_errors = topology(data)

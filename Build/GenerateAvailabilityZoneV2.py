@@ -90,6 +90,8 @@ def validate(data):
     require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
     node_errors = DrawAvailabilityZoneV2.failover_node_errors(data)
     require(not node_errors, "Invalid failover nodes: " + "; ".join(node_errors))
+    pair_errors = DrawAvailabilityZoneV2.split_brain_pair_errors(data)
+    require(not pair_errors, "Invalid Split-Brain Cut pairs: " + "; ".join(pair_errors))
     terrain_errors = TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
     require(not terrain_errors, "Invalid terrain: " + "; ".join(terrain_errors))
     return by_index
@@ -247,6 +249,13 @@ def place_match_actors(region_defs, deposit_defs):
         actor.set_editor_property("trait", trait)
         require(actor.get_editor_property("trait") == trait, "Region %d trait did not apply" % index)
         actor.set_editor_property("defend_posts", [unreal.Vector(x, y, terrain.ground_z(x, y)) for x, y in region["defend_posts"]])
+        # Split-Brain Cut reads its authored pairs from these tags: pair k tags both of its regions "SplitBrain.k"
+        # (Rules/JevThreatPolicy.h, JevThreat::PairOfTag).
+        pair_tags = ["SplitBrain.%d" % k for k, pair in enumerate(data["split_brain_pairs"]) if index in pair]
+        if pair_tags:
+            actor.set_editor_property("tags", [unreal.Name(tag) for tag in pair_tags])
+            require([str(tag) for tag in actor.get_editor_property("tags")] == pair_tags,
+                    "Region %d Split-Brain tags did not apply" % index)
         if index in anchors:
             actor.set_editor_property("anchor", anchors[index])
     for index, deposit in enumerate(deposit_defs):

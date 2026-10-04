@@ -5,6 +5,7 @@
 #include "Rules/JevPlanner.h"
 #include "JevMemoTemplates.h"
 #include "Rules/JevReleasePolicy.h"
+#include "Rules/JevThreatPolicy.h"
 #include "EnemyCommander.generated.h"
 
 class ACommandBuilding;
@@ -46,6 +47,32 @@ struct FJevWaveEvent
 	// An emergency wave (HqHoldPolicy), not a scheduled release's; it does not count in FJevReleaseState::WaveCount.
 	UPROPERTY()
 	bool bEmergency = false;
+	// A Split-Brain Cut force (JevThreat), not a scheduled release's wave; it does not count in FJevReleaseState::WaveCount.
+	UPROPERTY()
+	bool bCut = false;
+};
+
+// One Split-Brain Cut plan between its publication (JevThreat::LeadSeconds before the release) and the launch of its
+// force. Once the force exists its plan is an ordinary one (ACommandGameState::EnemyPlans).
+USTRUCT()
+struct FJevCutPlan
+{
+	GENERATED_BODY()
+	UPROPERTY()
+	int32 Ticket = 0;
+	UPROPERTY()
+	int32 Source = INDEX_NONE;
+	UPROPERTY()
+	int32 Target = INDEX_NONE;
+	UPROPERTY()
+	int32 SizeBand = 2;
+	// Seconds from EtaIssuedAt (a server time) to the force's arrival: the lead before launch plus the march.
+	UPROPERTY()
+	float EtaSeconds = 0.f;
+	UPROPERTY()
+	float EtaIssuedAt = 0.f;
+	UPROPERTY()
+	FString Memo;
 };
 
 // JEV's release schedule as every peer reads it. Times are match seconds on the clock
@@ -76,6 +103,9 @@ struct FJevReleaseState
 	int32 WaveCount = 0;
 	UPROPERTY()
 	TArray<FJevWaveEvent> Waves;
+	// The published Split-Brain Cut plans, from JevThreat::PublishTime until the forces launch.
+	UPROPERTY()
+	TArray<FJevCutPlan> Cuts;
 };
 
 // Executor for JEV: EvaluatePlan summarises the match for the pure planner
@@ -142,6 +172,21 @@ private:
 	// The emergency wave at the current release's budget (v1.1's before 120 s).
 	void LaunchEmergencyWave(FJevTurn& Turn);
 	void RecordWave(const FJevWaveEvent& Event);
+	// Split-Brain Cut (JevThreat): AdvanceThreat steps its stage from the match clock, PublishThreat chooses the pair, buys
+	// each force and publishes its plan JevThreat::LeadSeconds early, and LaunchThreat spawns and orders the forces.
+	void AdvanceThreat(FJevTurn& Turn);
+	void PublishThreat(FJevTurn& Turn);
+	void LaunchThreat(FJevTurn& Turn);
+	struct FPendingCut
+	{
+		int32 Target = INDEX_NONE;
+		// The Power-equivalent the force was funded with.
+		int32 Budget = 0;
+		// Catalogue unit index of each unit bought.
+		TArray<int32> Roster;
+	};
+	JevThreat::EStage ThreatStage = JevThreat::EStage::Waiting;
+	TArray<FPendingCut, TInlineAllocator<2>> PendingCuts;
 	TArray<FJevCommittedForce, TInlineAllocator<8>> CommittedForces;
 	// Free forces this commander launched; they never refill, so they fight on.
 	TArray<TWeakObjectPtr<AArmyGroup>, TInlineAllocator<8>> WaveForces;

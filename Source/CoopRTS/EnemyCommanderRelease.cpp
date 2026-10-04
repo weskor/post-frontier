@@ -50,7 +50,7 @@ bool AEnemyCommander::TickRelease()
 		Release.ClockStartServerTime = Published.ClockStartServerTime;
 		ForceNetUpdate();
 	}
-	return Current > LaunchedUpTo;
+	return Current > LaunchedUpTo || JevThreat::NextStep(ThreatStage, Seconds) != JevThreat::EStep::None;
 }
 
 void AEnemyCommander::AdvanceReleases(FJevTurn& Turn)
@@ -64,6 +64,7 @@ void AEnemyCommander::AdvanceReleases(FJevTurn& Turn)
 	const int32 Current = JevRelease::IndexAt(GetMatchSeconds());
 	while (LaunchedUpTo < Current)
 		LaunchWave(Turn, ++LaunchedUpTo);
+	AdvanceThreat(Turn);
 }
 
 void AEnemyCommander::RecordWave(const FJevWaveEvent& Event)
