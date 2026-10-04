@@ -58,15 +58,16 @@ Traits make *where* to fight a decision, and they combine with Move & Hold.
 - **Stacking:** Cover and the other incoming multipliers multiply together ([units.md](units.md#damage-pipeline-change)). Open's speed bonus composes with Retreat's sprint and the selection speed cap ([forces.md](forces.md#steering-forces-change--decided)) without breaking formation cohesion.
 - **Effects [Built]:** every region carries a replicated trait that the map generator will set; the four effects above work on units in a region today, with the region cached per unit and re-read on a short clock. Open speed applies only while every joined member of a force stands in Open ground, so a force straddling the border keeps one speed. The fixed layout and terrain below remain [Change].
 
-**[Change] Built in step 1b** on a fixed layout of Habitable Zone v2; the seed shuffles traits from step 4 ([build-order.md](build-order.md)). Layout rules (starting values, orchestrator 2026-10-04):
-- **Placement:** neither main has a trait, and no reward region has Hazard. At least 2 regions have High ground, 3 Cover, 2 Open and 1 Hazard, and at most 10 of the 15 regions carry a trait.
-- **Terrain matches each trait:**
+**[Built] Terrain and fixed layout in step 1b** on Habitable Zone v2, with terrain to match each trait: 300 cm plateaus with 8 m ramps for high ground, visible cover props, a hazard ground effect, flat clear ground for open, and narrow necks giving three routes between the fronts. The layout, ramps, closed borders and route costs are in [AvailabilityZoneV2.md](../Maps/AvailabilityZoneV2.md#terrain-and-traits). **[Change]** The trait effects (range, damage taken, speed, damage over time) are a separate slice. The seed shuffles traits from step 4 ([build-order.md](build-order.md)). Layout rules (starting values, orchestrator 2026-10-04), checked by the map audit:
+- **Placement [Built]:** neither main has a trait, and no reward region has Hazard. At least 2 regions have High ground, 3 Cover, 2 Open and 1 Hazard, and at most 10 of the 15 regions carry a trait.
+- **Terrain matches each trait [Built]:**
   - High ground sits on a 300 cm plateau with a wide (8 m) ramp toward each passable neighbour.
   - Cover has visible cover props.
   - Open is flat, clear ground.
   - Hazard has a visible ground effect.
-- **Routes and necks:** between the human front and JEV's front there are 2–3 distinct region paths that cost different things (length, traits, necks). At least two regions on main supply lines have at most 2 neighbours.
-- Capture, build, production, defend posts and the stretch limit keep working on raised ground.
+- **Routes and necks [Built]:** between the human front and JEV's front there are 2–3 authored region paths that cost different things (length, traits, necks). At least two non-main route regions have at most 2 neighbours.
+- **Closed borders [Built]:** a plateau border without a ramp is a cliff, and short borders can carry a rock wall. A closed border is not a neighbour, so connectivity and orders follow what units can walk.
+- **Raised ground [Built]:** capture, building, production, defend posts and the 35 m stretch limit work on plateaus; the checker only counts footprints that lie wholly on one level, off ramps, walls and props.
 
 **Region traits were chosen over map events for launch.** The review asked for one or the other, and traits are static, readable and shape strategy every battle.
 

@@ -5,8 +5,9 @@ render) and Tools/tests/maps. Everything is centimetres and degrees on Unreal wo
 minimap-right, yaw turns +X toward +Y).
 
 The terrain kit's 400 cm grid (Build/GenerateTerrainKit.py "GRID CONTRACT"): cell (i, j) covers 400 i +- 200 and
-400 j +- 200 and belongs to the region whose polygon holds the cell centre. A High-ground region is a plateau of those
-cells at z = `plateau_height`; its border toward a neighbour is a cliff except where an authored Ramp_Wide (800 x 800 cm,
+400 j +- 200 and belongs to the region whose polygon holds the cell centre. A High-ground region is a plateau of every
+cell its polygon touches (so no ground-level strip is left inside a plateau region's polygon, and units walking at a
+cliff foot never count as standing in it), at z = `plateau_height`; its border toward a neighbour is a cliff except where an authored Ramp_Wide (800 x 800 cm,
 standing on the lower neighbour's ground, top edge on the plateau edge) climbs it. A border without a ramp is therefore
 closed, as is every `terrain.closed_borders` pair (a two-cell rock wall of plateau pieces). Closed borders are not
 neighbours: `neighbours` is the polygon adjacency minus them, so supply follows what units can walk.
@@ -44,6 +45,9 @@ PROP_SIZE = {
 # Footprint clearance a ramp keeps from sites (cm from the 800 x 800 footprint edge) and from rocks.
 RAMP_SITE_CLEARANCE = {"anchor": 130.0, "post": 50.0, "deposit": 200.0, "hq": 700.0}
 RAMP_ROCK_CLEARANCE = 150.0
+# Footprint clearance a cover prop keeps from hold posts and capture anchors (formations stand around them) and
+# from deposits, in cm from the prop's footprint edge.
+PROP_SITE_CLEARANCE = {"anchor": 800.0, "post": 800.0, "deposit": 500.0}
 MIN_COVER_PROPS = 6
 MIN_HAZARD_PLATES = 8
 Cell = tuple[int, int]
@@ -82,6 +86,40 @@ def ray_inside(poly: Sequence[Point], point: Point) -> bool:
         ) / (b[1] - a[1]) + a[0]:
             inside = not inside
     return inside
+
+
+def clipped_area(
+    poly: Sequence[Point], x0: float, x1: float, y0: float, y1: float
+) -> float:
+    """Area of a polygon inside an axis-aligned box (Sutherland-Hodgman; the polygon may be concave)."""
+    points = [(p[0], p[1]) for p in poly]
+    for axis, limit, keep_above in (
+        (0, x0, True),
+        (0, x1, False),
+        (1, y0, True),
+        (1, y1, False),
+    ):
+        out: list[tuple[float, float]] = []
+        for a, b in zip(points, [*points[1:], points[0]], strict=True):
+            a_in = a[axis] >= limit if keep_above else a[axis] <= limit
+            b_in = b[axis] >= limit if keep_above else b[axis] <= limit
+            if a_in != b_in:
+                s = (limit - a[axis]) / (b[axis] - a[axis])
+                out.append((a[0] + s * (b[0] - a[0]), a[1] + s * (b[1] - a[1])))
+            if b_in:
+                out.append(b)
+        points = out
+        if not points:
+            return 0.0
+    return (
+        abs(
+            sum(
+                a[0] * b[1] - b[0] * a[1]
+                for a, b in zip(points, [*points[1:], points[0]], strict=True)
+            )
+        )
+        / 2
+    )
 
 
 def rect_distance(
@@ -147,7 +185,11 @@ class Terrain:
                 )
         self.props: list[Mapping[str, Any]] = list(spec["props"])
         self.owner = self._owner()
-        self.plateau = {c for c, o in self.owner.items() if o in self.plateau_regions}
+        self.plateau_owner: dict[Cell, int] = {}
+        for index in self.plateau_regions:
+            for cell in self._touched_cells(self.regions[index]["poly"]):
+                self.plateau_owner.setdefault(cell, index)
+        self.plateau = set(self.plateau_owner)
         self.ramp_pairs = {(r["plateau"], r["to"]) for r in self.ramps}
         self.adjacent = self.polygon_adjacency()
         self.wall_borders = {tuple(sorted(p)) for p in spec["closed_borders"]}
@@ -161,6 +203,29 @@ class Terrain:
     def _bounds(poly: Sequence[Point]) -> tuple[float, float, float, float]:
         xs, ys = [p[0] for p in poly], [p[1] for p in poly]
         return min(xs), max(xs), min(ys), max(ys)
+
+    @staticmethod
+    def _touched_cells(poly: Sequence[Point]) -> Iterator[Cell]:
+        """Cells whose box shares positive area with the polygon."""
+        x0, x1, y0, y1 = Terrain._bounds(poly)
+        for i in range(
+            math.floor((x0 - CELL / 2) / CELL), math.ceil((x1 + CELL / 2) / CELL) + 1
+        ):
+            for j in range(
+                math.floor((y0 - CELL / 2) / CELL),
+                math.ceil((y1 + CELL / 2) / CELL) + 1,
+            ):
+                if (
+                    clipped_area(
+                        poly,
+                        i * CELL - CELL / 2,
+                        i * CELL + CELL / 2,
+                        j * CELL - CELL / 2,
+                        j * CELL + CELL / 2,
+                    )
+                    > 1.0
+                ):
+                    yield i, j
 
     def _owner(self) -> dict[Cell, int]:
         half = self.data["arena"]["half_extent"]
@@ -373,6 +438,20 @@ class Terrain:
             for r in self.ramps
         )
 
+    def prop_site_clash(self, centre: Point, yaw: float, kit: str) -> str | None:
+        """The first anchor, post or deposit whose clearance the prop's footprint breaks, else None."""
+        size_x, size_y = (v * 100 for v in PROP_SIZE[kit])
+        sites = [("anchor", r["anchor"]) for r in self.data["regions"] if r["anchor"]]
+        sites += [("post", p) for r in self.data["regions"] for p in r["defend_posts"]]
+        sites += [("deposit", d["pos"]) for d in self.data["deposits"]]
+        for kind, point in sites:
+            if (
+                rect_distance(point, centre, yaw, size_x, size_y)
+                < PROP_SITE_CLEARANCE[kind]
+            ):
+                return f"{kind} at {point}"
+        return None
+
     def sites(self) -> Iterator[tuple[str, Point, float]]:
         for region in self.data["regions"]:
             if region["anchor"]:
@@ -408,22 +487,20 @@ def scatter_props(
                 break
             x, y = rng.uniform(x0, x1), rng.uniform(y0, y1)
             kit = kits[len(placed) % len(kits)]
+            yaw = rng.choice([0, 20, 45, 70, 90, 135])
             if terrain.owner.get(cell_of(x, y)) != region or not contains(poly, (x, y)):
                 continue
             corners = [
                 terrain.owner.get(cell_of(x + dx, y + dy)) == region
-                and cell_of(x + dx, y + dy) not in terrain.walls
+                and cell_of(x + dx, y + dy) not in terrain.solid
                 for dx in (-300, 300)
                 for dy in (-300, 300)
             ]
             if not all(corners) or polygon_distance((x, y), poly) < 350:
                 continue
-            if any(math.dist((x, y), q["pos"]) < 1000 for q in placed):
+            if any(math.dist((x, y), q["pos"]) < 800 for q in placed):
                 continue
-            if any(
-                math.dist((x, y), p) < limit + 100 + 400
-                for _, p, limit in terrain.sites()
-            ):
+            if terrain.prop_site_clash((x, y), yaw, kit):
                 continue
             if any(
                 polygon_distance((x, y), r["poly"]) < 350 or contains(r["poly"], (x, y))
@@ -442,7 +519,7 @@ def scatter_props(
                     "region": region,
                     "kit": kit,
                     "pos": [round(x), round(y)],
-                    "yaw": rng.choice([0, 20, 45, 70, 90, 135]),
+                    "yaw": yaw,
                 }
             )
         out += placed

@@ -160,17 +160,13 @@ def test_plateau_without_ramps_cannot_be_entered(terrain_map: MapData) -> None:
 
 def test_stretch_rule_on_raised_ground(terrain_map: MapData) -> None:
     assert defend_post_errors(terrain_map) == []
-    terrain_map["regions"][4]["defend_posts"] = [[3600, -9000], [3800, -9200]]
+    ramp = terrain_map["terrain"]["plateaus"][0]["ramps"][0]
+    terrain_map["regions"][ramp["to"]]["defend_posts"][0] = ramp["centre"][:]
+    assert any("off walkable ground" in e for e in defend_post_errors(terrain_map))
+    ridge = terrain_map["regions"][4]
+    ridge["defend_posts"] = ridge["defend_posts"][:2]
     assert any(
-        "North Ridge" in e and "off walkable ground" in e
-        for e in defend_post_errors(terrain_map)
-    )
-    terrain_map["regions"][7]["defend_posts"] = terrain_map["regions"][7][
-        "defend_posts"
-    ][:1]
-    assert any(
-        "Switchback: requires 2-3 defend posts" in e
-        for e in defend_post_errors(terrain_map)
+        "North Ridge: buildable spot" in e for e in defend_post_errors(terrain_map)
     )
 
 

@@ -169,8 +169,8 @@ def place_rock(rock):
     """A single oriented cube follows the exact four-corner measured rock mark."""
     box = require(rectangle(rock["poly"]), "Blocker must be a rotated rectangle: " + rock["id"])
     x, y, sx, sy, yaw = box
-    block("Rock_" + rock["id"], (x, y), (sx, sy, 360), materials["MI_AZ_MachineConcrete"],
-          yaw=yaw, collision=True, folder="AZV2/Rocks")
+    TerrainSpawn.as_obstacle(block("Rock_" + rock["id"], (x, y), (sx, sy, 360), materials["MI_AZ_MachineConcrete"],
+                                   yaw=yaw, collision=True, folder="AZV2/Rocks"))
 
 
 def simplified_outline(poly, tolerance=80.0):

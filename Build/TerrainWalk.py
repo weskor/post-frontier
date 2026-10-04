@@ -388,9 +388,7 @@ def _ramp_errors(terrain: Terrain) -> list[str]:
             )
             for s in (-1, 1)
         ]
-        if any(
-            c not in terrain.plateau or terrain.owner[c] != ramp["plateau"] for c in top
-        ):
+        if any(terrain.plateau_owner.get(c) != ramp["plateau"] for c in top):
             errors.append(
                 f"{name}: top edge is not on two plateau cells of region {ramp['plateau']}"
             )
@@ -465,7 +463,12 @@ def _prop_errors(terrain: Terrain) -> list[str]:
             or terrain.owner.get(cell_of(*pos)) != region
         ):
             errors.append(f"{name}: must stand in a cover region")
-        if cell_of(*pos) in terrain.solid or any(
+        reach = max(TerrainPlan.PROP_SIZE[prop["kit"]]) * 50
+        if any(
+            cell_of(pos[0] + dx, pos[1] + dy) in terrain.solid
+            for dx in (-reach, 0, reach)
+            for dy in (-reach, 0, reach)
+        ) or any(
             terrain.in_ramp(pos, r, RAMP_RUN / 2 + 100) is not None
             for r in terrain.ramps
         ):
@@ -475,8 +478,9 @@ def _prop_errors(terrain: Terrain) -> list[str]:
             for m, o in enumerate(terrain.props)
         ):
             errors.append(f"{name}: closer than 800 cm to another prop")
-        if any(math.dist(pos, p) < limit + 200 for _, p, limit in terrain.sites()):
-            errors.append(f"{name}: on a site")
+        clash = terrain.prop_site_clash(pos, prop["yaw"], prop["kit"])
+        if clash:
+            errors.append(f"{name}: too close to a {clash}")
         if any(
             contains(r["poly"], pos) or polygon_distance(pos, r["poly"]) < 250
             for r in data["blockers"]

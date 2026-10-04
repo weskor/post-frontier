@@ -22483,15 +22483,15 @@
             "to": 3,
             "centre": [
               5800,
-              -5400
+              -5000
             ],
             "yaw": 180
           },
           {
             "to": 5,
             "centre": [
-              9400,
-              -3000
+              9000,
+              -2600
             ],
             "yaw": 90
           }
@@ -22504,7 +22504,7 @@
             "to": 1,
             "centre": [
               -2200,
-              -1000
+              -1400
             ],
             "yaw": 180
           },
@@ -22519,7 +22519,7 @@
           {
             "to": 8,
             "centre": [
-              -4200,
+              -4600,
               2200
             ],
             "yaw": 180
@@ -22546,125 +22546,116 @@
         "region": 2,
         "kit": "SandbagWall",
         "pos": [
-          -1920,
-          -6421
-        ],
-        "yaw": 135
-      },
-      {
-        "region": 2,
-        "kit": "SandbagWall",
-        "pos": [
-          100,
-          -9133
-        ],
-        "yaw": 20
-      },
-      {
-        "region": 2,
-        "kit": "SandbagWall",
-        "pos": [
-          -3112,
-          -9353
-        ],
-        "yaw": 20
-      },
-      {
-        "region": 2,
-        "kit": "SandbagWall",
-        "pos": [
-          -3049,
-          -7561
-        ],
-        "yaw": 135
-      },
-      {
-        "region": 2,
-        "kit": "SandbagWall",
-        "pos": [
-          -1052,
-          -4869
-        ],
-        "yaw": 70
-      },
-      {
-        "region": 2,
-        "kit": "Container",
-        "pos": [
-          -1472,
-          -7941
-        ],
-        "yaw": 90
-      },
-      {
-        "region": 2,
-        "kit": "Container",
-        "pos": [
-          -1993,
-          -9029
-        ],
-        "yaw": 20
-      },
-      {
-        "region": 2,
-        "kit": "Container",
-        "pos": [
-          1289,
-          -9452
-        ],
-        "yaw": 45
-      },
-      {
-        "region": 2,
-        "kit": "Wreck",
-        "pos": [
-          -403,
-          -8127
-        ],
-        "yaw": 70
-      },
-      {
-        "region": 2,
-        "kit": "Wreck",
-        "pos": [
-          -882,
-          -9352
+          -1739,
+          -8494
         ],
         "yaw": 0
       },
       {
         "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -1221,
+          -7714
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -544,
+          -9160
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -2332,
+          -6488
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
+        "kit": "SandbagWall",
+        "pos": [
+          -1655,
+          -9383
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          -1319,
+          -6910
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          1098,
+          -9335
+        ],
+        "yaw": 20
+      },
+      {
+        "region": 2,
+        "kit": "Container",
+        "pos": [
+          -573,
+          -8253
+        ],
+        "yaw": 70
+      },
+      {
+        "region": 2,
         "kit": "Wreck",
         "pos": [
-          -3039,
-          -6542
+          -3602,
+          -9351
         ],
-        "yaw": 135
+        "yaw": 45
+      },
+      {
+        "region": 2,
+        "kit": "Wreck",
+        "pos": [
+          -996,
+          -4577
+        ],
+        "yaw": 20
       },
       {
         "region": 6,
         "kit": "Container",
         "pos": [
-          2383,
-          -1765
+          3006,
+          1143
         ],
-        "yaw": 90
+        "yaw": 70
       },
       {
         "region": 6,
         "kit": "Container",
         "pos": [
-          3041,
-          961
+          3202,
+          -312
         ],
-        "yaw": 135
+        "yaw": 70
       },
       {
         "region": 6,
         "kit": "Container",
         "pos": [
-          1440,
-          -1298
+          2897,
+          -1269
         ],
         "yaw": 20
       },
@@ -22672,26 +22663,17 @@
         "region": 6,
         "kit": "Wreck",
         "pos": [
-          3482,
-          15
+          3883,
+          489
         ],
-        "yaw": 135
+        "yaw": 0
       },
       {
         "region": 6,
         "kit": "Wreck",
         "pos": [
-          1513,
-          348
-        ],
-        "yaw": 90
-      },
-      {
-        "region": 6,
-        "kit": "SandbagWall",
-        "pos": [
-          4163,
-          896
+          2134,
+          -2525
         ],
         "yaw": 20
       },
@@ -22699,8 +22681,8 @@
         "region": 6,
         "kit": "SandbagWall",
         "pos": [
-          2464,
-          -75
+          2060,
+          -1491
         ],
         "yaw": 45
       },
@@ -22708,17 +22690,17 @@
         "region": 6,
         "kit": "SandbagWall",
         "pos": [
-          3209,
-          -998
+          3772,
+          1456
         ],
-        "yaw": 70
+        "yaw": 0
       },
       {
-        "region": 6,
-        "kit": "FenceSegment",
+        "region": 11,
+        "kit": "Chiller",
         "pos": [
-          1273,
-          -2649
+          103,
+          8632
         ],
         "yaw": 45
       },
@@ -22726,17 +22708,8 @@
         "region": 11,
         "kit": "Chiller",
         "pos": [
-          810,
-          8646
-        ],
-        "yaw": 90
-      },
-      {
-        "region": 11,
-        "kit": "Chiller",
-        "pos": [
-          551,
-          6293
+          614,
+          9476
         ],
         "yaw": 70
       },
@@ -22744,8 +22717,8 @@
         "region": 11,
         "kit": "Chiller",
         "pos": [
-          2104,
-          9429
+          213,
+          5889
         ],
         "yaw": 135
       },
@@ -22753,8 +22726,8 @@
         "region": 11,
         "kit": "Chiller",
         "pos": [
-          -168,
-          5348
+          2269,
+          9466
         ],
         "yaw": 135
       },
@@ -22762,17 +22735,8 @@
         "region": 11,
         "kit": "Transformer",
         "pos": [
-          200,
-          9463
-        ],
-        "yaw": 70
-      },
-      {
-        "region": 11,
-        "kit": "Transformer",
-        "pos": [
-          1275,
-          7760
+          144,
+          3732
         ],
         "yaw": 135
       },
@@ -22780,10 +22744,10 @@
         "region": 11,
         "kit": "Transformer",
         "pos": [
-          193,
-          3439
+          1439,
+          9378
         ],
-        "yaw": 70
+        "yaw": 135
       }
     ],
     "routes": [

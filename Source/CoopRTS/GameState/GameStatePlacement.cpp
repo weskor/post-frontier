@@ -11,6 +11,7 @@
 #include "EngineUtils.h"
 #include "GameState/GameStateRegistry.h"
 #include "GameState/GameStateTerritory.h"
+#include "GroundHeight.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "NavigationSystem.h"
@@ -76,6 +77,13 @@ FVector DepositLocation(const ADepositSite& Deposit, const FVector& RequestedLoc
 {
 	const FVector Position = Deposit.GetActorLocation();
 	return FVector(Position.X, Position.Y, RequestedLocation.Z);
+}
+
+// Requests carry the cursor's z = 0 plane: the building stands on the real ground under its XY (plateau, flat floor).
+FVector OnGround(const ACommandGameState& State, const FVector& Location)
+{
+	const UWorld* World = State.GetWorld();
+	return World ? GroundHeight::Snap(*World, Location) : Location;
 }
 
 // Footprint inside a controlled, uncontested region, checked without inspecting deposits.
@@ -263,11 +271,11 @@ FVector ResolveLocation(const ACommandGameState& State, int32 BuildingIndex, con
 	if (!Definition)
 		return RequestedLocation;
 	if (!Definition->bRequiresDeposit)
-		return PlacementPolicy::SnapToBuildGrid(RequestedLocation, ACommandBuilding::GetFootprintRadius(*Definition));
+		return OnGround(State, PlacementPolicy::SnapToBuildGrid(RequestedLocation, ACommandBuilding::GetFootprintRadius(*Definition)));
 	FPlacementRegions PlacementRegions;
 	CollectPlacementRegions(State, Team, PlacementRegions);
 	const int32 Index = FindFreeDeposit(State, RequestedLocation, Team, PlacementRegions);
-	return Index == INDEX_NONE ? RequestedLocation : DepositLocation(*State.Deposits[Index], RequestedLocation);
+	return OnGround(State, Index == INDEX_NONE ? RequestedLocation : DepositLocation(*State.Deposits[Index], RequestedLocation));
 }
 
 bool IsInBuildTerritory(const ACommandGameState& State, int32 BuildingIndex, int32 Team, const FVector& RequestedLocation)
@@ -304,6 +312,7 @@ bool Validate(const ACommandGameState& State, int32 BuildingIndex, int32 Team, c
 		return false;
 	if (!CheckPolicy(State, Site, OutReason))
 		return false;
+	Site.Location = OnGround(State, Site.Location);
 	if (IsFootprintBlocked(World, Site))
 	{
 		OutReason = TEXT("Footprint blocked by terrain or obstacle");

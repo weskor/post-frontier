@@ -5,6 +5,7 @@
 #include "Components/SceneComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GroundHeight.h"
 
 namespace
 {
@@ -85,15 +86,16 @@ void ACommandCamera::Drag(FVector2D PixelDelta)
 		return;
 	}
 
-	// Intersect both cursor rays with the map, keeping the grabbed ground point
-	// under the pointer without approximating perspective, camera yaw, or zoom.
+	// Intersect both cursor rays with the ground plane under the camera focus (z = 0 on flat ground, 300 on a
+	// plateau), keeping the grabbed ground point under the pointer without approximating perspective, yaw, or zoom.
 	if (PreviousDirection.Z >= -UE_SMALL_NUMBER || CurrentDirection.Z >= -UE_SMALL_NUMBER)
 	{
 		return;
 	}
 
-	const FVector PreviousGround = PreviousOrigin - PreviousDirection * (PreviousOrigin.Z / PreviousDirection.Z);
-	const FVector CurrentGround = CurrentOrigin - CurrentDirection * (CurrentOrigin.Z / CurrentDirection.Z);
+	const double PlaneZ = GetActorLocation().Z;
+	const FVector PreviousGround = PreviousOrigin - PreviousDirection * ((PreviousOrigin.Z - PlaneZ) / PreviousDirection.Z);
+	const FVector CurrentGround = CurrentOrigin - CurrentDirection * ((CurrentOrigin.Z - PlaneZ) / CurrentDirection.Z);
 	FocusOn(GetActorLocation() + PreviousGround - CurrentGround);
 }
 
@@ -114,6 +116,6 @@ void ACommandCamera::FocusOn(FVector Location)
 		return;
 	Location.X = FMath::Clamp(Location.X, -Arena->HalfExtent.X, Arena->HalfExtent.X);
 	Location.Y = FMath::Clamp(Location.Y, -Arena->HalfExtent.Y, Arena->HalfExtent.Y);
-	Location.Z = 0.0;
+	Location.Z = GroundHeight::At(*GetWorld(), Location.X, Location.Y);
 	SetActorLocation(Location);
 }

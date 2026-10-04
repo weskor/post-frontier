@@ -18,6 +18,12 @@ HAZARD_PLATE = 360.0
 VENT_EVERY = 3
 
 
+def as_obstacle(actor):
+    """Obstacles block everything but are dynamic-object type, so GroundHeight's static-ground probe passes over them."""
+    actor.static_mesh_component.set_collision_object_type(unreal.CollisionChannel.ECC_WORLD_DYNAMIC)
+    return actor
+
+
 def suffixed(piece, look):
     """Kit mesh name of `piece` in the Human or Machine look."""
     return piece + ("_Machine" if look == "machine" else "")
@@ -62,8 +68,8 @@ def place_terrain(terrain, spawn, block, cylinder, materials):
                                label="Ramp_%d_%d" % (ramp["centre"][0], ramp["centre"][1]), folder="AZV2/Terrain/Ramps")
         counts["ramp"] += 1
     for number, prop in enumerate(terrain.props):
-        EnvKit.place_piece(prop["kit"], prop["pos"], yaw=prop["yaw"], base=0.0,
-                           label="Cover_%02d_%s" % (number, prop["kit"]), folder="AZV2/Terrain/Cover")
+        as_obstacle(EnvKit.place_piece(prop["kit"], prop["pos"], yaw=prop["yaw"], base=0.0,
+                                       label="Cover_%02d_%s" % (number, prop["kit"]), folder="AZV2/Terrain/Cover"))
         counts["prop"] += 1
     for number, (x, y) in enumerate(terrain.hazard_plates()):
         block("HazardPlate_%03d" % number, (x, y), (HAZARD_PLATE, HAZARD_PLATE, 3), materials["MI_AZ_Hazard"],

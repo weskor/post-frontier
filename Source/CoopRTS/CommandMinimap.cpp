@@ -16,6 +16,7 @@
 #include "Engine/Font.h"
 #include "Engine/Level.h"
 #include "Engine/World.h"
+#include "GroundHeight.h"
 #include "Headquarters.h"
 #include "JevIntentView.h"
 #include "HUD/ForceRoutePresentation.h"
@@ -135,6 +136,8 @@ void DrawFootprint(const FMap& Map, ACommandPlayerController* Controller)
 	Controller->GetViewportSize(Width, Height);
 	if (Width <= 0 || Height <= 0)
 		return;
+	// The view's ground plane is the one the camera stands on: z = 0 on flat ground, 300 on a plateau.
+	const double PlaneZ = Controller->GetPawn() ? Controller->GetPawn()->GetActorLocation().Z : 0.0;
 	// A clipped convex quadrilateral has at most eight vertices. Stack storage only.
 	FVector2D Buffers[2][8];
 	for (int32 Corner = 0; Corner < 4; ++Corner)
@@ -145,7 +148,7 @@ void DrawFootprint(const FMap& Map, ACommandPlayerController* Controller)
 		if (!Controller->DeprojectScreenPositionToWorld(X, Y, RayOrigin, RayDirection)
 			|| RayOrigin.ContainsNaN() || RayDirection.ContainsNaN() || FMath::Abs(RayDirection.Z) < 1.e-6)
 			return;
-		const double Distance = -RayOrigin.Z / RayDirection.Z;
+		const double Distance = (PlaneZ - RayOrigin.Z) / RayDirection.Z;
 		if (!FMath::IsFinite(Distance) || Distance < 0.0)
 			return;
 		Buffers[0][Corner] = Map.Project(RayOrigin + RayDirection * Distance);
@@ -228,7 +231,9 @@ bool CommandMinimap::ScreenToWorld(const AArenaBounds* Arena, FVector2D Position
 	if (!Finite(UV) || UV.X < 0.0 || UV.X > 1.0 || UV.Y < 0.0 || UV.Y > 1.0)
 		return false;
 	const FVector2D Extent = Arena->HalfExtent;
-	OutWorld = FVector(Extent.X - UV.Y * (2.0 * Extent.X), UV.X * (2.0 * Extent.Y) - Extent.Y, 0.0);
+	const double X = Extent.X - UV.Y * (2.0 * Extent.X), Y = UV.X * (2.0 * Extent.Y) - Extent.Y;
+	const UWorld* World = Arena->GetWorld();
+	OutWorld = FVector(X, Y, World ? GroundHeight::At(*World, X, Y) : 0.0);
 	return true;
 }
 
