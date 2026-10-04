@@ -34,6 +34,12 @@
       ]
     }
   ],
+  "failover_nodes": [
+    {"id": "FriendlyNodeA", "team": 0, "region": 1, "pos": [-6400, -4600]},
+    {"id": "FriendlyNodeB", "team": 0, "region": 2, "pos": [-3400, -5600]},
+    {"id": "EnemyNodeA", "team": 5, "region": 12, "pos": [5000, 8000]},
+    {"id": "EnemyNodeB", "team": 5, "region": 13, "pos": [9000, 4800]}
+  ],
   "regions": [
     {
       "index": 0,

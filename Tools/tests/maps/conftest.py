@@ -96,6 +96,8 @@ def v2_map(v2_data: "V2Data") -> "V2Data":
     result["headquarters"] = deepcopy(v2_data["headquarters"])
     result["deposits"] = deepcopy(v2_data["deposits"])
     result["blockers"] = deepcopy(v2_data["blockers"])
+    result["failover_nodes"] = deepcopy(v2_data["failover_nodes"])
+    result["terrain"] = deepcopy(v2_data["terrain"])
     return result
 
 

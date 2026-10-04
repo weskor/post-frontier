@@ -8,18 +8,21 @@ Pipeline (see Docs/World.md "Art pipeline"): Build/GenerateBuildingMeshes.py (Bl
     -EnablePlugins=PythonScriptPlugin -ExecutePythonScript="$PWD/Build/ImportBuildingMeshes.py" \
     -unattended -nullrhi -nosplash
 
-Require BUILDING_MESHES_IMPORTED 19 in the log (and no RuntimeError). Reruns replace the meshes.
+Require BUILDING_MESHES_IMPORTED 21 in the log (and no RuntimeError). Reruns replace the meshes.
 
 Meshes: SM_{Human,Machine}_{Barracks,Barracks_Frontline,Barracks_Ranged,Barracks_Siege,Barracks_Lancer,
-Barracks_Scrambler,Outpost,Workshop} (a Barracks is configured once and permanently as Frontline, Ranged, Siege,
-Lancer or Scrambler; SM_*_Barracks is the neutral, unconfigured building) and the faction-neutral scaffolds
-SM_Construction_{Barracks,Outpost,Workshop}. These are the names ACommandBuilding::FindBuildingMesh loads.
+Barracks_Scrambler,Outpost,Workshop,FailoverNode} (a Barracks is configured once and permanently as Frontline,
+Ranged, Siege, Lancer or Scrambler; SM_*_Barracks is the neutral, unconfigured building; a Failover Node guards an
+HQ) and the faction-neutral scaffolds SM_Construction_{Barracks,Outpost,Workshop}. These are the names
+ACommandBuilding::FindBuildingMesh and AFailoverNode load.
 
 FBX contract (docstring of Build/GenerateBuildingMeshes.py; ACommandBuilding::GetFootprintRadius): centimetres, +Z up,
 door / ramp / dish toward +X, origin at the footprint centre, ground at z = -65 (the actor's footprint box is 130 cm
 tall). Footprint half-extent is 125 (Barracks), 95 (Outpost) or 145 (Workshop); the mesh stays inside +10 % of it and
 fills at least 80 % of it. Default import axis options match the export, so no rotation or scale is applied; the checks
 below fail (2 cm tolerance) if that ever stops being true.
+Failover Nodes use a floor-centred pivot at z = 0, fit inside a 300 cm square without overhang,
+and stand 300..350 cm tall; AFailoverNode uses these faction meshes directly.
 
 Materials: slots Team, Shell, Dark, Glow, in that order on every mesh. Slot 0 (Team) is the one gameplay tints
 through `TeamColor` (blue / red, amber while under construction). Each slot gets MI_SC2_<Faction>_<Slot>_Bld of
@@ -43,17 +46,17 @@ FBX_DIR = os.path.join(ROOT, "Art", "Buildings")
 MESH_FOLDER = "/Game/Art/Buildings"
 FACTIONS = ("Machine", "Human")
 KINDS = ("Barracks", "Barracks_Frontline", "Barracks_Ranged", "Barracks_Siege", "Barracks_Lancer",
-         "Barracks_Scrambler", "Outpost", "Workshop")
+         "Barracks_Scrambler", "Outpost", "Workshop", "FailoverNode")
 SCAFFOLDS = ("Barracks", "Outpost", "Workshop")
 SLOTS = ("Team", "Shell", "Dark", "Glow")
 GROUND = -65.0
 TOLERANCE_CM = 2.0
 OVERHANG = 1.10
-HALF = {"Barracks": 125.0, "Outpost": 95.0, "Workshop": 145.0}
+HALF = {"Barracks": 125.0, "Outpost": 95.0, "Workshop": 145.0, "FailoverNode": 150.0}
 # Height above ground in cm: min / max, from HEIGHT_RANGE / SCAFFOLD_HEIGHT_RANGE in Build/GenerateBuildingMeshes.py
 HEIGHT = {"Barracks": (170, 230), "Barracks_Frontline": (170, 260), "Barracks_Ranged": (170, 260),
           "Barracks_Siege": (170, 260), "Barracks_Lancer": (170, 260), "Barracks_Scrambler": (170, 260),
-          "Outpost": (340, 400), "Workshop": (160, 230)}
+          "Outpost": (340, 400), "Workshop": (160, 230), "FailoverNode": (300, 350)}
 SCAFFOLD_HEIGHT = {"Barracks": (190, 250), "Outpost": (260, 340), "Workshop": (170, 240)}
 
 # name -> (materials faction set, footprint class, height range)
@@ -124,13 +127,14 @@ for name, _task in tasks:
 for name, lo, hi in rows:
     _faction, base, (hmin, hmax) = SPEC[name]
     half = HALF[base]
-    require(abs(lo.z - GROUND) <= TOLERANCE_CM, "%s ground is z=%.1f, expected %.0f" % (name, lo.z, GROUND))
-    limit = half * OVERHANG + TOLERANCE_CM
+    ground = 0.0 if base == "FailoverNode" else GROUND
+    require(abs(lo.z - ground) <= TOLERANCE_CM, "%s ground is z=%.1f, expected %.0f" % (name, lo.z, ground))
+    limit = (half if base == "FailoverNode" else half * OVERHANG) + TOLERANCE_CM
     require(max(-lo.x, -lo.y, hi.x, hi.y) <= limit, "%s reaches %.1f cm, footprint limit %.1f" % (
         name, max(-lo.x, -lo.y, hi.x, hi.y), limit))
     require(min(-lo.x, -lo.y, hi.x, hi.y) >= 0.80 * half - TOLERANCE_CM,
             "%s does not fill its %.0f cm footprint (x %.1f..%.1f, y %.1f..%.1f)" % (name, half, lo.x, hi.x, lo.y, hi.y))
-    height = hi.z - GROUND
+    height = hi.z - ground
     require(hmin - TOLERANCE_CM <= height <= hmax + TOLERANCE_CM,
             "%s is %.1f cm tall, expected %d..%d" % (name, height, hmin, hmax))
 unreal.log("BUILDING_MESHES_IMPORTED %d" % len(rows))

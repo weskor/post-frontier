@@ -97,7 +97,7 @@ def units(faction):
 
 def buildings(faction):
     return [("/Game/Art/Buildings/SM_%s_%s" % (faction, kind), kind, 0.0) for kind in (
-        "Barracks", "Barracks_Frontline", "Barracks_Ranged", "Barracks_Siege", "Outpost", "Workshop")]
+        "Barracks", "Barracks_Frontline", "Barracks_Ranged", "Barracks_Siege", "Outpost", "Workshop", "FailoverNode")]
 
 
 # The kit must be imported before the gallery is built; check before the level is touched.

@@ -10,7 +10,7 @@ shared cell edges become IDENTICAL polygon edges, not approximate near-matches.
 The nearest adjacent country owns the narrow unpainted gaps and the square arena
 margin. Default validation uses only the resulting JSON (no sketch dependency).
 
-Import region_errors, site_errors, topology, symmetry_errors and
+Import region_errors, site_errors, failover_node_errors, topology, symmetry_errors and
 tiling_mismatches for non-rendering rule checks. audit retains exhaustive
 quarter-cell sampling and the original CLI report; walking never draws.
 """
@@ -74,6 +74,13 @@ class Headquarters(TypedDict):
     pos: list[float]
 
 
+class FailoverNode(TypedDict):
+    id: str
+    team: int
+    region: int
+    pos: Point
+
+
 class Blocker(TypedDict):
     id: str
     kind: str
@@ -106,6 +113,7 @@ class MapData(TypedDict):
     symmetry: str
     arena: Arena
     headquarters: list[Headquarters]
+    failover_nodes: list[FailoverNode]
     regions: list[Region]
     deposits: list[Deposit]
     blockers: list[Blocker]
@@ -513,6 +521,7 @@ def derive() -> None:
             dict(id="HQ_H", team=0, name="The Bunker", pos=world(HQ_SITES[0])),
             dict(id="HQ_J", team=5, name="The Cluster", pos=world(HQ_SITES[1])),
         ],
+        failover_nodes=previous["failover_nodes"],
         regions=regions,
         deposits=deposits,
         blockers=[
@@ -624,6 +633,71 @@ def site_errors(data: MapData) -> list[str]:
     return errors
 
 
+def failover_node_errors(data: MapData) -> list[str]:
+    """Audit two distinct neighbouring guard sites per HQ, including floor and keep-outs."""
+    nodes = data.get("failover_nodes", [])
+    errors: list[str] = []
+    if len(nodes) != 4 or Counter(n["team"] for n in nodes) != {0: 2, 5: 2}:
+        errors.append("Failover nodes require exactly two each for teams 0 and 5")
+    if len({n["id"] for n in nodes}) != len(nodes):
+        errors.append("Failover node IDs must be unique")
+    for team in (0, 5):
+        if len({n["region"] for n in nodes if n["team"] == team}) != 2:
+            errors.append(f"Failover nodes team {team} require two distinct regions")
+    terrain = TerrainPlan.Terrain(data)
+    regions = {r["index"]: r for r in data["regions"]}
+    mains = {r["home_team"]: r for r in data["regions"] if r["role"] == "main"}
+    for node in nodes:
+        label, pos = node["id"], node["pos"]
+        if not label or len(pos) != 2 or not all(math.isfinite(v) for v in pos):
+            errors.append(f"Invalid failover node identity/position: {label}")
+            continue
+        main, region = mains.get(node["team"]), regions.get(node["region"])
+        if main is None or region is None or node["region"] not in main["neighbours"]:
+            errors.append(f"Failover node {label} must neighbour its team's main")
+            continue
+        if (
+            not contains_point(pos, region["poly"])
+            or clearance(pos, region["poly"]) < 220
+        ):
+            errors.append(f"Failover node {label} footprint outside region")
+        if terrain.ground_z(*pos) != 0 or not terrain.clear_ground(pos, 220):
+            errors.append(f"Failover node {label} requires flat navigable ground")
+        errors.extend(failover_clearance_errors(data, terrain, node))
+    return errors
+
+
+def failover_clearance_errors(
+    data: MapData, terrain: TerrainPlan.Terrain, node: FailoverNode
+) -> list[str]:
+    """Centre clearances in cm; ramps, rocks and cover use their footprint edges."""
+    errors: list[str] = []
+    pos, label = node["pos"], node["id"]
+    sites = [d["pos"] for d in data["deposits"]]
+    sites += [r["anchor"] for r in data["regions"] if r["anchor"] is not None]
+    sites += [p for r in data["regions"] for p in r["defend_posts"]]
+    if any(math.dist(pos, p) < 800 for p in sites):
+        errors.append(f"Failover node {label} within 800 cm of deposit/anchor/post")
+    if any(
+        contains_point(pos, b["poly"]) or clearance(pos, b["poly"]) < 600
+        for b in data["blockers"]
+    ) or any(
+        TerrainPlan.rect_distance(pos, (x, y), yaw, sx, sy) < 600
+        for x, y, sx, sy, yaw in terrain.prop_rects()
+    ):
+        errors.append(f"Failover node {label} within 600 cm of blocker/cover")
+    if any(
+        TerrainPlan.rect_distance(pos, r["centre"], r["yaw"], 800, 800) < 800
+        for r in terrain.ramps
+    ):
+        errors.append(f"Failover node {label} within 800 cm of ramp")
+    others = [h["pos"] for h in data["headquarters"]]
+    others += [n["pos"] for n in data["failover_nodes"] if n is not node]
+    if any(math.dist(pos, p) < 2000 for p in others):
+        errors.append(f"Failover node {label} within 2000 cm of HQ/other node")
+    return errors
+
+
 def defend_post_errors(data: MapData) -> list[str]:
     """Validate authored posts against gameplay countries and the terrain: rocks, props, ramps, walls and levels."""
     return MatchLayout.defend_post_errors(
@@ -718,6 +792,7 @@ def symmetry_errors(data: MapData) -> list[str]:
 
 def audit(data: MapData) -> None:
     errors = region_errors(data) + site_errors(data) + defend_post_errors(data)
+    errors += failover_node_errors(data)
     errors += TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
     regions = data["regions"]
     edge_count, boundary_length, edge_errors = topology(data)
@@ -753,7 +828,7 @@ def audit(data: MapData) -> None:
             print(f"... {len(errors) - 30} additional errors")
         raise ValueError(f"{len(errors)} validation errors")
     print(
-        "VALID: exact shared topology, CCW/roles, grid tiling, symmetric neighbours, 13 anchors, 16 buildable deposits, HQs, rock clearance"
+        "VALID: exact shared topology, CCW/roles, grid tiling, symmetric neighbours, 13 anchors, 16 buildable deposits, HQs, four failover nodes, rock clearance"
     )
 
 
@@ -771,6 +846,12 @@ def walking(data: MapData) -> None:
         return f"{length / 100:.1f} m / {length / SPEED:.1f} s"
 
     print(f"Walking HQ_H -> HQ_J: {report(from_home, enemy)}")
+    for node in data["failover_nodes"]:
+        if walker.blocked[walker.index(node["pos"])]:
+            raise ValueError(f"Blocked failover node {node['id']}")
+        print(
+            f"  node {node['id']}: H {report(from_home, node['pos'])}; J {report(from_enemy, node['pos'])}"
+        )
     for r in data["regions"]:
         if r["anchor"] is not None:
             print(
@@ -945,6 +1026,12 @@ def render(data: MapData, out: Path) -> None:
         color = "#a46700" if d["kind"] == "rich" else "#286687"
         out_svg.append(
             f'<polygon points="{x:.2f},{y - 8:.2f} {x + 8:.2f},{y:.2f} {x:.2f},{y + 8:.2f} {x - 8:.2f},{y:.2f}" fill="#fff8df" stroke="{color}" stroke-width="2.6"/>'
+        )
+    for node in data["failover_nodes"]:
+        x, y = map(float, pt(node["pos"]).split(","))
+        color = "#2274a8" if node["team"] == 0 else "#b3475a"
+        out_svg.append(
+            f'<rect x="{x - 7}" y="{y - 7}" width="14" height="14" rx="2" fill="{color}" stroke="#fff" stroke-width="2"><title>{node["id"]}</title></rect>'
         )
     for h in data["headquarters"]:
         x, y = map(float, pt(h["pos"]).split(","))

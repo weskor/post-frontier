@@ -88,6 +88,8 @@ def validate(data):
         require(len(rock["poly"]) >= 3 and area(rock["poly"]) > 0, "Invalid CCW blocker polygon " + rock["id"])
     post_errors = DrawAvailabilityZoneV2.defend_post_errors(data)
     require(not post_errors, "Invalid defend posts: " + "; ".join(post_errors))
+    node_errors = DrawAvailabilityZoneV2.failover_node_errors(data)
+    require(not node_errors, "Invalid failover nodes: " + "; ".join(node_errors))
     terrain_errors = TerrainWalk.terrain_errors(TerrainPlan.Terrain(data))
     require(not terrain_errors, "Invalid terrain: " + "; ".join(terrain_errors))
     return by_index
@@ -107,7 +109,7 @@ materials = {}
 for name in ("MI_AZ_GravelDark", "MI_AZ_Concrete", "MI_AZ_MachineConcrete", "MI_AZ_PaintBlue",
              "MI_AZ_PaintAmber", "MI_AZ_Steel", "MI_AZ_Hazard", "MI_AZ_GlowHuman", "MI_AZ_DeckPlate"):
     materials[name] = require(unreal.load_asset("/Game/Art/Materials/" + name), "Missing existing material " + name)
-for name in ("ArenaBounds", "Headquarters", "CapturePoint", "MapRegion", "DepositSite", "CommandGameMode"):
+for name in ("ArenaBounds", "Headquarters", "FailoverNode", "CapturePoint", "MapRegion", "DepositSite", "CommandGameMode"):
     MatchLayout.native_class(name)
 
 if assets.does_asset_exist(MAP_PATH):
@@ -206,6 +208,12 @@ def place_match_actors(region_defs, deposit_defs):
                       "FriendlyHeadquarters" if hq["team"] == 0 else "EnemyHeadquarters",
                       (hq["pos"][0], hq["pos"][1], 110 + terrain.ground_z(*hq["pos"])))
         actor.set_editor_property("team_index", hq["team"])
+    for node in data["failover_nodes"]:
+        x, y = node["pos"]
+        actor = spawn(MatchLayout.native_class("FailoverNode"), node["id"],
+                      (x, y, terrain.ground_z(x, y) + 150))
+        actor.set_editor_property("team_index", node["team"])
+        actor.set_folder_path("AZV2/FailoverNodes")
 
     anchors = {}
     for index, region in sorted(region_defs.items()):
@@ -285,6 +293,10 @@ for index, deposit in enumerate(data["deposits"]):
           base=0.5 + z, folder="AZV2/Deposits")
     block("DepositCore_%02d" % index, (x, y), (95, 95, 3), materials["MI_AZ_Steel"],
           yaw=45, base=2.5 + z, folder="AZV2/Deposits")
+for node in data["failover_nodes"]:
+    x, y = node["pos"]
+    block(node["id"] + "_Site", (x, y), (320, 320, 2), materials["MI_AZ_Steel"],
+          base=0.5 + terrain.ground_z(x, y), folder="AZV2/FailoverNodes")
 
 # Start the camera beside the friendly HQ, towards the interior; no origin start.
 friendly = next(hq["pos"] for hq in data["headquarters"] if hq["team"] == 0)

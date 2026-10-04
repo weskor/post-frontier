@@ -14,14 +14,16 @@ Outpost 0.95 m, Workshop 1.45 m. The actor origin is the footprint centre and th
 tall, so mesh ground is z = -0.65. Metres, +Z up, forward = +X (door, ramp, crane jib and dish point +X).
 Every building keeps inside +/-half-extent except roofs, antennas and ramps, which may overhang up to +10%.
 All model code writes heights above the ground; BModel.add shifts them by GROUND.
+Failover Nodes instead use a floor-centred pivot (ground z = 0), no overhang beyond the 3 m square,
+and a 3..3.5 m height. Their compact relay silhouettes share the faction building materials.
 
 Meshes (one object per FBX, exported at the origin, same FBX settings as the units)
     SM_Human_Barracks   SM_Human_Barracks_Frontline   SM_Human_Barracks_Ranged   SM_Human_Barracks_Siege
                         SM_Human_Barracks_Lancer      SM_Human_Barracks_Scrambler
-    SM_Human_Outpost    SM_Human_Workshop
+    SM_Human_Outpost    SM_Human_Workshop    SM_Human_FailoverNode
     SM_Machine_Barracks SM_Machine_Barracks_Frontline SM_Machine_Barracks_Ranged SM_Machine_Barracks_Siege
                         SM_Machine_Barracks_Lancer    SM_Machine_Barracks_Scrambler
-    SM_Machine_Outpost  SM_Machine_Workshop
+    SM_Machine_Outpost  SM_Machine_Workshop  SM_Machine_FailoverNode
     SM_Construction_Barracks SM_Construction_Outpost SM_Construction_Workshop   (faction neutral)
 A Barracks is configured once and permanently as Frontline, Ranged, Siege, Lancer or Scrambler (no level 2).
 SM_*_Barracks is the neutral, unconfigured building; each role mesh is the same base (same footprint, origin,
@@ -96,7 +98,7 @@ TEAM, SHELL, DARK, GLOW = U.TEAM, U.SHELL, U.DARK, U.GLOW
 Frame = U.Frame
 
 GROUND = -0.65
-HALF = {"Barracks": 1.25, "Outpost": 0.95, "Workshop": 1.45}
+HALF = {"Barracks": 1.25, "Outpost": 0.95, "Workshop": 1.45, "FailoverNode": 1.50}
 OVERHANG = 1.10
 TRI_BUDGET_BUILDING = 20000
 TRI_BUDGET_SCAFFOLD = 10000
@@ -105,7 +107,7 @@ MIN_TEAM_TOP_AREA = {"building": 0.6, "scaffold": 0.4}   # m^2 of Team faces loo
 HEIGHT_RANGE = {
     "Barracks": (1.7, 2.3), "Barracks_Frontline": (1.7, 2.6), "Barracks_Ranged": (1.7, 2.6),
     "Barracks_Siege": (1.7, 2.6), "Barracks_Lancer": (1.7, 2.6), "Barracks_Scrambler": (1.7, 2.6),
-    "Outpost": (3.4, 4.0), "Workshop": (1.6, 2.3),
+    "Outpost": (3.4, 4.0), "Workshop": (1.6, 2.3), "FailoverNode": (3.0, 3.5),
 }
 SCAFFOLD_HEIGHT_RANGE = {"Barracks": (1.9, 2.5), "Outpost": (2.6, 3.4), "Workshop": (1.7, 2.4)}
 
@@ -997,6 +999,58 @@ def machine_workshop(mats):
     return m.finish()
 
 
+def finish_node(model):
+    """Building primitives use the legacy ground; nodes export with a floor-centred pivot."""
+    obj = model.finish()
+    for vertex in obj.data.vertices:
+        vertex.co.z -= GROUND
+    obj.data.update()
+    return obj
+
+
+def human_failover_node(mats):
+    """Hardline armoured relay: prefab shoulders, blue roof plates and a lit shield core."""
+    m = BModel("SM_Human_FailoverNode", mats)
+    m.plan(rrect(2.70, 2.70, 0.30, 2), 0.0, 0.16, DARK, bevel=0.035)
+    m.plan(rrect(2.45, 2.45, 0.26, 2), 0.16, 0.48, SHELL, taper=0.9, bevel=0.045)
+    m.plan(rrect(1.65, 1.65, 0.22, 2), 0.48, 2.62, SHELL, bevel=0.05)
+    for s in (-1, 1):
+        m.bx(-0.78, 0.78, s * 0.88 - 0.14, s * 0.88 + 0.14, 0.52, 2.16, DARK, bevel=0.035)
+        m.bx(-0.69, 0.69, s * 0.90 - 0.08, s * 0.90 + 0.08, 0.78, 1.97, TEAM, bevel=0.035)
+        m.plan(rrect(2.15, 0.64, 0.14, 2), 2.15, 2.65, SHELL, loc=(0, s * 0.77), taper=0.9, bevel=0.035)
+        m.plan(rrect(1.94, 0.52, 0.12, 2), 2.65, 2.70, TEAM, loc=(0, s * 0.77), bevel=0.025)
+        Frame.surface(m, (-0.83, s * 0.48, 1.40), (-1, 0, 0), (0, s, 0)).vent((0, 0, 0), (0.42, 0.68), slats=4)
+    m.bx(0.82, 0.87, -0.56, 0.56, 0.88, 2.30, DARK, bevel=0.02)
+    for y in (-0.34, 0, 0.34):
+        m.bx(0.87, 0.90, y - 0.07, y + 0.07, 1.02, 2.17, GLOW, bevel=0.015)
+    m.hazard((0.87, -0.58, 0.68), (0, 1, 0), (0, 0, 1), 1.16, 0.10, (1, 0, 0))
+    m.plan(rrect(1.34, 1.12, 0.18, 2), 2.62, 2.85, DARK, bevel=0.03)
+    m.plan(rrect(1.22, 1.02, 0.15, 2), 2.85, 2.91, TEAM, bevel=0.025)
+    m.vcyl((0, 0, 3.04), 0.22, 0.66, SHELL, verts=16, bevel=0.025)
+    m.vcyl((0, 0, 3.20), 0.10, 0.54, GLOW, verts=16)
+    m.plan(rrect(0.64, 0.64, 0.12, 2), 3.25, 3.34, SHELL, bevel=0.02)
+    return finish_node(m)
+
+
+def machine_failover_node(mats):
+    """Lattice segmented monolith: floating pearl armour, red lens and broad team crown."""
+    m = BModel("SM_Machine_FailoverNode", mats)
+    m.plan(rrect(2.70, 2.70, 0.52, 3), 0.0, 0.12, DARK, bevel=0.03)
+    m.plan(rrect(2.48, 2.48, 0.48, 3), 0.12, 0.18, TEAM, bevel=0.02)
+    m.plan(rrect(1.35, 1.35, 0.30, 3), 0.18, 2.96, DARK, taper=0.64, bevel=0.03)
+    for z0, z1, width in ((0.30, 1.05, 1.94), (1.18, 1.95, 1.72), (2.08, 2.85, 1.50)):
+        m.plan(rrect(width, width, 0.34, 3), z0, z1, SHELL, taper=0.86, bevel=0.045)
+        m.plan(rrect(width * 0.78, width * 0.78, 0.26, 3), z1, z1 + 0.045, GLOW)
+    for k in range(4):
+        m.poly([(0.54, 0.18), (1.23, 0.18), (1.15, 0.40), (0.70, 1.45)], -0.09, 0.09,
+               SHELL, rotz=90 * k + 45, bevel=0.025)
+    m.lens((0.79, 0, 2.45), 0.27, aim=(1, 0, 0.20), clamps=4, collar=0.5)
+    m.plan(rrect(1.42, 1.42, 0.30, 3), 2.99, 3.18, SHELL, taper=0.8, bevel=0.04)
+    m.plan(rrect(1.16, 1.16, 0.25, 3), 3.18, 3.23, TEAM, bevel=0.02)
+    m.lathe([(0.0, 3.23), (0.16, 3.30), (0.0, 3.42)], (0, 0, 0), GLOW, verts=6)
+    return finish_node(m)
+
+
 # --------------------------------------------------------------------------------------
 # Construction scaffolds (faction neutral): foundation slab with Team hazard border, skeleton girders, crane
 # lifting a component, cargo crates, work lights. Amber Team while building is the game tint.
@@ -1160,6 +1214,7 @@ MODELS = (
     ("Machine", "Barracks_Scrambler", lambda mats: machine_barracks(mats, "Scrambler")),
     ("Machine", "Outpost", machine_outpost),
     ("Machine", "Workshop", machine_workshop),
+    ("Machine", "FailoverNode", machine_failover_node),
     ("Human", "Barracks", human_barracks),
     ("Human", "Barracks_Frontline", lambda mats: human_barracks(mats, "Frontline")),
     ("Human", "Barracks_Ranged", lambda mats: human_barracks(mats, "Ranged")),
@@ -1168,6 +1223,7 @@ MODELS = (
     ("Human", "Barracks_Scrambler", lambda mats: human_barracks(mats, "Scrambler")),
     ("Human", "Outpost", human_outpost),
     ("Human", "Workshop", human_workshop),
+    ("Human", "FailoverNode", human_failover_node),
     ("Construction", "Barracks", lambda mats: construction(mats, "Barracks")),
     ("Construction", "Outpost", lambda mats: construction(mats, "Outpost")),
     ("Construction", "Workshop", lambda mats: construction(mats, "Workshop")),
@@ -1194,6 +1250,10 @@ def team_top_area(obj):
     return sum(p.area for p in mesh.polygons if mesh.materials[p.material_index].name == "Team" and p.normal.z > 0.5)
 
 
+def ground_of(obj):
+    return 0.0 if kind_of(obj.name) == "FailoverNode" else GROUND
+
+
 def check(obj):
     name = obj.name
     kind = kind_of(name)
@@ -1206,11 +1266,12 @@ def check(obj):
     assert triangles(obj) <= budget, "%s has %d triangles (budget %d)" % (name, triangles(obj), budget)
     lo, hi = bounds(obj)
     half = HALF[base]
-    assert abs(lo.z - GROUND) < 1e-4, "%s does not touch the ground: %s" % (name, lo)
-    limit = half * OVERHANG
+    ground = ground_of(obj)
+    assert abs(lo.z - ground) < 1e-4, "%s does not touch the ground: %s" % (name, lo)
+    limit = half if base == "FailoverNode" else half * OVERHANG
     assert max(-lo.x, -lo.y, hi.x, hi.y) <= limit + 1e-4, "%s footprint %s %s exceeds %.3f" % (name, lo, hi, limit)
     assert min(-lo.x, -lo.y, hi.x, hi.y) >= 0.80 * half, "%s does not fill its footprint: %s %s" % (name, lo, hi)
-    height = hi.z - GROUND
+    height = hi.z - ground
     hmin, hmax = (SCAFFOLD_HEIGHT_RANGE if scaffold else HEIGHT_RANGE)[base if scaffold else kind]
     assert hmin <= height <= hmax, "%s height %.2f outside %.1f..%.1f" % (name, height, hmin, hmax)
     area = team_top_area(obj)
@@ -1224,8 +1285,8 @@ def check(obj):
 PREVIEW_SIZE = (2400, 1500)
 RTS_SIZE = (2400, 1500)
 COLUMN = {"Barracks": 0, "Barracks_Frontline": 1, "Barracks_Ranged": 2, "Barracks_Siege": 3, "Barracks_Lancer": 4,
-          "Barracks_Scrambler": 5, "Outpost": 6, "Workshop": 7}
-CENTER_COLUMN = 3.5   # column the preview cameras centre on
+          "Barracks_Scrambler": 5, "Outpost": 6, "Workshop": 7, "FailoverNode": 8}
+CENTER_COLUMN = 4.0   # column the preview cameras centre on
 ROW = {"Machine": 0, "Human": 1, "Neutral": 2}   # Machine top / far, Human middle, Construction bottom / near
 COLUMN_DX = 4.2
 ROW_DZ = 4.2      # side view row pitch
@@ -1236,11 +1297,13 @@ FIELD_BUILDINGS = {
     "SM_Human_Barracks": (-20.0, 4.0), "SM_Human_Barracks_Frontline": (-15.0, 4.0),
     "SM_Human_Barracks_Ranged": (-10.0, 4.0), "SM_Human_Barracks_Siege": (-5.0, 4.0),
     "SM_Human_Outpost": (-19.0, -4.0), "SM_Human_Workshop": (-13.0, -4.0),
+    "SM_Human_FailoverNode": (-7.0, -4.0),
     "SM_Construction_Barracks": (-1.5, 4.5), "SM_Construction_Outpost": (-1.5, 0.0),
     "SM_Construction_Workshop": (-1.5, -4.5),
     "SM_Machine_Barracks": (3.0, 4.0), "SM_Machine_Barracks_Frontline": (8.0, 4.0),
     "SM_Machine_Barracks_Ranged": (13.0, 4.0), "SM_Machine_Barracks_Siege": (18.0, 4.0),
     "SM_Machine_Outpost": (5.0, -4.0), "SM_Machine_Workshop": (11.0, -4.0),
+    "SM_Machine_FailoverNode": (17.0, -4.0),
 }
 # (unit mesh, x, y): each configured Barracks gets the unit it produces standing at its door, for scale
 FIELD_UNITS = (
@@ -1357,31 +1420,31 @@ class Rig:
             col, row = COLUMN[kind_of(src.name)], ROW[look_of(src.name)]
             prop.hide_render = False
             if view == "side":
-                prop.location = (col * COLUMN_DX, 0.0, (2 - row) * ROW_DZ - GROUND)
+                prop.location = (col * COLUMN_DX, 0.0, (2 - row) * ROW_DZ - ground_of(src))
             else:
-                prop.location = (col * COLUMN_DX, (1 - row) * ROW_DY, -GROUND)
+                prop.location = (col * COLUMN_DX, (1 - row) * ROW_DY, -ground_of(src))
         cx = CENTER_COLUMN * COLUMN_DX
         for ground in self.grounds:
             ground.hide_render = True
         if view == "side":
             for row, ground in enumerate(self.grounds):
                 ground.hide_render = False
-                ground.scale = (38.0, 5.2, 0.04)
+                ground.scale = (43.0, 5.2, 0.04)
                 ground.location = (cx, 0.0, (2 - row) * ROW_DZ - 0.02)
         else:
             ground = self.grounds[0]
             ground.hide_render = False
-            ground.scale = (40.0, 26.0, 0.04)
+            ground.scale = (45.0, 26.0, 0.04)
             ground.location = (cx, 0.0, -0.02)
 
     def camera_side(self):
         self.scene.render.resolution_x, self.scene.render.resolution_y = PREVIEW_SIZE
         self.cam_data.type = "ORTHO"
-        self.cam_data.ortho_scale = 36.0
+        self.cam_data.ortho_scale = 41.0
         self.cam.location = (CENTER_COLUMN * COLUMN_DX, -60.0, ROW_DZ + 2.0)
         self.cam.rotation_euler = (math.radians(90), 0, 0)
 
-    def camera_rts(self, target=(CENTER_COLUMN * COLUMN_DX, -0.3, 0.8), distance=62.0, azimuth=25.0, lens=55,
+    def camera_rts(self, target=(CENTER_COLUMN * COLUMN_DX, -0.3, 0.8), distance=70.0, azimuth=25.0, lens=55,
                    pitch=50.0):
         """50 degree pitch; azimuth rotates the camera around the target (0 = looking along +Y)."""
         self.cam_data.type = "PERSP"
@@ -1421,7 +1484,7 @@ class Rig:
             prop = self.props[src.name]
             prop.hide_render = src.name not in FIELD_BUILDINGS
             if not prop.hide_render:
-                prop.location = (*FIELD_BUILDINGS[src.name], -GROUND)
+                prop.location = (*FIELD_BUILDINGS[src.name], -ground_of(src))
         for name, x, y in FIELD_UNITS:
             unit = units[name].copy()   # copies share the mesh; the loaded originals stay unlinked
             scene.collection.objects.link(unit)
@@ -1474,7 +1537,7 @@ def save_layout(objects):
         for slot, material in zip(obj.material_slots, pv[look]):
             slot.link = "OBJECT"
             slot.material = material
-        obj.location = (COLUMN[kind_of(obj.name)] * BLEND_DX, (1 - ROW[look]) * BLEND_DY, -GROUND)
+        obj.location = (COLUMN[kind_of(obj.name)] * BLEND_DX, (1 - ROW[look]) * BLEND_DY, -ground_of(obj))
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Buildings.blend"))
 
