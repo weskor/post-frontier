@@ -171,7 +171,7 @@ The design needs only data the current build already replicates, plus one new ac
 | Roster element | Source |
 | --- | --- |
 | Capacity (6 / 4 / 2) | `ACommandBuilding::GetForceCapacity(ProductionRole)` |
-| Joined / en-route units and their HP | `ForceGroup->Units` (skip dead; `AArmyUnit::bReinforcing` splits en route from joined; HP from `Health` / `MaxHealth()`) |
+| Joined units and their HP; recruits on the way | `ForceGroup->Units` are joined members (skip dead; HP from `Health` / `MaxHealth()`); recruits in transit or waiting are queue entries, counted by the replicated `AArmyGroup::RecruitsInTransit` / `RecruitsWaiting` |
 | Slot order | Stable: sort the living units by spawn order (or index) and fill slots left to right; open slots after. A dead unit's slot is reused |
 | `BUILDING` slot | The first open slot while `GetProductionStatus() == PRODUCING` or `DEPLOYMENT BLOCKED`, with `ProductionProgressSeconds / GetProductionDuration()` |
 | Price on open slots | `GetProductionCost()` (20 / 30 / 50); unaffordable when `Balance < cost` → `NEED n` |

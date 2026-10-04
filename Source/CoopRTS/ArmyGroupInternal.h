@@ -34,4 +34,7 @@ int32 VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 
 // unit class default so a capsule change moves recruit placement with it.
 FCollisionShape UnitCapsule();
 float SpawnLift();
+// Centre height of the capsule probe that keeps a unit standing at a producer exit blocking it: the spawn lift
+// plus 20 cm of clearance.
+float ExitProbeLift();
 }

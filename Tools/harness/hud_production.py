@@ -155,7 +155,7 @@ def paid_replacement(
     barracks: int,
     squad: int,
     state: JsonObject,
-) -> tuple[JsonObject, list[float]]:
+) -> int:
     recipe = building(state, barracks)
     deficit = recipe["capacity"] - 1
     capture.hud(TOGGLE_PRODUCTION, "Pause full force before casualty")
@@ -187,7 +187,7 @@ def paid_replacement(
     held = {u["slot"] for u in alive_units(force(state, owner, barracks))}
     vacant = next(slot for slot in range(recipe["capacity"]) if slot not in held)
     capture.shot("barracks-replacement-travelling")
-    return {"slot": vacant}, force(state, owner, barracks)["center"]
+    return vacant
 
 
 def retarget_replacement(
@@ -196,8 +196,7 @@ def retarget_replacement(
     owner: int,
     barracks: int,
     target: int,
-    recruit: JsonObject,
-    _origin: list[float],
+    vacant: int,
 ) -> None:
     moved_target = select_order_region(capture.state(), barracks, exclude=(target,))[
         "index"
@@ -212,7 +211,7 @@ def retarget_replacement(
         lambda s: (
             order_destination_matches(s, owner, barracks, moved_target)
             and any(
-                u["slot"] == recruit["slot"]
+                u["slot"] == vacant
                 for u in alive_units(force(s, owner, barracks))
             )
         ),

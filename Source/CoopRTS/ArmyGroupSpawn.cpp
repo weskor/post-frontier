@@ -34,7 +34,7 @@ bool ReinforcementExitValid(UNavigationSystemV1& Navigation, const ACommandBuild
 		&& AArenaBounds::IsTravelLocation(World, Projected.Location)
 		&& FVector::DistSquared2D(SpawnLocation, Projected.Location) <= FMath::Square(45.f)
 		&& FMath::Abs(SpawnLocation.Z - Projected.Location.Z) <= 110.f
-		&& !World->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
+		&& !World->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, ExitProbeLift()),
 			FQuat::Identity, ECC_Pawn, UnitCapsule());
 }
 }
@@ -67,6 +67,11 @@ float ArmyGroupInternal::SpawnLift()
 {
 	// The capsule's half height plus a hand's width, so a recruit settles onto the floor instead of starting in it.
 	return GetDefault<AArmyUnit>()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() + 5.f;
+}
+
+float ArmyGroupInternal::ExitProbeLift()
+{
+	return SpawnLift() + 20.f;
 }
 
 bool AArmyGroup::HasPermittedOwner(const ACommandGameState& State) const
@@ -131,7 +136,7 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 		|| FVector::DistSquared2D(SpawnLocation, Ground.Location) > FMath::Square(10.f)
 		|| !AArenaBounds::IsTravelLocation(GetWorld(), Ground.Location))
 		return nullptr;
-	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, 65.f));
+	const FTransform Transform(Ground.Location + FVector(0.f, 0.f, SpawnLift()));
 	AArmyUnit* Unit = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
 		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	if (!Unit)

@@ -2,6 +2,7 @@
 
 #include "ArenaBounds.h"
 #include "ArmyGroup.h"
+#include "ArmyGroupInternal.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "Content/BuildingDefinition.h"
@@ -71,8 +72,8 @@ bool FindExit(const ACommandBuilding& Building, FVector& OutLocation, int32& Cur
 			|| FVector::DistSquared2D(Desired, Projected.Location) > FMath::Square(45.f)
 			|| FMath::Abs(Desired.Z - Projected.Location.Z) > 110.f
 			|| FVector::DistSquared2D(Projected.Location, Building.GetActorLocation()) < FMath::Square(Footprint + 75.f)
-			|| Building.GetWorld()->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
-				FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f)))
+			|| Building.GetWorld()->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, ArmyGroupInternal::ExitProbeLift()),
+				FQuat::Identity, ECC_Pawn, ArmyGroupInternal::UnitCapsule()))
 			continue;
 		OutLocation = Projected.Location;
 		return true;
