@@ -24,21 +24,21 @@ protected:
 	bool Step(double Now) override;
 
 private:
-	bool BuildBarracks();
+	bool PlaceBarracksNear(const FVector& Center, TWeakObjectPtr<ACommandBuilding>& Out);
+	bool StandByHeadquarters();
 	FVector Offset(float X) const { return Origin + FVector(X, 0.f, 0.f); }
 
 	TWeakObjectPtr<AArmyUnit> Scrambler, Plain, Shielded, Fresh;
-	TWeakObjectPtr<ACommandBuilding> Barracks;
+	TWeakObjectPtr<ACommandBuilding> Barracks, Foundation;
 	FVector Ground = FVector::ZeroVector, Origin = FVector::ZeroVector;
 	int32 ShieldedIndex = INDEX_NONE;
 	double FirstPulse = 0., StunStart = 0.;
-	float FrozenProgress = 0.f;
+	float FrozenProgress = 0.f, FrozenConstruction = 0.f;
 };
 
-bool FPulseScenario::BuildBarracks()
+bool FPulseScenario::PlaceBarracksNear(const FVector& Center, TWeakObjectPtr<ACommandBuilding>& Out)
 {
 	ACommandGameState* State = Arena.State.Get();
-	const FVector Center = State->FriendlyHeadquarters->GetActorLocation();
 	Arena.Wallet->Resources = 3000;
 	for (int32 Ring = 0; Ring < 9; ++Ring)
 		for (int32 Direction = 0; Direction < 32; ++Direction)
@@ -51,18 +51,35 @@ bool FPulseScenario::BuildBarracks()
 			if (State->FindRegionAt(Point) != State->FindRegionAt(Center)
 				|| !State->ValidateBuildingPlacement(ArmyTestSetup::BarracksIndex, 0, Point, Reason))
 				continue;
-			Barracks = FCommandService::PlaceBuilding(Arena.Wallet.Get(), ArmyTestSetup::BarracksIndex, Point).Building;
-			if (Barracks.IsValid())
+			Out = FCommandService::PlaceBuilding(Arena.Wallet.Get(), ArmyTestSetup::BarracksIndex, Point).Building;
+			if (Out.IsValid())
 				return true;
 		}
 	return false;
 }
 
+bool FPulseScenario::StandByHeadquarters()
+{
+	// The far side of the HQ from the Barracks: the HQ is close, nothing else is within the radius.
+	const FVector Hq = Arena.State->FriendlyHeadquarters->GetActorLocation();
+	FVector Spot = Hq + (Hq - Barracks->GetActorLocation()).GetSafeNormal2D() * 250.f;
+	Spot.Z = Scrambler->GetActorLocation().Z;
+	const float Edge = FVector::Dist2D(Spot, Barracks->GetActorLocation())
+		- ACommandBuilding::GetFootprintRadius(*Barracks->GetDefinition());
+	if (!Check(Edge > Radius, TEXT("The HQ fixture spot is out of the Barracks' pulse range")))
+		return false;
+	Arena.Place(Scrambler.Get(), Spot);
+	return true;
+}
+
+
 bool FPulseScenario::Setup()
 {
 	AMapRegion* First = nullptr;
 	AMapRegion* Second = nullptr;
-	if (!Check(Arena.PickRegions(First, Second) && BuildBarracks(), TEXT("Pulse fixtures find roomy ground and a Barracks site")))
+	if (!Check(Arena.PickRegions(First, Second)
+				&& PlaceBarracksNear(Arena.State->FriendlyHeadquarters->GetActorLocation(), Barracks),
+			TEXT("Pulse fixtures find roomy ground and a Barracks site")))
 		return false;
 	// The Barracks builds with the real tick, then produces a slow test-only unit so progress is continuous.
 	Barracks->Tick(60.f);
@@ -122,7 +139,30 @@ bool FPulseScenario::Step(double Now)
 		if (!Check(Shielded->GetShield() == 80 && Shielded->MaxShield() == 80 && Scrambler->GetLastPulseServerTime() < 0. && !Barracks->IsStunned(),
 				TEXT("No pulse while only a shieldless unit is in range and the shielded unit is outside it")))
 			return true;
+		if (!StandByHeadquarters())
+			return true;
+		Next(7, Now);
+		return false;
+	case 7:
+		if (!After(Now, 1.))
+			return false;
+		// A hostile HQ is never a trigger, however close.
+		if (!Check(Scrambler->GetLastPulseServerTime() < 0. && Shielded->GetShield() == 80 && !Barracks->IsStunned(),
+				TEXT("A hostile HQ alone within the radius does not make the Scrambler pulse")))
+			return true;
+		// Trigger present, but the Scrambler's force is retreating.
+		Arena.Place(Scrambler.Get(), Offset(0.f));
 		Arena.Place(Shielded.Get(), Offset(150.f));
+		Scrambler->GetGroup()->Status = EForceStatus::Retreating;
+		Next(8, Now);
+		return false;
+	case 8:
+		if (!After(Now, 1.))
+			return false;
+		if (!Check(Scrambler->GetLastPulseServerTime() < 0. && Shielded->GetShield() == 80,
+				TEXT("A Scrambler whose force is retreating does not pulse")))
+			return true;
+		Scrambler->GetGroup()->Status = EForceStatus::Holding;
 		Next(1, Now);
 		return false;
 	case 1:
@@ -146,8 +186,10 @@ bool FPulseScenario::Step(double Now)
 		if (!Check(Fresh->GetShield() == 80, TEXT("The pulse is on its 10 s cooldown, so a new target keeps its shield"))
 			|| !Check(Shielded->GetShield() == 0, TEXT("The pulse restarted the stripped unit's 4 s regen delay")))
 			return true;
-		// Move the Scrambler to the Barracks; a building in range triggers once the cooldown is over.
-		Arena.Place(Scrambler.Get(), Barracks->GetActorLocation() + FVector(250.f, 0.f, 0.f));
+		// Move the Scrambler between the Barracks and a new foundation; buildings in range trigger it once the cooldown is over.
+		if (!Check(PlaceBarracksNear(Barracks->GetActorLocation(), Foundation), TEXT("A foundation site exists next to the Barracks")))
+			return true;
+		Arena.Place(Scrambler.Get(), (Barracks->GetActorLocation() + Foundation->GetActorLocation()) * .5f + FVector(0.f, 0.f, 65.f));
 		Next(3, Now);
 		return false;
 	case 3:
@@ -159,6 +201,10 @@ bool FPulseScenario::Step(double Now)
 			return true;
 		StunStart = Now;
 		FrozenProgress = Barracks->ProductionProgressSeconds;
+		FrozenConstruction = Foundation->ConstructionProgress;
+		if (!Check(Foundation->IsStunned() && !Foundation->IsComplete() && FrozenConstruction > 0.f,
+				TEXT("The same pulse stunned a building that is still under construction")))
+			return true;
 		Next(4, Now);
 		return false;
 	case 4:
@@ -166,6 +212,9 @@ bool FPulseScenario::Step(double Now)
 			return false;
 		if (!Check(Barracks->IsStunned() && Barracks->ProductionProgressSeconds == FrozenProgress,
 				TEXT("A stunned Barracks keeps its production progress frozen")))
+			return true;
+		if (!Check(Foundation->IsStunned() && Foundation->ConstructionProgress == FrozenConstruction,
+				TEXT("A stunned building under construction keeps its construction progress frozen")))
 			return true;
 		Next(5, Now);
 		return false;
@@ -179,7 +228,8 @@ bool FPulseScenario::Step(double Now)
 	default:
 		if (!After(Now, 1.))
 			return false;
-		Check(Barracks->ProductionProgressSeconds > FrozenProgress, TEXT("Production resumes when the stun ends"));
+		Check(Barracks->ProductionProgressSeconds > FrozenProgress && Foundation->ConstructionProgress > FrozenConstruction,
+			TEXT("Production and construction resume when the stun ends"));
 		return true;
 	}
 }

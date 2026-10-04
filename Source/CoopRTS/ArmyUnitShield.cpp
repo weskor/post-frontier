@@ -24,7 +24,8 @@ void AArmyUnit::TickShield(float DeltaSeconds)
 void AArmyUnit::TickPulse()
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!Definition || Definition->PulseInterval <= 0.f || !IsAlive() || bReinforcing || !State
+	// Like firing, a pulse waits while the Scrambler's force is retreating.
+	if (!Definition || Definition->PulseInterval <= 0.f || !IsAlive() || !State
 		|| State->MatchResult != EMatchResult::Ongoing || (IsValid(Group) && Group->Status == EForceStatus::Retreating))
 		return;
 	const double Now = GetWorld()->GetTimeSeconds();
@@ -71,5 +72,4 @@ void AArmyUnit::CastPulse(const ACommandGameState& State)
 		Other->StripShield();
 	for (ACommandBuilding* Building : Buildings)
 		Building->ApplyStun(Definition->PulseBuildingStunSeconds);
-	ResetRepairTimer();
 }

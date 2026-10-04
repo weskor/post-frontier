@@ -61,6 +61,8 @@ public:
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	bool IsStunned() const;
 	// Pauses construction and production until Seconds from now; a re-stun refreshes and never stacks.
+	// Contract: Failover Nodes are never stunned. The pulse scan stuns every ACommandBuilding in range, so the
+	// slice that adds that building kind must exclude it there (ArmyUnitShield.cpp CastPulse) or guard this call.
 	void ApplyStun(float Seconds);
 	void NotifyPlacementCommitted();
 	bool TrySpend(int32 Cost);
