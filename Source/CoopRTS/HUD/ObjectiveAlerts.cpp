@@ -5,8 +5,10 @@
 #include "Commands/PingCommandComponent.h"
 #include "Commands/AbilityCommandComponent.h"
 #include "Content/MatchContent.h"
+#include "MapPresentation.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/AnnouncerPolicy.h"
+#include "Rules/MapPresentationPolicy.h"
 
 namespace CommandHUDPanels
 {
@@ -146,6 +148,23 @@ bool HitTestAlert(const FContext& Context, const FLayout& Layout, const FVector2
 	return bHit;
 }
 
+// A team row's title and stripe colour: Fortify rows are cyan, a supply cut is red. The Drill Rig count is the live
+// number of offline rigs in the region, since the row carries no snapshot of it.
+static FLinearColor TeamRowTitle(const FContext& Context, const FObjectiveEvent& Event, FStringBuilderBase& Title)
+{
+	const FStringView Region = ObjectiveRegionName(Event.RegionName);
+	if (Event.Id == FName(MapPresentation::SupplyCutEventId))
+	{
+		MapPresentation::AppendCutFeedText(Title, Region, MapView::OfflineRigs(*Context.State, Event.AffectedTeam, Event.RegionIndex));
+		return Palette::Bad;
+	}
+	if (Event.Id == FName(FortifyPolicy::CastEventId) && !Event.Forces.IsEmpty())
+		FortifyPolicy::AppendCastFeedText(Title, Event.Forces[0].CommanderIndex, Region);
+	else if (Event.Id == FName(FortifyPolicy::EndedEventId))
+		FortifyPolicy::AppendEndedFeedText(Title, Region);
+	return FLinearColor(.42f, .90f, 1.f);
+}
+
 void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float Alpha) {
@@ -156,13 +175,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		const bool bPing = Event.Sequence < 0 && !bAbility;
 		TStringBuilder<256> Title;
 		if (bAbility)
-		{
-			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, FLinearColor(.42f, .90f, 1.f, Alpha));
-			if (Event.Id == FName(FortifyPolicy::CastEventId) && !Event.Forces.IsEmpty())
-				FortifyPolicy::AppendCastFeedText(Title, Event.Forces[0].CommanderIndex, ObjectiveRegionName(Event.RegionName));
-			else if (Event.Id == FName(FortifyPolicy::EndedEventId))
-				FortifyPolicy::AppendEndedFeedText(Title, ObjectiveRegionName(Event.RegionName));
-		}
+			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, TeamRowTitle(Context, Event, Title).CopyWithNewOpacity(Alpha));
 		else
 		{
 			if (bPing && !Event.Forces.IsEmpty())
@@ -180,7 +193,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 			Region << TEXT("  |  Click to focus");
 		}
 		else if (bAbility)
-			Region << TEXT("Team ability  |  Click to focus");
+			Region << (Event.Id == FName(MapPresentation::SupplyCutEventId) ? TEXT("Team alert") : TEXT("Team ability")) << TEXT("  |  Click to focus");
 		else
 			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
