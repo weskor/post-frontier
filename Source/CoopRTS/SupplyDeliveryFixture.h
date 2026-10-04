@@ -21,6 +21,8 @@ protected:
 	static constexpr int32 Neck = FTeamEconomyFixture::Neck, Far = FTeamEconomyFixture::Far;
 
 	virtual bool Run() = 0;
+	// The paid Barracks; by default one in the friendly main. A scenario may rewrite the map first.
+	virtual ACommandBuilding* SpawnProducer();
 	bool Check(bool bValue, const TCHAR* Message);
 	double Now() const { return ArmyTestSetup::GameSeconds(GameWorld); }
 	void SetStage(int32 Next);

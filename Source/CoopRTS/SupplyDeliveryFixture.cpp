@@ -36,6 +36,11 @@ void FScenarioBase::SetStage(int32 Next)
 	StageStarted = Now();
 }
 
+ACommandBuilding* FScenarioBase::SpawnProducer()
+{
+	return Fixture->SpawnBarracks(0, 1.f, 0);
+}
+
 // Returns true when the scenario must stop.
 bool FScenarioBase::Prepare()
 {
@@ -50,8 +55,8 @@ bool FScenarioBase::Prepare()
 		return true;
 	Wallet = Fixture->Wallets[0];
 	Wallet->Resources = 10000;
-	Producer = Fixture->SpawnBarracks(0, 1.f, 0);
-	if (!Check(Producer.IsValid(), TEXT("A finished Barracks stands in the friendly main")))
+	Producer = SpawnProducer();
+	if (!Check(Producer.IsValid(), TEXT("A finished Barracks stands in the scenario's producer region")))
 		return true;
 	// The first Start locks the unit type and creates the force; pause again before any work happens.
 	if (!Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, true).IsAccepted()

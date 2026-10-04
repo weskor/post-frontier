@@ -17,7 +17,8 @@ enum class EProductionState : uint8
 	InsufficientResources,
 	DeploymentBlocked,
 	Producing,
-	// A finished recruit waits at the producer because its force is cut off. Appended last: the value is reported.
+	// A finished, paid recruit waits at the producer: its force is cut off, or its wiped force has no free exit yet.
+	// Appended last: the value is reported.
 	Held
 };
 

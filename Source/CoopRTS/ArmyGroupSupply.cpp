@@ -30,8 +30,8 @@ bool FreeGround(UNavigationSystemV1& Navigation, const FVector& Wanted, FVector&
 		|| !AArenaBounds::IsTravelLocation(World, Projected.Location))
 		return false;
 	const FVector Floor = GroundHeight::Snap(*World, Projected.Location);
-	if (World->OverlapBlockingTestByChannel(Floor + FVector(0.f, 0.f, 65.f),
-			FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f)))
+	if (World->OverlapBlockingTestByChannel(Floor + FVector(0.f, 0.f, SpawnLift()),
+			FQuat::Identity, ECC_Pawn, UnitCapsule()))
 		return false;
 	Ground = Floor;
 	return true;

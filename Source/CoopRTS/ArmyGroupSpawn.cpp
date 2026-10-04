@@ -7,6 +7,7 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Components/CapsuleComponent.h"
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
 #include "GroundHeight.h"
@@ -34,7 +35,7 @@ bool ReinforcementExitValid(UNavigationSystemV1& Navigation, const ACommandBuild
 		&& FVector::DistSquared2D(SpawnLocation, Projected.Location) <= FMath::Square(45.f)
 		&& FMath::Abs(SpawnLocation.Z - Projected.Location.Z) <= 110.f
 		&& !World->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
-			FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f));
+			FQuat::Identity, ECC_Pawn, UnitCapsule());
 }
 }
 
@@ -54,6 +55,18 @@ int32 ArmyGroupInternal::VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUn
 	if (Living >= Capacity)
 		return INDEX_NONE;
 	return ArmyGroupPolicy::FirstVacantSlot(Occupied, Capacity);
+}
+
+FCollisionShape ArmyGroupInternal::UnitCapsule()
+{
+	const UCapsuleComponent* Capsule = GetDefault<AArmyUnit>()->GetCapsuleComponent();
+	return FCollisionShape::MakeCapsule(Capsule->GetUnscaledCapsuleRadius(), Capsule->GetUnscaledCapsuleHalfHeight());
+}
+
+float ArmyGroupInternal::SpawnLift()
+{
+	// The capsule's half height plus a hand's width, so a recruit settles onto the floor instead of starting in it.
+	return GetDefault<AArmyUnit>()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() + 5.f;
 }
 
 bool AArmyGroup::HasPermittedOwner(const ACommandGameState& State) const
@@ -218,7 +231,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 
 AArmyUnit* AArmyGroup::SpawnJoined(const UArmyUnitDefinition& Definition, int32 UnitIndex, int32 Slot, const FVector& Ground)
 {
-	const FTransform Transform(FRotator::ZeroRotator, GroundHeight::Snap(*GetWorld(), Ground) + FVector(0.f, 0.f, 65.f));
+	const FTransform Transform(FRotator::ZeroRotator, GroundHeight::Snap(*GetWorld(), Ground) + FVector(0.f, 0.f, SpawnLift()));
 	AArmyUnit* Candidate = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
 		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	if (!Candidate)

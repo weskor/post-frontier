@@ -239,6 +239,91 @@ protected:
 private:
 	int32 Before = 0;
 };
+
+// The producer's own region is lost while the force's region stays connected: nothing can ship, and the
+// waiting recruit goes out, with the full delay, once the producer's region is back.
+class FProducerRegionCut : public FScenarioBase
+{
+public:
+	using FScenarioBase::FScenarioBase;
+
+protected:
+	// A ring 0-2-3 and 0-4-3 with the Barracks in Neck: Far stays connected through region 4 when Neck is lost.
+	ACommandBuilding* SpawnProducer() override
+	{
+		Fixture->SetTopology(true);
+		const FTransform Transform(State->GetRegionAnchor(Neck) + FVector(0.f, 0.f, 5.f));
+		ACommandBuilding* Barracks = GameWorld->SpawnActorDeferred<ACommandBuilding>(ACommandBuilding::StaticClass(), Transform,
+			nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Barracks)
+			return nullptr;
+		Barracks->BuildingIndex = ArmyTestSetup::BarracksIndex;
+		Barracks->TeamIndex = 0;
+		Barracks->OwningPlayerState = Wallet;
+		Barracks->ConstructionProgress = 1.f;
+		Barracks->FinishSpawning(Transform);
+		return Barracks;
+	}
+	bool Run() override
+	{
+		if (Stage < 2)
+		{
+			if (!PutForceInFar())
+				return false;
+			SetStage(2);
+		}
+		switch (Stage)
+		{
+		case 2:
+			if (!Check(State->IsRegionConnected(0, Neck) && Produce() == UnitCost() && Force->RecruitsInTransit == 1,
+					TEXT("A recruit from the producer in Neck starts in transit to Far, one hop away")))
+				return true;
+			SetStage(3);
+			return false;
+		case 3:
+			if (StageSeconds() >= 2.)
+			{
+				Fixture->SetController(Neck, 5);
+				SetStage(4);
+			}
+			return false;
+		case 4:
+			if (State->IsRegionConnected(0, Neck) || Force->RecruitsWaiting != 1)
+				return !Check(StageSeconds() < 2., TEXT("Losing the producer's own region sends the recruit back to the producer"));
+			if (!Check(State->IsRegionConnected(0, Far) && Force->bSupplyCutOff && Joined() == 1 && MemberActors() == 1,
+					TEXT("The force's region is still connected, yet nothing ships from the lost producer region")))
+				return true;
+			SetStage(5);
+			return false;
+		case 5:
+			if (!Check(Joined() == 1 && MemberActors() == 1 && Force->RecruitsWaiting == 1 && Force->bSupplyCutOff,
+					TEXT("The recruit stays at the producer while its region is lost")))
+				return true;
+			if (StageSeconds() >= 10.)
+			{
+				Fixture->SetController(Neck, 0);
+				ReconnectedAt = Now();
+				SetStage(6);
+			}
+			return false;
+		default:
+			return Delivered();
+		}
+	}
+
+private:
+	bool Delivered()
+	{
+		const double Elapsed = Now() - ReconnectedAt;
+		if (Joined() == 1)
+			return !Check(Elapsed < 7.5 && MemberActors() == 1, TEXT("The recruit ships once the producer's region is back, after the full one-hop delay"));
+		Check(Elapsed >= 6. && Elapsed <= 7.2 && Joined() == 2 && Force->GetPendingRecruitCount() == 0 && !Force->bSupplyCutOff,
+			TEXT("The restored producer region restarts the whole 4 s + 2 s delay"));
+		return true;
+	}
+
+	double ReconnectedAt = 0.;
+};
 }
 
 using namespace SupplyTests;
@@ -247,4 +332,5 @@ SUPPLY_WORLD_TEST(FSupplyCutAndReconnectTest, "CutAndReconnect", FCutAndReconnec
 SUPPLY_WORLD_TEST(FSupplyProducerDeathTest, "ProducerDeathInTransit", FProducerDeath(this, false))
 SUPPLY_WORLD_TEST(FSupplyProducerDeathWaitingTest, "ProducerDeathWaiting", FProducerDeath(this, true))
 SUPPLY_WORLD_TEST(FSupplyWipedForceTest, "WipedForce", FWipedForce(this))
+SUPPLY_WORLD_TEST(FSupplyProducerRegionCutTest, "ProducerRegionCut", FProducerRegionCut(this))
 #endif

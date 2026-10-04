@@ -11,7 +11,6 @@ from harness.network import (
     NetworkRun,
     alive_units,
     building,
-    distance2,
     force,
     force_arrived,
     force_counts_match,
@@ -198,7 +197,7 @@ def retarget_replacement(
     barracks: int,
     target: int,
     recruit: JsonObject,
-    origin: list[float],
+    _origin: list[float],
 ) -> None:
     moved_target = select_order_region(capture.state(), barracks, exclude=(target,))[
         "index"
@@ -210,9 +209,12 @@ def retarget_replacement(
         "replacement force retargets to the new held region",
     )
     capture.wait(
-        lambda s: any(
-            u["slot"] == recruit["slot"] and distance2(u["position"], origin) > 200**2
-            for u in alive_units(force(s, owner, barracks))
+        lambda s: (
+            order_destination_matches(s, owner, barracks, moved_target)
+            and any(
+                u["slot"] == recruit["slot"]
+                for u in alive_units(force(s, owner, barracks))
+            )
         ),
         "paid replacement appears in the vacated slot of the retargeted force",
     )
