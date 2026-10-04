@@ -181,6 +181,8 @@ private:
 		if (!Check(Fresh.Num() == 3 && CountUnits(Fresh, Rifle) == 13 && CountUnits(Fresh, Brawler) == 1,
 				TEXT("v1.2 counters the humans' Heavy majority with Rifles and fills the rest with the cheapest unit")))
 			return true;
+		if (!Check(Release().CounterArmor == EArmorClass::Heavy, TEXT("JEV publishes the Heavy majority its v1.2 wave countered, for the HUD's release tag")))
+			return true;
 		if (!Check(Kit.State->EnemyCommander->Resources == 0, TEXT("The second wave left JEV's wallet untouched")))
 			return true;
 		for (const AArmyGroup* Force : Fresh)

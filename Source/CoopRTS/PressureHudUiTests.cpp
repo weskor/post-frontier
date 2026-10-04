@@ -1,4 +1,5 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
@@ -31,8 +32,8 @@ using namespace CommandHUDPanels;
 constexpr float ViewportWidth = 1280.f;
 constexpr float ViewportHeight = 720.f;
 
-// JEV with a published schedule whose match clock reads MatchSeconds now. The planner stays off so nothing rewrites it.
-AEnemyCommander* PublishSchedule(FTeamEconomyFixture& F, int32 Current, float MatchSeconds)
+// JEV with a published schedule: Current is in force, the next release follows. The planner stays off so nothing rewrites it.
+AEnemyCommander* PublishSchedule(FTeamEconomyFixture& F, int32 Current)
 {
 	AEnemyCommander* Jev = nullptr;
 	for (TActorIterator<AEnemyCommander> It(F.World); It; ++It)
@@ -45,8 +46,13 @@ AEnemyCommander* PublishSchedule(FTeamEconomyFixture& F, int32 Current, float Ma
 	Jev->Release.Current = Current;
 	Jev->Release.Next = Current + 1;
 	Jev->Release.NextAt = JevRelease::ReleaseTime(Current + 1);
-	Jev->Release.ClockStartServerTime = F.State->GetServerWorldTimeSeconds() - MatchSeconds;
 	return Jev;
+}
+
+// Puts the view's match clock at Seconds: the game state's battle clock, moved forward without waiting.
+void SetMatch(FTeamEconomyFixture& F, UPressureView& View, float Seconds)
+{
+	View.SetClockSkew(Seconds - (F.State->GetServerWorldTimeSeconds() - F.State->GetBattleClockStartServerTime()));
 }
 
 int32 RowsWith(const UPressureView& View, const TCHAR* Id)
@@ -66,8 +72,13 @@ bool FPressureHudReleaseTest::RunTest(const FString&)
 		UPressureView* View = UPressureView::Get(F.World);
 		if (!T.TestNotNull(TEXT("The pressure view exists in a game world"), View) || !T.TestNotNull(TEXT("and JEV's main"), State.EnemyHeadquarters.Get()))
 			return;
-		if (!T.TestNotNull(TEXT("JEV publishes a schedule"), PublishSchedule(F, 0, 50.f)))
+		if (!T.TestNotNull(TEXT("JEV publishes a schedule"), PublishSchedule(F, 0)))
 			return;
+		View->Observe(State, F.Wallets[0]);
+		T.TestTrue(TEXT("The HUD's match clock is the game state's battle clock, not JEV's published copy"),
+			FMath::IsNearlyEqual(JevIntent::MatchSeconds(View->Release(), State.GetServerWorldTimeSeconds()),
+				State.GetServerWorldTimeSeconds() - State.GetBattleClockStartServerTime(), .001f));
+		SetMatch(F, *View, 50.f);
 		View->Observe(State, F.Wallets[0]);
 		FContext Context = MakeContext(F.Controller);
 		const FLayout Layout = MakeLayout(Context, ViewportWidth, ViewportHeight);
@@ -84,7 +95,7 @@ bool FPressureHudReleaseTest::RunTest(const FString&)
 		T.TestEqual(TEXT("An empty bar has no cell to click"), HitTestPressure(Context, Layout, Bar.Center()), EHUDAction::None);
 
 		// Ninety seconds in, v1.1 enters its last 30 s.
-		PublishSchedule(F, 0, 100.f);
+		SetMatch(F, *View, 100.f);
 		View->Observe(State, F.Wallets[0]);
 		BuildJevIntentModel(Context, Model);
 		if (!T.TestEqual(TEXT("A release cell appears for the last 30 s"), Model.Timeline.Num(), 1))
@@ -104,7 +115,8 @@ bool FPressureHudReleaseTest::RunTest(const FString&)
 
 		// A release happens: the feed posts one row, and a client that arrives later does not replay it.
 		const int32 Before = RowsWith(*View, PressureView::ReleaseRowId);
-		PublishSchedule(F, 1, 121.f);
+		PublishSchedule(F, 1);
+		SetMatch(F, *View, 121.f);
 		View->Observe(State, F.Wallets[0]);
 		T.TestEqual(TEXT("The feed posts a row when v1.1 arrives"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
 		T.TestEqual(TEXT("with the release's tag"), View->Rows().Last().TargetForceOwnerName,
@@ -114,6 +126,25 @@ bool FPressureHudReleaseTest::RunTest(const FString&)
 		T.TestEqual(TEXT("Observing again posts nothing more"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
 		T.TestEqual(TEXT("The clock reads match time from the published start"),
 			FMath::RoundToInt(JevIntent::MatchSeconds(View->Release(), State.GetServerWorldTimeSeconds())), 121);
+
+		// v1.2 counters the humans' most numerous armor class: the row names the class the cell showed, though JEV's own
+		// value has moved on by the time the release is in force.
+		AArmyUnit* Human = F.SpawnAttacker();
+		if (!T.TestNotNull(TEXT("A human unit stands"), Human))
+			return;
+		// JEV publishes the class it counters (JevReleaseWorldTests asserts that side); the view carries it to the row.
+		PublishSchedule(F, 1)->Release.CounterArmor = Human->GetArmorClass();
+		SetMatch(F, *View, 235.f);
+		View->Observe(State, F.Wallets[0]);
+		T.TestEqual(TEXT("With v1.2 next the view carries the class JEV published"), View->Release().CounterArmor, Human->GetArmorClass());
+		PublishSchedule(F, 2)->Release.CounterArmor = EArmorClass::Unset;
+		SetMatch(F, *View, 241.f);
+		View->Observe(State, F.Wallets[0]);
+		TStringBuilder<64> Expected;
+		Expected << TEXT("JEV v1.2 released: ");
+		JevIntent::AppendReleaseTag(Expected, 2, Human->GetArmorClass());
+		T.TestEqual(TEXT("The v1.2 release row names that class"), View->Rows().Last().TargetForceOwnerName, FString(Expected.ToView()));
+		T.TestFalse(TEXT("not the generic word"), View->Rows().Last().TargetForceOwnerName.EndsWith(TEXT("COUNTERS ARMOR")));
 	}));
 	return true;
 }

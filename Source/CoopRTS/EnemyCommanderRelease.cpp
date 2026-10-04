@@ -55,6 +55,12 @@ bool AEnemyCommander::TickRelease()
 
 void AEnemyCommander::AdvanceReleases(FJevTurn& Turn)
 {
+	// Published before any wave launches, so clients show the class the wave is about to buy against.
+	if (const EArmorClass Counter = JevRelease::MostNumerous(Turn.EnemyArmor); Release.CounterArmor != Counter)
+	{
+		Release.CounterArmor = Counter;
+		ForceNetUpdate();
+	}
 	const int32 Current = JevRelease::IndexAt(GetMatchSeconds());
 	while (LaunchedUpTo < Current)
 		LaunchWave(Turn, ++LaunchedUpTo);

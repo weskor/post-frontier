@@ -1,6 +1,5 @@
 #include "PressureView.h"
 
-#include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
@@ -12,8 +11,6 @@
 
 namespace
 {
-// A counter-armor tag is refreshed this often; the count walks every unit.
-constexpr double ArmorCountSeconds = .5;
 constexpr double JevSearchSeconds = 1.;
 // Rows older than this are past their fade in the feed and can go.
 constexpr float RowLifetime = UObjectiveAnnouncer::FeedLifetime + 1.f;
@@ -39,7 +36,6 @@ UPressureView* UPressureView::Get(const UObject* Context)
 void UPressureView::Observe(const ACommandGameState& State, const ACommandPlayerState* Wallet)
 {
 	FindJev(State);
-	RefreshCounterArmor(State);
 	WatchStuns(State, Wallet);
 	WatchReleases(State);
 	const float Now = State.GetServerWorldTimeSeconds();
@@ -63,34 +59,25 @@ void UPressureView::FindJev(const ACommandGameState& State)
 	const EArmorClass Armor = Schedule.CounterArmor;
 	Schedule = JevIntent::FReleaseView();
 	Schedule.CounterArmor = Armor;
-	// The schedule replicates with the actor, and its defaults are the match's opening state (clock start 0, v1.1 next).
+	// The schedule replicates with the actor; its defaults are the match's opening state (v1.1 next).
 	if (!Commander)
 		return;
 	Schedule.bKnown = true;
 	Schedule.Current = Commander->Release.Current;
 	Schedule.Next = Commander->Release.Next;
 	Schedule.NextAt = Commander->Release.NextAt;
-	Schedule.ClockStartServerTime = Commander->Release.ClockStartServerTime;
-}
-
-// The tag of a v1.2 release names the armor its wave counters, the humans' most numerous class when it launches.
-void UPressureView::RefreshCounterArmor(const ACommandGameState& State)
-{
-	const double Now = State.GetServerWorldTimeSeconds();
-	if (!Schedule.bKnown || !IsCounterRelease(Schedule.Next))
-	{
+	// One match clock for the whole HUD: the game state's battle clock, which reads 0:00 through planning. JEV's own
+	// published copy only follows it, a tick behind.
+	Schedule.ClockStartServerTime = State.GetBattleClockStartServerTime();
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	Schedule.ClockStartServerTime -= ClockSkew;
+#endif
+	// A v1.2 release is tagged with the class JEV's wave counters, which JEV publishes. The release announced as v1.2
+	// keeps it while it is in force, so its feed row names the class the cell showed.
+	if (IsCounterRelease(Schedule.Next))
+		Schedule.CounterArmor = Commander->Release.CounterArmor;
+	else if (JevRelease::VersionOf(Schedule.Current) != JevRelease::EVersion::V12)
 		Schedule.CounterArmor = EArmorClass::Unset;
-		return;
-	}
-	if (Now < NextArmorCount || !State.GetWorld())
-		return;
-	NextArmorCount = Now + ArmorCountSeconds;
-	JevRelease::FArmorCounts Counts;
-	for (TActorIterator<AArmyUnit> It(State.GetWorld()); It; ++It)
-		if (It->IsAlive() && It->GetTeamIndex() == 0)
-			if (const int32 Armor = static_cast<int32>(It->GetArmorClass()); Armor >= 0 && Armor < UE_ARRAY_COUNT(Counts.Count))
-				++Counts.Count[Armor];
-	Schedule.CounterArmor = JevRelease::MostNumerous(Counts);
 }
 
 void UPressureView::WatchStuns(const ACommandGameState& State, const ACommandPlayerState* Wallet)

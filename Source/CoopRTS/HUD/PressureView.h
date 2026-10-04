@@ -44,10 +44,13 @@ public:
 	int32 AdvanceCutFocus(TConstArrayView<int32> Cut);
 
 	static constexpr int32 MaxRows = 6;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	// Reads match time as if the battle clock had started Seconds earlier, so a world test can stand in the release window.
+	void SetClockSkew(float Seconds) { ClockSkew = Seconds; }
+#endif
 
 private:
 	void FindJev(const ACommandGameState& State);
-	void RefreshCounterArmor(const ACommandGameState& State);
 	void WatchStuns(const ACommandGameState& State, const ACommandPlayerState* Wallet);
 	void WatchReleases(const ACommandGameState& State);
 	void Post(FObjectiveEvent&& Row);
@@ -57,8 +60,10 @@ private:
 	PressureHud::FStunWatch StunHistory;
 	TArray<FObjectiveEvent> FeedRows;
 	double NextJevSearch = 0.;
-	double NextArmorCount = 0.;
 	int32 SeenRelease = INDEX_NONE;
 	int32 LocalSequence = PressureView::LocalSequenceBase;
 	int32 CutFocus = INDEX_NONE;
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	float ClockSkew = 0.f;
+#endif
 };

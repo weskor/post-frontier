@@ -67,6 +67,10 @@ struct FJevReleaseState
 	bool bNextShown = false;
 	UPROPERTY()
 	float ClockStartServerTime = 0.f;
+	// The armor class the humans field most of as of JEV's last evaluation: what a countering wave (v1.2) buys against.
+	// Unset with no human unit alive. The HUD tags the v1.2 release with it.
+	UPROPERTY()
+	EArmorClass CounterArmor = EArmorClass::Unset;
 	// Release waves launched this match, and the most recent waves of either kind (oldest first).
 	UPROPERTY()
 	int32 WaveCount = 0;

@@ -9,7 +9,7 @@ replicated state. Each state is captured at every --res: the viewport changes wh
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import time
 
 from harness.hud_fortify import viewport
@@ -32,10 +32,15 @@ from harness.network import (
     region,
     require,
 )
+from harness.verify import JsonObject
 
 # JEV's schedule (decisions J1): v1.1 at 120 s shows 30 s ahead, from 90 s.
 RELEASE_WINDOW = 95
 WAVE_AFTER = 122
+# Barracks hold force numbers 1-3; JEV's free (wave and emergency) forces take the next ones (EnemyCommanderWave.cpp).
+FIRST_FREE_FORCE = 4
+# The timeline draws this many cells (JevIntent::TimelineEntries).
+CELLS = 4
 # The stun holds 3 s of game time; a tenth-speed clock keeps its chip up across a capture.
 STUN_SLOW = 0.1
 STUN_SECONDS = 3
@@ -101,21 +106,36 @@ def line_cut(
     set_control(run, capture, NECK, 0)
 
 
+def release_cell_shown(state: JsonObject) -> bool:
+    """The bar's first entry is the release cell: a release has no ticket and no target region."""
+    entries = state["jevIntent"]["entries"]
+    return bool(entries) and entries[0]["ticket"] == 0 and entries[0]["target"] == -1
+
+
+def wave_cell_shown(state: JsonObject) -> bool:
+    """A drawn plan cell belongs to a wave: only waves take force numbers above the Barracks' (JEV's free forces)."""
+    cells = state["jevIntent"]["entries"][:CELLS]
+    return any(
+        cell["ticket"] > 0 and cell["forceNumber"] >= FIRST_FREE_FORCE for cell in cells
+    )
+
+
 def timed(
     run: NetworkRun,
     capture: Capture,
     resolutions: Sequence[tuple[int, int]],
     seconds: float,
     label: str,
-    needs_plan: bool,
+    shown: Callable[[JsonObject], bool],
 ) -> None:
     capture.wait(
-        lambda s: (
-            s["serverTime"] >= seconds and (not needs_plan or bool(s["jevPlans"]))
-        ),
-        f"{label}: game time {seconds:.0f} s" + (" and a plan" if needs_plan else ""),
+        lambda s: s["serverTime"] >= seconds and shown(s),
+        f"{label}: game time {seconds:.0f} s and the cell on the bar",
     )
     at_each(run, capture, resolutions, label)
+    require(
+        shown(capture.state()), f"{label}: the cell left the bar during the capture"
+    )
 
 
 def badge_beside_deposit(
@@ -197,9 +217,9 @@ def scenario(run: NetworkRun, resolutions: Sequence[tuple[int, int]]) -> None:
     stunned_barracks(run, capture, resolutions, owner)
     line_cut(run, capture, resolutions)
     # The release cell holds from 90 s to the release at 120 s; capture it in the second half of that window.
-    timed(run, capture, resolutions, RELEASE_WINDOW, "release-cell", False)
+    timed(run, capture, resolutions, RELEASE_WINDOW, "release-cell", release_cell_shown)
     # The v1.1 wave is an ordinary plan cell after the release has gone.
-    timed(run, capture, resolutions, WAVE_AFTER, "wave-cell", True)
+    timed(run, capture, resolutions, WAVE_AFTER, "wave-cell", wave_cell_shown)
     badge_beside_deposit(run, capture, resolutions)
     clock_frozen_by_pause(run, capture)
     click_focus(run, capture)
