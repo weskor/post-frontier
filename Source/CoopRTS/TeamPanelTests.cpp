@@ -219,7 +219,8 @@ bool FSurfaceScenario::Refusals()
 	bool bOk = Click(EHUDAction::TeamPreset2) && Click(EHUDAction::TeamSend)
 		&& Check(RefusalOf(*PC) == TEXT("Not enough Power: you have 130"), TEXT("A disabled Send still explains itself on click"))
 		&& Check(State->GiftLog.Num() == 2, TEXT("and sends nothing"));
-	bOk = bOk && Click(EHUDAction::TeamStepUp) && Check(PC->GetTeamFlow().Amount == 130, TEXT("The stepper stops at the balance"));
+	bOk = bOk && Click(EHUDAction::TeamStepUp) && Check(PC->GetTeamFlow().Amount == 130, TEXT("The stepper stops at the balance"))
+		&& Check(RefusalOf(*PC).IsEmpty(), TEXT("Changing the amount clears the outdated refusal"));
 	const FContext Context = MakeContext(PC);
 	FButton Send{};
 	ForEachButton(Context, MakeLayout(Context, 1600.f, 900.f), [&](const FButton& Button) {

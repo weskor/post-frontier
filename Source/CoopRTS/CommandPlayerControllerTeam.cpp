@@ -144,6 +144,9 @@ bool ACommandPlayerController::HandleTeamPanelAction(EHUDAction Action)
 	const ACommandPlayerState* Wallet = GetPlayerState<ACommandPlayerState>();
 	if (!TeamFlow.bOpen || !State || !Wallet)
 		return true;
+	// A refusal explains the last Send; any change to the flow outdates it.
+	if (Action != EHUDAction::TeamSend)
+		TeamRefusal.Reset();
 	const int32 Funds = Balance(*Wallet, TeamFlow.Resource);
 	const int32 Row = Ordinal - static_cast<uint8>(EHUDAction::TeamRow0);
 	const int32 Preset = Ordinal - static_cast<uint8>(EHUDAction::TeamPreset0);
