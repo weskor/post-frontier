@@ -37,7 +37,8 @@ AActor* ACommandPlayerController::PickMinimapStructure(const ACommandHUD& HUD, c
 		Pick(Building, 3.);
 	Pick(State.FriendlyHeadquarters, 6.);
 	Pick(State.EnemyHeadquarters, 6.);
-	// Failover Nodes are valid Attack targets too; drawn after the HQs, so a node beside one is the one picked.
+	// Failover Nodes are valid Attack targets too; picked after the HQs, so a node beside one wins. The minimap draws no
+	// node marker yet (round 2), so a click near an unmarked node is an Attack on it, as the cursor preview shows.
 	for (const AHeadquarters* HQ : { State.FriendlyHeadquarters.Get(), State.EnemyHeadquarters.Get() })
 		if (IsValid(HQ))
 			for (const TWeakObjectPtr<AFailoverNode>& Node : HQ->GetNodes())

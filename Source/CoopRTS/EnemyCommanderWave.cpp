@@ -151,6 +151,9 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmerg
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
+	// An emergency wave is published, but it is no release wave: the release count is not its to raise.
+	if (bEmergency)
+		--Release.WaveCount;
 	LogWave(Event, Carry, Turn);
 }
 

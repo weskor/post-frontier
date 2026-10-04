@@ -65,6 +65,6 @@ void AEnemyCommander::RecordWave(const FJevWaveEvent& Event)
 	if (Release.Waves.Num() >= MaxPublishedWaves)
 		Release.Waves.RemoveAt(0);
 	Release.Waves.Add(Event);
-	Release.WaveCount += Event.bEmergency ? 0 : 1;
+	++Release.WaveCount;
 	ForceNetUpdate();
 }
