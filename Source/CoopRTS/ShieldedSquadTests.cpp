@@ -115,8 +115,7 @@ bool FSquadScenario::Produce(const FCase& Case)
 	Barracks->GetForceCounts(Joined, Travelling);
 	return Check(Joined + Travelling == Definition->Capacity && Definition->Capacity == 3
 				   && Commander->Resources == BeforeUnits - 3 * Definition->UnitCost,
-			   TEXT("Production fills exactly one squad of 3 and charges 3 unit costs, then holds at capacity"))
-		&& CheckSquad(Case, *Definition);
+			   TEXT("Production fills exactly one squad of 3 and charges 3 unit costs, then holds at capacity"));
 }
 
 bool FSquadScenario::CheckSquad(const FCase& Case, const UArmyUnitDefinition& Definition)
@@ -182,9 +181,20 @@ bool FSquadScenario::Step(double Now)
 	{
 		if (!Produce(Case))
 			return true;
+		Next(2, Now);
+		return false;
+	}
+	if (Stage == 2)
+	{
+		// Supply delivery brings the second and third recruit to a force that already has a member.
+		if (Barracks->ForceGroup->GetPendingRecruitCount() > 0 || Barracks->ForceGroup->GetJoinedCount() < 3)
+			return !Check(!After(Now, 40.), TEXT("Supply delivery joins every recruit to the squad within 40 s"));
+		if (!CheckSquad(Case, *Barracks->GetProductionDefinition()))
+			return true;
 		if (Case.Role == EUnitRole::Assault)
 		{
 			++CaseIndex;
+			Stage = 0;
 			return false;
 		}
 		if (!StartPulse(Case))
