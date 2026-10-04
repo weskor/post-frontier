@@ -137,19 +137,6 @@ class NetworkPeers:
                 ]
                 if state and "buildings" in state
                 else None,
-                "reinforcing": [
-                    {
-                        "owner": u["owner"],
-                        "army": a["army"],
-                        "slot": u["slot"],
-                        "at": [round(v) for v in u["position"][:2]],
-                    }
-                    for a in state["armies"]
-                    for u in a["units"]
-                    if u["reinforcing"] and u["health"] > 0
-                ]
-                if state and "armies" in state
-                else None,
                 "health": self.connection_health.get(name, "starting"),
                 "error": self.latest_errors.get(name, ""),
                 "pending": self.pending.get(name),

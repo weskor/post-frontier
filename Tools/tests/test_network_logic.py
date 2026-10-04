@@ -40,7 +40,6 @@ def force_snapshot() -> JsonObject:
                 "units": [
                     {
                         "health": 10,
-                        "reinforcing": False,
                         "slot": 0,
                         "owner": 3,
                         "role": 2,
@@ -48,7 +47,6 @@ def force_snapshot() -> JsonObject:
                     },
                     {
                         "health": 10,
-                        "reinforcing": False,
                         "slot": 1,
                         "owner": 3,
                         "role": 2,

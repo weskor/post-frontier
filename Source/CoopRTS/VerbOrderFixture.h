@@ -151,14 +151,14 @@ protected:
 		if (!AtRegion || Group->GetJoinedCount() == 0 || !AtRegion->Contains(Group->GetCenter()))
 			return false;
 		for (const AArmyUnit* Unit : Group->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing() && !AtRegion->Contains(Unit->GetActorLocation()))
+			if (IsValid(Unit) && Unit->IsAlive() && !AtRegion->Contains(Unit->GetActorLocation()))
 				return false;
 		return true;
 	}
 	bool Occupies(int32 Index) const
 	{
 		for (const AArmyUnit* Unit : Force->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing()
+			if (IsValid(Unit) && Unit->IsAlive()
 				&& Region(State, Index)->Contains(Unit->GetActorLocation())
 				&& FVector::Dist2D(Unit->GetActorLocation(), State->GetRegionAnchor(Index)) <= ACapturePoint::CaptureRadius)
 				return true;

@@ -19,7 +19,7 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 	float FormationRadiusSquared = 0.f;
 	for (const AArmyUnit* Unit : Units)
 	{
-		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing())
+		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		Center += Unit->GetActorLocation();
 		const FVector Offset = FormationOffset(Unit->GetCompositionSlot());
@@ -37,7 +37,7 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 		return false;
 	const float ArrivalRadiusSquared = FMath::Square(FMath::Sqrt(FormationRadiusSquared) + 170.f);
 	for (const AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing()
+		if (IsValid(Unit) && Unit->IsAlive()
 			&& FVector::DistSquared2D(Unit->GetActorLocation(), Center) > ArrivalRadiusSquared)
 			return false;
 	return true;
@@ -63,7 +63,7 @@ int32 AArmyGroup::GetJoinedCount() const
 {
 	int32 Count = 0;
 	for (const AArmyUnit* Unit : Units)
-		Count += IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing();
+		Count += IsValid(Unit) && Unit->IsAlive();
 	return Count;
 }
 

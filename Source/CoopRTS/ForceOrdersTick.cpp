@@ -76,7 +76,7 @@ bool AArmyGroup::ShouldKeepWaypoint(const ACommandGameState& State, int32 Region
 		return true;
 	bool bHasJoinedMember = false;
 	for (const AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+		if (IsValid(Unit) && Unit->IsAlive())
 		{
 			bHasJoinedMember = true;
 			const AAIController* AI = Cast<AAIController>(Unit->GetController());

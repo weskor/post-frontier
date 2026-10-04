@@ -117,7 +117,7 @@ bool FScenarioBase::PutForceInFar()
 	{
 		Produce();
 		const AArmyUnit* Recruit = FirstMember();
-		if (!Check(Recruit && Joined() == 1 && Force->GetPendingRecruitCount() == 0 && !Recruit->IsReinforcing()
+		if (!Check(Recruit && Joined() == 1 && Force->GetPendingRecruitCount() == 0
 					&& FVector::Dist2D(Recruit->GetActorLocation(), Producer->GetActorLocation()) < 1200.f,
 				TEXT("An empty force's first recruit spawns joined at the producer exit")))
 			return false;

@@ -70,9 +70,9 @@ private:
 		{
 			const AAIController* AI = Cast<AAIController>(Unit->GetController());
 			const UPathFollowingComponent* Path = AI ? AI->GetPathFollowingComponent() : nullptr;
-			Test->AddInfo(FString::Printf(TEXT("unit position=%s speed=%.0f post_distance=%.0f path_status=%d slot=%d reinforcing=%d alive=%d goal=%s"), *Unit->GetActorLocation().ToString(),
+			Test->AddInfo(FString::Printf(TEXT("unit position=%s speed=%.0f post_distance=%.0f path_status=%d slot=%d alive=%d goal=%s"), *Unit->GetActorLocation().ToString(),
 				Unit->GetVelocity().Size2D(), FVector::Dist2D(Unit->GetActorLocation(), Force->HoldPostLocation),
-				Path ? static_cast<int32>(Path->GetStatus()) : -1, Unit->GetCompositionSlot(), Unit->IsReinforcing(), Unit->IsAlive(),
+				Path ? static_cast<int32>(Path->GetStatus()) : -1, Unit->GetCompositionSlot(), Unit->IsAlive(),
 				Path ? *Path->GetPathDestination().ToString() : TEXT("none")));
 		}
 	}

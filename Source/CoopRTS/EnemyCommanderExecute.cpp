@@ -59,7 +59,7 @@ float JoinedHealthFraction(const AArmyGroup& Force)
 	float Health = 0.f;
 	int32 Joined = 0;
 	for (const AArmyUnit* Unit : Force.GetUnits())
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+		if (IsValid(Unit) && Unit->IsAlive())
 		{
 			Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 			++Joined;

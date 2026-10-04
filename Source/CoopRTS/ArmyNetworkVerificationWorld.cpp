@@ -79,7 +79,6 @@ void ArmyUnitsJson(const ACommandGameState& State, const AArmyGroup& Group, cons
 		Number(Member, TEXT("health"), Unit->GetHealth());
 		Number(Member, TEXT("attacks"), Unit->AttackCount);
 		Number(Member, TEXT("owner"), Unit->GetCommanderIndex());
-		Member->SetBoolField(TEXT("reinforcing"), Unit->IsReinforcing());
 		Number(Member, TEXT("producer"), IsValid(Group.GetProductionBuilding()) ? State.Buildings.IndexOfByKey(Group.GetProductionBuilding()) : -1);
 		Vector(Member, TEXT("position"), Unit->GetActorLocation());
 		Units.Add(MakeShared<FJsonValueObject>(Member));

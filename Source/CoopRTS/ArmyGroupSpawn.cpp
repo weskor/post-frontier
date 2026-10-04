@@ -137,7 +137,7 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 	if (!Unit)
 		return nullptr;
 	Unit->Initialize(this, TeamIndex, OwningPlayerState->CommanderIndex, ArmyIndex,
-		CompositionSlot, UnitIndex, const_cast<UArmyUnitDefinition*>(Definition), false);
+		CompositionSlot, UnitIndex, const_cast<UArmyUnitDefinition*>(Definition));
 	Unit->FinishSpawning(Transform);
 	if (!IsValid(Unit) || !GetReadyController(Unit))
 	{
@@ -237,7 +237,7 @@ AArmyUnit* AArmyGroup::SpawnJoined(const UArmyUnitDefinition& Definition, int32 
 	if (!Candidate)
 		return nullptr;
 	Candidate->Initialize(this, TeamIndex, IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1,
-		ArmyIndex, Slot, UnitIndex, const_cast<UArmyUnitDefinition*>(&Definition), false);
+		ArmyIndex, Slot, UnitIndex, const_cast<UArmyUnitDefinition*>(&Definition));
 	Candidate->FinishSpawning(Transform);
 	if (!IsValid(Candidate) || !GetReadyController(Candidate)
 		|| FVector::DistSquared2D(Candidate->GetActorLocation(), Transform.GetLocation()) > FMath::Square(40.f))

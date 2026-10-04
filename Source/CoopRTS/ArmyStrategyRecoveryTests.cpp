@@ -41,7 +41,7 @@ bool FEnemyConstructionScenario::Stage4(UWorld* World, ACommandGameState* State,
 	for (const TWeakObjectPtr<AArmyUnit>& Member : DamagedUnits)
 	{
 		const AArmyUnit* Unit = Member.Get();
-		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing() || Unit->GetGroup() != Recovery.Get())
+		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->GetGroup() != Recovery.Get())
 			return Fail(TEXT("Natural recovery must heal the same joined recruits, not replace or transfer them"));
 		Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 		++Joined;
@@ -174,7 +174,7 @@ bool FEnemyConstructionScenario::DamageRecovery(ACommandGameState* State, AArmyG
 {
 	float DamagedHealth = 0.f;
 	for (AArmyUnit* Unit : Recovery->GetUnits())
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+		if (IsValid(Unit) && Unit->IsAlive())
 		{
 			Unit->ReceiveAttack(Unit->GetHealth() - FMath::Max(1, Unit->MaxHealth() / 4), Threat->GetUnits()[0]);
 			DamagedHealth += float(Unit->GetHealth()) / Unit->MaxHealth();

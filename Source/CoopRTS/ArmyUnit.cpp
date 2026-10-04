@@ -66,7 +66,7 @@ AArmyUnit::AArmyUnit(const FObjectInitializer& ObjectInitializer)
 
 void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InCommanderIndex,
 	int32 InArmyIndex, int32 InCompositionSlot, int32 InUnitIndex,
-	UArmyUnitDefinition* InDefinition, bool bInReinforcing)
+	UArmyUnitDefinition* InDefinition)
 {
 	Group = InGroup;
 	TeamIndex = InTeamIndex;
@@ -79,7 +79,6 @@ void AArmyUnit::Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InComma
 	GetCharacterMovement()->MaxWalkSpeed = Definition->MoveSpeed;
 	Health = MaxHealth();
 	Shield = MaxShield();
-	bReinforcing = bInReinforcing;
 }
 
 void AArmyUnit::BeginPlay()
@@ -263,7 +262,7 @@ void AArmyUnit::OnRep_Attack()
 void AArmyUnit::FireAt(AActor* Victim)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	if (!HasAuthority() || !IsAlive() || bReinforcing || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
+	if (!HasAuthority() || !IsAlive() || !IsValid(Victim) || Victim->GetWorld() != GetWorld()
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
 		|| (IsValid(Group) && Group->Status == EForceStatus::Retreating)
 		|| !CombatTarget::IsAliveHostile(Victim, TeamIndex)
@@ -326,7 +325,7 @@ void AArmyUnit::ReceiveAttack(int32 Damage, AArmyUnit* Attacker)
 		return;
 	ResetRepairTimer();
 	TArray<float, TInlineAllocator<4>> Incoming;
-	if (!bReinforcing && UnitRole == EUnitRole::Frontline
+	if (UnitRole == EUnitRole::Frontline
 		&& GetDoctrine() == EArmyDoctrine::EntrenchedFrontline
 		&& IsValid(Group) && Group->Verb == EForceVerb::MoveHold && Group->Status == EForceStatus::Holding
 		&& GetVelocity().SizeSquared2D() <= FMath::Square(1.f))
@@ -389,7 +388,6 @@ void AArmyUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	DOREPLIFETIME(AArmyUnit, UnitIndex);
 	DOREPLIFETIME(AArmyUnit, UnitRole);
 	DOREPLIFETIME(AArmyUnit, CompositionSlot);
-	DOREPLIFETIME(AArmyUnit, bReinforcing);
 	DOREPLIFETIME(AArmyUnit, Health);
 	DOREPLIFETIME(AArmyUnit, Shield);
 	DOREPLIFETIME(AArmyUnit, LastPulseServerTime);

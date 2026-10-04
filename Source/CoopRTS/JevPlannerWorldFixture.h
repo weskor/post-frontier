@@ -79,7 +79,7 @@ private:
 		float Health = 0.f;
 		int32 Count = 0;
 		for (const AArmyUnit* Unit : Force.GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+			if (IsValid(Unit) && Unit->IsAlive())
 			{
 				Health += float(Unit->GetHealth()) / Unit->MaxHealth();
 				++Count;

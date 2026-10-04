@@ -39,7 +39,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void Initialize(AArmyGroup* InGroup, int32 InTeamIndex, int32 InCommanderIndex,
 		int32 InArmyIndex, int32 InCompositionSlot, int32 InUnitIndex,
-		UArmyUnitDefinition* InDefinition, bool bInReinforcing = false);
+		UArmyUnitDefinition* InDefinition);
 	AArmyGroup* GetGroup() const { return Group.Get(); }
 	int32 GetTeamIndex() const { return TeamIndex; }
 	int32 GetArmyIndex() const { return ArmyIndex; }
@@ -51,10 +51,6 @@ public:
 	EArmorClass GetArmorClass() const { return Definition->ArmorClass; }
 	EDamageType GetDamageType() const { return Definition->DamageType; }
 	int32 GetHealth() const { return Health; }
-	bool IsReinforcing() const { return bReinforcing; }
-	const FVector& GetReinforcementGoal() const { return ReinforcementGoal; }
-	const FVector& GetReinforcementRendezvous() const { return ReinforcementRendezvous; }
-	bool HasReinforcementPath() const { return bHasReinforcementPath; }
 	void ReceiveAttack(int32 Damage, AArmyUnit* Attacker);
 	void FireAt(AActor* Victim);
 	float WeaponRange() const;
@@ -129,12 +125,6 @@ private:
 	// Server time of the last pulse cast, -1 before the first; clients draw the pulse ring from changes to it.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Pulse", meta = (AllowPrivateAccess = "true"))
 	double LastPulseServerTime = -1.;
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Army", meta = (AllowPrivateAccess = "true"))
-	bool bReinforcing = false;
-	// Authority-only desired rendezvous and its accepted navigation projection.
-	FVector ReinforcementGoal = FVector::ZeroVector;
-	FVector ReinforcementRendezvous = FVector::ZeroVector;
-	bool bHasReinforcementPath = false;
 	UPROPERTY(VisibleAnywhere, Category = "Army")
 	TObjectPtr<UStaticMeshComponent> Body;
 
