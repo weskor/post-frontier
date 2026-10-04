@@ -49,9 +49,7 @@ def test_every_authored_pair_is_two_non_adjacent_necks(v2_map: MapData) -> None:
         ([[2, 8], [8, 2]], "is listed twice"),
     ],
 )
-def test_pair_rejections(
-    v2_map: MapData, pairs: list[list[int]], message: str
-) -> None:
+def test_pair_rejections(v2_map: MapData, pairs: list[list[int]], message: str) -> None:
     data = authored(v2_map)
     data["split_brain_pairs"] = pairs
     assert any(message in error for error in split_brain_pair_errors(data))

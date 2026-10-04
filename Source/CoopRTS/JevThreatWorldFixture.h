@@ -91,7 +91,8 @@ protected:
 		for (AMapRegion* Region : Kit.State->Regions)
 			if (IsValid(Region) && IsValid(Region->Anchor))
 			{
-				const int32 Team = Has(Jev, Region->RegionIndex) ? 5 : Has(Human, Region->RegionIndex) ? 0 : INDEX_NONE;
+				const int32 Team = Has(Jev, Region->RegionIndex) ? 5 : Has(Human, Region->RegionIndex) ? 0
+																									   : INDEX_NONE;
 				Region->Anchor->ControllingTeam = Team;
 				Region->Anchor->CaptureProgress = Team == INDEX_NONE ? 0.f : 1.f;
 				Region->FortifyTeam = -1;
@@ -222,8 +223,7 @@ protected:
 			SkipTo(331.f);
 			Enter(2);
 			return false;
-		case 2:
-		{
+		case 2: {
 			const bool bSeen = !Release().Cuts.IsEmpty();
 			if (!bSeen && InStage() < 3.)
 				return false;

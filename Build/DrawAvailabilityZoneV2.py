@@ -691,7 +691,10 @@ def human_supply_necks(data: MapData) -> list[int]:
     or cuts that supply line. The same rule as JevThreat::IsSupplyNeck."""
     neighbours = {r["index"]: set(r["neighbours"]) for r in data["regions"]}
     mains = {r["home_team"]: r["index"] for r in data["regions"] if r["role"] == "main"}
-    human, jev = hop_distances(neighbours, mains[0]), hop_distances(neighbours, mains[5])
+    human, jev = (
+        hop_distances(neighbours, mains[0]),
+        hop_distances(neighbours, mains[5]),
+    )
     necks = []
     for region in sorted(neighbours):
         if region in mains.values() or human[region] >= jev[region]:
@@ -723,7 +726,9 @@ def split_brain_pair_errors(data: MapData) -> list[str]:
             errors.append(f"Neck pair {pair} is adjacent")
         for region in pair:
             if region not in necks:
-                errors.append(f"Neck pair {pair}: region {region} is not a human supply neck {sorted(necks)}")
+                errors.append(
+                    f"Neck pair {pair}: region {region} is not a human supply neck {sorted(necks)}"
+                )
         if (min(pair), max(pair)) in seen:
             errors.append(f"Neck pair {pair} is listed twice")
         seen.add((min(pair), max(pair)))
