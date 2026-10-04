@@ -108,6 +108,10 @@ inline EForceVerb OrderVerb(JevPlanner::EVerb Verb)
 
 // JEV's production role slots (JevExecution::RoleSlots) are EUnitRole values, which keeps one ordering.
 static_assert(static_cast<int32>(EUnitRole::Support) + 1 == JevExecution::RoleSlots
+		&& static_cast<int32>(EUnitRole::Frontline) == JevExecution::FrontlineSlot
+		&& static_cast<int32>(EUnitRole::Ranged) == JevExecution::RangedSlot
+		&& static_cast<int32>(EUnitRole::Siege) == JevExecution::SiegeSlot
+		&& static_cast<int32>(EUnitRole::Siege) + 1 == JevExecution::BaseRoleSlots
 		&& static_cast<int32>(EUnitRole::Assault) == JevExecution::AssaultSlot
 		&& static_cast<int32>(EUnitRole::Support) == JevExecution::SupportSlot,
 	"JEV role slots follow EUnitRole");

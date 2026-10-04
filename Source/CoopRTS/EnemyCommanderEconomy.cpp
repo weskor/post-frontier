@@ -152,12 +152,19 @@ void BuildExtractor(FJevTurn& Turn)
 
 void ConfigureProduction(FJevTurn& Turn)
 {
+	// The damage type of each role slot's catalogue unit, the answer table the chooser reads.
+	EDamageType SlotDamage[JevExecution::RoleSlots];
+	for (int32 Slot = 0; Slot < JevExecution::RoleSlots; ++Slot)
+	{
+		const UArmyUnitDefinition* Unit = Turn.Content->Unit(Turn.Content->UnitIndexForRole(SlotRole(Slot)));
+		SlotDamage[Slot] = Unit ? Unit->DamageType : EDamageType::Unset;
+	}
 	for (ACommandBuilding* Building : Turn.Barracks)
 	{
 		if (!Building->IsComplete())
 			continue;
 		const EUnitRole Role = Building->bForceConfigured ? Building->ProductionRole
-														  : SlotRole(JevExecution::NextRoleSlot(Turn.Roles, Turn.EnemyArmor));
+														  : SlotRole(JevExecution::NextRoleSlot(Turn.Roles, Turn.EnemyArmor, SlotDamage));
 		const bool bWasConfigured = Building->bForceConfigured;
 		if (!Building->bProductionEnabled)
 			FCommandService::ConfigureProduction(Turn.Commander, Building, Role, true);

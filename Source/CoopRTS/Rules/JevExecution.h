@@ -19,16 +19,21 @@ constexpr int32 MaxProducers = 3;
 constexpr int32 RoleSlots = 5;
 // The slots below this one are the base roles every JEV army fills first.
 constexpr int32 BaseRoleSlots = 3;
+constexpr int32 FrontlineSlot = 0;
+constexpr int32 RangedSlot = 1;
+constexpr int32 SiegeSlot = 2;
 constexpr int32 AssaultSlot = 3;
 constexpr int32 SupportSlot = 4;
 
 inline bool ValidRegion(int32 Index) { return Index >= 0 && Index < ForceOrders::MaxRegions; }
 
-// The role slot a new producer takes. The first producer is Frontline. After that the humans' most
-// numerous armor class decides: Light is answered by Frontline, Heavy by Ranged then Assault (Piercing),
-// Shielded by Support (EMP), each only while it has no producer. Otherwise the first base role with no
-// producer; once all three exist, Frontline unless it outnumbers Ranged.
-int32 NextRoleSlot(const int32 (&Counts)[RoleSlots], const JevRelease::FArmorCounts& Humans);
+// The role slot a new producer takes. The first producer is Frontline. After that the armor class most
+// numerous among the living humans decides: the slots whose damage type (SlotDamage, one per slot, from
+// the catalogue unit of that role) is strong against it (CombatPolicy::IsStrongAgainst, the rule waves
+// buy by), best first in slot order, each only while it has no producer. Otherwise the first base role
+// with no producer; once all three exist, Frontline unless it outnumbers Ranged.
+int32 NextRoleSlot(const int32 (&Counts)[RoleSlots], const JevRelease::FArmorCounts& Humans,
+	const EDamageType (&SlotDamage)[RoleSlots]);
 // One living unit's hit points and shield.
 struct FUnitHealth
 {

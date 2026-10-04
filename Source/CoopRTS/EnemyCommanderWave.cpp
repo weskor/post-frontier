@@ -35,9 +35,9 @@ TArray<JevRelease::FUnitOption> UnitOptions(const UMatchContent& Content)
 {
 	TArray<JevRelease::FUnitOption> Options;
 	Options.SetNum(Content.Units.Num());
-	for (const EUnitRole Role : { EUnitRole::Frontline, EUnitRole::Ranged, EUnitRole::Siege, EUnitRole::Assault, EUnitRole::Support })
+	for (int32 Slot = 0; Slot < JevExecution::RoleSlots; ++Slot)
 	{
-		const int32 Index = Content.UnitIndexForRole(Role);
+		const int32 Index = Content.UnitIndexForRole(SlotRole(Slot));
 		if (const UArmyUnitDefinition* Unit = Content.Unit(Index))
 			Options[Index] = { Unit->UnitCost, Unit->ArmorClass, Unit->DamageType };
 	}

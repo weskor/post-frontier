@@ -39,9 +39,9 @@ FString Produce(UWorld& World, const TSharedPtr<FJsonObject>& Request)
 	ACommandCamera* Camera = CameraOf(World);
 	if (!State || !Camera || !IsValid(State->EnemyCommander) || !IsValid(State->EnemyHeadquarters))
 		return TEXT("JEV production fixture world unavailable");
-	const int32 Role = static_cast<int32>(Request->GetIntegerField(TEXT("role")));
-	if (Role < 0 || Role >= static_cast<int32>(EUnitRole::Unset))
-		return TEXT("JEV production fixture role out of range");
+	int32 Role = INDEX_NONE;
+	if (!Request->TryGetNumberField(TEXT("role"), Role) || Role < 0 || Role >= static_cast<int32>(EUnitRole::Unset))
+		return TEXT("JEV production fixture needs a role in range");
 	// Enough for the barracks, the configuration fee and a full squad; the isolated planner spends nothing.
 	State->EnemyCommander->Resources = 5000;
 	ACommandBuilding* Barracks = PlaceBarracks(*State);
