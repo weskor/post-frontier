@@ -5,12 +5,14 @@
 
 // The tuning target of Split-Brain Cut: a full Brawler squad (six, tier 1) holding a neck loses it to the cut force without
 // Fortify and keeps it with Fortify. Both cases run the real threat from the real schedule against identical armies, on
-// both regions of the authored pair (Skyhook and Reactor Yard); only the cast differs. The fights are chaotic: a scenario
-// run earlier in the same world changes them, so the numbers hold for this scope's order (docs: battle.md).
+// both regions of the authored pair (Skyhook and Reactor Yard); only the cast differs. A fight is chaotic: what an earlier
+// scenario left in the world, or a start a frame off a whole world second, changes its numbers (docs: battle.md). Each runs
+// in its own scope, so in a fresh process, and starts on a whole second (FThreatScenario), which makes it repeatable.
+// The names do not start with CoopRTS.Enemy.SplitBrain, so that scope's filter does not pick them up.
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainUnfortifiedTest, "CoopRTS.Enemy.SplitBrain.Fight.Unfortified",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainUnfortifiedTest, "CoopRTS.Enemy.CutFight.Unfortified",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainFortifiedTest, "CoopRTS.Enemy.SplitBrain.Fight.Fortified",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FSplitBrainFortifiedTest, "CoopRTS.Enemy.CutFight.Fortified",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 DEFINE_LOG_CATEGORY_STATIC(LogSplitBrainFight, Log, All);

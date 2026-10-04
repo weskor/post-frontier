@@ -175,13 +175,22 @@ private:
 			TEXT("The normal v2.0 wave launched on top of the two cut forces"));
 		JevIntentView::FPlans Plans;
 		JevIntentView::Snapshot(*Kit.State, Plans);
-		int32 AtThree = 0, AtEight = 0;
+		int32 AtThree = 0, AtEight = 0, Tagged = 0, Named = 0;
 		for (const JevIntent::FPlanView& Plan : Plans)
 		{
 			AtThree += Plan.Target == 3;
 			AtEight += Plan.Target == 8;
+			Tagged += Plan.bCut;
+			Named += Plan.bCut && FString(Plan.Memo.Len(), Plan.Memo.GetData()).Contains(JevThreat::Name);
 		}
 		Check(AtThree == 1 && AtEight == 1, TEXT("At launch each cut region shows one plan: the force's own has replaced the cut plan"));
+		Check(Tagged == 2 && Named == 2, TEXT("and both live plans keep the threat's tag and a memo naming it, not Attack"));
+		JevIntent::FTimeline Timeline;
+		JevIntent::BuildTimeline(Plans, JevIntent::FReleaseView(), JevIntentView::Now(*Kit.State), Timeline);
+		int32 TaggedCells = 0;
+		for (const JevIntent::FTimelineEntry& Cell : Timeline)
+			TaggedCells += Cell.bCut;
+		Check(TaggedCells == 2, TEXT("so the timeline still tags two cells for the march"));
 		return true;
 	}
 

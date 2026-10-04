@@ -56,7 +56,9 @@ inline TArray<JevThreat::FPair> AuthoredPairs(const ACommandGameState& State)
 }
 
 // A scenario with a second human commander (or none), region control and Fortify set by the test. Everything it changes in
-// the shared world is put back when it ends.
+// the shared world is put back when it ends. A scenario starts on a whole second of world time: the automation framework
+// starts a test a frame or two earlier or later from run to run, and the fights are chaotic enough (one 1/60 s frame of
+// start offset flipped a second fight's numbers in this world) that the start frame must not be left to it.
 class FThreatScenario : public FScenario
 {
 public:
@@ -64,11 +66,28 @@ public:
 
 	bool Update() override
 	{
+		if (!bAligned && !Align())
+			return false;
 		const bool bDone = FScenario::Update();
 		if (bDone)
 			Restore();
 		return bDone;
 	}
+
+private:
+	// Waits for the map, the controller and JEV's planner, then for the next whole world second at least half a second on.
+	bool Align()
+	{
+		if (!Acquire(Kit))
+			return false;
+		if (AlignAt == 0.)
+			AlignAt = FMath::CeilToDouble(ArmyTestSetup::GameSeconds(Kit.World) + .5);
+		bAligned = ArmyTestSetup::GameSeconds(Kit.World) >= AlignAt;
+		return bAligned;
+	}
+
+	double AlignAt = 0.;
+	bool bAligned = false;
 
 protected:
 	static bool Has(std::initializer_list<int32> List, int32 Value)
@@ -170,6 +189,7 @@ private:
 		DestroyForces(Kit.World, [](const AArmyGroup&) { return true; });
 		if (IsValid(Other))
 			Other->Destroy();
+
 		for (AMapRegion* Region : Kit.State->Regions)
 			if (IsValid(Region))
 			{

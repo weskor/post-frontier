@@ -344,6 +344,7 @@ void AEnemyCommander::LaunchThreat(FJevTurn& Turn)
 			Event.Units = Force->GetAliveCount();
 			Event.Forces = 1;
 			WaveForces.Add(Force);
+			Release.CutForces.Add(Force);
 			FCommandService::SetRetreatThreshold(Turn.Commander, Force, ERetreatThreshold::Never);
 			ExecuteWaveForce(Turn, Force, Cut.Target, false);
 			// A cut force holds its order until it has arrived, so the planner does not re-route it on the way.
@@ -356,6 +357,9 @@ void AEnemyCommander::LaunchThreat(FJevTurn& Turn)
 				{
 					Published->CommittedUntil = Entry->Plan.CommittedUntil;
 					Published->RemainingCommitment = JevPlanner::Remaining(Entry->Plan, Turn.Now);
+					// The memo posted for the live plan names the threat too, from the same template.
+					Published->Memo = MemoTemplates.FormatCut(Entry->TicketNumber, Published->SizeBand, Published->EtaSeconds,
+						Turn.Regions[Cut.Target] ? Turn.Regions[Cut.Target]->DisplayName.ToString() : FString());
 				}
 			}
 		}

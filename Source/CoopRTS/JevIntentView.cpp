@@ -22,6 +22,10 @@ JevPlanner::EVerb PlannerVerb(EForceVerb Verb)
 void Snapshot(const ACommandGameState& State, FPlans& Out)
 {
 	Out.Reset();
+	const AEnemyCommander* Jev = nullptr;
+	for (TActorIterator<AEnemyCommander> It(State.GetWorld()); It && !Jev; ++It)
+		if (It->TeamIndex == 5)
+			Jev = *It;
 	for (const FJevPublishedPlan& Plan : State.EnemyPlans)
 	{
 		// The game state prunes plans whose force is gone; a stale entry is not a plan to show.
@@ -37,25 +41,28 @@ void Snapshot(const ACommandGameState& State, FPlans& Out)
 		View.EtaSeconds = Plan.EtaSeconds;
 		View.EtaIssuedAt = Plan.EtaIssuedAt;
 		View.bEscalated = Plan.bEscalated;
+		// A Split-Brain Cut force keeps the threat's name on its Attack plan for the whole march; one defending its region
+		// shows the escalation like any other force.
+		View.bCut = Jev && !Plan.bEscalated && Plan.Verb == EForceVerb::Attack && Jev->Release.CutForces.Contains(Plan.Force);
 		View.Memo = Plan.Memo;
 	}
+	if (!Jev)
+		return;
 	// Split-Brain Cut plans, published ahead of their forces, read like any other plan; at launch the forces' own plans above
 	// replace them. No force exists yet, so the plan's identity is its ticket, in a range actor ids never reach.
-	for (TActorIterator<AEnemyCommander> It(State.GetWorld()); It; ++It)
-		if (It->TeamIndex == 5)
-			for (const FJevCutPlan& Cut : It->Release.Cuts)
-			{
-				JevIntent::FPlanView& View = Out.AddDefaulted_GetRef();
-				View.Ticket = Cut.Ticket;
-				View.Force = 0x80000000u | static_cast<uint32>(Cut.Ticket);
-				View.Verb = JevPlanner::EVerb::Attack;
-				View.bCut = true;
-				View.Target = Cut.Target;
-				View.SizeBand = Cut.SizeBand;
-				View.EtaSeconds = Cut.EtaSeconds;
-				View.EtaIssuedAt = Cut.EtaIssuedAt;
-				View.Memo = Cut.Memo;
-			}
+	for (const FJevCutPlan& Cut : Jev->Release.Cuts)
+	{
+		JevIntent::FPlanView& View = Out.AddDefaulted_GetRef();
+		View.Ticket = Cut.Ticket;
+		View.Force = 0x80000000u | static_cast<uint32>(Cut.Ticket);
+		View.Verb = JevPlanner::EVerb::Attack;
+		View.bCut = true;
+		View.Target = Cut.Target;
+		View.SizeBand = Cut.SizeBand;
+		View.EtaSeconds = Cut.EtaSeconds;
+		View.EtaIssuedAt = Cut.EtaIssuedAt;
+		View.Memo = Cut.Memo;
+	}
 }
 
 float Now(const ACommandGameState& State)

@@ -106,6 +106,9 @@ struct FJevReleaseState
 	// The published Split-Brain Cut plans, from JevThreat::PublishTime until the forces launch.
 	UPROPERTY()
 	TArray<FJevCutPlan> Cuts;
+	// The forces a Split-Brain Cut launched: their live plans keep the threat's name on the timeline and badges.
+	UPROPERTY()
+	TArray<TObjectPtr<AArmyGroup>> CutForces;
 };
 
 // Executor for JEV: EvaluatePlan summarises the match for the pure planner

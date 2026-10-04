@@ -91,14 +91,9 @@ void DrawTimelineCell(const FPainter& Paint, const FContext& Context, const FRec
 	const float CountWidth = DrawCountdown(Paint, { Cell.X, Cell.Y + 5.f, Cell.W - 7.f, 14.f }, Entry.Seconds, bMuted);
 	Paint.Text(JevIntentView::RegionName(*Context.State, Entry.Target), X, Cell.Y + 4.5f, 9.5f, bMuted ? Palette::Muted : Pearl, true,
 		EAlign::Left, Cell.W - 21.f - CountWidth);
-<<<<<<< HEAD
-	const float TagWidth = Paint.Text(JevVerbTag(Entry.Verb, Entry.bEscalated), X, Cell.Y + 22.f, 8.f,
-		Faded(VerbColor(Entry.Verb, Entry.bEscalated), 1.f, bMuted ? .6f : 1.f), true, EAlign::Left, Cell.W - 14.f);
-=======
 	const TCHAR* Tag = Entry.bCut ? JevThreat::CellTag : JevVerbTag(Entry.Verb, Entry.bEscalated);
 	const float TagWidth = Paint.Text(Tag, X, Cell.Y + 22.f, 8.f,
-		VerbColor(Entry.Verb, Entry.bEscalated), true, EAlign::Left, Cell.W - 14.f);
->>>>>>> 5dd0a0d (Split-Brain Cut review: cap semantics, tagged cells and badges, solo voice line, true-clock capture, one measured pair)
+		Faded(VerbColor(Entry.Verb, Entry.bEscalated), 1.f, bMuted ? .6f : 1.f), true, EAlign::Left, Cell.W - 14.f);
 	TStringBuilder<24> Size;
 	Size.Appendf(TEXT("~%d units"), Entry.SizeBand);
 	const float SizeX = X + TagWidth + 6.f;
