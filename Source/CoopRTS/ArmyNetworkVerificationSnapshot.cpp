@@ -3,6 +3,7 @@
 #include "ArmyNetworkVerification.h"
 #include "ArenaBounds.h"
 #include "ArmyGroup.h"
+#include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandHUD.h"
 #include "CommandPlayerController.h"
