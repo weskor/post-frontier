@@ -109,11 +109,22 @@ TArray<JevThreat::FPair> AuthoredPairs(const FJevTurn& Turn)
 {
 	TArray<JevThreat::FTaggedRegion> Tagged;
 	for (const AMapRegion* Region : Turn.Regions)
-		if (Region)
+		if (Region && Region->RegionIndex >= 0 && Region->RegionIndex < ForceOrders::MaxRegions)
 			for (const FName& Tag : Region->Tags)
 				if (const int32 Pair = JevThreat::PairOfTag(Tag.ToString()); Pair != INDEX_NONE)
 					Tagged.Add({ Region->RegionIndex, Pair });
 	return JevThreat::BuildPairs(Tagged);
+}
+
+// Why the threat did not happen, with the controller of both regions of every authored pair.
+void LogSkip(const FJevTurn& Turn, TConstArrayView<JevThreat::FPair> Pairs, JevThreat::ESkip Skip, float MatchSeconds)
+{
+	FString Held;
+	for (const JevThreat::FPair& Pair : Pairs)
+		Held += FString::Printf(TEXT(" pair %d,%d controlled by %d,%d"), Pair.A, Pair.B, Turn.Summary.Regions[Pair.A].Controller,
+			Turn.Summary.Regions[Pair.B].Controller);
+	UE_LOG(LogJevRelease, Display, TEXT("JEV %s skipped at=%.1f: %s;%s"), JevThreat::Name, MatchSeconds, JevThreat::SkipReason(Skip),
+		*Held);
 }
 
 // Seconds the roster's slowest unit needs from JEV's main to Target; negative when no route leads there.
@@ -266,11 +277,11 @@ void AEnemyCommander::PublishThreat(FJevTurn& Turn)
 	// The threat happens once per battle, published or skipped.
 	ThreatStage = JevThreat::EStage::Done;
 	const int32 Humans = HumanCommanders(*Turn.State);
-	const JevThreat::FChoice Choice = JevThreat::ChoosePair(Turn.Summary, AuthoredPairs(Turn));
+	const TArray<JevThreat::FPair> Pairs = AuthoredPairs(Turn);
+	const JevThreat::FChoice Choice = JevThreat::ChoosePair(Turn.Summary, Pairs);
 	if (Choice.Skip != JevThreat::ESkip::None)
 	{
-		UE_LOG(LogJevRelease, Display, TEXT("JEV %s skipped at=%.1f: %s"), JevThreat::Name, GetMatchSeconds(),
-			JevThreat::SkipReason(Choice.Skip));
+		LogSkip(Turn, Pairs, Choice.Skip, GetMatchSeconds());
 		return;
 	}
 	const JevThreat::FTargets Targets = JevThreat::ChooseTargets(Turn.Summary, Choice.Pair, Humans);
