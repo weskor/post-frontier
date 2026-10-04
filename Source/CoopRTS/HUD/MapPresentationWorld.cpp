@@ -24,8 +24,8 @@ constexpr double StubCm = 520., BreakGapCm = 260.;
 constexpr float BorderWidth = 7.f, FlashBorderWidth = 12.f, HatchWidth = 3.f, CableWidth = 6.f;
 
 const FColor CutRed(255, 72, 56);
-const FColor HatchRed(255, 72, 56, 110);
-const FColor FlashHatch(255, 72, 56, 190);
+const FColor HatchRed(255, 72, 56, 70);
+const FColor FlashHatch(255, 72, 56, 140);
 const FColor Dimmed(150, 158, 168);
 const FColor FriendlyCable(64, 184, 163);
 const FColor HostileCable(230, 92, 82);

@@ -23,11 +23,19 @@ TRAIT_REGIONS = {"cover": 2, "high-ground": 7, "open": 8, "hazard": 10}
 # A cut flashes for one second; a capture needs the first flash still lit.
 CUT_SLOW = 0.1
 PULSE_SLOW = 0.05
+# Wheel steps out so a whole 5000 cm region and its neighbours fit.
+ZOOM_OUT = -7
 RING_AGES = (0.12, 0.28, 0.4)
 
 
-def focus(run: NetworkRun, capture: Capture, region: int) -> None:
-    run.request("host", FORTIFY_FOCUS, region=region)
+def focus(
+    run: NetworkRun,
+    capture: Capture,
+    region: int,
+    action: str = FORTIFY_FOCUS,
+    **fields: object,
+) -> None:
+    run.request("host", action, region=region, **fields)
     previous: list[object] = []
 
     def settled(state: JsonObject) -> bool:
@@ -37,6 +45,13 @@ def focus(run: NetworkRun, capture: Capture, region: int) -> None:
         return done
 
     capture.wait(settled, f"camera settled on region {region}")
+
+
+def zoom(run: NetworkRun, capture: Capture, steps: float) -> None:
+    """Wheel steps (negative zooms out) and a second for the camera arm to settle."""
+    run.request("host", "mapPresZoom", steps=steps)
+    start = float(capture.state()["serverTime"])
+    capture.wait(older_than(start, 1.5), "camera arm settled")
 
 
 def controller(state: JsonObject, region: int) -> int:
@@ -56,11 +71,22 @@ def traits(run: NetworkRun, capture: Capture, suffix: str) -> None:
         capture.shot(f"traits-{name}-region-{region}-{suffix}")
 
 
+def deck(capture: Capture, open_: bool) -> None:
+    if bool(capture.state()["deckOpen"]) != open_:
+        capture.key("F4")
+        capture.wait(lambda s: bool(s["deckOpen"]) == open_, f"deck open={open_}")
+
+
 def cut_states(run: NetworkRun, capture: Capture, suffix: str) -> None:
     """The cut, at the moment it lands and after the flash window has closed."""
+    # The deck would cover the Drill Rig at 1280x720; F4 folds it away for the cut captures.
+    deck(capture, False)
     for region in (NECK, FAR):
         set_control(run, capture, region, 0)
-    focus(run, capture, FAR)
+    # The build bar covers the lower third of a 720 px viewport: lean the camera towards the rig there.
+    weight = 0.5 if capture.state()["viewportHeight"] >= 900 else 0.85
+    focus(run, capture, FAR, "mapPresFocusRig", weight=weight)
+    zoom(run, capture, ZOOM_OUT)
     capture.shot(f"cut-before-connected-{suffix}")
     run.request("host", "mapPresDilation", factor=CUT_SLOW)
     set_control(run, capture, NECK, 5)
@@ -72,6 +98,8 @@ def cut_states(run: NetworkRun, capture: Capture, suffix: str) -> None:
     for region in (NECK, FAR):
         set_control(run, capture, region, 0)
     capture.shot(f"cut-reconnected-{suffix}")
+    zoom(run, capture, -ZOOM_OUT)
+    deck(capture, True)
 
 
 def older_than(start: float, seconds: float) -> Callable[[JsonObject], bool]:
@@ -83,6 +111,7 @@ def older_than(start: float, seconds: float) -> Callable[[JsonObject], bool]:
 
 def pulse(run: NetworkRun, capture: Capture, suffix: str) -> None:
     """A Scrambler beside a hostile shielded unit: ring ages sampled on slowed game time."""
+    focus(run, capture, NECK)
     run.request("host", "mapPresDilation", factor=PULSE_SLOW)
     start = float(run.request("host", "mapPresPulse", region=NECK)["serverTime"])
     for age in RING_AGES:

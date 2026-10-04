@@ -5,6 +5,7 @@
 #include "ArmyTestSetup.h"
 #include "ArmyUnit.h"
 #include "CapturePoint.h"
+#include "CommandCamera.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
@@ -128,6 +129,23 @@ FString Pulse(UWorld& World, ACommandGameState& State, ACommandPlayerController&
 	return Scrambler && Shielded ? FString() : TEXT("map presentation pulse fixture spawn failed");
 }
 
+// Centres the camera Weight of the way from the region's anchor to its Drill Rig, so plate, rig and labels clear the panels.
+FString FocusRig(ACommandPlayerController& Controller, const ACommandGameState& State, const AMapRegion& Region, double Weight)
+{
+	ACommandCamera* Camera = Cast<ACommandCamera>(Controller.GetPawn());
+	if (!Camera)
+		return TEXT("map presentation camera unavailable");
+	FVector Target = State.GetRegionAnchor(Region.RegionIndex);
+	for (const ADepositSite* Deposit : State.Deposits)
+		if (IsValid(Deposit) && Deposit->RegionIndex == Region.RegionIndex && IsValid(Deposit->Extractor))
+		{
+			Target = FMath::Lerp(Target, Deposit->GetActorLocation(), FMath::Clamp(Weight, 0., 1.));
+			break;
+		}
+	Camera->FocusOn(Target);
+	return FString();
+}
+
 void Clear(UWorld& World)
 {
 	for (const TWeakObjectPtr<AArmyGroup>& Group : Spawned)
@@ -153,6 +171,15 @@ bool Apply(UWorld& World, const TSharedPtr<FJsonObject>& Request, FString& Error
 		Error = TEXT("map presentation fixture requires opted-in authority host");
 	else if (Action == TEXT("mapPresClear"))
 		Clear(World);
+	else if (Action == TEXT("mapPresZoom"))
+	{
+		// Wheel steps: negative zooms out; the camera clamps at the arena.
+		ACommandCamera* Camera = Cast<ACommandCamera>(Controller->GetPawn());
+		if (Camera)
+			Camera->Zoom(static_cast<float>(Request->GetNumberField(TEXT("steps"))));
+		else
+			Error = TEXT("map presentation camera unavailable");
+	}
 	else if (Action == TEXT("mapPresDilation"))
 	{
 		const double Factor = Request->GetNumberField(TEXT("factor"));
@@ -170,6 +197,8 @@ bool Apply(UWorld& World, const TSharedPtr<FJsonObject>& Request, FString& Error
 			Error = Control(*Region, static_cast<int32>(Request->GetIntegerField(TEXT("team"))));
 		else if (Action == TEXT("mapPresRig"))
 			Error = Rig(World, *State, Controller->GetPlayerState<ACommandPlayerState>(), *Region);
+		else if (Action == TEXT("mapPresFocusRig"))
+			Error = FocusRig(*Controller, *State, *Region, Request->GetNumberField(TEXT("weight")));
 		else if (Action == TEXT("mapPresPulse"))
 			Error = Pulse(World, *State, *Controller, *Region);
 		else
