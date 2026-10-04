@@ -119,7 +119,7 @@ private:
 		{
 			const bool bAfterLaunch = Shot.bAfterLaunch;
 			Check(bAfterLaunch ? !Release().CutForces.IsEmpty() && Release().Cuts.IsEmpty()
-								: !Release().Cuts.IsEmpty() && !NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(),
+							   : !Release().Cuts.IsEmpty() && !NewEvents(FName(JevThreat::AnnouncerId)).IsEmpty(),
 				TEXT("The plans (or, after launch, the forces) and the alert event still stood when the shot was taken"));
 			Test->AddInfo(FString::Printf(TEXT("Captured %s (%lld bytes)"), *Path, IFileManager::Get().FileSize(*Path)));
 			++Index;
