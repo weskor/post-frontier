@@ -169,8 +169,8 @@ def place_rock(rock):
     """A single oriented cube follows the exact four-corner measured rock mark."""
     box = require(rectangle(rock["poly"]), "Blocker must be a rotated rectangle: " + rock["id"])
     x, y, sx, sy, yaw = box
-    TerrainSpawn.as_obstacle(block("Rock_" + rock["id"], (x, y), (sx, sy, 360), materials["MI_AZ_MachineConcrete"],
-                                   yaw=yaw, collision=True, folder="AZV2/Rocks"))
+    block("Rock_" + rock["id"], (x, y), (sx, sy, 360), materials["MI_AZ_MachineConcrete"],
+          yaw=yaw, collision=True, folder="AZV2/Rocks")
 
 
 def simplified_outline(poly, tolerance=80.0):
@@ -250,8 +250,8 @@ def place_match_actors(region_defs, deposit_defs):
 anchors = place_match_actors(regions, data["deposits"])
 
 # One continuous solid, perfectly level ground slab. Its upper surface is z=0.
-block("FlatGround", (0, 0), (2 * (hx + 200), 2 * (hy + 200), 100), materials["MI_AZ_GravelDark"],
-      base=-100, collision=True, folder="AZV2/Ground")
+TerrainSpawn.as_ground(block("FlatGround", (0, 0), (2 * (hx + 200), 2 * (hy + 200), 100), materials["MI_AZ_GravelDark"],
+                             base=-100, collision=True, folder="AZV2/Ground"))
 for rock in data["blockers"]:
     place_rock(rock)
 terrain_counts = TerrainSpawn.place_terrain(terrain, spawn, block, cylinder, materials)

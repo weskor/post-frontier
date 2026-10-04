@@ -49,14 +49,14 @@ Bunker → Cluster: **51.4 s** at 420 cm/s by the same 100 cm, eight-neighbour p
 | Open | 8 Power Yard, 12 Canal Walk | flat, no rocks or props, paved apron |
 | Hazard | 10 East Spur | flat; hazard-striped plates and glowing vents, no collision |
 
-Ridge ramps lead to Uplink (3) and Relay Plant (5); Switchback ramps lead to Human Near (1), Interchange (6) and Power Yard (8). Ramps stand on the lower region's ground.
+Ridge ramps lead to Uplink (3) and Relay Plant (5); Switchback ramps lead to Human Near (1), Interchange (6) and Power Yard (8). Ramps stand on the lower region's ground. A plateau covers every 4 m cell its region's polygon touches, so no ground-level strip is left inside a plateau region (units at a cliff foot belong to the neighbour). Ground heights (camera focus, minimap and cursor picks, building placement) come from `GroundHeight`, which only counts actors tagged `Ground`: the generator tags the floor, plateau, wall and ramp pieces, so maps without tagged ground keep their z = 0 rules.
 
 **Closed borders** leave `neighbours` (supply and orders follow what units can walk): rock walls between 2–6, 3–5 and 5–12, and plateau cliffs between 7–10 and 7–11. Nothing else about adjacency, anchors, deposits or posts changed. Necks with two neighbours: North Ridge (3, 5) and East Spur (8, 11).
 
 | Route | Regions | Length | Time | Costs |
 | --- | --- | ---: | ---: | --- |
-| North (Ridge) | 0-2-3-4-5-13-14 | 290 m | 69 s | longest; both rich rewards 3 and 5; two ramps over the ridge |
+| North (Ridge) | 0-2-3-4-5-13-14 | 282 m | 67 s | longest; both rich rewards 3 and 5; two ramps over the ridge |
 | Center (Hub) | 0-1-6-12-14 | 227 m | 52 s | shortest; 13 m gap between 1 and 6; cover hub |
-| South (Spur) | 0-9-8-10-11-12-14 | 259 m | 58 s | 118 m of open ground (+15% speed) but 20 m of hazard (about 19 damage at 4/s) |
+| South (Spur) | 0-9-8-10-11-12-14 | 261 m | 59 s | open ground (+15% speed) but a hazard stretch (about 23 damage at 4/s) |
 
 Times count open ground at +15% speed. The audit (`./x gen draw-availability-zone-v2`) enforces the trait counts, the ramp and prop placement rules, the walkable graph equalling `neighbours`, walkable routes and the stretch rule on raised ground. Authored posts did not move.

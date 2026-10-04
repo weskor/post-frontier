@@ -107,6 +107,18 @@ private:
 					&& FVector::Dist2D(Picked, Anchor) < 5. && FMath::IsNearlyEqual(Picked.Z, PlateauHeight, 1.),
 				TEXT("A minimap pick on the plateau resolves to plateau height")))
 			return true;
+		// The cursor ray the camera casts at 60 degrees: it meets the plateau top above the cliff, not the floor below.
+		const FVector Eye = Anchor + FVector(-1500., 0., 2600.);
+		FVector Hit;
+		if (!Check(GroundHeight::Ray(*World, Eye, Anchor - Eye, Hit) && FVector::Dist2D(Hit, Anchor) < 5.
+					&& FMath::IsNearlyEqual(Hit.Z, PlateauHeight, 1.),
+				TEXT("A cursor ray aimed at the plateau picks the plateau top")))
+			return true;
+		const FVector FloorAnchor = State.GetRegionAnchor(1);
+		const FVector FloorEye = FloorAnchor + FVector(-1500., 0., 2600.);
+		if (!Check(GroundHeight::Ray(*World, FloorEye, FloorAnchor - FloorEye, Hit) && FVector::Dist2D(Hit, FloorAnchor) < 5. && FMath::Abs(Hit.Z) < 1.,
+				TEXT("A cursor ray aimed at flat ground picks the floor")))
+			return true;
 		Stage = 1;
 		return false;
 	}

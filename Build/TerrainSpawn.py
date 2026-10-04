@@ -18,9 +18,12 @@ HAZARD_PLATE = 360.0
 VENT_EVERY = 3
 
 
-def as_obstacle(actor):
-    """Obstacles block everything but are dynamic-object type, so GroundHeight's static-ground probe passes over them."""
-    actor.static_mesh_component.set_collision_object_type(unreal.CollisionChannel.ECC_WORLD_DYNAMIC)
+GROUND_TAG = "Ground"  # GroundHeight::Tag: only tagged actors count as ground for heights and the cursor pick
+
+
+def as_ground(actor):
+    """Tag a floor, plateau, wall or ramp actor as ground."""
+    actor.set_editor_property("tags", [unreal.Name(GROUND_TAG)])
     return actor
 
 
@@ -55,21 +58,22 @@ def place_terrain(terrain, spawn, block, cylinder, materials):
     for cell in terrain.solid_pieces():
         name = suffixed(cell["piece"], cell["look"])
         kind = "Wall" if cell["wall"] else "Plateau"
-        TerrainKit.place_piece(name, cell["centre"], yaw=cell["yaw"], base=0.0,
-                               label="%s_%d_%d" % (kind, cell["cell"][0], cell["cell"][1]),
-                               folder="AZV2/Terrain/" + kind)
+        as_ground(TerrainKit.place_piece(name, cell["centre"], yaw=cell["yaw"], base=0.0,
+                                         label="%s_%d_%d" % (kind, cell["cell"][0], cell["cell"][1]),
+                                         folder="AZV2/Terrain/" + kind))
         counts["wall" if cell["wall"] else "plateau"] += 1
         if cell["wall"]:
             half = TerrainPlan.CELL / 2
             null_nav_volume(spawn, "WallNavCap_%d_%d" % cell["cell"], (cell["centre"][0], cell["centre"][1], terrain.height),
                             (half, half, 100.0))
     for ramp in terrain.ramp_pieces():
-        TerrainKit.place_piece(suffixed(ramp["piece"], ramp["look"]), ramp["centre"], yaw=ramp["yaw"], base=0.0,
-                               label="Ramp_%d_%d" % (ramp["centre"][0], ramp["centre"][1]), folder="AZV2/Terrain/Ramps")
+        as_ground(TerrainKit.place_piece(suffixed(ramp["piece"], ramp["look"]), ramp["centre"], yaw=ramp["yaw"], base=0.0,
+                                         label="Ramp_%d_%d" % (ramp["centre"][0], ramp["centre"][1]),
+                                         folder="AZV2/Terrain/Ramps"))
         counts["ramp"] += 1
     for number, prop in enumerate(terrain.props):
-        as_obstacle(EnvKit.place_piece(prop["kit"], prop["pos"], yaw=prop["yaw"], base=0.0,
-                                       label="Cover_%02d_%s" % (number, prop["kit"]), folder="AZV2/Terrain/Cover"))
+        EnvKit.place_piece(prop["kit"], prop["pos"], yaw=prop["yaw"], base=0.0,
+                           label="Cover_%02d_%s" % (number, prop["kit"]), folder="AZV2/Terrain/Cover")
         counts["prop"] += 1
     for number, (x, y) in enumerate(terrain.hazard_plates()):
         block("HazardPlate_%03d" % number, (x, y), (HAZARD_PLATE, HAZARD_PLATE, 3), materials["MI_AZ_Hazard"],

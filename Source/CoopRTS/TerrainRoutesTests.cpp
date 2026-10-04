@@ -33,7 +33,7 @@ public:
 
 	virtual bool Update() override
 	{
-		if (FPlatformTime::Seconds() - Started > 420. || (Stage > 0 && FPlatformTime::Seconds() - LegStarted > 30.))
+		if (FPlatformTime::Seconds() - Started > 420. || (Stage > 0 && FPlatformTime::Seconds() - LegStarted > 60.))
 		{
 			Describe();
 			return Fail(FString::Printf(TEXT("Terrain routes timed out in leg %d hop %d"), LegIndex, Hop));

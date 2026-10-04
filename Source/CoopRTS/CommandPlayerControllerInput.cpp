@@ -5,6 +5,7 @@
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "GroundHeight.h"
 #include "HUD/HUDPanels.h"
 #include "InputAction.h"
 #include "InputCoreTypes.h"
@@ -138,6 +139,9 @@ bool ACommandPlayerController::CursorGround(FVector& Location) const
 	if (!GetMousePosition(X, Y) || !DeprojectScreenPositionToWorld(X, Y, Origin, Direction)
 		|| FMath::Abs(Direction.Z) < KINDA_SMALL_NUMBER)
 		return false;
+	// Height-correct pick: the first plateau, ramp or floor under the cursor; maps without tagged ground keep the z = 0 plane.
+	if (GroundHeight::Ray(*GetWorld(), Origin, Direction, Location))
+		return true;
 	// Single precision, as before the controller was split; the shared GroundPoint rule is double.
 	const float Time = -Origin.Z / Direction.Z;
 	if (Time <= 0.f || !FMath::IsFinite(Time))
