@@ -10,14 +10,22 @@ from harness.simulation_duel_validation import definitions, is_stalled
 from harness.verify import JsonObject
 
 DESIGN_SOURCE = "Docs/Design/units.md"
-# Today's runtime ids and the design's Who beats whom table are one mapping.
+# Today's runtime ids and the design's Who beats whom table are one mapping. A unit may have several prey or
+# predators; each pair is its own rule. Support units are excluded from every one-on-one prey and predator
+# rule (the table's Brawler prey "Scrambler" and the Lancer's predator "Scrambler plus any damage" are
+# judged by the composition rule below instead).
 COUNTERS = {
-    "frontline": dict(name="Brawler", prey="siege", predator="ranged"),
-    "ranged": dict(name="Rifle", prey="frontline", predator="siege"),
-    "siege": dict(name="Artillery", prey="ranged", predator="frontline"),
+    "frontline": dict(name="Brawler", prey=("siege",), predator=("ranged", "lancer")),
+    "ranged": dict(name="Rifle", prey=("frontline",), predator=("siege",)),
+    "siege": dict(name="Artillery", prey=("ranged",), predator=("frontline",)),
+    "lancer": dict(name="Lancer", prey=("frontline",), predator=()),
+    "scrambler": dict(name="Scrambler", prey=(), predator=(), support=True),
 }
+SUPPORT = frozenset(unit for unit, row in COUNTERS.items() if row.get("support"))
 MIRROR_MIN_DUELS = 40
 MIRROR_SIGNIFICANCE = 0.05
+COMPOSITION_MIN_FIGHTS = 40
+COMPOSITION_GAIN = 0.20
 
 
 def rule(name: str, passed: bool, complete: bool, **evidence: object) -> JsonObject:
@@ -58,33 +66,40 @@ def counter_rules(
 ) -> list[JsonObject]:
     rules = []
     for unit, target in COUNTERS.items():
+        if unit in SUPPORT:
+            continue
         for relation, bound in (("prey", 0.65), ("predator", 0.35)):
-            opponent = target[relation]
-            appearances = [
-                (row, team)
-                for pair, team in (((unit, opponent), 0), ((opponent, unit), 5))
-                for row in by_pair[pair]
-            ]
-            wins = sum(row["winner"] == team for row, team in appearances)
-            n = len(appearances)
-            rate = wins / n if n else None
-            passed = rate is not None and (
-                rate >= bound if relation == "prey" else rate <= bound
-            )
-            rules.append(
-                rule(
-                    f"{unit}_{relation}",
-                    passed,
-                    complete,
-                    unit=unit,
-                    opponent=opponent,
-                    wins=wins,
-                    duels=n,
-                    win_rate=rate,
-                    requirement=f"{'at least' if relation == 'prey' else 'at most'} {bound:.0%}",
+            for opponent in target[relation]:
+                appearances = [
+                    (row, team)
+                    for pair, team in (((unit, opponent), 0), ((opponent, unit), 5))
+                    for row in by_pair[pair]
+                ]
+                wins = sum(row["winner"] == team for row, team in appearances)
+                n = len(appearances)
+                rate = wins / n if n else None
+                passed = rate is not None and (
+                    rate >= bound if relation == "prey" else rate <= bound
                 )
-            )
+                rules.append(
+                    rule(
+                        f"{unit}_{relation}_{opponent}",
+                        passed,
+                        complete,
+                        unit=unit,
+                        opponent=opponent,
+                        wins=wins,
+                        duels=n,
+                        win_rate=rate,
+                        requirement=f"{'at least' if relation == 'prey' else 'at most'} {bound:.0%}",
+                    )
+                )
     return rules
+
+
+def combat_roster(roster: dict[str, JsonObject]) -> dict[str, JsonObject]:
+    """The units judged one-on-one: everything the runtime does not flag as support."""
+    return {unit: row for unit, row in roster.items() if not row.get("support")}
 
 
 def worth_rule(
@@ -94,7 +109,7 @@ def worth_rule(
 ) -> JsonObject:
     samples: dict[str, list[float]] = defaultdict(list)
     for row in telemetry:
-        if row["left"] == row["right"]:
+        if row["left"] == row["right"] or row["left"] not in roster or row["right"] not in roster:
             continue
         for side, unit in enumerate((row["left"], row["right"])):
             own = row["survivor_power"][side] / row["spent"][side]
@@ -117,14 +132,14 @@ def worth_rule(
         ratio=ratio,
         maximum=1.25,
         formula="(1 + own surviving Power / own spent - enemy surviving Power / enemy spent) / 2",
-        averaging="all nonmirror opponents, both ordered sides and seeds equally",
+        averaging="all nonmirror combat opponents, both ordered sides and seeds equally; support units excluded",
     )
 
 
 def dominance_rule(roster: dict[str, JsonObject], complete: bool) -> JsonObject:
     efficiency = {
         unit: dict(
-            hp_per_power=row["health"] / row["cost"],
+            hp_per_power=(row["health"] + row.get("shield", 0)) / row["cost"],
             dps_per_power=row["damage"] / row["attack_interval"] / row["cost"],
         )
         for unit, row in roster.items()
@@ -143,7 +158,7 @@ def dominance_rule(roster: dict[str, JsonObject], complete: bool) -> JsonObject:
         complete,
         efficiencies=efficiency,
         dominance=dominance,
-        requirement="strictly greater on BOTH HP and DPS per Power is forbidden",
+        requirement="strictly greater on BOTH HP (plus shield) and DPS per Power is forbidden; support units excluded",
     )
 
 
@@ -182,6 +197,59 @@ def mirror_rules(
     return rules
 
 
+def composition_rules(
+    roster: dict[str, JsonObject],
+    compositions: list[JsonObject],
+    complete: bool,
+) -> list[JsonObject]:
+    """Support rule: adding the support unit to its partner raises the win rate against the target by 20 points."""
+    rules = []
+    for unit, row in roster.items():
+        if not row.get("support"):
+            continue
+        mine = [fight for fight in compositions if fight["support"] == unit]
+        scenarios: dict[str, JsonObject] = {}
+        for kind in ("baseline", "with_support"):
+            fights = [fight for fight in mine if fight["scenario"] == kind]
+            wins = sum(fight["winner"] == fight["subject_team"] for fight in fights)
+            scenarios[kind] = dict(
+                wins=wins,
+                fights=len(fights),
+                win_rate=wins / len(fights) if fights else None,
+                mean_spent=statistics.mean(fight["spent"][fight["subject_team"] == 5] for fight in fights)
+                if fights
+                else None,
+            )
+        base, supported = scenarios["baseline"], scenarios["with_support"]
+        gain = (
+            supported["win_rate"] - base["win_rate"]
+            if base["win_rate"] is not None and supported["win_rate"] is not None
+            else None
+        )
+        enough = min(base["fights"], supported["fights"]) >= COMPOSITION_MIN_FIGHTS
+        passed = (
+            enough
+            and gain is not None
+            and (gain >= COMPOSITION_GAIN or math.isclose(gain, COMPOSITION_GAIN, abs_tol=1e-9))
+        )
+        rules.append(
+            rule(
+                f"{unit}_composition",
+                passed,
+                complete,
+                support=unit,
+                partner=mine[0]["partner"] if mine else None,
+                target=mine[0]["target"] if mine else None,
+                baseline=base,
+                with_support=supported,
+                gain_points=gain * 100 if gain is not None else None,
+                minimum_fights=COMPOSITION_MIN_FIGHTS,
+                requirement="the partner squad with one support unit, at the same 120 Power budget, wins at least 20 points more often against the target squad than the partner squad alone; draws stay in the denominator; both side orders",
+            )
+        )
+    return rules
+
+
 def evaluate_group(reports: list[JsonObject], complete: bool = True) -> JsonObject:
     admitted = [
         report
@@ -194,12 +262,17 @@ def evaluate_group(reports: list[JsonObject], complete: bool = True) -> JsonObje
     complete = complete and len(admitted) == len(reports)
     reports = admitted
     roster = definitions(reports[0]) if reports else {}
+    combat = combat_roster(roster)
     by_pair: dict[tuple[str, str], list[JsonObject]] = defaultdict(list)
     telemetry: list[JsonObject] = []
+    compositions: list[JsonObject] = []
     for report in reports:
         for row in report["duels"]:
             by_pair[row["left"], row["right"]].append(row)
             telemetry.append(dict(seed=report["seed"], **row))
+        compositions.extend(
+            dict(seed=report["seed"], **row) for row in report.get("compositions", [])
+        )
     matrix = [
         pair_summary(left, right, by_pair[left, right])
         for left in roster
@@ -208,24 +281,29 @@ def evaluate_group(reports: list[JsonObject], complete: bool = True) -> JsonObje
     complete = complete and bool(reports)
     rules = counter_rules(by_pair, complete)
     rules.extend(mirror_rules(roster, by_pair, complete))
+    rules.extend(composition_rules(roster, compositions, complete))
     rules.append(
         rule(
             "counter_table_coverage",
-            set(roster) == set(COUNTERS),
+            set(roster) == set(COUNTERS)
+            and {unit for unit, row in roster.items() if row.get("support")} == SUPPORT,
             complete,
             runtime_ids=sorted(roster),
             configured_ids=sorted(COUNTERS),
+            runtime_support=sorted(unit for unit, row in roster.items() if row.get("support")),
+            configured_support=sorted(SUPPORT),
             source=DESIGN_SOURCE,
         )
     )
-    worth = worth_rule(roster, telemetry, complete)
-    rules.extend((worth, dominance_rule(roster, complete)))
+    worth = worth_rule(combat, telemetry, complete)
+    rules.extend((worth, dominance_rule(combat, complete)))
     return dict(
         unit_definitions=list(roster.values()),
         matrix=matrix,
         worth=worth["worth"],
         rules=rules,
         telemetry=telemetry,
+        compositions=compositions,
         geometry=[
             dict(seed=report["seed"], **report["geometry"])
             for report in reports

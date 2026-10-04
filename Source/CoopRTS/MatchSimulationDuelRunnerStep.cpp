@@ -14,20 +14,26 @@ using namespace MatchSimulationJson;
 
 void FSimulationDuelRunner::Observe()
 {
-	Survivors[0] = Survivors[1] = 0;
+	Survivors[0] = Survivors[1] = SurvivorPower[0] = SurvivorPower[1] = 0;
 	for (FMember& Member : Members)
 	{
 		if (AArmyUnit* Unit = Member.Unit.Get())
 		{
 			const int32 Health = Unit->GetHealth();
+			const int32 Shield = Unit->GetShield();
 			const int32 RemovedHealth = FMath::Max(0, Member.Health - Health);
+			const int32 RemovedShield = FMath::Max(0, Member.Shield - Shield);
 			Damage[1 - Member.Side] += RemovedHealth;
-			if (RemovedHealth > 0)
+			ShieldDamage[1 - Member.Side] += RemovedShield;
+			// Shield loss is combat: a fight whose only effect so far is stripped shields is not a stall.
+			if (RemovedHealth > 0 || RemovedShield > 0)
 				LastDamageElapsed = Elapsed;
 			Attacks[Member.Side] += Unit->AttackCount - Member.Attacks;
 			Member.Health = Health;
+			Member.Shield = Shield;
 			Member.Attacks = Unit->AttackCount;
 			Survivors[Member.Side] += Unit->IsAlive() ? 1 : 0;
+			SurvivorPower[Member.Side] += Unit->IsAlive() ? Member.Cost : 0;
 		}
 		else if (Member.Health > 0)
 			Error = TEXT("Live duel member disappeared without an observed combat death");
@@ -43,13 +49,14 @@ void FSimulationDuelRunner::UpdateRow() const
 	static const FString SurvivorsField(TEXT("survivors"));
 	static const FString PowerField(TEXT("survivor_power"));
 	static const FString DamageField(TEXT("damage_dealt"));
+	static const FString ShieldDamageField(TEXT("shield_damage_dealt"));
 	static const FString AttacksField(TEXT("attacks"));
 	static const FString DurationField(TEXT("duration"));
 	static const FString NoDamageField(TEXT("no_damage_seconds"));
 	UpdateNumbers(*Current, SurvivorsField, Survivors[0], Survivors[1]);
-	UpdateNumbers(*Current, PowerField,
-		Survivors[0] * (Spent[0] / Initial[0]), Survivors[1] * (Spent[1] / Initial[1]));
+	UpdateNumbers(*Current, PowerField, SurvivorPower[0], SurvivorPower[1]);
 	UpdateNumbers(*Current, DamageField, Damage[0], Damage[1]);
+	UpdateNumbers(*Current, ShieldDamageField, ShieldDamage[0], ShieldDamage[1]);
 	UpdateNumbers(*Current, AttacksField, Attacks[0], Attacks[1]);
 	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(DurationField))->Set(Elapsed);
 	StaticCastSharedPtr<FDuelNumber>(Current->GetField<EJson::Number>(NoDamageField))->Set(LastDamageElapsed < 0. ? 0. : Elapsed - LastDamageElapsed);
@@ -100,9 +107,13 @@ void FSimulationDuelRunner::FailStalled()
 	Report->RemoveField(TEXT("current_duel"));
 	Report->SetStringField(TEXT("status"), TEXT("failed"));
 	Report->SetStringField(TEXT("outcome"), TEXT("stalled"));
-	Error = FString::Printf(TEXT("Invalid stalled duel %s vs %s: no effective HP removed for %.3f game seconds (timeout %.3f) while both sides live"),
-		*Current->GetStringField(TEXT("left")), *Current->GetStringField(TEXT("right")),
-		Elapsed - LastDamageElapsed, StallTimeout);
+	const FFight& Fight = Fights[FightIndex];
+	const FString Label = Fight.IsComposition()
+		? FString::Printf(TEXT("%s composition of %s with %s against %s"), *Fight.Kind, *Fight.Support.ToString(),
+			*Fight.Partner.ToString(), *Fight.Target.ToString())
+		: FString::Printf(TEXT("%s vs %s"), *Current->GetStringField(TEXT("left")), *Current->GetStringField(TEXT("right")));
+	Error = FString::Printf(TEXT("Invalid stalled duel %s: no effective HP or shield removed for %.3f game seconds (timeout %.3f) while both sides live"),
+		*Label, Elapsed - LastDamageElapsed, StallTimeout);
 	Report->SetStringField(TEXT("error"), Error);
 	ClearPair();
 	RestoreHeadquarters();
@@ -116,10 +127,10 @@ void FSimulationDuelRunner::CompletePair(bool bWiped)
 		: INDEX_NONE;
 	if (Winner != INDEX_NONE)
 		Current->SetNumberField(TEXT("winner"), Winner);
-	Append(*Report, TEXT("duels"), Current.ToSharedRef());
+	Append(*Report, Fights[FightIndex].IsComposition() ? TEXT("compositions") : TEXT("duels"), Current.ToSharedRef());
 	ClearPair();
-	++PairIndex;
-	if (PairIndex == Definitions.Num() * Definitions.Num())
+	++FightIndex;
+	if (FightIndex == Fights.Num())
 	{
 		bComplete = true;
 		Report->RemoveField(TEXT("current_duel"));

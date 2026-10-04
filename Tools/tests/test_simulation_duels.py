@@ -12,44 +12,25 @@ from harness.simulation_validation import validate_report
 from harness.verify import JsonObject
 import pytest
 from simulation_duel_support import (
+    counter_rule_names,
+    legacy_telemetry,
     persist,
     refresh_duration,
+    rule_rows,
     set_outcome,
     stalled_telemetry,
     telemetry,
+    threshold_reports,
 )
 from x.content.simulation import configure
-
-
-def rule_rows(group: JsonObject) -> dict[str, JsonObject]:
-    return {row["rule"]: row for row in group["rules"]}
-
-
-def threshold_reports() -> list[JsonObject]:
-    reports = []
-    for seed in range(20):
-        _, report = telemetry(seed)
-        for row in report["duels"]:
-            if row["left"] == row["right"]:
-                winner = 0 if seed < 9 else 5
-            else:
-                prey_on_left = COUNTERS[row["left"]]["prey"] == row["right"]
-                winner = 0 if prey_on_left == (seed < 13) else 5
-            set_outcome(report, row, winner)
-        refresh_duration(report)
-        reports.append(report)
-    return reports
 
 
 def test_counter_inclusive_thresholds() -> None:
     reports = threshold_reports()
     rules = rule_rows(evaluate_group(reports))
-    for unit in COUNTERS:
-        assert rules[f"{unit}_prey"]["win_rate"] == pytest.approx(0.65)
-        assert rules[f"{unit}_predator"]["win_rate"] == pytest.approx(0.35)
-        assert all(
-            rules[f"{unit}_{name}"]["status"] == "pass" for name in ("prey", "predator")
-        )
+    for name, _, relation in counter_rule_names():
+        assert rules[name]["win_rate"] == pytest.approx(0.65 if relation == "prey" else 0.35)
+        assert rules[name]["status"] == "pass"
     changed = deepcopy(reports)
     row = next(
         row
@@ -58,8 +39,8 @@ def test_counter_inclusive_thresholds() -> None:
     )
     set_outcome(changed[0], row, 5)
     rules = rule_rows(evaluate_group(changed))
-    assert rules["frontline_prey"]["status"] == "fail"
-    assert rules["siege_predator"]["status"] == "fail"
+    assert rules["frontline_prey_siege"]["status"] == "fail"
+    assert rules["siege_predator_frontline"]["status"] == "fail"
 
 
 def mirror_reports(total: int, left_wins: int, draws: int = 0) -> list[JsonObject]:
@@ -117,14 +98,14 @@ def test_draws_are_never_half_wins_or_removed_from_denominators() -> None:
     )
     set_outcome(reports[0], row, None)
     rules = rule_rows(evaluate_group(reports))
-    assert rules["frontline_prey"]["wins"] == 25
-    assert rules["frontline_prey"]["duels"] == 40
-    assert rules["frontline_prey"]["win_rate"] == 0.625
-    assert rules["frontline_prey"]["status"] == "fail"
+    assert rules["frontline_prey_siege"]["wins"] == 25
+    assert rules["frontline_prey_siege"]["duels"] == 40
+    assert rules["frontline_prey_siege"]["win_rate"] == 0.625
+    assert rules["frontline_prey_siege"]["status"] == "fail"
 
 
 def test_worth_normalizes_each_sides_actual_unequal_spend() -> None:
-    job, report = telemetry()
+    job, report = legacy_telemetry()
     report["unit_definitions"][1]["cost"] = 35
     for row in report["duels"]:
         for side, unit in enumerate((row["left"], row["right"])):
@@ -141,7 +122,7 @@ def test_worth_normalizes_each_sides_actual_unequal_spend() -> None:
     row["survivor_power"][0] = 60
     row["damage_dealt"][1] = 300
     refresh_duration(report)
-    assert report["duration"] == 540 > job["time_cap"]
+    assert report["duration"] == sum(row["duration"] for row in report["duels"]) > job["time_cap"]
     validate_report(report, job)
     group = evaluate_group([report])
     assert group["worth"] == pytest.approx(
@@ -157,7 +138,7 @@ def test_worth_normalizes_each_sides_actual_unequal_spend() -> None:
 
 
 def test_worth_ratio_includes_exact_one_point_two_five_boundary() -> None:
-    reports = [telemetry(seed)[1] for seed in range(3)]
+    reports = [legacy_telemetry(seed)[1] for seed in range(3)]
     for report in reports:
         for row in report["duels"]:
             set_outcome(report, row, None)
@@ -180,7 +161,7 @@ def test_worth_ratio_includes_exact_one_point_two_five_boundary() -> None:
     partial["damage_dealt"][1] = 200
     for report in reports:
         refresh_duration(report)
-        validate_report(report, telemetry(report["seed"])[0])
+        validate_report(report, legacy_telemetry(report["seed"])[0])
     worth = rule_rows(evaluate_group(reports))["roster_worth_ratio"]
     assert worth["ratio"] == pytest.approx(1.25)
     assert worth["status"] == "pass"
@@ -221,6 +202,7 @@ def test_dominance_requires_strictly_greater_hp_and_dps_per_power() -> None:
     assert dominance["dominance"] == [
         dict(leader="frontline", dominated="ranged"),
         dict(leader="frontline", dominated="siege"),
+        dict(leader="frontline", dominated="lancer"),
     ]
 
 
@@ -331,13 +313,13 @@ def test_report_artifact_exposes_runtime_costs_and_rules_without_balance_exit_fa
     assert summary["runtime_status"] == "pass"
     group = summary["groups"][0]
     assert group["balance_status"] == "fail"  # One mirror observation is not 50%.
-    assert len(group["matrix"]) == 9
+    assert len(group["matrix"]) == 25
     assert group["telemetry"][0]["spent"] == [120, 120]
     assert group["unit_definitions"][0]["cost"] == 20
     assert group["telemetry"][0]["spawn_first_team"] == 0
     assert all(row["spawn_first_counts"] == [1, 0] for row in group["matrix"])
     assert all(not row["spawn_order_balanced"] for row in group["matrix"])
-    assert summary["support_compositions"] == "out_of_scope"
+    assert summary["support_compositions"] == "measured"
 
 
 @pytest.mark.parametrize("unattempted", [False, True])

@@ -15,78 +15,7 @@ class AArmyGroup;
 class AHeadquarters;
 class AActor;
 
-// Shared authoritative encounter runner for standalone measurement and worlds.
-// Setup lives in MatchSimulationDuelRunner.cpp, per-tick stepping in MatchSimulationDuelRunnerStep.cpp.
-class COOPRTS_API FSimulationDuelRunner
-{
-public:
-	FSimulationDuelRunner();
-	~FSimulationDuelRunner();
-	FSimulationDuelRunner(const FSimulationDuelRunner&) = delete;
-	FSimulationDuelRunner& operator=(const FSimulationDuelRunner&) = delete;
-	bool Start(ACommandGameState& State, int32 Seed);
-	void Tick(float DeltaTime, float TimeCap);
-	bool IsComplete() const { return bComplete; }
-	const FString& GetError() const { return Error; }
-	TSharedRef<FJsonObject> GetReport() const;
-
-private:
-	struct FMember
-	{
-		TWeakObjectPtr<AArmyUnit> Unit;
-		int32 Side = 0;
-		int32 Health = 0;
-		uint32 Attacks = 0;
-	};
-	struct FPausedActor
-	{
-		TWeakObjectPtr<AActor> Actor;
-		bool bTickEnabled = false;
-	};
-	bool FindWallets(ACommandGameState& InState);
-	bool CollectDefinitions(ACommandGameState& InState, TArray<TSharedPtr<FJsonValue>>& Rows);
-	void IsolateWorld(ACommandGameState& InState);
-	bool FindGround();
-	void RecordGeometry();
-	bool StartPair();
-	bool SpawnSide(int32 Side, int32 DefinitionIndex, const FVector& Forward, const FVector& Across,
-		TArray<TSharedPtr<FJsonValue>>& Spawns);
-	bool IssueAttackOrders();
-	void PublishPair(TArray<TSharedPtr<FJsonValue>> Spawns[2]);
-	void Observe();
-	void UpdateRow() const;
-	void FailStalled();
-	void CompletePair(bool bWiped);
-	void ClearPair();
-	void PauseActor(AActor& Actor);
-	void RestoreHeadquarters();
-	TWeakObjectPtr<ACommandGameState> State;
-	TWeakObjectPtr<ACommandPlayerState> Wallets[2];
-	TWeakObjectPtr<AHeadquarters> Headquarters[2];
-	bool HQCollision[2] = {};
-	TArray<int32> Definitions;
-	TArray<TWeakObjectPtr<AArmyGroup>> Groups;
-	TArray<FMember> Members;
-	TArray<FPausedActor> PausedActors;
-	TSharedRef<FJsonObject> Report;
-	TSharedPtr<FJsonObject> Current;
-	FRandomStream Random;
-	FVector Center = FVector::ZeroVector;
-	int32 PairIndex = 0;
-	int32 SpawnFirstSide = 0;
-	int32 Initial[2] = {};
-	int32 Spent[2] = {};
-	int32 Survivors[2] = {};
-	int64 Damage[2] = {};
-	int64 Attacks[2] = {};
-	double Elapsed = 0.;
-	double LastDamageElapsed = -1.; // Unarmed until the first attack or HP loss.
-	double StallTimeout = 30.;
-	double TotalElapsed = 0.;
-	bool bStarted = false;
-	bool bComplete = false;
-	FString Error;
-};
+#include "MatchSimulationDuelRunner.h"
 
 class UWorld;
 

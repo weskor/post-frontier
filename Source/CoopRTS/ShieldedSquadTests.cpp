@@ -110,8 +110,8 @@ bool FSquadScenario::Produce(const FCase& Case)
 	int32 Joined = 0, Travelling = 0;
 	Barracks->GetForceCounts(Joined, Travelling);
 	return Check(Joined + Travelling == Definition->Capacity && Definition->Capacity == 3
-				&& Commander->Resources == BeforeUnits - 3 * Definition->UnitCost,
-			TEXT("Production fills exactly one squad of 3 and charges 3 unit costs, then holds at capacity"))
+				   && Commander->Resources == BeforeUnits - 3 * Definition->UnitCost,
+			   TEXT("Production fills exactly one squad of 3 and charges 3 unit costs, then holds at capacity"))
 		&& CheckSquad(Case, *Definition);
 }
 

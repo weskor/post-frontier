@@ -45,6 +45,8 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	WorldAttenuation = Defaults->WorldAttenuation;
 	AmbienceWave = Defaults->AmbienceWave;
 	WorldReverb = Defaults->WorldReverb;
+	ExpectedCues = Defaults->ExpectedCues;
+	ExpectedWaves = Defaults->ExpectedWaves + 1; // plus the ambience loop
 	int32 LoadedWaves = 0;
 	for (TPair<int32, FCoopAudioVariants>& Cue : Sounds)
 	{
@@ -62,10 +64,10 @@ void UCoopAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	const bool bReverbLoaded = IsValid(WorldReverb.Get());
 	LoadedWaves += bAmbienceLoaded ? 1 : 0;
 	UE_LOG(LogTemp, Display,
-		TEXT("CoopAudio library initialized: cues=%d/42 waves=%d/111 announcer=%d/%d master_class=%d master_mix=%d world_attenuation=%d ambience=%d world_reverb=%d"),
-		Sounds.Num(), LoadedWaves, AnnouncerSounds.Num(), AnnouncerPolicy::Definitions().Num(),
+		TEXT("CoopAudio library initialized: cues=%d/%d waves=%d/%d announcer=%d/%d master_class=%d master_mix=%d world_attenuation=%d ambience=%d world_reverb=%d"),
+		Sounds.Num(), ExpectedCues, LoadedWaves, ExpectedWaves, AnnouncerSounds.Num(), AnnouncerPolicy::Definitions().Num(),
 		bMasterClassLoaded, bMasterMixLoaded, bAttenuationLoaded, bAmbienceLoaded, bReverbLoaded);
-	if (Sounds.Num() != 42 || LoadedWaves != 111 || AnnouncerSounds.Num() != AnnouncerPolicy::Definitions().Num()
+	if (Sounds.Num() != ExpectedCues || LoadedWaves != ExpectedWaves || AnnouncerSounds.Num() != AnnouncerPolicy::Definitions().Num()
 		|| !bMasterClassLoaded || !bMasterMixLoaded || !bAttenuationLoaded
 		|| !bAmbienceLoaded || !bReverbLoaded)
 	{

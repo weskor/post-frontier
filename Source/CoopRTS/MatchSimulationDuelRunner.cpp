@@ -22,14 +22,10 @@
 #include "NavigationSystem.h"
 
 using namespace MatchSimulationJson;
+using namespace SimulationDuel;
 
 namespace
 {
-constexpr int32 DuelBudget = 120;
-constexpr float DuelClearance = 1200.f;
-constexpr float DuelSpacing = 160.f;
-constexpr float DuelJitter = 40.f;
-
 bool ValidDefinition(const UArmyUnitDefinition& Definition, const TSet<FName>& Ids)
 {
 	return !(Definition.Id.IsNone() || Ids.Contains(Definition.Id) || Definition.UnitCost <= 0
@@ -48,6 +44,8 @@ TSharedRef<FJsonValueObject> DefinitionRow(const UArmyUnitDefinition& Definition
 	Row->SetNumberField(TEXT("damage"), Definition.AttackDamage);
 	Row->SetNumberField(TEXT("attack_interval"), Definition.Interval);
 	Row->SetNumberField(TEXT("range"), Definition.Range);
+	Row->SetNumberField(TEXT("shield"), Definition.MaxShield);
+	Row->SetBoolField(TEXT("support"), Definition.Role == EUnitRole::Support);
 	return MakeShared<FJsonValueObject>(Row);
 }
 
@@ -98,6 +96,7 @@ FSimulationDuelRunner::FSimulationDuelRunner()
 	Report->SetBoolField(TEXT("configuration_fees_included"), false);
 	Report->SetArrayField(TEXT("unit_definitions"), {});
 	Report->SetArrayField(TEXT("duels"), {});
+	Report->SetArrayField(TEXT("compositions"), {});
 }
 
 FSimulationDuelRunner::~FSimulationDuelRunner()
@@ -122,6 +121,7 @@ bool FSimulationDuelRunner::Start(ACommandGameState& InState, int32 Seed)
 	TArray<TSharedPtr<FJsonValue>> Rows;
 	if (!FindWallets(InState) || !CollectDefinitions(InState, Rows))
 		return false;
+	BuildFights(InState);
 	bStarted = true;
 	Random.Initialize(Seed);
 	SpawnFirstSide = Seed % 2 == 0 ? 1 : 0;
@@ -267,80 +267,6 @@ void FSimulationDuelRunner::RecordGeometry()
 	Report->SetObjectField(TEXT("geometry"), Geometry);
 }
 
-bool FSimulationDuelRunner::StartPair()
-{
-	Elapsed = 0.;
-	LastDamageElapsed = -1.;
-	Current = MakeShared<FJsonObject>();
-	const int32 Count = Definitions.Num();
-	const int32 Indices[2] = { Definitions[PairIndex / Count], Definitions[PairIndex % Count] };
-	StallTimeout = FMath::Max(30., 10. * FMath::Max(State->Content->Unit(Indices[0])->Interval, State->Content->Unit(Indices[1])->Interval));
-	Current->SetNumberField(TEXT("stall_timeout_seconds"), StallTimeout);
-	Current->SetField(TEXT("no_damage_seconds"), MakeShared<FDuelNumber>(0.));
-	Current->SetNumberField(TEXT("spawn_first_team"), SpawnFirstSide == 0 ? 0 : 5);
-	TArray<TSharedPtr<FJsonValue>> Spawns[2];
-	const float Angle = Random.FRandRange(0.f, 2.f * PI);
-	const FVector Forward(FMath::Cos(Angle), FMath::Sin(Angle), 0.f);
-	const FVector Across(-Forward.Y, Forward.X, 0.f);
-	Current->SetNumberField(TEXT("spawn_angle_radians"), Angle);
-	for (int32 Order = 0; Order < 2; ++Order)
-	{
-		const int32 Side = (SpawnFirstSide + Order) % 2;
-		if (!SpawnSide(Side, Indices[Side], Forward, Across, Spawns[Side]))
-			return false;
-	}
-	if (!IssueAttackOrders())
-		return false;
-	PublishPair(Spawns);
-	return true;
-}
-
-bool FSimulationDuelRunner::SpawnSide(int32 Side, int32 DefinitionIndex, const FVector& Forward, const FVector& Across,
-	TArray<TSharedPtr<FJsonValue>>& Spawns)
-{
-	const UArmyUnitDefinition* Definition = State->Content->Unit(DefinitionIndex);
-	Initial[Side] = DuelBudget / Definition->UnitCost;
-	Spent[Side] = Initial[Side] * Definition->UnitCost;
-	Survivors[Side] = Initial[Side];
-	Damage[Side] = Attacks[Side] = 0;
-	Current->SetStringField(Side == 0 ? TEXT("left") : TEXT("right"), Definition->Id.ToString());
-	const int32 Columns = FMath::CeilToInt(FMath::Sqrt(static_cast<float>(Initial[Side])));
-	const int32 Rows = FMath::DivideAndRoundUp(Initial[Side], Columns);
-	AArmyGroup* Group = nullptr;
-	for (int32 Index = 0; Index < Initial[Side]; ++Index)
-	{
-		const float Sign = Side == 0 ? -1.f : 1.f;
-		const float X = Sign * (500.f + ((Index % Columns) - (Columns - 1) * .5f) * DuelSpacing);
-		const float Y = ((Index / Columns) - (Rows - 1) * .5f) * DuelSpacing;
-		const FVector Spawn = Center + Forward * (X + Random.FRandRange(-DuelJitter, DuelJitter))
-			+ Across * (Y + Random.FRandRange(-DuelJitter, DuelJitter));
-		// Six-slot legacy formations are separate groups, never a squad cap.
-		if (Index % 6 == 0)
-		{
-			const FTransform Transform(Spawn);
-			Group = State->GetWorld()->SpawnActorDeferred<AArmyGroup>(AArmyGroup::StaticClass(), Transform,
-				Wallets[Side]->GetOwner(), nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-			if (!Group)
-			{
-				Error = TEXT("Could not spawn duel group");
-				return false;
-			}
-			Group->Initialize({ Side == 0 ? 0 : 5, Wallets[Side].Get(), Index / 6, nullptr, Spawn });
-			Group->FinishSpawning(Transform);
-			Groups.Add(Group);
-		}
-		AArmyUnit* Unit = Group->SpawnMember(DefinitionIndex, Spawn, Index % 6);
-		if (!Unit)
-		{
-			Error = TEXT("Could not spawn a joined duel member on verified ground");
-			return false;
-		}
-		Members.Add({ Unit, Side, Unit->GetHealth(), Unit->AttackCount });
-		Spawns.Add(MakeShared<FJsonValueArray>(Position(Unit->GetActorLocation())));
-	}
-	return true;
-}
-
 bool FSimulationDuelRunner::IssueAttackOrders()
 {
 	const AMapRegion* TargetRegion = State->FindRegionAt(Center);
@@ -362,6 +288,7 @@ void FSimulationDuelRunner::PublishPair(TArray<TSharedPtr<FJsonValue>> Spawns[2]
 	Current->SetArrayField(TEXT("survivors"), Numbers(Survivors[0], Survivors[1]));
 	Current->SetArrayField(TEXT("survivor_power"), Numbers(Spent[0], Spent[1]));
 	Current->SetArrayField(TEXT("damage_dealt"), Numbers(0, 0));
+	Current->SetArrayField(TEXT("shield_damage_dealt"), Numbers(0, 0));
 	Current->SetArrayField(TEXT("attacks"), Numbers(0, 0));
 	Current->SetArrayField(TEXT("spawn_positions_left"), MoveTemp(Spawns[0]));
 	Current->SetArrayField(TEXT("spawn_positions_right"), MoveTemp(Spawns[1]));

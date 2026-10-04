@@ -31,20 +31,22 @@ def report_group(lines: list[str], group: JsonObject) -> None:
         "",
         "### Runtime definitions",
         "",
-        "| Id / design name | Unit cost | Capacity | HP | Damage | Interval | Range |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Id / design name | Unit cost | Capacity | HP | Shield | Damage | Interval | Range | Role |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for row in group["unit_definitions"]:
         name = COUNTERS.get(row["id"], {}).get("name", "unmapped")
         lines.append(
             f"| {row['id']} / {name} | {row['cost']:g} | {row['capacity']:g} | "
-            f"{row['health']:g} | {row['damage']:g} | {row['attack_interval']:g} | {row['range']:g} |"
+            f"{row['health']:g} | {row.get('shield', 0):g} | {row['damage']:g} | {row['attack_interval']:g} | "
+            f"{row['range']:g} | {'support' if row.get('support') else 'combat'} |"
         )
     lines += ["", "### Runtime geometry", ""]
     for geometry in group["geometry"]:
         lines.append(f"- `{json.dumps(geometry, sort_keys=True)}`")
     report_matrix(lines, group)
     report_rules(lines, group)
+    report_compositions(lines, group)
     report_combat(lines, group)
 
 
@@ -80,7 +82,10 @@ def report_rules(lines: list[str], group: JsonObject) -> None:
         "",
         "### Acceptance rules",
         "",
-        "Prey/predator rates combine the unit's two ordered sides against that opponent. "
+        "Prey/predator rates combine the unit's two ordered sides against that opponent; a unit with several prey "
+        "or predators has one rule per opponent, and support units have none. Worth and dominance cover combat "
+        "units only, with durability HP plus shield. The composition rule compares the partner squad with and "
+        "without the support unit against the same target at the same budget. "
         "Mirror rules require at least 40 fights and a two-sided exact binomial p-value "
         "of at least 0.05 for each side against 50%; the matrix shows mirror side bias. "
         "Missing requested seeds invalidate all rule passes.",
@@ -100,16 +105,43 @@ def report_combat(lines: list[str], group: JsonObject) -> None:
         "",
         "### Per-seed combat evidence",
         "",
-        "Pairs list [team 0, team 5]. Spent excludes configuration fees; damage is effective HP removed.",
+        "Pairs list [team 0, team 5]. Spent excludes configuration fees; damage is effective HP removed; "
+        "shield damage is shield points removed from the opponent, by any source including the pulse.",
         "",
-        "| Seed | Left / right | Spawn first team | Spent | Initial units | Survivors | Survivor Power | Damage | Attacks | Seconds | Outcome / winner |",
-        "| ---: | --- | ---: | --- | --- | --- | --- | --- | --- | ---: | --- |",
+        "| Seed | Left / right | Spawn first team | Spent | Initial units | Survivors | Survivor Power | Damage | Shield damage | Attacks | Seconds | Outcome / winner |",
+        "| ---: | --- | ---: | --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
     ]
     for row in group["telemetry"]:
         lines.append(
             f"| {row['seed']} | {row['left']} / {row['right']} | {row['spawn_first_team']} | {row['spent']} | "
             f"{row['initial_units']} | {row['survivors']} | {row['survivor_power']} | "
-            f"{row['damage_dealt']} | {row['attacks']} | {row['duration']:g} | {row['outcome']} / {row['winner']} |"
+            f"{row['damage_dealt']} | {row.get('shield_damage_dealt', [0, 0])} | {row['attacks']} | "
+            f"{row['duration']:g} | {row['outcome']} / {row['winner']} |"
+        )
+
+
+def report_compositions(lines: list[str], group: JsonObject) -> None:
+    if not group["compositions"]:
+        return
+    lines += [
+        "",
+        "### Support composition fights",
+        "",
+        "Subject = the squad with or without the support unit; pairs list [team 0, team 5].",
+        "",
+        "| Seed | Scenario | Subject team | Left units | Right units | Spent | Survivors | Survivor Power | Damage | Shield damage | Attacks | Seconds | Outcome / winner |",
+        "| ---: | --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
+    ]
+    for row in group["compositions"]:
+        units = [
+            "+".join(f"{part['count']}×{part['id']}" for part in row[side])
+            for side in ("left_units", "right_units")
+        ]
+        lines.append(
+            f"| {row['seed']} | {row['scenario']} ({row['support']}+{row['partner']} vs {row['target']}) | "
+            f"{row['subject_team']} | {units[0]} | {units[1]} | {row['spent']} | {row['survivors']} | "
+            f"{row['survivor_power']} | {row['damage_dealt']} | {row['shield_damage_dealt']} | {row['attacks']} | "
+            f"{row['duration']:g} | {row['outcome']} / {row['winner']} |"
         )
 
 
@@ -171,9 +203,9 @@ def report_header(complete: int, failed: int, missing: int) -> list[str]:
         "",
         f"Design source: `{DESIGN_SOURCE}` — Who beats whom and Acceptance check.",
         f"Budget: **{DUEL_BUDGET} Power per side**, whole units; configuration fees excluded.",
-        "Support composition scenarios are explicitly out of scope, not a passing support rule.",
+        "Support units are judged by the composition rule (+20 points with the support unit at equal budget), never one-on-one.",
         "Worth = (1 + own surviving Power / own spent - enemy surviving Power / enemy spent) / 2; "
-        "unit worth is the mean across nonmirror opponents, ordered sides and seeds. Maximum/minimum must be ≤1.25.",
+        "unit worth is the mean across nonmirror combat opponents (support excluded), ordered sides and seeds. Maximum/minimum must be ≤1.25.",
         "Maps are summarized separately, never pooled. Seed variation is not proof of independent statistical samples.",
         "Balance failures are measurements and do not invalidate successful engine runs. "
         "Failed/nonzero-exit/incomplete telemetry never counts as a draw. "
@@ -230,7 +262,7 @@ def summarize_duels(run: Path, manifest: JsonObject) -> bool:
             mode="duel",
             source=DESIGN_SOURCE,
             runtime_status="pass" if success else "fail",
-            support_compositions="out_of_scope",
+            support_compositions="measured",
             groups=summaries,
             failures=failed,
             missing_seed_processes=missing,

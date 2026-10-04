@@ -56,6 +56,8 @@ void UCoopAudioSubsystem::LoadCue(int32 Team, int32 Role, const TCHAR* Folder, E
 {
 	const TCHAR* Faction = Team == 5 ? TEXT("Machine") : TEXT("Human");
 	FCoopAudioVariants& Cue = Sounds.Add(CueKey(Event, Team, Role));
+	++ExpectedCues;
+	ExpectedWaves += Count;
 	Cue.Waves.Reserve(Count);
 	for (int32 Index = 1; Index <= Count; ++Index)
 	{

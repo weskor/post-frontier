@@ -116,6 +116,9 @@ private:
 	FDelegateHandle TearDownHandle;
 	TWeakObjectPtr<UWorld> AmbienceWorld;
 	bool bAmbienceStopping = false;
+	// Counts the cue specs asked for; the library is complete when everything asked for loaded.
+	int32 ExpectedCues = 0;
+	int32 ExpectedWaves = 0;
 
 	static int32 CueKey(ECoopAudioEvent Event, int32 Team, int32 Role);
 	void LoadMixAssets();
