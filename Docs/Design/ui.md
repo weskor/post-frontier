@@ -133,7 +133,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Log:** the team gift log ([economy.md](economy.md)) in the panel, three rows with 28 px ▲ / ▼ buttons stacked beside them, so scrolling never needs the wheel. An accepted gift also posts the feed row `Commander 2 gifted 100 Power to Commander 1` (gold stripe, 8 s, click opens the panel), and the recipient's top-bar figure flashes gold with `+100 from C2` for 3 s.
 - **Team rows in the feed:** gifts, Fortify casts and supply cuts rank below objective rows and above ping rows, and stay out of Space history.
 - **Controller [Later]:** focus order rows → toggle → presets → stepper → Send; the D-pad moves, A activates.
-- **Why:** no drag, hover or typing; three teammates need about 285 px, inside the 296 px column at 1280×720.
+- **Why:** no drag, hover or typing; three teammates fit within the 296 px column at 1280×720.
 
 ### 4. Fortify [New]
 
@@ -163,7 +163,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 ### 7. Region trait icons [New]
 
-- **World:** a 20 px glyph left of the name on the label plate, and the trait word in 9 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
+- **World:** a 20 px glyph left of the name on the label plate, and the trait word in 9.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9.5 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
 - **Stack above a region anchor,** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
 - **Minimap:** a 10 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node. 10 px is under STYLE.md's 20 px glyph rule because the minimap is 144 px wide; the world plate carries the full glyph and word, and if art cannot make the four silhouettes readable at 10 px the minimap falls back to one-letter pips (`H`, `C`, `O`, `!`).
 - **War-table zoom:** the plate collapses to a 24 px glyph plus the name.
