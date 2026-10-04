@@ -189,6 +189,7 @@ int32 RaidRegion(const JevPlanner::FWorld& World)
 		if (Nearer(World, Hops, Index, Any))
 			Any = Index;
 	}
-	return Rigs != INDEX_NONE ? Rigs : Any != INDEX_NONE ? Any : World.EnemyHome;
+	return Rigs != INDEX_NONE ? Rigs : Any != INDEX_NONE ? Any
+														 : World.EnemyHome;
 }
 }

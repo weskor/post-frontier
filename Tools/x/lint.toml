@@ -134,7 +134,7 @@ identifiers = [
     "FSimulationSettings", "FSimulationDuelRunner", "FMatchSimulation", "CoopRTSMatchSimulation", "bVerificationIncomePaused",
     "ArmyTestSetup", "IMPLEMENT_SIMPLE_AUTOMATION_TEST", "IMPLEMENT_COMPLEX_AUTOMATION_TEST",
     "CoopRTSNetworkVerification", "VerifySession", "VerifySteamSession",
-    "bVerifyPendingRejection", "FindActionScreenPosition", "SpawnUnits", "SpawnMember", "InitialUnitCount",
+    "bVerifyPendingRejection", "FindActionScreenPosition", "SpawnUnits", "InitialUnitCount",
 ]
 flags = [
     "autopilot", "SimDuel", "SimSeed", "SimHumanBaseline", "SimJevBaseline", "SimNormalRate", "SimRichRate",

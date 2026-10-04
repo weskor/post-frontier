@@ -124,8 +124,7 @@ private:
 		switch (Stage)
 		{
 		case 1:
-			if (!Check(Release().Current == 0 && Release().Next == 1, *FString::Printf(TEXT("At 80 s v1.0 is in force and v1.1 next (current %d next %d)"),
-					Release().Current, Release().Next))
+			if (!Check(Release().Current == 0 && Release().Next == 1, *FString::Printf(TEXT("At 80 s v1.0 is in force and v1.1 next (current %d next %d)"), Release().Current, Release().Next))
 				|| !Check(Release().NextAt == 120.f && !Release().bNextShown,
 					*FString::Printf(TEXT("v1.1 is due at 120 s and is not on the timeline at 80 s (at %.1f, shown %d, match %.1f)"),
 						Release().NextAt, Release().bNextShown, Kit.Planner->GetMatchSeconds()))

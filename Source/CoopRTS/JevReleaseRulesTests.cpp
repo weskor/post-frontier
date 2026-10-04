@@ -65,9 +65,7 @@ bool FJevReleaseScheduleTest::RunTest(const FString&)
 	TestFalse(TEXT("An overrun release is hidden until 30 s ahead"), TimelineVisible(7, 689.f));
 	TestTrue(TEXT("An overrun release shows 30 s ahead"), TimelineVisible(7, 690.f));
 	TestFalse(TEXT("No release means nothing to show"), TimelineVisible(INDEX_NONE, 100.f));
-	TestTrue(TEXT("Versions follow the table"), VersionOf(0) == EVersion::V10 && VersionOf(1) == EVersion::V11
-			&& VersionOf(2) == EVersion::V12 && VersionOf(3) == EVersion::V20 && VersionOf(4) == EVersion::V21
-			&& VersionOf(5) == EVersion::Overrun && VersionOf(40) == EVersion::Overrun);
+	TestTrue(TEXT("Versions follow the table"), VersionOf(0) == EVersion::V10 && VersionOf(1) == EVersion::V11 && VersionOf(2) == EVersion::V12 && VersionOf(3) == EVersion::V20 && VersionOf(4) == EVersion::V21 && VersionOf(5) == EVersion::Overrun && VersionOf(40) == EVersion::Overrun);
 	return true;
 }
 
