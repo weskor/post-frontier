@@ -110,7 +110,7 @@ void FSimulationDuelRunner::FailStalled()
 	const FFight& Fight = Fights[FightIndex];
 	const FString Label = Fight.IsComposition()
 		? FString::Printf(TEXT("%s composition of %s with %s against %s"), *Fight.Kind, *Fight.Support.ToString(),
-			*Fight.Partner.ToString(), *Fight.Target.ToString())
+			  *Fight.Partner.ToString(), *Fight.Target.ToString())
 		: FString::Printf(TEXT("%s vs %s"), *Current->GetStringField(TEXT("left")), *Current->GetStringField(TEXT("right")));
 	Error = FString::Printf(TEXT("Invalid stalled duel %s: no effective HP or shield removed for %.3f game seconds (timeout %.3f) while both sides live"),
 		*Label, Elapsed - LastDamageElapsed, StallTimeout);

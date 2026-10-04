@@ -123,7 +123,9 @@ def validate_sides(
             raise ValueError("Casualties lack the removal of their shields")
 
 
-def pair_telemetry(row: JsonObject, roster: dict[str, JsonObject]) -> dict[str, list[float]]:
+def pair_telemetry(
+    row: JsonObject, roster: dict[str, JsonObject]
+) -> dict[str, list[float]]:
     values = {
         field: pair_values(row, field)
         for field in (
@@ -135,7 +137,7 @@ def pair_telemetry(row: JsonObject, roster: dict[str, JsonObject]) -> dict[str, 
             "attacks",
         )
     }
-    shielded = any(roster[unit].get("shield", 0) for unit in (row.get("left"), row.get("right")))
+    shielded = any(roster[row[side]].get("shield", 0) for side in ("left", "right"))
     if "shield_damage_dealt" in row or shielded:
         values["shield_damage_dealt"] = pair_values(row, "shield_damage_dealt")
     else:
@@ -175,7 +177,9 @@ def validate_pair(row: JsonObject, roster: dict[str, JsonObject], cap: float) ->
 COMPOSITION_KINDS = ("baseline", "with_support")
 
 
-def squad_values(row: JsonObject, field: str, roster: dict[str, JsonObject]) -> list[tuple[str, int]]:
+def squad_values(
+    row: JsonObject, field: str, roster: dict[str, JsonObject]
+) -> list[tuple[str, int]]:
     parts = row.get(field)
     if not isinstance(parts, list) or not parts:
         raise ValueError(f"Composition {field} must list its units")
@@ -187,7 +191,9 @@ def squad_values(row: JsonObject, field: str, roster: dict[str, JsonObject]) -> 
     return squad
 
 
-def expected_squads(row: JsonObject, roster: dict[str, JsonObject]) -> list[list[tuple[str, int]]]:
+def expected_squads(
+    row: JsonObject, roster: dict[str, JsonObject]
+) -> list[list[tuple[str, int]]]:
     """The two squads a composition fight must field: subject on its side, the target on the other."""
     support, partner, target = row["support"], row["partner"], row["target"]
     partner_cost = roster[partner]["cost"]
@@ -200,35 +206,65 @@ def expected_squads(row: JsonObject, roster: dict[str, JsonObject]) -> list[list
     return [subject, enemy] if row["subject_team"] == 0 else [enemy, subject]
 
 
-def validate_composition(row: JsonObject, roster: dict[str, JsonObject], cap: float) -> None:
+def validate_composition(
+    row: JsonObject, roster: dict[str, JsonObject], cap: float
+) -> None:
     if not isinstance(row, dict) or row.get("scenario") not in COMPOSITION_KINDS:
         raise ValueError("Unknown composition scenario")
     if any(row.get(key) not in roster for key in ("support", "partner", "target")):
         raise ValueError("Composition references unknown runtime unit")
-    if not roster[row["support"]].get("support") or row.get("subject_team") not in (0, 5):
+    if not roster[row["support"]].get("support") or row.get("subject_team") not in (
+        0,
+        5,
+    ):
         raise ValueError("Composition subject is not a support unit on a valid team")
-    squads = [squad_values(row, field, roster) for field in ("left_units", "right_units")]
+    squads = [
+        squad_values(row, field, roster) for field in ("left_units", "right_units")
+    ]
     if squads != expected_squads(row, roster):
         raise ValueError("Composition squads do not match the equal-budget scenario")
     values = {
         field: pair_values(row, field)
-        for field in ("spent", "initial_units", "survivors", "survivor_power", "damage_dealt", "shield_damage_dealt", "attacks")
+        for field in (
+            "spent",
+            "initial_units",
+            "survivors",
+            "survivor_power",
+            "damage_dealt",
+            "shield_damage_dealt",
+            "attacks",
+        )
     }
     for side, squad in enumerate(squads):
         units = sum(amount for _, amount in squad)
         spent = sum(amount * roster[unit]["cost"] for unit, amount in squad)
-        enemy_health = sum(amount * roster[unit]["health"] for unit, amount in squads[1 - side])
-        if values["initial_units"][side] != units or not math.isclose(values["spent"][side], spent, abs_tol=0.001):
-            raise ValueError("Composition spent Power or members disagree with its squad")
-        if spent > DUEL_BUDGET or values["survivors"][side] > units or values["survivor_power"][side] > spent + 0.001:
+        enemy_health = sum(
+            amount * roster[unit]["health"] for unit, amount in squads[1 - side]
+        )
+        if values["initial_units"][side] != units or not math.isclose(
+            values["spent"][side], spent, abs_tol=0.001
+        ):
+            raise ValueError(
+                "Composition spent Power or members disagree with its squad"
+            )
+        if (
+            spent > DUEL_BUDGET
+            or values["survivors"][side] > units
+            or values["survivor_power"][side] > spent + 0.001
+        ):
             raise ValueError("Composition survivors exceed the squad")
         if (values["survivors"][side] == 0) != (values["survivor_power"][side] == 0):
             raise ValueError("Composition survivor Power disagrees with living units")
-        if values["damage_dealt"][side] > enemy_health + 0.01 or (values["damage_dealt"][side] > 0 and values["attacks"][side] == 0):
+        if values["damage_dealt"][side] > enemy_health + 0.01 or (
+            values["damage_dealt"][side] > 0 and values["attacks"][side] == 0
+        ):
             raise ValueError("Composition damage lacks actual combat telemetry")
     validate_outcome(row, values["survivors"], cap)
 
-def validate_compositions(report: JsonObject, roster: dict[str, JsonObject], seed: int, cap: float) -> list[JsonObject]:
+
+def validate_compositions(
+    report: JsonObject, roster: dict[str, JsonObject], seed: int, cap: float
+) -> list[JsonObject]:
     rows = report.get("compositions", [])
     if not isinstance(rows, list):
         raise ValueError("Malformed composition telemetry")
@@ -241,7 +277,12 @@ def validate_compositions(report: JsonObject, roster: dict[str, JsonObject], see
             raise ValueError("Duplicate composition fight")
         seen.add(key)
     supports = [unit for unit, row in roster.items() if row.get("support")]
-    if seen != {(unit, kind, team) for unit in supports for kind in COMPOSITION_KINDS for team in (0, 5)}:
+    if seen != {
+        (unit, kind, team)
+        for unit in supports
+        for kind in COMPOSITION_KINDS
+        for team in (0, 5)
+    }:
         raise ValueError("Incomplete support composition set")
     return rows
 

@@ -42,17 +42,25 @@ def squads(row: JsonObject) -> list[list[tuple[str, int]]]:
             [(part["id"], part["count"]) for part in row[side]]
             for side in ("left_units", "right_units")
         ]
-    return [[(row["left"], row["initial_units"][0])], [(row["right"], row["initial_units"][1])]]
+    return [
+        [(row["left"], row["initial_units"][0])],
+        [(row["right"], row["initial_units"][1])],
+    ]
 
 
-def composition_rows(roster: dict[str, JsonObject], first_team: int) -> list[JsonObject]:
+def composition_rows(
+    roster: dict[str, JsonObject], first_team: int
+) -> list[JsonObject]:
     rows = []
     for kind in ("baseline", "with_support"):
         for team in (0, 5):
             subject = [("ranged", BUDGET // roster["ranged"]["cost"])]
             if kind == "with_support":
                 left_over = BUDGET - roster["scrambler"]["cost"]
-                subject = [("scrambler", 1), ("ranged", left_over // roster["ranged"]["cost"])]
+                subject = [
+                    ("scrambler", 1),
+                    ("ranged", left_over // roster["ranged"]["cost"]),
+                ]
             enemy = [("lancer", BUDGET // roster["lancer"]["cost"])]
             sides = [subject, enemy] if team == 0 else [enemy, subject]
             row: JsonObject = dict(
@@ -65,11 +73,35 @@ def composition_rows(roster: dict[str, JsonObject], first_team: int) -> list[Jso
                 right_units=[dict(id=unit, count=amount) for unit, amount in sides[1]],
                 spawn_first_team=first_team,
             )
-            row["spent"] = [sum(amount * roster[unit]["cost"] for unit, amount in side) for side in sides]
+            row["spent"] = [
+                sum(amount * roster[unit]["cost"] for unit, amount in side)
+                for side in sides
+            ]
             row["initial_units"] = [sum(amount for _, amount in side) for side in sides]
             set_composition_outcome(roster, row, None)
             rows.append(row)
     return rows
+
+
+def pair_row(left: JsonObject, right: JsonObject, first_team: int) -> JsonObject:
+    return dict(
+        left=left["id"],
+        right=right["id"],
+        spawn_first_team=first_team,
+        spent=[
+            BUDGET // left["cost"] * left["cost"],
+            BUDGET // right["cost"] * right["cost"],
+        ],
+        initial_units=[BUDGET // left["cost"], BUDGET // right["cost"]],
+        survivors=[0, 0],
+        survivor_power=[0, 0],
+        damage_dealt=[0, 0],
+        shield_damage_dealt=[0, 0],
+        attacks=[20, 20],
+        duration=5,
+        outcome="wiped",
+        winner=None,
+    )
 
 
 def telemetry(seed: int = 1, map_name: str = MAP_V2) -> tuple[JsonObject, JsonObject]:
@@ -109,23 +141,9 @@ def telemetry(seed: int = 1, map_name: str = MAP_V2) -> tuple[JsonObject, JsonOb
     )
     for left in units:
         for right in units:
-            row: JsonObject = dict(
-                left=left["id"],
-                right=right["id"],
-                spawn_first_team=first_team,
-                spent=[BUDGET // left["cost"] * left["cost"], BUDGET // right["cost"] * right["cost"]],
-                initial_units=[BUDGET // left["cost"], BUDGET // right["cost"]],
-                survivors=[0, 0],
-                survivor_power=[0, 0],
-                damage_dealt=[0, 0],
-                shield_damage_dealt=[0, 0],
-                attacks=[20, 20],
-                duration=5,
-                outcome="wiped",
-                winner=None,
-            )
+            row = pair_row(left, right, first_team)
             report["duels"].append(row)
-            winner = 0 if right["id"] in COUNTERS[left["id"]]["prey"] else 5
+            winner = 0 if right["id"] in COUNTERS[left["id"]].prey else 5
             set_outcome(report, row, winner)
     report["compositions"] = composition_rows(roster, first_team)
     refresh_duration(report)
@@ -182,7 +200,11 @@ def set_composition_outcome(
     sides = squads(row)
     row["winner"] = winner
     row["survivors"] = [
-        row["initial_units"][side] if winner is None else 1 if winner == (0 if side == 0 else 5) else 0
+        row["initial_units"][side]
+        if winner is None
+        else 1
+        if winner == (0 if side == 0 else 5)
+        else 0
         for side in (0, 1)
     ]
     # One survivor of a mixed squad is its cheapest unit; the fixture only needs consistent Power.
@@ -280,7 +302,7 @@ def counter_rule_names() -> list[tuple[str, str, str]]:
         for unit, target in COUNTERS.items()
         if unit not in SUPPORT
         for relation in ("prey", "predator")
-        for opponent in target[relation]
+        for opponent in target.opponents(relation)
     ]
 
 
@@ -292,7 +314,7 @@ def threshold_reports() -> list[JsonObject]:
             if row["left"] == row["right"]:
                 winner = 0 if seed < 9 else 5
             else:
-                prey_on_left = row["right"] in COUNTERS[row["left"]]["prey"]
+                prey_on_left = row["right"] in COUNTERS[row["left"]].prey
                 winner = 0 if prey_on_left == (seed < 13) else 5
             set_outcome(report, row, winner)
         refresh_duration(report)

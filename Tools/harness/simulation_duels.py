@@ -35,7 +35,7 @@ def report_group(lines: list[str], group: JsonObject) -> None:
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for row in group["unit_definitions"]:
-        name = COUNTERS.get(row["id"], {}).get("name", "unmapped")
+        name = COUNTERS[row["id"]].name if row["id"] in COUNTERS else "unmapped"
         lines.append(
             f"| {row['id']} / {name} | {row['cost']:g} | {row['capacity']:g} | "
             f"{row['health']:g} | {row.get('shield', 0):g} | {row['damage']:g} | {row['attack_interval']:g} | "
@@ -134,7 +134,7 @@ def report_compositions(lines: list[str], group: JsonObject) -> None:
     ]
     for row in group["compositions"]:
         units = [
-            "+".join(f"{part['count']}×{part['id']}" for part in row[side])
+            "+".join(f"{part['count']}x{part['id']}" for part in row[side])
             for side in ("left_units", "right_units")
         ]
         lines.append(

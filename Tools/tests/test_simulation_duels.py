@@ -29,7 +29,9 @@ def test_counter_inclusive_thresholds() -> None:
     reports = threshold_reports()
     rules = rule_rows(evaluate_group(reports))
     for name, _, relation in counter_rule_names():
-        assert rules[name]["win_rate"] == pytest.approx(0.65 if relation == "prey" else 0.35)
+        assert rules[name]["win_rate"] == pytest.approx(
+            0.65 if relation == "prey" else 0.35
+        )
         assert rules[name]["status"] == "pass"
     changed = deepcopy(reports)
     row = next(
@@ -122,7 +124,11 @@ def test_worth_normalizes_each_sides_actual_unequal_spend() -> None:
     row["survivor_power"][0] = 60
     row["damage_dealt"][1] = 300
     refresh_duration(report)
-    assert report["duration"] == sum(row["duration"] for row in report["duels"]) > job["time_cap"]
+    assert (
+        report["duration"]
+        == sum(row["duration"] for row in report["duels"])
+        > job["time_cap"]
+    )
     validate_report(report, job)
     group = evaluate_group([report])
     assert group["worth"] == pytest.approx(

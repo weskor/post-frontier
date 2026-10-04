@@ -20,6 +20,7 @@ from simulation_duel_support import (
     threshold_reports,
 )
 
+
 def composition_reports(
     seeds: int, baseline_wins: int, supported_wins: int, draws: int = 0
 ) -> list[JsonObject]:
@@ -85,7 +86,10 @@ def test_support_units_are_judged_only_by_composition() -> None:
     before = evaluate_group(reports)
     for report in reports:
         for row in report["duels"]:
-            if "scrambler" in (row["left"], row["right"]) and row["left"] != row["right"]:
+            if (
+                "scrambler" in (row["left"], row["right"])
+                and row["left"] != row["right"]
+            ):
                 set_outcome(report, row, 0 if row["left"] == "lancer" else 5)
         refresh_duration(report)
     group = evaluate_group(reports)
@@ -103,11 +107,20 @@ def test_dominance_counts_shield_as_durability() -> None:
     lancer = next(unit for unit in report["unit_definitions"] if unit["id"] == "lancer")
     lancer["shield"] = 0
     # Without the shield the Lancer is the least durable per Power and dominates nobody; with it, ties hold.
-    assert rule_rows(evaluate_group([report]))["no_hp_and_dps_per_power_dominance"]["status"] == "pass"
+    assert (
+        rule_rows(evaluate_group([report]))["no_hp_and_dps_per_power_dominance"][
+            "status"
+        ]
+        == "pass"
+    )
     lancer["health"] += 100
     lancer["shield"] = 100
-    efficiency = rule_rows(evaluate_group([report]))["no_hp_and_dps_per_power_dominance"]["efficiencies"]
-    assert efficiency["lancer"]["hp_per_power"] == pytest.approx((lancer["health"] + 100) / 45)
+    efficiency = rule_rows(evaluate_group([report]))[
+        "no_hp_and_dps_per_power_dominance"
+    ]["efficiencies"]
+    assert efficiency["lancer"]["hp_per_power"] == pytest.approx(
+        (lancer["health"] + 100) / 45
+    )
 
 
 @pytest.mark.parametrize(
