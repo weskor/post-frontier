@@ -345,6 +345,18 @@ kind = "automation"
 filter = "CoopRTS.Planning.Restart"
 map = "default"
 
+[scopes.planning-jev-plans]
+kind = "automation"
+filter = "CoopRTS.Planning.JevPlans"
+map = "default"
+
+# Rendered capture of JEV's first plans on the timeline during planning, run on request (./x test planning-jev-plans-view); the PNG is inspected by a person.
+[scopes.planning-jev-plans-view]
+kind = "automation"
+filter = "CoopRTS.Visual.PlanningJevPlans"
+map = "/Game/Maps/AvailabilityZoneV2"
+rendered = true
+
 [scopes.pause-network]
 kind = "script"
 commands = [
@@ -682,8 +694,8 @@ rendered = true
 "Source/CoopRTS/JevReleaseWorldFightTests.cpp" = ["jev-release"]
 "Source/CoopRTS/JevChainWorldTests.cpp" = ["jev-chain"]
 "Source/CoopRTS/ArmyGroupSpawn.cpp" = ["jev-release", "guarded-hq"]
-"Source/CoopRTS/Rules/JevExecution.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
-"Source/CoopRTS/Rules/JevPlanner.*" = ["rules", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-chain", "jev-release", "strategy", "fortify", "guarded-hq"]
+"Source/CoopRTS/Rules/JevExecution.*" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy", "planning-jev-plans"]
+"Source/CoopRTS/Rules/JevPlanner.*" = ["rules", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims", "jev-chain", "jev-release", "strategy", "fortify", "guarded-hq", "planning-jev-plans"]
 "Source/CoopRTS/JevMemoTests.cpp" = ["jev-memos"]
 "Source/CoopRTS/JevMemoTemplates.*" = ["jev-memos", "jev-commitment", "jev-escalation", "jev-target-destroyed", "jev-foreign-attack", "jev-rejected-order", "jev-committed-claims"]
 "Config/DefaultGame.ini" = ["jev-memos"]
@@ -962,17 +974,20 @@ rendered = true
 # Planning phase: the rules, the four world scopes and the runtime they exercise (entries are unioned).
 "Source/CoopRTS/PlanningRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/Rules/PlanningPolicy.*" = ["rules", "planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/PlanningFixture.*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/PlanningFixture.*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-jev-plans"]
+"Source/CoopRTS/PlanningJevPlansTests.cpp" = ["planning-jev-plans"]
+"Source/CoopRTS/PlanningJevPlansViewTests.cpp" = ["planning-jev-plans-view"]
+"Source/CoopRTS/JevFirstPlansRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/PlanningPhaseTests.cpp" = ["planning-phase"]
 "Source/CoopRTS/PlanningExpiryTests.cpp" = ["planning-expiry"]
 "Source/CoopRTS/PlanningKitTests.cpp" = ["planning-kit"]
 "Source/CoopRTS/PlanningRestartTests.cpp" = ["planning-restart"]
-"Source/CoopRTS/ArmyTestSetup.[h]" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/CommandGameState.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
-"Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
-"Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
-"Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
-"Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "jev-new-units"]
+"Source/CoopRTS/ArmyTestSetup.[h]" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-jev-plans"]
+"Source/CoopRTS/CommandGameState.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network", "planning-jev-plans"]
+"Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network", "planning-jev-plans"]
+"Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network", "planning-jev-plans"]
+"Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network", "planning-jev-plans"]
+"Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-jev-plans", "jev-new-units"]
 "Source/CoopRTS/MatchTelemetry.cpp" = ["planning-phase"]
 
 # Planning network proof: the probe, its harness scenario and the runtime the replicated phase runs through.

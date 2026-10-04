@@ -71,6 +71,7 @@ void SnapshotForce(const FJevTurn& Turn, FJevForceStep& Step)
 	Snapshot.Home = Turn.HomeRegion->RegionIndex;
 	Snapshot.Position = Force.GetCenter();
 	Snapshot.UnitCount = Force.GetAliveCount();
+	Snapshot.SquadSize = IsValid(Force.GetProductionBuilding()) ? Force.GetCapacity() : 0;
 	Snapshot.bRecovering = Step.Current && Step.Current->bRecovering;
 	Snapshot.bRetreating = Force.Verb == EForceVerb::Retreat;
 	Snapshot.HealthFraction = JoinedHealthFraction(Force);
@@ -146,7 +147,11 @@ bool IssueOrder(const FJevTurn& Turn, FJevForceStep& Step)
 		Step.Next, Prior, ActualDiffers(*Step.Force, Step.Next, Structure));
 	Step.bFresh = Change.bFresh;
 	Step.bChanged = Change.bChanged;
-	return !Step.bChanged || SendOrder(Turn, Step.Force, Step.Next, Structure) || RecoverRejected(Turn, Step);
+	// During planning the world is frozen and commands are locked: the plan is committed and published now, marked
+	// unissued, and its order is given at 0:00 (OrderChange).
+	Step.Next.bUnissued = Turn.State->IsPlanning();
+	return !Step.bChanged || Step.Next.bUnissued || SendOrder(Turn, Step.Force, Step.Next, Structure)
+		|| RecoverRejected(Turn, Step);
 }
 
 // A retreating force's producer rallies at the retreat region.
@@ -168,7 +173,7 @@ JevPlanner::FPlan WavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int3
 	Plan.Verb = JevPlanner::EVerb::Attack;
 	Plan.Source = Step.Snapshot.Source;
 	Plan.Target = Target;
-	Plan.SizeBand = JevPlanner::SizeBand(Step.Snapshot.UnitCount);
+	Plan.SizeBand = JevPlanner::SizeBand(JevPlanner::Strength(Step.Snapshot));
 	Plan.EtaSeconds = FMath::Max(0.f, JevPlanner::TravelSeconds(Turn.Summary, Step.Snapshot, Target));
 	Plan.CommittedUntil = Turn.Now + JevPlanner::CommitmentSeconds;
 	Plan.bRequiresUnownedTarget = Turn.Summary.Regions[Target].Controller != Turn.Team;
@@ -190,7 +195,8 @@ bool ChooseNextPlan(const FJevTurn& Turn, FJevForceStep& Step)
 // A force already in the field joins a wave unless it is retreating, recovering or holding its attacked region.
 bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
 {
-	return !Step.bRecovering && !Step.Snapshot.bRetreating && !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
+	return Step.Force->GetAliveCount() > 0 && !Step.bRecovering && !Step.Snapshot.bRetreating
+		&& !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
 }
 }
 

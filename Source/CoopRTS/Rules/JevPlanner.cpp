@@ -56,7 +56,7 @@ FPlan MakePlan(const FWorld& World, const FForce& Force, EVerb Verb, int32 Targe
 	Plan.Verb = Verb;
 	Plan.Source = Force.Source;
 	Plan.Target = Target;
-	Plan.SizeBand = SizeBand(Force.UnitCount);
+	Plan.SizeBand = SizeBand(Strength(Force));
 	const float Speed = SlowestSpeed(Force) * (Verb == EVerb::Retreat ? 1.25f : 1.f);
 	Plan.EtaSeconds = Speed > 0.f ? Length / Speed : 0.f;
 	Plan.bRequiresUnownedTarget = Verb != EVerb::Retreat && World.Regions[Target].Controller != World.Team;
@@ -189,6 +189,11 @@ uint64 ConnectedRegions(const FWorld& World)
 	return MakeChain(World).Connected;
 }
 
+int32 Strength(const FForce& Force)
+{
+	return Force.UnitCount > 0 ? Force.UnitCount : FMath::Max(0, Force.SquadSize);
+}
+
 int32 SizeBand(int32 UnitCount)
 {
 	return FMath::Max(2, FMath::RoundToInt(float(UnitCount) / 2.f) * 2);
@@ -206,7 +211,7 @@ float TravelSeconds(const FWorld& World, const FForce& Force, int32 Target)
 FCandidates Propose(const FWorld& World, const FForce& Force)
 {
 	FCandidates Out;
-	if (!Exists(World, Force.Source) || Force.UnitCount <= 0 || SlowestSpeed(Force) <= 0.f)
+	if (!Exists(World, Force.Source) || Strength(Force) <= 0 || SlowestSpeed(Force) <= 0.f)
 		return Out;
 	const FPaths Route = Paths(World, Force);
 	const FChain Chain = MakeChain(World);

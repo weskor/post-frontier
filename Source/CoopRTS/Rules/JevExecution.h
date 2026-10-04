@@ -71,12 +71,17 @@ void AdoptRetreatRegion(const JevPlanner::FWorld& World, const JevPlanner::FForc
 	JevPlanner::FPlan& Plan);
 bool IsEscalation(const JevPlanner::FPlan* Current, const JevPlanner::FPlan& Next);
 
+// A force is planned while it has living units or a producer that will fill it: JEV's kit forces are planned
+// before their first unit exists (battle.md "Opening").
+inline bool IsPlanned(int32 LivingUnits, bool bProducerBacked) { return LivingUnits > 0 || bProducerBacked; }
+
 struct FOrderChange
 {
 	bool bFresh = false;
 	bool bChanged = false;
 };
-// A new commitment or a changed decision reissues an order only if the force's actual order differs.
+// A new commitment or a changed decision reissues an order only if the force's actual order differs. So does a
+// committed plan that was never issued (FPlan::bUnissued): the force gets it once commands unlock.
 FOrderChange OrderChange(const JevPlanner::FPlan& Next, const JevPlanner::FPlan* Current, bool bActualDiffers);
 // A decision that carries a different commitment deadline than the one on record starts a new ticket.
 bool NewCommitment(const JevPlanner::FPlan* Current, const JevPlanner::FPlan& Next);

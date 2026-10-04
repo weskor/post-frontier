@@ -85,7 +85,7 @@ JevPlanner::FPlan ActualPlan(const JevPlanner::FWorld& World, const JevPlanner::
 	Actual.Source = Force.Source;
 	Actual.Target = ActualTarget;
 	Actual.TargetIdentity = TargetIdentity;
-	Actual.SizeBand = JevPlanner::SizeBand(Force.UnitCount);
+	Actual.SizeBand = JevPlanner::SizeBand(JevPlanner::Strength(Force));
 	Actual.bRequiresUnownedTarget = !bRetreat && ValidRegion(ActualTarget)
 		&& World.Regions[ActualTarget].Controller != World.Team;
 	Actual.EtaSeconds = FMath::Max(0.f, JevPlanner::TravelSeconds(World, Force, ActualTarget))
@@ -135,7 +135,7 @@ FOrderChange OrderChange(const JevPlanner::FPlan& Next, const JevPlanner::FPlan*
 	Change.bFresh = NewCommitment(Current, Next);
 	const bool bDecisionChanged = !Current || Next.Verb != Current->Verb || Next.Target != Current->Target
 		|| Next.TargetIdentity != Current->TargetIdentity;
-	Change.bChanged = bActualDiffers && (bDecisionChanged || Change.bFresh);
+	Change.bChanged = bActualDiffers && (bDecisionChanged || Change.bFresh || Current->bUnissued);
 	return Change;
 }
 

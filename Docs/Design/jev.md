@@ -5,7 +5,7 @@
 ## How JEV plays [Change] — decided
 
 - **[Built]** A deterministic planner that re-plans every 2 s and follows the same economy, placement and production rules as the players.
-- **[Built] Matching start:** JEV starts each battle with a pre-built Barracks and Drill Rig per human commander, finished before 0:00, so its first release still matters ([battle.md](battle.md)). **[New]** Its first plans for those forces are published during planning.
+- **[Built] Matching start:** JEV starts each battle with a pre-built Barracks and Drill Rig per human commander, finished before 0:00, so its first release still matters ([battle.md](battle.md)). Its kit forces are planned and published during planning ([published intent](#published-intent-built)).
 - **[New] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
 - **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
 - **[Built] Supply chain:** JEV builds and counts a Drill Rig only in a region its main reaches through regions it controls (`ForceOrders::ConnectedMask`, the one connectivity rule), so it never pays for a disconnected rig and resumes investing once the chain is retaken. Its planner values an expansion or Move & Hold that restores connected income, counts an isolated deposit as worth nothing, and values holding a region that connected income depends on.
@@ -56,6 +56,12 @@
 - **[New] Disruption:** this commitment gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
 - **[Built] Memo text**, for example: `Ticket #4471 · Move & Hold: reallocating ~8 units to West Cut · ETA 0:30`. Each memo names its actual verb or defending escalation.
 - **[Built] Presentation:** the timeline bar, region badges and memo feed read this state and nothing else ([ui.md](ui.md#jev-intent-display-built--new)). **[New]** Commanders and cards can reveal composition, the next plan and building queues.
+- **[Built] First plans:** while the planning phase runs, JEV's kit forces (each Barracks' force, empty and producer-backed) are planned as if at 0:00 and published through the normal path, so the timeline, region badges and memo feed show them before the battle starts ([battle.md](battle.md)).
+  - **Strength:** an empty producer-backed force is planned at its producer's configured squad size (`JevPlanner::Strength`: 6 Brawlers or Wardens, 5 Rifles, 3 Siege units and so on), and at its living units once it has any; a force nothing refills and has no unit is not planned. The size band and ETA read that number.
+  - **Frozen world:** the planner runs only when JEV's kit stands or changes (a roster change adds or removes a pair), explicitly, never from a paused tick. The planner is shared with play: the same commitment, reservations and chooser. No order is given, because commands are locked; the force shows the plan it will be given.
+  - **At 0:00** JEV's first evaluation issues each plan as the force's order under the same ticket. The 25 s of commitment run on the world clock, which does not move during planning, so planning time never eats them; an empty force keeps its plan until its first unit arrives.
+  - **Kit forces:** JEV's Barracks are configured during planning by the game state, not by a command. Roles follow JEV's producer rule (Frontline, then Ranged, then Siege), no human having a unit yet, and each configuration fee is paid from JEV's 200 Power; a pair removed by a leaving human gives its fee back.
+  - The same rule applies after 0:00: a producer-backed force is planned before its first unit exists and while it refills, and a wave that calls every force to join skips a force with no unit.
 
 ## How JEV decides — decided
 

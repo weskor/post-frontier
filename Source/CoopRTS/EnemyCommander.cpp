@@ -37,6 +37,11 @@ bool ResolveContent(FJevTurn& Turn)
 	Turn.Reserve = Turn.Infantry->UnitCost * Turn.Infantry->Capacity;
 	return true;
 }
+
+bool IsPlanned(const AArmyGroup& Force)
+{
+	return JevExecution::IsPlanned(Force.GetAliveCount(), IsValid(Force.GetProductionBuilding()));
+}
 }
 
 AEnemyCommander::AEnemyCommander()
@@ -95,14 +100,12 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 	Turn.bRush = IsRushAutopilot();
 	Turn.Now = GetWorld()->GetTimeSeconds();
 	CommittedForces.RemoveAllSwap([&](const FJevCommittedForce& Entry) {
-		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander
-			|| Entry.Force->GetAliveCount() == 0;
+		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander || !IsPlanned(*Entry.Force);
 	});
 	WaveForces.RemoveAllSwap([](const TWeakObjectPtr<AArmyGroup>& Force) { return !Force.IsValid() || Force->GetAliveCount() == 0; });
 	if (TeamIndex == 5)
 		State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) {
-			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander
-				|| Entry.Force->GetAliveCount() == 0;
+			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander || !IsPlanned(*Entry.Force);
 		});
 	if (!ResolveContent(Turn))
 		return false;
@@ -116,18 +119,25 @@ void AEnemyCommander::EvaluatePlan()
 	FJevTurn Turn;
 	if (!BeginTurn(Turn) || !JevWorld::SummariseRegions(Turn))
 		return;
+	// During planning (battle.md "Opening") the world is frozen and commands are locked: JEV only plans, and
+	// publishes its kit forces' plans. Economy, orders and releases start at 0:00.
+	const bool bPlanning = Turn.State->IsPlanning();
 	JevWorld::ScanBuildings(Turn);
-	JevEconomy::PlaceFirstProducer(Turn);
+	if (!bPlanning)
+		JevEconomy::PlaceFirstProducer(Turn);
 	JevWorld::ScanForces(Turn);
 	JevWorld::ScanUnits(Turn);
 	JevWorld::ScanDeposits(Turn);
-	JevEconomy::BuildExtractor(Turn);
+	if (!bPlanning)
+		JevEconomy::BuildExtractor(Turn);
 	JevWorld::Finish(Turn);
-	JevEconomy::ConfigureProduction(Turn);
+	if (!bPlanning)
+		JevEconomy::ConfigureProduction(Turn);
 	ExecuteForces(Turn);
-	if (TeamIndex == 5)
+	if (TeamIndex == 5 && !bPlanning)
 		AdvanceReleases(Turn);
-	JevEconomy::BuildNext(Turn);
+	if (!bPlanning)
+		JevEconomy::BuildNext(Turn);
 	if (TeamIndex == 5)
 		Turn.State->ForceNetUpdate();
 }

@@ -130,13 +130,13 @@ private:
 			bFullHealth &= Unit.IsValid() && Unit->GetHealth() == Unit->MaxHealth();
 		bool bJevIdle = true;
 		for (const FPlanningKit& Kit : State->Planning.JevKits)
-			bJevIdle &= IsValid(Kit.Barracks) && !Kit.Barracks->bForceConfigured;
+			bJevIdle &= IsValid(Kit.Barracks) && IsValid(Kit.Barracks->ForceGroup) && Kit.Barracks->ForceGroup->GetAliveCount() == 0;
 		if (!Check(World->GetTimeSeconds() == Time0, TEXT("Game time stands still during planning"))
 			|| !Check(Host->Resources == Power0 && Guest->Resources == GuestPower0 && State->EnemyCommander->Resources == JevPower0,
 				TEXT("No income reaches any wallet"))
 			|| !Check(Producer->ForceGroup->GetAliveCount() == 0 && bFullHealth, TEXT("Production and combat do not run"))
-			|| !Check(Planner && Planner->GetMatchSeconds() == 0.f && bJevIdle && State->EnemyPlans.IsEmpty(),
-				TEXT("JEV's clock reads 0 and it plans and produces nothing yet"))
+			|| !Check(Planner && Planner->GetMatchSeconds() == 0.f && bJevIdle && State->EnemyPlans.Num() == State->Planning.JevKits.Num(),
+				TEXT("JEV's clock reads 0, it fields no unit yet and plans only its kit forces"))
 			|| !Check(State->MatchTelemetry->GetBattleSeconds() == Battle0, TEXT("The battle duration does not count planning"))
 			|| !Check(State->Planning.SecondsRemaining < 57.f && State->Planning.SecondsRemaining > 0.f,
 				TEXT("The countdown runs in real time")))

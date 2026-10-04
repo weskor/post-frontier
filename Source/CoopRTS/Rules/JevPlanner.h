@@ -75,6 +75,9 @@ struct FForce
 	int32 Source = INDEX_NONE;
 	int32 Home = INDEX_NONE;
 	int32 UnitCount = 0;
+	// The producer's configured squad size; 0 for a force no producer refills. An empty force is planned at
+	// this strength, as the squad it will field once production starts (see Strength).
+	int32 SquadSize = 0;
 	float HealthFraction = 1.f;
 	// Actual executor verb, not the stored plan: completed Retreat orders no longer qualify.
 	bool bRetreating = false;
@@ -97,6 +100,8 @@ struct FPlan
 	float CommittedUntil = 0.f;
 	bool bEscalated = false;
 	bool bRequiresUnownedTarget = false;
+	// Committed during planning, when commands are locked: the force has not been given this plan's order yet.
+	bool bUnissued = false;
 };
 
 struct FCandidate
@@ -113,6 +118,9 @@ struct FCandidates
 
 // Shared by commitment decisions and the command-rejection shortcut.
 bool MustDefend(const FWorld& World, const FForce& Force);
+// The strength a force is planned at: its living units, or, while a producer-backed force is still empty, the
+// squad its producer is configured to field. Zero for an empty force nothing refills.
+int32 Strength(const FForce& Force);
 int32 SizeBand(int32 UnitCount);
 // Regions linked to Home through regions the team controls (Home counts as controlled while
 // it exists): ForceOrders::ConnectedMask, the one connectivity rule. Zero without a valid Home.

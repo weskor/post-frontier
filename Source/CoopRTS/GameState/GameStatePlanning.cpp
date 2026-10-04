@@ -9,6 +9,7 @@
 #include "CommandPlayerController.h"
 #include "DepositSite.h"
 #include "EnemyCommander.h"
+#include "EnemyCommanderTurn.h"
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
 #include "GameState/GameStateRegistry.h"
@@ -236,12 +237,57 @@ bool ACommandGameState::PlaceDefaultRig(FPlanningKit& Kit)
 	return false;
 }
 
+namespace
+{
+// JEV's kit forces are made by the game state, not commanded, so the player lock (commands refuse while planning)
+// lifts for that one call. The role follows JEV's own producer rule; no human has a unit during planning.
+void ConfigureJevKitForces(ACommandGameState& State, TArray<FPlanningKit>& Kits, bool& bChanged)
+{
+	static const EDamageType NoSlotDamage[JevExecution::RoleSlots] = {};
+	int32 Roles[JevExecution::RoleSlots] = {};
+	for (const FPlanningKit& Kit : Kits)
+		if (IsValid(Kit.Barracks) && Kit.Barracks->bForceConfigured)
+			++Roles[RoleSlot(Kit.Barracks->ProductionRole)];
+	for (FPlanningKit& Kit : Kits)
+	{
+		if (!IsValid(Kit.Barracks) || !Kit.Barracks->IsComplete() || Kit.Barracks->bForceConfigured)
+			continue;
+		const int32 Slot = JevExecution::NextRoleSlot(Roles, JevRelease::FArmorCounts(), NoSlotDamage);
+		TGuardValue<bool> Lift(State.Planning.bActive, false);
+		if (FCommandService::ConfigureProduction(State.EnemyCommander, Kit.Barracks, SlotRole(Slot), true).IsAccepted())
+		{
+			++Roles[Slot];
+			bChanged = true;
+		}
+	}
+}
+
+// A removed JEV kit gives back what its force cost to configure.
+void RefundJevKitForce(ACommandPlayerState& Commander, const FPlanningKit& Kit)
+{
+	const UArmyUnitDefinition* Unit = IsValid(Kit.Barracks) && Kit.Barracks->bForceConfigured ? Kit.Barracks->GetProductionDefinition() : nullptr;
+	if (Unit)
+		Commander.AddResources(ACommandBuilding::GetConfigurationCost(*Unit));
+}
+
+// JEV's first plans: its kit forces are planned as if at 0:00, on the frozen world, whenever its kit changes.
+void PlanJevKitForces(UWorld& World)
+{
+	for (TActorIterator<AEnemyCommander> It(&World); It; ++It)
+		if (It->TeamIndex == 5)
+			It->EvaluatePlan();
+}
+}
+
 void ACommandGameState::PlaceJevKit(bool bForce)
 {
+	bool bChanged = false;
 	while (Planning.JevKits.Num() > Planning.Kits.Num())
 	{
+		RefundJevKitForce(*EnemyCommander, Planning.JevKits.Last());
 		DestroyKit(Planning.JevKits.Last());
 		Planning.JevKits.Pop();
+		bChanged = true;
 	}
 	while (Planning.JevKits.Num() < Planning.Kits.Num())
 	{
@@ -251,15 +297,22 @@ void ACommandGameState::PlaceJevKit(bool bForce)
 	}
 	const double Now = GetWorld()->GetRealTimeSeconds();
 	if ((!bForce && Now < JevKitRetryAt) || !GameStatePlanning::NavigationReady(GetWorld()))
+	{
+		if (bChanged)
+			PlanJevKitForces(*GetWorld());
 		return;
+	}
 	JevKitRetryAt = Now + .5;
 	for (FPlanningKit& Kit : Planning.JevKits)
 	{
 		if (!IsValid(Kit.Barracks))
-			PlaceDefaultBarracks(Kit);
+			bChanged |= PlaceDefaultBarracks(Kit);
 		if (!IsValid(Kit.Rig))
-			PlaceDefaultRig(Kit);
+			bChanged |= PlaceDefaultRig(Kit);
 	}
+	ConfigureJevKitForces(*this, Planning.JevKits, bChanged);
+	if (bChanged)
+		PlanJevKitForces(*GetWorld());
 	ForceNetUpdate();
 }
 

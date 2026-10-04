@@ -42,13 +42,15 @@ void RecordHistory(const FJevTurn& Turn, const FJevForceStep& Step, const FJevPu
 
 // Publish the executor's current order, including natural completion,
 // without replacing the strategic ticket or restarting its commitment.
+// A plan not issued yet (JEV's kit forces during planning) shows the plan the force will be given.
 void AEnemyCommander::Publish(FJevTurn& Turn, const FJevForceStep& Step)
 {
 	if (Turn.Team != 5)
 		return;
 	AArmyGroup* Force = Step.Force;
-	const JevPlanner::FPlan Display = JevExecution::DisplayPlan(Turn.Summary, Step.Snapshot, Step.Next,
-		PlanVerb(Force->Verb), ActualTarget(*Force), Force->Verb == EForceVerb::MoveHold);
+	const JevPlanner::FPlan Display = Step.Next.bUnissued ? Step.Next
+														  : JevExecution::DisplayPlan(Turn.Summary, Step.Snapshot, Step.Next, PlanVerb(Force->Verb), ActualTarget(*Force),
+																Force->Verb == EForceVerb::MoveHold);
 	TArray<FJevPublishedPlan>& Plans = Turn.State->EnemyPlans;
 	FJevPublishedPlan* Existing = Plans.FindByPredicate([&](const FJevPublishedPlan& Entry) { return Entry.Force == Force; });
 	const JevExecution::FPublished Before = Existing ? ViewOf(*Existing) : JevExecution::FPublished();

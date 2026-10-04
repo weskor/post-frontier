@@ -138,6 +138,11 @@ bool FJevExecutionOrderChangeTest::RunTest(const FString&)
 	const FOrderChange First = OrderChange(Current, nullptr, true);
 	TestTrue(TEXT("Without a record the decision is fresh"), First.bFresh && First.bChanged);
 	TestFalse(TEXT("Without a record a matching order stays"), OrderChange(Current, nullptr, false).bChanged);
+	JevPlanner::FPlan Unissued = Current;
+	Unissued.bUnissued = true;
+	const FOrderChange Opening = OrderChange(Current, &Unissued, true);
+	TestTrue(TEXT("A committed plan never issued is issued under the same ticket"), Opening.bChanged && !Opening.bFresh);
+	TestFalse(TEXT("An unissued plan never replaces an order the force already runs"), OrderChange(Current, &Unissued, false).bChanged);
 
 	JevPlanner::FPlan Held = Current;
 	Held.bEscalated = true;

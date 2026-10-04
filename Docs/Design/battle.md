@@ -23,7 +23,7 @@
 - **Joining and leaving:** a commander who joins during planning gets a kit; one who leaves has their kit removed. If a commander's territory has no free deposit, they get the Drill Rig's cost in Power instead ([economy.md](economy.md#deposits-change)).
 - **Wallet:** the Opening values in [economy.md](economy.md#resources-change--decided).
 - **JEV's matching start [Built]:** one pre-built Barracks and Drill Rig per human commander, placed and finished as the humans' kits are. They follow the roster: a joiner adds a pair, a leaver removes one.
-- **JEV's first plans [New]:** published during planning, so the layout answers a real threat. They need JEV's kit forces to exist during planning ([jev.md](jev.md)).
+- **JEV's first plans [Built]:** published during planning, so the layout answers a real threat. JEV's kit forces exist then (its Barracks are configured as the planning kit's are, the role by JEV's producer rule), and each is planned at its squad size as if at 0:00 ([jev.md](jev.md#published-intent-built)). The world stays frozen while they are made: JEV plans when its kit stands and whenever the roster changes, not on a tick, and the plans' 25 s commitment starts at 0:00.
 
 **At 0:00:** the placed buildings stand finished and production starts. Everything else (the Workshop, the signature building, drafted buildings) is built as normal.
 
