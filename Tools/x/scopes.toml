@@ -624,6 +624,7 @@ rendered = true
 "Source/CoopRTS/Rules/GameplayConstants*" = ["telemetry"]
 "Source/CoopRTS/Rules/OutcomePolicy*" = ["telemetry"]
 "Source/CoopRTS/Rules/PauseBudget*" = ["telemetry"]
+"Source/CoopRTS/Rules/ArmyGroupPolicy*" = ["telemetry"]
 "Source/**/*.Build.cs" = ["telemetry"]
 "Config/*" = ["telemetry"]
 "Content/Maps/AvailabilityZoneV2.*" = ["telemetry"]
