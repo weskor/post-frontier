@@ -40,15 +40,17 @@ bool FEconomyIncomeTest::RunTest(const FString& Parameters)
 
 bool FEconomyExtractorTest::RunTest(const FString& Parameters)
 {
-	FExtractorPaymentInput In{ 4, 2400, 2, 0, 2, 0, 2, true, true };
+	FExtractorPaymentInput In{ 4, EconomyPolicy::NormalDepositAmount, 2, 0, true, true, true };
 	FExtractorPayment Payment = EconomyPolicy::ExtractorPayment(In);
 	TestEqual(TEXT("Normal extractor pays eight per two seconds"), Payment.Amount, 8);
-	TestEqual(TEXT("Normal extraction subtracts exactly payment"), Payment.Remaining, 2392);
+	TestEqual(TEXT("Normal extraction subtracts exactly payment"), Payment.Remaining, EconomyPolicy::NormalDepositAmount - 8);
+	TestEqual(TEXT("Normal reserve is halved"), EconomyPolicy::NormalDepositAmount, 1200);
+	TestEqual(TEXT("Rich reserve is halved"), EconomyPolicy::RichDepositAmount, 1500);
 	In.RatePerSecond = 6;
-	In.Remaining = 3000;
+	In.Remaining = EconomyPolicy::RichDepositAmount;
 	Payment = EconomyPolicy::ExtractorPayment(In);
 	TestEqual(TEXT("Rich extractor pays twelve per two seconds"), Payment.Amount, 12);
-	TestEqual(TEXT("Rich extraction subtracts exactly payment"), Payment.Remaining, 2988);
+	TestEqual(TEXT("Rich extraction subtracts exactly payment"), Payment.Remaining, EconomyPolicy::RichDepositAmount - 12);
 	In.Remaining = 5;
 	Payment = EconomyPolicy::ExtractorPayment(In);
 	TestEqual(TEXT("Final payment is capped by remaining deposit"), Payment.Amount, 5);
@@ -58,29 +60,25 @@ bool FEconomyExtractorTest::RunTest(const FString& Parameters)
 	In.Remaining = 23;
 	for (const bool bAlive : { false, true })
 		for (const bool bComplete : { false, true })
-		{
-			In.bAlive = bAlive;
-			In.bComplete = bComplete;
-			Payment = EconomyPolicy::ExtractorPayment(In);
-			TestEqual(TEXT("Only completed living extractors pay"), Payment.Amount, bAlive && bComplete ? 12 : 0);
-			TestEqual(TEXT("Unpaid extractors never consume deposit"), Payment.Remaining, bAlive && bComplete ? 11 : 23);
-		}
-	In.RecipientCommander = 1;
-	Payment = EconomyPolicy::ExtractorPayment(In);
-	TestEqual(TEXT("Another friendly commander receives no extraction"), Payment.Amount, 0);
-	TestEqual(TEXT("Wrong recipient leaves deposit untouched"), Payment.Remaining, In.Remaining);
-	In.RecipientCommander = In.OwnerCommander;
-	In.RecipientTeam = 5;
-	TestEqual(TEXT("Enemy wallet cannot receive human extraction"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
-	In.OwnerTeam = In.RecipientTeam = 5;
-	In.OwnerCommander = In.RecipientCommander = -1;
-	Payment = EconomyPolicy::ExtractorPayment(In);
-	TestEqual(TEXT("Enemy extractor pays its own enemy wallet"), Payment.Amount, 12);
-	In.RecipientTeam = 0;
-	In.RecipientCommander = 0;
-	TestEqual(TEXT("Enemy extraction cannot fund a human wallet"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
-	In.OwnerTeam = In.RecipientTeam = 0;
-	In.OwnerCommander = In.RecipientCommander = 0;
+			for (const bool bConnected : { false, true })
+			{
+				In.bAlive = bAlive;
+				In.bComplete = bComplete;
+				In.bConnected = bConnected;
+				const bool bPays = bAlive && bComplete && bConnected;
+				Payment = EconomyPolicy::ExtractorPayment(In);
+				TestEqual(TEXT("Only completed, living, connected extractors pay"), Payment.Amount, bPays ? 12 : 0);
+				TestEqual(TEXT("Unpaid extractors never consume deposit"), Payment.Remaining, bPays ? 11 : 23);
+			}
+	In.bAlive = In.bComplete = In.bConnected = true;
+	In.Team = 5;
+	TestEqual(TEXT("Enemy extractor pays"), EconomyPolicy::ExtractorPayment(In).Amount, 12);
+	for (const int32 Team : { -1, 1, 4, 6 })
+	{
+		In.Team = Team;
+		TestEqual(TEXT("Only the two sides' extractors pay"), EconomyPolicy::ExtractorPayment(In).Amount, 0);
+	}
+	In.Team = 0;
 	In.RatePerSecond = MAX_int32;
 	In.TickSeconds = MAX_int32;
 	In.Remaining = MAX_int32;

@@ -7,11 +7,14 @@
 namespace GameplayConstants
 {
 constexpr int32 StartingResources = 600;
-constexpr int32 BaselineIncome = 2;
+constexpr int32 HumanBaselineIncome = 2;
+constexpr int32 JevBaselineIncome = 2;
+constexpr int32 RewardRegionDataRate = 1;
+constexpr int32 StructureKillData = 60;
 constexpr int32 NormalDepositRate = 4;
 constexpr int32 RichDepositRate = 6;
-constexpr int32 NormalDepositAmount = 2400;
-constexpr int32 RichDepositAmount = 3000;
+constexpr int32 NormalDepositAmount = 1200;
+constexpr int32 RichDepositAmount = 1500;
 constexpr float CaptureRadius = 430.f;
 constexpr float HostileHqClearance = 1000.f;
 constexpr float PlacementZTolerance = 110.f;

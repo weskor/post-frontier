@@ -5,8 +5,11 @@
 #include "CommandGameState.h"
 #include "EngineUtils.h"
 #include "GameState/GameStateRegistry.h"
+#include "Commands/OrderGraph.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
+#include "Rules/EconomyPolicy.h"
+#include "Rules/ForceOrderPolicy.h"
 #include "Rules/PlacementPolicy.h"
 
 namespace GameStateTerritory
@@ -41,5 +44,34 @@ FVector RegionAnchor(const ACommandGameState& State, int32 RegionIndex)
 		return IsValid(Region->Anchor) ? Region->Anchor->GetActorLocation() : FVector::ZeroVector;
 	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(State, Region->HomeTeam);
 	return IsValid(Home) ? Home->GetActorLocation() : FVector::ZeroVector;
+}
+
+uint64 TeamConnectedMask(const ACommandGameState& State, int32 Team)
+{
+	uint64 Graph[ForceOrders::MaxRegions];
+	const int32 Count = ForceOrderGraph::ReadGraph(State, Graph);
+	TArray<int32, TInlineAllocator<ForceOrders::MaxRegions>> Controllers;
+	for (int32 Index = 0; Index < Count; ++Index)
+		Controllers.Add(GameStateRegistry::FindRegion(State, Index) ? RegionController(State, Index) : -1);
+	return EconomyPolicy::ConnectedRegions(Graph, Controllers, ForceOrderGraph::TeamMain(State, Team), Team);
+}
+
+bool RefreshConnections(ACommandGameState& State)
+{
+	bool bChanged = false;
+	const float Now = State.GetServerWorldTimeSeconds();
+	const auto Publish = [&](FTeamConnection& Connection, int32 Team) {
+		const uint64 Mask = TeamConnectedMask(State, Team);
+		if (Mask == Connection.Mask)
+			return;
+		Connection.Mask = Mask;
+		Connection.ChangedAt = Now;
+		bChanged = true;
+	};
+	Publish(State.HumanConnection, 0);
+	Publish(State.EnemyConnection, 5);
+	if (bChanged)
+		State.ForceNetUpdate();
+	return bChanged;
 }
 }

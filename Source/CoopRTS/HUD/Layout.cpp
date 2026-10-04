@@ -21,6 +21,7 @@ FContext MakeContext(const ACommandPlayerController* Controller)
 	Context.State = World ? World->GetGameState<ACommandGameState>() : nullptr;
 	Context.Wallet = Controller->GetPlayerState<ACommandPlayerState>();
 	Context.Balance = Context.Wallet ? Context.Wallet->Resources : 0;
+	Context.DataBalance = Context.Wallet ? Context.Wallet->Data : 0;
 	if (Context.State && IsValid(Context.Wallet))
 		Context.ForceSlots = CommandForceCap::Read(*Context.State, *Context.Wallet);
 	Context.bTerminal = Context.State && Context.State->MatchResult != EMatchResult::Ongoing;

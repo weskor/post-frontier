@@ -37,7 +37,8 @@ FMatchSimulation::FMatchSimulation(UWorld* InWorld)
 	Report->SetArrayField(TEXT("snapshots"), TArray<TSharedPtr<FJsonValue>>{});
 	Report->SetArrayField(TEXT("events"), TArray<TSharedPtr<FJsonValue>>{});
 	const TSharedRef<FJsonObject> Economy = MakeShared<FJsonObject>();
-	Economy->SetNumberField(TEXT("baseline"), Settings.BaselineIncome);
+	Economy->SetNumberField(TEXT("human_baseline"), Settings.HumanBaselineIncome);
+	Economy->SetNumberField(TEXT("jev_baseline"), Settings.JevBaselineIncome);
 	Economy->SetNumberField(TEXT("normal_rate"), Settings.NormalRate);
 	Economy->SetNumberField(TEXT("rich_rate"), Settings.RichRate);
 	Economy->SetNumberField(TEXT("normal_amount"), Settings.NormalAmount);

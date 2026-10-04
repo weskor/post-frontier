@@ -137,7 +137,7 @@ identifiers = [
     "bVerifyPendingRejection", "FindActionScreenPosition", "SpawnUnits", "SpawnMember", "InitialUnitCount",
 ]
 flags = [
-    "autopilot", "SimDuel", "SimSeed", "SimBaseline", "SimNormalRate", "SimRichRate",
+    "autopilot", "SimDuel", "SimSeed", "SimHumanBaseline", "SimJevBaseline", "SimNormalRate", "SimRichRate",
     "SimNormalAmount", "SimRichAmount", "SimTimeCap", "SimDilation", "SimOutput",
     "CoopRTSNetVerifyDir", "CoopRTSNetVerifyPeer", "CoopRTSNetVerifyAuthority",
     "CoopSteam.Verify", "CoopSteamVerify",

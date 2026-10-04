@@ -11,8 +11,14 @@ from harness.verify import JsonObject
 MAP_V2 = "/Game/Maps/AvailabilityZoneV2"
 MAP_V1 = "/Game/Maps/AvailabilityZone"
 DEFAULT_ECONOMY = dict(
-    baseline=2, normal_rate=4, rich_rate=6, normal_amount=2400, rich_amount=3000
+    human_baseline=2,
+    jev_baseline=2,
+    normal_rate=4,
+    rich_rate=6,
+    normal_amount=1200,
+    rich_amount=1500,
 )
+RATE_KEYS = ("human_baseline", "jev_baseline", "normal_rate", "rich_rate")
 
 
 def parse_variant(text: str) -> tuple[str, dict[str, int]]:
@@ -25,18 +31,16 @@ def parse_variant(text: str) -> tuple[str, dict[str, int]]:
     if not separator:
         if name not in ("baseline2", "baseline3", "baseline4"):
             raise argparse.ArgumentTypeError(
-                "Use baseline2/3/4 or NAME:baseline=3,normal_rate=4,..."
+                "Use baseline2/3/4 or NAME:human_baseline=1,jev_baseline=2,..."
             )
-        values["baseline"] = int(name[-1])
+        values["human_baseline"] = int(name[-1])
     else:
         if not overrides:
             raise argparse.ArgumentTypeError("Economy overrides cannot be empty")
         seen = set()
         for part in overrides.split(","):
             key, equals, value = part.partition("=")
-            maximum = (
-                10000 if key in ("baseline", "normal_rate", "rich_rate") else 100000000
-            )
+            maximum = 10000 if key in RATE_KEYS else 100000000
             if (
                 key not in values
                 or key in seen

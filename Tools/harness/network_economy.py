@@ -27,6 +27,7 @@ from harness.network import (
 from harness.network_outcomes import finish, objective_event, research
 from harness.network_retreat import begin_retreat_home
 from harness.network_session import Session, converged
+from harness.simulation_planning import DEFAULT_ECONOMY
 from harness.verify import JsonObject
 
 
@@ -39,11 +40,24 @@ def deposit(state: JsonObject, index: int) -> JsonObject:
     return next(d for d in state["deposits"] if d["index"] == index)
 
 
+def reserve(rich: bool) -> int:
+    """The finite reserve the game ships, from the shared constants."""
+    return DEFAULT_ECONOMY["rich_amount" if rich else "normal_amount"]
+
+
+def pool_credit(total: int, recipients: int, carry: int) -> tuple[int, int]:
+    """One payment split evenly: whole credits and the new carry, in sixtieths of a unit.
+
+    Sixtieths divide exactly for rosters of one to five, so equal wallets stay equal."""
+    sixtieths = total * (60 // recipients) + carry
+    return sixtieths // 60, sixtieths % 60
+
+
 def jev_baseline(
     run: NetworkRun, payments: int, paid_payments: int = 0
 ) -> tuple[int, int]:
     """Expected credits and floored rate for the host plus every client."""
-    rate_tenths = 2 * (10 + 3 * run.clients)
+    rate_tenths = DEFAULT_ECONOMY["jev_baseline"] * (10 + 3 * run.clients)
     # connect pauses income before clients join: earlier natural solo ticks
     # leave no fraction. Keep the carry across this scenario's explicit ticks,
     # including enemyExtractor's wallet reset, which does not reset the carry.
@@ -112,7 +126,7 @@ def clear_deposit(
         if d["region"] == target and not d["occupied"]
     )
     rate = 6 if free["rich"] else 4
-    total = 3000 if free["rich"] else 2400
+    total = reserve(free["rich"])
     require(
         free["rate"] == rate and free["remaining"] == total,
         "deposit kind has incorrect rate or finite reserve",
@@ -176,11 +190,15 @@ def build_extractor(
 
 def pay_private_income(
     run: NetworkRun, s: Session, free: JsonObject, states: dict[str, JsonObject]
-) -> dict[str, JsonObject]:
+) -> tuple[dict[str, JsonObject], int]:
     deposit_index, rate, total = free["index"], free["rate"], free["remaining"]
-    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    players = states["host"]["players"]
+    recipients = len(players)
+    before = {p["index"]: p["wallet"] for p in players}
     enemy_before = states["host"]["enemyResources"]
     enemy_payment, _ = jev_baseline(run, payments=1)
+    # Shared pool: every baseline plus the connected rig, split evenly whoever built it.
+    credit, carry = pool_credit(4 * recipients + 2 * rate, recipients, 0)
     run.request("host", "incomeTick")
     states = converged(
         run,
@@ -189,15 +207,15 @@ def pay_private_income(
             deposit(st, deposit_index)["remaining"] == total - 2 * rate
             and st["enemyResources"] == enemy_before + enemy_payment
             and all(
-                p["wallet"]
-                == before[p["index"]] + 4 + (2 * rate if p["index"] == s.owner else 0)
+                p["wallet"] == before[p["index"]] + credit
+                and p["income"] == 2 + rate // recipients
                 for p in st["players"]
             )
             and st["income"] == wallet(st, st["localIndex"])["income"]
         ),
-        "normal payment tick drains once, pays only builder bonus and baseline to every other wallet",
+        "normal payment tick drains once and splits baselines plus the rig evenly, builder or not",
     )
-    return states
+    return states, carry
 
 
 def deplete_private_deposit(
@@ -207,12 +225,17 @@ def deplete_private_deposit(
     free: JsonObject,
     extractor: int,
     states: dict[str, JsonObject],
+    carry: int,
 ) -> None:
     deposit_index = free["index"]
     run.request("host", "depositRemaining", deposit=deposit_index, remaining=3)
-    before = {p["index"]: p["wallet"] for p in states["host"]["players"]}
+    players = states["host"]["players"]
+    recipients = len(players)
+    before = {p["index"]: p["wallet"] for p in players}
     enemy_before = states["host"]["enemyResources"]
     enemy_payment, _ = jev_baseline(run, payments=2, paid_payments=1)
+    last_rig, carry = pool_credit(4 * recipients + 3, recipients, carry)
+    baseline_only, _ = pool_credit(4 * recipients, recipients, carry)
     run.request("host", "incomeTick")
     run.request("host", "incomeTick")
     states = converged(
@@ -223,13 +246,12 @@ def deplete_private_deposit(
             and wallet(st, s.owner)["income"] == 2
             and st["enemyResources"] == enemy_before + enemy_payment
             and all(
-                p["wallet"]
-                == before[p["index"]] + 8 + (3 if p["index"] == s.owner else 0)
+                p["wallet"] == before[p["index"]] + last_rig + baseline_only
                 and p["income"] == 2
                 for p in st["players"]
             )
         ),
-        "finite final partial payment is capped and depleted extractor stops bonus on following tick",
+        "finite final partial payment is capped and depleted extractor stops paying on the following tick",
     )
     after = event_sequence(states["host"])
     run.request("host", "destroyExtractor", building=extractor)
@@ -246,7 +268,7 @@ def deplete_private_deposit(
     )
     objective_event(run, s, "drill_rig_lost", target, -1, 0, after)
     run.phase(
-        "natural polygon capture, builder-only finite income, depletion and destruction freeing across peers"
+        "natural polygon capture, shared finite income, depletion and destruction freeing across peers"
     )
 
 
@@ -276,7 +298,7 @@ def build_enemy_extractor(
     )
     require(
         enemy_rate == (6 if enemy_deposit["rich"] else 4)
-        and enemy_total == (3000 if enemy_deposit["rich"] else 2400),
+        and enemy_total == reserve(enemy_deposit["rich"]),
         "JEV deposit finite defaults incorrect",
     )
     return enemy_deposit, states
@@ -453,8 +475,8 @@ def capture_and_research(
     target, states = capture_region(run, s, index)
     free = clear_deposit(run, s, index, target, states)
     extractor, states = build_extractor(run, s, free)
-    states = pay_private_income(run, s, free, states)
-    deplete_private_deposit(run, s, target, free, extractor, states)
+    states, carry = pay_private_income(run, s, free, states)
+    deplete_private_deposit(run, s, target, free, extractor, states, carry)
     enemy_deposit, states = build_enemy_extractor(run, s)
     states = pay_enemy_income(run, s, enemy_deposit, states)
     deplete_enemy_deposit(run, s, enemy_deposit, states)

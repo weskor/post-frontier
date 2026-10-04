@@ -38,7 +38,8 @@ const FSimulationSettings& FSimulationSettings::Get()
 		if (Result.bDuel)
 			Result.TimeCap = 300.f;
 		ReadNumber(TEXT("SimSeed="), Result.Seed, 0, MAX_int32, Result.Error);
-		ReadNumber(TEXT("SimBaseline="), Result.BaselineIncome, 0, 10000, Result.Error);
+		ReadNumber(TEXT("SimHumanBaseline="), Result.HumanBaselineIncome, 0, 10000, Result.Error);
+		ReadNumber(TEXT("SimJevBaseline="), Result.JevBaselineIncome, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimNormalRate="), Result.NormalRate, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimRichRate="), Result.RichRate, 0, 10000, Result.Error);
 		ReadNumber(TEXT("SimNormalAmount="), Result.NormalAmount, 0, 100000000, Result.Error);

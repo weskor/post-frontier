@@ -23,7 +23,8 @@ from x.settings import load
 
 ROOT = Path(__file__).resolve().parents[2]
 ECONOMY_FLAGS = dict(
-    baseline="SimBaseline",
+    human_baseline="SimHumanBaseline",
+    jev_baseline="SimJevBaseline",
     normal_rate="SimNormalRate",
     rich_rate="SimRichRate",
     normal_amount="SimNormalAmount",

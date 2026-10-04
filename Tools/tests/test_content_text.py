@@ -49,7 +49,8 @@ def test_economy_defaults_follow_shared_constants() -> None:
     shared = ContentText.constants()
     economy = dict(DEFAULT_ECONOMY)
     assert economy == {
-        "baseline": shared["baseline_income"],
+        "human_baseline": shared["human_baseline_income"],
+        "jev_baseline": shared["jev_baseline_income"],
         "normal_rate": shared["normal_deposit_rate"],
         "rich_rate": shared["rich_deposit_rate"],
         "normal_amount": shared["normal_deposit_amount"],
@@ -107,6 +108,8 @@ def test_definitions_reject_incomplete_or_reordered_sources(
 
 
 def test_constants_reject_non_numbers(content: Path) -> None:
-    rewrite(content / "constants.json", lambda data: data.update(baseline_income="2"))
-    with pytest.raises(ValueError, match="baseline_income"):
+    rewrite(
+        content / "constants.json", lambda data: data.update(human_baseline_income="2")
+    )
+    with pytest.raises(ValueError, match="human_baseline_income"):
         ContentText.constants()

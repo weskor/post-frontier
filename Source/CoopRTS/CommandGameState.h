@@ -71,6 +71,35 @@ struct FJevPlanHistoryEntry
 };
 #endif
 
+// The regions a team's main reaches through its own regions, with the server time that set changed.
+USTRUCT()
+struct FTeamConnection
+{
+	GENERATED_BODY()
+	// Blueprints have no 64-bit integer; C++ reads the mask.
+	UPROPERTY()
+	uint64 Mask = 0;
+	UPROPERTY()
+	float ChangedAt = 0.f;
+};
+
+// One accepted gift. Commanders are identified by slot because the log outlives a departed player state.
+USTRUCT(BlueprintType)
+struct FGiftLogEntry
+{
+	GENERATED_BODY()
+	UPROPERTY(BlueprintReadOnly)
+	int32 SenderSlot = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly)
+	int32 RecipientSlot = INDEX_NONE;
+	UPROPERTY(BlueprintReadOnly)
+	EEconomyResource Resource = EEconomyResource::Power;
+	UPROPERTY(BlueprintReadOnly)
+	int32 Amount = 0;
+	UPROPERTY(BlueprintReadOnly)
+	float ServerTime = 0.f;
+};
+
 UENUM(BlueprintType)
 enum class EMatchResult : uint8
 {
@@ -99,9 +128,17 @@ public:
 	{
 		return bMatchAudioInitialized ? AudioLiveStartServerTime : GetServerWorldTimeSeconds();
 	}
+	// Whole Power per second for the commander, rounded down; GetPowerRate and GetDataRate are exact.
 	int32 GetIncomePerSecond(const ACommandPlayerState* Commander) const;
 	int32 GetEnemyIncomePerSecond() const;
 	double GetEnemyBaselineIncomePerSecond() const;
+	// Exact per-second share of the team pool a human commander receives, or JEV's own income.
+	double GetPowerRate(const ACommandPlayerState* Commander) const;
+	double GetDataRate(const ACommandPlayerState* Commander) const;
+	// Mask and change time of a team's connected regions (team 0 or 5; other teams are never connected).
+	uint64 GetConnectedMask(int32 Team) const;
+	float GetConnectionChangedAt(int32 Team) const;
+	bool IsRegionConnected(int32 Team, int32 RegionIndex) const;
 	const AMapRegion* FindRegionAt(const FVector& Location) const;
 	int32 GetRegionController(int32 RegionIndex) const;
 	bool IsRegionContested(int32 RegionIndex, int32 ForTeam) const;
@@ -111,7 +148,8 @@ public:
 	bool IsDamagingRegion(const AArmyUnit& Attacker, int32 RegionIndex, int32 DefendingTeam) const;
 	bool ValidateBuildingPlacement(int32 BuildingIndex, int32 Team, const FVector& Location, FString& OutReason) const;
 	bool IsInBuildTerritory(int32 BuildingIndex, int32 Team, const FVector& Location) const;
-	int32 GetBaselineIncomePerSecond() const;
+	int32 GetHumanBaselineIncomePerSecond() const;
+	int32 GetJevBaselineIncomePerSecond() const;
 
 	// Single definition catalogue for every peer; indices replicated by actors resolve here.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Content")
@@ -136,6 +174,13 @@ public:
 	TObjectPtr<AHeadquarters> EnemyHeadquarters;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Match")
 	TObjectPtr<AArenaBounds> Arena;
+	UPROPERTY(Replicated)
+	FTeamConnection HumanConnection;
+	UPROPERTY(Replicated)
+	FTeamConnection EnemyConnection;
+	// The latest accepted gifts, oldest first, at most EconomyPolicy::GiftLogLimit.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
+	TArray<FGiftLogEntry> GiftLog;
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Enemy")
 	TArray<FJevPublishedPlan> EnemyPlans;
 #if !UE_BUILD_SHIPPING

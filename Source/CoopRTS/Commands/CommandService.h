@@ -41,6 +41,8 @@ public:
 	static FCommandResult SetRetreatThreshold(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, ERetreatThreshold Threshold);
 	static FCommandResult SetRallyPoint(ACommandPlayerState* Commander, ACommandBuilding* Building, int32 RegionIndex);
 	static FCommandResult Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice);
+	// Free, atomic transfer of a whole amount between two roster commanders of the same team, during a live battle.
+	static FCommandResult Gift(ACommandPlayerState* Sender, ACommandPlayerState* Recipient, EEconomyResource Resource, int32 Amount);
 	static FCommandResult Restart(ACommandPlayerController* Controller);
 	static FCommandResult Pause(ACommandPlayerController* Controller);
 	static FCommandResult Resume(ACommandPlayerController* Controller);

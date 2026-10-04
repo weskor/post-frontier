@@ -99,6 +99,7 @@ void ACommandGameState::Tick(float DeltaSeconds)
 		HoldAlarmElapsed = 0.f;
 		UpdateRegionAlarms();
 	}
+	GameStateTerritory::RefreshConnections(*this);
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	if (bVerificationIncomePaused)
 		return;
@@ -106,9 +107,14 @@ void ACommandGameState::Tick(float DeltaSeconds)
 	Economy.Tick(*this, DeltaSeconds);
 }
 
-int32 ACommandGameState::GetBaselineIncomePerSecond() const
+int32 ACommandGameState::GetHumanBaselineIncomePerSecond() const
 {
-	return FGameStateEconomy::BaselineIncomePerSecond(GetWorld());
+	return FGameStateEconomy::HumanBaselineIncomePerSecond(GetWorld());
+}
+
+int32 ACommandGameState::GetJevBaselineIncomePerSecond() const
+{
+	return FGameStateEconomy::JevBaselineIncomePerSecond(GetWorld());
 }
 
 double ACommandGameState::GetEnemyBaselineIncomePerSecond() const
@@ -124,6 +130,34 @@ int32 ACommandGameState::GetIncomePerSecond(const ACommandPlayerState* Commander
 int32 ACommandGameState::GetEnemyIncomePerSecond() const
 {
 	return GetIncomePerSecond(EnemyCommander);
+}
+
+double ACommandGameState::GetPowerRate(const ACommandPlayerState* Commander) const
+{
+	return FGameStateEconomy::PowerRate(*this, Commander);
+}
+
+double ACommandGameState::GetDataRate(const ACommandPlayerState* Commander) const
+{
+	return FGameStateEconomy::DataRate(*this, Commander);
+}
+
+uint64 ACommandGameState::GetConnectedMask(int32 Team) const
+{
+	return Team == 0 ? HumanConnection.Mask : Team == 5 ? EnemyConnection.Mask
+														: 0;
+}
+
+float ACommandGameState::GetConnectionChangedAt(int32 Team) const
+{
+	return Team == 0 ? HumanConnection.ChangedAt : Team == 5 ? EnemyConnection.ChangedAt
+															 : 0.f;
+}
+
+bool ACommandGameState::IsRegionConnected(int32 Team, int32 RegionIndex) const
+{
+	return RegionIndex >= 0 && RegionIndex < ForceOrders::MaxRegions
+		&& (GetConnectedMask(Team) & (uint64(1) << RegionIndex)) != 0;
 }
 
 const AMapRegion* ACommandGameState::FindRegionAt(const FVector& Location) const
@@ -173,6 +207,9 @@ void ACommandGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ACommandGameState, FriendlyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, EnemyHeadquarters);
 	DOREPLIFETIME(ACommandGameState, Arena);
+	DOREPLIFETIME(ACommandGameState, HumanConnection);
+	DOREPLIFETIME(ACommandGameState, EnemyConnection);
+	DOREPLIFETIME(ACommandGameState, GiftLog);
 	DOREPLIFETIME(ACommandGameState, EnemyPlans);
 	DOREPLIFETIME(ACommandGameState, EnemyCommander);
 	DOREPLIFETIME(ACommandGameState, bActivePaused);

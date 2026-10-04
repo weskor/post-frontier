@@ -110,9 +110,11 @@ void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& F
 	}
 	if (Context.Wallet && Context.Wallet->CommanderIndex >= 0)
 	{
-		TStringBuilder<128> Economy;
-		Economy.Appendf(TEXT("C%d   %d Power  +%d/s   Forces %d   Regions %d/%d"),
-			Context.Wallet->CommanderIndex + 1, Context.Balance, Context.Wallet->GetIncomePerSecond(),
+		// Rates are exact shares of the team pool; only this text rounds them, to a tenth.
+		TStringBuilder<160> Economy;
+		Economy.Appendf(TEXT("C%d   %d Power  +%.1f/s   %d Data  +%.1f/s   Forces %d   Regions %d/%d"),
+			Context.Wallet->CommanderIndex + 1, Context.Balance, Context.State->GetPowerRate(Context.Wallet),
+			Context.DataBalance, Context.State->GetDataRate(Context.Wallet),
 			Forces.ConfiguredForces, Forces.ControlledRegions, Context.State->Regions.Num());
 		Paint.TextIn(Economy.ToView(), { Top.X + Pad, Top.Y, Top.W - 2.f * Pad - 230.f, Top.H },
 			10.f, Palette::Gold, true);

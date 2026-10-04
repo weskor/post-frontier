@@ -33,7 +33,11 @@ def telemetry_team(index: int) -> JsonObject:
 
 def telemetry() -> tuple[JsonObject, JsonObject]:
     job = dict(
-        map="/Game/Maps/Test", seed=1, economy={"baseline": 2}, time_cap=60, dilation=1
+        map="/Game/Maps/Test",
+        seed=1,
+        economy={"human_baseline": 2, "jev_baseline": 2},
+        time_cap=60,
+        dilation=1,
     )
     teams = [telemetry_team(index) for index in (0, 5)]
     report = dict(

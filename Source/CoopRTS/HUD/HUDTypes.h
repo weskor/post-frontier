@@ -93,6 +93,7 @@ struct FContext
 	const ACommandBuilding* Building = nullptr;
 	const AArmyGroup* Force = nullptr;
 	int32 Balance = 0;
+	int32 DataBalance = 0;
 	CommandForceCap::FOccupancy ForceSlots;
 	bool bTerminal = false;
 	// The frame's JEV display model when the HUD draws; panel queries rebuild one when it is null.

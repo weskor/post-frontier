@@ -12,7 +12,8 @@ struct FSimulationSettings
 	bool bEnabled = false;
 	bool bDuel = false;
 	int32 Seed = 1;
-	int32 BaselineIncome = EconomyPolicy::BaselineIncome;
+	int32 HumanBaselineIncome = EconomyPolicy::HumanBaselineIncome;
+	int32 JevBaselineIncome = EconomyPolicy::JevBaselineIncome;
 	int32 NormalRate = EconomyPolicy::NormalDepositRate;
 	int32 RichRate = EconomyPolicy::RichDepositRate;
 	int32 NormalAmount = EconomyPolicy::NormalDepositAmount;

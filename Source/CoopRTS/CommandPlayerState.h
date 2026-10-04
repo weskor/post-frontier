@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "Rules/EconomyPolicy.h"
 #include "Rules/GameplayConstants.h"
 #include "CommandPlayerState.generated.h"
 
@@ -12,6 +13,13 @@ enum class EArmyDoctrine : uint8
 	SiegeOptics,
 	FieldRepairs,
 	EntrenchedFrontline
+};
+
+UENUM(BlueprintType)
+enum class EEconomyResource : uint8
+{
+	Power,
+	Data
 };
 
 UCLASS()
@@ -30,17 +38,29 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_TeamIndex, BlueprintReadOnly, Category = "Commander")
 	int32 TeamIndex = 0;
 
+	// The Power balance. Every Power caller reads and spends this wallet.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
 	int32 Resources = InitialResources;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
+	int32 Data = 0;
+	// Fractions of a unit not yet paid, in sixtieths (EconomyPolicy::CarryDenominator).
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
+	int32 PowerCarry = 0;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Economy")
+	int32 DataCarry = 0;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Doctrine")
 	EArmyDoctrine Doctrine = EArmyDoctrine::None;
 	// Carried human PlayerStates retain only their slot; match economy and doctrine reset.
 	void ResetForNewMatch();
 
-	int32 GetIncomePerSecond() const;
 	bool TrySpend(int32 Cost);
+	// One atomic spend of Power and Data: both are debited or neither changes.
+	bool TrySpend(const FResourceCost& Cost);
 	void AddResources(int32 Amount);
+	void AddData(int32 Amount);
+	// Credit this commander's equal share of a team pool payment and keep the fractions.
+	void CreditPoolShare(int32 PowerTotal, int32 DataTotal, int32 Recipients);
 private:
 	UFUNCTION()
 	void OnRep_TeamIndex();

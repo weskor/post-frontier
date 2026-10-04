@@ -326,8 +326,8 @@ def reset_snapshot() -> tuple[JsonObject, Session, dict[str, JsonObject]]:
         ],
         "sites": [{"owner": -1, "progress": 0}],
         "deposits": [
-            {"occupied": False, "rich": True, "remaining": 3000},
-            {"occupied": False, "rich": False, "remaining": 2400},
+            {"occupied": False, "rich": True, "remaining": 1500},
+            {"occupied": False, "rich": False, "remaining": 1200},
         ],
     }
     return state, session, old
