@@ -180,7 +180,7 @@ HqHoldPolicy::FPresence AHeadquarters::CountPresence(const ACommandGameState& St
 	for (TActorIterator<AArmyUnit> It(GetWorld()); It; ++It)
 	{
 		const AArmyGroup* Group = It->GetGroup();
-		if (!It->IsAlive() || It->IsReinforcing() || !IsValid(Group) || !Group->GetUnits().Contains(*It)
+		if (!It->IsAlive() || !IsValid(Group) || !Group->GetUnits().Contains(*It)
 			|| !Main->Contains(It->GetActorLocation()))
 			continue;
 		(It->GetTeamIndex() == TeamIndex ? Presence.Defenders : Presence.Attackers) += 1;
