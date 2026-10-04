@@ -126,10 +126,9 @@ void AppendPrice(FStringBuilderBase& Out)
 	Out.Appendf(TEXT("%d Power + %d Data \u00B7 %d s"), PowerCost, DataCost, FMath::RoundToInt(UpgradeSeconds));
 }
 
-void AppendButtonText(FStringBuilderBase& Out, FStringView BranchName, FStringView Summary)
+void AppendBranchTitle(FStringBuilderBase& Out, FStringView BranchName, FStringView Summary)
 {
-	Out << FString(BranchName).ToUpper() << TEXT(" ") << Summary << TEXT(" \u00B7 ");
-	AppendPrice(Out);
+	Out << FString(BranchName).ToUpper() << TEXT(" ") << Summary;
 }
 
 void AppendUpgradeText(FStringBuilderBase& Out, FStringView BranchName, float Progress)

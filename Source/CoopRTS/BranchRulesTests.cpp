@@ -189,9 +189,13 @@ bool FBranchDurabilityTest::RunTest(const FString& Parameters)
 bool FBranchTextTest::RunTest(const FString& Parameters)
 {
 	TStringBuilder<128> Text;
-	AppendButtonText(Text, TEXT("Marksman"), TEXT("+20% range"));
-	TestEqual(TEXT("The button reads the branch, its summary and the price from data"), FString(Text.ToView()),
-		FString(TEXT("MARKSMAN +20% range \u00B7 100 Power + 50 Data \u00B7 20 s")));
+	AppendBranchTitle(Text, TEXT("Marksman"), TEXT("+20% range"));
+	TestEqual(TEXT("The button's first line is the branch and its effect from data"), FString(Text.ToView()),
+		FString(TEXT("MARKSMAN +20% range")));
+	Text.Reset();
+	AppendPrice(Text);
+	TestEqual(TEXT("and its second line the price: 100 Power + 50 Data and 20 s"), FString(Text.ToView()),
+		FString(TEXT("100 Power + 50 Data \u00B7 20 s")));
 	Text.Reset();
 	AppendUpgradeText(Text, TEXT("Marksman"), 12.9f);
 	TestEqual(TEXT("The bar text counts whole elapsed seconds"), FString(Text.ToView()), FString(TEXT("Upgrading to Marksman 12 / 20 s")));

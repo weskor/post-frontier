@@ -116,8 +116,8 @@ int32 ScaleDurability(int32 Current, int32 OldMax, int32 NewMax);
 // Text of the panel and the force card. Names and summaries come from the unit data.
 // "100 Power + 50 Data · 20 s".
 void AppendPrice(FStringBuilderBase& Out);
-// "MARKSMAN +20% range · 100 Power + 50 Data · 20 s".
-void AppendButtonText(FStringBuilderBase& Out, FStringView BranchName, FStringView Summary);
+// "MARKSMAN +20% range", the first line of the button.
+void AppendBranchTitle(FStringBuilderBase& Out, FStringView BranchName, FStringView Summary);
 // "Upgrading to Marksman 12 / 20 s".
 void AppendUpgradeText(FStringBuilderBase& Out, FStringView BranchName, float Progress);
 // "✓ MARKSMAN +20% range".

@@ -123,24 +123,53 @@ static void BuildButtons(const FContext& Context, const FLayout& Layout, TFuncti
 	}
 }
 
+FRect RecipeChip(const FRect& ColumnRect, int32 Slot)
+{
+	constexpr float ChipHeight = 28.f, Between = 4.f;
+	const float Width = (ColumnRect.W - Between) * .5f;
+	return { ColumnRect.X + (Slot % 2) * (Width + Between), ColumnRect.Y + 16.f + (Slot / 2) * (ChipHeight + Between), Width, ChipHeight };
+}
+
+FRect BranchArea(const FRect& ColumnRect)
+{
+	const FRect Locked = Row(ColumnRect, 0);
+	return { Locked.X, Locked.Bottom() + 4.f, Locked.W, 30.f };
+}
+
+int32 RecipeCount(const FContext& Context)
+{
+	const UMatchContent* Content = MatchContent(Context);
+	int32 Count = 0;
+	for (int32 Index = 0; Content && Index < FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))); ++Index)
+		Count += Content->Unit(Index) && !Content->Unit(Index)->IsBranch();
+	return Count;
+}
+
 static void ProducerButtons(const FContext& Context, const FLayout& Layout, TFunctionRef<void(const FButton&)> Visit)
 {
 	const ACommandBuilding* Building = Context.Building;
 	const UMatchContent* Content = MatchContent(Context);
 	const FRect Recipes = Column(Layout.Inspector, 0, 3);
 	const FRect Production = Column(Layout.Inspector, 1, 3);
-	const EBlock RoleLock = Building->bForceConfigured ? EBlock::ForceLocked : EBlock::None;
+	const bool bLocked = Building->bForceConfigured;
+	const EBlock RoleLock = bLocked ? EBlock::ForceLocked : EBlock::None;
 	const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
-	const int32 RecipeCount = Content ? FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))) : 0;
-	for (int32 Index = 0; Index < RecipeCount; ++Index)
+	// A locked producer shows only its own type; an unlocked one the picker grid. Branch definitions are never picked.
+	int32 Chip = 0;
+	for (int32 Index = 0; Content && Index < FMath::Min(Content->Units.Num(), static_cast<int32>(UE_ARRAY_COUNT(RecipeActions))); ++Index)
 	{
-		if (Content->Unit(Index))
-			EmitButton(Context, Visit, RecipeActions[Index], Row(Recipes, Index, RecipeCount), 0, RoleLock,
-				Building->ProductionUnitIndex == Index || (Building->ProductionUnitIndex == INDEX_NONE && Content->Unit(Index) == Recipe));
+		const UArmyUnitDefinition* Unit = Content->Unit(Index);
+		if (!Unit || Unit->IsBranch() || (bLocked && Building->ProductionUnitIndex != Index))
+			continue;
+		EmitButton(Context, Visit, RecipeActions[Index], bLocked ? Row(Recipes, 0) : RecipeChip(Recipes, Chip++), 0, RoleLock,
+			Building->ProductionUnitIndex == Index || (Building->ProductionUnitIndex == INDEX_NONE && Unit == Recipe));
 	}
+	BranchPolicy::FDecision Decision;
+	if (ReadBranchArea(Context, Decision) == EBranchArea::Button)
+		Visit(FButton{ EHUDAction::BranchPurchase, BranchArea(Recipes), Context.bTerminal ? EBlock::Terminal : EBlock::None, false, 0 });
 	EmitButton(Context, Visit, EHUDAction::ToggleProduction, Row(Production, 1),
-		Building->bForceConfigured || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
-		EBlock::None, Building->bProductionEnabled);
+		bLocked || !Recipe ? 0 : ACommandBuilding::GetConfigurationCost(*Recipe),
+		Building->IsUpgrading() ? EBlock::Upgrading : EBlock::None, Building->bProductionEnabled);
 	const AArmyGroup* Force = IsValid(Building->ForceGroup) ? Building->ForceGroup.Get() : nullptr;
 	if (Force)
 		Visit(FButton{ EHUDAction::SelectForce,

@@ -134,7 +134,9 @@ enum class EBlock : uint8
 	Funds,
 	ForceLocked,
 	Chosen,
-	ForceCap
+	ForceCap,
+	// The building is upgrading to its branch and its production waits.
+	Upgrading
 };
 
 struct FButton

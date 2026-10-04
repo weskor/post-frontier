@@ -31,6 +31,10 @@ FRect Row(const FRect& ColumnRect, int32 Index, int32 Count = 3);
 FRect BuildCard(const FRect& Build, int32 Index, int32 Count);
 FRect ResearchCard(const FRect& Inspector, int32 Index);
 FRect CancelButton(const FRect& Inspector);
+// Production panel, FORCE TYPE column (ui.md surface 5). The unlocked picker is a two-column grid of 28 px chips, because
+// Row would shrink five rows to about 14 px; the locked row keeps Row 0 and the 30 px TIER 2 BRANCH area sits under it.
+FRect RecipeChip(const FRect& ColumnRect, int32 Slot);
+FRect BranchArea(const FRect& ColumnRect);
 bool IsPanelPoint(const FContext& Context, const FLayout& Layout, const FVector2D& VirtualPoint);
 bool OverlayClearsPanels(const FContext& Context, const FLayout& Layout, const FRect& Rect);
 void ForEachForceBadge(const FPainter& Paint, const FContext& Context, const FLayout& Layout,
@@ -68,6 +72,23 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 void DrawBuildCard(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover);
 void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
+
+// What the FORCE TYPE column shows for the selected producer's tier-2 branch.
+enum class EBranchArea : uint8
+{
+	Hidden,
+	// An unlocked type: the hint takes the free cell after the picker's chips.
+	Hint,
+	// The TIER 2 BRANCH button, ready or greyed with its reason.
+	Button,
+	Bar,
+	Done
+};
+EBranchArea ReadBranchArea(const FContext& Context, BranchPolicy::FDecision& OutDecision);
+// The picker types of the catalogue: base units only, in catalogue order.
+int32 RecipeCount(const FContext& Context);
+void DrawBranchStatus(const FPainter& Paint, const FContext& Context, const FRect& RecipeColumn);
+void DrawBranchButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawFortifyDock(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawFortifyCursor(const FPainter& Paint, const FContext& Context, const FLayout& Layout);

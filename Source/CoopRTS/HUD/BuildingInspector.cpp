@@ -53,6 +53,8 @@ static void DrawProductionRemedy(const FPainter& Paint, const FContext& Context,
 	else if (ProductionState == EProductionState::InsufficientResources)
 		Remedy.Appendf(TEXT("Need %d more: resumes with income."),
 			FMath::Max(0, UnitCost - Context.Balance));
+	else if (Context.Building->IsUpgrading())
+		Remedy << TEXT("Upgrading: production resumes when the upgrade is done.");
 	else if (ProductionState == EProductionState::Paused)
 		Remedy << TEXT("Paused: click Resume.");
 	else if (ProductionState == EProductionState::DeploymentBlocked)
@@ -73,6 +75,15 @@ static void DrawProductionRemedy(const FPainter& Paint, const FContext& Context,
 		true, EAlign::Left, Inspector.W - 2.f * Pad - (IsValid(Context.Building->ForceGroup) ? 150.f + Gap : 0.f));
 }
 
+static void DrawUpgradePill(const FPainter& Paint, const FRect& Inspector)
+{
+	const float Width = Paint.TextWidth(TEXT("UPGRADING"), 9.f, true) + 16.f;
+	const FRect Pill{ Inspector.Right() - Pad - Width, Inspector.Y + Pad - 3.f, Width, 16.f };
+	Paint.Fill(Pill, Tint(Palette::Warn, .2f, .95f));
+	Paint.Outline(Pill, Palette::Warn);
+	Paint.TextIn(TEXT("UPGRADING"), Pill, 9.f, Palette::Warn, true, EAlign::Center);
+}
+
 static void DrawProductionInspector(const FPainter& Paint, const FContext& Context, const FRect& Inspector, const FLinearColor& Accent, FStringView Title, FStringView Subtitle, int32 Owner)
 {
 	const ACommandBuilding* Building = Context.Building;
@@ -82,12 +93,17 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	const FLinearColor StatusColor = ProductionState == EProductionState::Producing || ProductionState == EProductionState::ForceComplete ? Palette::Good
 		: ProductionState == EProductionState::Paused || ProductionState == EProductionState::MatchFinished                               ? Palette::Muted
 																																		  : Palette::Warn;
+	// An upgrade replaces the status text with an amber pill: production is paused for it, and the words carry that.
+	const bool bUpgrading = Building->IsUpgrading();
 	DrawInspectorHeader(Paint, Inspector, Accent, Title, Subtitle, Owner,
-		Building->Health, Building->MaxHealth(), Status, StatusColor);
+		Building->Health, Building->MaxHealth(), bUpgrading ? FStringView() : FStringView(Status), StatusColor);
+	if (bUpgrading)
+		DrawUpgradePill(Paint, Inspector);
 	const FRect Recipes = Column(Inspector, 0, 3);
 	const FRect Production = Column(Inspector, 1, 3);
 	const FRect Rally = Column(Inspector, 2, 3);
 	ColumnLabel(Paint, Recipes, TEXT("FORCE TYPE"), Building->bForceConfigured ? TEXT("LOCKED") : TEXT("choose before Start"));
+	DrawBranchStatus(Paint, Context, Recipes);
 	int32 Joined = 0, Travelling = 0;
 	Building->GetForceCounts(Joined, Travelling);
 	const UArmyUnitDefinition* Recipe = ProductionDefinition(Context);
@@ -113,10 +129,15 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	const FRect Progress = Row(Production, 0);
 	const float Duration = FMath::Max(KINDA_SMALL_NUMBER, Recipe ? ACommandBuilding::GetUnitDuration(*Recipe) : 0.f);
 	Paint.Bar({ Progress.X, Progress.Y, Progress.W, 5.f }, Building->ProductionProgressSeconds / Duration, StatusColor);
-	TStringBuilder<64> Timer;
-	const int32 BuildingCount = Building->bForceConfigured && (Building->ProductionProgressSeconds > 0.f || ProductionState == EProductionState::Producing || ProductionState == EProductionState::DeploymentBlocked) ? 1 : 0;
-	Timer.Appendf(TEXT("Building %d: %.1f/%.1fs"), BuildingCount, Building->ProductionProgressSeconds, Duration);
-	Paint.Text(Timer.ToView(), Progress.X, Progress.Y + 7.f, 9.f, Palette::Text, true, EAlign::Left, Progress.W);
+	if (bUpgrading)
+		Paint.Text(TEXT("Production paused while upgrading"), Progress.X, Progress.Y + 7.f, 9.f, Palette::Warn, true, EAlign::Left, Progress.W);
+	else
+	{
+		TStringBuilder<64> Timer;
+		const int32 BuildingCount = Building->bForceConfigured && (Building->ProductionProgressSeconds > 0.f || ProductionState == EProductionState::Producing || ProductionState == EProductionState::DeploymentBlocked) ? 1 : 0;
+		Timer.Appendf(TEXT("Building %d: %.1f/%.1fs"), BuildingCount, Building->ProductionProgressSeconds, Duration);
+		Paint.Text(Timer.ToView(), Progress.X, Progress.Y + 7.f, 9.f, Palette::Text, true, EAlign::Left, Progress.W);
+	}
 	TStringBuilder<64> Recruits;
 	Recruits.Appendf(TEXT("Travelling %d  \u00B7  Held %d  \u00B7  Vacant %d"), IsValid(Force) ? Force->RecruitsInTransit : 0,
 		IsValid(Force) ? Force->RecruitsWaiting : 0, Vacancies);

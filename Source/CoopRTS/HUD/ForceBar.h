@@ -19,6 +19,12 @@ struct FForceCard
 	bool bOwned = false;
 	bool bHighlighted = false;
 	float ProductionProgress = 0.f;
+	// Tier-2 branch (ui.md surface 5): members that took it so far while others still wear the old form, and whether
+	// the producer's branch could be bought now.
+	bool bRefitting = false;
+	bool bBranchAffordable = false;
+	BranchPolicy::FRefitProgress Refit;
+	TStringBuilder<96> RefitLine;
 	ForceCardPolicy::EState State = ForceCardPolicy::EState::Holding;
 	TStringBuilder<128> Title;
 	TStringBuilder<256> Order;

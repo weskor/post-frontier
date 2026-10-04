@@ -12,6 +12,9 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 	}
 	switch (Button.Action)
 	{
+	case EHUDAction::BranchPurchase:
+		DrawBranchButton(Paint, Context, Button, bHover);
+		break;
 	case EHUDAction::Fortify:
 		DrawFortifyDock(Paint, Context, Button, bHover);
 		break;

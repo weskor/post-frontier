@@ -4,6 +4,7 @@
 #include "CommandPlayerController.h"
 #include "CommandGameState.h"
 #include "Commands/OrderGraph.h"
+#include "Commands/BranchCommands.h"
 #include "EngineUtils.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
@@ -116,6 +117,31 @@ static void AppendRefillLine(const AArmyGroup& Force, EProductionState State, FS
 		Text.Appendf(TEXT(" \u00B7 %d travelling"), Force.RecruitsInTransit);
 }
 
+// Tier-2 branch on the card (ui.md surface 5): how many members already took the branch, and whether it could be
+// bought now. Information only; the producer's panel is where it is bought.
+static void ReadBranch(const FContext& Context, const AArmyGroup& Force, FForceCard& Card)
+{
+	Card.RefitLine.Reset();
+	Card.bRefitting = false;
+	Card.bBranchAffordable = false;
+	const ACommandBuilding* Producer = Card.Producer;
+	if (!Producer)
+		return;
+	const UArmyUnitDefinition* Branch = Producer->Branch.Phase == EBranchPhase::Done ? Producer->GetBranchDefinition() : nullptr;
+	if (Branch)
+	{
+		TArray<BranchPolicy::FMember, TInlineAllocator<6>> Living;
+		for (const AArmyUnit* Unit : Force.GetUnits())
+			if (IsValid(Unit) && Unit->IsAlive())
+				Living.Add({ Unit->GetCompositionSlot(), Unit->GetUnitIndex() });
+		Card.Refit = BranchPolicy::RefitProgress(Living, Producer->GetBranchUnitIndex());
+		Card.bRefitting = !Card.Refit.IsComplete();
+		if (Card.bRefitting)
+			BranchPolicy::AppendRefitLine(Card.RefitLine, Card.Refit, Branch->DisplayName.ToString());
+	}
+	Card.bBranchAffordable = Card.bOwned && BranchPolicy::Evaluate(FBranchCommands::MakeInput(*Producer, Context.Wallet)).IsAccepted();
+}
+
 void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card)
 {
 	Card.Title.Reset();
@@ -162,6 +188,7 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 	}
 	else
 		Card.Production << TEXT("Orphan \u00B7 no reinforcements");
+	ReadBranch(Context, Force, Card);
 }
 
 static const TCHAR* ForceVerbRule(const FForceCard& Card)
@@ -221,6 +248,35 @@ EHUDAction HitTestForceCard(const FForceCard& Card, const FRect& Rect, const FVe
 	return Result;
 }
 
+// Chips between the unit type and the strength (ui.md surfaces 2 and 5). Each is a word or a glyph plus a word, so no
+// state rests on colour. T2 needs an unbought branch and REFIT a finished one, so at most two chips ever show.
+// Returns the left edge of the chips, RightEdge when there are none.
+static float DrawCardChips(const FPainter& Paint, const FForceCard& Card, const FRect& Rect, float RightEdge)
+{
+	TArray<TPair<FString, FLinearColor>, TInlineAllocator<2>> Chips;
+	if (Card.Force->bSupplyCutOff)
+		Chips.Emplace(TEXT("CUT OFF"), Palette::Bad);
+	if (Card.bRefitting)
+	{
+		TStringBuilder<24> Text;
+		BranchPolicy::AppendRefitChip(Text, Card.Refit);
+		Chips.Emplace(FString(Text.ToView()), Palette::Warn);
+	}
+	if (Card.bBranchAffordable)
+		Chips.Emplace(TEXT("\u25B2 T2"), Palette::Good);
+	float Left = RightEdge;
+	for (int32 Index = Chips.Num() - 1; Index >= 0; --Index)
+	{
+		const float Width = Paint.TextWidth(Chips[Index].Key, 7.5f, true) + 10.f;
+		const FRect Chip{ Left - Width - 4.f, Rect.Y + 3.f, Width, 14.f };
+		Paint.Fill(Chip, FLinearColor(Chips[Index].Value.R, Chips[Index].Value.G, Chips[Index].Value.B, .2f));
+		Paint.Outline(Chip, Chips[Index].Value);
+		Paint.TextIn(Chips[Index].Key, Chip, 7.5f, Chips[Index].Value, true, EAlign::Center);
+		Left = Chip.X;
+	}
+	return Left;
+}
+
 void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& Rect, const FVector2D& Mouse)
 {
 	const int32 Owner = IsValid(Card.Force->GetOwningPlayerState()) ? Card.Force->GetOwningPlayerState()->CommanderIndex : 0;
@@ -230,24 +286,19 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	const float X = Rect.X + 6.f, Width = Rect.W - 12.f;
 	TStringBuilder<32> Strength;
 	Strength.Appendf(TEXT("%d/%d"), Card.Joined, Card.Capacity);
-	float TitleWidth = Width - 37.f;
-	if (Card.Force->bSupplyCutOff)
-	{
-		// Between the unit type and the strength. The words carry the state; the red only echoes it.
-		constexpr float ChipWidth = 44.f;
-		const FRect Chip{ Rect.Right() - 12.f - Paint.TextWidth(Strength.ToView(), 10.f) - ChipWidth, Rect.Y + 3.f, ChipWidth, 14.f };
-		Paint.Fill(Chip, FLinearColor(Palette::Bad.R, Palette::Bad.G, Palette::Bad.B, .2f));
-		Paint.Outline(Chip, Palette::Bad);
-		Paint.TextIn(TEXT("CUT OFF"), Chip, 7.5f, Palette::Bad, true, EAlign::Center);
-		TitleWidth = Chip.X - X - 4.f;
-	}
+	const float StrengthLeft = Rect.Right() - 12.f - Paint.TextWidth(Strength.ToView(), 10.f);
+	const float ChipsLeft = DrawCardChips(Paint, Card, Rect, StrengthLeft + 4.f);
+	const float TitleWidth = ChipsLeft < StrengthLeft ? ChipsLeft - X - 4.f : Width - 37.f;
 	Paint.Text(Card.Title.ToView(), X, Rect.Y + 5.f, 9.5f, Accent, true, EAlign::Left, TitleWidth);
 	Paint.Text(Strength.ToView(), Rect.Right() - 6.f, Rect.Y + 5.f, 10.f, Palette::Text, true, EAlign::Right);
 	Paint.Text(Card.Order.ToView(), X, Rect.Y + 24.f, 9.f, OrderColor(Card.Force->Verb), true, EAlign::Left, Width);
 	Paint.Text(Card.Status.ToView(), X, Rect.Y + 42.f, 8.f, Card.State == ForceCardPolicy::EState::Withdrawing ? Palette::Warn : Palette::Text,
 		false, EAlign::Left, Width);
 	Paint.Text(ForceVerbRule(Card), X, Rect.Y + 60.f, 8.f, Palette::Muted, false, EAlign::Left, Width);
-	Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
+	if (Card.bRefitting)
+		Paint.Text(Card.RefitLine.ToView(), X, Rect.Y + 74.f, 7.8f, Palette::Warn, false, EAlign::Left, Width);
+	else
+		Paint.Text(TEXT("Structure order first; keep target in range."), X, Rect.Y + 74.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	Paint.Text(ForceTargetRule(Card.Definition), X, Rect.Y + 87.f, 7.8f, Palette::Faint, false, EAlign::Left, Width);
 	// Narrow cards drop the "Refill: " label before they would clip the travelling count.
 	FStringView Production = Card.Production.ToView();

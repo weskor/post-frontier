@@ -40,7 +40,7 @@ static void ProductionText(const FContext& Context, const FButton& Button, FComm
 		if (Fee > 0 && Button.Block != EBlock::Funds)
 			Text.Right.Appendf(TEXT("+%d fee"), Fee);
 	}
-	else if (Button.Block != EBlock::Terminal)
+	else if (Button.Block != EBlock::Terminal && Button.Block != EBlock::Upgrading)
 		Text.Right << (bEnabled ? TEXT("enabled") : TEXT("paused"));
 	Text.Accent = bEnabled ? Palette::Warn : Palette::Good;
 	Text.RightColor = Palette::Muted;
@@ -90,6 +90,14 @@ void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButto
 	Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, Text.Accent.CopyWithNewOpacity(bOn || Button.bActive ? 1.f : .3f));
 	Paint.Outline(Rect, bActiveRecipeOrOrder ? Text.Accent.CopyWithNewOpacity(.85f) : bOn && bHover ? Text.Accent.CopyWithNewOpacity(.7f)
 																									: Palette::Edge);
+	// A picker chip is half a column wide and 28 px tall: the name sits over the price instead of beside it.
+	if (RecipeSlot(Button.Action) != INDEX_NONE && Rect.W < 150.f)
+	{
+		Paint.Text(Text.Left.ToView(), Rect.X + 11.f, Rect.Y + 3.f, 9.5f, bOn || Button.bActive ? Palette::Text : Palette::Muted, true, EAlign::Left, Rect.W - 16.f);
+		if (Text.Right.Len() > 0)
+			Paint.Text(Text.Right.ToView(), Rect.X + 11.f, Rect.Y + 16.f, 8.5f, Text.RightColor, false, EAlign::Left, Rect.W - 16.f);
+		return;
+	}
 	float RightWidth = 0.f;
 	if (Text.Right.Len() > 0)
 		RightWidth = Paint.TextIn(Text.Right.ToView(), Rect, 9.f * TextScale, Text.RightColor, false, EAlign::Right, 9.f);
