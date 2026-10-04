@@ -6,10 +6,12 @@
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "Commands/OrderGraph.h"
+#include "GameState/GameStateTerritory.h"
 #include "Content/MatchContent.h"
 #include "DepositSite.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
+#include "Rules/FortifyPolicy.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 
@@ -84,6 +86,7 @@ bool SummariseRegions(FJevTurn& Turn)
 			Out.bExists = true;
 			Out.bMain = Region->RegionRole == ERegionRole::Main;
 			Out.Controller = State.GetRegionController(Region->RegionIndex);
+			Out.DefenceMultiplier = FortifyPolicy::DefenceFor(Region->GetFortify(), Turn.Team, State.GetServerWorldTimeSeconds());
 			Out.Position = State.GetRegionAnchor(Region->RegionIndex);
 			for (int32 Neighbour : Region->Neighbours)
 				if (ValidRegion(Neighbour))
@@ -93,7 +96,9 @@ bool SummariseRegions(FJevTurn& Turn)
 	if (!Turn.HomeRegion || !ValidRegion(Turn.HomeRegion->RegionIndex))
 		return false;
 	Turn.Summary.Home = Turn.HomeRegion->RegionIndex;
-	Turn.Connected = JevPlanner::ConnectedRegions(Turn.Summary);
+	// The published mask is the one connectivity rule; refresh it so a capture since the last state tick is seen.
+	GameStateTerritory::RefreshConnections(State);
+	Turn.Connected = State.GetConnectedMask(Turn.Team);
 	const AMapRegion* EnemyMain = State.FindRegionAt(Turn.EnemyHome);
 	Turn.Summary.EnemyHome = EnemyMain ? EnemyMain->RegionIndex : INDEX_NONE;
 	return true;

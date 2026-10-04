@@ -11,6 +11,8 @@
 #include "DepositSite.h"
 #include "CommandPlayerController.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/AbilityCommandComponent.h"
+#include "CommandPlayerState.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -130,6 +132,20 @@ struct FMap
 	}
 };
 
+void DrawFortifyRing(const FMap& Map, const AMapRegion& Region, FVector2D Point)
+{
+	const float Left = FortifyPolicy::SecondsLeft(Region.GetFortify(), Region.GetServerNow());
+	const float Sweep = FMath::Clamp(Left / FortifyPolicy::DurationSeconds, 0.f, 1.f) * 2.f * PI;
+	// The gap advances clockwise from twelve o'clock as the remaining arc drains.
+	for (float Angle = 2.f * PI - Sweep; Angle < 2.f * PI; Angle += 2.f * PI / 24.f)
+	{
+		const float End = FMath::Min(Angle + 2.f * PI / 36.f, 2.f * PI);
+		const FVector2D A(FMath::Sin(Angle), -FMath::Cos(Angle));
+		const FVector2D B(FMath::Sin(End), -FMath::Cos(End));
+		Map.Line(Point + A * 9.f, Point + B * 9.f, FLinearColor(.42f, .90f, 1.f), 1.5f);
+	}
+}
+
 void DrawFootprint(const FMap& Map, ACommandPlayerController* Controller)
 {
 	int32 Width = 0, Height = 0;
@@ -235,25 +251,51 @@ void DrawBackdrop(const FMap& Map, FVector2D Origin, float Size)
 	}
 }
 
-void DrawRegionOutlines(const FMap& Map, const ACommandGameState& State)
+void DrawRegionOutlines(const FMap& Map, const ACommandGameState& State, const ACommandPlayerController& Controller)
 {
+	const ACommandPlayerState* Own = Controller.GetPlayerState<ACommandPlayerState>();
+	const bool bTargeting = Controller.IsFortifyTargeting();
 	for (const AMapRegion* Region : State.Regions)
 	{
 		if (!IsValid(Region))
 			continue;
-		const FLinearColor Color = TeamColor(State.GetRegionController(Region->RegionIndex));
+		// While targeting, valid regions get a dashed green border and the rest dim.
+		const bool bValid = bTargeting
+			&& FortifyPolicy::IsValidTarget(FortifyPolicy::Evaluate(UAbilityCommandComponent::MakeFortifyInput(State, Own, Region)).Verdict);
+		const FLinearColor Color = bTargeting ? (bValid ? FLinearColor(.46f, .94f, .56f) : Neutral.CopyWithNewOpacity(.2f))
+											  : TeamColor(State.GetRegionController(Region->RegionIndex)).CopyWithNewOpacity(.45f);
 		for (int32 Index = 0; Index < Region->Polygon.Num(); ++Index)
 		{
 			const FVector2D& A = Region->Polygon[Index];
 			const FVector2D& B = Region->Polygon[(Index + 1) % Region->Polygon.Num()];
 			FVector2D Start, End;
-			if (Map.Point(FVector(A.X, A.Y, 0.f), Start) && Map.Point(FVector(B.X, B.Y, 0.f), End))
-				Map.Line(Start, End, Color.CopyWithNewOpacity(.45f));
+			if (!Map.Point(FVector(A.X, A.Y, 0.f), Start) || !Map.Point(FVector(B.X, B.Y, 0.f), End))
+				continue;
+			if (!bValid)
+			{
+				Map.Line(Start, End, Color);
+				continue;
+			}
+			const double Length = FVector2D::Distance(Start, End);
+			const FVector2D Direction = (End - Start).GetSafeNormal();
+			for (double Offset = 0.; Offset < Length; Offset += 6.)
+				Map.Line(Start + Direction * Offset, Start + Direction * FMath::Min(Offset + 3., Length), Color);
 		}
 	}
 }
 
-void DrawSites(const FMap& Map, const ACommandGameState& State)
+void DrawFortifyRings(const FMap& Map, const ACommandGameState& State)
+{
+	for (const AMapRegion* Region : State.Regions)
+	{
+		FVector2D Point;
+		if (!IsValid(Region) || !Region->IsFortifyActive() || !Map.Point(State.GetRegionAnchor(Region->RegionIndex), Point))
+			continue;
+		DrawFortifyRing(Map, *Region, Point);
+	}
+}
+
+void DrawSites(const FMap& Map, const ACommandGameState& State, const ACommandPlayerController& Controller)
 {
 	for (const ADepositSite* Deposit : State.Deposits)
 	{
@@ -266,7 +308,11 @@ void DrawSites(const FMap& Map, const ACommandGameState& State)
 		FVector2D Point;
 		if (!IsValid(Site) || !Map.Point(Site->GetActorLocation(), Point))
 			continue;
-		Map.Diamond(Point, 4.0, TeamColor(Site->ControllingTeam));
+		FLinearColor Color = TeamColor(Site->ControllingTeam);
+		const ACommandPlayerState* Own = Controller.GetPlayerState<ACommandPlayerState>();
+		if (Controller.IsFortifyTargeting() && (!Own || Site->ControllingTeam != Own->TeamIndex))
+			Color = Neutral.CopyWithNewOpacity(.25f);
+		Map.Diamond(Point, 4.0, Color);
 		if (Site->bFriendlyPresent && Site->bEnemyPresent)
 			Map.Diamond(Point, 6.5, Contested);
 	}
@@ -393,8 +439,15 @@ void DrawCaption(UCanvas* Canvas, const ACommandPlayerController& Controller, FV
 		return;
 	const float TextScale = FMath::Clamp(Size / 210.f, .65f, 1.f);
 	const FSlateFontInfo Font(GEngine->GetSmallFont(), 9.f * TextScale, FName(TEXT("Regular")));
+	const bool bFortify = Controller.IsFortifyTargeting();
+	const FSlateFontInfo HeaderFont(GEngine->GetSmallFont(),
+		bFortify ? 8.f * FMath::Clamp(Size / 144.f, .78f, 1.f) : 9.f * TextScale,
+		FName(bFortify ? TEXT("Bold") : TEXT("Regular")));
 	FCanvasTextStringViewItem Header(Origin - FVector2D(0, 29.f * TextScale),
-		FStringView(Controller.IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL") : TEXT("ARENA / LMB PAN / RMB ORDER")), Font, View);
+		FStringView(bFortify                      ? TEXT("LMB FORTIFY / RMB CANCEL")
+				: Controller.IsAssigningOrder() ? TEXT("ARENA / LMB ATTACK / RMB CANCEL")
+												: TEXT("ARENA / LMB PAN / RMB ORDER")),
+		HeaderFont, bFortify ? FLinearColor(.46f, .94f, .56f) : View);
 	Canvas->DrawItem(Header);
 	FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
 		FStringView(TEXT("HQ/base | sector | amber: contest/front")), Font, Neutral);
@@ -429,13 +482,15 @@ void CommandMinimap::Draw(UCanvas* Canvas, ACommandPlayerController* Controller,
 	const ACommandGameState* State = World->GetGameState<ACommandGameState>();
 	if (State)
 	{
-		DrawRegionOutlines(Map, *State);
-		DrawSites(Map, *State);
+		DrawRegionOutlines(Map, *State, *Controller);
+		DrawSites(Map, *State, *Controller);
 		DrawStructures(Map, *State, *Controller);
 	}
 	DrawForces(Map, *World);
 	if (State)
 		DrawJevBadges(Map, *State);
+	if (State)
+		DrawFortifyRings(Map, *State);
 	ForceRoutePresentation::Visit(*Controller, [&Map](const ForceRoutePresentation::FRoute& Route) { DrawRoute(Map, Route); });
 	DrawSelectedFront(Map, *Controller);
 	if (State)

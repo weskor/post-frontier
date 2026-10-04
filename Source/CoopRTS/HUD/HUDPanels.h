@@ -7,6 +7,7 @@
 
 struct FObjectiveEvent;
 struct FObjectiveForce;
+class AMapRegion;
 
 namespace CommandHUDPanels
 {
@@ -68,6 +69,9 @@ void DrawBuildCard(const FPainter& Paint, const FContext& Context, const FButton
 void DrawResearchCard(const FPainter& Paint, const FButton& Button, bool bHover);
 void DrawCommandRow(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
 void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
+void DrawFortifyDock(const FPainter& Paint, const FContext& Context, const FButton& Button, bool bHover);
+void DrawFortifyCursor(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
+void DrawFortifyBadge(const FPainter& Paint, const AMapRegion& Region, const FVector2D& Screen);
 void DrawBuildPanel(const FPainter& Paint, const FContext& Context, const FLayout& Layout);
 void DrawInspectorHeader(const FPainter& Paint, const FRect& Inspector, const FLinearColor& Accent, FStringView Title,
 	FStringView Subtitle, int32 Owner, int32 Health, int32 MaxHealth, FStringView Status, const FLinearColor& StatusColor);

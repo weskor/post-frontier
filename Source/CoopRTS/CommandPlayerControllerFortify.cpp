@@ -137,7 +137,7 @@ void ACommandPlayerController::DrawFortifyOverlay(AWorldOverlay& Overlay) const
 				UAbilityCommandComponent::MakeFortifyInput(*State, Commander, Region));
 			if (Region->RegionIndex == Hovered)
 				Outline(Overlay, *Region, !HoveredDecision.IsAccepted() ? FColor::Red : HoveredDecision.bRefresh ? FColor::Orange
-																												  : FColor::Green,
+																												 : FColor::Green,
 					4.f, false);
 			else
 				Outline(Overlay, *Region, FortifyPolicy::IsValidTarget(Decision.Verdict) ? FColor(60, 230, 90) : FColor(60, 66, 72),

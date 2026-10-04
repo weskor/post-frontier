@@ -135,13 +135,13 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Controller [Later]:** focus order rows → toggle → presets → stepper → Send; the D-pad moves, A activates.
 - **Why:** no drag, hover or typing; three teammates fit within the 296 px column at 1280×720.
 
-### 4. Fortify [New]
+### 4. Fortify [Built]
 
 - **Button:** the **Fortify [H]** dock, 144×42 at the left edge, 66 px above the minimap's top, directly above its legend. Two lines: the name, then the cost, `Ready in 0:47` with a drain bar, or `Need 12 more Data`. JEV memo rows clamp above it on short windows. Later commander ability and ultimate slots grow to its right.
 - **Input:** H or a click arms a targeting mode like **A**: the mode bar reads `FORTIFY` with `LMB Cast` and `RMB / Esc Cancel`, the dock reads `Pick a region · Esc`, and the minimap legend reads `LMB FORTIFY / RMB CANCEL`. LMB on a ground region or the minimap casts. The mode ends on acceptance and stays open on rejection; H again, Esc or RMB cancels.
-- **Cursor preview** (the order cursor's resolver): green `LMB: Fortify <Region> · <cost>` with the effects line from [commanders.md](commanders.md); amber `LMB: Refresh Fortify at <Region> · 0:41 left` (allowed, it only warns); red `Not allowed: <reason>` with `<Region> is held by JEV`, `<Region> is neutral`, `Need 12 more Data`, `Cooldown 0:47` or `Opens at 0:00`. While armed, valid regions get a dashed green border and the rest dim, on the minimap too.
+- **Cursor preview** (the order cursor's resolver): green `LMB: Fortify <Region> · <cost>` with the effects line from [commanders.md](commanders.md); amber `LMB: Refresh Fortify at <Region> · 0:41 left` (allowed, it only warns); red `Not allowed: <reason>` with `<Region> is held by JEV`, `<Region> is neutral`, `Need 12 more Data` or `Cooldown 0:47`; **[Later]** `Opens at 0:00` arrives with the planning phase, which is not built. While armed, valid regions get a dashed green border and the rest dim, on the minimap too. The world dims the other regions' outlines rather than filling them.
 - **Active badge:** a chip in the region's chip row, a shield glyph with `FORTIFIED C2 0:42`, a caster-colour stripe and a 3 px drain bar that pulses at 1 Hz for its last 10 s. The minimap node gets a cyan dashed ring that drains clockwise. If the team loses the region the badge drops and the feed posts `Fortify at X ended: region lost`.
-- **Teammates' casts:** one expanding ring at the region, a badge with their stripe and `C2`, and the feed row `Commander 2 fortified X` (cyan stripe, click focuses; the camera never moves).
+- **Teammates' casts:** one expanding ring at the region, a badge with their stripe and `C2`, and the feed row `Commander 2 fortified X` (cyan stripe, click focuses; the camera never moves). The caster hears the same voiced line, **Fortify active.**, and sees no row for their own cast.
 - **Why:** A-mode is already learned, H is free, and the dock is the only pocket that survives 1280×720 with five force cards and the deck open.
 
 ### 5. Tier-2 branch in the production panel [New]

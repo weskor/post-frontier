@@ -12,5 +12,6 @@
   {"id": "drill_rig_lost", "text": "Drill Rig lost."},
   {"id": "ping_look_here", "text": "Look here."},
   {"id": "ping_need_help", "text": "Need help here."},
-  {"id": "region_defenders_responding", "text": "Region defenders responding."}
+  {"id": "region_defenders_responding", "text": "Region defenders responding."},
+  {"id": "fortify_cast", "text": "Fortify active."}
 ]

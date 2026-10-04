@@ -31,13 +31,13 @@ There are 4 commanders at launch, and **all four are available from the first ru
 | Quartermaster | **Rush Shift:** instantly refill any ally's force in a connected region. **Quartermaster pays** the units' normal Power price, plus the Data cast cost. | **All Hands:** every friendly force on the team refills instantly. **Each force's owner pays** the normal price; the ultimate's value is time. | Refills delivered to own and allied forces. **Not gifts**, which could be passed back and forth to charge it. |
 | Wiretap | **Jam:** delay JEV's committed plan in a region by 20 s | **Prompt Injection:** JEV's next committed plan is redirected to a region you choose | Beating JEV's committed attacks |
 
-**[Change] Until commanders exist (build step 1b):** every commander has **Fortify** as a generic region ability, with the effect above. It costs **40 Data** (the cast cost in [economy.md](economy.md)'s Data budget) and has a **90 s cooldown** (starting value). Groundbreaker keeps it once commanders arrive (owner decision 2026-10-04). The rules below fill the remaining gaps (starting values, orchestrator 2026-10-04):
+**[Built] Until commanders exist (build step 1b):** every commander has **Fortify** as a generic region ability, with the effect above. It costs **40 Data** (the cast cost in [economy.md](economy.md)'s Data budget) and has a **90 s cooldown** (starting value). Groundbreaker keeps it once commanders arrive (owner decision 2026-10-04). The rules below fill the remaining gaps (starting values, orchestrator 2026-10-04):
 - **Cast:** on a region your team controls. Contested regions and your own main are allowed. The Data comes from the caster, and the per-commander cooldown starts at the cast.
-- **Effects:** the capture freeze in the row above holds for both sides, and occupancy is still published. The casting team's units and buildings in the region, HQ and Failover Nodes included, take the damage reduction in the row above, as an incoming multiplier ([units.md](units.md#damage-pipeline-change)).
+- **Effects:** the capture freeze in the row above holds for both sides, and occupancy is still published. The casting team's units and buildings in the region, HQ included, take the damage reduction in the row above, as an incoming multiplier after Cover and Entrenched Frontline and before shields ([units.md](units.md#damage-pipeline-change)). **[Later]** Failover Nodes join with the hold objectives ([battle.md](battle.md)).
 - **Recast:** a teammate's cast on an already Fortified region refreshes its expiry to the full duration from that cast. Effects never stack.
 - **Ends early:** if the team loses control of the region.
 - **Replication:** the region's Fortify team and server-time expiry, and each commander's cooldown end time.
-- **JEV** has no Fortify in 1b; its planner treats a Fortified hostile region as in [jev.md](jev.md#how-jev-decides--decided).
+- **JEV** has no Fortify in 1b; its planner treats a Fortified hostile region as in [jev.md](jev.md#how-jev-decides--decided) **[Built]**.
 
 Every kit leaves gaps on purpose. Teammates and drafts fill them. The armor classes each kit can answer are below; entries in *italics* are branches, which have to be drafted first ([cards.md](cards.md)).
 

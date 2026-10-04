@@ -3,6 +3,7 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "Commands/PingCommandComponent.h"
+#include "Commands/AbilityCommandComponent.h"
 #include "Content/MatchContent.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/AnnouncerPolicy.h"
@@ -77,16 +78,18 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 	static const TArray<FObjectiveEvent> EmptyEvents;
 	const FObjectiveEventView Objectives = Announcer ? Announcer->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const FObjectiveEventView TeamPings = Pings ? Pings->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
+	const UAbilityCommandComponent* Abilities = Context.Controller->AbilityCommands;
+	const FObjectiveEventView TeamAbilities = Abilities ? Abilities->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
-	const auto VisitRing = [&](const FObjectiveEventView& Events, float Lifetime, bool bPing) {
+	const auto VisitRing = [&](const FObjectiveEventView& Events, float Lifetime, bool bCompact) {
 		for (int32 Index = Events.Num() - 1; Index >= 0; --Index)
 		{
 			const FObjectiveEvent& Event = Events[Index];
 			const float Age = FMath::Max(0.f, Now - Event.ServerTime);
 			if (Age >= Lifetime)
 				continue;
-			const int32 ForceRows = bPing ? 0 : FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
+			const int32 ForceRows = bCompact ? 0 : FMath::DivideAndRoundUp(Event.Forces.Num(), 2);
 			const float Height = 2.f * Pad + AlertLineHeight * (2 + ForceRows);
 			const FRect Rect{ Layout.Alerts.X, Y, Layout.Alerts.W, Height };
 			if (Rect.Bottom() > Layout.Alerts.Bottom())
@@ -97,8 +100,9 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 		}
 		return true;
 	};
-	// Objective rows keep their space regardless of how many teammates ping.
-	if (VisitRing(Objectives, UObjectiveAnnouncer::FeedLifetime, false))
+	// Objective rows rank above ability team rows, which rank above pings.
+	if (VisitRing(Objectives, UObjectiveAnnouncer::FeedLifetime, false)
+		&& VisitRing(TeamAbilities, UAbilityCommandComponent::Lifetime, true))
 		VisitRing(TeamPings, UPingCommandComponent::Lifetime, true);
 }
 
@@ -123,11 +127,23 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Fill(Rect, Palette::Panel.CopyWithNewOpacity(Palette::Panel.A * Alpha));
 		Paint.Outline(Rect, Palette::Edge.CopyWithNewOpacity(Palette::Edge.A * Alpha));
 		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
-		const bool bPing = Event.Sequence < 0;
+		const bool bAbility = UAbilityCommandComponent::IsAbilitySequence(Event.Sequence);
+		const bool bPing = Event.Sequence < 0 && !bAbility;
 		TStringBuilder<256> Title;
-		if (bPing && !Event.Forces.IsEmpty())
-			Title << Event.Forces[0].PlayerName << TEXT(": ");
-		Title << (Definition ? Definition->Text : TEXT("Objective update"));
+		if (bAbility)
+		{
+			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, FLinearColor(.42f, .90f, 1.f, Alpha));
+			if (Event.Id == FName(FortifyPolicy::CastEventId) && !Event.Forces.IsEmpty())
+				FortifyPolicy::AppendCastFeedText(Title, Event.Forces[0].CommanderIndex, ObjectiveRegionName(Event.RegionName));
+			else if (Event.Id == FName(FortifyPolicy::EndedEventId))
+				FortifyPolicy::AppendEndedFeedText(Title, ObjectiveRegionName(Event.RegionName));
+		}
+		else
+		{
+			if (bPing && !Event.Forces.IsEmpty())
+				Title << Event.Forces[0].PlayerName << TEXT(": ");
+			Title << (Definition ? Definition->Text : TEXT("Objective update"));
+		}
 		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
@@ -138,11 +154,13 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 				Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
 			Region << TEXT("  |  Click to focus");
 		}
+		else if (bAbility)
+			Region << TEXT("Team ability  |  Click to focus");
 		else
 			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
-		for (int32 Index = 0; !bPing && Index < Event.Forces.Num(); ++Index)
+		for (int32 Index = 0; !bPing && !bAbility && Index < Event.Forces.Num(); ++Index)
 		{
 			const FObjectiveForce& Force = Event.Forces[Index];
 			const float CellWidth = (Rect.W - 2.f * Pad - Gap) * .5f;

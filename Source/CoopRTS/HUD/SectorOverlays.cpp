@@ -72,8 +72,16 @@ void DrawSectorOverlays(const FPainter& Paint, const FContext& Context)
 {
 	if (!Context.State)
 		return;
-	DrawCaptureSites(Paint, Context);
 	DrawDeposits(Paint, Context);
+	DrawCaptureSites(Paint, Context);
+	for (const AMapRegion* Region : Context.State->Regions)
+	{
+		if (!IsValid(Region) || !Region->IsFortifyActive())
+			continue;
+		FVector2D Screen;
+		if (ProjectOverlay(Paint, Context, Context.State->GetRegionAnchor(Region->RegionIndex) + FVector(0.f, 0.f, 110.f), Screen))
+			DrawFortifyBadge(Paint, *Region, Screen);
+	}
 }
 
 }

@@ -41,6 +41,7 @@ public:
 	static void PostFortifyEnded(const AMapRegion& Region, int32 Team);
 
 private:
+	void PlayCastVoice(float ServerTime) const;
 	UPROPERTY(Transient)
 	TArray<FObjectiveEvent> Events;
 	int32 OldestEvent = 0;

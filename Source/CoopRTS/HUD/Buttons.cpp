@@ -12,6 +12,9 @@ void DrawButton(const FPainter& Paint, const FContext& Context, const FButton& B
 	}
 	switch (Button.Action)
 	{
+	case EHUDAction::Fortify:
+		DrawFortifyDock(Paint, Context, Button, bHover);
+		break;
 	case EHUDAction::ActivePause: {
 		Paint.Fill(Button.Rect, Button.Available() ? (bHover ? Palette::CardHover : Palette::Panel) : Palette::CardOff);
 		Paint.Outline(Button.Rect, Button.bActive ? Palette::Warn : Palette::Edge);

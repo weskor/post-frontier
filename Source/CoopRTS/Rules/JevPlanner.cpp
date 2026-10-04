@@ -153,7 +153,7 @@ float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain,
 {
 	const FRegion& Region = World.Regions[Index];
 	return Index == World.EnemyHome ? (!World.bThreatened && World.bAdvantage ? 200.f : -50.f)
-									: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f
+									: 8.f + Region.DepositValue * 2.f - Route.Hops[Index] * 5.f - Region.Hostiles * 4.f * Region.DefenceMultiplier
 			- FVector::DistSquared2D(Force.Position, Region.Position) / FMath::Square(4000.f)
 			- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
 }

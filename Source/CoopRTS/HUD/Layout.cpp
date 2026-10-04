@@ -119,6 +119,7 @@ static void PlaceFooter(const FContext& Context, FLayout& Layout)
 		Layout.ForceBar = { Margin, RowTop, Count * CardWidth + (Count - 1) * Gap, ForceBarHeight };
 	const float FooterBottom = RowTop - Gap * .5f;
 	Layout.Minimap = { Margin, FooterBottom - MinimapSize, MinimapSize, MinimapSize };
+	Layout.FortifyDock = { Margin, Layout.Minimap.Y - 66.f, 144.f, 42.f };
 	const float FooterX = Layout.Minimap.Right() + Gap;
 	const bool bTeammate = CanPingInspectedForce(Context);
 	const float BesideX = Count > 0 ? Layout.ForceBar.Right() + Gap : Margin;
@@ -216,6 +217,7 @@ static void ForEachPanel(const FContext& Context, const FLayout& Layout, TFuncti
 	Visit(Layout.Menu);
 	Visit(Layout.Pause);
 	Visit(Layout.Minimap);
+	Visit(Layout.FortifyDock);
 	Visit(Layout.Build);
 	Visit(Layout.Bottom);
 	if (Layout.ForceBar.W > 0.f)

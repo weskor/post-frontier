@@ -2,6 +2,7 @@
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
 #include "CommandService.h"
+#include "CoopAudioSubsystem.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
 #include "Rules/FortifyPolicy.h"
@@ -51,6 +52,15 @@ void UAbilityCommandComponent::ServerCastFortify_Implementation(AMapRegion* Regi
 void UAbilityCommandComponent::ClientFortifyFeedback_Implementation(const FString& Message, bool bAccepted)
 {
 	CastChecked<ACommandPlayerController>(GetOwner())->CompleteFortifyInput(Message, bAccepted);
+	// The caster's own team hears the voiced line too; teammates hear it with the row.
+	if (const ACommandGameState* State = bAccepted ? GetWorld()->GetGameState<ACommandGameState>() : nullptr)
+		PlayCastVoice(State->GetServerWorldTimeSeconds());
+}
+
+void UAbilityCommandComponent::PlayCastVoice(float ServerTime) const
+{
+	if (UCoopAudioSubsystem* Audio = UCoopAudioSubsystem::Get(this))
+		Audio->PlayAnnouncer(FortifyPolicy::CastEventId, ServerTime);
 }
 
 void UAbilityCommandComponent::ClientReceiveTeamEvent_Implementation(const FObjectiveEvent& Event)
@@ -61,6 +71,8 @@ void UAbilityCommandComponent::ClientReceiveTeamEvent_Implementation(const FObje
 	Stored.Sequence = NextSequence--;
 	if (bFull)
 		OldestEvent = (OldestEvent + 1) % UObjectiveAnnouncer::HistoryLimit;
+	if (Event.Id == FName(FortifyPolicy::CastEventId))
+		PlayCastVoice(Event.ServerTime);
 }
 
 void UAbilityCommandComponent::ResetForMatch()

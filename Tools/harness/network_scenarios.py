@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from harness.network import NetworkRun
 from harness.network_economy import capture_and_research
+from harness.network_fortify import fortify_scenario
 from harness.network_outcomes import finish, research, restart_and_converge
 from harness.network_ownership import reject_locked_commands
 from harness.network_pause import pause_scenario
@@ -58,6 +59,10 @@ def construction_scenario(run: NetworkRun) -> None:
 
 
 SCENARIOS: dict[str, tuple[Callable[[NetworkRun], None], str]] = {
+    "fortify": (
+        fortify_scenario,
+        "remote client casts Fortify: 40 Data once, 60 s expiry, 90 s cooldown, teammate refresh and feed row on every peer",
+    ),
     "pings": (
         pings_scenario,
         "remote team ping exact location/name, authoritative two-second throttle and six-second expiry",

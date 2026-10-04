@@ -180,7 +180,7 @@ int32 JevMemoRows(const FContext& Context, const FLayout& Layout, const FJevInte
 	for (const JevIntent::FVisibleMemo& Entry : Visible)
 	{
 		const FRect Rect{ Margin, Y, Width, MemoRowHeight };
-		if (Width < TimelineMinWidth || Rect.Bottom() > Layout.Feedback.Y - Gap)
+		if (Width < TimelineMinWidth || Rect.Bottom() > FMath::Min(Layout.Feedback.Y, Layout.FortifyDock.Y) - Gap)
 			break;
 		Rows[Count++] = { Rect, Entry.Memo, Entry.Alpha };
 		Y = Rect.Bottom() + RowGap;

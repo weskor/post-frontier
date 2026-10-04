@@ -64,7 +64,8 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "--quick",
         type=label,
         metavar="LABEL",
-        help="'force-bar' exercises force cards at every --res; 'pings' captures G ground/minimap "
+        help="'fortify' captures dock, targeting, active badges and team feed at every --res; "
+        "'force-bar' exercises force cards at every --res; 'pings' captures G ground/minimap "
         "markers and six-second expiry; 'jev-intent' captures the JEV timeline, badges and memos "
         "through plan creation, escalation and replacement; other labels boot, place and select "
         "one barracks and capture <LABEL>-deck and <LABEL>-inspector at the first resolution, "
@@ -77,7 +78,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     configure(parser)
     args = parser.parse_args()
-    resolutions = args.res or [(1600, 900)]
+    resolutions = args.res or (
+        [(1600, 900), (1280, 720)] if args.quick == "fortify" else [(1600, 900)]
+    )
     run = NetworkRun(
         Path(os.environ["X_HARNESS_DIR"]).resolve(),
         args.mode,
@@ -95,6 +98,11 @@ def main() -> None:
             print(
                 f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}"
             )
+        elif args.quick == "fortify":
+            from harness.hud_fortify import scenario as fortify_scenario
+
+            fortify_scenario(run, resolutions)
+            print(f"PASS: Fortify at {len(resolutions)} viewports; evidence: {run.run}")
         elif args.quick:
             quick(run, args.quick, resolutions[0])
             print(

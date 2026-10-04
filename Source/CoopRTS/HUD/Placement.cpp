@@ -85,6 +85,16 @@ static void DrawHiddenMode(const FPainter& Paint, const FContext& Context, const
 	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("F"), TEXT("Centre selection"));
 }
 
+static void DrawFortifyMode(const FPainter& Paint, const FRect& Mode, const FModeGeometry& Geometry)
+{
+	const auto& [X, Row1, Row2, KeysRight, KeysWidth, TextWidth] = Geometry;
+	Paint.Fill({ Mode.X, Mode.Y, 4.f, Mode.H }, Palette::Good);
+	Paint.Text(TEXT("FORTIFY"), X, Row1, 12.5f, Palette::Text, true);
+	Paint.Text(TEXT("Pick a team-controlled region."), X, Row2, 10.f, Palette::Muted, false, EAlign::Left, TextWidth);
+	Paint.DrawKey(KeysRight - KeysWidth, Row1, TEXT("LMB"), TEXT("Cast"));
+	Paint.DrawKey(KeysRight - KeysWidth, Row2, TEXT("RMB / Esc"), TEXT("Cancel"));
+}
+
 void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	const FRect& Mode = Layout.Bottom;
@@ -98,13 +108,15 @@ void DrawModeBar(const FPainter& Paint, const FContext& Context, const FLayout& 
 	if (Controller->IsPlacingBuilding())
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Place")) + 12.f + Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")),
 			Paint.KeyWidth(TEXT("Shift+LMB"), TEXT("places another")));
-	else if (Controller->IsAssigningOrder())
+	else if (Controller->IsAssigningOrder() || Controller->IsFortifyTargeting())
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("LMB"), TEXT("Assign")), Paint.KeyWidth(TEXT("RMB / Esc"), TEXT("Cancel")));
 	else
 		KeysWidth = FMath::Max(Paint.KeyWidth(TEXT("F4"), TEXT("Show deck")), Paint.TextWidth(TEXT("Build bar always visible"), 8.f));
 	const float TextWidth = KeysRight - KeysWidth - 16.f - X;
 	const FModeGeometry Geometry{ X, Row1, Row2, KeysRight, KeysWidth, TextWidth };
-	if (Controller->IsPlacingBuilding())
+	if (Controller->IsFortifyTargeting())
+		DrawFortifyMode(Paint, Mode, Geometry);
+	else if (Controller->IsPlacingBuilding())
 		DrawPlacementMode(Paint, Context, Mode, Geometry);
 	else if (Controller->IsAssigningOrder())
 		DrawOrderMode(Paint, Context, Mode, Geometry);

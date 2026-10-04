@@ -86,7 +86,20 @@ void AbilitySnapshot(UWorld* World, const ACommandGameState& State, const TShare
 	auto Fortify = Object();
 	Number(Fortify, TEXT("serverNow"), State.GetServerWorldTimeSeconds());
 	if (const ACommandPlayerController* PC = LocalController(World))
+	{
 		Fortify->SetBoolField(TEXT("targeting"), PC->IsFortifyTargeting());
+		auto Events = TArray<TSharedPtr<FJsonValue>>();
+		for (const FObjectiveEvent& Event : PC->AbilityCommands->GetEvents())
+		{
+			auto Entry = Object();
+			Entry->SetStringField(TEXT("id"), Event.Id.ToString());
+			Number(Entry, TEXT("sequence"), Event.Sequence);
+			Number(Entry, TEXT("region"), Event.RegionIndex);
+			Number(Entry, TEXT("commander"), Event.Forces.IsEmpty() ? -1 : Event.Forces[0].CommanderIndex);
+			Events.Add(MakeShared<FJsonValueObject>(Entry));
+		}
+		Fortify->SetArrayField(TEXT("events"), Events);
+	}
 	auto Regions = TArray<TSharedPtr<FJsonValue>>();
 	for (const AMapRegion* Region : State.Regions)
 	{

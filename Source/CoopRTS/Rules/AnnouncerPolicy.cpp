@@ -18,7 +18,8 @@ const FDefinition Entries[] = {
 	{ TEXT("drill_rig_lost"), TEXT("Drill Rig lost."), true, false },
 	{ TEXT("ping_look_here"), TEXT("Look here."), true, false, true },
 	{ TEXT("ping_need_help"), TEXT("Need help here."), true, false, true },
-	{ TEXT("region_defenders_responding"), TEXT("Region defenders responding."), true, false, false }
+	{ TEXT("region_defenders_responding"), TEXT("Region defenders responding."), true, false, false },
+	{ TEXT("fortify_cast"), TEXT("Fortify active."), true, false, false }
 };
 }
 

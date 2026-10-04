@@ -30,6 +30,8 @@ struct FRegion
 	int32 IncomeValue = 0;
 	// Completed Drill Rigs here that JEV does not own.
 	int32 HostileRigs = 0;
+	// Scales the defenders' weight in this region's score: a Fortified region of another team (FortifyPolicy).
+	float DefenceMultiplier = 1.f;
 	uint64 Neighbours = 0;
 	FVector Position = FVector::ZeroVector;
 };

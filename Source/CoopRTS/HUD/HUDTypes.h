@@ -117,6 +117,7 @@ struct FLayout
 	FRect Build;
 	FRect Inspector;
 	FRect Minimap;
+	FRect FortifyDock;
 	FRect Feedback;
 	FRect Menu;
 	FRect Pause;

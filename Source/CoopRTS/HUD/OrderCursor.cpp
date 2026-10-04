@@ -1,4 +1,5 @@
 #include "OrderCursor.h"
+#include "HUDPanels.h"
 #include "CommandPlayerController.h"
 #include "InputCoreTypes.h"
 
@@ -7,6 +8,11 @@ namespace CommandHUDPanels
 void DrawOrderCursor(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	const ACommandPlayerController* Controller = Context.Controller;
+	if (Controller->IsFortifyTargeting())
+	{
+		DrawFortifyCursor(Paint, Context, Layout);
+		return;
+	}
 	if (Controller->IsPlacingBuilding() || Controller->IsBuildHotkeyPending()
 		|| (Controller->GetSelectedForces().IsEmpty() && (!Context.Building || !Context.Building->IsProducer())))
 		return;

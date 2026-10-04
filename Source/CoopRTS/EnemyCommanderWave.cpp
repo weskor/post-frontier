@@ -7,6 +7,7 @@
 #include "CommandPlayerState.h"
 #include "Commands/CommandService.h"
 #include "Content/MatchContent.h"
+#include "GameState/GameStateEconomy.h"
 #include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogJevRelease, Log, All);
@@ -22,16 +23,10 @@ constexpr float AssemblySpacing = 700.f;
 // Producers hold the low force numbers; free forces take the next unused ones.
 constexpr int32 FirstFreeForceNumber = 4;
 
-// Human commanders in the roster, counted as the economy counts them for JEV's income factor.
+// Human commanders in the roster: the team-economy roster, the same count JEV's income factor reads.
 int32 HumanCommanders(const ACommandGameState& State)
 {
-	int32 Humans = 0;
-	for (const APlayerState* Player : State.PlayerArray)
-		if (const ACommandPlayerState* Commander = Cast<ACommandPlayerState>(Player))
-			if (IsValid(Commander) && Commander->TeamIndex == 0 && Commander->CommanderIndex >= 0
-				&& Commander->CommanderIndex < 5)
-				++Humans;
-	return Humans;
+	return FGameStateEconomy::Roster(State).Num();
 }
 
 // One option per catalogue unit. Waves buy today's three combat roles only; a unit with no
