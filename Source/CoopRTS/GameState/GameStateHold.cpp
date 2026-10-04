@@ -248,7 +248,7 @@ void ACommandGameState::FHoldAlarmPass::ClassifyThreat(const FRegionAlarm& Alarm
 		if (AActor* Victim = State.HoldDamage.FindVictim(Holder.HoldThreat, Alarm.Region.RegionIndex, Alarm.Team))
 		{
 			Holder.HoldThreatenedAsset = Victim;
-			Holder.HoldThreatKind = Cast<AHeadquarters>(Victim) ? EHoldThreatKind::Headquarters
+			Holder.HoldThreatKind = Cast<AHeadquarters>(Victim)                 ? EHoldThreatKind::Headquarters
 				: Cast<ACommandBuilding>(Victim) || Cast<AFailoverNode>(Victim) ? EHoldThreatKind::Building
 																				: EHoldThreatKind::Force;
 		}

@@ -133,7 +133,8 @@ void DrawHqBar(const FPainter& Paint, const FRect& Rect, const AHeadquarters* HQ
 		const FLinearColor Plate(0.f, 0.f, 0.f, .5f);
 		Paint.Fill({ Rect.X + 1.f, Rect.Y + 2.f, Paint.TextWidth(HqName(Team), 9.f, true) + 26.f, Rect.H - 4.f }, Plate);
 		Paint.Fill({ Rect.Right() - Paint.TextWidth(Value.ToView(), 9.f, true) - 12.f, Rect.Y + 2.f,
-						Paint.TextWidth(Value.ToView(), 9.f, true) + 11.f, Rect.H - 4.f }, Plate);
+					   Paint.TextWidth(Value.ToView(), 9.f, true) + 11.f, Rect.H - 4.f },
+			Plate);
 		DrawShieldGlyph(Paint, { Rect.X + 12.f, Rect.Y + Rect.H * .5f }, Palette::Text);
 	}
 	Paint.TextIn(HqName(Team), Rect, 9.f, Palette::Text, true, EAlign::Left, bImmune ? 22.f : 7.f);

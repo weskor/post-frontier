@@ -75,6 +75,15 @@ TArray<int32> RosterOf(const JevRelease::FPurchase& Bought)
 	return Units;
 }
 
+void LogWave(const FJevWaveEvent& Event, int32 Carry, const FJevTurn& Turn)
+{
+	UE_LOG(LogJevRelease, Display,
+		TEXT("JEV %s wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d humans(L/H/S/St)=%d/%d/%d/%d"),
+		Event.bEmergency ? TEXT("emergency") : TEXT("release"), Event.Release, Event.MatchSeconds, Event.Budget, Event.Units,
+		Event.Forces, Event.TargetRegion, Carry, Turn.EnemyArmor.Count[0], Turn.EnemyArmor.Count[1], Turn.EnemyArmor.Count[2],
+		Turn.EnemyArmor.Count[3]);
+}
+
 int32 CostOf(const AArmyGroup& Force)
 {
 	int32 Cost = 0;
@@ -142,10 +151,7 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmerg
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
-	UE_LOG(LogJevRelease, Display,
-		TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d humans(L/H/S/St)=%d/%d/%d/%d"),
-		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, Carry,
-		Turn.EnemyArmor.Count[0], Turn.EnemyArmor.Count[1], Turn.EnemyArmor.Count[2], Turn.EnemyArmor.Count[3]);
+	LogWave(Event, Carry, Turn);
 }
 
 void AEnemyCommander::LaunchEmergencyWave(FJevTurn& Turn)
