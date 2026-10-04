@@ -121,7 +121,8 @@ static void DrawEconomyLine(const FPainter& Paint, const FContext& Context, cons
 	TStringBuilder<32> Commander;
 	Commander.Appendf(TEXT("C%d"), Context.Wallet->CommanderIndex + 1);
 	Put(Commander.ToView(), Palette::Gold);
-	// A gift to this commander flashes its figure white and says who sent how much; the Forces and Regions figures give
+	// A gift to this commander flashes its figure to the other of gold and white (Power is gold, Data white) and says who
+	// sent how much; the Forces and Regions figures give
 	// way for those three seconds because the line has no room for both.
 	const TeamPanelPolicy::FFlash Flash = GiftFlash(Context);
 	const auto PutFlash = [&](TeamPanelPolicy::EResource Resource) {
@@ -132,7 +133,8 @@ static void DrawEconomyLine(const FPainter& Paint, const FContext& Context, cons
 		Put(Text.ToView(), Palette::Gold.CopyWithNewOpacity(Flash.Opacity));
 	};
 	const auto Figure = [&](TeamPanelPolicy::EResource Resource, const FLinearColor& Rest) {
-		return Flash.bActive && Flash.Resource == Resource ? FLinearColor::LerpUsingHSV(Rest, FLinearColor(1.f, .95f, .6f), Flash.Opacity) : Rest;
+		const FLinearColor Contrast = Resource == TeamPanelPolicy::EResource::Power ? FLinearColor::White : Palette::Gold;
+		return Flash.bActive && Flash.Resource == Resource ? FLinearColor::LerpUsingHSV(Rest, Contrast, Flash.Opacity) : Rest;
 	};
 	TStringBuilder<48> Power;
 	Power.Appendf(TEXT("%d Power +"), Context.Balance);

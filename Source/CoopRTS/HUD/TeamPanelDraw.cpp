@@ -3,6 +3,7 @@
 #include "CommandPlayerController.h"
 #include "Commands/GiftCommandComponent.h"
 #include "Rules/FortifyPolicy.h"
+#include "Rules/JevIntent.h"
 #include "TeamPanel.h"
 
 namespace CommandHUDPanels
@@ -174,7 +175,7 @@ static void DrawGiftLog(const FPainter& Paint, const FContext& Context, const FT
 		if (Index == INDEX_NONE)
 			continue;
 		TStringBuilder<32> Time;
-		FortifyPolicy::AppendClock(Time, Log[Index].Time);
+		JevIntent::AppendElapsed(Time, Log[Index].Time);
 		TStringBuilder<64> Text;
 		AppendLogText(Text, Log[Index]);
 		Paint.TextIn(Time.ToView(), { G.LogLines[Row].X, G.LogLines[Row].Y, 40.f, G.LogLines[Row].H }, 9.f, Palette::Muted);
