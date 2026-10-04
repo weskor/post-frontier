@@ -50,7 +50,7 @@ private:
 			|| !Check(World->IsPaused() && !State->IsActivePaused(), TEXT("Planning freezes the world without the shared pause"))
 			|| !Check(!FCommandService::Pause(PC).IsAccepted() && !State->IsActivePaused() && State->GetPauseSecondsRemaining() == 0.f,
 				TEXT("P is rejected during planning and starts no pause budget"))
-			|| !Check(!FCommandService::Pause(PC).Message.IsEmpty(), TEXT("The rejection carries a reason"))
+			|| !Check(FCommandService::Pause(PC).Message == TEXT("Nothing runs during planning."), TEXT("The rejection says nothing runs during planning"))
 			|| !Check(BarracksSpot(0, Spot), TEXT("A legal Barracks spot exists")))
 			return Done();
 		const FCommandResult Placed = FPlanningCommands::PlaceKit(Host, EBuildingKind::Barracks, Spot);

@@ -211,6 +211,8 @@ FCommandResult FCommandService::Pause(ACommandPlayerController* Controller)
 	ACommandGameState* State = CommandState(Commander);
 	if (!State || Commander->TeamIndex != 0)
 		return Verdict(false, TEXT("Pause unavailable: no ongoing battle."), ECommandRejection::Unavailable);
+	if (State->IsPlanning())
+		return Verdict(false, TEXT("Nothing runs during planning."), ECommandRejection::Unavailable);
 	if (State->GetNetMode() != NM_Standalone && State->IsCoopPauseSpent())
 		return Verdict(false, TEXT("Team pause spent: one pause per battle."));
 	const bool bAccepted = State->ApplyPause(Controller, true);
