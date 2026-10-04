@@ -5,23 +5,21 @@ namespace ConstructionScenarioTests
 {
 bool FConstructionScenario::StageFour(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet)
 {
-	Recruit = TravellingRecruit(Squad.Get());
-	if (!Recruit.IsValid() || !Recruit->IsReinforcing())
+	// The finished replacement is paid at once and travels the supply chain as a queue entry.
+	if (Squad->GetPendingRecruitCount() == 0)
 		return false;
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
+	const int32 Capacity = Building->GetProductionDefinition()->Capacity;
 	if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost && UnrelatedWallet->Resources == 777
-				&& Alive(Building.Get()) == Building->GetProductionDefinition()->Capacity
+				&& Alive(Building.Get()) == Capacity
 				&& Alive(Producers[1].Get()) == Producers[1]->GetProductionDefinition()->Capacity,
 			TEXT("Replacement debits only its own commander, without taking another producer's capacity")))
 		return true;
-	RecruitStart = Recruit->GetActorLocation();
-	JoinedStart = Squad->GetCenter();
-	if (!Check(FVector::Dist2D(RecruitStart, Building->GetActorLocation()) < 1200.f
-				&& FVector::Dist2D(RecruitStart, JoinedStart) > 500.f && JoinedCenterMatches(Squad.Get()),
-			TEXT("Replacement leaves producer rather than spawning at force; center excludes travellers")))
+	if (!Check(Squad->GetJoinedCount() == Capacity - 1 && Squad->GetUnits().Num() == Capacity - 1 && JoinedCenterMatches(Squad.Get()),
+			TEXT("The replacement is a queue entry, not a walker: no member exists for it and the force center is unchanged")))
 		return true;
 	// Retarget to clear home ground, not another full force's exact slots.
-	// This isolates a moving rendezvous from cross-force capsule blockage.
+	// This isolates delivery to a moving formation from cross-force capsule blockage.
 	const int32 Region = ForceOrderGraph::TeamMain(*State, Squad->GetTeamIndex());
 	if (Region == INDEX_NONE || !FCommandService::IssueForceOrder(Wallet, Squad.Get(), EForceVerb::MoveHold, Region))
 		return Fail(TEXT("Replacement order needs a different reachable region"));
@@ -31,17 +29,18 @@ bool FConstructionScenario::StageFour(UWorld* World, ACommandPlayerController* P
 
 bool FConstructionScenario::StageFive(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet)
 {
-	if (!Check(Recruit.IsValid() && Recruit->IsAlive() && JoinedCenterMatches(Squad.Get()),
-			TEXT("Moving force center remains independent of travelling recruit")))
-		return true;
-	bRecruitMoved |= FVector::Dist2D(RecruitStart, Recruit->GetActorLocation()) > 200.f;
-	bJoinedMoved |= FVector::Dist2D(JoinedStart, Squad->GetCenter()) > 200.f;
-	if (Recruit->IsReinforcing() || !bRecruitMoved || !bJoinedMoved)
-		return false;
-	if (!Check(Squad->GetUnits().Contains(Recruit.Get())
+	const int32 Capacity = Building->GetProductionDefinition()->Capacity;
+	if (Squad->GetPendingRecruitCount() > 0)
+		return !Check(Squad->GetUnits().Num() == Capacity - 1 && JoinedCenterMatches(Squad.Get()),
+			TEXT("A moving force's center stays on its joined members while the replacement is in transit"));
+	Recruit = nullptr;
+	for (AArmyUnit* Unit : Squad->GetUnits())
+		if (IsValid(Unit) && Unit->IsAlive() && Unit->GetCompositionSlot() == VictimSlot)
+			Recruit = Unit;
+	if (!Check(Recruit.IsValid() && Squad->GetJoinedCount() == Capacity
 				&& FVector::Dist2D(Recruit->GetActorLocation(), Squad->GetCenter()) < 500.f
 				&& Forces[1]->TargetRegionIndex == OtherRegion && Forces[1]->Verb == OtherVerb,
-			TEXT("Recruit follows moving force to physical arrival without altering the other force")))
+			TEXT("The replacement appears in its vacated slot of the moving force, without altering the other force")))
 		return true;
 	while (!Squad->GetUnits().IsEmpty())
 	{
@@ -65,15 +64,16 @@ bool FConstructionScenario::StageSix(UWorld* World, ACommandPlayerController* PC
 	if (Alive(Building.Get()) == 0)
 		return false;
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
-	Recruit = TravellingRecruit(Squad.Get());
-	if (!Check(Recruit.IsValid() && Recruit->IsReinforcing() && Building->ForceGroup == Squad.Get()
-				&& Squad->GetJoinedCount() == 0 && Squad->TargetRegionIndex == RememberedRegion
+	Recruit = Squad->GetUnits().IsEmpty() ? nullptr : Squad->GetUnits()[0].Get();
+	if (!Check(Recruit.IsValid() && Building->ForceGroup == Squad.Get() && Squad->GetJoinedCount() == 1
+				&& Squad->GetPendingRecruitCount() == 0 && Squad->TargetRegionIndex == RememberedRegion
+				&& FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation()) < 1200.f
 				&& Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost,
-			TEXT("Wiped force refills its remembered region under the original identity")))
+			TEXT("Wiped force refills at the producer exit under the original identity and remembered region")))
 		return true;
 	Recruit->ReceiveAttack(Recruit->GetHealth(), Attacker->GetUnits()[0]);
 	if (!Check(!Recruit->IsAlive() && Alive(Building.Get()) == 0,
-			TEXT("Killing a travelling recruit reopens its paid vacancy")))
+			TEXT("Killing the recruit reopens its paid vacancy")))
 		return true;
 	ReplacementBalance = Wallet->Resources;
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
@@ -86,12 +86,12 @@ bool FConstructionScenario::StageSeven(UWorld* World, ACommandPlayerController* 
 	if (Alive(Building.Get()) == 0)
 		return false;
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
-	if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost, TEXT("Dead traveller replacement charges again")))
+	if (!Check(Wallet->Resources == ReplacementBalance - Building->GetProductionDefinition()->UnitCost, TEXT("Replacing a dead recruit charges again")))
 		return true;
 	if (Squad->GetJoinedCount() == 0)
 		return false;
-	if (!Check(Squad->GetJoinedCount() == 1 && !Squad->GetUnits()[0]->IsReinforcing(),
-			TEXT("Paid dead-traveller replacement physically joins before producer destruction")))
+	if (!Check(Squad->GetJoinedCount() == 1 && Squad->GetPendingRecruitCount() == 0,
+			TEXT("Paid replacement joins at the exit before producer destruction")))
 		return true;
 	Building->ReceiveAttack(Building->Health, Attacker->GetUnits()[0]);
 	if (!Check(Squad.IsValid() && !IsValid(Squad->GetProductionBuilding()) && Squad->TargetRegionIndex == RememberedRegion,

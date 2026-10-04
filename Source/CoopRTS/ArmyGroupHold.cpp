@@ -238,7 +238,7 @@ void AArmyGroup::UpdateHoldCombat()
 	const float Now = GetWorld()->GetTimeSeconds();
 	for (AArmyUnit* Unit : Units)
 	{
-		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->bReinforcing)
+		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		AArmyUnit* Target = SelectHoldCombatTarget(*Unit, Enemies);
 		if (!bHoldResponding)

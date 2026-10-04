@@ -12,6 +12,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FProductionDeploymentBoundaryTest, "CoopRTS.Rul
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FProductionTerminalFreezeTest, "CoopRTS.Rules.Production.TerminalFreeze",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FProductionHeldRecruitTest, "CoopRTS.Rules.Production.HeldRecruit",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -79,6 +81,9 @@ bool FProductionPrecedenceTest::RunTest(const FString& Parameters)
 	In.bForceValid = true;
 	ExpectHeld(*this, TEXT("Paused beats full, broke and blocked"), In, EProductionState::Paused);
 	In.bEnabled = true;
+	In.Waiting = 1;
+	ExpectHeld(*this, TEXT("A held recruit beats full, broke and blocked"), In, EProductionState::DeploymentBlocked);
+	In.Waiting = 0;
 	ExpectHeld(*this, TEXT("Full beats wallet, funds and blocked"), In, EProductionState::ForceComplete);
 	In.Joined = Capacity - 1;
 	In.Travelling = 0;
@@ -186,6 +191,33 @@ bool FProductionTerminalFreezeTest::RunTest(const FString& Parameters)
 		Lost.bForceValid = false;
 		ExpectHeld(*this, TEXT("Lost force freezes production"), Lost, EProductionState::ForceUnavailable);
 	}
+	return true;
+}
+
+bool FProductionHeldRecruitTest::RunTest(const FString& Parameters)
+{
+	// One recruit waiting at the producer holds all work, whatever the progress, funds or tick length.
+	for (const float Progress : { 0.f, Duration * .5f, Duration })
+	{
+		FProductionInput Held = Ready(Progress);
+		Held.Waiting = 1;
+		ExpectHeld(*this, TEXT("Held recruit holds production"), Held, EProductionState::DeploymentBlocked);
+		Held.Balance = 0;
+		ExpectHeld(*this, TEXT("Held recruit holds production even when broke"), Held, EProductionState::DeploymentBlocked);
+
+		FProductionInput Released = Ready(Progress);
+		Released.Waiting = 0;
+		TestEqual(TEXT("Delivery releases the held work"), ProductionPolicy::Evaluate(Released).bDeploymentDue, Progress >= Duration);
+	}
+
+	// Recruits in transit count against capacity but do not hold production.
+	FProductionInput Transit = Ready();
+	Transit.Joined = 1;
+	Transit.Travelling = 2;
+	Transit.Waiting = 0;
+	ExpectState(*this, TEXT("Recruits in transit leave production running below capacity"), Transit, EProductionState::Producing);
+	Transit.Travelling = Capacity - Transit.Joined;
+	ExpectState(*this, TEXT("Joined plus recruits in transit fill the force"), Transit, EProductionState::ForceComplete);
 	return true;
 }
 

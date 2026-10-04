@@ -48,7 +48,7 @@ def start_first_recruit(run: NetworkRun, s: Session, index: int) -> Sequence[flo
             and force_counts_match(st, s.owner, index)
             and wallet(st, s.owner)["wallet"] == 0
         ),
-        "one physical siege recruit, not batch production, replicated for exactly one unit cost",
+        "one siege recruit, not batch production, joined at the exit of an empty force for exactly one unit cost",
     )
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
     converged(
@@ -59,14 +59,13 @@ def start_first_recruit(run: NetworkRun, s: Session, index: int) -> Sequence[flo
     )
     first = alive_units(force(states["host"], s.owner, index))[0]
     require(
-        first["reinforcing"]
-        and first["role"] == SIEGE
+        first["role"] == SIEGE
         and first["owner"] == s.owner
         and distance2(first["position"], building(states["host"], index)["position"])
         < 1200**2
         and distance2(first["position"], building(states["host"], index)["front"])
         > 500**2,
-        "recruit did not physically leave its producer toward the distant front",
+        "first recruit of an empty force did not appear at its producer exit, away from the distant front",
     )
     first_position = first["position"]
     return cast(Sequence[float], first_position)
@@ -84,7 +83,7 @@ def await_first_arrival(
             )
             > 200**2
         ),
-        "recruit travels on host and remote, not just a count increase",
+        "the first member marches towards the front on host and remote, not just a count increase",
     )
     converged(
         run,
@@ -94,7 +93,7 @@ def await_first_arrival(
             and building(st, index)["travelling"] == 0
             and force_counts_match(st, s.owner, index)
         ),
-        "physical arrival joins the force on all peers",
+        "the first member stays joined while marching on all peers",
     )
 
 
@@ -251,30 +250,33 @@ def replace_vacancy(
             and force_counts_match(st, s.owner, index)
             and wallet(st, s.owner)["wallet"] == 0
         ),
-        "one causal paid casualty replacement travels on all peers",
+        "one causal paid casualty replacement is queued on all peers",
     )
-    replacement = next(
-        u
-        for u in alive_units(force(states["host"], s.owner, index))
-        if u["reinforcing"]
+    held = alive_units(force(states["host"], s.owner, index))
+    vacant = next(
+        slot
+        for slot in range(recipe["capacity"])
+        if slot not in {u["slot"] for u in held}
     )
-    origin = replacement["position"]
+    require(
+        all(
+            len(alive_units(force(st, s.owner, index))) == recipe["capacity"] - 1
+            for st in states.values()
+        ),
+        "the queued replacement already exists as a unit before its delivery",
+    )
     run.request(s.peer, "production", building=index, recipe=SIEGE, enabled=False)
     issue_force_order(run, s.peer, index, MOVE_HOLD, original_target)
-    # Arrival may precede a delayed peer's next sample; retain the same replacement
-    # slot's movement evidence rather than requiring another transient reinforcing flag.
-    latched(
+    converged(
         run,
         s.names,
         lambda st: (
             order_matches(st, index, MOVE_HOLD, original_target)
             and any(
-                u["slot"] == replacement["slot"]
-                and distance2(u["position"], origin) > 200**2
-                for u in alive_units(force(st, s.owner, index))
+                u["slot"] == vacant for u in alive_units(force(st, s.owner, index))
             )
         ),
-        "same paid replacement moves after the force retargets to another region",
+        "the paid replacement appears in the vacated slot of the retargeted force",
     )
     states = converged(
         run,
@@ -287,13 +289,13 @@ def replace_vacancy(
             and order_matches(st, index, MOVE_HOLD, original_target)
             and force_arrived(st, s.owner, index, original_target)
         ),
-        "replacement physically arrives and joins moving force",
+        "replacement joins the moving force on all peers",
     )
     return states
 
 
 def produce_and_replace(run: NetworkRun, s: Session, index: int, squad: int) -> None:
-    """Per-unit debit, physical travel/arrival, independent second force and causal casualty replacement."""
+    """Per-unit debit, delivery along the supply chain, independent second force and causal casualty replacement."""
     first_position = start_first_recruit(run, s, index)
     await_first_arrival(run, s, index, first_position)
     fill_siege_force(run, s, index)
@@ -314,5 +316,5 @@ def produce_and_replace(run: NetworkRun, s: Session, index: int, squad: int) -> 
         "replacement stole another force's capacity/order or charged more than one unit",
     )
     run.phase(
-        "per-unit debit, independent region orders and causal replacement travel/arrival"
+        "per-unit debit, independent region orders and causal replacement delivery"
     )

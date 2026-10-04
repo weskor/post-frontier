@@ -5,6 +5,7 @@
 #include "ConstructionTypes.h"
 #include "Rules/ArmyGroupPolicy.h"
 #include "Rules/HoldPolicy.h"
+#include "Rules/SupplyDeliveryPolicy.h"
 #include "ForceOrders.h"
 #include "ArmyGroup.generated.h"
 
@@ -76,14 +77,33 @@ public:
 	friend struct FArmyMovementTestAccess;
 #endif
 	// Authority-owned encounters may create joined members without a producer.
-	// Paid reinforcement continues to use SpawnReinforcement exclusively.
+	// Paid recruits join through QueueRecruit or SpawnReinforcement, never SpawnMember.
 	AArmyUnit* SpawnMember(int32 UnitIndex, const FVector& SpawnLocation, int32 CompositionSlot);
 	// A free force for the enemy commander: a producerless group holding the listed catalogue
 	// units (at most six), placed on free navigable ground around Anchor. It touches no wallet
 	// and no extraction. Null when nothing could be placed.
 	static AArmyGroup* SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner, const FVector& Anchor,
 		TConstArrayView<int32> UnitIndices, int32 InForceNumber, float InSpeedFactor);
+	// Spawns a recruit of the producer's unit on the producer's exit and joins it at once. Debits nothing.
 	bool SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation);
+	// Supply-chain replacements (Rules/SupplyDeliveryPolicy.h), authority only. A force with living members gets
+	// each recruit after SupplyDelivery::Delay; a cut-off force's recruit waits at the producer.
+	// Debits one unit price from the producer's owner and queues the recruit; false (no debit) when it cannot.
+	bool QueueRecruit(int32 UnitIndex);
+	// An empty force has nobody to deliver to: its paid recruits wait for the producer's exit. True, at most
+	// every 0.25 s, while one is waiting; the producer then offers its free exits to SpawnRecruitForExit.
+	bool ClaimExitAttempt();
+	// Spawns the oldest paid recruit at the producer's exit. Debits nothing.
+	bool SpawnRecruitForExit(const FVector& Exit);
+	// Recruits paid for and not yet joined: in transit plus waiting at the producer. Replicated.
+	int32 GetPendingRecruitCount() const { return RecruitsInTransit + RecruitsWaiting; }
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Supply")
+	int32 RecruitsInTransit = 0;
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Supply")
+	int32 RecruitsWaiting = 0;
+	// A producer-backed force with living members that the supply chain does not reach.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Supply")
+	bool bSupplyCutOff = false;
 	void SettleMatch();
 	FVector GetCenter() const;
 	EArmyDoctrine GetDoctrine() const;
@@ -227,15 +247,20 @@ private:
 	bool IsEngagementPermitted(const AArmyUnit& Unit, AActor* Enemy) const;
 	AActor* ChooseTarget(AArmyUnit& Unit, const FArmyCombatScan& Scan) const;
 	void UpdateAttackPursuit(AArmyUnit& Unit, AAIController& AI, AActor& Chosen, bool bTargetChanged);
-	void UpdateReinforcements();
-	void UpdateReinforcement(AArmyUnit& Unit, UNavigationSystemV1& Navigation);
-	bool JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation);
-	bool ReinforcementTarget(const AArmyUnit& Unit, FVector& Goal) const;
-	void AbandonReinforcementMove(AArmyUnit& Unit, AAIController& AI);
-	bool RetargetReinforcement(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation, const FVector& Goal);
-	bool CanSpawnReinforcement(const ACommandGameState* State, int32 UnitIndex, int32 Capacity, const FVector& SpawnLocation);
-	bool LaunchReinforcement(UNavigationSystemV1& Navigation, const UArmyUnitDefinition& Definition,
-		int32 UnitIndex, int32 Slot, int32 Capacity, const FVector& Exit);
+	void UpdateSupply();
+	int32 SupplyHops(const ACommandGameState& State, bool bForceEmpty);
+	void SyncSupplyCounts(bool bCutOff);
+	void CancelRecruits();
+	bool DeliverRecruit(const SupplyDelivery::FRecruit& Recruit);
+	void JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSystemV1& Navigation);
+	bool FormationSlotGoal(int32 Slot, FVector& Goal) const;
+	bool CanAcceptRecruit(const ACommandGameState* State, int32 UnitIndex, int32 Capacity) const;
+	AArmyUnit* SpawnJoined(const UArmyUnitDefinition& Definition, int32 UnitIndex, int32 Slot, const FVector& Ground);
+	// Recruits paid for and not yet joined; authority only. The replicated counts mirror it.
+	TArray<SupplyDelivery::FRecruit> PendingRecruits;
+	// Last region the force stood in, so a stretch of ground outside every region neither cuts nor feeds it.
+	int32 LastSupplyRegion = INDEX_NONE;
+	double NextExitAttempt = 0.;
 	bool HasPermittedOwner(const ACommandGameState& State) const;
 	bool ClipHoldingDestination(FVector& Goal) const;
 	float CombatAccumulator = 0.f;

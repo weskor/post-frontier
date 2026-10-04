@@ -374,6 +374,17 @@ kind = "automation"
 filter = "CoopRTS.Combat.Traits"
 map = "default"
 
+[scopes.supply-delivery]
+kind = "automation"
+filter = "CoopRTS.Forces.Supply"
+map = "default"
+
+[scopes.supply-card]
+kind = "automation"
+filter = "CoopRTS.HUD.SupplyCard"
+map = "default"
+rendered = true
+
 [paths]
 # Root patterns are anchored; * never crosses a directory separator.
 "*.md" = ["lint"]
@@ -788,3 +799,16 @@ map = "default"
 "Source/CoopRTS/CommandPlayerState.[ch]*" = ["fortify", "fortify-network"]
 "Tools/harness/network_fortify.py" = ["fortify-network", "tools"]
 "Source/CoopRTS/HUD/Fortify*" = ["fortify"]
+
+# Supply-chain delivery: pure rules, the world scenarios on real producers and forces, and the force card.
+"Source/CoopRTS/SupplyDeliveryRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/SupplyDeliveryWorldTests.cpp" = ["supply-delivery"]
+"Source/CoopRTS/SupplyDeliveryResumeTests.cpp" = ["supply-delivery"]
+"Source/CoopRTS/SupplyDeliveryFixture.*" = ["supply-delivery"]
+"Source/CoopRTS/SupplyCardTests.cpp" = ["supply-card"]
+"Source/CoopRTS/Rules/SupplyDeliveryPolicy.*" = ["rules", "production", "construction", "supply-delivery", "supply-card"]
+"Source/CoopRTS/Rules/ProductionPolicy.[ch]*" = ["supply-delivery", "supply-card"]
+"Source/CoopRTS/ArmyGroup*.[ch]*" = ["supply-delivery", "supply-card"]
+"Source/CoopRTS/CommandBuildingProduction.c*" = ["supply-delivery"]
+"Source/CoopRTS/HUD/ForceBar*.cpp" = ["supply-card"]
+"Source/CoopRTS/HUD/BuildingInspector.cpp" = ["supply-card"]

@@ -22,7 +22,9 @@ enum class EProductionState : uint8
 struct FProductionInput
 {
 	bool bMatchOngoing, bProducer, bComplete, bAlive, bConfigured, bForceValid, bEnabled, bWalletValid;
-	int32 Joined, Travelling, Capacity, Balance, UnitCost;
+	// Travelling counts recruits paid for but not yet joined (in transit or waiting at the producer);
+	// Waiting is the part of them held at the producer because the force is cut off.
+	int32 Joined, Travelling, Waiting, Capacity, Balance, UnitCost;
 	float Progress, Duration, DeltaSeconds;
 };
 

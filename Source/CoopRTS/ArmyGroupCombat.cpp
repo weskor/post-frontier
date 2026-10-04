@@ -189,7 +189,7 @@ void AArmyGroup::UpdateCombat()
 	for (int32 Index = 0; Index < Units.Num(); ++Index)
 	{
 		AArmyUnit* Unit = Units[Index];
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
+		if (IsValid(Unit) && Unit->IsAlive())
 			UpdateUnitCombat(*Unit, Scan);
 	}
 }

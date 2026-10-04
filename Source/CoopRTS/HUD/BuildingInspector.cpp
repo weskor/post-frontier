@@ -56,9 +56,15 @@ static void DrawProductionRemedy(const FPainter& Paint, const FContext& Context,
 	else if (ProductionState == EProductionState::Paused)
 		Remedy << TEXT("Paused: click Resume.");
 	else if (ProductionState == EProductionState::DeploymentBlocked)
-		Remedy << TEXT("Deployment blocked: clear barracks exit; auto retry.");
+	{
+		const AArmyGroup* Force = Context.Building->ForceGroup;
+		if (IsValid(Force) && Force->bSupplyCutOff)
+			Remedy << TEXT("Recruit held: force cut off from supply; it ships when the chain is whole.");
+		else
+			Remedy << TEXT("Deployment blocked: clear barracks exit; auto retry.");
+	}
 	else if (ProductionState == EProductionState::Producing)
-		Remedy << TEXT("Building one unit; pays at barracks deployment, then walks to this force.");
+		Remedy << TEXT("Building one unit; pays when finished, then ships along the supply chain.");
 	else
 		Remedy << Status;
 	Paint.Text(Remedy.ToView(), Inspector.X + Pad, Inspector.Bottom() - 22.f, 10.f, StatusColor,
@@ -69,7 +75,9 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 {
 	const ACommandBuilding* Building = Context.Building;
 	const EProductionState ProductionState = Building->GetProductionState();
-	const FString Status = StatusText(ProductionState);
+	const AArmyGroup* Force = Building->ForceGroup;
+	const bool bHeld = IsValid(Force) && Force->RecruitsWaiting > 0;
+	const FString Status = bHeld ? FString(TEXT("RECRUIT HELD")) : FString(StatusText(ProductionState));
 	const FLinearColor StatusColor = ProductionState == EProductionState::Producing || ProductionState == EProductionState::ForceComplete ? Palette::Good
 		: ProductionState == EProductionState::Paused || ProductionState == EProductionState::MatchFinished                               ? Palette::Muted
 																																		  : Palette::Warn;
@@ -109,7 +117,8 @@ static void DrawProductionInspector(const FPainter& Paint, const FContext& Conte
 	Timer.Appendf(TEXT("Building %d: %.1f/%.1fs"), BuildingCount, Building->ProductionProgressSeconds, Duration);
 	Paint.Text(Timer.ToView(), Progress.X, Progress.Y + 7.f, 9.f, Palette::Text, true, EAlign::Left, Progress.W);
 	TStringBuilder<64> Recruits;
-	Recruits.Appendf(TEXT("Travelling %d  \u00B7  Vacant %d"), Travelling, Vacancies);
+	Recruits.Appendf(TEXT("Travelling %d  \u00B7  Held %d  \u00B7  Vacant %d"), IsValid(Force) ? Force->RecruitsInTransit : 0,
+		IsValid(Force) ? Force->RecruitsWaiting : 0, Vacancies);
 	Paint.Text(Recruits.ToView(), Production.X, Row(Production, 2).Y, 9.f, Palette::Text, false, EAlign::Left, Production.W);
 	TStringBuilder<48> UnitPrice;
 	const int32 UnitCost = Recipe ? ACommandBuilding::GetUnitCost(*Recipe) : 0;
@@ -235,15 +244,12 @@ static void DrawForceSelection(const FPainter& Paint, const FContext& Context, c
 static void DrawForceStrength(const FPainter& Paint, const AArmyGroup* Force, const FRect& Strength)
 {
 	ColumnLabel(Paint, Strength, TEXT("STRENGTH"));
-	int32 Joined = 0, Travelling = 0, Health = 0, MaxHealth = 0;
+	const int32 Joined = Force->GetJoinedCount(), Travelling = Force->GetPendingRecruitCount();
+	int32 Health = 0, MaxHealth = 0;
 	for (const AArmyUnit* Unit : Force->GetUnits())
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
-		if (Unit->IsReinforcing())
-			++Travelling;
-		else
-			++Joined;
 		Health += Unit->GetHealth();
 		MaxHealth += Unit->MaxHealth();
 	}

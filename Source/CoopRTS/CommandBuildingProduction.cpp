@@ -36,6 +36,7 @@ FProductionInput MakeProductionInput(const ACommandBuilding& Building, const ACo
 	In.bForceValid = IsValid(Building.ForceGroup);
 	In.bEnabled = Building.bProductionEnabled;
 	Building.GetForceCounts(In.Joined, In.Travelling);
+	In.Waiting = IsValid(Building.ForceGroup) ? Building.ForceGroup->RecruitsWaiting : 0;
 	const UArmyUnitDefinition* Unit = Building.GetProductionDefinition();
 	In.Capacity = Unit ? ACommandBuilding::GetForceCapacity(*Unit) : 0;
 	In.bWalletValid = State && GetBalance(Building, *State, In.Balance);
@@ -79,6 +80,28 @@ bool FindExit(const ACommandBuilding& Building, FVector& OutLocation, int32& Cur
 	return false;
 }
 
+// Offers each free exit in turn to the spawner until it accepts one.
+bool DeployAtExit(const ACommandBuilding& Building, TFunctionRef<bool(const FVector&)> Spawn)
+{
+	FVector Exit;
+	int32 Cursor = 0;
+	while (FindExit(Building, Exit, Cursor))
+		if (Spawn(Exit))
+			return true;
+	return false;
+}
+
+// Spawn first, debit second: a failed debit removes only this new candidate, never the force's members.
+bool SpawnPaidAtExit(ACommandBuilding& Building, const FVector& Exit)
+{
+	if (!Building.ForceGroup->SpawnReinforcement(Building.ProductionUnitIndex, Exit))
+		return false;
+	if (Building.TrySpend(Building.GetProductionCost()))
+		return true;
+	Building.ForceGroup->RollbackLastReinforcement();
+	return false;
+}
+
 }
 bool ACommandBuilding::FindProductionExit(FVector& OutLocation, int32& Cursor) const
 {
@@ -90,15 +113,9 @@ void ACommandBuilding::GetForceCounts(int32& OutJoined, int32& OutTravelling) co
 	OutJoined = OutTravelling = 0;
 	if (!IsValid(ForceGroup))
 		return;
-	for (const AArmyUnit* Unit : ForceGroup->GetUnits())
-	{
-		if (!IsValid(Unit) || !Unit->IsAlive())
-			continue;
-		if (Unit->IsReinforcing())
-			++OutTravelling;
-		else
-			++OutJoined;
-	}
+	// Recruits in transit or waiting at the producer never count as joined strength.
+	OutJoined = ForceGroup->GetAliveCount();
+	OutTravelling = ForceGroup->GetPendingRecruitCount();
 }
 
 EProductionState ACommandBuilding::GetProductionState() const
@@ -111,6 +128,9 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 {
 	if (!HasAuthority() || !FMath::IsFinite(DeltaSeconds) || DeltaSeconds <= 0.f)
 		return;
+	// A wiped force's paid recruits leave this exit whatever the production state: they are already paid for.
+	if (IsValid(ForceGroup) && ForceGroup->ClaimExitAttempt())
+		DeployAtExit(*this, [&](const FVector& Exit) { return ForceGroup->SpawnRecruitForExit(Exit); });
 	FProductionInput In = MakeProductionInput(*this, GetWorld()->GetGameState<ACommandGameState>(), DeltaSeconds);
 	In.bForceValid = In.bForceValid && !ForceGroup->IsActorBeingDestroyed();
 	const FProductionDecision Decision = ProductionPolicy::Evaluate(In);
@@ -121,31 +141,15 @@ void ACommandBuilding::TickProduction(float DeltaSeconds)
 	}
 	ProductionCheckAccumulator += DeltaSeconds;
 	ProductionProgressSeconds = Decision.NewProgress;
-	if (!Decision.bDeploymentDue)
-		return;
-	if (ProductionCheckAccumulator < .25f)
+	if (!Decision.bDeploymentDue || ProductionCheckAccumulator < .25f)
 		return;
 	ProductionCheckAccumulator = 0.f;
-	FVector Exit;
-	int32 ExitCursor = 0;
-	bool bDeployed = false;
-	while (FindProductionExit(Exit, ExitCursor))
-	{
-		if (ForceGroup->SpawnReinforcement(ProductionUnitIndex, Exit))
-		{
-			bDeployed = true;
-			break;
-		}
-	}
-	if (!bDeployed)
+	// A force with living members gets its recruit along the supply chain; an empty one at the exit.
+	const bool bAccepted = ForceGroup->GetAliveCount() > 0
+		? ForceGroup->QueueRecruit(ProductionUnitIndex)
+		: DeployAtExit(*this, [&](const FVector& Exit) { return SpawnPaidAtExit(*this, Exit); });
+	if (!bAccepted)
 		return;
-	// Spawn and its accepted complete path precede the debit. A failed debit removes
-	// only this new candidate; the persistent force and prior members are untouched.
-	if (!TrySpend(GetProductionCost()))
-	{
-		ForceGroup->RollbackLastReinforcement();
-		return;
-	}
 	++DeploymentCount;
 	OnRep_DeploymentCount();
 	ProductionProgressSeconds = 0.f;

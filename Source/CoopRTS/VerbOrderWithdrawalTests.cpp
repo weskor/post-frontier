@@ -97,13 +97,14 @@ private:
 	{
 		if (Stage == 4)
 		{
-			if (Force->GetAliveCount() < 5)
+			// Eighty percent counting recruits still on their way is five, yet only joined members resume.
+			if (Force->GetJoinedCount() + Force->GetPendingRecruitCount() < 5)
 				return EStepResult::Waiting;
-			if (!Check(Force->GetAliveCount() == 5 && Force->GetJoinedCount() < 5
+			if (!Check(Force->GetJoinedCount() < 5 && Force->GetPendingRecruitCount() > 0
 						&& Force->Status == EForceStatus::Refilling,
-					TEXT("Eighty-percent ALIVE including travelling recruits does not resume Attack")))
+					TEXT("Eighty-percent counting recruits in transit does not resume Attack")))
 				return EStepResult::Finished;
-			if (!Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, false).IsAccepted(), TEXT("Pause refill at exactly five paid living members")))
+			if (!Check(FCommandService::ConfigureProduction(Wallet, Producer.Get(), EUnitRole::Frontline, false).IsAccepted(), TEXT("Pause refill at exactly five paid recruits, joined or in transit")))
 				return EStepResult::Finished;
 			SetStage(5);
 		}

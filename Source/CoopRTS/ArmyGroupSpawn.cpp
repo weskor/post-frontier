@@ -19,26 +19,6 @@ namespace
 constexpr int32 InitialUnitCount = MaxUnitCount;
 #endif
 
-// Lowest free composition slot for a producer's force; INDEX_NONE when full or when a living
-// member does not belong to this producer's unit and capacity.
-int32 VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 Capacity)
-{
-	uint32 Occupied = 0;
-	int32 Living = 0;
-	for (const AArmyUnit* Unit : Units)
-	{
-		if (!IsValid(Unit) || !Unit->IsAlive())
-			continue;
-		if (Unit->GetUnitIndex() != UnitIndex || Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity)
-			return INDEX_NONE;
-		Occupied |= 1u << Unit->GetCompositionSlot();
-		++Living;
-	}
-	if (Living >= Capacity)
-		return INDEX_NONE;
-	return ArmyGroupPolicy::FirstVacantSlot(Occupied, Capacity);
-}
-
 // The exit must lie a short walk outside the producer's footprint, on navigable open ground.
 bool ReinforcementExitValid(UNavigationSystemV1& Navigation, const ACommandBuilding& Producer,
 	const FVector& SpawnLocation, FNavLocation& Projected)
@@ -55,6 +35,24 @@ bool ReinforcementExitValid(UNavigationSystemV1& Navigation, const ACommandBuild
 		&& !World->OverlapBlockingTestByChannel(Projected.Location + FVector(0.f, 0.f, 85.f),
 			FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 60.f));
 }
+}
+
+int32 ArmyGroupInternal::VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 Capacity)
+{
+	uint32 Occupied = 0;
+	int32 Living = 0;
+	for (const AArmyUnit* Unit : Units)
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive())
+			continue;
+		if (Unit->GetUnitIndex() != UnitIndex || Unit->GetCompositionSlot() < 0 || Unit->GetCompositionSlot() >= Capacity)
+			return INDEX_NONE;
+		Occupied |= 1u << Unit->GetCompositionSlot();
+		++Living;
+	}
+	if (Living >= Capacity)
+		return INDEX_NONE;
+	return ArmyGroupPolicy::FirstVacantSlot(Occupied, Capacity);
 }
 
 bool AArmyGroup::HasPermittedOwner(const ACommandGameState& State) const
@@ -190,16 +188,14 @@ AArmyGroup* AArmyGroup::SpawnFreeForce(UWorld& World, ACommandPlayerState& Owner
 	return Group;
 }
 
-bool AArmyGroup::CanSpawnReinforcement(const ACommandGameState* State, int32 UnitIndex, int32 Capacity,
-	const FVector& SpawnLocation)
+bool AArmyGroup::CanAcceptRecruit(const ACommandGameState* State, int32 UnitIndex, int32 Capacity) const
 {
 	return HasAuthority() && !IsActorBeingDestroyed() && State && State->MatchResult == EMatchResult::Ongoing
 		&& IsValid(ProductionBuilding) && ProductionBuilding->IsAlive() && ProductionBuilding->IsComplete()
 		&& ProductionBuilding->IsProducer() && ProductionBuilding->bForceConfigured
 		&& ProductionBuilding->ForceGroup == this && ProductionBuilding->ProductionUnitIndex == UnitIndex
 		&& ProductionBuilding->TeamIndex == TeamIndex && ProductionBuilding->OwningPlayerState == OwningPlayerState
-		&& HasPermittedOwner(*State) && Capacity != 0
-		&& AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation);
+		&& HasPermittedOwner(*State) && Capacity != 0;
 }
 
 bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocation)
@@ -207,7 +203,7 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
 	const int32 Capacity = Definition ? ACommandBuilding::GetForceCapacity(*Definition) : 0;
-	if (!CanSpawnReinforcement(State, UnitIndex, Capacity, SpawnLocation))
+	if (!CanAcceptRecruit(State, UnitIndex, Capacity) || !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation))
 		return false;
 	const int32 Slot = VacantReinforcementSlot(Units, UnitIndex, Capacity);
 	if (Slot == INDEX_NONE)
@@ -216,46 +212,30 @@ bool AArmyGroup::SpawnReinforcement(int32 UnitIndex, const FVector& SpawnLocatio
 	FNavLocation Projected;
 	if (!Navigation || !ReinforcementExitValid(*Navigation, *ProductionBuilding, SpawnLocation, Projected))
 		return false;
-	return LaunchReinforcement(*Navigation, *Definition, UnitIndex, Slot, Capacity, Projected.Location);
+	return SpawnJoined(*Definition, UnitIndex, Slot, Projected.Location) != nullptr;
 }
 
-bool AArmyGroup::LaunchReinforcement(UNavigationSystemV1& Navigation, const UArmyUnitDefinition& Definition,
-	int32 UnitIndex, int32 Slot, int32 Capacity, const FVector& Exit)
+AArmyUnit* AArmyGroup::SpawnJoined(const UArmyUnitDefinition& Definition, int32 UnitIndex, int32 Slot, const FVector& Ground)
 {
-	const FTransform Transform(FRotator::ZeroRotator, Exit + FVector(0.f, 0.f, 85.f));
+	const FTransform Transform(FRotator::ZeroRotator, Ground + FVector(0.f, 0.f, 65.f));
 	AArmyUnit* Candidate = GetWorld()->SpawnActorDeferred<AArmyUnit>(AArmyUnit::StaticClass(), Transform,
 		this, nullptr, ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
 	if (!Candidate)
-		return false;
+		return nullptr;
 	Candidate->Initialize(this, TeamIndex, IsValid(OwningPlayerState) ? OwningPlayerState->CommanderIndex : -1,
-		ArmyIndex, Slot, UnitIndex, const_cast<UArmyUnitDefinition*>(&Definition), true);
+		ArmyIndex, Slot, UnitIndex, const_cast<UArmyUnitDefinition*>(&Definition), false);
 	Candidate->FinishSpawning(Transform);
-	AAIController* AI = GetReadyController(Candidate);
-	const bool bWasProduced = bProducedGroup;
-	const int32 OldCapacity = ForceCapacity;
-	bProducedGroup = true;
-	ForceCapacity = Capacity;
-	FVector Rendezvous;
-	FPreparedMove Move;
-	Move.Controller = AI;
-	if (!IsValid(Candidate) || !AI
-		|| !ReinforcementTarget(*Candidate, Rendezvous)
-		|| FVector::DistSquared2D(Candidate->GetActorLocation(), Transform.GetLocation()) > FMath::Square(40.f)
-		|| !PrepareMove(Navigation, Candidate->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
-			Candidate->GetNavAgentLocation(), Rendezvous, Move, 75.f)
-		|| !StartPreparedMove(Move))
+	if (!IsValid(Candidate) || !GetReadyController(Candidate)
+		|| FVector::DistSquared2D(Candidate->GetActorLocation(), Transform.GetLocation()) > FMath::Square(40.f))
 	{
 		DestroyUnit(Candidate);
-		bProducedGroup = bWasProduced;
-		ForceCapacity = OldCapacity;
-		return false;
+		return nullptr;
 	}
-	Candidate->ReinforcementGoal = Move.Goal;
-	Candidate->ReinforcementRendezvous = Rendezvous;
-	Candidate->bHasReinforcementPath = true;
+	bProducedGroup = true;
+	ForceCapacity = ACommandBuilding::GetForceCapacity(Definition);
 	Units.RemoveAll([](const TObjectPtr<AArmyUnit>& Unit) { return !IsValid(Unit) || !Unit->IsAlive(); });
-	Units.Reserve(Capacity);
+	Units.Reserve(ForceCapacity);
 	Units.Add(Candidate);
 	ForceNetUpdate();
-	return true;
+	return Candidate;
 }

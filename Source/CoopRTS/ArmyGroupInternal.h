@@ -26,4 +26,7 @@ bool PrepareMove(UNavigationSystemV1& Navigation, const FNavAgentProperties& Age
 	FPreparedMove& Prepared, float ProjectionRadius = 35.0f);
 bool StartPreparedMove(const FPreparedMove& Move);
 void DestroyUnit(AArmyUnit* Unit);
+// Lowest free composition slot for a producer's force; INDEX_NONE when full or when a living member
+// does not belong to this producer's unit and capacity.
+int32 VacantReinforcementSlot(const TArray<TObjectPtr<AArmyUnit>>& Units, int32 UnitIndex, int32 Capacity);
 }

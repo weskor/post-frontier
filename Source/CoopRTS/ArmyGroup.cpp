@@ -40,6 +40,8 @@ void AArmyGroup::OnMemberDied(AArmyUnit* Unit)
 
 void AArmyGroup::DetachProducer()
 {
+	// A dead producer takes its in-transit and waiting recruits with it; the owner gets their Power back.
+	CancelRecruits();
 	ProductionBuilding = nullptr;
 }
 
@@ -78,7 +80,7 @@ FVector AArmyGroup::GetCenter() const
 	int32 Count = 0;
 	for (const AArmyUnit* Unit : Units)
 	{
-		if (IsValid(Unit) && Unit->IsAlive() && !Unit->bReinforcing)
+		if (IsValid(Unit) && Unit->IsAlive())
 		{
 			Center += Unit->GetActorLocation();
 			++Count;
@@ -103,7 +105,7 @@ void AArmyGroup::Tick(float DeltaSeconds)
 	}
 	if (!State || State->MatchResult != EMatchResult::Ongoing)
 		return;
-	UpdateReinforcements();
+	UpdateSupply();
 	TickOrders();
 	UpdateCombat();
 }
@@ -172,4 +174,7 @@ void AArmyGroup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AArmyGroup, HoldThreatenedAsset);
 	DOREPLIFETIME(AArmyGroup, HoldThreatKind);
 	DOREPLIFETIME(AArmyGroup, ProductionBuilding);
+	DOREPLIFETIME(AArmyGroup, RecruitsInTransit);
+	DOREPLIFETIME(AArmyGroup, RecruitsWaiting);
+	DOREPLIFETIME(AArmyGroup, bSupplyCutOff);
 }

@@ -115,14 +115,14 @@ bool FConstructionScenario::StageTwo(UWorld* World, ACommandPlayerController* PC
 	Building->TickProduction(Building->GetProductionDuration());
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, false);
 	Squad = Building->ForceGroup;
-	if (!Check(Alive(Building.Get()) == 1 && Squad.IsValid() && Squad->GetJoinedCount() == 0
+	if (!Check(Alive(Building.Get()) == 1 && Squad.IsValid() && Squad->GetJoinedCount() == 1 && Squad->GetPendingRecruitCount() == 0
 				&& Wallet->Resources == 2000 - Building->GetProductionDefinition()->UnitCost,
-			TEXT("One completed slot produces one travelling recruit and charges its definition's unit cost")))
+			TEXT("One completed slot into an empty force produces one joined recruit at the exit and charges its definition's unit cost")))
 		return true;
-	Recruit = TravellingRecruit(Squad.Get());
+	Recruit = Squad->GetUnits()[0];
 	if (!Check(Recruit.IsValid() && Recruit->GetUnitRole() == EUnitRole::Ranged && Recruit->GetCommanderIndex() == Wallet->CommanderIndex
 				&& Recruit->GetGroup() == Squad.Get() && FVector::Dist2D(Recruit->GetActorLocation(), Building->GetActorLocation()) > State->Content->Building(BarracksIndex)->FootprintRadius,
-			TEXT("Paid recruit physically starts outside its owning producer")))
+			TEXT("Paid recruit stands outside its owning producer")))
 		return true;
 	FirstRecruitBalance = Wallet->Resources;
 	Stage = 11;
@@ -131,13 +131,11 @@ bool FConstructionScenario::StageTwo(UWorld* World, ACommandPlayerController* PC
 
 bool FConstructionScenario::StageEleven(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet)
 {
-	if (!Check(Recruit.IsValid() && Recruit->IsAlive(), TEXT("First paid recruit survives its real route to the force")))
+	if (!Check(Recruit.IsValid() && Recruit->IsAlive(), TEXT("First paid recruit survives")))
 		return true;
-	if (Recruit->IsReinforcing())
-		return false;
 	if (!Check(Squad->GetUnits().Num() == 1 && Squad->GetUnits().Contains(Recruit.Get())
 				&& Squad->GetJoinedCount() == 1 && Alive(Building.Get()) == 1 && Wallet->Resources == FirstRecruitBalance,
-			TEXT("First recruit joins physically without another spawn or debit")))
+			TEXT("First recruit stays the only member without another spawn or debit")))
 		return true;
 	FCommandService::ConfigureProduction(Wallet, Building.Get(), EUnitRole::Ranged, true);
 	Building->TickProduction(Building->GetProductionDuration() * .25f);
@@ -217,6 +215,7 @@ bool FConstructionScenario::CompleteForces(UWorld* World, ACommandPlayerControll
 			TEXT("An owning commander's force order affects only the selected force")))
 		return true;
 	AArmyUnit* Victim = Squad->GetUnits()[0];
+	VictimSlot = Victim->GetCompositionSlot();
 	Victim->ReceiveAttack(Victim->GetHealth(), Attacker->GetUnits()[0]);
 	if (!Check(!Victim->IsAlive() && Alive(Building.Get()) == Building->GetProductionDefinition()->Capacity - 1,
 			TEXT("Real lethal damage opens exactly one vacancy")))

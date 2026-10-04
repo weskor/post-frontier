@@ -89,7 +89,7 @@ bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const TArray<TObject
 	for (int32 Index = 0; Index < Units.Num(); ++Index)
 	{
 		AArmyUnit* Unit = Units[Index];
-		if (!IsValid(Unit) || !Unit->IsAlive() || Unit->IsReinforcing())
+		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		AAIController* AI = GetReadyController(Unit);
 		if (!AI)
@@ -163,7 +163,6 @@ void AArmyGroup::StopAllUnits()
 		Unit->GetCharacterMovement()->StopMovementImmediately();
 		Unit->Target = nullptr;
 		Unit->bPursuing = false;
-		Unit->bHasReinforcementPath = false;
 	}
 }
 

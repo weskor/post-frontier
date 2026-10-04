@@ -45,19 +45,12 @@ private:
 		Producer->GetForceCounts(Joined, Travelling);
 		return Joined + Travelling;
 	}
-	static AArmyUnit* TravellingRecruit(const AArmyGroup* Force)
-	{
-		for (TActorIterator<AArmyUnit> It(Force->GetWorld()); It; ++It)
-			if (It->IsAlive() && It->IsReinforcing() && It->GetGroup() == Force)
-				return *It;
-		return nullptr;
-	}
 	static bool JoinedCenterMatches(const AArmyGroup* Force)
 	{
 		FVector Sum = FVector::ZeroVector;
 		int32 Count = 0;
 		for (const AArmyUnit* Unit : Force->GetUnits())
-			if (IsValid(Unit) && Unit->IsAlive() && !Unit->IsReinforcing())
+			if (IsValid(Unit) && Unit->IsAlive())
 			{
 				Sum += Unit->GetActorLocation();
 				++Count;
@@ -81,7 +74,7 @@ private:
 				return false;
 			Slots |= 1u << Unit->GetCompositionSlot();
 		}
-		return Count == Alive(Producer);
+		return Count == Producer->ForceGroup->GetJoinedCount();
 	}
 	bool CheckDeadline();
 	bool StageZero(UWorld* World, ACommandPlayerController* PC, ACommandGameState* State, ACommandPlayerState* Wallet);
@@ -123,11 +116,10 @@ private:
 	TWeakObjectPtr<AArmyUnit> Recruit;
 	TWeakObjectPtr<AActor> Blocker;
 	TWeakObjectPtr<ACommandPlayerState> UnrelatedWallet;
-	FVector RecruitStart, JoinedStart;
+	int32 VictimSlot = INDEX_NONE;
 	int32 OtherRegion = INDEX_NONE, RememberedRegion = INDEX_NONE;
 	EForceVerb OtherVerb = EForceVerb::MoveHold;
 	int32 FirstRecruitBalance = 0, FillBalance = 0, ReplacementBalance = 0, SurvivorCount = 0;
-	bool bRecruitMoved = false, bJoinedMoved = false;
 };
 }
 #endif

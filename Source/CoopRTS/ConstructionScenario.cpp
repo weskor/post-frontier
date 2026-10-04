@@ -138,8 +138,8 @@ bool FConstructionScenario::CheckDeadline()
 					Force->TargetRegionIndex, Force->WaypointRegionIndex, *Force->Destination.ToString());
 				for (const AArmyUnit* Unit : Force->GetUnits())
 					if (IsValid(Unit) && Unit->IsAlive())
-						UE_LOG(LogTemp, Error, TEXT("Production member slot=%d reinforcing=%d position=%s"),
-							Unit->GetCompositionSlot(), Unit->IsReinforcing(), *Unit->GetActorLocation().ToString());
+						UE_LOG(LogTemp, Error, TEXT("Production member slot=%d position=%s"),
+							Unit->GetCompositionSlot(), *Unit->GetActorLocation().ToString());
 			}
 		return Fail(*FString::Printf(TEXT("Construction stage %d exceeded its bounded progress deadline"), Stage));
 	}

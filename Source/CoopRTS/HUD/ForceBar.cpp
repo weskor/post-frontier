@@ -103,6 +103,19 @@ static void ReadForceStatus(const FContext& Context, const AArmyGroup& Force, in
 	FormatForceCardStatus({ Card.State, Card.Joined, Card.Capacity, Force.ResumeCount, ETA, Target.ToView(), Threat.ToView() }, Card.Status);
 }
 
+// Production line of a producer-backed card (ui.md surface 2): a recruit held at the producer says why.
+static void AppendRefillLine(const AArmyGroup& Force, EProductionState State, FStringBuilderBase& Text)
+{
+	Text << TEXT("Refill: ");
+	if (Force.RecruitsWaiting > 0)
+		Text.Appendf(TEXT("HELD \u00B7 %s \u00B7 %d recruit%s waiting"), Force.bSupplyCutOff ? TEXT("cut off") : TEXT("exit blocked"),
+			Force.RecruitsWaiting, Force.RecruitsWaiting == 1 ? TEXT("") : TEXT("s"));
+	else
+		Text << StatusText(State);
+	if (Force.RecruitsInTransit > 0)
+		Text.Appendf(TEXT(" \u00B7 %d travelling"), Force.RecruitsInTransit);
+}
+
 void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, FForceCard& Card)
 {
 	Card.Title.Reset();
@@ -112,7 +125,7 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 	Card.ProductionProgress = 0.f;
 	Card.Force = &Force;
 	Card.Joined = Force.GetJoinedCount();
-	Card.Travelling = Force.GetAliveCount() - Card.Joined;
+	Card.Travelling = Force.GetPendingRecruitCount();
 	Card.Capacity = Force.GetCapacity();
 	Card.bOwned = Force.GetOwningPlayerState() == Context.Wallet;
 	Card.bHighlighted = Context.Controller && Context.Controller->IsForceHighlighted(&Force);
@@ -145,9 +158,7 @@ void ReadForceCard(const FContext& Context, const AArmyGroup& Force, int32 ETA, 
 	{
 		const float Duration = Card.Producer->GetProductionDuration();
 		Card.ProductionProgress = Duration > 0.f ? FMath::Clamp(Card.Producer->ProductionProgressSeconds / Duration, 0.f, 1.f) : 0.f;
-		Card.Production << TEXT("Refill: ") << StatusText(Card.Producer->GetProductionState());
-		if (Card.Travelling > 0)
-			Card.Production.Appendf(TEXT(" \u00B7 %d travelling"), Card.Travelling);
+		AppendRefillLine(Force, Card.Producer->GetProductionState(), Card.Production);
 	}
 	else
 		Card.Production << TEXT("Orphan \u00B7 no reinforcements");
@@ -217,9 +228,20 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 	Paint.Fill(Rect, Rect.Contains(Mouse) ? Palette::CardHover : Palette::Card);
 	Paint.Outline(Rect, Card.bHighlighted ? Accent : Palette::Edge, Card.bHighlighted ? 2.f : 1.f);
 	const float X = Rect.X + 6.f, Width = Rect.W - 12.f;
-	Paint.Text(Card.Title.ToView(), X, Rect.Y + 5.f, 9.5f, Accent, true, EAlign::Left, Width - 37.f);
 	TStringBuilder<32> Strength;
 	Strength.Appendf(TEXT("%d/%d"), Card.Joined, Card.Capacity);
+	float TitleWidth = Width - 37.f;
+	if (Card.Force->bSupplyCutOff)
+	{
+		// Between the unit type and the strength. The words carry the state; the red only echoes it.
+		constexpr float ChipWidth = 44.f;
+		const FRect Chip{ Rect.Right() - 12.f - Paint.TextWidth(Strength.ToView(), 10.f) - ChipWidth, Rect.Y + 3.f, ChipWidth, 14.f };
+		Paint.Fill(Chip, FLinearColor(Palette::Bad.R, Palette::Bad.G, Palette::Bad.B, .2f));
+		Paint.Outline(Chip, Palette::Bad);
+		Paint.TextIn(TEXT("CUT OFF"), Chip, 7.5f, Palette::Bad, true, EAlign::Center);
+		TitleWidth = Chip.X - X - 4.f;
+	}
+	Paint.Text(Card.Title.ToView(), X, Rect.Y + 5.f, 9.5f, Accent, true, EAlign::Left, TitleWidth);
 	Paint.Text(Strength.ToView(), Rect.Right() - 6.f, Rect.Y + 5.f, 10.f, Palette::Text, true, EAlign::Right);
 	Paint.Text(Card.Order.ToView(), X, Rect.Y + 24.f, 9.f, OrderColor(Card.Force->Verb), true, EAlign::Left, Width);
 	Paint.Text(Card.Status.ToView(), X, Rect.Y + 42.f, 8.f, Card.State == ForceCardPolicy::EState::Withdrawing ? Palette::Warn : Palette::Text,

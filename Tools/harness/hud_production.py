@@ -183,14 +183,12 @@ def paid_replacement(
             and wallet(s, owner)["wallet"] == 0
             and force_counts_match(s, owner, barracks)
         ),
-        "one paid replacement leaves the producer",
+        "one paid replacement is queued on the supply chain",
     )
-    recruit = next(
-        u for u in alive_units(force(state, owner, barracks)) if u["reinforcing"]
-    )
-    origin = recruit["position"]
+    held = {u["slot"] for u in alive_units(force(state, owner, barracks))}
+    vacant = next(slot for slot in range(recipe["capacity"]) if slot not in held)
     capture.shot("barracks-replacement-travelling")
-    return recruit, origin
+    return {"slot": vacant}, force(state, owner, barracks)["center"]
 
 
 def retarget_replacement(
@@ -216,7 +214,7 @@ def retarget_replacement(
             u["slot"] == recruit["slot"] and distance2(u["position"], origin) > 200**2
             for u in alive_units(force(s, owner, barracks))
         ),
-        "same paid replacement physically tracks the retargeted force",
+        "paid replacement appears in the vacated slot of the retargeted force",
     )
     capture.wait(
         lambda s: (

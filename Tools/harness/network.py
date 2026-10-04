@@ -197,14 +197,14 @@ def force_counts_match(state: JsonObject, owner: int, index: int) -> bool:
         return False  # Actor references and their fields can replicate in separate updates.
     group = matches[0]
     members = alive_units(group)
-    travelling = sum(u["reinforcing"] for u in members)
     slots = [u["slot"] for u in members]
+    # Recruits in transit or waiting are queue entries, not units: they count against capacity only.
     return (
         producer["configured"]
         and group["producer"] == index
-        and producer["travelling"] == travelling
-        and producer["joined"] == len(members) - travelling
-        and len(members) <= producer["capacity"]
+        and producer["travelling"] >= 0
+        and producer["joined"] == len(members)
+        and len(members) + producer["travelling"] <= producer["capacity"]
         and len(set(slots)) == len(slots)
         and all(
             0 <= u["slot"] < producer["capacity"]

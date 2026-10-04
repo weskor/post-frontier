@@ -27,8 +27,8 @@ def force_snapshot() -> JsonObject:
                 "forceID": 4,
                 "configured": True,
                 "travelling": 1,
-                "joined": 1,
-                "capacity": 2,
+                "joined": 2,
+                "capacity": 3,
                 "recipe": 2,
             }
         ],
@@ -48,7 +48,7 @@ def force_snapshot() -> JsonObject:
                     },
                     {
                         "health": 10,
-                        "reinforcing": True,
+                        "reinforcing": False,
                         "slot": 1,
                         "owner": 3,
                         "role": 2,
@@ -74,9 +74,10 @@ def test_force_counts_ignore_dead_slots_but_reject_overcapacity() -> None:
     [
         ("configured", False),
         ("forceID", 99),
-        ("travelling", 0),
-        ("joined", 2),
-        ("capacity", 1),
+        ("travelling", 2),
+        ("travelling", -1),
+        ("joined", 3),
+        ("capacity", 2),
         ("recipe", 1),
     ],
 )
@@ -91,17 +92,23 @@ def test_force_rejects_inconsistent_producer(field: str, value: int | bool) -> N
     [
         ("slot", 0),
         ("slot", -1),
-        ("slot", 2),
+        ("slot", 3),
         ("owner", 4),
         ("role", 1),
         ("producer", 9),
-        ("reinforcing", False),
     ],
 )
 def test_force_rejects_invalid_members(field: str, value: int | bool) -> None:
     state = force_snapshot()
     state["armies"][0]["units"][1][field] = value
     assert not force_counts_match(state, 3, 8)
+
+
+def test_queued_recruits_are_counts_not_units() -> None:
+    state = force_snapshot()
+    assert force_counts_match(state, 3, 8)
+    state["buildings"][0]["travelling"] = 0
+    assert force_counts_match(state, 3, 8)
 
 
 def test_partial_or_duplicate_army_replication_is_not_convergence() -> None:
