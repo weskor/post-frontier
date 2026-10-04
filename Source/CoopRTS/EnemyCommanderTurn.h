@@ -79,6 +79,8 @@ struct FJevForceStep
 	// Snapshot.ClassSpeeds views this value.
 	float Speed = 0.f;
 	JevPlanner::FPlan Next;
+	// A free wave force: it has no producer to refill it, so it fights on rather than recovering.
+	bool bFree = false;
 	bool bRecovering = false;
 	bool bCommandsRejected = false;
 	bool bChanged = false;

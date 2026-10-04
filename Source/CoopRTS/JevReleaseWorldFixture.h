@@ -50,9 +50,9 @@ inline bool Quarantine(FKit& Kit, int32 JevPower)
 	for (TActorIterator<ACommandBuilding> It(Kit.World); It; ++It)
 		if (It->TeamIndex == 5)
 			It->Destroy();
+	// Scenarios share one world, so forces a previous scenario left for either side go too.
 	for (TActorIterator<AArmyGroup> It(Kit.World); It; ++It)
-		if (It->GetTeamIndex() == 5)
-			It->Destroy();
+		It->Destroy();
 	Kit.State->bVerificationIncomePaused = true;
 	Kit.State->EnemyCommander->Resources = JevPower;
 	// The humans only need to survive; combat outcomes are not under test.
@@ -90,6 +90,81 @@ inline int32 CountUnits(const TArray<AArmyGroup*>& Forces, int32 UnitIndex)
 			Count += IsValid(Unit) && Unit->IsAlive() && Unit->GetUnitIndex() == UnitIndex;
 	return Count;
 }
+
+// A latent scenario over a quarantined JEV: subclasses implement Prepare (once, on the first ready
+// frame) and Step (every frame after). Returning true ends the scenario.
+class FScenario : public IAutomationLatentCommand
+{
+public:
+	explicit FScenario(FAutomationTestBase* InTest) : Test(InTest) {}
+
+	bool Update() override
+	{
+		if (bFailed)
+			return true;
+		if (FPlatformTime::Seconds() - StartedReal > 120.)
+			return Fail(TEXT("Release scenario exceeded its real-time bound"));
+		if (!bReady)
+		{
+			if (!Acquire(Kit))
+				return false;
+			bReady = true;
+			if (!Quarantine(Kit, 0))
+				return Fail(TEXT("The isolated JEV planner could not spawn"));
+			return Prepare();
+		}
+		if (Kit.State->MatchResult != EMatchResult::Ongoing && !bMatchMayEnd)
+			return Fail(TEXT("The match ended during a release scenario"));
+		return Step();
+	}
+
+protected:
+	virtual bool Prepare() = 0;
+	virtual bool Step() = 0;
+
+	bool Fail(const TCHAR* Message)
+	{
+		Test->AddError(Message);
+		bFailed = true;
+		return true;
+	}
+	bool Check(bool bOk, const TCHAR* Message)
+	{
+		if (!bOk)
+			Test->AddError(Message);
+		return bOk;
+	}
+	void SkipTo(float Seconds) { Kit.Planner->SkipClock(Seconds - Kit.Planner->GetMatchSeconds()); }
+	void Enter(int32 Next)
+	{
+		Stage = Next;
+		StageStarted = ArmyTestSetup::GameSeconds(Kit.World);
+	}
+	double InStage() const { return ArmyTestSetup::GameSeconds(Kit.World) - StageStarted; }
+	const FJevReleaseState& Release() const { return Kit.Planner->Release; }
+	const FJevPublishedPlan* PlanOf(const AArmyGroup* Force) const
+	{
+		return Kit.State->EnemyPlans.FindByPredicate([Force](const FJevPublishedPlan& Plan) { return Plan.Force == Force; });
+	}
+	// Waits for the Count-th wave; false while it has not launched, and an error after three game seconds.
+	bool WaveLaunched(int32 Count)
+	{
+		if (Release().WaveCount >= Count)
+			return true;
+		if (InStage() > 3.)
+			Fail(*FString::Printf(TEXT("Wave %d did not launch within three game seconds of its release"), Count));
+		return false;
+	}
+
+	FAutomationTestBase* Test;
+	JevWorldKit::FKit Kit;
+	int32 Stage = 0;
+	double StageStarted = 0.;
+	double StartedReal = FPlatformTime::Seconds();
+	bool bReady = false;
+	bool bFailed = false;
+	bool bMatchMayEnd = false;
+};
 }
 
 #endif

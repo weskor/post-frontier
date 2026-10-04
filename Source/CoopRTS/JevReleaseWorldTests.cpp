@@ -11,79 +11,6 @@ namespace
 {
 using namespace JevWorldKit;
 
-class FScenario : public IAutomationLatentCommand
-{
-public:
-	explicit FScenario(FAutomationTestBase* InTest) : Test(InTest) {}
-
-	bool Update() override
-	{
-		if (bFailed)
-			return true;
-		if (FPlatformTime::Seconds() - StartedReal > 120.)
-			return Fail(TEXT("Release scenario exceeded its real-time bound"));
-		if (!bReady)
-		{
-			if (!Acquire(Kit))
-				return false;
-			bReady = true;
-			if (!Quarantine(Kit, 0))
-				return Fail(TEXT("The isolated JEV planner could not spawn"));
-			return Prepare();
-		}
-		if (Kit.State->MatchResult != EMatchResult::Ongoing && !bMatchMayEnd)
-			return Fail(TEXT("The match ended during a release scenario"));
-		return Step();
-	}
-
-protected:
-	virtual bool Prepare() = 0;
-	virtual bool Step() = 0;
-
-	bool Fail(const TCHAR* Message)
-	{
-		Test->AddError(Message);
-		bFailed = true;
-		return true;
-	}
-	bool Check(bool bOk, const TCHAR* Message)
-	{
-		if (!bOk)
-			Test->AddError(Message);
-		return bOk;
-	}
-	void SkipTo(float Seconds) { Kit.Planner->SkipClock(Seconds - Kit.Planner->GetMatchSeconds()); }
-	void Enter(int32 Next)
-	{
-		Stage = Next;
-		StageStarted = ArmyTestSetup::GameSeconds(Kit.World);
-	}
-	double InStage() const { return ArmyTestSetup::GameSeconds(Kit.World) - StageStarted; }
-	const FJevReleaseState& Release() const { return Kit.Planner->Release; }
-	const FJevPublishedPlan* PlanOf(const AArmyGroup* Force) const
-	{
-		return Kit.State->EnemyPlans.FindByPredicate([Force](const FJevPublishedPlan& Plan) { return Plan.Force == Force; });
-	}
-	// Waits for the Count-th wave; false while it has not launched, and an error after three game seconds.
-	bool WaveLaunched(int32 Count)
-	{
-		if (Release().WaveCount >= Count)
-			return true;
-		if (InStage() > 3.)
-			Fail(*FString::Printf(TEXT("Wave %d did not launch within three game seconds of its release"), Count));
-		return false;
-	}
-
-	FAutomationTestBase* Test;
-	JevWorldKit::FKit Kit;
-	int32 Stage = 0;
-	double StageStarted = 0.;
-	double StartedReal = FPlatformTime::Seconds();
-	bool bReady = false;
-	bool bFailed = false;
-	bool bMatchMayEnd = false;
-};
-
 class FWaveScenario : public FScenario
 {
 public:
@@ -248,7 +175,8 @@ private:
 		Fresh.RemoveAll([this](AArmyGroup* Force) { return Known.Contains(Force); });
 		// Two commanders scale 250 to 325; the 10 Power carried from v1.1 joins it.
 		if (!Check(Event.Release == 2 && Event.Budget == 335 && Event.Units == 14 && Event.Forces == 3,
-				TEXT("v1.2 for two commanders buys with 325 plus the 10 carried: 14 units in 3 forces")))
+				*FString::Printf(TEXT("v1.2 for two commanders buys with 325 plus the 10 carried: 14 units in 3 forces (got release %d budget %d units %d forces %d)"),
+					Event.Release, Event.Budget, Event.Units, Event.Forces)))
 			return true;
 		if (!Check(Fresh.Num() == 3 && CountUnits(Fresh, Rifle) == 13 && CountUnits(Fresh, Brawler) == 1,
 				TEXT("v1.2 counters the humans' Heavy majority with Rifles and fills the rest with the cheapest unit")))

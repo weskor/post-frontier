@@ -14,6 +14,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevReleaseForcesTest, "CoopRTS.Rules.JevReleas
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevReleaseRaidTest, "CoopRTS.Rules.JevRelease.Raid",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevReleaseFightsOnTest, "CoopRTS.Rules.JevRelease.FightsOn",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -212,6 +214,39 @@ bool FJevReleaseRaidTest::RunTest(const FString&)
 	Blind.Home = INDEX_NONE;
 	Blind.Regions[3].HostileRigs = 1;
 	TestEqual(TEXT("Without a known main the raid falls on the human main"), RaidRegion(Blind), 4);
+	return true;
+}
+
+bool FJevReleaseFightsOnTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	// Line 0 (JEV main) - 1 (JEV) - 2 (human main); an injured force stands in region 1.
+	FWorld World;
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		World.Regions[Index].bExists = true;
+		World.Regions[Index].Position = FVector(Index * 1000.f, 0.f, 0.f);
+		World.Regions[Index].Neighbours = (Index > 0 ? uint64(1) << (Index - 1) : 0) | (Index < 2 ? uint64(1) << (Index + 1) : 0);
+	}
+	World.Regions[0].Controller = World.Regions[1].Controller = 5;
+	World.Regions[2].Controller = 0;
+	World.Home = 0;
+	World.EnemyHome = 2;
+	const float Speeds[] = { 400.f };
+	FForce Force;
+	Force.Source = 1;
+	Force.Home = 0;
+	Force.UnitCount = 6;
+	Force.HealthFraction = .1f;
+	Force.Position = World.Regions[1].Position;
+	Force.ClassSpeeds = Speeds;
+	FCandidates Candidates = Propose(World, Force);
+	TestTrue(TEXT("A badly hurt force that a producer can refill retreats to recover"),
+		Choose(Candidates) && Choose(Candidates)->Plan.Verb == EVerb::Retreat);
+	Force.bCanRefill = false;
+	Candidates = Propose(World, Force);
+	TestTrue(TEXT("A free force no producer can refill never retreats to recover"),
+		Choose(Candidates) && Choose(Candidates)->Plan.Verb != EVerb::Retreat);
 	return true;
 }
 #endif

@@ -106,7 +106,8 @@ AArmyUnit* AArmyGroup::SpawnMember(int32 UnitIndex, const FVector& SpawnLocation
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	const UArmyUnitDefinition* Definition = State && State->Content ? State->Content->Unit(UnitIndex) : nullptr;
 	if (!HasAuthority() || IsActorBeingDestroyed() || !State || State->MatchResult != EMatchResult::Ongoing
-		|| !Definition || IsValid(ProductionBuilding) || CompositionSlot < 0 || !HasPermittedOwner(*State)
+		|| !Definition || IsValid(ProductionBuilding) || CompositionSlot < 0 || CompositionSlot >= MaxUnitCount
+		|| !HasPermittedOwner(*State)
 		|| !AArenaBounds::IsTravelLocation(GetWorld(), SpawnLocation))
 		return nullptr;
 	for (const AArmyUnit* Unit : Units)

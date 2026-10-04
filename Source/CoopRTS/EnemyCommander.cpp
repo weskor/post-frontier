@@ -53,6 +53,7 @@ void AEnemyCommander::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AEnemyCommander, Release);
+	DOREPLIFETIME(AEnemyCommander, TeamIndex);
 }
 
 void AEnemyCommander::Tick(float DeltaSeconds)
@@ -96,6 +97,7 @@ bool AEnemyCommander::BeginTurn(FJevTurn& Turn)
 		return !Entry.Force.IsValid() || Entry.Force->GetOwningPlayerState() != Commander
 			|| Entry.Force->GetAliveCount() == 0;
 	});
+	WaveForces.RemoveAllSwap([](const TWeakObjectPtr<AArmyGroup>& Force) { return !Force.IsValid() || Force->GetAliveCount() == 0; });
 	if (TeamIndex == 5)
 		State->EnemyPlans.RemoveAll([&](const FJevPublishedPlan& Entry) {
 			return !IsValid(Entry.Force) || Entry.Force->GetOwningPlayerState() != Commander

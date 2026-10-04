@@ -64,6 +64,8 @@ struct FForce
 	bool bRetreating = false;
 	bool bRecovering = false;
 	bool bAtRecovery = false;
+	// False for a force that can never refill (a free wave force): it fights on instead of recovering.
+	bool bCanRefill = true;
 	FVector Position = FVector::ZeroVector;
 	TConstArrayView<float> ClassSpeeds;
 };

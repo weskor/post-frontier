@@ -95,7 +95,8 @@ public:
 	void SkipClock(float Seconds) { ClockSkew += Seconds; }
 #endif
 	// Team 0 is created only by an explicit autopilot fixture; normal play creates team 5.
-	UPROPERTY()
+	// Replicated so a client can tell the autopilot's empty release state from JEV's.
+	UPROPERTY(Replicated)
 	int32 TeamIndex = 5;
 	UPROPERTY()
 	TObjectPtr<ACommandPlayerState> Commander;
@@ -113,6 +114,9 @@ private:
 	void LaunchWave(FJevTurn& Turn, int32 ReleaseIndex);
 	void RecordWave(const FJevWaveEvent& Event);
 	TArray<FJevCommittedForce, TInlineAllocator<8>> CommittedForces;
+	// Free forces this commander launched; they never refill, so they fight on.
+	TArray<TWeakObjectPtr<AArmyGroup>, TInlineAllocator<8>> WaveForces;
+	bool IsWaveForce(const AArmyGroup* Force) const;
 	FJevMemoTemplates MemoTemplates;
 	bool bMemoLoadAttempted = false;
 	bool bMemosLoaded = false;

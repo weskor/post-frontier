@@ -146,7 +146,7 @@ float ChainScore(const FWorld& World, const FChain& Chain, int32 Index)
 		return ChainIncomeWeight * IncomeIn(World, Chain.Connected & ~Chain.Reach(Chain.Controlled & ~Bit));
 	const uint64 After = Chain.Reach(Chain.Controlled | Bit);
 	const float Isolated = (After & Bit) ? 0.f : -2.f * World.Regions[Index].DepositValue;
-	return Isolated + ChainIncomeWeight * IncomeIn(World, After & ~Chain.Connected & ~Bit);
+	return Isolated + ChainIncomeWeight * IncomeIn(World, After & ~Chain.Connected);
 }
 
 float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, int32 Index)
@@ -223,7 +223,7 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		Offer(Out, Defense, 100.f);
 		return Out;
 	}
-	const bool bRecover = Force.HealthFraction < .35f || (Force.bRecovering && Force.HealthFraction < .8f);
+	const bool bRecover = Force.bCanRefill && (Force.HealthFraction < .35f || (Force.bRecovering && Force.HealthFraction < .8f));
 	if (bRecover && Force.bAtRecovery && Exists(World, Force.Source)
 		&& World.Regions[Force.Source].Controller == World.Team && !World.Regions[Force.Source].Hostiles)
 		Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Force.Source, Route.Length[Force.Source]), 1001.f);

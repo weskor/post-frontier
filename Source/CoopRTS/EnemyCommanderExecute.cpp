@@ -78,7 +78,8 @@ void SnapshotForce(const FJevTurn& Turn, FJevForceStep& Step)
 	Snapshot.bRecovering = Step.Current && Step.Current->bRecovering;
 	Snapshot.bRetreating = Force.Verb == EForceVerb::Retreat;
 	Snapshot.HealthFraction = JoinedHealthFraction(Force);
-	Step.bRecovering = JevExecution::Recovering(Snapshot.HealthFraction, Snapshot.bRecovering);
+	Snapshot.bCanRefill = !Step.bFree;
+	Step.bRecovering = Snapshot.bCanRefill && JevExecution::Recovering(Snapshot.HealthFraction, Snapshot.bRecovering);
 	Snapshot.bAtRecovery = Snapshot.bRecovering && Force.Verb == EForceVerb::MoveHold
 		&& Force.IsHoldingRegion() && Force.HoldRegionIndex == Snapshot.Source;
 	Step.Speed = Force.GetBaseMarchSpeed();
@@ -201,6 +202,7 @@ void AEnemyCommander::ExecuteForce(FJevTurn& Turn, AArmyGroup* Force)
 {
 	FJevForceStep Step;
 	Step.Force = Force;
+	Step.bFree = IsWaveForce(Force);
 	Step.Current = CommittedForces.FindByPredicate([&](const FJevCommittedForce& Entry) { return Entry.Force == Force; });
 	if (Step.Current && JevExecution::HoldsClaim(Turn.Summary, Step.Current->Plan, Turn.Now))
 		Turn.Summary.Regions[Step.Current->Plan.Target].bClaimed = --Turn.Reservations[Step.Current->Plan.Target] > 0;
@@ -215,6 +217,7 @@ void AEnemyCommander::ExecuteWaveForce(FJevTurn& Turn, AArmyGroup* Force, int32 
 {
 	FJevForceStep Step;
 	Step.Force = Force;
+	Step.bFree = IsWaveForce(Force);
 	Step.Current = CommittedForces.FindByPredicate([&](const FJevCommittedForce& Entry) { return Entry.Force == Force; });
 	SnapshotForce(Turn, Step);
 	if ((bJoining && !JoinsWave(Turn, Step)) || !JevExecution::ValidRegion(Target))

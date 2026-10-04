@@ -5,6 +5,7 @@
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
+#include "Commands/CommandService.h"
 #include "Content/MatchContent.h"
 #include "EngineUtils.h"
 
@@ -93,8 +94,14 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 	const JevRelease::FBehaviour Behaviour = JevRelease::BehaviourFor(ReleaseIndex);
 	const int32 Budget = JevRelease::WaveBudget(ReleaseIndex, HumanCommanders(*Turn.State));
 	const int32 Target = Behaviour.bRaid ? JevRelease::RaidRegion(Turn.Summary) : Turn.Summary.EnemyHome;
-	if (Budget <= 0 || !JevExecution::ValidRegion(Target))
+	if (Budget <= 0)
 		return;
+	// No place to send the wave: the budget carries to the next release rather than vanishing.
+	if (!JevExecution::ValidRegion(Target))
+	{
+		WaveCarry += Budget;
+		return;
+	}
 	const TArray<JevRelease::FUnitOption> Options = UnitOptions(*Turn.Content);
 	const JevRelease::FPurchase Bought = JevRelease::Purchase(WaveCarry + Budget, Options, Behaviour,
 		JevRelease::MostNumerous(Turn.EnemyArmor));
@@ -122,6 +129,9 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 		if (!Force)
 			continue;
 		Wave.Add(Force);
+		// A free force has no producer to refill it: it fights to the end.
+		WaveForces.Add(Force);
+		FCommandService::SetRetreatThreshold(Turn.Commander, Force, ERetreatThreshold::Never);
 		Event.Units += Force->GetAliveCount();
 	}
 	Event.Forces = Wave.Num();
@@ -131,6 +141,13 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex)
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
-	UE_LOG(LogJevRelease, Display, TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d"),
-		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, WaveCarry);
+	UE_LOG(LogJevRelease, Display,
+		TEXT("JEV wave release=%d at=%.1f budget=%d units=%d forces=%d target=%d carry=%d humans(L/H/S/St)=%d/%d/%d/%d"),
+		Event.Release, Event.MatchSeconds, Event.Budget, Event.Units, Event.Forces, Event.TargetRegion, WaveCarry,
+		Turn.EnemyArmor.Count[0], Turn.EnemyArmor.Count[1], Turn.EnemyArmor.Count[2], Turn.EnemyArmor.Count[3]);
+}
+
+bool AEnemyCommander::IsWaveForce(const AArmyGroup* Force) const
+{
+	return WaveForces.ContainsByPredicate([Force](const TWeakObjectPtr<AArmyGroup>& Entry) { return Entry.Get() == Force; });
 }

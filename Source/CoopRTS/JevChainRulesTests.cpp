@@ -8,6 +8,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevChainReconnectTest, "CoopRTS.Rules.JevChain
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevChainHoldTest, "CoopRTS.Rules.JevChain.Hold",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevChainRigRegionTest, "CoopRTS.Rules.JevChain.RigRegion",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -128,6 +130,38 @@ bool FJevChainHoldTest::RunTest(const FString&)
 	World.Regions[3].IncomeValue = 0;
 	Best = BestPlan(World, Force);
 	TestTrue(TEXT("A cut vertex with no income behind it is worth no more than a leaf"), Best.Target == 1);
+	return true;
+}
+
+bool FJevChainRigRegionTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 400.f };
+	// Main 0 touches 1 and 2; region 3 touches only 1.
+	const FVector Positions[] = { FVector(0.f, 0.f, 0.f), FVector(1000.f, 0.f, 0.f), FVector(0.f, 1000.f, 0.f), FVector(2000.f, 0.f, 0.f) };
+	const uint64 Links[] = { Bit(1) | Bit(2), Bit(0) | Bit(3), Bit(0), Bit(1) };
+	FWorld World;
+	for (int32 Index = 0; Index < 4; ++Index)
+	{
+		World.Regions[Index].bExists = true;
+		World.Regions[Index].Position = Positions[Index];
+		World.Regions[Index].Neighbours = Links[Index];
+	}
+	World.Regions[0].Controller = 5;
+	World.Regions[0].bMain = true;
+	World.Home = 0;
+	// The humans hold region 1, but JEV's own Drill Rig still stands there.
+	World.Regions[1].Controller = 0;
+	World.Regions[1].IncomeValue = 6;
+	World.Regions[2].DepositValue = 4;
+	World.Regions[3].DepositValue = 12;
+	const FForce Force = ForceAt(World, 0, Speeds);
+	FPlan Best = BestPlan(World, Force);
+	TestTrue(TEXT("Retaking the region that holds JEV's own Drill Rig beats a free deposit and a richer isolated one"),
+		Best.Target == 1 && Best.Verb == EVerb::Attack);
+	World.Regions[1].IncomeValue = 0;
+	Best = BestPlan(World, Force);
+	TestEqual(TEXT("With no rig of its own there the same region is worth less than the connected deposit"), Best.Target, 2);
 	return true;
 }
 #endif
