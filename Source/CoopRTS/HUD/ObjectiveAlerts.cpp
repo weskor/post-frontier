@@ -181,6 +181,30 @@ static FLinearColor LocalRowTitle(const FObjectiveEvent& Event, FStringBuilderBa
 	return Event.Id == FName(PressureView::StunRowId) ? Palette::Warn : FLinearColor(.42f, .90f, 1.f);
 }
 
+// The second line of a feed row: what kind of row it is and what a click does.
+static void AlertSubtitle(const FObjectiveEvent& Event, bool bPing, bool bGift, bool bLocal, bool bAbility, FStringBuilderBase& Region)
+{
+	if (bPing)
+	{
+		Region << TEXT("Team ping");
+		if (!Event.Forces.IsEmpty() && Event.Forces[0].ForceNumber > 0)
+			Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
+		Region << TEXT("  |  Click to focus");
+	}
+	else if (bGift)
+		Region << TEXT("Team  |  Click to open Team log");
+	else if (bLocal)
+	{
+		if (!Event.RegionName.IsEmpty())
+			Region << ObjectiveRegionName(Event.RegionName) << TEXT("  |  ");
+		Region << (Event.Id == FName(PressureView::StunRowId) ? TEXT("Your building") : TEXT("JEV release"));
+	}
+	else if (bAbility)
+		Region << (Event.Id == FName(MapPresentation::SupplyCutEventId) ? TEXT("Team alert") : TEXT("Team ability")) << TEXT("  |  Click to focus");
+	else
+		Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
+}
+
 void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float Alpha) {
@@ -210,25 +234,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
 		TStringBuilder<128> Region;
-		if (bPing)
-		{
-			Region << TEXT("Team ping");
-			if (!Event.Forces.IsEmpty() && Event.Forces[0].ForceNumber > 0)
-				Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
-			Region << TEXT("  |  Click to focus");
-		}
-		else if (bGift)
-			Region << TEXT("Team  |  Click to open Team log");
-		else if (bLocal)
-		{
-			if (!Event.RegionName.IsEmpty())
-				Region << ObjectiveRegionName(Event.RegionName) << TEXT("  |  ");
-			Region << (Event.Id == FName(PressureView::StunRowId) ? TEXT("Your building") : TEXT("JEV release"));
-		}
-		else if (bAbility)
-			Region << (Event.Id == FName(MapPresentation::SupplyCutEventId) ? TEXT("Team alert") : TEXT("Team ability")) << TEXT("  |  Click to focus");
-		else
-			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
+		AlertSubtitle(Event, bPing, bGift, bLocal, bAbility, Region);
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
 		for (int32 Index = 0; !bPing && !bAbility && !bLocal && !bGift && Index < Event.Forces.Num(); ++Index)
