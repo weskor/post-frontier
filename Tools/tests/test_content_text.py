@@ -147,7 +147,14 @@ def test_branches_carry_the_documented_one_b_effects() -> None:
     for branch, (base, stats) in changes.items():
         assert units[branch]["branch_of"] == base
         assert units[branch]["branch_summary"]
-        identity = {"asset_name", "id", "display_name", "accent", "branch_of", "branch_summary"}
+        identity = {
+            "asset_name",
+            "id",
+            "display_name",
+            "accent",
+            "branch_of",
+            "branch_summary",
+        }
         differing = {
             field
             for field in ContentText.UNIT_FIELDS

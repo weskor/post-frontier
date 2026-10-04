@@ -129,7 +129,9 @@ def unit_definitions() -> list[dict[str, Any]]:
         if not definition["branch_summary"]:
             raise ValueError(f"unit {definition['id']!r}: a branch needs a summary")
         changed = [
-            f for f in UNIT_FIELDS if f not in BRANCH_DELTAS and definition[f] != base[f]
+            f
+            for f in UNIT_FIELDS
+            if f not in BRANCH_DELTAS and definition[f] != base[f]
         ]
         if changed:
             raise ValueError(
