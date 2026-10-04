@@ -77,7 +77,11 @@ void AArmyGroup::UpdateIntentRoutes(const uint64* Graph, int32 Count, int32 Sour
 	if (!State)
 		return;
 	IntentRoutes.Reserve(4);
-	FRouteWriter Writer{ IntentRoutes, Graph, Count, Source };
+	// A marching force crossing ground off its route still follows the route it left, so the path
+	// line doesn't run through a region the force refuses to capture.
+	const bool bOnRouteMarch = Status == EForceStatus::Marching && !bWithdrawing && !Orders.IsEmpty()
+		&& Orders[0].RouteOrigin != INDEX_NONE;
+	FRouteWriter Writer{ IntentRoutes, Graph, Count, bOnRouteMarch ? Orders[0].RouteOrigin : Source };
 	int32 PredictedLastHeld = LastHeldRegionIndex;
 	const bool bDropAttack = bWithdrawing && (!IsValid(ProductionBuilding) || bTargetCompleted);
 	if ((bWithdrawing || Verb == EForceVerb::Retreat) && !Writer.Append(WithdrawalRegionIndex, 0, true))

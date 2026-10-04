@@ -16,7 +16,7 @@ bool FRouteCaptureRulesTest::RunTest(const FString& Parameters)
 		March.Target = 2;
 		March.Origin = Origin;
 		March.Applied = Applied;
-		March.bHasRegion = March.bHasAnchor = true;
+		March.bHasAnchor = true;
 		return March;
 	};
 	const auto Check = [&](const TCHAR* What, const FMarch& March, EStep Step, int32 Origin) {
@@ -34,9 +34,6 @@ bool FRouteCaptureRulesTest::RunTest(const FString& Parameters)
 	FMarch NoAnchor = Standing(1, 0, 1);
 	NoAnchor.bHasAnchor = false;
 	Check(TEXT("A region without a capture point advances"), NoAnchor, EStep::Advance, 1);
-	FMarch NoRegion = Standing(1, 0, 1);
-	NoRegion.bHasRegion = NoRegion.bHasAnchor = false;
-	Check(TEXT("Standing outside every region secures nothing and does not advance"), NoRegion, EStep::Secure, 1);
 
 	FMarch Contested = Standing(1, 0, INDEX_NONE);
 	Contested.bContested = true;

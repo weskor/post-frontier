@@ -24,9 +24,8 @@ struct FMarch
 	int32 Origin = INDEX_NONE;
 	// The waypoint region currently being walked to, or INDEX_NONE.
 	int32 Applied = INDEX_NONE;
-	// The standing region exists, has a capture anchor, is controlled by the force's team, or is
-	// contested: a hostile stands at its anchor.
-	bool bHasRegion = false;
+	// Facts about the standing region: whether it has a capture anchor, is controlled by the
+	// force's team, or is contested (a hostile stands at its anchor).
 	bool bHasAnchor = false;
 	bool bControlled = false;
 	bool bContested = false;

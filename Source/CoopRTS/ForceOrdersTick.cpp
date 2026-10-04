@@ -276,6 +276,8 @@ void AArmyGroup::TickMarch(const FForceTickContext& Ctx)
 	Status = EForceStatus::Marching;
 	const int32 Source = Ctx.Source;
 	const AMapRegion* Current = ForceOrderGraph::Region(*Ctx.State, Source);
+	if (!Current)
+		return;
 	// Do not chase off the route to unlock an intermediate waypoint. Capture
 	// uncontested ground on the route; pass a contested anchor only after physical
 	// arrival. Ground the path merely crosses is not captured.
@@ -284,8 +286,7 @@ void AArmyGroup::TickMarch(const FForceTickContext& Ctx)
 	March.Target = TargetRegionIndex;
 	March.Origin = Orders[0].RouteOrigin;
 	March.Applied = AppliedWaypoint;
-	March.bHasRegion = Current != nullptr;
-	March.bHasAnchor = Current && Current->Anchor;
+	March.bHasAnchor = Current->Anchor != nullptr;
 	March.bControlled = (Ctx.Controlled & Bit(Source)) != 0;
 	March.bContested = March.bHasAnchor
 		&& (TeamIndex == 0 ? Current->Anchor->bEnemyPresent : Current->Anchor->bFriendlyPresent);

@@ -23,7 +23,7 @@ RouteCapturePolicy::FDecision RouteCapturePolicy::Decide(const uint64* Graph, in
 	if (!OnRoute(Graph, Count, March))
 		return { EStep::Continue, March.Origin };
 	const bool bAdvance = March.Source == March.Target
-		|| (March.bHasRegion && (!March.bHasAnchor || March.bControlled))
+		|| !March.bHasAnchor || March.bControlled
 		|| (March.bContested && March.Applied != INDEX_NONE && (March.Applied != March.Source || March.bArrived));
 	return { bAdvance ? EStep::Advance : EStep::Secure, March.Source };
 }

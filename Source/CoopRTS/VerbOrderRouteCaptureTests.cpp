@@ -117,6 +117,11 @@ private:
 			if (!Check(Force->WaypointRegionIndex == Intermediate && Force->TargetRegionIndex == Target,
 					TEXT("Crossing an off-route region keeps the route waypoint instead of capturing it")))
 				return true;
+			const TArray<FForceRoute>& Intent = Force->GetIntentRoutes();
+			if (!Check(Intent.Num() == 1 && Intent[0].Regions.Num() == 3 && Intent[0].Regions[0] == Home
+						&& Intent[0].Regions[1] == Intermediate && Intent[0].Regions[2] == Target,
+					TEXT("The published path line keeps the route from the last on-route region, not through the off-route one")))
+				return true;
 			SetStage(1);
 		}
 		if (!Check(Force->WaypointRegionIndex != OffRoute && State->GetRegionController(OffRoute) == -1,
@@ -135,6 +140,6 @@ private:
 };
 }
 
-VERB_WORLD_TEST(FVerbRouteCaptureTest, "RouteCapture", RouteCapture)
+VERB_WORLD_TEST(FVerbRouteCaptureTest, "RouteCaptureOffRoute", RouteCapture)
 
 #endif
