@@ -79,7 +79,8 @@ The same rules apply to **both HQs**, the Lattice and Hardline (starting values,
 - **Emergency wave [New]** (the final protocol): the first time a side's HQ goes offline (once per battle per side), an emergency force spawns at that HQ, announced globally.
   - Humans: one free force per commander, of that commander's Barracks unit type, at full squad.
   - JEV: one wave at the current release's wave budget ([jev.md](jev.md#how-jev-plays-change--decided)).
-- **Outcome [Change]:** a battle ends only on a completed hold, or on the existing roster-empty conditions. The harness counts completed holds.
+  - Neither emergency force is strong enough to win on its own.
+- **Outcome [Change]:** in step 1b, which has the Assault objective only, a battle ends only on a completed hold. Raid and Sabotage keep their own win conditions when they arrive (step 4). The harness counts completed holds.
 - **Earliest win:** the nodes' reduced damage lasts until the `v1.2` release; then a node and the HQ must break and the hold complete, so roughly 6–7 min against an unattended rush.
 
 ## Two-commander threat [New]

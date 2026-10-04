@@ -24,7 +24,7 @@
   - A seed checker rejects bad seeds before they're offered. Batch-check about 1,000 seeds per map and compare histograms (hops to the nearest deposit, JEV distance, supply necks) to catch hidden bias.
   - Each map keeps one fixed beginner seed.
 - **Link toggles:** 2–4 designed toggles per map open or close links between regions, e.g. a bridge out or a pass open. They change the supply graph, which is what makes a known map play differently. Cosmetic changes don't count as variants.
-- **Failover Node sites:** each map authors two per side, in regions next to each main ([battle.md](battle.md)). **[Change]** Built in step 1b on Habitable Zone v2 for both sides (orchestrator 2026-10-04).
+- **Failover Node sites:** each map authors two per side, in regions next to each main ([buildings.md](buildings.md#hq)). **[Change]** Built in step 1b on Habitable Zone v2 for both sides (orchestrator 2026-10-04).
 - **Player count:** the map stays the same; JEV scales instead ([jev.md](jev.md)).
 
 ## Bases [Change] — decided

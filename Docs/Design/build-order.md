@@ -22,7 +22,7 @@ The battle has to be fun before a run layer can help it.
      - Version escalation and free-spawn waves from the budget table ([jev.md](jev.md)).
      - **Data with something to buy:** reward regions and structure kills, plus tier-2 branches as the first purchase.
      - **Pre-built start and planning phase,** with a generic kit (Barracks plus a Drill Rig) until commanders exist; lower starting Power; JEV's matching start ([battle.md](battle.md)). It shortens every battle, so it belongs before the battle-length gate.
-     - **Guarding the HQs:** Failover Nodes, the fortified opening, the hold and the final protocol for both HQs ([battle.md](battle.md)).
+     - **Guarding the HQs:** Failover Nodes with reduced damage early on, the hold and the emergency wave for both HQs ([battle.md](battle.md)).
      - **A two-commander threat:** Split-Brain Cut ([battle.md](battle.md#two-commander-threat-new)). A second design stays open ([open-questions.md](open-questions.md)).
      - **Where and how to fight (moved from step 4 and step 3, owner decision 2026-10-04):**
        - **Region traits** on fixed regions of Habitable Zone v2. Each trait's terrain matches it: high ground sits on raised plateaus with ramps, and cover has visible cover. The map also gets narrow necks and 2–3 real routes between fronts that cost different things, so routes stop being straight lines ([map.md](map.md)).

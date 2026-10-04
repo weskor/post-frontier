@@ -25,7 +25,7 @@
 - **Spending:** each budget buys whole units, and the leftover carries to the next wave.
 - **Spawning:** a wave spawns free, with no wallet change and no extraction, as forces of up to 6 units at JEV's main, each with an Attack order and a published plan.
 - **Timeline:** each release appears on JEV's timeline 30 s before it happens.
-- Calldowns stay in step 4. All values are starting values for the harness.
+- Calldowns stay in step 4. **[Later]** Target timing for step 4: the first calldown comes with `v2.0`, and calldowns get faster at `v2.1`. All values are starting values for the harness.
 
 - **[New] Calldowns:** two at launch. Each is **announced 20 s ahead** on the timeline and gives teams a reason to spread out:
 

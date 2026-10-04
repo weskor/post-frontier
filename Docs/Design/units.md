@@ -132,7 +132,7 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 
 ## Lancer and Scrambler in step 1b [New]
 
-Both are built in step 1b with the table rows above as starting values (orchestrator 2026-10-04). Each fires one shot per 1.0 s, so the DPS column is the damage per shot. The Lancer's shot is single-target. Both are produced at the Barracks ([buildings.md](buildings.md#building-list)); production time and fee follow [forces.md](forces.md#barracks-built).
+Both are built in step 1b with the table rows above as starting values (orchestrator 2026-10-04). Each fires one shot per 1.0 s, so the DPS column is the damage per shot. The Lancer's shot is single-target. Production building: [buildings.md](buildings.md#building-list); time and fee: [forces.md](forces.md#barracks-built).
 
 **Scrambler pulse.** Starting values, orchestrator 2026-10-04:
 - **Trigger:** automatic. It fires when it is ready and at least one hostile unit with shield above 0, or one hostile building (not the HQ, not a Failover Node), is within **400 cm** of the Scrambler. The **10 s** cooldown starts at the cast, and the first pulse is ready at spawn.

@@ -66,7 +66,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 | Normal | 4/s | 1200 (today 2400) | 300 s (today 600 s) |
 | Rich | 6/s | 1500 (today 3000) | 250 s (today 500 s) |
 
-- A Drill Rig costs 160 Power, takes 9 s to build and has 350 HP. Doubling structure HP is not part of step 1b, so the Drill Rig keeps 350 HP ([buildings.md](buildings.md#rules); orchestrator 2026-10-04).
+- A Drill Rig costs 160 Power, takes 9 s to build and has 350 HP. Doubling structure HP is not part of step 1b ([buildings.md](buildings.md#rules); orchestrator 2026-10-04).
 - Habitable Zone v2 has 16 deposits: 8 normal and 8 rich.
 - **Reserves halved — decided 2026-10-03,** so the first deposits run dry around 5 min and force the second expansion. Depletion stays. StarCraft II: Legacy of the Void made the same move, half of each base's mineral patches at half the minerals, to make players take expansions more aggressively. Built in step 1b ([build-order.md](build-order.md)).
 
