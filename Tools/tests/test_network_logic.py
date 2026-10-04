@@ -156,6 +156,17 @@ def test_order_selection_rejects_boundary_home_excluded_and_unreachable_regions(
         select_order_region(state, 8, exclude=(20,))
 
 
+def test_nearest_order_region_overrides_graph_order() -> None:
+    state = region_snapshot()
+    assert select_order_region(state, 8, min_distance=1499)["index"] == 10
+    assert (
+        select_order_region(state, 8, min_distance=1499, nearest_to=20)["index"] == 20
+    )
+    assert (
+        select_order_region(state, 8, min_distance=1499, nearest_to=10)["index"] == 10
+    )
+
+
 def held_snapshot() -> JsonObject:
     state = force_snapshot()
     state["buildings"][0].update(forceVerb=0, targetRegionIndex=20)
