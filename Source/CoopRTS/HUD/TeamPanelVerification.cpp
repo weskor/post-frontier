@@ -35,7 +35,7 @@ static FString Send(ACommandGameState& State, ACommandPlayerController& Controll
 	ACommandPlayerState* To = Find(State, static_cast<int32>(Request.GetIntegerField(TEXT("to"))));
 	if (!To)
 		return TEXT("gift recipient is not replicated locally");
-	Controller.GiftCommands->ServerGift(To, ResourceOf(Request), static_cast<int32>(Request.GetIntegerField(TEXT("amount"))));
+	Controller.GiftCommands->ServerGift(To, To->CommanderIndex, ResourceOf(Request), static_cast<int32>(Request.GetIntegerField(TEXT("amount"))));
 	return FString();
 }
 

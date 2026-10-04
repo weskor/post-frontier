@@ -17,7 +17,9 @@ class COOPRTS_API UGiftCommandComponent : public UActorComponent
 public:
 	UGiftCommandComponent();
 	UFUNCTION(Server, Reliable)
-	void ServerGift(ACommandPlayerState* Recipient, EEconomyResource Resource, int32 Amount);
+	// Teammate is the commander slot the panel chose, sent beside the pointer so a teammate who left in flight (a null
+	// Recipient) is still named in the refusal.
+	void ServerGift(ACommandPlayerState* Recipient, int32 Teammate, EEconomyResource Resource, int32 Amount);
 	// The verdict of the last gift: the panel's text on a rejection, empty on acceptance.
 	UFUNCTION(Client, Reliable)
 	void ClientGiftFeedback(const FString& Message, bool bAccepted);
@@ -29,7 +31,7 @@ public:
 	// The commander's teammates in roster order, at most TeamPanelPolicy::MaxTeammates: the panel's rows.
 	static void Teammates(const ACommandGameState& State, const ACommandPlayerState* Self,
 		TArray<const ACommandPlayerState*, TInlineAllocator<TeamPanelPolicy::MaxTeammates>>& Out);
-	// The replicated team log, oldest first.
+	// The replicated team log, oldest first, timed on the battle clock.
 	static void ReadLog(const ACommandGameState& State, TeamPanelPolicy::FLogBuffer& Out);
 	static TeamPanelPolicy::EResource ToPolicy(EEconomyResource Resource);
 	static EEconomyResource FromPolicy(TeamPanelPolicy::EResource Resource);

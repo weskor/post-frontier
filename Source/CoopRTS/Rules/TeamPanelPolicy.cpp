@@ -86,6 +86,8 @@ ESendVerdict Verdict(const FSendInput& In)
 {
 	if (!In.bBattleLive)
 		return ESendVerdict::BattleOver;
+	if (In.bPlanning)
+		return ESendVerdict::Planning;
 	if (In.Teammate == INDEX_NONE)
 		return ESendVerdict::NoTeammate;
 	if (!In.bTeammatePresent)
@@ -106,6 +108,9 @@ void AppendReason(FStringBuilderBase& Out, ESendVerdict Verdict, const FSendInpu
 	{
 	case ESendVerdict::BattleOver:
 		Out << TEXT("Gifting is closed: the battle is over");
+		break;
+	case ESendVerdict::Planning:
+		Out << TEXT("Gifting opens at 0:00");
 		break;
 	case ESendVerdict::NoTeammate:
 		Out << TEXT("Pick a teammate first");

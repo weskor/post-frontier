@@ -410,6 +410,7 @@ private:
 			++Controls;
 			Check(Button.Action == EHUDAction::PingTeammateForce || Button.Action == EHUDAction::GiftTeammateForce,
 				TEXT("The only teammate controls are Need help here and Gift"));
+			Check(Button.Rect.H >= 28.f && Button.Rect.W >= 28.f, TEXT("Each teammate control is at least a 28 px target"));
 		});
 		Check(Controls == 2, TEXT("Read-only teammate card exposes exactly the ping and gift controls"));
 		const uint32 Serial = Foreign->OrderSerial;

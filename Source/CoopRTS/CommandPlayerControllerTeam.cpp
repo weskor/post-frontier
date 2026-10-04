@@ -105,7 +105,7 @@ void ACommandPlayerController::SendGift()
 			PendingGiftText = FString(Sent.ToView());
 			TeamRefusal.Reset();
 			bGiftPending = true;
-			GiftCommands->ServerGift(const_cast<ACommandPlayerState*>(Recipient),
+			GiftCommands->ServerGift(const_cast<ACommandPlayerState*>(Recipient), TeamFlow.Teammate,
 				UGiftCommandComponent::FromPolicy(TeamFlow.Resource), TeamFlow.Amount);
 			return;
 		}

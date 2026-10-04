@@ -138,11 +138,15 @@ bool FTeamPanelRefusalTest::RunTest(const FString&)
 	TestEqual(TEXT("After the battle gifting is closed"), Reason(In), FString(TEXT("Gifting is closed: the battle is over")));
 	// Order: battle, teammate, presence, amount, funds.
 	In = Ready();
+	In.bPlanning = true;
+	TestEqual(TEXT("Planning says when gifting opens"), Reason(In), FString(TEXT("Gifting opens at 0:00")));
 	In.bBattleLive = false;
 	In.Teammate = INDEX_NONE;
 	In.Amount = 0;
 	TestEqual(TEXT("The battle outranks every other reason"), Verdict(In), ESendVerdict::BattleOver);
 	In.bBattleLive = true;
+	TestEqual(TEXT("then planning"), Verdict(In), ESendVerdict::Planning);
+	In.bPlanning = false;
 	TestEqual(TEXT("then a missing teammate"), Verdict(In), ESendVerdict::NoTeammate);
 	In.Teammate = 1;
 	In.bTeammatePresent = false;

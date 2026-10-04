@@ -218,14 +218,18 @@ const TCHAR* ForceTargetRule(const UArmyUnitDefinition* Definition)
 		: TEXT("Acquire: counter-class first, then nearest.");
 }
 
+// A teammate card's two controls are 28 px targets (ui.md), directly under the production bar.
+constexpr float TeammateButtonTop = 123.f;
+constexpr float TeammateButtonHeight = 28.f;
+
 void ForEachForceCardButton(const FForceCard& Card, const FRect& Rect, TFunctionRef<void(const FButton&, FStringView)> Visit)
 {
 	const float X = Rect.X + 6.f, Width = Rect.W - 12.f;
 	if (!Card.bOwned)
 	{
 		const float Ping = (Width - 4.f) * .62f;
-		Visit({ EHUDAction::PingTeammateForce, { X, Rect.Y + 125.f, Ping, 22.f }, EBlock::None, false, 0 }, TEXT("Need help here [G]"));
-		Visit({ EHUDAction::GiftTeammateForce, { X + Ping + 4.f, Rect.Y + 125.f, Width - Ping - 4.f, 22.f }, EBlock::None, false, 0 },
+		Visit({ EHUDAction::PingTeammateForce, { X, Rect.Y + TeammateButtonTop, Ping, TeammateButtonHeight }, EBlock::None, false, 0 }, TEXT("Need help here [G]"));
+		Visit({ EHUDAction::GiftTeammateForce, { X + Ping + 4.f, Rect.Y + TeammateButtonTop, Width - Ping - 4.f, TeammateButtonHeight }, EBlock::None, false, 0 },
 			TEXT("Gift\u2026"));
 		return;
 	}
@@ -326,7 +330,7 @@ void DrawForceCard(const FPainter& Paint, const FForceCard& Card, const FRect& R
 		else
 			Threshold.Appendf(TEXT(" \u00B7 %d%%"), static_cast<int32>(Card.Force->RetreatThreshold));
 	}
-	Paint.Text(Threshold.ToView(), X, Rect.Y + 150.f, 7.8f, Palette::Muted, false, EAlign::Left, Width);
+	Paint.Text(Threshold.ToView(), X, Rect.Y + (Card.bOwned ? 150.f : TeammateButtonTop + TeammateButtonHeight + 3.f), 7.8f, Palette::Muted, false, EAlign::Left, Width);
 	ForEachForceCardButton(Card, Rect, [&](const FButton& Button, FStringView Label) {
 		Paint.Fill(Button.Rect, Button.Rect.Contains(Mouse) ? Palette::CardHover : Palette::Key);
 		Paint.Outline(Button.Rect, Button.bActive ? Accent : Palette::KeyEdge);

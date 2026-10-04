@@ -13,7 +13,8 @@ FTeamGeometry TeamGeometry(const FRect& Panel, int32 Teammates)
 	const float X = Panel.X, W = Panel.W;
 	G.bGift = Teammates > 0;
 	G.Header = { X, Panel.Y, W, 26.f };
-	G.Close = { Panel.Right() - 76.f, Panel.Y, 72.f, 26.f };
+	// The drawing is a small keycap; the hit area is the 28 px minimum, ending where the first row begins.
+	G.Close = { Panel.Right() - 76.f, Panel.Y, 72.f, 28.f };
 	float Y = Panel.Y + 28.f;
 	const int32 Rows = FMath::Clamp(Teammates, 1, MaxTeammates);
 	for (int32 Index = 0; Index < Rows; ++Index, Y += 30.f)

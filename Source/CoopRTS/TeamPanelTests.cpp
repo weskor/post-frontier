@@ -46,25 +46,28 @@ FString Commander(int32 Slot)
 }
 }
 
-bool FTeamPanelClientGiftTest::RunTest(const FString&)
+namespace
 {
-	ADD_LATENT_AUTOMATION_COMMAND(FTeamEconomyScenario(this, 2, [](FTeamEconomyFixture& F) {
-		FAutomationTestBase& T = *F.Test;
-		ACommandPlayerController* Sender = F.Controller;
-		ACommandPlayerState* From = F.Wallets[0];
-		ACommandPlayerState* To = F.Wallets[1];
-		ACommandPlayerController* Peer = F.World->SpawnActor<ACommandPlayerController>();
-		ACommandPlayerState* Outsider = F.Spawn(4, false);
-		if (!T.TestTrue(TEXT("The recipient's controller and an outsider spawn"), Peer && Outsider))
-			return;
-		Peer->SetPlayerState(To);
+// Two commanders of one team, each with a controller, and a wallet that is not in the roster.
+struct FGiftBed
+{
+	FTeamEconomyFixture& F;
+	FAutomationTestBase& T;
+	ACommandPlayerController* Sender;
+	ACommandPlayerController* Peer;
+	ACommandPlayerState* From;
+	ACommandPlayerState* To;
+	ACommandPlayerState* Outsider;
+
+	void Gifts()
+	{
 		From->Resources = 300;
 		From->Data = 80;
 		To->Resources = 5;
-		Sender->GiftCommands->ServerGift(To, EEconomyResource::Power, 100);
+		Sender->GiftCommands->ServerGift(To, To->CommanderIndex, EEconomyResource::Power, 100);
 		T.TestTrue(TEXT("A Power gift through the owning component moves Power atomically"),
 			From->Resources == 200 && To->Resources == 105 && From->Data == 80 && To->Data == 0);
-		Sender->GiftCommands->ServerGift(To, EEconomyResource::Data, 80);
+		Sender->GiftCommands->ServerGift(To, To->CommanderIndex, EEconomyResource::Data, 80);
 		T.TestTrue(TEXT("and a Data gift moves Data without touching Power"),
 			From->Data == 0 && To->Data == 80 && From->Resources == 200 && To->Resources == 105);
 		T.TestEqual(TEXT("Both gifts are in the replicated team log"), F.State->GiftLog.Num(), 2);
@@ -75,24 +78,68 @@ bool FTeamPanelClientGiftTest::RunTest(const FString&)
 			T.TestEqual(TEXT("Each commander's panel reads the newest gift"), LogLine(*Context.State, 0), Newest + TEXT("   80 Data"));
 			T.TestEqual(TEXT("and the one before it"), LogLine(*Context.State, 1), Newest + TEXT("   100 Power"));
 		}
+		FLogBuffer Log;
+		UGiftCommandComponent::ReadLog(*F.State, Log);
+		if (T.TestEqual(TEXT("The panel reads both gifts"), Log.Num(), 2))
+			T.TestEqual(TEXT("Log times are on the battle clock, not server world time"), Log[1].Time,
+				F.State->GiftLog[1].ServerTime - F.State->GetBattleClockStartServerTime());
 		T.TestTrue(TEXT("Only the recipient has an unseen gift"), Peer->HasUnseenGift() && !Sender->HasUnseenGift());
-		// Every refusal changes nothing, logs nothing and carries the panel's wording.
-		const auto Refused = [&](const TCHAR* Why, ACommandPlayerState* Recipient, EEconomyResource Resource, int32 Amount,
-								 const FString& Text) {
-			Sender->GiftCommands->ServerGift(Recipient, Resource, Amount);
-			T.TestEqual(FString(Why) + TEXT(" says why"), RefusalOf(*Sender), Text);
-			T.TestTrue(FString(Why) + TEXT(" moves and logs nothing"),
-				From->Resources == 200 && To->Resources == 105 && From->Data == 0 && To->Data == 80 && F.State->GiftLog.Num() == 2);
-		};
-		Refused(TEXT("An overdraft"), To, EEconomyResource::Power, 201, TEXT("Not enough Power: you have 200"));
-		Refused(TEXT("A Data overdraft"), To, EEconomyResource::Data, 1, TEXT("Not enough Data: you have 0"));
-		Refused(TEXT("A zero gift"), To, EEconomyResource::Power, 0, TEXT("Pick an amount above 0"));
-		Refused(TEXT("A gift to nobody"), nullptr, EEconomyResource::Power, 10, TEXT("Pick a teammate first"));
-		Refused(TEXT("A gift to a commander outside the team"), Outsider, EEconomyResource::Power, 10,
-			Commander(Outsider->CommanderIndex) + TEXT(" left the team"));
+	}
+
+	// Every refusal changes nothing, logs nothing and carries the panel's wording.
+	void Refused(const TCHAR* Why, ACommandPlayerState* Recipient, int32 Slot, EEconomyResource Resource, int32 Amount,
+		const FString& Text)
+	{
+		Sender->GiftCommands->ServerGift(Recipient, Slot, Resource, Amount);
+		T.TestEqual(FString(Why) + TEXT(" says why"), RefusalOf(*Sender), Text);
+		T.TestTrue(FString(Why) + TEXT(" moves and logs nothing"),
+			From->Resources == 200 && To->Resources == 105 && From->Data == 0 && To->Data == 80 && F.State->GiftLog.Num() == 2);
+	}
+
+	void Refusals()
+	{
+		const int32 Mate = To->CommanderIndex, Gone = Outsider->CommanderIndex;
+		Refused(TEXT("An overdraft"), To, Mate, EEconomyResource::Power, 201, TEXT("Not enough Power: you have 200"));
+		Refused(TEXT("A Data overdraft"), To, Mate, EEconomyResource::Data, 1, TEXT("Not enough Data: you have 0"));
+		Refused(TEXT("A zero gift"), To, Mate, EEconomyResource::Power, 0, TEXT("Pick an amount above 0"));
+		Refused(TEXT("A gift to nobody"), nullptr, INDEX_NONE, EEconomyResource::Power, 10, TEXT("Pick a teammate first"));
+		Refused(TEXT("A gift to a commander outside the team"), Outsider, Gone, EEconomyResource::Power, 10,
+			Commander(Gone) + TEXT(" left the team"));
 		F.State->MatchResult = EMatchResult::Victory;
-		Refused(TEXT("A gift after the battle"), To, EEconomyResource::Power, 10, TEXT("Gifting is closed: the battle is over"));
+		Refused(TEXT("A gift after the battle"), To, Mate, EEconomyResource::Power, 10, TEXT("Gifting is closed: the battle is over"));
 		F.State->MatchResult = EMatchResult::Ongoing;
+		// A teammate who left while the gift was in flight arrives as a null recipient and is still named.
+		Refused(TEXT("A gift to a departed teammate"), nullptr, Gone, EEconomyResource::Power, 10, Commander(Gone) + TEXT(" left the team"));
+	}
+
+	// Nothing runs during planning: the same refusal the panel shows, and the wallets stay put.
+	void Planning()
+	{
+		F.State->BeginPlanning();
+		From->Resources = 200;
+		To->Resources = 105;
+		From->Data = 0;
+		To->Data = 80;
+		F.State->GiftLog.SetNum(2);
+		Refused(TEXT("A gift during planning"), To, To->CommanderIndex, EEconomyResource::Power, 10, TEXT("Gifting opens at 0:00"));
+		F.State->CompletePlanningForHarness(false);
+		T.TestFalse(TEXT("The harness ended planning"), F.State->IsPlanning());
+	}
+};
+}
+
+bool FTeamPanelClientGiftTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FTeamEconomyScenario(this, 2, [](FTeamEconomyFixture& F) {
+		ACommandPlayerController* Peer = F.World->SpawnActor<ACommandPlayerController>();
+		ACommandPlayerState* Outsider = F.Spawn(4, false);
+		if (!F.Test->TestTrue(TEXT("The recipient's controller and an outsider spawn"), Peer && Outsider))
+			return;
+		Peer->SetPlayerState(F.Wallets[1]);
+		FGiftBed Bed{ F, *F.Test, F.Controller, Peer, F.Wallets[0], F.Wallets[1], Outsider };
+		Bed.Gifts();
+		Bed.Refusals();
+		Bed.Planning();
 		Peer->SetPlayerState(nullptr);
 		Peer->Destroy();
 		Outsider->Destroy();
@@ -183,7 +230,7 @@ bool FSurfaceScenario::Layouts(bool bOpen)
 		ForEachButton(Context, Layout, [&](const FButton& Button) {
 			if (!IsTeamAction(Button.Action))
 				return;
-			bOk &= Check(Button.Rect.W >= 28.f && Button.Rect.H >= 28.f - (Button.Action == EHUDAction::TeamClose ? 2.f : 0.f),
+			bOk &= Check(Button.Rect.W >= 28.f && Button.Rect.H >= 28.f,
 				TEXT("Every Team target is at least 28 px"));
 			bOk &= Check(HitTest(Context, Layout, Button.Rect.Center()) == Button.Action, TEXT("Each Team button wins its own centre"));
 		});

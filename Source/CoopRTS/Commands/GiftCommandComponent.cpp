@@ -33,8 +33,9 @@ void UGiftCommandComponent::Teammates(const ACommandGameState& State, const ACom
 void UGiftCommandComponent::ReadLog(const ACommandGameState& State, TeamPanelPolicy::FLogBuffer& Out)
 {
 	Out.Reset();
+	const float Start = State.GetBattleClockStartServerTime();
 	for (const FGiftLogEntry& Entry : State.GiftLog)
-		Out.Add({ Entry.SenderSlot, Entry.RecipientSlot, ToPolicy(Entry.Resource), Entry.Amount, Entry.ServerTime });
+		Out.Add({ Entry.SenderSlot, Entry.RecipientSlot, ToPolicy(Entry.Resource), Entry.Amount, FMath::Max(0.f, Entry.ServerTime - Start) });
 }
 
 TeamPanelPolicy::FSendInput UGiftCommandComponent::MakeSendInput(const ACommandGameState& State,
@@ -42,6 +43,7 @@ TeamPanelPolicy::FSendInput UGiftCommandComponent::MakeSendInput(const ACommandG
 {
 	TeamPanelPolicy::FSendInput In;
 	In.bBattleLive = State.MatchResult == EMatchResult::Ongoing;
+	In.bPlanning = State.IsPlanning();
 	In.Teammate = Teammate;
 	In.Resource = Resource;
 	In.Amount = Amount;
@@ -55,7 +57,7 @@ TeamPanelPolicy::FSendInput UGiftCommandComponent::MakeSendInput(const ACommandG
 	return In;
 }
 
-void UGiftCommandComponent::ServerGift_Implementation(ACommandPlayerState* Recipient, EEconomyResource Resource, int32 Amount)
+void UGiftCommandComponent::ServerGift_Implementation(ACommandPlayerState* Recipient, int32 Teammate, EEconomyResource Resource, int32 Amount)
 {
 	const ACommandPlayerController* Controller = CastChecked<ACommandPlayerController>(GetOwner());
 	ACommandPlayerState* Sender = Controller->GetPlayerState<ACommandPlayerState>();
@@ -66,7 +68,7 @@ void UGiftCommandComponent::ServerGift_Implementation(ACommandPlayerState* Recip
 	{
 		// The panel's own wording when its rules explain the refusal; otherwise the service's reason.
 		const TeamPanelPolicy::FSendInput In = MakeSendInput(
-			*State, Sender, IsValid(Recipient) ? Recipient->CommanderIndex : INDEX_NONE, ToPolicy(Resource), Amount);
+			*State, Sender, IsValid(Recipient) ? Recipient->CommanderIndex : Teammate, ToPolicy(Resource), Amount);
 		const TeamPanelPolicy::ESendVerdict Verdict = TeamPanelPolicy::Verdict(In);
 		TStringBuilder<96> Reason;
 		TeamPanelPolicy::AppendReason(Reason, Verdict, In);

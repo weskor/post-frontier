@@ -61,6 +61,8 @@ enum class ESendVerdict : uint8
 {
 	Ok,
 	BattleOver,
+	// Nothing runs during planning; gifting opens with the battle clock.
+	Planning,
 	NoTeammate,
 	TeammateLeft,
 	NoAmount,
@@ -70,6 +72,7 @@ enum class ESendVerdict : uint8
 struct FSendInput
 {
 	bool bBattleLive = true;
+	bool bPlanning = false;
 	int32 Teammate = INDEX_NONE;
 	// The chosen teammate is still a commander of this team in this battle.
 	bool bTeammatePresent = false;
@@ -80,7 +83,7 @@ struct FSendInput
 
 // The first reason Send is refused, in the order the panel explains them.
 ESendVerdict Verdict(const FSendInput& In);
-// "C2 left the team", "Pick an amount above 0", "Not enough Power: you have 340".
+// "C2 left the team", "Pick an amount above 0", "Not enough Power: you have 340", "Gifting opens at 0:00".
 void AppendReason(FStringBuilderBase& Out, ESendVerdict Verdict, const FSendInput& In);
 // "SEND 100 Power to C2", or "SEND" before a teammate is chosen.
 void AppendSendLabel(FStringBuilderBase& Out, const FFlow& Flow);
@@ -101,6 +104,7 @@ struct FLogEntry
 	int32 Recipient = INDEX_NONE;
 	EResource Resource = EResource::Power;
 	int32 Amount = 0;
+	// Seconds on the battle clock, not server world time.
 	float Time = 0.f;
 };
 // The log window never holds more than the replicated log keeps.
