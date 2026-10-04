@@ -88,7 +88,7 @@ ControllerInputPolicy::EFortifyStep ControllerInputPolicy::FortifyStep(bool bArm
 		return bArmed ? EFortifyStep::Cancel : EFortifyStep::Arm;
 	case EFortifyInput::LeftClick:
 		return !bArmed ? EFortifyStep::Ignore : bCastPending ? EFortifyStep::Wait
-															  : EFortifyStep::Cast;
+															 : EFortifyStep::Cast;
 	}
 	return EFortifyStep::Ignore;
 }
