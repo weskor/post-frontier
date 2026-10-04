@@ -371,6 +371,12 @@ kind = "automation"
 filter = "CoopRTS.HUD.JevIntent"
 map = "default"
 
+# Economy and pressure surfaces (supply-cut chip, battle clock, stun chip, release cell) read from replicated state.
+[scopes.pressure-hud]
+kind = "automation"
+filter = "CoopRTS.HUD.Pressure"
+map = "default"
+
 [scopes.simulation-duel]
 kind = "automation"
 filter = "CoopRTS.Simulation.Duel"
@@ -802,13 +808,19 @@ rendered = true
 # JEV intent display: timeline bar, region badges and memo feed read the replicated plans.
 "Source/CoopRTS/JevIntentUiTests.cpp" = ["jev-intent-ui"]
 "Source/CoopRTS/JevIntentRulesTests.cpp" = ["rules"]
-"Source/CoopRTS/Rules/JevIntent.*" = ["rules", "jev-intent-ui"]
-"Source/CoopRTS/JevIntentView.*" = ["jev-intent-ui"]
+"Source/CoopRTS/Rules/JevIntent.*" = ["rules", "jev-intent-ui", "pressure-hud"]
+"Source/CoopRTS/JevIntentView.*" = ["jev-intent-ui", "pressure-hud"]
 "Source/CoopRTS/JevIntentFixture.*" = ["jev-intent-ui"]
 "Source/CoopRTS/HUD/**/*.[ch]*" = ["jev-intent-ui"]
-"Source/CoopRTS/CommandHUD.[ch]*" = ["jev-intent-ui"]
+"Source/CoopRTS/CommandHUD.[ch]*" = ["jev-intent-ui", "pressure-hud"]
 "Source/CoopRTS/CommandMinimap.[ch]*" = ["jev-intent-ui"]
 "Source/CoopRTS/CommandGameState.[h]" = ["jev-intent-ui"]
+
+# Pressure HUD: release cell and battle clock, supply-cut chip, building stun chip, local feed rows.
+"Source/CoopRTS/PressureHudRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/PressureHudUiTests.cpp" = ["pressure-hud"]
+"Source/CoopRTS/Rules/PressureHud.*" = ["rules", "pressure-hud"]
+"Source/CoopRTS/HUD/*.[chp]*" = ["pressure-hud"]
 
 # Route intent supplements existing executor/input scopes, never replaces them.
 "Source/CoopRTS/RouteIntentTests.cpp" = ["route-intent"]

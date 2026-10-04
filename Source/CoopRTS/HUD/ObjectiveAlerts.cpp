@@ -9,6 +9,7 @@
 #include "ObjectiveAnnouncer.h"
 #include "Rules/AnnouncerPolicy.h"
 #include "Rules/MapPresentationPolicy.h"
+#include "PressureView.h"
 
 namespace CommandHUDPanels
 {
@@ -107,6 +108,8 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 	const FObjectiveEventView TeamPings = Pings ? Pings->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
 	const UAbilityCommandComponent* Abilities = Context.Controller->AbilityCommands;
 	const FObjectiveEventView TeamAbilities = Abilities ? Abilities->GetEvents() : FObjectiveEventView{ EmptyEvents, 0 };
+	const UPressureView* Pressure = UPressureView::Get(Context.State);
+	const FObjectiveEventView LocalRows = Pressure ? FObjectiveEventView{ Pressure->Rows(), 0 } : FObjectiveEventView{ EmptyEvents, 0 };
 	const float Now = Context.State->GetServerWorldTimeSeconds();
 	float Y = Layout.Alerts.Y;
 	const auto VisitRing = [&](const FObjectiveEventView& Events, float Lifetime, bool bCompact) {
@@ -127,8 +130,10 @@ void ForEachAlert(const FContext& Context, const FLayout& Layout,
 		}
 		return true;
 	};
-	// Objective rows rank above ability team rows, which rank above pings.
+	// Objective rows rank above this client's own pressure rows (stuns, releases), which rank above ability team rows,
+	// which rank above pings.
 	if (VisitRing(Objectives, UObjectiveAnnouncer::FeedLifetime, false)
+		&& VisitRing(LocalRows, UObjectiveAnnouncer::FeedLifetime, true)
 		&& VisitRing(TeamAbilities, UAbilityCommandComponent::Lifetime, true))
 		VisitRing(TeamPings, UPingCommandComponent::Lifetime, true);
 }
@@ -165,6 +170,13 @@ static FLinearColor TeamRowTitle(const FContext& Context, const FObjectiveEvent&
 	return FLinearColor(.42f, .90f, 1.f);
 }
 
+// A pressure row's title is the text its observer composed; a stun is amber, a release Machine cyan.
+static FLinearColor LocalRowTitle(const FObjectiveEvent& Event, FStringBuilderBase& Title)
+{
+	Title << Event.TargetForceOwnerName;
+	return Event.Id == FName(PressureView::StunRowId) ? Palette::Warn : FLinearColor(.42f, .90f, 1.f);
+}
+
 void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float Alpha) {
@@ -172,9 +184,12 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		Paint.Outline(Rect, Palette::Edge.CopyWithNewOpacity(Palette::Edge.A * Alpha));
 		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
 		const bool bAbility = UAbilityCommandComponent::IsAbilitySequence(Event.Sequence);
+		const bool bLocal = PressureView::IsLocalSequence(Event.Sequence);
 		const bool bPing = Event.Sequence < 0 && !bAbility;
 		TStringBuilder<256> Title;
-		if (bAbility)
+		if (bLocal)
+			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, LocalRowTitle(Event, Title).CopyWithNewOpacity(Alpha));
+		else if (bAbility)
 			Paint.Fill({ Rect.X, Rect.Y, 3.f, Rect.H }, TeamRowTitle(Context, Event, Title).CopyWithNewOpacity(Alpha));
 		else
 		{
@@ -192,13 +207,19 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 				Region.Appendf(TEXT("  |  %s's Force %d"), *Event.TargetForceOwnerName, Event.Forces[0].ForceNumber);
 			Region << TEXT("  |  Click to focus");
 		}
+		else if (bLocal)
+		{
+			if (!Event.RegionName.IsEmpty())
+				Region << ObjectiveRegionName(Event.RegionName) << TEXT("  |  ");
+			Region << (Event.Id == FName(PressureView::StunRowId) ? TEXT("Your building") : TEXT("JEV release"));
+		}
 		else if (bAbility)
 			Region << (Event.Id == FName(MapPresentation::SupplyCutEventId) ? TEXT("Team alert") : TEXT("Team ability")) << TEXT("  |  Click to focus");
 		else
 			Region << (Event.RegionName.IsEmpty() ? FStringView(TEXT("Outside regions")) : ObjectiveRegionName(Event.RegionName)) << TEXT("  |  Click to focus");
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
 			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
-		for (int32 Index = 0; !bPing && !bAbility && Index < Event.Forces.Num(); ++Index)
+		for (int32 Index = 0; !bPing && !bAbility && !bLocal && Index < Event.Forces.Num(); ++Index)
 		{
 			const FObjectiveForce& Force = Event.Forces[Index];
 			const float CellWidth = (Rect.W - 2.f * Pad - Gap) * .5f;

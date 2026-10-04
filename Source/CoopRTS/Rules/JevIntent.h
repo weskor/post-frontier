@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "JevPlanner.h"
+#include "JevReleasePolicy.h"
 
 // What the HUD shows of JEV's published plans. Everything here is a function of the
 // replicated plan list and the server clock; nothing is predicted or guessed.
@@ -30,9 +31,10 @@ struct FPlanView
 	FStringView Memo;
 };
 
-// The timeline takes more entry kinds (version releases, calldowns) in later steps.
+// A version release shows as the first cell for its lead time; plans follow, soonest first.
 enum class EEntryKind : uint8
 {
+	Release,
 	Plan
 };
 
@@ -46,7 +48,40 @@ struct FTimelineEntry
 	int32 SizeBand = 2;
 	float Seconds = 0.f;
 	bool bEscalated = false;
+	// Release cells: the release index (0 is v1.0) and, for v1.2, the armor class the wave will counter.
+	int32 Release = INDEX_NONE;
+	EArmorClass CounterArmor = EArmorClass::Unset;
 };
+
+// JEV's published release schedule and the facts a release tag reads, as the display sees them.
+// Match time is GetServerWorldTimeSeconds() - ClockStartServerTime, the clock JEV's schedule runs on.
+struct FReleaseView
+{
+	// False until JEV's actor exists on this client; the display then knows no release.
+	bool bKnown = false;
+	int32 Current = 0;
+	int32 Next = 1;
+	float NextAt = 0.f;
+	float ClockStartServerTime = 0.f;
+	// The humans' most numerous armor class now: what a v1.2 wave would counter.
+	EArmorClass CounterArmor = EArmorClass::Unset;
+};
+
+// Seconds since the match started on JEV's clock; 0 while the schedule is unknown or the clock is ahead.
+float MatchSeconds(const FReleaseView& Release, float Now);
+// Seconds until the next release, 0 once it is due.
+float NextReleaseIn(const FReleaseView& Release, float Now);
+// The next release shows as a cell for its last JevRelease::TimelineLeadSeconds, until the schedule moves on.
+bool ReleaseCellShown(const FReleaseView& Release, float Now);
+// "v1.1", "v2.0", "overrun".
+void AppendReleaseName(FStringBuilderBase& Out, int32 Release);
+// The release's tag from what it adds: "WAVE · RAIDS DRILL RIGS", "COUNTERS HEAVY", "ALL FORCES ATTACK",
+// "WAVES +15% SPEED", "OVERRUN". Empty for v1.0, which adds nothing.
+void AppendReleaseTag(FStringBuilderBase& Out, int32 Release, EArmorClass CounterArmor);
+// Whole minutes and seconds counting up, rounded down: "4:12".
+void AppendElapsed(FStringBuilderBase& Out, float Seconds);
+// "No JEV plans · next release v1.1 in 1:42", or "No JEV plans" until the schedule replicates.
+void AppendEmptyTimeline(FStringBuilderBase& Out, const FReleaseView& Release, float Now);
 
 struct FRegionBadge
 {
@@ -82,8 +117,8 @@ using FVisibleMemos = TArray<FVisibleMemo, TInlineAllocator<MemoVisible>>;
 float EtaRemaining(const FPlanView& Plan, float Now);
 // Rounds up to whole seconds as the memo templates do: "0:30", "12:05".
 void AppendCountdown(FStringBuilderBase& Out, float Seconds);
-// Soonest first; ties by ticket, then force number.
-void BuildTimeline(TConstArrayView<FPlanView> Plans, float Now, FTimeline& Out);
+// The release cell (when shown) first, then every plan soonest first; ties by ticket, then force number.
+void BuildTimeline(TConstArrayView<FPlanView> Plans, const FReleaseView& Release, float Now, FTimeline& Out);
 // One badge per targeted region, ascending by region index.
 void BuildBadges(TConstArrayView<FPlanView> Plans, float Now, FBadges& Out);
 

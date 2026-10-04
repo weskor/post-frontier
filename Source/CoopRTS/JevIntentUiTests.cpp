@@ -62,8 +62,9 @@ private:
 		const FContext Context = MakeContext(ArmyTestSetup::Controller(World));
 		BuildJevIntentModel(Context, Model);
 		Check(Model.Timeline.IsEmpty() && Model.Badges.IsEmpty(), TEXT("Nothing is displayed before JEV publishes a plan"));
-		Check(JevTimelineRect(Context, MakeLayout(Context, ViewportWidth, ViewportHeight), Model).W == 0.f,
-			TEXT("The timeline bar takes no space, and captures no clicks, without plans"));
+		const FRect Reserved = JevTimelineRect(Context, MakeLayout(Context, ViewportWidth, ViewportHeight), Model);
+		Check(Reserved.W > 0.f && Reserved.H == 40.f && IsPanelPoint(Context, MakeLayout(Context, ViewportWidth, ViewportHeight), Reserved.Center()),
+			TEXT("The timeline bar keeps its 40 px, and its clicks, without plans"));
 		if (!Check(JevIntentFixture::Publish(World, State, JevIntentFixture::EStage::Create).IsEmpty(), TEXT("Fixture plans publish")))
 			return true;
 		Check(Feed.Observe(State) == 2, TEXT("Two new plans post two memos"));

@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "PressurePanels.h"
 #include "ForceBar.h"
 #include "ArmyGroup.h"
 #include "CommandPlayerController.h"
@@ -259,7 +260,7 @@ EHUDAction HitTest(const FContext& Context, const FLayout& Layout, const FVector
 		if (Button.Rect.Contains(VirtualPoint))
 			Result = Button.Action;
 	});
-	return Result;
+	return Result != EHUDAction::None ? Result : HitTestPressure(Context, Layout, VirtualPoint);
 }
 
 }

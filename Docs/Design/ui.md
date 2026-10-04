@@ -93,7 +93,7 @@ Research: [pacing.md](../Research/pacing.md). In the 2026-10-01 playtest the onl
 
 Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent-built)). Nothing is computed on the client that could disagree with a plan.
 
-- **[Built] Timeline bar:** under the objective strip, left of the alert feed, so it never covers the strip, the alerts, the build bar or the deck. Up to 4 cells, soonest arrival first. Each cell shows the plan's verb (*ESCALATED* for a defense), target region, size band (`~8 units`) and a countdown. The countdown runs from the server time the planner computed the ETA, which is published with the plan; it stops at 0:00 and then reads *ARRIVED*. More plans than cells show *+N more*. Today the bar takes no space while JEV has no plan; **[New]** step 1b keeps it on screen (see "Step 1b surfaces" below). **[New]** Version releases and JEV calldowns join the bar in step 1b ([battle.md](battle.md)); an entry is a kind plus a countdown, so they slot in beside plans.
+- **[Built] Timeline bar:** under the objective strip, left of the alert feed, so it never covers the strip, the alerts, the build bar or the deck. Up to 4 cells, soonest arrival first. Each cell shows the plan's verb (*ESCALATED* for a defense), target region, size band (`~8 units`) and a countdown. The countdown runs from the server time the planner computed the ETA, which is published with the plan; it stops at 0:00 and then reads *ARRIVED*. More plans than cells show *+N more*. **[Built]** The bar is always drawn and keeps its 40 px with no plan, and a version release joins it as its first cell (surface 8 below). **[New]** JEV calldowns join it when they exist ([battle.md](battle.md)); an entry is a kind plus a countdown, so they slot in beside plans.
 - **[Built] Region badges:** every region a plan targets carries a badge above its region label on the world map and a marker with its countdown on the minimap (`ESC` while defending). The badge names the target region and the verb (`JEV  Attack  Fusion Works  0:20`); an escalated plan reads *Escalated: defending X* in place of a countdown. Two plans on one region show the sooner one and `x2`. The world region label shows the region's display name from the map data (the name the timeline and memos print) instead of `REGION n`.
 - **[Built] Memo feed:** below the timeline bar, separate from the team announcer's alerts, in the Machine's voice: the Machine colours of [STYLE.md](../../Art/UI/STYLE.md) (pearl text, cyan trim, red lens) and a `JEV` tag, never the team panels' blue-grey. A plan posts its memo (the [jev.md](jev.md) template text, verbatim) when it is first published or when what the memo prints changes: its ticket, verb, target region, size band or escalation. ETA drift or a changed target structure posts nothing. Newest first, 3 rows, each held for 12 s and faded over 2 s (starting values); the feed remembers the latest 8.
 
@@ -109,11 +109,11 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 | **Tab** | Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
 | **Enter** | Ready / un-ready | The **READY** button, planning only |
 
-### 1. Data, rates and supply-cut state [New]
+### 1. Data, rates and supply-cut state [Built] (chip click [New])
 
-- **Top bar text:** `C1  604 Power +2/s   40 Data +1/s   Forces 2   Regions 4/5`. Power stays gold. Data is white with a chip glyph and the word, because [STYLE.md](../../Art/UI/STYLE.md) has no Data colour (art may choose one).
-- **Rates:** each figure shows **your own** share of the team pool ([economy.md](economy.md)), with one decimal only when it is fractional. Teammates' rates and the pool total are in the Team panel (surface 3).
-- **Supply-cut state:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. Clicking it focuses the first cut region; repeated clicks cycle. Its hit area is the full 32 px bar height.
+- **[Built] Top bar text:** `C1  604 Power +2/s   40 Data +1/s   Forces 2   Regions 4/5`. Power stays gold. Data is white with a chip glyph and the word, because [STYLE.md](../../Art/UI/STYLE.md) has no Data colour (art may choose one). The text clips at a fixed 400 px so the chip after it has one slot at every window size.
+- **[Built] Rates:** each figure shows **your own** share of the team pool ([economy.md](economy.md)), with one decimal only when it is fractional. Teammates' rates and the pool total are in the Team panel (surface 3).
+- **Supply-cut state [Built]:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. The Power figure is your share of the offline Drill Rigs' extraction (the pool splits evenly among the roster) and the Data figure is one second's worth per cut reward region; a fallen main is the end of the battle, not a cut. Its hit area is the full 32 px bar height. **[New]** Clicking it focuses the first cut region; repeated clicks cycle.
 - **Why:** the top bar leaves about 540 px free at every window size, so nothing else moves, and the chip is a glyph plus words.
 
 ### 2. Supply cuts on the map and the force card [New]
@@ -153,12 +153,13 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Unit type picker:** an unlocked Barracks lists five types in a two-column grid of 28 px chips, three rows, because `Layout::Row` would shrink a five-row list to about 14 px.
 - **Why:** the 720 px deck keeps three columns; progress shows both where the player looks (the card) and where they decided (the panel).
 
-### 6. Shields, Scrambler pulse and building stun [New]
+### 6. Shields, Scrambler pulse and building stun [Built] (panel pill and bars [New])
 
 - **Unit bar (36 px):** a 3 px shield bar above the 5 px HP bar, pale cyan for both teams. The existing show rule applies (damaged or in a highlighted force); a unit with no shield draws none.
 - **Pulse on units:** the shield bar flashes white for 0.25 s, then shows an empty outline for the regeneration delay; regeneration refills it ([units.md](units.md)).
 - **Pulse cue [Built]:** a ring expanding to the pulse radius over 0.4 s at the Scrambler, and a spark on each hit shield bar or building; no numbers. There is no pulse cooldown display (orchestrator 2026-10-04).
-- **Stun:** a yellow `STUN 2.4s` chip (bolt glyph, drain bar) in the building's chip row, refreshed by a new stun. Its production, construction and research bars freeze and desaturate, and the panel header reads `STUNNED`. Your own buildings post `Barracks 1 stunned by a Scrambler` (at most one per 5 s per building).
+- **Stun [Built]:** a yellow `STUN 2.4s` chip (bolt glyph, drain bar) beside the building's name plate on the world overlay (the force badge sits above the plate), refreshed by a new stun. The wire carries only the stun's end time, so the drain bar runs from the length this client first saw; enemy buildings show the chip too. A stunned building's construction bar freezes to a desaturated grey. Your own buildings post `Barracks 1 stunned by a Scrambler` (at most one per 5 s per building) as a local feed row.
+- **Stun [New]:** its production and research bars freeze and desaturate, and the panel header reads `STUNNED` (the building inspector, with the tier-2 branches).
 - **Why:** the HP bar keeps its position; the ring and the chip both appear at t = 0, so it reads within 1 s.
 
 ### 7. Region trait icons [New]
@@ -169,12 +170,12 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **War-table zoom [New]:** the plate collapses to a 24 px glyph plus the name.
 - **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
 
-### 8. JEV timeline and the battle clock [New]
+### 8. JEV timeline and the battle clock [Built] (cell clicks [New])
 
-- **Always drawn:** the timeline bar keeps its 40 px even with no plans, so the memo feed never jumps. Empty text: `No JEV plans · next release v1.1 in 1:42`.
-- **Release cell:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +<n>% SPEED`, `OVERRUN`.
-- **Waves:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. Clicking a cell focuses its target (a release focuses JEV's main).
-- **Battle clock:** the top bar's right end, `JEV v1.1  4:12`, minutes and seconds counting up, frozen while paused.
+- **Always drawn [Built]:** the timeline bar keeps its 40 px even with no plans, so the memo feed never jumps. Empty text: `No JEV plans · next release v1.1 in 1:42`.
+- **Release cell [Built]:** appears for the lead time in [jev.md](jev.md), pinned leftmost with cyan trim: `v1.1 RELEASE 0:24` and a tag from the release's added behaviour: `WAVE · RAIDS DRILL RIGS`, `COUNTERS <ARMOR>`, `ALL FORCES ATTACK`, `WAVES +<n>% SPEED`, `OVERRUN`. `<ARMOR>` is the humans' most numerous armor class, counted by each client twice a second until the wave launches; it reads plain `ARMOR` with no human unit alive. A release also posts one local feed row, `JEV v1.1 released: <tag>`. There is no voiced release line: the announcer's Raise runs on the server, in JEV's wave code ([status.md](status.md)).
+- **Waves [Built]:** waves, emergency waves and the Split-Brain pair are ordinary plan cells after it, soonest first; `+N more` counts plans only. **[New]** Clicking a cell focuses its target (a release focuses JEV's main).
+- **Battle clock [Built]:** the top bar's right end, left of the key hint, `JEV v1.1  4:12`, minutes and seconds counting up, frozen while paused.
 - **Why:** [battle.md](battle.md) says the HUD counts down to the next release and [jev.md](jev.md) gives each release cell a lead time before it happens; the empty text and the cell are both true.
 
 ### 9. Guarded HQs and the objective strip [Built] (emergency badge [New])

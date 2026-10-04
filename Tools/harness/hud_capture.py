@@ -70,6 +70,9 @@ def configure(parser: argparse.ArgumentParser) -> None:
         type=label,
         metavar="LABEL",
         help="'fortify' captures dock, targeting, active badges and team feed at every --res; "
+        "'pressure' captures the empty JEV timeline, a stunned Barracks, the LINE CUT chip, the v1.1 release cell "
+        "and the wave it sends at every --res (run it on --map /Game/Maps/AvailabilityZoneV2; takes about "
+        "two minutes of game time); "
         "'force-bar' exercises force cards at every --res; 'map-presentation' captures region traits, a "
         "supply cut at the moment it lands and five seconds later, and the Scrambler pulse ring at every --res "
         "(run it on --map /Game/Maps/AvailabilityZoneV2); 'pings' captures G ground/minimap "
@@ -83,13 +86,48 @@ def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--max-fps", type=int, default=30)
 
 
+def execute(
+    run: NetworkRun, label: str | None, resolutions: list[tuple[int, int]]
+) -> None:
+    """Run the scenario the --quick label names (or the full sequence) and print its PASS line."""
+    count = len(resolutions)
+    if label == "force-bar":
+        from harness.hud_force_bar import scenario as force_bar_scenario
+
+        force_bar_scenario(run, resolutions)
+        print(f"PASS: force bar at {count} viewports; evidence: {run.run}")
+    elif label == "map-presentation":
+        from harness.hud_map_presentation import scenario as map_scenario
+
+        map_scenario(run, resolutions)
+        print(f"PASS: map presentation at {count} viewports; evidence: {run.run}")
+    elif label == "pressure":
+        from harness.hud_pressure import scenario as pressure_scenario
+
+        pressure_scenario(run, resolutions)
+        print(f"PASS: pressure HUD at {count} viewports; evidence: {run.run}")
+    elif label == "fortify":
+        from harness.hud_fortify import scenario as fortify_scenario
+
+        fortify_scenario(run, resolutions)
+        print(f"PASS: Fortify at {count} viewports; evidence: {run.run}")
+    elif label:
+        quick(run, label, resolutions[0])
+        print(
+            f"PASS: quick {label} at {resolutions[0][0]}x{resolutions[0][1]}; evidence: {run.run}"
+        )
+    else:
+        scenario(run, resolutions)
+        print(f"PASS: {count} viewport(s); evidence: {run.run}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     configure(parser)
     args = parser.parse_args()
     resolutions = args.res or (
         [(1600, 900), (1280, 720)]
-        if args.quick in ("fortify", "map-presentation")
+        if args.quick in ("fortify", "map-presentation", "pressure")
         else [(1600, 900)]
     )
     run = NetworkRun(
@@ -102,33 +140,7 @@ def main() -> None:
         map_path=args.map,
     )
     try:
-        if args.quick == "force-bar":
-            from harness.hud_force_bar import scenario as force_bar_scenario
-
-            force_bar_scenario(run, resolutions)
-            print(
-                f"PASS: force bar at {len(resolutions)} viewports; evidence: {run.run}"
-            )
-        elif args.quick == "map-presentation":
-            from harness.hud_map_presentation import scenario as map_scenario
-
-            map_scenario(run, resolutions)
-            print(
-                f"PASS: map presentation at {len(resolutions)} viewports; evidence: {run.run}"
-            )
-        elif args.quick == "fortify":
-            from harness.hud_fortify import scenario as fortify_scenario
-
-            fortify_scenario(run, resolutions)
-            print(f"PASS: Fortify at {len(resolutions)} viewports; evidence: {run.run}")
-        elif args.quick:
-            quick(run, args.quick, resolutions[0])
-            print(
-                f"PASS: quick {args.quick} at {resolutions[0][0]}x{resolutions[0][1]}; evidence: {run.run}"
-            )
-        else:
-            scenario(run, resolutions)
-            print(f"PASS: {len(resolutions)} viewport(s); evidence: {run.run}")
+        execute(run, args.quick, resolutions)
     except BaseException as error:
         run.event("FAIL", error=repr(error))
         print(f"FAIL: {error}; evidence: {run.run}", file=sys.stderr)

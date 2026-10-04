@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "PressurePanels.h"
 #include "CommandGameState.h"
 #include "FailoverNode.h"
 #include "GuardedHqPanels.h"
@@ -7,9 +8,10 @@
 
 namespace CommandHUDPanels
 {
+// Stun, when shown, adds the building's chip above its plate and freezes the construction bar to a desaturated grey.
 static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context, const FVector& Position,
 	FStringView Label, int32 Health, int32 Maximum, const FLinearColor& Color,
-	bool bConstructing = false, float Progress = 1.f, bool bImmune = false)
+	bool bConstructing = false, float Progress = 1.f, bool bImmune = false, const PressureHud::FStunChip& Stun = {})
 {
 	if (Maximum <= 0)
 		return;
@@ -30,7 +32,8 @@ static void DrawStructureOverlay(const FPainter& Paint, const FContext& Context,
 	if (bImmune)
 		DrawImmuneHatch(Paint, Bar);
 	if (bConstructing)
-		Paint.Bar({ Back.X + 4.f, Back.Y + Line + 12.f, Width - 8.f, 4.f }, Progress, Palette::Gold);
+		Paint.Bar({ Back.X + 4.f, Back.Y + Line + 12.f, Width - 8.f, 4.f }, Progress, Stun.bShown ? Palette::Faint : Palette::Gold);
+	DrawStunChip(Paint, Back, Stun);
 }
 
 void DrawHeadquartersOverlays(const FPainter& Paint, const FContext& Context)
@@ -82,7 +85,7 @@ void DrawBuildingOverlays(const FPainter& Paint, const FContext& Context)
 		DrawStructureOverlay(Paint, Context, Building->GetActorLocation() + FVector(0.f, 0.f, 220.f),
 			Label.ToView(), Building->Health, Building->MaxHealth(),
 			Building->TeamIndex == 5 ? Palette::Bad : Palette::Good,
-			!Building->IsComplete(), Building->ConstructionProgress);
+			!Building->IsComplete(), Building->ConstructionProgress, false, BuildingStun(Context, *Building));
 	}
 }
 

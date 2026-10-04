@@ -1,4 +1,5 @@
 #include "HUDPanels.h"
+#include "PressurePanels.h"
 #include "CommandGameState.h"
 #include "GuardedHqPanels.h"
 #include "Headquarters.h"
@@ -106,6 +107,39 @@ static void DrawObjectiveStrip(const FPainter& Paint, const FContext& Context, c
 	DrawLatestObjective(Paint, Context, Strip);
 }
 
+// The economy line: Power stays gold; Data is white with a chip glyph and the word, since STYLE.md has no Data colour.
+// Rates are exact shares of the team pool; only this text rounds them, to a tenth.
+static void DrawEconomyLine(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FRect& Top)
+{
+	const float Limit = Top.X + Pad + EconomyTextWidth;
+	float X = Top.X + Pad;
+	const auto Put = [&](FStringView Text, const FLinearColor& Color) {
+		if (X < Limit)
+			X += Paint.TextIn(Text, { X, Top.Y, Limit - X, Top.H }, 10.f, Color, true) + 14.f;
+	};
+	TStringBuilder<32> Commander;
+	Commander.Appendf(TEXT("C%d"), Context.Wallet->CommanderIndex + 1);
+	Put(Commander.ToView(), Palette::Gold);
+	TStringBuilder<48> Power;
+	Power.Appendf(TEXT("%d Power +"), Context.Balance);
+	PressureHud::AppendRate(Power, Context.State->GetPowerRate(Context.Wallet));
+	Power << TEXT("/s");
+	Put(Power.ToView(), Palette::Gold);
+	TStringBuilder<48> Data;
+	Data.Appendf(TEXT("%d Data +"), Context.DataBalance);
+	PressureHud::AppendRate(Data, Context.State->GetDataRate(Context.Wallet));
+	Data << TEXT("/s");
+	DrawDataGlyph(Paint, X, Top.Y + (Top.H - 9.f) * .5f, Palette::Text);
+	X += 14.f;
+	Put(Data.ToView(), Palette::Text);
+	TStringBuilder<32> ForceCount;
+	ForceCount.Appendf(TEXT("Forces %d"), Forces.ConfiguredForces);
+	Put(ForceCount.ToView(), Palette::Gold);
+	TStringBuilder<32> Regions;
+	Regions.Appendf(TEXT("Regions %d/%d"), Forces.ControlledRegions, Context.State->Regions.Num());
+	Put(Regions.ToView(), Palette::Gold);
+}
+
 void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& Forces, const FLayout& Layout)
 {
 	const FRect& Top = Layout.Top;
@@ -118,18 +152,13 @@ void DrawTopBar(const FPainter& Paint, const FContext& Context, const FForces& F
 	}
 	if (Context.Wallet && Context.Wallet->CommanderIndex >= 0)
 	{
-		// Rates are exact shares of the team pool; only this text rounds them, to a tenth.
-		TStringBuilder<160> Economy;
-		Economy.Appendf(TEXT("C%d   %d Power  +%.1f/s   %d Data  +%.1f/s   Forces %d   Regions %d/%d"),
-			Context.Wallet->CommanderIndex + 1, Context.Balance, Context.State->GetPowerRate(Context.Wallet),
-			Context.DataBalance, Context.State->GetDataRate(Context.Wallet),
-			Forces.ConfiguredForces, Forces.ControlledRegions, Context.State->Regions.Num());
-		Paint.TextIn(Economy.ToView(), { Top.X + Pad, Top.Y, Top.W - 2.f * Pad - 230.f, Top.H },
-			10.f, Palette::Gold, true);
+		DrawEconomyLine(Paint, Context, Forces, Top);
+		DrawCutChip(Paint, Layout, ReadCutLoss(Context));
 	}
 	else
 		Paint.TextIn(TEXT("Syncing commander and wallet..."), Top, 10.f, Palette::Warn, false, EAlign::Left, Pad);
-	Paint.TextIn(TEXT("Space: alerts   F: selection"), { Top.Right() - Pad - 225.f, Top.Y, 225.f, Top.H },
+	DrawBattleClock(Paint, Context, Layout);
+	Paint.TextIn(TEXT("Space: alerts   F: selection"), { Top.Right() - Pad - TopHintWidth, Top.Y, TopHintWidth, Top.H },
 		9.f, Palette::Muted, false, EAlign::Right);
 }
 

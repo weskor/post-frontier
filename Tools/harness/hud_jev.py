@@ -198,8 +198,8 @@ def jev_intent_scenario(run: NetworkRun, resolution: tuple[int, int]) -> None:
     require(
         not empty["jevPlans"]
         and not empty["jevIntent"]["entries"]
-        and "timelineRect" not in empty["jevIntent"],
-        "JEV display shows entries before any plan is published",
+        and "timelineRect" in empty["jevIntent"],
+        "JEV display shows entries before any plan is published, or the bar lost its reserved height",
     )
     capture.shot("jev-intent-empty")
     created(run, capture)

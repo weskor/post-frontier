@@ -1,6 +1,8 @@
 #include "HUDPanels.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
+#include "PressurePanels.h"
+#include "PressureView.h"
 
 namespace CommandHUDPanels
 {
@@ -95,6 +97,37 @@ void DrawTimelineCell(const FPainter& Paint, const FContext& Context, const FRec
 	Paint.Text(Size.ToView(), SizeX, Cell.Y + 22.f, 8.5f, Palette::Muted, false, EAlign::Left, Cell.Right() - 6.f - SizeX);
 }
 
+// The next release, pinned left with cyan trim: its name, the countdown and a tag from what it adds.
+void DrawReleaseCell(const FPainter& Paint, const FRect& Cell, const JevIntent::FTimelineEntry& Entry)
+{
+	const FRect Trim{ Cell.X + 1.f, Cell.Y + 3.f, Cell.W - 2.f, Cell.H - 6.f };
+	Paint.Fill(Trim, Faded(Cyan, 1.f, .12f));
+	Paint.Outline(Trim, Cyan);
+	const float X = Cell.X + 8.f;
+	TStringBuilder<16> Count;
+	JevIntent::AppendCountdown(Count, Entry.Seconds);
+	const float CountWidth = Paint.Text(Count.ToView(), Cell.Right() - 8.f, Cell.Y + 6.f, 10.5f, Pearl, true, EAlign::Right, Cell.W - 16.f);
+	TStringBuilder<32> Name;
+	JevIntent::AppendReleaseName(Name, Entry.Release);
+	FString Title(Name.ToView());
+	if (JevRelease::VersionOf(Entry.Release) == JevRelease::EVersion::Overrun)
+		Title.ToUpperInline();
+	Title += TEXT(" RELEASE");
+	Paint.Text(Title, X, Cell.Y + 5.5f, 9.5f, Pearl, true, EAlign::Left, Cell.W - 24.f - CountWidth);
+	TStringBuilder<48> Tag;
+	JevIntent::AppendReleaseTag(Tag, Entry.Release, Entry.CounterArmor);
+	Paint.Text(Tag.ToView(), X, Cell.Y + 22.f, 8.f, Cyan, true, EAlign::Left, Cell.W - 16.f);
+}
+
+void DrawEmptyTimeline(const FPainter& Paint, const FContext& Context, const FRect& Bar)
+{
+	const UPressureView* View = UPressureView::Get(Context.State);
+	TStringBuilder<96> Text;
+	JevIntent::AppendEmptyTimeline(Text, View ? View->Release() : JevIntent::FReleaseView(), JevIntentView::Now(*Context.State));
+	const float X = Bar.X + TimelineHeaderWidth + 8.f;
+	Paint.TextIn(Text.ToView(), { X, Bar.Y, Bar.Right() - X - 8.f, Bar.H }, 10.f, Faded(Pearl, 1.f, .8f));
+}
+
 void DrawTimeline(const FPainter& Paint, const FContext& Context, const FRect& Bar, const FJevIntentModel& Model)
 {
 	Paint.Fill(Bar, MachinePanel);
@@ -102,18 +135,24 @@ void DrawTimeline(const FPainter& Paint, const FContext& Context, const FRect& B
 	Paint.Fill({ Bar.X + 7.f, Bar.Y + 7.f, 5.f, 5.f }, Lens);
 	Paint.Text(TEXT("JEV PLANS"), Bar.X + 17.f, Bar.Y + 4.f, 8.5f, Cyan, true);
 	const int32 Total = Model.Timeline.Num();
+	const int32 Plans = Total - (Total > 0 && Model.Timeline[0].Kind == JevIntent::EEntryKind::Release ? 1 : 0);
 	TStringBuilder<24> Count;
 	if (Total > JevIntent::TimelineEntries)
 		Count.Appendf(TEXT("+%d more"), Total - JevIntent::TimelineEntries);
 	else
-		Count.Appendf(TEXT("%d active"), Total);
+		Count.Appendf(TEXT("%d active"), Plans);
 	Paint.Text(Count.ToView(), Bar.X + 17.f, Bar.Y + 21.f, 9.f, Total > JevIntent::TimelineEntries ? Palette::Warn : Palette::Muted);
-	const float CellWidth = (Bar.W - TimelineHeaderWidth - 4.f) / JevIntent::TimelineEntries;
+	if (Total == 0)
+		DrawEmptyTimeline(Paint, Context, Bar);
 	for (int32 Index = 0; Index < FMath::Min(Total, JevIntent::TimelineEntries); ++Index)
 	{
-		const FRect Cell{ Bar.X + TimelineHeaderWidth + Index * CellWidth, Bar.Y, CellWidth, Bar.H };
+		const FRect Cell = JevTimelineCell(Bar, Index);
+		const JevIntent::FTimelineEntry& Entry = Model.Timeline[Index];
 		Paint.Fill({ Cell.X, Bar.Y + 6.f, 1.f, Bar.H - 12.f }, Faded(Cyan, 1.f, .3f));
-		DrawTimelineCell(Paint, Context, Cell, Model.Timeline[Index]);
+		if (Entry.Kind == JevIntent::EEntryKind::Release)
+			DrawReleaseCell(Paint, Cell, Entry);
+		else
+			DrawTimelineCell(Paint, Context, Cell, Entry);
 	}
 }
 
@@ -145,7 +184,8 @@ void BuildJevIntentModel(const FContext& Context, FJevIntentModel& Model)
 		return;
 	JevIntentView::Snapshot(*Context.State, Model.Plans);
 	Model.Now = JevIntentView::Now(*Context.State);
-	JevIntent::BuildTimeline(Model.Plans, Model.Now, Model.Timeline);
+	const UPressureView* Pressure = UPressureView::Get(Context.State);
+	JevIntent::BuildTimeline(Model.Plans, Pressure ? Pressure->Release() : JevIntent::FReleaseView(), Model.Now, Model.Timeline);
 	JevIntent::BuildBadges(Model.Plans, Model.Now, Model.Badges);
 }
 
@@ -155,14 +195,23 @@ void ObserveJevIntent(const FContext& Context)
 		return;
 	if (UJevIntentFeed* Feed = UJevIntentFeed::Get(Context.State))
 		Feed->Observe(*Context.State);
+	if (UPressureView* Pressure = UPressureView::Get(Context.State))
+		Pressure->Observe(*Context.State, Context.Wallet);
 }
 
-FRect JevTimelineRect(const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model)
+FRect JevTimelineRect(const FContext& Context, const FLayout& Layout, const FJevIntentModel&)
 {
+	// The bar keeps its height with no plans, so the memo feed beneath it never jumps.
 	const float Width = FMath::Min(TimelineMaxWidth, Layout.Alerts.X - Gap - Margin);
-	if (!Context.State || Model.Timeline.IsEmpty() || Width < TimelineMinWidth)
+	if (!Context.State || Width < TimelineMinWidth)
 		return {};
 	return { Margin, Layout.Objectives.Bottom() + Gap, Width, TimelineHeight };
+}
+
+FRect JevTimelineCell(const FRect& Bar, int32 Index)
+{
+	const float CellWidth = (Bar.W - TimelineHeaderWidth - 4.f) / JevIntent::TimelineEntries;
+	return { Bar.X + TimelineHeaderWidth + Index * CellWidth, Bar.Y, CellWidth, Bar.H };
 }
 
 int32 JevMemoRows(const FContext& Context, const FLayout& Layout, const FJevIntentModel& Model,
@@ -231,6 +280,8 @@ void DrawJevRegionBadges(const FPainter& Paint, const FContext& Context, const F
 	if (!Context.State || Layout.Scale <= 0.f)
 		return;
 	const float Line = Paint.LineHeight(10.f, true);
+	TArray<FRect, TInlineAllocator<16>> Deposits;
+	DepositLabelRects(Paint, Context, Deposits);
 	for (const JevIntent::FRegionBadge& Badge : Model.Badges)
 	{
 		FVector2D Screen;
@@ -239,9 +290,11 @@ void DrawJevRegionBadges(const FPainter& Paint, const FContext& Context, const F
 		TStringBuilder<128> Label;
 		JevBadgeLabel(Context, Badge, Label);
 		const float Width = Paint.TextWidth(Label.ToView(), 10.f, true) + 22.f;
-		// Above the region's name label, which hangs from the same projected point.
-		const FRect Rect{ Screen.X - Width * .5f, Screen.Y - 2.f * Line - 29.f, Width, Line + 8.f };
-		if (!OverlayFits(Paint, Rect) || !OverlayClearsPanels(Context, Layout, Rect))
+		// Above the region's name label, which hangs from the same projected point; clear of any deposit label, above it
+		// when there is room, else beside it.
+		const auto Fits = [&](const FRect& Candidate) { return OverlayFits(Paint, Candidate) && OverlayClearsPanels(Context, Layout, Candidate); };
+		const FRect Rect = PlaceClearOf({ Screen.X - Width * .5f, Screen.Y - 2.f * Line - 29.f, Width, Line + 8.f }, Deposits, Fits);
+		if (!Fits(Rect))
 			continue;
 		const FLinearColor Accent = Badge.bEscalated ? Palette::Warn : Lens;
 		Paint.Fill(Rect, MachinePanel);

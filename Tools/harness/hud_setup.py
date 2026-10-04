@@ -9,9 +9,12 @@ from harness.verify import JsonObject
 
 
 def boot(
-    run: NetworkRun, capture: Capture, resolution: tuple[int, int]
+    run: NetworkRun,
+    capture: Capture,
+    resolution: tuple[int, int],
+    isolate: bool = True,
 ) -> tuple[int, JsonObject]:
-    """Rendered, isolated listen host with a fresh expanded deck at the requested viewport."""
+    """Rendered listen host with a fresh expanded deck at the requested viewport; JEV isolated unless told otherwise."""
     run.start("host", host=True)
     pid = run.peers["host"]["process"].pid
     state = capture.wait(
@@ -24,8 +27,9 @@ def boot(
         "rendered listen host with commander and regions",
     )
     no_compositor_windows(run, pid)
-    run.request("host", "isolate")
-    run.phase("isolated enemy planner for stable presentation states (fixture)")
+    if isolate:
+        run.request("host", "isolate")
+        run.phase("isolated enemy planner for stable presentation states (fixture)")
     capture.wait(
         lambda s: s["hudExpanded"] and not s["buildingSelected"], "fresh expanded deck"
     )
