@@ -36,6 +36,8 @@ FCommandResult FCommandService::Gift(ACommandPlayerState* Sender, ACommandPlayer
 		: nullptr;
 	if (!State || State->MatchResult != EMatchResult::Ongoing)
 		return { ECommandRejection::Unavailable, TEXT("Gift rejected: no live battle."), nullptr };
+	if (State->IsPlanning())
+		return { ECommandRejection::Unavailable, TEXT("Nothing runs during planning."), nullptr };
 	const EGiftVerdict Verdict = GameStateGifts::Apply(*State, *Sender, Recipient, Resource, Amount);
 	if (Verdict == EGiftVerdict::Accepted)
 		return { ECommandRejection::None, VerdictText(Verdict), nullptr };

@@ -187,6 +187,8 @@ public:
 	// Opens a fresh planning phase: pauses the world, resets wallets to the opening and gives every human a
 	// kit slot and JEV its matching start. Server only.
 	void BeginPlanning();
+	// After 0:00 a joining commander gets a finished kit at default spots, with production started. Server only.
+	void GrantLateKit(ACommandPlayerState* Commander);
 	int32 GetPlanningEndCount() const { return PlanningEndCount; }
 	EPlanningEnd GetPlanningEnd() const { return PlanningEndReason; }
 	// Real seconds the last planning phase lasted.
@@ -296,6 +298,7 @@ private:
 	void EvaluatePlanningEnd();
 	void EndPlanning(EPlanningEnd Reason);
 	void FillKits();
+	void FillKit(FPlanningKit& Kit);
 	void StartKitForces();
 	void PlaceJevKit(bool bForce);
 	// Places or moves one kit piece; a refused move leaves the piece where it was.

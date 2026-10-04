@@ -1,6 +1,11 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "DepositSite.h"
+#include "Dom/JsonObject.h"
+#include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 #include "PlanningFixture.h"
+#include "MatchTelemetry.h"
+#include "Serialization/JsonSerializer.h"
 
 // Kit placement and moves under the normal rules, the Rig's deposit, the unit type, first orders, the Ready lock
 // and what 0:00 turns the kit into.
@@ -29,6 +34,7 @@ private:
 		}
 		if (!Barracks() || !Rig() || !Orders() || !Lock())
 			return Done();
+		const int32 HostSlot = Host->CommanderIndex;
 		const FPlanningKit* Kit = State->FindKit(Host);
 		ACommandBuilding* Producer = Kit->Barracks;
 		if (!Check(FPlanningCommands::SetReady(Host, true).IsAccepted() && FPlanningCommands::SetReady(GuestPtr.Get(), true).IsAccepted()
@@ -40,7 +46,32 @@ private:
 		Check(Force && Force->Orders.Num() == 2 && Force->Orders[0].Verb == EForceVerb::MoveHold && Force->Orders[1].Verb == EForceVerb::Attack
 				&& Force->Orders[1].Structure == JevBarracks.Get(),
 			TEXT("The first orders are issued to the force at 0:00, queue order kept"));
+		TelemetryCounted(HostSlot);
 		return Done();
+	}
+
+	// Accepted planning commands count as the commander's decisions in the host's match record.
+	void TelemetryCounted(int32 Slot)
+	{
+		State->SetMatchResult(EMatchResult::Defeat);
+		const FString Path = State->MatchTelemetry->GetOutputPath();
+		FString Text;
+		TSharedPtr<FJsonObject> Root;
+		if (!Check(FFileHelper::LoadFileToString(Text, *Path) && FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root) && Root.IsValid(),
+				TEXT("The match record is written")))
+			return;
+		double Builds = -1., Orders = -1.;
+		const TArray<TSharedPtr<FJsonValue>>* Players = nullptr;
+		if (Root->TryGetArrayField(TEXT("players"), Players))
+			for (const TSharedPtr<FJsonValue>& Value : *Players)
+				if (const TSharedPtr<FJsonObject>* Player = nullptr; Value->TryGetObject(Player) && Player
+					&& static_cast<int32>((*Player)->GetNumberField(TEXT("commander_index"))) == Slot)
+				{
+					Builds = (*Player)->GetNumberField(TEXT("builds"));
+					Orders = (*Player)->GetNumberField(TEXT("orders"));
+				}
+		IFileManager::Get().Delete(*Path);
+		Check(Builds >= 6. && Orders >= 5., FString::Printf(TEXT("Placements and unit picks count as builds, first orders and Ready as orders (builds %.0f, orders %.0f)"), Builds, Orders));
 	}
 
 	bool Barracks()

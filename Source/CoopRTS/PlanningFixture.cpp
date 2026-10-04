@@ -55,6 +55,7 @@ bool FScenario::Check(bool bOk, const FString& Message)
 
 bool FScenario::Done()
 {
+	Cleanup();
 	// Leave the world running for whatever follows, and the roster as it was.
 	if (State && State->IsPlanning())
 	{

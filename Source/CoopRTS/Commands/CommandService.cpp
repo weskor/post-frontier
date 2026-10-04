@@ -45,10 +45,25 @@ FCommandResult Verdict(bool bAccepted, FString Message, ECommandRejection Failur
 {
 	return { bAccepted ? ECommandRejection::None : Failure, MoveTemp(Message), nullptr };
 }
+
+// Planning accepts only its own commands (FPlanningCommands) and pings; the kit's unit type, placements and first
+// orders change nowhere else.
+bool InPlanning(ACommandPlayerState* Commander)
+{
+	const ACommandGameState* State = CommandState(Commander);
+	return State && State->IsPlanning();
+}
+
+FCommandResult PlanningRefusal()
+{
+	return Verdict(false, TEXT("Nothing runs during planning."), ECommandRejection::Unavailable);
+}
 }
 
 FCommandResult FCommandService::PlaceBuilding(ACommandPlayerState* Commander, int32 BuildingIndex, const FVector& Location)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	ACommandGameState* State = CommandState(Commander);
 	if (!State)
 		return Verdict(false, TEXT("Placement rejected: match or commander unavailable."), ECommandRejection::Unavailable);
@@ -69,6 +84,8 @@ FCommandResult FCommandService::PlaceBuilding(ACommandPlayerState* Commander, in
 
 FCommandResult FCommandService::CancelBuilding(ACommandPlayerState* Commander, ACommandBuilding* Building)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	if (!OwnsBuilding(Commander, Building))
 		return Verdict(false, TEXT("Cancel rejected: not your living building or match ended."), ECommandRejection::InvalidOwner);
 	const bool bAccepted = Building->ApplyCancellation();
@@ -77,6 +94,8 @@ FCommandResult FCommandService::CancelBuilding(ACommandPlayerState* Commander, A
 
 FCommandResult FCommandService::ConfigureProduction(ACommandPlayerState* Commander, ACommandBuilding* Building, EUnitRole Recipe, bool bEnabled)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	if (!OwnsBuilding(Commander, Building))
 		return Verdict(false, TEXT("Production rejected: not your living building or match ended."), ECommandRejection::InvalidOwner);
 	const ACommandGameState* State = CommandState(Commander);
@@ -94,6 +113,8 @@ FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, 
 
 FCommandResult FCommandService::IssueForceOrder(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, EForceVerb Verb, int32 RegionIndex, AActor* Structure, bool bQueue)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	const ACommandGameState* State = CommandState(Commander);
 	if (!State || Forces.IsEmpty() || (Verb != EForceVerb::MoveHold && Verb != EForceVerb::Attack && Verb != EForceVerb::Retreat))
 		return Verdict(false, TEXT("Order rejected: unavailable force or invalid verb."));
@@ -141,6 +162,8 @@ FCommandResult FCommandService::SetRetreatThreshold(ACommandPlayerState* Command
 
 FCommandResult FCommandService::SetRetreatThreshold(ACommandPlayerState* Commander, TConstArrayView<AArmyGroup*> Forces, ERetreatThreshold Threshold)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	if (Forces.IsEmpty() || (Threshold != ERetreatThreshold::Never && Threshold != ERetreatThreshold::Percent25 && Threshold != ERetreatThreshold::Percent40 && Threshold != ERetreatThreshold::Percent60))
 		return Verdict(false, TEXT("Retreat threshold rejected: invalid setting."));
 	for (const AArmyGroup* Force : Forces)
@@ -156,6 +179,8 @@ FCommandResult FCommandService::SetRetreatThreshold(ACommandPlayerState* Command
 
 FCommandResult FCommandService::SetRallyPoint(ACommandPlayerState* Commander, ACommandBuilding* Building, int32 RegionIndex)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	if (!OwnsBuilding(Commander, Building) || !Building->IsProducer())
 		return Verdict(false, TEXT("Rally rejected: not your production building."), ECommandRejection::InvalidOwner);
 	const ACommandGameState* State = CommandState(Commander);
@@ -174,6 +199,8 @@ FCommandResult FCommandService::SetRallyPoint(ACommandPlayerState* Commander, AC
 
 FCommandResult FCommandService::Research(ACommandPlayerState* Commander, ACommandBuilding* Building, EArmyDoctrine Choice)
 {
+	if (InPlanning(Commander))
+		return PlanningRefusal();
 	if (!OwnsBuilding(Commander, Building))
 		return Verdict(false, TEXT("Research rejected: not your living building or match ended."), ECommandRejection::InvalidOwner);
 	const bool bAccepted = Building->ApplyResearch(Choice);
@@ -225,6 +252,8 @@ FCommandResult FCommandService::Resume(ACommandPlayerController* Controller)
 	ACommandGameState* State = CommandState(Commander);
 	if (!State || Commander->TeamIndex != 0)
 		return Verdict(false, TEXT("Resume unavailable: no ongoing battle."), ECommandRejection::Unavailable);
+	if (State->IsPlanning())
+		return Verdict(false, TEXT("Nothing runs during planning."), ECommandRejection::Unavailable);
 	const bool bAccepted = State->ApplyPause(Controller, false);
 	return Verdict(bAccepted, bAccepted ? TEXT("Battle resumed.") : TEXT("Battle is not actively paused."));
 }

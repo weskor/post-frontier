@@ -16,6 +16,7 @@
 #include "NavigationSystem.h"
 #include "Rules/PlanningPolicy.h"
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "HAL/PlatformMisc.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "SimulationSettings.h"
@@ -262,25 +263,41 @@ void ACommandGameState::PlaceJevKit(bool bForce)
 	ForceNetUpdate();
 }
 
+// One commander's kit at the end of planning: what is missing is placed at default spots, and a Rig with no free
+// deposit is paid back in Power. Production and orders are the caller's.
+void ACommandGameState::FillKit(FPlanningKit& Kit)
+{
+	if (!IsValid(Kit.Commander))
+		return;
+	TArray<PlanningPolicy::FRigSite> Sites;
+	CollectRigSites(*this, Kit.Commander->TeamIndex, Sites);
+	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Kit.Commander->TeamIndex);
+	const bool bSite = Home && PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()) != INDEX_NONE;
+	const PlanningPolicy::FKitFill Need = PlanningPolicy::Fill(IsValid(Kit.Barracks), IsValid(Kit.Rig), bSite);
+	if (Need.bPlaceBarracks && !PlaceDefaultBarracks(Kit))
+		UE_LOG(LogTemp, Warning, TEXT("Planning: no room for commander %d's Barracks"), Kit.Commander->CommanderIndex);
+	const UBuildingDefinition* Rig = Content->Building(FirstBuildingWith(*Content, &UBuildingDefinition::bRequiresDeposit));
+	if ((Need.bRefundRig || (Need.bPlaceRig && !PlaceDefaultRig(Kit))) && Rig)
+		Kit.Commander->AddResources(ACommandBuilding::GetBuildCost(*Rig));
+}
+
 void ACommandGameState::FillKits()
 {
-	const int32 RigIndex = FirstBuildingWith(*Content, &UBuildingDefinition::bRequiresDeposit);
-	const UBuildingDefinition* Rig = Content->Building(RigIndex);
 	for (FPlanningKit& Kit : Planning.Kits)
-	{
-		if (!IsValid(Kit.Commander))
-			continue;
-		TArray<PlanningPolicy::FRigSite> Sites;
-		CollectRigSites(*this, Kit.Commander->TeamIndex, Sites);
-		const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Kit.Commander->TeamIndex);
-		const bool bSite = Home && PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()) != INDEX_NONE;
-		const PlanningPolicy::FKitFill Need = PlanningPolicy::Fill(IsValid(Kit.Barracks), IsValid(Kit.Rig), bSite);
-		if (Need.bPlaceBarracks && !PlaceDefaultBarracks(Kit))
-			UE_LOG(LogTemp, Warning, TEXT("Planning: no room for commander %d's Barracks"), Kit.Commander->CommanderIndex);
-		if ((Need.bRefundRig || (Need.bPlaceRig && !PlaceDefaultRig(Kit))) && Rig)
-			Kit.Commander->AddResources(ACommandBuilding::GetBuildCost(*Rig));
-	}
+		FillKit(Kit);
 	PlaceJevKit(true);
+}
+
+void ACommandGameState::GrantLateKit(ACommandPlayerState* Commander)
+{
+	if (!HasAuthority() || Planning.bActive || PlanningEndCount == 0 || PlanningEndReason == EPlanningEnd::Fixture
+		|| MatchResult != EMatchResult::Ongoing || !IsValid(Content) || !IsValid(Commander) || Commander->TeamIndex != 0)
+		return;
+	FPlanningKit Kit;
+	Kit.Commander = Commander;
+	FillKit(Kit);
+	if (IsValid(Kit.Barracks))
+		FCommandService::ConfigureProduction(Commander, Kit.Barracks, Kit.UnitRole, true);
 }
 
 void ACommandGameState::TickPlanning()
@@ -288,7 +305,9 @@ void ACommandGameState::TickPlanning()
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	const FSimulationSettings& Simulation = FSimulationSettings::ForWorld(GetWorld());
 	FString VerificationDirectory;
-	const bool bVerification = FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyDir="), VerificationDirectory);
+	// The planning probe keeps the real phase; every other network probe skips it.
+	const bool bVerification = FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyDir="), VerificationDirectory)
+		&& FPlatformMisc::GetEnvironmentVariable(TEXT("COOPRTS_NET_KEEP_PLANNING")).IsEmpty();
 	if (Simulation.bEnabled || bVerification || (GIsAutomationTesting && !bPlanningHeldByTest))
 	{
 		// A simulation plays the real opening with default kits; duels, network probes and automation
@@ -301,6 +320,8 @@ void ACommandGameState::TickPlanning()
 	ReconcilePlanningRoster();
 	PlaceJevKit(false);
 	Planning.SecondsRemaining = static_cast<float>(PlanningPolicy::Remaining(GetWorld()->GetRealTimeSeconds(), PlanningDeadline));
+	// A frozen world slows normal replication scheduling; the countdown is published every tick, as the pause's is.
+	ForceNetUpdate();
 	EvaluatePlanningEnd();
 }
 
@@ -311,10 +332,15 @@ void ACommandGameState::EvaluatePlanningEnd()
 	int32 Ready = 0;
 	for (const FPlanningKit& Kit : Planning.Kits)
 		Ready += Kit.bReady ? 1 : 0;
-	const PlanningPolicy::EEnd End = PlanningPolicy::Evaluate(Planning.Kits.Num(), Ready,
-		GetWorld()->GetRealTimeSeconds(), PlanningDeadline);
-	if (End == PlanningPolicy::EEnd::Continue || !GameStatePlanning::NavigationReady(GetWorld()))
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	const PlanningPolicy::EEnd End = PlanningPolicy::Evaluate(Planning.Kits.Num(), Ready, Now, PlanningDeadline);
+	if (End == PlanningPolicy::EEnd::Continue)
 		return;
+	const bool bNavigationReady = GameStatePlanning::NavigationReady(GetWorld());
+	if (!PlanningPolicy::MayEnd(bNavigationReady, Now, PlanningDeadline))
+		return;
+	if (!bNavigationReady)
+		UE_LOG(LogTemp, Warning, TEXT("Planning ends %.1f s after its deadline with navigation still not ready"), Now - PlanningDeadline);
 	EndPlanning(End == PlanningPolicy::EEnd::AllReady ? EPlanningEnd::AllReady : EPlanningEnd::Expired);
 }
 
@@ -393,7 +419,7 @@ void ACommandGameState::CompletePlanningForHarness(bool bWithKits)
 	}
 	for (FPlanningKit& Kit : Planning.Kits)
 		Kit.bReady = true;
-	if (GameStatePlanning::NavigationReady(GetWorld()))
+	if (PlanningPolicy::MayEnd(GameStatePlanning::NavigationReady(GetWorld()), GetWorld()->GetRealTimeSeconds(), PlanningDeadline))
 		EndPlanning(EPlanningEnd::Harness);
 }
 #endif

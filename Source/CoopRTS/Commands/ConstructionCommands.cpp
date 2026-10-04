@@ -173,7 +173,11 @@ ACommandBuilding* ACommandGameState::ApplyKitPlacement(int32 BuildingIndex, cons
 	if (!ResolveSite(*this, BuildingIndex, RequestedLocation, Commander, Team, Site, OutReason)
 		|| !ResolveDeposit(*this, Site, Deposit, OutReason))
 		return nullptr;
-	return SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Site.Location, OutReason, 1.f);
+	ACommandBuilding* Building = SpawnConstruction(GetWorld(), BuildingIndex, Team, Commander, Deposit, Site.Location, OutReason, 1.f);
+	// A paused world's clock never reaches a new actor's first scheduled update, so publish it now.
+	if (Building)
+		Building->ForceNetUpdate();
+	return Building;
 }
 
 bool ACommandBuilding::ApplyCancellation()

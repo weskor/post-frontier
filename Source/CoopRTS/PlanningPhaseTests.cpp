@@ -58,7 +58,7 @@ private:
 					&& Host->Resources == 200,
 				TEXT("The kit Barracks is free and stands finished")))
 			return Done();
-		// A configured producer and two adjacent hostile forces would work and fight if anything ran.
+		// A running producer and two adjacent hostile forces would work and fight if anything ran.
 		FVector Arena = ArmyTestSetup::FromFriendlyHQ(State, 1700.f, 600.f, 100.f);
 		for (const AMapRegion* Region : State->Regions)
 			if (IsValid(Region) && Region->RegionRole != ERegionRole::Main && State->GetRegionController(Region->RegionIndex) == INDEX_NONE)
@@ -68,9 +68,29 @@ private:
 			}
 		AArmyGroup* Friendly = ArmyTestSetup::SpawnGroup(World, PC, 0, Arena - FVector(125.f, 0.f, 0.f));
 		AArmyGroup* Hostile = ArmyTestSetup::SpawnGroup(World, nullptr, -1, Arena + FVector(125.f, 0.f, 0.f));
-		if (!Check(FCommandService::ConfigureProduction(Host, Placed.Building, EUnitRole::Frontline, true).IsAccepted() && Friendly && Hostile
-					&& IsValid(Placed.Building->ForceGroup),
-				TEXT("Production and combat fixtures spawn while frozen")))
+		const int32 HomeRegion = ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation());
+		const TCHAR* Locked = TEXT("Nothing runs during planning.");
+		const auto Refused = [Locked](const FCommandResult& Result) { return !Result.IsAccepted() && Result.Message == Locked; };
+		if (!Check(Friendly && Hostile, TEXT("Combat fixtures spawn while frozen"))
+			|| !Check(Refused(FCommandService::ConfigureProduction(Host, Placed.Building, EUnitRole::Ranged, true))
+					&& Refused(FCommandService::PlaceBuilding(Host, ArmyTestSetup::BarracksIndex, Spot))
+					&& Refused(FCommandService::CancelBuilding(Host, Placed.Building))
+					&& Refused(FCommandService::IssueForceOrder(Host, Friendly, EForceVerb::MoveHold, HomeRegion))
+					&& Refused(FCommandService::SetRetreatThreshold(Host, Friendly, ERetreatThreshold::Never))
+					&& Refused(FCommandService::SetRallyPoint(Host, Placed.Building, HomeRegion))
+					&& Refused(FCommandService::Research(Host, Placed.Building, EArmyDoctrine::FieldRepairs))
+					&& Refused(FCommandService::Gift(Host, Guest, EEconomyResource::Power, 10))
+					&& Refused(FCommandService::Resume(PC)),
+				TEXT("Every command except planning and pings is refused during planning, with the planning reason"))
+			|| !Check(!Placed.Building->bForceConfigured && Host->Resources == 200 && Guest->Resources == 200,
+				TEXT("A refused production command changes neither the Barracks nor a wallet"))
+			|| !Check(FCommandService::Ping(PC, ArmyTestSetup::FromFriendlyHQ(State, 800.f, 0.f, 5.f)).IsAccepted(), TEXT("Pings still work during planning")))
+			return Done();
+		// Fixture: a producer already running, as before planning existed, so the frozen world has work to skip.
+		State->Planning.bActive = false;
+		const bool bConfigured = FCommandService::ConfigureProduction(Host, Placed.Building, EUnitRole::Frontline, true).IsAccepted();
+		State->Planning.bActive = true;
+		if (!Check(bConfigured && IsValid(Placed.Building->ForceGroup), TEXT("The fixture producer starts")))
 			return Done();
 		Producer = Placed.Building;
 		CombatUnits.Reset();
@@ -178,10 +198,35 @@ private:
 		Check(bJevProducing, TEXT("JEV's kit Barracks takes up production at 0:00"));
 		Check(FMath::Abs(Match - StageGameSeconds()) < .5 && FMath::Abs(State->MatchTelemetry->GetBattleSeconds() - StageGameSeconds()) < .5,
 			TEXT("JEV's clock and the battle duration count from 0:00"));
+		LateKit();
 		const FCommandResult Pause = FCommandService::Pause(PC);
 		Check(Pause.IsAccepted() && State->IsActivePaused(), TEXT("The shared pause is still available after planning"));
 		FCommandService::Resume(PC);
 		return Done();
+	}
+
+	// A commander who joins after 0:00 (ACommandGameMode calls GrantLateKit at login) gets 200 Power and a finished
+	// kit at default spots; with no deposit left the Rig is paid back instead.
+	void LateKit()
+	{
+		ACommandPlayerState* Late = SpawnCommander();
+		if (!Check(Late != nullptr, TEXT("A late commander can join")))
+			return;
+		const int32 Before = Late->Resources;
+		State->GrantLateKit(Late);
+		ACommandBuilding* Barracks = nullptr;
+		bool bRig = false;
+		for (ACommandBuilding* Building : State->Buildings)
+			if (IsValid(Building) && Building->OwningPlayerState == Late && Building->IsComplete())
+			{
+				Barracks = Building->Kind == EBuildingKind::Barracks ? Building : Barracks;
+				bRig |= Building->Kind == EBuildingKind::Extractor;
+			}
+		const UBuildingDefinition* RigDefinition = State->Content->Building(ArmyTestSetup::ExtractorIndex);
+		Check(Before == 200 && Barracks && Barracks->bForceConfigured && Barracks->bProductionEnabled
+				&& Late->Resources == (bRig ? 200 : 200 + RigDefinition->BuildCost),
+			TEXT("A commander who joins after 0:00 gets 200 Power and a finished kit with production started"));
+		RemoveCommander(Late);
 	}
 
 	ACommandBuilding* Producer = nullptr;

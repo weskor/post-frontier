@@ -7,6 +7,7 @@
 #include "Content/MatchContent.h"
 #include "Engine/World.h"
 #include "MapRegion.h"
+#include "MatchTelemetry.h"
 #include "Rules/ForceOrderPolicy.h"
 #include "Rules/PlanningPolicy.h"
 
@@ -101,6 +102,8 @@ FCommandResult FPlanningCommands::SetReady(ACommandPlayerState* Commander, bool 
 		return Verdict(false, TEXT("Ready rejected: no planning phase or no kit."), ECommandRejection::Unavailable);
 	Kit->bReady = bReady;
 	State->ForceNetUpdate();
+	// Recorded before the last Ready ends planning and drops the kits.
+	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
 	State->EvaluatePlanningEnd();
 	return Verdict(true, bReady ? TEXT("Ready: your kit is locked.") : TEXT("Not ready: your kit is editable."));
 }
@@ -116,6 +119,8 @@ FCommandResult FPlanningCommands::PlaceKit(ACommandPlayerState* Commander, EBuil
 	ACommandGameState* State = PlanningState(Commander);
 	FString Reason;
 	const bool bPlaced = State->PlaceKitPiece(*Kit, Piece == EBuildingKind::Extractor, Location, Reason);
+	if (bPlaced)
+		State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Build);
 	FCommandResult Result = Verdict(bPlaced, bPlaced ? FString(TEXT("Kit piece placed.")) : MoveTemp(Reason));
 	Result.Building = Piece == EBuildingKind::Extractor ? Kit->Rig.Get() : Kit->Barracks.Get();
 	return Result;
@@ -132,6 +137,7 @@ FCommandResult FPlanningCommands::SetUnitType(ACommandPlayerState* Commander, EU
 		return Verdict(false, TEXT("Unit type rejected: no such unit."));
 	Kit->UnitRole = Role;
 	State->ForceNetUpdate();
+	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Build);
 	return Verdict(true, TEXT("Barracks unit type set."));
 }
 
@@ -155,6 +161,7 @@ FCommandResult FPlanningCommands::SetFirstOrder(ACommandPlayerState* Commander, 
 	Order.RegionIndex = RegionIndex;
 	Order.Structure = Structure;
 	State->ForceNetUpdate();
+	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
 	return Verdict(true, TEXT("First order set."));
 }
 
@@ -166,5 +173,6 @@ FCommandResult FPlanningCommands::ClearFirstOrders(ACommandPlayerState* Commande
 		return Refusal;
 	Kit->Orders.Reset();
 	PlanningState(Commander)->ForceNetUpdate();
+	PlanningState(Commander)->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
 	return Verdict(true, TEXT("First orders cleared."));
 }

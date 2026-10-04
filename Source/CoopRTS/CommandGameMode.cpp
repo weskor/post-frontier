@@ -281,6 +281,8 @@ void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController*
 	}
 	StartedCommanders.Add(NewPlayer);
 	State->MatchTelemetry->RegisterHuman(Commander);
+	// Before 0:00 planning's own roster pass gives the kit; later joiners get theirs finished.
+	State->GrantLateKit(Commander);
 	UE_LOG(LogTemp, Display, TEXT("Commander joined slot=%d player=%s; construction ready"),
 		Slot, *Commander->GetPlayerName());
 }

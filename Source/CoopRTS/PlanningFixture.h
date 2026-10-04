@@ -23,6 +23,8 @@ protected:
 	bool Check(bool bOk, const FString& Message);
 	// Cleans up and ends the scenario.
 	bool Done();
+	// Undoes what a scenario changed in the world beyond the planning phase itself; runs first in Done.
+	virtual void Cleanup() {}
 	void Enter(int32 Next);
 	// Real seconds in this stage (the world may stand still).
 	double StageSeconds() const { return World->GetRealTimeSeconds() - StageRealStart; }

@@ -57,6 +57,8 @@ FCommandResult FCommandService::CastFortify(ACommandPlayerState* Caster, AMapReg
 		: nullptr;
 	if (!State)
 		return { ECommandRejection::Unavailable, TEXT("No live battle") };
+	if (State->IsPlanning())
+		return { ECommandRejection::Unavailable, TEXT("Nothing runs during planning.") };
 	const FortifyPolicy::FCastInput In = UAbilityCommandComponent::MakeFortifyInput(*State, Caster, Region);
 	const FortifyPolicy::FDecision Decision = FortifyPolicy::Evaluate(In);
 	if (!Decision.IsAccepted())

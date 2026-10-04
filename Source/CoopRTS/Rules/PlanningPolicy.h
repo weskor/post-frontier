@@ -21,6 +21,11 @@ double Remaining(double Now, double Deadline);
 // cannot end early (the host may not have joined yet) but still expires. Expiry wins a tie.
 EEnd Evaluate(int32 Humans, int32 ReadyHumans, double Now, double Deadline);
 
+// Kits stand on the navmesh, so the phase waits for it; the wait ends this long after the deadline whatever the
+// navigation system reports.
+constexpr double NavigationGraceSeconds = 5.;
+bool MayEnd(bool bNavigationReady, double Now, double Deadline);
+
 struct FRosterChange
 {
 	TArray<int32, TInlineAllocator<5>> Join;

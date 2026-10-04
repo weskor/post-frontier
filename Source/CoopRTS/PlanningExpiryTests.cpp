@@ -77,7 +77,10 @@ private:
 		// Only the nearest own deposit stays free: the second commander's kit has none left.
 		NearestDeposit = Free[0];
 		for (int32 Index = 1; Index < Free.Num(); ++Index)
+		{
 			Free[Index]->Extractor = HostBarracks;
+			Reserved.Add(Free[Index]);
+		}
 		Enter(3);
 		return false;
 	}
@@ -93,6 +96,7 @@ private:
 				bSawHalf = true;
 			return false;
 		}
+		ReleaseReserved();
 		const bool bHostFirst = Host->CommanderIndex < Guest->CommanderIndex;
 		ACommandPlayerState* First = bHostFirst ? Host : Guest;
 		ACommandPlayerState* Second = bHostFirst ? Guest : Host;
@@ -129,9 +133,24 @@ private:
 		return Rig ? Rig->BuildCost : -1;
 	}
 
+	// The fixture's phantom reservations must not outlive the scenario.
+	void ReleaseReserved()
+	{
+		for (const TWeakObjectPtr<ADepositSite>& Deposit : Reserved)
+			if (Deposit.IsValid() && Deposit->Extractor == HostBarracks)
+			{
+				Deposit->Extractor = nullptr;
+				Deposit->ForceNetUpdate();
+			}
+		Reserved.Reset();
+	}
+
+	void Cleanup() override { ReleaseReserved(); }
+
 	TWeakObjectPtr<ACommandPlayerState> Third;
 	ACommandBuilding* HostBarracks = nullptr;
 	ADepositSite* NearestDeposit = nullptr;
+	TArray<TWeakObjectPtr<ADepositSite>> Reserved;
 	FVector HostSpot = FVector::ZeroVector;
 	bool bSawHalf = false;
 };

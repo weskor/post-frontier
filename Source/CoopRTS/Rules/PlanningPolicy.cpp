@@ -14,6 +14,11 @@ EEnd Evaluate(int32 Humans, int32 ReadyHumans, double Now, double Deadline)
 	return Humans > 0 && ReadyHumans >= Humans ? EEnd::AllReady : EEnd::Continue;
 }
 
+bool MayEnd(bool bNavigationReady, double Now, double Deadline)
+{
+	return bNavigationReady || Now >= Deadline + NavigationGraceSeconds;
+}
+
 FRosterChange Reconcile(TConstArrayView<int32> KitSlots, TConstArrayView<int32> Roster)
 {
 	FRosterChange Change;

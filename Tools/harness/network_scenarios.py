@@ -12,6 +12,7 @@ from harness.network_ownership import reject_locked_commands
 from harness.network_pause import pause_scenario
 from harness.network_pause_hud import pause_hud_scenario
 from harness.network_pings import pings_hud_scenario, pings_scenario
+from harness.network_planning import planning_scenario
 from harness.network_production import produce_and_replace
 from harness.network_session import build_barracks, configure_siege, connect, recruit
 
@@ -78,6 +79,10 @@ SCENARIOS: dict[str, tuple[Callable[[NetworkRun], None], str]] = {
     "pause-hud": (
         pause_hud_scenario,
         "offscreen paused HUD, shared countdown progression and spent action captures",
+    ),
+    "planning": (
+        planning_scenario,
+        "frozen planning phase on host and remote client: kit layouts, unit type, Ready and countdown replicate; last Ready unfreezes both",
     ),
     "ownership": (
         ownership_scenario,

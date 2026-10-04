@@ -20,6 +20,11 @@ bool FPlanningPhaseRulesTest::RunTest(const FString& Parameters)
 		PlanningPolicy::Evaluate(2, 1, Deadline - .001, Deadline) == EEnd::Continue);
 	TestTrue(TEXT("It expires at sixty seconds without everyone Ready"), PlanningPolicy::Evaluate(2, 1, Deadline, Deadline) == EEnd::Expired);
 	TestTrue(TEXT("Expiry wins a tie with the last Ready"), PlanningPolicy::Evaluate(2, 2, Deadline, Deadline) == EEnd::Expired);
+	TestTrue(TEXT("The phase waits for the navmesh before the deadline"), !PlanningPolicy::MayEnd(false, Start + 10., Deadline));
+	TestTrue(TEXT("and past the deadline, within the grace"), !PlanningPolicy::MayEnd(false, Deadline + 4.9, Deadline));
+	TestTrue(TEXT("but ends after the grace even if navigation never reports ready"),
+		PlanningPolicy::MayEnd(false, Deadline + PlanningPolicy::NavigationGraceSeconds, Deadline));
+	TestTrue(TEXT("and ends at once when navigation is ready"), PlanningPolicy::MayEnd(true, Start, Deadline));
 	TestTrue(TEXT("With nobody on the roster it cannot end early"), PlanningPolicy::Evaluate(0, 0, Start + 1., Deadline) == EEnd::Continue);
 	TestTrue(TEXT("but still expires"), PlanningPolicy::Evaluate(0, 0, Deadline + 5., Deadline) == EEnd::Expired);
 	TestEqual(TEXT("The countdown never goes negative"), PlanningPolicy::Remaining(Deadline + 3., Deadline), 0.);

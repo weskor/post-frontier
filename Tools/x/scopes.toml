@@ -334,6 +334,12 @@ commands = [
   ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "pause"],
 ]
 
+[scopes.planning-network]
+kind = "script"
+commands = [
+  ["./x", "verify", "network", "--mode", "editor", "--clients", "1", "--scenario", "planning"],
+]
+
 [scopes.pings]
 kind = "automation"
 filter = "CoopRTS.Pings.PlacementExpiry"
@@ -925,9 +931,16 @@ rendered = true
 "Source/CoopRTS/PlanningKitTests.cpp" = ["planning-kit"]
 "Source/CoopRTS/PlanningRestartTests.cpp" = ["planning-restart"]
 "Source/CoopRTS/ArmyTestSetup.[h]" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/CommandGameState.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
-"Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
+"Source/CoopRTS/CommandGameState.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
+"Source/CoopRTS/CommandGameMode.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
+"Source/CoopRTS/GameState/*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
+"Source/CoopRTS/Commands/*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart", "planning-network"]
 "Source/CoopRTS/EnemyCommander*.[ch]*" = ["planning-phase", "planning-expiry", "planning-kit", "planning-restart"]
 "Source/CoopRTS/MatchTelemetry.cpp" = ["planning-phase"]
+
+# Planning network proof: the probe, its harness scenario and the runtime the replicated phase runs through.
+"Source/CoopRTS/ArmyNetworkVerificationPlanning.cpp" = ["planning-network"]
+"Tools/harness/network_planning.py" = ["planning-network", "tools"]
+"Source/CoopRTS/Commands/PlanningCommands.[ch]*" = ["planning-network"]
+"Source/CoopRTS/GameState/GameStatePlanning.[ch]*" = ["planning-network"]
+"Source/CoopRTS/Rules/PlanningPolicy.[ch]*" = ["planning-network"]

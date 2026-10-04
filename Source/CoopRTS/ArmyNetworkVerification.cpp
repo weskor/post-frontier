@@ -48,7 +48,8 @@ FString ExecuteFixture(const FProbeRequest& Probe)
 	if (!Probe.State)
 		return TEXT("server fixture state unavailable");
 	FString Error;
-	if (HandleScenarioFixture(Probe, Error) || HandleEconomyFixture(Probe, Error) || HandleAbilityFixture(Probe, Error))
+	if (HandleScenarioFixture(Probe, Error) || HandleEconomyFixture(Probe, Error) || HandleAbilityFixture(Probe, Error)
+		|| HandlePlanningFixture(Probe, Error))
 		return Error;
 	AArmyGroup* Army = FindArmy(World, Probe.Owner, Probe.Index);
 	if (!Army)
