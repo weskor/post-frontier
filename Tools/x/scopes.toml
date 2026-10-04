@@ -80,8 +80,15 @@ map = "/Game/Maps/AvailabilityZoneV2"
 
 [scopes.terrain-v2]
 kind = "automation"
-filter = "CoopRTS.Map.Terrain"
+filter = "CoopRTS.Map.Terrain."
 map = "/Game/Maps/AvailabilityZoneV2"
+
+# Rendered captures of the real game, run on request (./x test terrain-view); the PNGs are inspected by a person.
+[scopes.terrain-view]
+kind = "automation"
+filter = "CoopRTS.Map.TerrainView"
+map = "/Game/Maps/AvailabilityZoneV2"
+rendered = true
 
 [scopes.doctrine-frontline]
 kind = "automation"
@@ -463,6 +470,7 @@ map = "default"
 "Source/CoopRTS/TerrainPlateauTests.cpp" = ["terrain-v2"]
 "Source/CoopRTS/TerrainRoutesTests.cpp" = ["terrain-v2"]
 "Source/CoopRTS/TerrainTestData.h" = ["terrain-v2"]
+"Source/CoopRTS/TerrainViewTests.cpp" = ["terrain-view"]
 "Source/CoopRTS/ConstructionTypes.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "rules", "strategy"]
 "Source/CoopRTS/Content/BuildingDefinition.cpp" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
 "Source/CoopRTS/Content/BuildingDefinition.h" = ["combat", "construction", "doctrine-frontline", "doctrine-repairs", "doctrine-restart", "doctrine-siege", "force-identity", "force-move-hold", "force-attack-withdrawal", "force-structure-death", "force-retreat", "force-orphan", "force-queue", "force-mixed-speed", "force-rally", "force-threshold-never", "force-no-safe-fallback", "match-loss", "match-win", "movement", "orders", "production", "strategy"]
