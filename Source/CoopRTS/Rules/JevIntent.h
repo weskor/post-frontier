@@ -63,7 +63,8 @@ struct FReleaseView
 	int32 Next = 1;
 	float NextAt = 0.f;
 	float ClockStartServerTime = 0.f;
-	// The humans' most numerous armor class now: what a v1.2 wave would counter.
+	// The armor class JEV publishes that its v1.2 wave counters (the humans' most numerous at its last evaluation); kept
+	// while v1.2 is in force so the release's feed row names it. Unset otherwise.
 	EArmorClass CounterArmor = EArmorClass::Unset;
 };
 
