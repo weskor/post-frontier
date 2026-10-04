@@ -253,6 +253,17 @@ void DrawStructures(const FMap& Map, const ACommandGameState& State, const AComm
 		FVector2D Point;
 		if (!IsValid(HQ) || !Map.Point(HQ->GetActorLocation(), Point))
 			continue;
+		if (HQ->IsOffline())
+		{
+			// Offline (0 HP, the attackers hold its main): the team's outline over a dim fill and an amber cross,
+			// so it is neither a standing HQ nor a lost one.
+			const FLinearColor Team = TeamColor(HQ->TeamIndex);
+			Map.Fill(Point - FVector2D(6, 6), FVector2D(12, 12), Team.CopyWithNewOpacity(.22f));
+			Map.Box(Point, 6.0, Team);
+			Map.Line(Point - FVector2D(5, 5), Point + FVector2D(5, 5), Contested, 1.5f);
+			Map.Line(Point + FVector2D(-5, 5), Point + FVector2D(5, -5), Contested, 1.5f);
+			continue;
+		}
 		const FLinearColor Color = HQ->IsAlive() ? TeamColor(HQ->TeamIndex) : Neutral;
 		Map.Box(Point, 6.0, Color);
 		Map.Fill(Point - FVector2D(3, 3), FVector2D(6, 6), Color);
@@ -365,8 +376,12 @@ void DrawCaption(UCanvas* Canvas, const ACommandPlayerController& Controller, FV
 												: TEXT("ARENA / LMB PAN / RMB ORDER")),
 		HeaderFont, bFortify ? FLinearColor(.46f, .94f, .56f) : View);
 	Canvas->DrawItem(Header);
+	const ACommandGameState* State = Controller.GetWorld() ? Controller.GetWorld()->GetGameState<ACommandGameState>() : nullptr;
+	const bool bOfflineHq = State && ((IsValid(State->FriendlyHeadquarters) && State->FriendlyHeadquarters->IsOffline()) || (IsValid(State->EnemyHeadquarters) && State->EnemyHeadquarters->IsOffline()));
+	// While an HQ is offline the legend names its mark in place of the sector outline.
 	FCanvasTextStringViewItem Legend(Origin - FVector2D(0, 15.f * TextScale),
-		FStringView(TEXT("HQ/base | sector | amber: contest/front")), Font, Neutral);
+		FStringView(bOfflineHq ? TEXT("HQ/base | X: HQ offline | amber: front") : TEXT("HQ/base | sector | amber: contest/front")),
+		Font, Neutral);
 	Canvas->DrawItem(Legend);
 }
 }

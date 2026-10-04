@@ -96,6 +96,10 @@ private:
 	{
 		ACommandPlayerState* Guest = GuestPtr.Get();
 		const int32 HomeRegion = ArmyTestSetup::RegionAt(State, State->FriendlyHeadquarters->GetActorLocation());
+		AMapRegion* Home = nullptr;
+		for (AMapRegion* Region : State->Regions)
+			if (IsValid(Region) && Region->RegionIndex == HomeRegion)
+				Home = Region;
 		const TCHAR* Locked = TEXT("Nothing runs during planning.");
 		const auto Refused = [Locked](const FCommandResult& Result) { return !Result.IsAccepted() && Result.Message == Locked; };
 		return Check(Friendly && Hostile, TEXT("Combat fixtures spawn while frozen"))
@@ -105,6 +109,7 @@ private:
 					&& Refused(FCommandService::IssueForceOrder(Host, Friendly, EForceVerb::MoveHold, HomeRegion))
 					&& Refused(FCommandService::SetRetreatThreshold(Host, Friendly, ERetreatThreshold::Never))
 					&& Refused(FCommandService::SetRallyPoint(Host, Barracks, HomeRegion))
+					&& Home && Refused(FCommandService::CastFortify(Host, Home))
 					&& Refused(FCommandService::Research(Host, Barracks, EArmyDoctrine::FieldRepairs))
 					&& Refused(FCommandService::Gift(Host, Guest, EEconomyResource::Power, 10))
 					&& Refused(FCommandService::Resume(PC)),

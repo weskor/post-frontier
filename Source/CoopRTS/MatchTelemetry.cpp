@@ -227,15 +227,17 @@ void UMatchTelemetry::WriteMatch(bool bAbandoned, const TCHAR* AbandonmentCause)
 	const TSharedRef<FJsonObject> Ending = MakeShared<FJsonObject>();
 	const bool bDefeat = State->MatchResult == EMatchResult::Defeat;
 	const AHeadquarters* HQ = bDefeat ? State->FriendlyHeadquarters.Get() : State->EnemyHeadquarters.Get();
-	const bool bDestroyedHQ = !bAbandoned && IsValid(HQ) && HQ->Health <= 0;
-	const bool bTie = bDestroyedHQ && bDefeat && IsValid(State->EnemyHeadquarters) && State->EnemyHeadquarters->Health <= 0;
-	Ending->SetStringField(TEXT("cause"), bAbandoned ? AbandonmentCause : bDestroyedHQ ? bTie ? TEXT("both_headquarters_destroyed") : bDefeat ? TEXT("friendly_headquarters_destroyed")
-																																			  : TEXT("enemy_headquarters_destroyed")
-																					   : TEXT("match_result_set"));
-	const AMapRegion* Region = bDestroyedHQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
+	// A side is out when its HQ is lost (a completed hold), not at 0 HP: an offline HQ is still in the battle.
+	const bool bLostHQ = !bAbandoned && IsValid(HQ) && !HQ->IsAlive();
+	const bool bTie = bLostHQ && bDefeat && IsValid(State->EnemyHeadquarters) && !State->EnemyHeadquarters->IsAlive();
+	// The cause names keep their "destroyed" wording: Docs/Playtest/telemetry.md defines them.
+	Ending->SetStringField(TEXT("cause"), bAbandoned ? AbandonmentCause : bLostHQ ? bTie ? TEXT("both_headquarters_destroyed") : bDefeat ? TEXT("friendly_headquarters_destroyed")
+																																		 : TEXT("enemy_headquarters_destroyed")
+																				  : TEXT("match_result_set"));
+	const AMapRegion* Region = bLostHQ ? State->FindRegionAt(HQ->GetActorLocation()) : nullptr;
 	Ending->SetNumberField(TEXT("region_index"), Region ? Region->RegionIndex : INDEX_NONE);
 	Ending->SetStringField(TEXT("region_name"), Region ? Region->DisplayName.ToString() : FString());
-	if (bDestroyedHQ)
+	if (bLostHQ)
 	{
 		const FVector Spot = HQ->GetActorLocation();
 		const TSharedRef<FJsonObject> Location = MakeShared<FJsonObject>();

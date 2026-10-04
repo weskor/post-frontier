@@ -5,6 +5,7 @@
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 
+class AHeadquarters;
 struct FJevPublishedPlan;
 
 // Telemetry JSON helpers shared by the lifecycle, match, duel and report files.
@@ -47,5 +48,9 @@ inline void UpdateNumbers(FJsonObject& Row, const FString& Field, double Left, d
 // One plan row, shared by plan-history events and snapshot plan listings.
 void PlanFields(FJsonObject& Row, const FJevPublishedPlan& Plan, int32 ForceNumber,
 	const FString& TargetStructureName, double StartWorldTime, float RemainingCommitment);
+
+// An HQ's lifecycle for a team's snapshot: `hq_state` (online, offline, lost) and `hq_hold_seconds`, the progress
+// of the hold on its main.
+void HqFields(FJsonObject& Row, const AHeadquarters& HQ);
 }
 #endif

@@ -27,22 +27,22 @@ TEAM_FIELDS = (
 COMPARISON_FIELDS = (*TEAM_FIELDS, "units_by_role")
 
 
+HQ_STATES = ("online", "offline", "lost")
+
+
 @dataclass(frozen=True)
 class Outcome:
     """How a battle ended: a decisive result has a winner, a censored one only the cap.
 
-    `hq_down` and `hq_up` are the final-snapshot HQ health this outcome requires (0 HP, not
-    0 HP); `hq_lost` and `hq_standing` are the lifecycle states it requires (`hq_state`
-    is "lost", is not "lost"). The validator checks them without knowing which outcome
-    kinds exist.
+    `hq_lost` and `hq_standing` are the HQ lifecycle states this outcome requires of the final
+    snapshot (`hq_state` is "lost", is not "lost"). An HQ at 0 HP is only offline and still in the
+    battle. The validator checks them without knowing which outcome kinds exist.
     """
 
     kind: str
     decisive: bool
     winner: int | None
     seconds: float
-    hq_down: tuple[int, ...]
-    hq_up: tuple[int, ...]
     hq_lost: tuple[int, ...] = ()
     hq_standing: tuple[int, ...] = ()
 
@@ -50,11 +50,10 @@ class Outcome:
 def interpret_outcome(report: JsonObject) -> Outcome:
     """The one place that says which recorded outcomes end a battle.
 
-    A battle ends on a completed hold: an HQ at 0 HP is only offline, and the attackers must hold
-    its main until the HQ is lost. The simulation still reports that as `hq_destroyed` until its
-    outcome resolver moves to `hold_completed`; both mean the same decisive result, but only
-    `hold_completed` carries (and is checked against) the HQ lifecycle states. Every statistic,
-    the gate and the outcome validator read outcomes only through this function.
+    A battle ends on a completed hold (`hold_completed`): an HQ at 0 HP is only offline, and the
+    attackers must hold its main until the HQ is lost. An HQ still offline at the time cap is not a
+    result: that match is a censored draw (`time_cap`). Every statistic, the gate and the outcome
+    validator read outcomes only through this function.
     """
     kind = report.get("outcome")
     seconds = number(report.get("duration"), "duration")
@@ -63,24 +62,15 @@ def interpret_outcome(report: JsonObject) -> Outcome:
         if winner not in (0, 5):
             raise ValueError("Decisive outcome without a winning team")
         loser = 5 if winner == 0 else 0
-        # The loser's hold completed: its HQ is lost (0 HP) and the winner's is not.
-        return Outcome(kind, True, winner, seconds, (loser,), (), (loser,), (winner,))
-    if kind == "hq_destroyed":
-        winner = report.get("winner")
-        if winner not in (0, 5):
-            raise ValueError("Decisive outcome without a winning team")
-        # Simultaneous HQ loss follows the game's team-5 tie precedence.
+        # The loser's hold completed. Simultaneous completions follow the game's team-5 tie precedence,
+        # so only a team-0 win proves team 0 was not lost.
         return Outcome(
-            kind,
-            True,
-            winner,
-            seconds,
-            (5,) if winner == 0 else (0,),
-            (0,) if winner == 0 else (),
+            kind, True, winner, seconds, (loser,), (0,) if winner == 0 else ()
         )
     if kind == "time_cap":
         if report.get("winner") is not None:
             raise ValueError("Invalid time-cap draw: a winner is recorded")
+        # Censored: neither hold completed. An HQ may be offline (0 HP) at the cap.
         return Outcome(kind, False, None, seconds, (), (0, 5))
     raise ValueError("Unknown outcome, not a result")
 
@@ -292,6 +282,21 @@ def validate_teams(snapshot: JsonObject) -> None:
         for field in ("units_by_region", "buildings", "forces", "region_indices"):
             if field not in team:
                 raise ValueError(f"Missing concentration/production metadata: {field}")
+        validate_hq(team)
+
+
+def validate_hq(team: JsonObject) -> None:
+    """The HQ lifecycle every snapshot carries; 0 HP is offline (or lost), never a state of its own."""
+    state = team.get("hq_state")
+    if state not in HQ_STATES:
+        raise ValueError(f"Missing or unknown hq_state: {state!r}")
+    if number(team.get("hq_hold_seconds"), "hq_hold_seconds") < 0:
+        raise ValueError("Negative telemetry hq_hold_seconds")
+    if (team["hq_health"] > 0) != (state == "online"):
+        raise ValueError(
+            f"HQ state {state} disagrees with {team['hq_health']} HP: "
+            "only an online HQ has hit points"
+        )
 
 
 def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> None:
@@ -299,19 +304,6 @@ def validate_outcome(report: JsonObject, job: JsonObject, duration: float) -> No
     outcome = interpret_outcome(report)
     if not outcome.decisive and duration < job["time_cap"] - 0.02:
         raise ValueError("Invalid time-cap draw: ended before the cap")
-    for team in outcome.hq_down:
-        if final[team]["hq_health"] > 0:
-            raise ValueError(f"Invalid {outcome.kind} result: team {team} HQ stands")
-    for team in outcome.hq_up:
-        if final[team]["hq_health"] <= 0:
-            raise ValueError(
-                f"Invalid {outcome.kind} result: team {team} HQ is destroyed"
-            )
-    for team in (*outcome.hq_lost, *outcome.hq_standing):
-        if "hq_state" not in final[team]:
-            raise ValueError(
-                f"Invalid {outcome.kind} result: team {team} has no hq_state"
-            )
     for team in outcome.hq_lost:
         if final[team]["hq_state"] != "lost":
             raise ValueError(

@@ -137,26 +137,31 @@ void FMatchSimulation::TickMatch(float DeltaTime, ACommandGameState& State)
 FMatchSimulation::FOutcome FMatchSimulation::ResolveOutcome(const ACommandGameState& State, double Time) const
 {
 	FOutcome Outcome;
+	// A side is out of the battle only when its HQ is lost (a completed hold). An offline HQ at 0 HP is still in it.
+	const bool bFriendlyLost = !State.FriendlyHeadquarters->IsAlive();
+	const bool bEnemyLost = !State.EnemyHeadquarters->IsAlive();
 	if (State.MatchResult != EMatchResult::Ongoing)
 	{
 		const int32 Winner = State.MatchResult == EMatchResult::Victory ? 0 : 5;
-		if ((Winner == 0 ? State.EnemyHeadquarters->Health : State.FriendlyHeadquarters->Health) > 0)
+		if (!(Winner == 0 ? bEnemyLost : bFriendlyLost))
 		{
-			Outcome.Error = TEXT("Terminal match result without destroyed HQ");
+			Outcome.Error = TEXT("Terminal match result without a lost HQ");
 			return Outcome;
 		}
 		Outcome.bEnded = true;
-		Outcome.Kind = TEXT("hq_destroyed");
+		Outcome.Kind = TEXT("hold_completed");
 		Outcome.Winner = Winner;
 		return Outcome;
 	}
 	if (Time < FSimulationSettings::Get().TimeCap)
 		return Outcome;
-	// A same-frame HQ death must be an outcome, not a time-cap draw, even before GameMode's tick.
+	// A hold completed in the cap's own frame must be an outcome, not a time-cap draw, even before GameMode's tick.
+	// Team 5 wins a simultaneous loss, as in the game's outcome policy. An HQ still offline at the cap is
+	// undecided: a censored draw.
 	Outcome.bEnded = true;
-	Outcome.Winner = State.FriendlyHeadquarters->Health <= 0 ? 5 : State.EnemyHeadquarters->Health <= 0 ? 0
-																										: -1;
-	Outcome.Kind = Outcome.Winner == -1 ? TEXT("time_cap") : TEXT("hq_destroyed");
+	Outcome.Winner = bFriendlyLost ? 5 : bEnemyLost ? 0
+													: -1;
+	Outcome.Kind = Outcome.Winner == -1 ? TEXT("time_cap") : TEXT("hold_completed");
 	return Outcome;
 }
 

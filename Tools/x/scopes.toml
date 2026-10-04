@@ -914,6 +914,14 @@ rendered = true
 "Source/CoopRTS/GuardedHqFixture.h" = ["guarded-hq"]
 "Source/CoopRTS/GuardedHqTargetTests.cpp" = ["guarded-hq"]
 "Source/CoopRTS/HUD/GuardedHqPanels.*" = ["guarded-hq-view"]
+# Guarded HQs round 2: the simulation's HQ lifecycle (outcome, hold_completed, hq_state) and the minimap's offline HQ.
+"Source/CoopRTS/MatchSimulationHqTests.cpp" = ["guarded-hq"]
+"Source/CoopRTS/MatchSimulationObserve.cpp" = ["guarded-hq"]
+"Source/CoopRTS/MatchSimulationMatch.cpp" = ["guarded-hq"]
+"Source/CoopRTS/MatchSimulationTelemetry.cpp" = ["guarded-hq"]
+"Source/CoopRTS/MatchSimulationSubsystem.h" = ["guarded-hq"]
+"Source/CoopRTS/MatchSimulationJson.h" = ["guarded-hq"]
+"Source/CoopRTS/CommandMinimap.cp*" = ["guarded-hq-view"]
 # Tier-2 branches: pure rules, the purchase, pause and refit scenarios on real producers and forces, and the rendered panel and card.
 "Source/CoopRTS/BranchRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/BranchWorldTests.cpp" = ["branch"]

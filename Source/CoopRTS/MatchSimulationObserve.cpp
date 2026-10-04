@@ -155,6 +155,15 @@ void FMatchSimulation::ObserveHeadquarters(ACommandGameState& State)
 			Row->SetNumberField(TEXT("health"), HQs[Slot]->Health);
 		}
 		PreviousHQHealth[Slot] = HQs[Slot]->Health;
+		// The battle's terminal fact: the hold on this HQ's main completed. `team` is the side that lost its HQ.
+		const HqHoldPolicy::EPhase Phase = HQs[Slot]->GetPhase();
+		if (Phase == HqHoldPolicy::EPhase::Lost && PreviousHqPhase[Slot] != Phase)
+		{
+			const TSharedRef<FJsonObject> Row = Event(TEXT("hold_completed"), Slot == 0 ? 0 : 5);
+			Row->SetNumberField(TEXT("winner"), Slot == 0 ? 5 : 0);
+			Row->SetNumberField(TEXT("hold_seconds"), HQs[Slot]->GetHold().Progress);
+		}
+		PreviousHqPhase[Slot] = Phase;
 	}
 }
 #endif

@@ -16,6 +16,7 @@ class AHeadquarters;
 class AActor;
 
 #include "MatchSimulationDuelRunner.h"
+#include "Rules/HqHoldPolicy.h"
 
 class UWorld;
 
@@ -34,6 +35,7 @@ public:
 	virtual TStatId GetStatId() const override;
 
 private:
+	friend struct FMatchSimulationTestAccess;
 	UWorld* GetWorld() const { return World; }
 	UWorld* World;
 	struct FObservedUnit
@@ -42,7 +44,9 @@ private:
 		int32 Health = 0;
 		uint32 Attacks = 0;
 	};
-	// How a tick's state ends the match, if it does. The one place that interprets outcomes.
+	// How a tick's state ends the match, if it does. The one place that interprets outcomes: by the HQ lifecycle,
+	// never by hit points. A battle ends on a completed hold (`hold_completed`); an offline HQ at the time cap is
+	// a censored draw (`time_cap`).
 	struct FOutcome
 	{
 		bool bEnded = false;
@@ -98,6 +102,7 @@ private:
 	int64 ObservedHealthLoss[2] = {};
 	int64 Attacks[2] = {};
 	int32 PreviousHQHealth[2] = {};
+	HqHoldPolicy::EPhase PreviousHqPhase[2] = { HqHoldPolicy::EPhase::Online, HqHoldPolicy::EPhase::Online };
 	bool FirstPlaced[2][2] = {};
 	bool FirstComplete[2][2] = {};
 	bool FirstCapture[2] = {};

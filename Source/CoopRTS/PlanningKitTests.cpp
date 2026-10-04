@@ -37,7 +37,9 @@ private:
 		const int32 HostSlot = Host->CommanderIndex;
 		const FPlanningKit* Kit = State->FindKit(Host);
 		ACommandBuilding* Producer = Kit->Barracks;
-		if (!Check(FPlanningCommands::SetReady(Host, true).IsAccepted() && FPlanningCommands::SetReady(GuestPtr.Get(), true).IsAccepted()
+		// Ready twice: the repeat is accepted but is not a second decision.
+		if (!Check(FPlanningCommands::SetReady(Host, true).IsAccepted() && FPlanningCommands::SetReady(Host, true).IsAccepted()
+					&& FPlanningCommands::SetReady(GuestPtr.Get(), true).IsAccepted()
 					&& !State->IsPlanning(),
 				TEXT("Both Ready ends planning")))
 			return Done();
@@ -71,7 +73,9 @@ private:
 					Orders = (*Player)->GetNumberField(TEXT("orders"));
 				}
 		IFileManager::Get().Delete(*Path);
-		Check(Builds >= 6. && Orders >= 5., FString::Printf(TEXT("Placements and unit picks count as builds, first orders and Ready as orders (builds %.0f, orders %.0f)"), Builds, Orders));
+		// 5 first orders set while editing (3 + 2), then Ready, Not ready, the clear and 2 set again in Lock, the final
+		// Ready (a repeated Ready adds none): 11. The 2 queued orders issued to the force at 0:00 are 2 more: 13.
+		Check(Builds >= 6. && Orders == 13., FString::Printf(TEXT("Placements and unit picks count as builds, first orders and each change of Ready as orders, a repeated Ready not (builds %.0f, orders %.0f)"), Builds, Orders));
 	}
 
 	bool Barracks()

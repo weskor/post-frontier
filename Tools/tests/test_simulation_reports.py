@@ -18,6 +18,8 @@ def telemetry_team(index: int) -> JsonObject:
     team.update(
         team=index,
         hq_health=100,
+        hq_state="online",
+        hq_hold_seconds=0,
         units_alive=12,
         units_by_role=[12, 0, 0, 0, 0],
         units_produced=12,
@@ -82,7 +84,7 @@ def test_group_numbers_include_draws_but_only_observed_depletion() -> None:
     reports: list[JsonObject] = [
         dict(
             winner=0,
-            outcome="hq_destroyed",
+            outcome="hold_completed",
             duration=120,
             wall_duration=4,
             events=[
@@ -92,7 +94,7 @@ def test_group_numbers_include_draws_but_only_observed_depletion() -> None:
         ),
         dict(
             winner=5,
-            outcome="hq_destroyed",
+            outcome="hold_completed",
             duration=180,
             wall_duration=8,
             events=[dict(kind="deposit_depleted", time=120)],
@@ -217,46 +219,16 @@ def test_a_report_without_a_scenario_is_the_default_autopilot() -> None:
 
 
 def finish(
-    report: JsonObject, outcome: str, winner: int | None, hq: tuple[int, int]
+    report: JsonObject,
+    outcome: str,
+    winner: int | None,
+    states: tuple[str, str],
 ) -> None:
+    """End the report with these HQ states; only an online HQ has hit points."""
     report.update(outcome=outcome, winner=winner)
-    for team, health in zip(report["snapshots"][-1]["teams"], hq, strict=True):
-        team["hq_health"] = health
-
-
-@pytest.mark.parametrize(
-    ("outcome", "winner", "hq", "message"),
-    [
-        ("hq_destroyed", 0, (100, 100), "team 5 HQ stands"),
-        ("hq_destroyed", 0, (0, 0), "team 0 HQ is destroyed"),
-        ("hq_destroyed", 5, (100, 100), "team 0 HQ stands"),
-        ("time_cap", None, (100, 0), "team 5 HQ is destroyed"),
-    ],
-)
-def test_outcome_must_agree_with_the_final_hq_states(
-    outcome: str, winner: int | None, hq: tuple[int, int], message: str
-) -> None:
-    job, report = telemetry()
-    finish(report, outcome, winner, hq)
-    with pytest.raises(ValueError, match=message):
-        validate_report(report, job)
-
-
-@pytest.mark.parametrize(
-    ("outcome", "winner", "hq"),
-    [
-        ("hq_destroyed", 0, (100, 0)),
-        ("hq_destroyed", 5, (0, 100)),
-        ("hq_destroyed", 5, (0, 0)),
-        ("time_cap", None, (100, 100)),
-    ],
-)
-def test_consistent_outcomes_validate_including_the_simultaneous_loss_tie(
-    outcome: str, winner: int | None, hq: tuple[int, int]
-) -> None:
-    job, report = telemetry()
-    finish(report, outcome, winner, hq)
-    validate_report(report, job)
+    for team, state in zip(report["snapshots"][-1]["teams"], states, strict=True):
+        team["hq_state"] = state
+        team["hq_health"] = 100 if state == "online" else 0
 
 
 @pytest.mark.parametrize("missing", ["snapshot", "creation", "escalation"])

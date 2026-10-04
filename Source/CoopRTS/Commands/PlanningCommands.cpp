@@ -100,10 +100,13 @@ FCommandResult FPlanningCommands::SetReady(ACommandPlayerState* Commander, bool 
 	FPlanningKit* Kit = State && State->IsPlanning() ? State->FindKit(Commander) : nullptr;
 	if (!Kit)
 		return Verdict(false, TEXT("Ready rejected: no planning phase or no kit."), ECommandRejection::Unavailable);
+	const bool bChanged = Kit->bReady != bReady;
 	Kit->bReady = bReady;
 	State->ForceNetUpdate();
-	// Recorded before the last Ready ends planning and drops the kits.
-	State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
+	// A repeated Ready or Not-ready is accepted but is not a decision. Recorded before the last Ready ends planning
+	// and drops the kits.
+	if (bChanged)
+		State->MatchTelemetry->RecordAccepted(Commander, EMatchDecision::Order);
 	State->EvaluatePlanningEnd();
 	return Verdict(true, bReady ? TEXT("Ready: your kit is locked.") : TEXT("Not ready: your kit is editable."));
 }

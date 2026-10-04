@@ -46,6 +46,15 @@ void MatchSimulationJson::PlanFields(FJsonObject& Row, const FJevPublishedPlan& 
 	Row.SetStringField(TEXT("memo"), Plan.Memo);
 }
 
+void MatchSimulationJson::HqFields(FJsonObject& Row, const AHeadquarters& HQ)
+{
+	// An HQ at 0 HP is `offline`, not gone: only a completed hold makes it `lost`.
+	const TCHAR* Phase = HQ.IsOnline() ? TEXT("online") : HQ.IsOffline() ? TEXT("offline")
+																		 : TEXT("lost");
+	Row.SetStringField(TEXT("hq_state"), Phase);
+	Row.SetNumberField(TEXT("hq_hold_seconds"), HQ.GetHold().Progress);
+}
+
 TSharedRef<FJsonObject> FMatchSimulation::Event(const TCHAR* Kind, int32 Team)
 {
 	const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
@@ -337,6 +346,7 @@ TSharedRef<FJsonObject> FMatchSimulation::SnapshotTeam(ACommandGameState& State,
 	Summary->SetNumberField(TEXT("wallet"), Commander->Resources);
 	Summary->SetNumberField(TEXT("income_per_second"), State.GetIncomePerSecond(Commander));
 	Summary->SetNumberField(TEXT("hq_health"), Slot == 0 ? State.FriendlyHeadquarters->Health : State.EnemyHeadquarters->Health);
+	HqFields(*Summary, Slot == 0 ? *State.FriendlyHeadquarters : *State.EnemyHeadquarters);
 	Summary->SetNumberField(TEXT("units_produced"), Produced[Slot]);
 	Summary->SetNumberField(TEXT("casualties_observed"), Casualties[Slot]);
 	Summary->SetNumberField(TEXT("unit_health_loss_observed"), static_cast<double>(ObservedHealthLoss[Slot]));
