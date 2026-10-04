@@ -23,18 +23,24 @@ def produce_squad(
     )
     run.request("host", "production", building=index, recipe=role, enabled=True)
     state = capture.wait(
-        lambda s: building(s, index)["configured"]
-        and building(s, index)["recipe"] == role,
+        lambda s: (
+            building(s, index)["configured"] and building(s, index)["recipe"] == role
+        ),
         f"{label} recipe locked",
     )
     capacity = building(state, index)["capacity"]
     require(capacity == 3, f"{label} squad capacity is {capacity}, expected 3")
     run.request(
-        "host", "fund", owner=owner, amount=capacity * building(state, index)["unitCost"]
+        "host",
+        "fund",
+        owner=owner,
+        amount=capacity * building(state, index)["unitCost"],
     )
     capture.wait(
-        lambda s: building(s, index)["joined"] == capacity
-        and building(s, index)["travelling"] == 0,
+        lambda s: (
+            building(s, index)["joined"] == capacity
+            and building(s, index)["travelling"] == 0
+        ),
         f"{label} squad of {capacity} joined",
     )
     capture.shot(f"{label}-squad")
@@ -49,4 +55,6 @@ def scenario(run: NetworkRun, resolution: tuple[int, int]) -> None:
     produce_squad(run, capture, owner, 2, SUPPORT, "scrambler")
     capture.shot("both-squads")
     no_compositor_windows(run, pid)
-    run.event("PASS", captures=capture.count, resolutions=[resolution], quick="new-units")
+    run.event(
+        "PASS", captures=capture.count, resolutions=[resolution], quick="new-units"
+    )
