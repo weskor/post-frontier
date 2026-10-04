@@ -11,6 +11,8 @@ from harness.verify import JsonObject
 
 # The game process keeps the real planning phase (every other probe skips it) when this is set.
 KEEP_PLANNING = "COOPRTS_NET_KEEP_PLANNING"
+# What the server answers an edit sent while Ready (PlanningPolicy::EditRejection).
+LOCKED_REASON = "Ready locks your kit; press Enter to un-Ready first."
 
 
 def kit(state: JsonObject, slot: int) -> JsonObject:
@@ -147,9 +149,15 @@ def client_edits(run: NetworkRun, names: list[str], client: str, remote: int) ->
         lambda s: bool(kit(s, remote)["ready"]) and s["planning"]["active"],
         "the remote client's Ready, sent over the wire, is visible everywhere and planning goes on",
     )
-    # Ready locks the kit: this pick is refused. The un-Ready after it is handled later on the same channel, so once it
-    # is visible the refused pick has been decided.
+    # Ready locks the kit: this pick is refused, and the server's reason must come back to the remote client over the wire.
     run.request(client, "planningClientType", role=FRONTLINE)
+    await_all(
+        run,
+        [client],
+        lambda s: s["planning"]["feedback"] == LOCKED_REASON,
+        "the refusal's reason reaches the remote client",
+    )
+    # The un-Ready is handled later on the same channel, so once it is visible the refused pick has been decided.
     run.request(client, "planningClientReady", ready=False)
     states = await_all(
         run,

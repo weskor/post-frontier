@@ -58,8 +58,9 @@ struct FEnterInput
 EEnter Enter(const FEnterInput& In);
 // The question stays live for ConfirmSeconds after it was asked.
 bool IsConfirmLive(double Now, double Asked);
-// "Barracks not placed: default spot. Press Enter again", with the Drill Rig named too when both are missing.
-void AppendConfirm(FStringBuilderBase& Out, bool bBarracks, bool bRig);
+// "Barracks not placed: default spot. Press Enter again", with the other piece named too when both are missing. The names
+// are the building catalogue's, so the question, the cards and the panel call a piece the same thing.
+void AppendConfirm(FStringBuilderBase& Out, bool bBarracks, bool bRig, FStringView BarracksName, FStringView RigName);
 
 // The line under a KIT card's name. Placed pieces can be moved; Ready locks both; a Drill Rig with no free deposit is
 // paid back at 0:00 instead.
@@ -75,7 +76,7 @@ void AppendKitCard(FStringBuilderBase& Out, EKitCard State);
 
 // The default Barracks spots, in the order the end of planning tries them: 9 rings of 32 directions around the home
 // headquarters, 380 uu out and 160 uu more per ring, mirrored for the far side. The first legal spot clear of free
-// deposits wins (ACommandGameState::PlaceDefaultBarracks; the planning world test pins the two together).
+// deposits wins (GameStatePlanning::FindDefaultBarracks, which the server and the HUD's ghost both call).
 constexpr int32 SpotCount = 9 * 32;
 FVector DefaultBarracksSpot(const FVector& Home, int32 Team, int32 Index);
 }

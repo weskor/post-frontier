@@ -2,78 +2,42 @@
 #include "CommandGameState.h"
 #include "CommandPlayerState.h"
 #include "Content/MatchContent.h"
-#include "DepositSite.h"
+#include "GameState/GameStatePlanning.h"
 #include "GameState/GameStateRegistry.h"
 #include "Headquarters.h"
-#include "Rules/PlanningHudPolicy.h"
 
 namespace CommandHUDPanels
 {
 namespace
 {
-// A free deposit with ore left that the team holds and nobody contests: where a Drill Rig may stand.
-void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<PlanningPolicy::FRigSite>& Out)
+// The ghost accepts the first candidate the placement rules would allow, the server's accept places it.
+void GhostBarracks(const ACommandGameState& State, int32 Team, FPlanningGhosts& Out)
 {
-	for (const ADepositSite* Deposit : State.Deposits)
-	{
-		PlanningPolicy::FRigSite& Site = Out.AddDefaulted_GetRef();
-		if (!IsValid(Deposit))
-			continue;
-		Site.Position = Deposit->GetActorLocation();
-		Site.bFree = !IsValid(Deposit->Extractor) && Deposit->Remaining > 0;
-		Site.bOwnTerritory = State.GetRegionController(Deposit->RegionIndex) == Team
-			&& !State.IsRegionContested(Deposit->RegionIndex, Team);
-	}
-}
-
-// A free deposit within Clearance of Location in the plane: a Barracks there would crowd the Rig's spot.
-bool CrowdsFreeDeposit(const ACommandGameState& State, const FVector& Location, float Clearance)
-{
-	for (const ADepositSite* Deposit : State.Deposits)
-		if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
-			&& FVector::DistSquared2D(Location, Deposit->GetActorLocation()) < FMath::Square(Clearance))
-			return true;
-	return false;
-}
-
-int32 FirstBuildingWith(const UMatchContent& Content, bool UBuildingDefinition::* Capability)
-{
-	for (int32 Index = 0; Index < Content.Buildings.Num(); ++Index)
-		if (const UBuildingDefinition* Building = Content.Building(Index); Building && Building->*Capability)
-			return Index;
-	return INDEX_NONE;
-}
-
-void GhostBarracks(const ACommandGameState& State, const AHeadquarters& Home, int32 Team, FPlanningGhosts& Out)
-{
-	const int32 Index = FirstBuildingWith(*State.Content, &UBuildingDefinition::bProducesForces);
+	const int32 Index = GameStatePlanning::KitBuildingIndex(*State.Content, false);
 	const UBuildingDefinition* Barracks = State.Content->Building(Index);
-	if (!Barracks)
-		return;
-	const float Clearance = Barracks->FootprintRadius * UE_SQRT_2 + 200.f;
 	FString Reason;
-	for (int32 Spot = 0; Spot < PlanningHud::SpotCount; ++Spot)
-	{
-		const FVector Candidate = PlanningHud::DefaultBarracksSpot(Home.GetActorLocation(), Team, Spot);
-		if (CrowdsFreeDeposit(State, Candidate, Clearance) || !State.ValidateBuildingPlacement(Index, Team, Candidate, Reason))
-			continue;
-		Out.bBarracks = true;
-		Out.Barracks = State.ResolveBuildingLocation(Index, Candidate, Team);
-		Out.BarracksHalf = Barracks->FootprintRadius;
+	FVector Spot;
+	if (!Barracks
+		|| !GameStatePlanning::FindDefaultBarracks(State, Team,
+			[&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Spot))
 		return;
-	}
+	Out.bBarracks = true;
+	Out.Barracks = State.ResolveBuildingLocation(Index, Spot, Team);
+	Out.BarracksHalf = Barracks->FootprintRadius;
 }
 
-void GhostRig(const ACommandGameState& State, const AHeadquarters& Home, int32 Team, FPlanningGhosts& Out)
+void GhostRig(const ACommandGameState& State, int32 Team, FPlanningGhosts& Out)
 {
-	TArray<PlanningPolicy::FRigSite> Sites;
-	CollectRigSites(State, Team, Sites);
-	const int32 Best = PlanningPolicy::NearestRigSite(Sites, Home.GetActorLocation());
-	const UBuildingDefinition* Rig = State.Content->Building(FirstBuildingWith(*State.Content, &UBuildingDefinition::bRequiresDeposit));
-	if (Best == INDEX_NONE || !Rig)
+	const int32 Index = GameStatePlanning::KitBuildingIndex(*State.Content, true);
+	const UBuildingDefinition* Rig = State.Content->Building(Index);
+	FString Reason;
+	FVector Site;
+	if (!Rig
+		|| !GameStatePlanning::FindDefaultRig(State, Team,
+			[&](const FVector& Candidate) { return State.ValidateBuildingPlacement(Index, Team, Candidate, Reason); }, Site))
 		return;
 	Out.bRig = true;
-	Out.Rig = Sites[Best].Position;
+	Out.Rig = Site;
 	Out.RigHalf = Rig->FootprintRadius;
 }
 }
@@ -95,7 +59,7 @@ FPlanningView ReadPlanning(const FContext& Context)
 		return View;
 	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*Context.State, Context.Wallet->TeamIndex);
 	TArray<PlanningPolicy::FRigSite> Sites;
-	CollectRigSites(*Context.State, Context.Wallet->TeamIndex, Sites);
+	GameStatePlanning::CollectRigSites(*Context.State, Context.Wallet->TeamIndex, Sites);
 	View.bRigSite = Home && PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()) != INDEX_NONE;
 	View.bBarracksPlaced = IsValid(View.Kit->Barracks);
 	View.bRigPlaced = IsValid(View.Kit->Rig);
@@ -108,16 +72,22 @@ bool IsKitBuilding(const UBuildingDefinition& Definition)
 	return Definition.bProducesForces || Definition.bRequiresDeposit;
 }
 
+FString PlanningPieceName(const FContext& Context, bool bRig)
+{
+	const UMatchContent* Content = Context.State && IsValid(Context.State->Content) ? Context.State->Content.Get() : nullptr;
+	const UBuildingDefinition* Definition = Content ? Content->Building(GameStatePlanning::KitBuildingIndex(*Content, bRig)) : nullptr;
+	return Definition ? Definition->DisplayName.ToString() : FString(bRig ? TEXT("Drill Rig") : TEXT("Barracks"));
+}
+
 FPlanningGhosts ComputeGhosts(const ACommandGameState& State, const ACommandPlayerState& Commander, const FPlanningKit& Kit)
 {
 	FPlanningGhosts Ghosts;
-	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(State, Commander.TeamIndex);
-	if (!Home || !IsValid(State.Content))
+	if (!IsValid(State.Content))
 		return Ghosts;
 	if (!IsValid(Kit.Barracks))
-		GhostBarracks(State, *Home, Commander.TeamIndex, Ghosts);
+		GhostBarracks(State, Commander.TeamIndex, Ghosts);
 	if (!IsValid(Kit.Rig))
-		GhostRig(State, *Home, Commander.TeamIndex, Ghosts);
+		GhostRig(State, Commander.TeamIndex, Ghosts);
 	return Ghosts;
 }
 }

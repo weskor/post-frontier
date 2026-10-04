@@ -45,7 +45,7 @@ FString Chip(int32 Slot, EChip State)
 FString Confirm(bool bBarracks, bool bRig)
 {
 	TStringBuilder<128> Text;
-	AppendConfirm(Text, bBarracks, bRig);
+	AppendConfirm(Text, bBarracks, bRig, TEXT("Barracks"), TEXT("Drill Rig"));
 	return FString(Text.ToView());
 }
 
@@ -137,6 +137,10 @@ bool FPlanningHudEnterTest::RunTest(const FString&)
 	TestEqual(TEXT("or the Drill Rig"), Confirm(false, true), FString(TEXT("Drill Rig not placed: default spot. Press Enter again")));
 	TestEqual(TEXT("or both"), Confirm(true, true),
 		FString(TEXT("Barracks and Drill Rig not placed: default spots. Press Enter again")));
+	TStringBuilder<128> Renamed;
+	AppendConfirm(Renamed, false, true, TEXT("Barracks"), TEXT("Extractor"));
+	TestEqual(TEXT("The question says whatever the catalogue calls the piece"), FString(Renamed.ToView()),
+		FString(TEXT("Extractor not placed: default spot. Press Enter again")));
 	return true;
 }
 

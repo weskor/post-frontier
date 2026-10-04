@@ -59,7 +59,9 @@ void DrawPieceStep(const FPainter& Paint, const FContext& Context, const FPlanni
 {
 	const ACommandBuilding* Piece = bRig ? View.Kit->Rig.Get() : View.Kit->Barracks.Get();
 	const bool bPlaced = IsValid(Piece);
-	DrawStepLabel(Paint, Row, Number, bPlaced, bRig ? FStringView(TEXT("Place Drill Rig")) : FStringView(TEXT("Place Barracks")));
+	TStringBuilder<64> Label;
+	Label << TEXT("Place ") << PlanningPieceName(Context, bRig);
+	DrawStepLabel(Paint, Row, Number, bPlaced, Label.ToView());
 	const int32 Index = KitIndex(Context, bRig);
 	TStringBuilder<160> Detail;
 	const FPlanningGhosts& Ghosts = Context.Controller->GetPlanningGhosts();

@@ -14,6 +14,7 @@
 #include "GameState/GameStateRegistry.h"
 #include "Headquarters.h"
 #include "NavigationSystem.h"
+#include "Rules/PlanningHudPolicy.h"
 #include "Rules/PlanningPolicy.h"
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "HAL/PlatformMisc.h"
@@ -27,15 +28,21 @@
 
 namespace
 {
-int32 FirstBuildingWith(const UMatchContent& Content, bool UBuildingDefinition::* Capability)
+int32 SlotOf(const FPlanningKit& Kit)
+{
+	return IsValid(Kit.Commander) ? Kit.Commander->CommanderIndex : INDEX_NONE;
+}
+}
+
+int32 GameStatePlanning::KitBuildingIndex(const UMatchContent& Content, bool bRig)
 {
 	for (int32 Index = 0; Index < Content.Buildings.Num(); ++Index)
-		if (const UBuildingDefinition* Building = Content.Building(Index); Building && Building->*Capability)
+		if (const UBuildingDefinition* Building = Content.Building(Index); Building && (bRig ? Building->bRequiresDeposit : Building->bProducesForces))
 			return Index;
 	return INDEX_NONE;
 }
 
-void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<PlanningPolicy::FRigSite>& Out)
+void GameStatePlanning::CollectRigSites(const ACommandGameState& State, int32 Team, TArray<PlanningPolicy::FRigSite>& Out)
 {
 	for (const ADepositSite* Deposit : State.Deposits)
 	{
@@ -44,13 +51,12 @@ void CollectRigSites(const ACommandGameState& State, int32 Team, TArray<Planning
 			continue;
 		Site.Position = Deposit->GetActorLocation();
 		Site.bFree = !IsValid(Deposit->Extractor) && Deposit->Remaining > 0;
-		Site.bOwnTerritory = State.GetRegionController(Deposit->RegionIndex) == Team
-			&& !State.IsRegionContested(Deposit->RegionIndex, Team);
+		Site.bOwnTerritory = State.GetRegionController(Deposit->RegionIndex) == Team && !State.IsRegionContested(Deposit->RegionIndex, Team);
 	}
 }
 
 // A free deposit within Clearance of Location in the plane.
-bool CrowdsFreeDeposit(const ACommandGameState& State, const FVector& Location, float Clearance)
+static bool CrowdsFreeDeposit(const ACommandGameState& State, const FVector& Location, float Clearance)
 {
 	for (const ADepositSite* Deposit : State.Deposits)
 		if (IsValid(Deposit) && Deposit->Remaining > 0 && !IsValid(Deposit->Extractor)
@@ -59,10 +65,44 @@ bool CrowdsFreeDeposit(const ACommandGameState& State, const FVector& Location, 
 	return false;
 }
 
-int32 SlotOf(const FPlanningKit& Kit)
+bool GameStatePlanning::FindDefaultBarracks(const ACommandGameState& State, int32 Team, TFunctionRef<bool(const FVector&)> Accept, FVector& OutSpot)
 {
-	return IsValid(Kit.Commander) ? Kit.Commander->CommanderIndex : INDEX_NONE;
+	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(State, Team);
+	if (!Home || !IsValid(State.Content))
+		return false;
+	// A spot that would crowd a free deposit is skipped, so a later Drill Rig still fits (as JEV's own placement does).
+	const UBuildingDefinition* Barracks = State.Content->Building(KitBuildingIndex(*State.Content, false));
+	const float Clearance = Barracks ? Barracks->FootprintRadius * UE_SQRT_2 + 200.f : 0.f;
+	for (int32 Spot = 0; Spot < PlanningHud::SpotCount; ++Spot)
+	{
+		const FVector Candidate = PlanningHud::DefaultBarracksSpot(Home->GetActorLocation(), Team, Spot);
+		if (!CrowdsFreeDeposit(State, Candidate, Clearance) && Accept(Candidate))
+		{
+			OutSpot = Candidate;
+			return true;
+		}
+	}
+	return false;
 }
+
+bool GameStatePlanning::FindDefaultRig(const ACommandGameState& State, int32 Team, TFunctionRef<bool(const FVector&)> Accept, FVector& OutSite)
+{
+	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(State, Team);
+	if (!Home)
+		return false;
+	TArray<PlanningPolicy::FRigSite> Sites;
+	CollectRigSites(State, Team, Sites);
+	for (int32 Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()); Best != INDEX_NONE;
+		Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()))
+	{
+		if (Accept(Sites[Best].Position))
+		{
+			OutSite = Sites[Best].Position;
+			return true;
+		}
+		Sites[Best].bFree = false;
+	}
+	return false;
 }
 
 bool GameStatePlanning::NavigationReady(UWorld* World)
@@ -166,8 +206,7 @@ void ACommandGameState::DestroyKit(FPlanningKit& Kit)
 bool ACommandGameState::PlaceKitPiece(FPlanningKit& Kit, bool bRig, const FVector& Location, FString& OutReason)
 {
 	TObjectPtr<ACommandBuilding>& Piece = bRig ? Kit.Rig : Kit.Barracks;
-	const int32 Index = IsValid(Content) ? FirstBuildingWith(*Content, bRig ? &UBuildingDefinition::bRequiresDeposit : &UBuildingDefinition::bProducesForces)
-										 : INDEX_NONE;
+	const int32 Index = IsValid(Content) ? GameStatePlanning::KitBuildingIndex(*Content, bRig) : INDEX_NONE;
 	if (Index == INDEX_NONE || !IsValid(Kit.Commander))
 	{
 		OutReason = TEXT("Kit unavailable");
@@ -193,47 +232,18 @@ bool ACommandGameState::PlaceKitPiece(FPlanningKit& Kit, bool bRig, const FVecto
 
 bool ACommandGameState::PlaceDefaultBarracks(FPlanningKit& Kit)
 {
-	const int32 Team = Kit.Commander->TeamIndex;
-	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Team);
-	if (!Home)
-		return false;
-	// Rings around the headquarters, mirrored with the side; the first legal spot wins. A spot that would crowd a
-	// free deposit is skipped, so a later Drill Rig still fits (as JEV's own placement does).
-	const float Orientation = Team == 5 ? -1.f : 1.f;
-	const UBuildingDefinition* Barracks = Content->Building(FirstBuildingWith(*Content, &UBuildingDefinition::bProducesForces));
-	const float Clearance = Barracks ? Barracks->FootprintRadius * UE_SQRT_2 + 200.f : 0.f;
 	FString Reason;
-	for (int32 Ring = 0; Ring < 9; ++Ring)
-		for (int32 Direction = 0; Direction < 32; ++Direction)
-		{
-			const float Angle = Direction * PI / 16.f;
-			FVector Location = Home->GetActorLocation()
-				+ FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.f) * ((380.f + Ring * 160.f) * Orientation);
-			Location.Z = 5.f;
-			const bool bCrowds = CrowdsFreeDeposit(*this, Location, Clearance);
-			if (!bCrowds && PlaceKitPiece(Kit, false, Location, Reason))
-				return true;
-		}
-	return false;
+	FVector Spot;
+	return GameStatePlanning::FindDefaultBarracks(*this, Kit.Commander->TeamIndex,
+		[&](const FVector& Candidate) { return PlaceKitPiece(Kit, false, Candidate, Reason); }, Spot);
 }
 
 bool ACommandGameState::PlaceDefaultRig(FPlanningKit& Kit)
 {
-	const int32 Team = Kit.Commander->TeamIndex;
-	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Team);
-	if (!Home)
-		return false;
-	TArray<PlanningPolicy::FRigSite> Sites;
-	CollectRigSites(*this, Team, Sites);
 	FString Reason;
-	for (int32 Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()); Best != INDEX_NONE;
-		Best = PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()))
-	{
-		if (PlaceKitPiece(Kit, true, Sites[Best].Position, Reason))
-			return true;
-		Sites[Best].bFree = false;
-	}
-	return false;
+	FVector Site;
+	return GameStatePlanning::FindDefaultRig(*this, Kit.Commander->TeamIndex,
+		[&](const FVector& Candidate) { return PlaceKitPiece(Kit, true, Candidate, Reason); }, Site);
 }
 
 namespace
@@ -298,13 +308,13 @@ void ACommandGameState::FillKit(FPlanningKit& Kit)
 	if (!IsValid(Kit.Commander))
 		return;
 	TArray<PlanningPolicy::FRigSite> Sites;
-	CollectRigSites(*this, Kit.Commander->TeamIndex, Sites);
+	GameStatePlanning::CollectRigSites(*this, Kit.Commander->TeamIndex, Sites);
 	const AHeadquarters* Home = GameStateRegistry::HomeHeadquarters(*this, Kit.Commander->TeamIndex);
 	const bool bSite = Home && PlanningPolicy::NearestRigSite(Sites, Home->GetActorLocation()) != INDEX_NONE;
 	const PlanningPolicy::FKitFill Need = PlanningPolicy::Fill(IsValid(Kit.Barracks), IsValid(Kit.Rig), bSite);
 	if (Need.bPlaceBarracks && !PlaceDefaultBarracks(Kit))
 		UE_LOG(LogTemp, Warning, TEXT("Planning: no room for commander %d's Barracks"), Kit.Commander->CommanderIndex);
-	const UBuildingDefinition* Rig = Content->Building(FirstBuildingWith(*Content, &UBuildingDefinition::bRequiresDeposit));
+	const UBuildingDefinition* Rig = Content->Building(GameStatePlanning::KitBuildingIndex(*Content, true));
 	if ((Need.bRefundRig || (Need.bPlaceRig && !PlaceDefaultRig(Kit))) && Rig)
 		Kit.Commander->AddResources(ACommandBuilding::GetBuildCost(*Rig));
 }

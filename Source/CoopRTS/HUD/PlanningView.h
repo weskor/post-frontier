@@ -31,8 +31,10 @@ struct FPlanningView
 FPlanningView ReadPlanning(const FContext& Context);
 // Whether a building definition is a kit piece (the Barracks or the Drill Rig); the others open at 0:00.
 bool IsKitBuilding(const UBuildingDefinition& Definition);
-
+// The catalogue's display name of the kit's Barracks or Drill Rig: the one name the KIT cards, the panel, the ghosts and the
+// Enter question use.
+FString PlanningPieceName(const FContext& Context, bool bRig);
 // Where the end of planning would put the kit pieces still missing, for the dashed ghosts. Computed on the client from
-// the replicated world, by the same rings and deposit rule as ACommandGameState::PlaceDefaultBarracks / PlaceDefaultRig.
+// the replicated world, through the same GameStatePlanning::FindDefaultBarracks / FindDefaultRig the server places by.
 FPlanningGhosts ComputeGhosts(const ACommandGameState& State, const ACommandPlayerState& Commander, const FPlanningKit& Kit);
 }

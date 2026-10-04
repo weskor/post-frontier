@@ -14,20 +14,27 @@ constexpr float ChipRowHeight = 21.f;
 constexpr float ChipSpacing = 6.f;
 constexpr float ClockOverhang = 30.f;
 
-void DashedOutline(const FPainter& Paint, const FRect& Rect, const FLinearColor& Color)
+// Dashes that would cross a world label are left out, so the ghost never strikes through text.
+void DashedOutline(const FPainter& Paint, const FRect& Rect, const FLinearColor& Color, TConstArrayView<FRect> Avoid)
 {
 	constexpr float Dash = 7.f, Gap = 5.f, Thickness = 2.f;
+	const auto Put = [&](const FRect& Segment) {
+		for (const FRect& Label : Avoid)
+			if (Segment.Intersects(Label))
+				return;
+		Paint.Fill(Segment, Color);
+	};
 	for (float X = Rect.X; X < Rect.Right(); X += Dash + Gap)
 	{
 		const float Width = FMath::Min(Dash, Rect.Right() - X);
-		Paint.Fill({ X, Rect.Y, Width, Thickness }, Color);
-		Paint.Fill({ X, Rect.Bottom() - Thickness, Width, Thickness }, Color);
+		Put({ X, Rect.Y, Width, Thickness });
+		Put({ X, Rect.Bottom() - Thickness, Width, Thickness });
 	}
 	for (float Y = Rect.Y; Y < Rect.Bottom(); Y += Dash + Gap)
 	{
 		const float Height = FMath::Min(Dash, Rect.Bottom() - Y);
-		Paint.Fill({ Rect.X, Y, Thickness, Height }, Color);
-		Paint.Fill({ Rect.Right() - Thickness, Y, Thickness, Height }, Color);
+		Put({ Rect.X, Y, Thickness, Height });
+		Put({ Rect.Right() - Thickness, Y, Thickness, Height });
 	}
 }
 
@@ -48,20 +55,42 @@ bool GhostBox(const FPainter& Paint, const FContext& Context, const FVector& Cen
 	return true;
 }
 
-// The plate sits on the ghost's centre, moved off any deposit label (the Drill Rig's ghost is a deposit) and kept on screen.
+bool IsClear(const FPainter& Paint, const FContext& Context, const FLayout& Layout, TConstArrayView<FRect> Labels, const FRect& Plate)
+{
+	if (!OverlayFits(Paint, Plate) || !OverlayClearsPanels(Context, Layout, Plate))
+		return false;
+	for (const FRect& Label : Labels)
+		if (Plate.Intersects(Label))
+			return false;
+	return true;
+}
+
+// The plate sits on the ghost's centre; when a deposit label (the Drill Rig's ghost is a deposit) or a panel is in the way
+// it goes above, below or beside the box, and failing all of those it is moved clear of the labels.
+FRect GhostPlate(const FPainter& Paint, const FContext& Context, const FLayout& Layout, TConstArrayView<FRect> Labels, const FRect& Box, float Width)
+{
+	constexpr float Height = 34.f;
+	const FRect Centred{ Box.Center().X - Width * .5f, Box.Center().Y - Height * .5f, Width, Height };
+	const FRect Candidates[] = { Centred, { Centred.X, Box.Y - Height - 4.f, Width, Height }, { Centred.X, Box.Bottom() + 4.f, Width, Height },
+		{ Box.Right() + 4.f, Centred.Y, Width, Height }, { Box.X - Width - 4.f, Centred.Y, Width, Height } };
+	for (const FRect& Candidate : Candidates)
+		if (IsClear(Paint, Context, Layout, Labels, Candidate))
+			return Candidate;
+	return PlaceClearOf(Centred, Labels, [&](const FRect& Candidate) {
+		return OverlayFits(Paint, Candidate) && OverlayClearsPanels(Context, Layout, Candidate);
+	});
+}
+
 void DrawGhost(const FPainter& Paint, const FContext& Context, const FLayout& Layout, TConstArrayView<FRect> Labels,
 	const FVector& Center, float Half, FStringView Title)
 {
 	FRect Box;
 	if (!GhostBox(Paint, Context, Center, Half, Box) || !OverlayFits(Paint, Box))
 		return;
-	DashedOutline(Paint, Box, Palette::Warn);
+	DashedOutline(Paint, Box, Palette::Warn, Labels);
 	constexpr FStringView Note = TEXTVIEW("auto-placed at 0:00 if unplaced");
 	const float Width = FMath::Max(Paint.TextWidth(Title, 9.5f, true), Paint.TextWidth(Note, 8.5f)) + 16.f;
-	const FRect Wanted{ Box.Center().X - Width * .5f, Box.Center().Y - 17.f, Width, 34.f };
-	const FRect Plate = PlaceClearOf(Wanted, Labels, [&](const FRect& Candidate) {
-		return OverlayFits(Paint, Candidate) && OverlayClearsPanels(Context, Layout, Candidate);
-	});
+	const FRect Plate = GhostPlate(Paint, Context, Layout, Labels, Box, Width);
 	if (!OverlayFits(Paint, Plate) || !OverlayClearsPanels(Context, Layout, Plate))
 		return;
 	Paint.Fill(Plate, Palette::Panel);
@@ -130,9 +159,12 @@ void DrawPlanningGhosts(const FPainter& Paint, const FContext& Context, const FL
 	TArray<FRect, TInlineAllocator<16>> Labels;
 	DepositLabelRects(Paint, Context, Labels);
 	const FPlanningGhosts& Ghosts = Context.Controller->GetPlanningGhosts();
-	if (!View.bBarracksPlaced && Ghosts.bBarracks)
-		DrawGhost(Paint, Context, Layout, Labels, Ghosts.Barracks, Ghosts.BarracksHalf, TEXT("Barracks default spot"));
-	if (!View.bRigPlaced && Ghosts.bRig)
-		DrawGhost(Paint, Context, Layout, Labels, Ghosts.Rig, Ghosts.RigHalf, TEXT("Drill Rig default spot"));
+	for (const bool bRig : { false, true })
+		if (!(bRig ? View.bRigPlaced : View.bBarracksPlaced) && (bRig ? Ghosts.bRig : Ghosts.bBarracks))
+		{
+			TStringBuilder<64> Title;
+			Title << PlanningPieceName(Context, bRig) << TEXT(" default spot");
+			DrawGhost(Paint, Context, Layout, Labels, bRig ? Ghosts.Rig : Ghosts.Barracks, bRig ? Ghosts.RigHalf : Ghosts.BarracksHalf, Title.ToView());
+		}
 }
 }

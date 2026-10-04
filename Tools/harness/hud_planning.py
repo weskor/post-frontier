@@ -102,13 +102,12 @@ def open_phase(
     )
     mates = teammates(state)
     fill_mate(run, mates[0])
-    # The fixture's two plans stand in for JEV's first plans: the timeline must show them muted and frozen.
-    run.request("host", "jevPlans", stage="create")
+    # JEV's own first plans, published on the frozen world, must show muted on the timeline.
     state = capture.wait(
         lambda s: (
             bool(kit(s, mates[0])["ready"])
             and s["planning"]["active"]
-            and len(s["jevIntent"]["entries"]) == 2
+            and bool(s["jevIntent"]["entries"])
         ),
         "the first teammate is Ready; planning goes on",
     )

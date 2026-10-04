@@ -7,6 +7,7 @@
 #include "HUD/PlanningPanel.h"
 #include "InputKeyEventArgs.h"
 #include "PlanningFixture.h"
+#include "Rules/PlanningHudPolicy.h"
 
 // The planning world tests that drive the real controller and HUD (CoopRTS.Planning.UI.*): keys through InputKey, clicks
 // through the HUD's own hit geometry, orders through the minimap, as the player does. Everything the commander edits goes
@@ -70,6 +71,14 @@ protected:
 		return false;
 	}
 	FString Feedback() const { return PC->GetOrderFeedback(); }
+	// What Enter asks when nothing is placed: both pieces, by the catalogue's names.
+	FString Question() const
+	{
+		const CommandHUDPanels::FContext Context = CommandHUDPanels::MakeContext(PC);
+		TStringBuilder<128> Text;
+		PlanningHud::AppendConfirm(Text, true, true, CommandHUDPanels::PlanningPieceName(Context, false), CommandHUDPanels::PlanningPieceName(Context, true));
+		return FString(Text.ToView());
+	}
 
 	int32 Frames = 0;
 	int32 ViewWidth = 0, ViewHeight = 0;

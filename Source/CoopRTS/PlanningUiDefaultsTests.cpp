@@ -25,13 +25,20 @@ private:
 		case 0:
 			return KitsAndHudUp() ? Advance(1) : false;
 		case 1:
-			return GhostsShown() ? PressEnter(2) : false;
+			// The Attack mode stays armed through the end of planning: it must not reach the battle.
+			if (!GhostsShown())
+				return false;
+			Key(EKeys::A);
+			return Check(PC->IsAssigningOrder(), TEXT("A arms the kit's Attack mode")) ? PressEnter(2) : false;
 		case 2:
 			return Settled() && Asked() ? PressEnter(3) : false;
 		case 3:
-			return Settled() && Accepted() ? Advance(4) : false;
+			if (!Settled() || !Accepted())
+				return false;
+			Frames = 0;
+			return Advance(4);
 		default:
-			return Landed() ? Done() : false;
+			return Settled() && Landed() ? Done() : false;
 		}
 	}
 
@@ -67,7 +74,7 @@ private:
 
 	bool Asked()
 	{
-		return Check(!Kit()->bReady && Feedback() == TEXT("Barracks and Drill Rig not placed: default spots. Press Enter again"),
+		return Check(!Kit()->bReady && Feedback() == Question(),
 			TEXT("Enter with an untouched kit asks before leaving it to the defaults"));
 	}
 
@@ -85,6 +92,7 @@ private:
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->OwningPlayerState == Host)
 				(Building->Kind == EBuildingKind::Barracks ? Placed : Extractor) = Building;
+		Check(!PC->IsAssigningOrder() && Feedback().IsEmpty(), TEXT("The armed Attack mode and the planning line are gone at 0:00"));
 		return Check(Placed && FVector::Dist2D(Placed->GetActorLocation(), Barracks) < 1., TEXT("The Barracks stands where its ghost was"))
 			&& Check(Extractor && Extractor->Deposit == Deposit && FVector::Dist2D(Extractor->GetActorLocation(), Rig) < 1. && Host->Resources == 200,
 				TEXT("The Drill Rig stands on its ghost's deposit and cost nothing"));

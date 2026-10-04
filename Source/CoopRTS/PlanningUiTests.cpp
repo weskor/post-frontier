@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "ArmyGroup.h"
+#include "HAL/IConsoleManager.h"
 #include "ArmyTestSetup.h"
 #include "DepositSite.h"
 #include "Headquarters.h"
@@ -19,14 +20,18 @@ namespace PlanningUiFlowTests
 {
 using namespace CommandHUDPanels;
 
-const TCHAR* const Question = TEXT("Barracks and Drill Rig not placed: default spots. Press Enter again");
-
 FString ReadyText(const FContext& Context)
 {
 	const FPlanningView View = ReadPlanning(Context);
 	TStringBuilder<64> Text;
 	PlanningHud::AppendReady(Text, View.Kit && View.Kit->bReady, View.ReadyHumans, View.Humans);
 	return FString(Text.ToView());
+}
+
+int32 MotionBlurQuality()
+{
+	const IConsoleVariable* Quality = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MotionBlurQuality"));
+	return Quality ? Quality->GetInt() : INDEX_NONE;
 }
 
 class FScenario final : public PlanningUiFixture::FScenario
@@ -88,6 +93,7 @@ private:
 		const FContext Context = MakeContext(PC);
 		if (!Check(Context.bPlanning && !Context.bKitReady, TEXT("The phase is on and the kit is not Ready")))
 			return;
+		Check(MotionBlurQuality() == 0, TEXT("Motion blur is held off while the frozen world is on screen"));
 		for (const FVector2D& Size : { FVector2D(1600.f, 900.f), FVector2D(1280.f, 720.f) })
 		{
 			const FLayout Layout = MakeLayout(Context, Size.X, Size.Y);
@@ -123,7 +129,7 @@ private:
 
 	bool AskedFirst()
 	{
-		return Check(!Kit()->bReady && Feedback() == Question, TEXT("Enter with nothing placed asks and does not ready"));
+		return Check(!Kit()->bReady && Feedback() == Question(), TEXT("Enter with nothing placed asks and does not ready"));
 	}
 
 	bool AcceptedDefaults()
@@ -152,7 +158,7 @@ private:
 
 	bool AskedAgain()
 	{
-		return Check(!Kit()->bReady && Feedback() == Question, TEXT("A spent question is not remembered: Enter asks again"));
+		return Check(!Kit()->bReady && Feedback() == Question(), TEXT("A spent question is not remembered: Enter asks again"));
 	}
 
 	// The KIT bar through the existing placement mode: free (100 Power is under a Barracks' price), finished, movable.
@@ -247,7 +253,7 @@ private:
 	// With the kit placed Enter readies at once.
 	bool ReadiedByEnter()
 	{
-		return Check(Kit()->bReady && Feedback() != Question && State->IsPlanning(), TEXT("A placed kit readies on one Enter and the phase goes on"));
+		return Check(Kit()->bReady && Feedback() != Question() && State->IsPlanning(), TEXT("A placed kit readies on one Enter and the phase goes on"));
 	}
 
 	// Un-Ready edits again: the last unit type pick is the one that starts, and the last Ready ends the phase.
@@ -257,6 +263,9 @@ private:
 			return false;
 		Click(EHUDAction::PlanUnit1);
 		Check(Kit()->UnitRole == EUnitRole::Ranged, TEXT("and edits work again"));
+		// The KIT card stays armed when the last Ready lands: it must not survive into the battle.
+		Click(EHUDAction::BuildSlot0);
+		Check(PC->IsPlacingBuilding(), TEXT("A KIT card is armed as planning ends"));
 		return Check(FPlanningCommands::SetReady(GuestPtr.Get(), true).IsAccepted() && State->IsPlanning(), TEXT("The other commander readies; one human is still not"));
 	}
 
@@ -272,6 +281,9 @@ private:
 			bPlanning |= IsPlanningAction(Button.Action);
 		});
 		Check(!Context.bPlanning && bPause && !bPlanning, TEXT("At 0:00 the panel goes and Pause is back"));
+		Check(!PC->IsPlacingBuilding() && PC->IsHUDExpanded() && Feedback().IsEmpty(),
+			TEXT("At 0:00 the armed KIT card, its hint and the Ready line are gone, so a click cannot buy a second Barracks"));
+		Check(MotionBlurQuality() > 0, TEXT("and back on at 0:00"));
 		const ACommandBuilding* Barracks = nullptr;
 		for (const ACommandBuilding* Building : State->Buildings)
 			if (IsValid(Building) && Building->OwningPlayerState == Host && Building->Kind == EBuildingKind::Barracks)

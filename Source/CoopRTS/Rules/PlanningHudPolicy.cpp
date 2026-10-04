@@ -68,12 +68,12 @@ bool IsConfirmLive(double Now, double Asked)
 	return Now >= Asked && Now - Asked <= ConfirmSeconds;
 }
 
-void AppendConfirm(FStringBuilderBase& Out, bool bBarracks, bool bRig)
+void AppendConfirm(FStringBuilderBase& Out, bool bBarracks, bool bRig, FStringView BarracksName, FStringView RigName)
 {
 	if (bBarracks && bRig)
-		Out << TEXT("Barracks and Drill Rig not placed: default spots. Press Enter again");
+		Out << BarracksName << TEXT(" and ") << RigName << TEXT(" not placed: default spots. Press Enter again");
 	else
-		Out << (bBarracks ? TEXT("Barracks") : TEXT("Drill Rig")) << TEXT(" not placed: default spot. Press Enter again");
+		Out << (bBarracks ? BarracksName : RigName) << TEXT(" not placed: default spot. Press Enter again");
 }
 
 EKitCard KitCard(bool bPlaced, bool bReady, bool bSiteAvailable)

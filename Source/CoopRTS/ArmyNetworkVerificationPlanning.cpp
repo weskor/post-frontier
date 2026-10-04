@@ -104,6 +104,9 @@ void PlanningSnapshot(const ACommandGameState& State, const TSharedPtr<FJsonObje
 	Number(Planning, TEXT("remaining"), State.Planning.SecondsRemaining);
 	Number(Planning, TEXT("jevKits"), State.Planning.JevKits.Num());
 	Number(Planning, TEXT("clockStart"), State.GetBattleClockStartServerTime());
+	// The line the local commander's controller shows: a refused edit's reason arrives here from the server.
+	const ACommandPlayerController* Controller = LocalController(State.GetWorld());
+	Planning->SetStringField(TEXT("feedback"), Controller ? Controller->GetOrderFeedback() : FString());
 	TArray<TSharedPtr<FJsonValue>> Kits;
 	for (const FPlanningKit& Kit : State.Planning.Kits)
 		Kits.Add(MakeShared<FJsonValueObject>(KitJson(Kit)));
