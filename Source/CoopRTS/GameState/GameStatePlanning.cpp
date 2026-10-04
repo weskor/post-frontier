@@ -16,6 +16,8 @@
 #include "NavigationSystem.h"
 #include "Rules/PlanningPolicy.h"
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "SimulationSettings.h"
 #endif
 
@@ -163,8 +165,7 @@ void ACommandGameState::DestroyKit(FPlanningKit& Kit)
 bool ACommandGameState::PlaceKitPiece(FPlanningKit& Kit, bool bRig, const FVector& Location, FString& OutReason)
 {
 	TObjectPtr<ACommandBuilding>& Piece = bRig ? Kit.Rig : Kit.Barracks;
-	const int32 Index = IsValid(Content) ? FirstBuildingWith(*Content, bRig ? &UBuildingDefinition::bRequiresDeposit
-																		   : &UBuildingDefinition::bProducesForces)
+	const int32 Index = IsValid(Content) ? FirstBuildingWith(*Content, bRig ? &UBuildingDefinition::bRequiresDeposit : &UBuildingDefinition::bProducesForces)
 										 : INDEX_NONE;
 	if (Index == INDEX_NONE || !IsValid(Kit.Commander))
 	{
@@ -286,9 +287,12 @@ void ACommandGameState::TickPlanning()
 {
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 	const FSimulationSettings& Simulation = FSimulationSettings::ForWorld(GetWorld());
-	if (Simulation.bEnabled || (GIsAutomationTesting && !bPlanningHeldByTest))
+	FString VerificationDirectory;
+	const bool bVerification = FParse::Value(FCommandLine::Get(), TEXT("CoopRTSNetVerifyDir="), VerificationDirectory);
+	if (Simulation.bEnabled || bVerification || (GIsAutomationTesting && !bPlanningHeldByTest))
 	{
-		// A simulation plays the real opening with default kits; duels and automation fixtures skip it.
+		// A simulation plays the real opening with default kits; duels, network probes and automation
+		// fixtures skip it.
 		ReconcilePlanningRoster();
 		CompletePlanningForHarness(Simulation.bEnabled && !Simulation.bDuel);
 		return;

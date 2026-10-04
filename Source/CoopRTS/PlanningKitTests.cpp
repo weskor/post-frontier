@@ -138,8 +138,8 @@ private:
 				TEXT("Ready locks placement, unit type and orders, with a reason")))
 			return false;
 		return Check(FPlanningCommands::SetReady(Host, false).IsAccepted() && FPlanningCommands::SetUnitType(Host, EUnitRole::Siege).IsAccepted()
-				&& FPlanningCommands::SetUnitType(Host, EUnitRole::Ranged).IsAccepted() && State->FindKit(Host)->UnitRole == EUnitRole::Ranged,
-			TEXT("Un-Ready unlocks edits and the last unit type wins"))
+					   && FPlanningCommands::SetUnitType(Host, EUnitRole::Ranged).IsAccepted() && State->FindKit(Host)->UnitRole == EUnitRole::Ranged,
+				   TEXT("Un-Ready unlocks edits and the last unit type wins"))
 			&& Check(FPlanningCommands::ClearFirstOrders(Host).IsAccepted() && State->FindKit(Host)->Orders.IsEmpty()
 					&& FPlanningCommands::SetFirstOrder(Host, EForceVerb::MoveHold, State->FindRegionAt(Spot)->RegionIndex).IsAccepted()
 					&& FPlanningCommands::SetFirstOrder(Host, EForceVerb::Attack, INDEX_NONE, JevBarracks.Get(), true).IsAccepted(),

@@ -13,7 +13,7 @@ There are two resources:
 
 Power alone funds your army, but tech needs Data, so aggression and holding territory fund your upgrades.
 
-- **Opening [Change]:** each commander starts with **200 Power** (starting value; today 600) and 0 Data, because their kit starts pre-built ([battle.md](battle.md)), and earns a 2/s Power baseline.
+- **Opening [Built]:** each commander starts with **200 Power** (starting value; `starting_resources` in `Build/Content/constants.json`) and 0 Data, because their kit starts pre-built ([battle.md](battle.md)), and earns a 2/s Power baseline.
 - **Reward regions [Built]:** each controlled, connected reward region your team holds pays **1 Data/s per commander**, through the team pool. Data per commander therefore doesn't shrink as the team grows. Region roles finally mean something. On Habitable Zone v2 the reward regions are Uplink, Relay Plant, Power Yard and Cooling (starting value, orchestrator 2026-10-04).
 - **Structure kills [Built]:** destroying a **completed** JEV building pays **60 Data** into the team pool (starting value), whatever killed it. It covers the Barracks, Drill Rig and Workshop, and the Failover Node once it exists. It excludes the HQ, buildings under construction and cancelled buildings. JEV earns no Data in step 1b (starting values, orchestrator 2026-10-04).
 - **Upkeep:** none. Army size is limited only by refill cost. **[Candidate]** Company of Heroes–style upkeep (income falls as the army grows) is the next anti-turtling lever if baseline income still feeds stalemates after the 1b levers. Try it before removing the baseline.

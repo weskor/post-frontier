@@ -59,11 +59,11 @@ bool FPlanningKitRulesTest::RunTest(const FString& Parameters)
 
 	using PlanningPolicy::FRigSite;
 	const FRigSite Sites[] = {
-		{ FVector(100., 0., 0.), false, true },   // reserved by an extractor
-		{ FVector(900., 0., 0.), true, true },    // free, far
-		{ FVector(300., 0., 0.), true, false },   // free but outside own territory
-		{ FVector(500., 0., 0.), true, true },    // free and near
-		{ FVector(-500., 0., 0.), true, true },   // equally near: the earlier site wins
+		{ FVector(100., 0., 0.), false, true }, // reserved by an extractor
+		{ FVector(900., 0., 0.), true, true }, // free, far
+		{ FVector(300., 0., 0.), true, false }, // free but outside own territory
+		{ FVector(500., 0., 0.), true, true }, // free and near
+		{ FVector(-500., 0., 0.), true, true }, // equally near: the earlier site wins
 	};
 	TestEqual(TEXT("The Rig defaults to the nearest free deposit in own territory"),
 		PlanningPolicy::NearestRigSite(Sites, FVector::ZeroVector), 3);

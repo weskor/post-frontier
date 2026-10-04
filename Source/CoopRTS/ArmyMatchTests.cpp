@@ -8,6 +8,7 @@
 #include "Headquarters.h"
 #include "SimulationSettings.h"
 #include "Content/BuildingDefinition.h"
+#include "GameState/GameStatePlanning.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArmyMatchVictoryTest, "CoopRTS.Match.VictoryRestart",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
@@ -166,8 +167,8 @@ private:
 			return false;
 		if (State->MatchResult != EMatchResult::Ongoing || Wallet->CommanderIndex != Slot
 			|| Wallet->Doctrine != EArmyDoctrine::None
-			|| Wallet->Resources < ACommandPlayerState::InitialResources
-			|| Wallet->Resources > ACommandPlayerState::InitialResources + 2 * State->GetIncomePerSecond(Wallet)
+			|| Wallet->Resources < GameStatePlanning::FixtureStartingResources
+			|| Wallet->Resources > GameStatePlanning::FixtureStartingResources + 2 * State->GetIncomePerSecond(Wallet)
 			|| State->FriendlyHeadquarters->Health != State->FriendlyHeadquarters->MaxHealth()
 			|| State->EnemyHeadquarters->Health != State->EnemyHeadquarters->MaxHealth()
 			|| State->GetIncomePerSecond(Wallet) != State->GetHumanBaselineIncomePerSecond())

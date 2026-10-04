@@ -5,7 +5,7 @@
 ## How JEV plays [Change] — decided
 
 - **[Built]** A deterministic planner that re-plans every 2 s and follows the same economy, placement and production rules as the players.
-- **[New] Matching start:** JEV starts each battle with a pre-built base matching the players' kits, so its first release still matters ([battle.md](battle.md)).
+- **[Built] Matching start:** JEV starts each battle with a pre-built Barracks and Drill Rig per human commander, finished before 0:00, so its first release still matters ([battle.md](battle.md)). **[New]** Its first plans for those forces are published during planning.
 - **[New] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
 - **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
 - **[Built] Supply chain:** JEV builds and counts a Drill Rig only in a region its main reaches through regions it controls (`ForceOrders::ConnectedMask`, the one connectivity rule), so it never pays for a disconnected rig and resumes investing once the chain is retaken. Its planner values an expansion or Move & Hold that restores connected income, counts an isolated deposit as worth nothing, and values holding a region that connected income depends on.

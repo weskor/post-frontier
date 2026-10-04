@@ -3,7 +3,7 @@
 > Part of the [Post-Frontier design](../Design.md). Related: [build-order](build-order.md), [forces](forces.md), [jev](jev.md), [open-questions](open-questions.md).
 
 - **Length target:** 8–12 min.
-- **Start [Change]:** a planning phase, then the commanders' kits stand pre-built (see "Opening" below). Today [Built]: an empty base, 600 Power per commander and no units.
+- **Start [Built]:** a planning phase, then the commanders' kits stand pre-built (see "Opening" below). Before this: an empty base, 600 Power per commander and no units.
 - **Win:** complete the node objective.
 - **Lose [Built]:** the friendly HQ goes offline and the attackers complete its hold ([Guarding the HQs](#guarding-the-hqs-built--decided)).
 
@@ -11,17 +11,19 @@
 
 **Why.** Every battle used to start from an empty base. In all 20 harness matches the AI's opening was identical to the second: barracks finished at 14 s, first Drill Rig at 27 s, first capture at 39 s, first fight around 2:15. One build order, replayed 4–6 times a run. Research: [opening.md](../Research/opening.md).
 
-**Planning phase (before 0:00) [New].** Starting values, orchestrator 2026-10-04:
-- It lasts up to 60 s of real time and ends early when every human is Ready. The battle clock, economy, JEV, combat and production don't run. Planning doesn't spend the co-op pause.
+**Planning phase (before 0:00) [Built].** Starting values, orchestrator 2026-10-04. The authoritative core is built and tested; the controller's input and HUD (Enter, KIT bar, planning panel, roster chips, see [ui.md](ui.md)) are **[New]**. Commands: `Commands/PlanningCommands.h`.
+- It lasts up to 60 s of real time and ends early when every human is Ready. The battle clock, economy, JEV, combat, production and construction don't run; the world pauses without spending the co-op pause, and P is refused. The phase ends once, at the deadline or on the last Ready, after the navmesh is ready. The battle clock (JEV's schedule, telemetry and simulation durations) reads 0:00 at that moment.
 - **Each commander:**
-  - places a pre-built Barracks (normal placement rules, in own territory) and a Drill Rig (default: the nearest free deposit in own territory);
-  - picks the Barracks unit type;
-  - may queue a first order for that force;
+  - places a pre-built Barracks (normal placement rules, in own territory; free and finished) and a Drill Rig (default: the nearest free deposit in own territory);
+  - picks the Barracks unit type, started at 0:00;
+  - may queue a first order for that force (Move & Hold or Attack, three at most), issued at 0:00;
+  - edits all of it until Ready or 0:00; Ready locks edits and un-Ready unlocks;
   - sees JEV's base and its first plans ([jev.md](jev.md)). Pings work; freehand drawing is **[Later]**.
-- **At expiry,** unplaced kits auto-place at default spots, as does any AI adjutant's kit ([run.md](run.md)).
+- **At expiry,** unplaced kits auto-place at default spots (rings around the headquarters, clear of free deposits), as does any AI adjutant's kit ([run.md](run.md)).
 - **Joining and leaving:** a commander who joins during planning gets a kit; one who leaves has their kit removed. If a commander's territory has no free deposit, they get the Drill Rig's cost in Power instead ([economy.md](economy.md#deposits-change)).
 - **Wallet:** the Opening values in [economy.md](economy.md#resources-change--decided).
-- **JEV's matching start:** one pre-built Barracks and Drill Rig per human commander. Its first plans for those forces are published during planning, so the layout answers a real threat.
+- **JEV's matching start [Built]:** one pre-built Barracks and Drill Rig per human commander, placed and finished as the humans' kits are. They follow the roster: a joiner adds a pair, a leaver removes one.
+- **JEV's first plans [New]:** published during planning, so the layout answers a real threat. They need JEV's kit forces to exist during planning ([jev.md](jev.md)).
 
 **At 0:00:** the placed buildings stand finished and production starts. Everything else (the Workshop, the signature building, drafted buildings) is built as normal.
 
