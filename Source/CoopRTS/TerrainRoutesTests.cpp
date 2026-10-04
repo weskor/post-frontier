@@ -135,6 +135,7 @@ private:
 			return Fail(Leg.Label + TEXT(": squad fixture must spawn"));
 		Hop = 0;
 		Closest.Init(TNumericLimits<double>::Max(), Leg.MustCross.Num());
+		OnDeck.Init(false, Leg.MustCross.Num());
 		LegStarted = FPlatformTime::Seconds();
 		return IssueHop(State, Wallet) ? false : true;
 	}
@@ -159,30 +160,27 @@ private:
 			for (const AArmyUnit* Unit : Force->GetUnits())
 			{
 				const FVector Location = Unit->GetActorLocation();
-				Closest[Index] = FMath::Min(Closest[Index], static_cast<double>(FVector2D::Distance(FVector2D(Location), Leg.MustCross[Index]->Centre)));
+				const double Distance = FVector2D::Distance(FVector2D(Location), Leg.MustCross[Index]->Centre);
+				Closest[Index] = FMath::Min(Closest[Index], Distance);
+				// Halfway up the deck: a unit inside the footprint at a height between the floor and the plateau.
+				OnDeck[Index] |= Distance < 450. && Location.Z > 100. && Location.Z < 300.;
 			}
 	}
 
-	// Holding the region with at least two thirds of the squad stopped at its post: authored posts near a border
-	// clip some formation slots outside the polygon, and those members never leave the capture spot.
+	// Holding the region with every member stopped at the post, on the level the region stands on.
 	bool Arrived(int32 Target, double& OutLowestZ) const
 	{
 		if (!Force->IsHoldingRegion() || Force->HoldRegionIndex != Target || Force->TargetRegionIndex != Target
 			|| Force->bHoldResponding || Force->HoldPostIndex == INDEX_NONE || CurrentRegion(Force.Get()) != Target)
 			return false;
 		OutLowestZ = TNumericLimits<double>::Max();
-		int32 AtPost = 0;
 		for (const AArmyUnit* Unit : Force->GetUnits())
 		{
-			if (Unit->GetVelocity().Size2D() > 5.f)
+			if (Unit->GetVelocity().Size2D() > 5.f || FVector::Dist2D(Unit->GetActorLocation(), Force->HoldPostLocation) > 450.f)
 				return false;
-			if (FVector::Dist2D(Unit->GetActorLocation(), Force->HoldPostLocation) <= 450.f)
-			{
-				++AtPost;
-				OutLowestZ = FMath::Min(OutLowestZ, static_cast<double>(Unit->GetActorLocation().Z));
-			}
+			OutLowestZ = FMath::Min(OutLowestZ, static_cast<double>(Unit->GetActorLocation().Z));
 		}
-		return AtPost * 3 >= Force->GetUnits().Num() * 2;
+		return !Force->GetUnits().IsEmpty();
 	}
 
 	bool Advance(ACommandGameState& State, ACommandPlayerState* Wallet)
@@ -198,9 +196,9 @@ private:
 		if (++Hop < Leg.Hops.Num())
 			return IssueHop(State, Wallet) ? false : true;
 		for (int32 Index = 0; Index < Leg.MustCross.Num(); ++Index)
-			if (Closest[Index] > 500.)
-				return Fail(FString::Printf(TEXT("%s: squad never crossed ramp %d->%d (closest %.0f cm)"), *Leg.Label,
-					Leg.MustCross[Index]->Plateau, Leg.MustCross[Index]->To, Closest[Index]));
+			if (Closest[Index] > 500. || !OnDeck[Index])
+				return Fail(FString::Printf(TEXT("%s: squad never climbed ramp %d->%d (closest %.0f cm, on deck %d)"), *Leg.Label,
+					Leg.MustCross[Index]->Plateau, Leg.MustCross[Index]->To, Closest[Index], OnDeck[Index]));
 		for (AArmyUnit* Unit : TArray<AArmyUnit*>(Force->GetUnits()))
 			if (IsValid(Unit))
 				Unit->Destroy();
@@ -214,6 +212,7 @@ private:
 	FTerrainData Data;
 	TArray<FLeg> Legs;
 	TArray<double> Closest;
+	TArray<bool> OnDeck;
 	TWeakObjectPtr<ACommandPlayerController> Controller;
 	TWeakObjectPtr<AArmyGroup> Force;
 	int32 Stage = 0;

@@ -13,6 +13,7 @@ import itertools
 import math
 from typing import Any, cast
 
+import MatchLayout
 import TerrainPlan
 from TerrainPlan import (
     CELL,
@@ -313,6 +314,8 @@ def terrain_errors(terrain: Terrain) -> list[str]:
         + _ramp_errors(terrain)
         + _site_errors(terrain)
         + _prop_errors(terrain)
+        + _wall_errors(terrain)
+        + _post_errors(terrain)
     )
     stated = {r["index"]: r["neighbours"] for r in terrain.data["regions"]}
     wrong = {i: n for i, n in terrain.neighbours().items() if stated[i] != n}
@@ -497,4 +500,50 @@ def _prop_errors(terrain: Terrain) -> list[str]:
             for p in r["poly"]
         ):
             errors.append(f"Open region {index} must be clear of rocks")
+    return errors
+
+
+def _wall_errors(terrain: Terrain) -> list[str]:
+    """Every wall border is covered along its whole shared edge (Open sides are walled from the other side, and the
+    walking check proves those sealed), and each Open region declares exactly the pieces standing in it."""
+    errors = []
+    for a, b in sorted(terrain.wall_borders):
+        if "open" in (terrain.trait.get(a), terrain.trait.get(b)):
+            continue
+        for point in terrain.shared_edge_samples(a, b):
+            if not terrain.edge_cells(point) <= terrain.walls:
+                errors.append(
+                    f"Wall {a}-{b} leaves the shared edge uncovered near {point[0]:.0f}, {point[1]:.0f}"
+                )
+                break
+    declared = terrain.data["terrain"].get("open_exceptions", {})
+    for index, trait in terrain.trait.items():
+        if trait != "open":
+            continue
+        if sorted(declared.get(str(index), [])) != sorted(
+            terrain.open_intrusions(index)
+        ):
+            errors.append(
+                f"Open region {index} contains {sorted(terrain.open_intrusions(index))} but declares "
+                f"{sorted(declared.get(str(index), []))}; list the exceptions in terrain.open_exceptions"
+            )
+    return errors
+
+
+def _post_errors(terrain: Terrain) -> list[str]:
+    """A holding squad stands in a 6-slot formation around its post (offsets +-220 x +-140 cm); the hold code clamps a
+    slot outside the polygon to the border and rejects the move, leaving that unit behind. All six slots must lie
+    inside the region on clear ground."""
+    errors = []
+    for region in terrain.data["regions"]:
+        for number, post in enumerate(region["defend_posts"]):
+            for dx in (-220, 0, 220):
+                for dy in (-140, 140):
+                    slot = (post[0] + dx, post[1] + dy)
+                    if not contains(region["poly"], slot) or not terrain.clear_ground(
+                        slot, MatchLayout.NAV_AGENT_RADIUS
+                    ):
+                        errors.append(
+                            f"Region {region['index']} post {number}: formation slot {slot} is outside the region or on blocked ground"
+                        )
     return errors

@@ -46,12 +46,12 @@ Bunker → Cluster: **51.4 s** at 420 cm/s by the same 100 cm, eight-neighbour p
 | --- | --- | --- |
 | High ground | 4 North Ridge, 7 Switchback | 300 cm plateau; one 8 m Ramp_Wide to each neighbour listed below; every other border is a cliff |
 | Cover | 2 West Cut, 6 Interchange, 11 Cooling | 23 env-kit props (sandbags, containers, wrecks, fences, chillers, transformers, cooling towers, cable spools) beside the existing rocks |
-| Open | 8 Power Yard, 12 Canal Walk | flat, no rocks or props, paved apron |
+| Open | 8 Power Yard, 12 Canal Walk | flat, no rocks or props, paved apron. Declared exceptions (`terrain.open_exceptions`, checked exactly): Power Yard holds the cells its neighbour Switchback's plateau polygon touches and the 7→8 ramp footprint. Canal Walk holds none: the 5–12 wall is built from Relay Plant's side only |
 | Hazard | 10 East Spur | flat; hazard-striped plates and glowing vents, no collision |
 
 Ridge ramps lead to Uplink (3) and Relay Plant (5); Switchback ramps lead to Human Near (1), Interchange (6) and Power Yard (8). Ramps stand on the lower region's ground. A plateau covers every 4 m cell its region's polygon touches, so no ground-level strip is left inside a plateau region (units at a cliff foot belong to the neighbour). Ground heights (camera focus, minimap and cursor picks, building placement) come from `GroundHeight`, which only counts actors tagged `Ground`: the generator tags the floor, plateau, wall and ramp pieces, so maps without tagged ground keep their z = 0 rules.
 
-**Closed borders** leave `neighbours` (supply and orders follow what units can walk): rock walls between 2–6, 3–5 and 5–12, and plateau cliffs between 7–10 and 7–11. Nothing else about adjacency, anchors, deposits or posts changed. Necks with two neighbours: North Ridge (3, 5) and East Spur (8, 11).
+**Closed borders** leave `neighbours` (supply and orders follow what units can walk): rock walls between 2–6, 3–5 and 5–12, and plateau cliffs between 7–10 and 7–11. A wall covers every cell its shared edge touches (the 2–6 contact is a 2.8 m corner, the 3–5 border 47 m); the audit checks that coverage. Nothing else about adjacency, anchors or deposits changed. Four defend posts moved 1.4–3.0 m inward so that every formation slot (±220 × ±140 cm) lies inside the region on clear ground (the audit checks it): region 2 (300,-8600)→(200,-8700) and (-1900,-5100)→(-1750,-5300), region 9 (-8000,-200)→(-8000,-400), region 13 (6100,5000)→(6400,5050); the 35 m stretch rule still passes. Necks with two neighbours: North Ridge (3, 5) and East Spur (8, 11).
 
 | Route | Regions | Length | Time | Costs |
 | --- | --- | ---: | ---: | --- |
@@ -59,4 +59,4 @@ Ridge ramps lead to Uplink (3) and Relay Plant (5); Switchback ramps lead to Hum
 | Center (Hub) | 0-1-6-12-14 | 227 m | 52 s | shortest; 13 m gap between 1 and 6; cover hub |
 | South (Spur) | 0-9-8-10-11-12-14 | 261 m | 59 s | open ground (+15% speed) but a hazard stretch (about 23 damage at 4/s) |
 
-Times count open ground at +15% speed. The audit (`./x gen draw-availability-zone-v2`) enforces the trait counts, the ramp and prop placement rules, the walkable graph equalling `neighbours`, walkable routes and the stretch rule on raised ground. Authored posts did not move.
+Times count open ground at +15% speed. The audit (`./x gen draw-availability-zone-v2`) enforces the trait counts, the ramp and prop placement rules, the walkable graph equalling `neighbours`, walkable routes and the stretch rule on raised ground. 

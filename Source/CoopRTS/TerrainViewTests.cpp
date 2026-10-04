@@ -12,7 +12,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTerrainViewCaptureTest, "CoopRTS.Visual.Terrai
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 // Rendered proof for Habitable Zone v2 (scope terrain-view, run on request): the real game renders an overview, a
-// ramp and plateau close-up and a cover-region close-up. Each PNG must exist and be non-empty; a person inspects them.
+// ramp and plateau close-up and a cover-region close-up with the HUD hidden. Each PNG must exist and be non-empty; a person inspects them.
 namespace TerrainViewTests
 {
 struct FShot
@@ -54,6 +54,11 @@ public:
 			Test->AddInfo(FString::Printf(TEXT("Terrain captures written to %s"), *Directory()));
 			return true;
 		}
+		if (!bHudHidden)
+		{
+			PC->ConsoleCommand(TEXT("ShowHUD")); // Toggles AHUD::bShowHUD off: the panels cover 40% of a shot.
+			bHudHidden = true;
+		}
 		const FShot& Shot = Shots[Index];
 		const FString Path = FPaths::Combine(Directory(), FString(Shot.Name) + TEXT(".png"));
 		if (!bRequested)
@@ -90,6 +95,7 @@ private:
 	int32 Index = 0;
 	int32 Frames = 0;
 	bool bRequested = false;
+	bool bHudHidden = false;
 	double Started;
 };
 }

@@ -271,15 +271,48 @@ class Terrain:
             for i, near in self.adjacent.items()
         }
 
+    def shared_edge_samples(self, a: int, b: int) -> list[tuple[float, float]]:
+        """Points every <= 50 cm along the polygon edges regions a and b share."""
+        edges = {
+            tuple(sorted((tuple(p), tuple(q))))
+            for p, q in itertools.pairwise(
+                [*self.regions[a]["poly"], self.regions[a]["poly"][0]]
+            )
+        }
+        other = {
+            tuple(sorted((tuple(p), tuple(q))))
+            for p, q in itertools.pairwise(
+                [*self.regions[b]["poly"], self.regions[b]["poly"][0]]
+            )
+        }
+        samples: list[tuple[float, float]] = []
+        for p, q in sorted(edges & other):
+            steps = max(1, math.ceil(math.dist(p, q) / 50))
+            samples += [
+                (p[0] + (q[0] - p[0]) * k / steps, p[1] + (q[1] - p[1]) * k / steps)
+                for k in range(steps + 1)
+            ]
+        return samples
+
+    def edge_cells(self, point: Point) -> set[Cell]:
+        """The cell(s) holding a point; a point on a cell boundary counts for both sides."""
+        return {
+            cell_of(point[0] + dx, point[1] + dy) for dx in (-1, 1) for dy in (-1, 1)
+        }
+
     def _walls(self) -> set[Cell]:
-        """Cells within one cell of both sides of a rock-wall border."""
+        """Rock-wall cells of the closed borders: every cell within one cell of the other region plus every cell the
+        shared edge touches, so even a corner contact is covered. A border with an Open region is walled from the
+        other side only, which keeps Open ground clear."""
         walls: set[Cell] = set()
         for a, b in self.wall_borders:
             sides = (
                 {c for c, o in self.owner.items() if o == a},
                 {c for c, o in self.owner.items() if o == b},
             )
-            for mine, other in (sides, sides[::-1]):
+            for (mine, other), own in zip((sides, sides[::-1]), (a, b), strict=True):
+                if self.trait.get(own) == "open":
+                    continue
                 walls |= {
                     c
                     for c in mine
@@ -289,7 +322,24 @@ class Terrain:
                         for dj in (-1, 0, 1)
                     )
                 }
+            for point in self.shared_edge_samples(a, b):
+                walls |= {
+                    c
+                    for c in self.edge_cells(point)
+                    if self.trait.get(self.owner.get(c, -1)) != "open"
+                }
         return walls
+
+    def open_intrusions(self, region: int) -> list[str]:
+        """Plateau, ramp and wall pieces standing in a region (the kinds an Open region must declare)."""
+        kinds = []
+        if any(o == region for c, o in self.owner.items() if c in self.plateau):
+            kinds.append("plateau_edge")
+        if any(r["to"] == region for r in self.ramps):
+            kinds.append("ramp")
+        if any(self.owner.get(c) == region for c in self.walls):
+            kinds.append("wall")
+        return kinds
 
     # ---- heights
     @staticmethod

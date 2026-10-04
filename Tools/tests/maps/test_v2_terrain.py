@@ -109,6 +109,14 @@ def shorten_routes(data: MapData) -> None:
             "neighbours must be polygon adjacency minus closed borders",
         ),
         (mutate(("terrain", "props"), []), "Cover region 2 needs >= 6 props"),
+        (
+            mutate(("regions", 2, "defend_posts", 2), [-1900, -5100]),
+            "Region 2 post 2: formation slot",
+        ),
+        (
+            mutate(("terrain", "open_exceptions"), {}),
+            "Open region 8 contains ['plateau_edge', 'ramp'] but declares []",
+        ),
     ],
 )
 def test_terrain_rules_reject(
@@ -117,6 +125,19 @@ def test_terrain_rules_reject(
     assert terrain_errors(Terrain(terrain_map)) == []
     damage(terrain_map)
     assert any(message in e for e in terrain_errors(Terrain(terrain_map)))
+
+
+def test_wall_must_cover_its_whole_shared_edge(terrain_map: MapData) -> None:
+    terrain = Terrain(terrain_map)
+    assert not any("Wall" in e for e in terrain_errors(terrain))
+    samples = terrain.shared_edge_samples(2, 6)
+    assert samples
+    for point in samples:
+        terrain.walls -= terrain.edge_cells(point)
+    assert any(
+        "Wall 2-6 leaves the shared edge uncovered" in e
+        for e in terrain_errors(terrain)
+    )
 
 
 def test_routes_must_be_neighbour_paths_and_distinct(
@@ -180,7 +201,8 @@ def test_derive_keeps_authored_terrain(
     derive()
     derived = json.loads(copy.read_text())
     assert derived == v2_data
-    v2_data["regions"][4]["trait"] = "cover"
-    copy.write_text(json.dumps(v2_data))
+    edited = deepcopy(v2_data)
+    edited["regions"][4]["trait"] = "cover"
+    copy.write_text(json.dumps(edited))
     derive()
     assert json.loads(copy.read_text())["regions"][4]["trait"] == "cover"

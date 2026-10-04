@@ -63,7 +63,7 @@ Traits make *where* to fight a decision, and they combine with Move & Hold.
 - **Terrain matches each trait [Built]:**
   - High ground sits on a 300 cm plateau with a wide (8 m) ramp toward each passable neighbour.
   - Cover has visible cover props.
-  - Open is flat, clear ground.
+  - Open is flat, clear ground. The audit allows only declared exceptions: on v2 the Power Yard holds the plateau-edge cells of Switchback and the 7→8 ramp ([AvailabilityZoneV2.md](../Maps/AvailabilityZoneV2.md#terrain-and-traits)).
   - Hazard has a visible ground effect.
 - **Routes and necks [Built]:** between the human front and JEV's front there are 2–3 authored region paths that cost different things (length, traits, necks). At least two non-main route regions have at most 2 neighbours.
 - **Closed borders [Built]:** a plateau border without a ramp is a cliff, and short borders can carry a rock wall. A closed border is not a neighbour, so connectivity and orders follow what units can walk.
