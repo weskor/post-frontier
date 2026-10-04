@@ -21,10 +21,10 @@ FORTIFY_FOCUS = "fortifyHudFocus"
 NECK, FAR = 2, 3
 TRAIT_REGIONS = {"cover": 2, "high-ground": 7, "open": 8, "hazard": 10}
 # A cut flashes for one second; a capture needs the first flash still lit.
-CUT_SLOW = 0.1
+CUT_SLOW = 0.04
 PULSE_SLOW = 0.05
 # Wheel steps out so a whole 5000 cm region and its neighbours fit.
-ZOOM_OUT = -7
+ZOOM_OUT = {900: -7, 720: -10}
 RING_AGES = (0.12, 0.28, 0.4)
 
 
@@ -39,6 +39,10 @@ def focus(
         run.request("host", FORTIFY_FOCUS, region=region)
     else:
         run.request("host", "mapPresFocusRig", region=region, weight=weight)
+    settle(capture, f"camera settled on region {region}")
+
+
+def settle(capture: Capture, description: str) -> None:
     previous: list[object] = []
 
     def settled(state: JsonObject) -> bool:
@@ -47,7 +51,7 @@ def focus(
         previous.append(position)
         return done
 
-    capture.wait(settled, f"camera settled on region {region}")
+    capture.wait(settled, description)
 
 
 def zoom(run: NetworkRun, capture: Capture, steps: float) -> None:
@@ -86,14 +90,22 @@ def cut_states(run: NetworkRun, capture: Capture, suffix: str) -> None:
     deck(capture, False)
     for region in (NECK, FAR):
         set_control(run, capture, region, 0)
-    # The build bar covers the lower third of a 720 px viewport: lean the camera towards the rig there.
-    weight = 0.5 if capture.state()["viewportHeight"] >= 900 else 0.85
+    # The timeline covers the top and the build bar the lower third of a 720 px viewport: zoom out further and lean
+    # the camera towards the rig so the plate, badge and chip stay below the timeline and the rig above the bar.
+    tall = capture.state()["viewportHeight"] >= 900
+    weight = 0.5 if tall else 0.8
     focus(run, capture, FAR, weight)
-    zoom(run, capture, ZOOM_OUT)
+    steps = ZOOM_OUT[900 if tall else 720]
+    zoom(run, capture, steps)
     capture.shot(f"cut-before-connected-{suffix}")
     run.request("host", "mapPresDilation", factor=CUT_SLOW)
     set_control(run, capture, NECK, 5)
     capture.shot(f"cut-moment-{suffix}")
+    # Still inside the spark: look at the border where the cable broke.
+    run.request("host", "mapPresFocusEdge", region=FAR, other=NECK)
+    settle(capture, "camera on the broken cable")
+    capture.shot(f"cut-moment-snapped-cable-{suffix}")
+    focus(run, capture, FAR, weight)
     run.request("host", "mapPresDilation", factor=1)
     first = capture.state()["serverTime"]
     capture.wait(lambda s: s["serverTime"] - first >= 5, "five seconds after the cut")
@@ -101,7 +113,7 @@ def cut_states(run: NetworkRun, capture: Capture, suffix: str) -> None:
     for region in (NECK, FAR):
         set_control(run, capture, region, 0)
     capture.shot(f"cut-reconnected-{suffix}")
-    zoom(run, capture, -ZOOM_OUT)
+    zoom(run, capture, -steps)
     deck(capture, True)
 
 

@@ -146,6 +146,25 @@ FString FocusRig(ACommandPlayerController& Controller, const ACommandGameState& 
 	return FString();
 }
 
+// Centres the camera where the line between two regions' anchors leaves the first: where a snapped cable breaks.
+FString FocusEdge(ACommandPlayerController& Controller, const ACommandGameState& State, const AMapRegion& Region,
+	const AMapRegion* Other)
+{
+	ACommandCamera* Camera = Cast<ACommandCamera>(Controller.GetPawn());
+	if (!Camera || !Other)
+		return TEXT("map presentation camera or second region unavailable");
+	// Where the straight line between the anchors leaves Region: the same break point the cable uses.
+	const FVector From = State.GetRegionAnchor(Region.RegionIndex), To = State.GetRegionAnchor(Other->RegionIndex);
+	double Inside = 0., Outside = 1.;
+	for (int32 Step = 0; Step < 20; ++Step)
+	{
+		const double Middle = (Inside + Outside) * .5;
+		(Region.Contains(FMath::Lerp(From, To, Middle)) ? Inside : Outside) = Middle;
+	}
+	Camera->FocusOn(FMath::Lerp(From, To, Outside));
+	return FString();
+}
+
 void Clear(UWorld& World)
 {
 	for (const TWeakObjectPtr<AArmyGroup>& Group : Spawned)
@@ -199,6 +218,8 @@ bool Apply(UWorld& World, const TSharedPtr<FJsonObject>& Request, FString& Error
 			Error = Rig(World, *State, Controller->GetPlayerState<ACommandPlayerState>(), *Region);
 		else if (Action == TEXT("mapPresFocusRig"))
 			Error = FocusRig(*Controller, *State, *Region, Request->GetNumberField(TEXT("weight")));
+		else if (Action == TEXT("mapPresFocusEdge"))
+			Error = FocusEdge(*Controller, *State, *Region, FindRegion(*State, static_cast<int32>(Request->GetIntegerField(TEXT("other")))));
 		else if (Action == TEXT("mapPresPulse"))
 			Error = Pulse(World, *State, *Controller, *Region);
 		else

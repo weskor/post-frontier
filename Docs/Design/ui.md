@@ -118,7 +118,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 
 ### 2. Supply cuts on the map and the force card [New]
 
-- **World [Built]:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut.
+- **World [Built]:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut. The client compares each replicated mask with the last one it observed, so only the regions just cut flash (on a clock that starts when the client sees them) and only cables that were live snap; a client that joins after the cut sees the steady state and guesses the stub from the opponent's neighbouring region. A mask that empties (the main fell) is the end of the battle, not a cut.
 - **Region and Drill Rigs:** [Built] the region's chip row (surface 7's stack) gets a **CUT OFF** chip, each offline Drill Rig carries a chain glyph, and its deposit label reads `POWER 1200 · OFFLINE` in place of the rate. **[New]** The rig mesh itself goes greyscale with the building appearance work (tier-2 slice).
 - **Minimap [Built]:** the node gets a red hatched outline.
 - **Feed:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline`; clicking it focuses the region. It is a team row (see surface 3).

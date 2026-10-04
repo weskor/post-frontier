@@ -92,17 +92,59 @@ MapPresentation::ECable MapPresentation::ClassifyCable(const FRegionLink& A, con
 {
 	if (A.bConnected && B.bConnected)
 		return ECable::Live;
-	const bool bCutA = IsCutOff(A), bCutB = IsCutOff(B);
-	if (bCutA && bCutB)
-		return ECable::Beyond;
-	if ((bCutA && !B.bControlled) || (bCutB && !A.bControlled))
-		return ECable::Snapped;
-	return ECable::None;
+	return IsCutOff(A) && IsCutOff(B) ? ECable::Beyond : ECable::None;
 }
 
 uint64 MapPresentation::NewlyCutOff(uint64 PreviousConnected, uint64 Connected, uint64 Controlled)
 {
-	return PreviousConnected & ~Connected & Controlled;
+	return Connected ? PreviousConnected & ~Connected & Controlled : 0;
+}
+
+float MapPresentation::FCutObserver::FlashAge(int32 Region, float Now) const
+{
+	if (Region < 0 || Region >= ObservedRegions || Started[Region] < 0.f)
+		return -1.f;
+	return FMath::Max(0.f, Now - Started[Region]);
+}
+
+bool MapPresentation::FCutObserver::IsSnapped(int32 CutRegion, int32 OtherRegion) const
+{
+	return Snapped.Contains(static_cast<uint16>((CutRegion << 8) | OtherRegion));
+}
+
+void MapPresentation::Observe(FCutObserver& Observer, const FObservation& In)
+{
+	const bool bFirst = !Observer.bSeen;
+	// Two changes in one server tick share a stamp, so the mask itself is compared too.
+	const bool bChanged = !bFirst && (In.ChangedAt != Observer.SeenChangedAt || In.Connected != Observer.PreviousConnected);
+	// First sight (a late join) takes every region that is cut now; later, only those that just left the mask.
+	uint64 Newly = 0;
+	if (In.Connected)
+		Newly = bFirst ? In.CutOff : bChanged ? NewlyCutOff(Observer.PreviousConnected, In.Connected, In.Held) & In.CutOff : 0;
+	const bool bPlays = FlashPlays(In.Now, In.ChangedAt);
+	for (int32 Region = 0; Region < ObservedRegions; ++Region)
+	{
+		const uint64 Bit = uint64(1) << Region;
+		if (!(In.CutOff & Bit))
+			Observer.Started[Region] = -1.f;
+		else if ((Newly & Bit) && bPlays)
+			Observer.Started[Region] = In.Now;
+		if (!(Newly & Bit) || !In.Neighbours)
+			continue;
+		for (int32 Other = 0; Other < ObservedRegions; ++Other)
+		{
+			const uint64 OtherBit = uint64(1) << Other;
+			const bool bHadCable = bFirst ? (In.Opponent & OtherBit) != 0 : (Observer.PreviousConnected & OtherBit) != 0;
+			if ((In.Neighbours[Region] & OtherBit) && bHadCable && !(In.Held & OtherBit))
+				Observer.Snapped.AddUnique(static_cast<uint16>((Region << 8) | Other));
+		}
+	}
+	Observer.Snapped.RemoveAll([&In](uint16 Edge) {
+		return !(In.CutOff & (uint64(1) << (Edge >> 8))) || (In.Held & (uint64(1) << (Edge & 0xFF)));
+	});
+	Observer.bSeen = true;
+	Observer.PreviousConnected = In.Connected;
+	Observer.SeenChangedAt = In.ChangedAt;
 }
 
 float MapPresentation::PulseAge(float Now, float CastTime)

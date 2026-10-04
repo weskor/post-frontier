@@ -103,9 +103,9 @@ void DrawDeposits(const FPainter& Paint, const FContext& Context)
 												: TEXT("FREE"));
 		Paint.Fill(Back, FLinearColor(.005f, .008f, .012f, .95f));
 		Paint.TextIn(Label.ToView(), Back, 8.f, Color, true, EAlign::Center);
-		FVector2D Rig;
-		if (bOffline && ProjectOverlay(Paint, Context, Deposit->Extractor->GetActorLocation() + FVector(0.f, 0.f, 330.f), Rig))
-			DrawOfflineRigGlyph(Paint, Rig);
+		// Beside the label, clear of the structure's own name and health bar above the rig.
+		if (bOffline)
+			DrawOfflineRigGlyph(Paint, FVector2D(Back.X - 16.f, Back.Y + Back.H * .5f));
 	}
 }
 

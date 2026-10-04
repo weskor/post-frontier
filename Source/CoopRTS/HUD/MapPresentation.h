@@ -28,11 +28,13 @@ bool IsCutOff(const ACommandGameState& State, int32 Team, int32 Region);
 bool IsRigOffline(const ACommandGameState& State, const ADepositSite& Deposit);
 // Drill Rigs of Team on deposits in Region that are offline.
 int32 OfflineRigs(const ACommandGameState& State, int32 Team, int32 Region);
-// One call per pair of neighbouring regions (ascending index) that has a cable for Team.
-void ForEachCable(const ACommandGameState& State, int32 Team,
+// Compares the team's replicated mask with the last one this client observed: starts flash clocks for regions just cut
+// and records the cables that snapped. Call once a frame before reading the observer.
+void Observe(const ACommandGameState& State, int32 Team, MapPresentation::FCutObserver& Observer);
+// One call per pair of neighbouring regions (ascending index) that has a cable for Team: live between connected
+// regions, dimmed between cut-off ones, snapped where the observer saw a live cable break.
+void ForEachCable(const ACommandGameState& State, int32 Team, const MapPresentation::FCutObserver& Observer,
 	TFunctionRef<void(const AMapRegion& A, const AMapRegion& B, MapPresentation::ECable Cable)> Visit);
-// Seconds since the team's connected set last changed, or negative when the flash window is closed.
-float FlashAge(const ACommandGameState& State, int32 Team);
 
 // The minimap's marks: a red dashed outline with hatch for each cut-off region, and a 10 px trait glyph at each node's
 // top-left, clipped to the minimap square.
@@ -63,8 +65,10 @@ private:
 	const FCableGeometry& Cable(const UWorld& World, const ACommandGameState& State, const AMapRegion& From, const AMapRegion& To);
 	void DrawCuts(AWorldOverlay& Overlay, const ACommandGameState& State, int32 Team);
 	void DrawCables(AWorldOverlay& Overlay, const ACommandGameState& State, int32 Team);
+	MapPresentation::FCutObserver& ObserverFor(int32 Team) { return Team == 0 ? Humans : Jev; }
 	void DrawPulses(AWorldOverlay& Overlay, const ACommandGameState& State);
 
+	MapPresentation::FCutObserver Humans, Jev;
 	TMap<FIntPoint, float> Ground;
 	TMap<int32, FRegionGeometry> Regions;
 	TMap<uint32, FCableGeometry> Cables;

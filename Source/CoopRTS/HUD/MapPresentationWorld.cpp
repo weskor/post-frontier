@@ -28,7 +28,8 @@ const FColor HatchRed(255, 72, 56, 70);
 const FColor FlashHatch(255, 72, 56, 140);
 const FColor Dimmed(150, 158, 168);
 const FColor FriendlyCable(64, 184, 163);
-const FColor HostileCable(230, 92, 82);
+// Violet, well away from the cut red and from the red team colours: a cable is not a warning.
+const FColor HostileCable(188, 112, 236);
 const FColor PulseCyan(120, 230, 255);
 const FColor SparkWhite(255, 244, 190);
 
@@ -142,12 +143,12 @@ const FMapPresentationWorld::FCableGeometry& FMapPresentationWorld::Cable(const 
 
 void FMapPresentationWorld::DrawCuts(AWorldOverlay& Overlay, const ACommandGameState& State, int32 Team)
 {
-	const float Age = MapView::FlashAge(State, Team);
-	const bool bLit = MapPresentation::FlashLit(Age);
+	const float Now = State.GetServerWorldTimeSeconds();
 	for (const AMapRegion* Region : State.Regions)
 	{
 		if (!IsValid(Region) || !MapView::IsCutOff(State, Team, Region->RegionIndex))
 			continue;
+		const bool bLit = MapPresentation::FlashLit(ObserverFor(Team).FlashAge(Region->RegionIndex, Now));
 		const FRegionGeometry& Shape = Geometry(*State.GetWorld(), *Region);
 		if (bLit)
 		{
@@ -163,8 +164,9 @@ void FMapPresentationWorld::DrawCuts(AWorldOverlay& Overlay, const ACommandGameS
 
 void FMapPresentationWorld::DrawCables(AWorldOverlay& Overlay, const ACommandGameState& State, int32 Team)
 {
-	const float Age = MapView::FlashAge(State, Team);
-	MapView::ForEachCable(State, Team, [&](const AMapRegion& From, const AMapRegion& To, ECable Kind) {
+	const FCutObserver& Observer = ObserverFor(Team);
+	const float Now = State.GetServerWorldTimeSeconds();
+	MapView::ForEachCable(State, Team, Observer, [&](const AMapRegion& From, const AMapRegion& To, ECable Kind) {
 		const FCableGeometry& Geo = Cable(*State.GetWorld(), State, From, To);
 		const int32 Last = Geo.Path.Num() - 1;
 		if (Kind == ECable::Live)
@@ -184,9 +186,11 @@ void FMapPresentationWorld::DrawCables(AWorldOverlay& Overlay, const ACommandGam
 			const int32 FirstEnd = FMath::Max(0, Before - Stub), SecondEnd = FMath::Min(Last, After + Stub);
 			Dashed(Overlay, Geo.Path, FirstEnd, Before, false, bCutFirst ? Dimmed : Faded(TeamCable(Team), .55f), CableWidth);
 			Dashed(Overlay, Geo.Path, After, SecondEnd, false, bCutFirst ? Faded(TeamCable(Team), .55f) : Dimmed, CableWidth);
-			const float Spark = MapPresentation::SparkAlpha(Age);
+			const int32 CutRegion = bCutFirst ? From.RegionIndex : To.RegionIndex;
+			const float Spark = MapPresentation::SparkAlpha(Observer.FlashAge(CutRegion, Now));
 			if (Spark > 0.f)
-				DrawSpark(Overlay, Geo.Path[Geo.Break], 150. * (.5 + .5 * Spark), Faded(SparkWhite, Spark), 5.f);
+				// Lifted above the border wall, which would otherwise hide it.
+				DrawSpark(Overlay, Geo.Path[Geo.Break] + FVector(0., 0., 420.), 220. * (.5 + .5 * Spark), Faded(SparkWhite, Spark), 5.f);
 		}
 	});
 }
@@ -238,6 +242,7 @@ void FMapPresentationWorld::Draw(AWorldOverlay& Overlay, const ACommandGameState
 {
 	for (const int32 Team : MapView::Teams)
 	{
+		MapView::Observe(State, Team, ObserverFor(Team));
 		DrawCables(Overlay, State, Team);
 		DrawCuts(Overlay, State, Team);
 	}

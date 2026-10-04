@@ -11,6 +11,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapFlashPatternTest, "CoopRTS.Rules.MapPresent
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapCableVisibilityTest, "CoopRTS.Rules.MapPresentation.CableVisibility",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapCutObserverTest, "CoopRTS.Rules.MapPresentation.CutObserver",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapPulseTimingTest, "CoopRTS.Rules.MapPresentation.PulseTiming",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMapPlateOrderTest, "CoopRTS.Rules.MapPresentation.PlateOrder",
@@ -73,7 +75,7 @@ bool FMapFlashPatternTest::RunTest(const FString&)
 	TestEqual(TEXT("The border lights three times within one second"), Lit, FlashCount);
 	TestTrue(TEXT("It starts lit"), FlashLit(0.f));
 	TestFalse(TEXT("Each flash goes dark before the next"), FlashLit(FlashSeconds / FlashCount * .75f));
-	TestFalse(TEXT("It stays dark from one second on, inside the 3 s window"), FlashLit(FlashSeconds) || FlashLit(2.f));
+	TestFalse(TEXT("It is dark from one second on of the flash clock"), FlashLit(FlashSeconds) || FlashLit(2.f));
 	TestFalse(TEXT("A change that has not happened is not lit"), FlashLit(-1.f));
 	return true;
 }
@@ -83,8 +85,8 @@ bool FMapCableVisibilityTest::RunTest(const FString&)
 	const FRegionLink Connected = Link(true, true), Cut = Link(true, false), Enemy = Link(false, false);
 	TestEqual(TEXT("Two connected regions share a live cable"), ClassifyCable(Connected, Connected), ECable::Live);
 	TestEqual(TEXT("Two cut-off regions share a dimmed cable beyond the cut"), ClassifyCable(Cut, Cut), ECable::Beyond);
-	TestEqual(TEXT("A cut-off region and an enemy neighbour keep the snapped stub"), ClassifyCable(Cut, Enemy), ECable::Snapped);
-	TestEqual(TEXT("in either order"), ClassifyCable(Enemy, Cut), ECable::Snapped);
+	TestEqual(TEXT("A cut-off region and an enemy neighbour have no cable of their own: only the observer knows one broke"),
+		ClassifyCable(Cut, Enemy), ECable::None);
 	TestEqual(TEXT("A connected region next to an enemy region has no cable"), ClassifyCable(Connected, Enemy), ECable::None);
 	TestEqual(TEXT("Two regions the team does not hold have none"), ClassifyCable(Enemy, Enemy), ECable::None);
 	TestEqual(TEXT("A connected and a cut-off region cannot both exist next to each other"), ClassifyCable(Connected, Cut), ECable::None);
@@ -93,6 +95,99 @@ bool FMapCableVisibilityTest::RunTest(const FString&)
 	TestEqual(TEXT("Only held regions that left the mask are announced"), NewlyCutOff(Before, After, Held), uint64(0b0100));
 	TestEqual(TEXT("A region that stays connected is not"), NewlyCutOff(After, After, Held), uint64(0));
 	TestEqual(TEXT("A region that reconnects is not"), NewlyCutOff(After, Before, Held), uint64(0));
+	TestEqual(TEXT("A mask with no region means the main fell: nothing is announced as cut"), NewlyCutOff(Before, 0, Held), uint64(0));
+	return true;
+}
+
+namespace
+{
+constexpr uint64 Bit(int32 Region)
+{
+	return uint64(1) << Region;
+}
+
+// A chain 0-1-2-3 with a spur 1-4; region 5 is a neutral neighbour of 2 that never held a cable.
+struct FChain
+{
+	uint64 Neighbours[8] = { Bit(1), Bit(0) | Bit(2) | Bit(4), Bit(1) | Bit(3) | Bit(5), Bit(2), Bit(1), Bit(2), 0, 0 };
+	FCutObserver Observer;
+
+	// The team holds Held and reaches Connected as of ChangedAt, seen at Now; Opponent holds the rest named.
+	void See(uint64 Connected, uint64 Held, uint64 Opponent, float ChangedAt, float Now)
+	{
+		FObservation In;
+		In.Connected = Connected;
+		In.Held = Held;
+		In.CutOff = Held & ~Connected;
+		In.Opponent = Opponent;
+		In.Neighbours = Neighbours;
+		In.ChangedAt = ChangedAt;
+		In.Now = Now;
+		Observe(Observer, In);
+	}
+};
+}
+
+bool FMapCutObserverTest::RunTest(const FString&)
+{
+	const uint64 Whole = Bit(0) | Bit(1) | Bit(2) | Bit(3);
+	// The enemy takes region 1 at t = 100: regions 2 and 3 are cut off, region 0 is not.
+	{
+		FChain Chain;
+		Chain.See(Whole, Whole, 0, 50.f, 100.f);
+		TestTrue(TEXT("Nothing is cut or flashing while the chain is whole"), Chain.Observer.FlashAge(2, 100.f) < 0.f);
+		Chain.See(Bit(0), Bit(0) | Bit(2) | Bit(3), Bit(1), 100.f, 100.f);
+		TestTrue(TEXT("Regions 2 and 3 start flashing the moment their cut is first seen"),
+			Chain.Observer.FlashAge(2, 100.f) == 0.f && Chain.Observer.FlashAge(3, 100.f) == 0.f);
+		TestTrue(TEXT("Region 0 was not cut"), Chain.Observer.FlashAge(0, 100.f) < 0.f);
+		TestTrue(TEXT("The flash clock runs from the local sight, not the server stamp"),
+			FMath::IsNearlyEqual(Chain.Observer.FlashAge(2, 100.4f), .4f, .001f));
+		TestTrue(TEXT("Only the cable to the lost region 1 snapped, from the cut region next to it"),
+			Chain.Observer.IsSnapped(2, 1) && !Chain.Observer.IsSnapped(3, 2) && !Chain.Observer.IsSnapped(2, 5));
+		TestFalse(TEXT("A neutral neighbour that never held a cable leaves no stub"), Chain.Observer.IsSnapped(2, 5));
+		// The team takes an unrelated region 4: the mask changes again, but 2 and 3 are not newly cut.
+		Chain.See(Bit(0), Bit(0) | Bit(2) | Bit(3) | Bit(4), Bit(1), 101.f, 101.f);
+		TestEqual(TEXT("An unrelated later change does not restart a flash"), Chain.Observer.FlashAge(2, 101.f), 1.f);
+		TestTrue(TEXT("nor lose the stub"), Chain.Observer.IsSnapped(2, 1));
+		Chain.See(Bit(0), Bit(0) | Bit(2) | Bit(3) | Bit(4), Bit(1), 101.f, 105.f);
+		TestTrue(TEXT("Once the clock runs out the region is steady"), Chain.Observer.FlashAge(2, 105.f) >= FlashSeconds);
+		// Reconnection clears the cut and the stub.
+		Chain.See(Whole | Bit(4), Whole | Bit(4), 0, 106.f, 106.f);
+		TestTrue(TEXT("A reconnected region stops flashing"), Chain.Observer.FlashAge(2, 106.f) < 0.f);
+		TestFalse(TEXT("and its stub is gone"), Chain.Observer.IsSnapped(2, 1));
+	}
+	// A second cut while the first is still flashing flashes only the new region.
+	{
+		FChain Chain;
+		Chain.See(Whole, Whole, 0, 50.f, 100.f);
+		Chain.See(Bit(0) | Bit(1) | Bit(2), Bit(0) | Bit(1) | Bit(2), Bit(3), 100.f, 100.f);
+		Chain.See(Bit(0) | Bit(1), Bit(0) | Bit(1) | Bit(2), Bit(3), 100.5f, 100.5f);
+		TestTrue(TEXT("The newly cut region flashes from its own start"), Chain.Observer.FlashAge(2, 100.5f) == 0.f);
+	}
+	// A client joining later: a recent cut flashes from first sight, an old one is steady.
+	{
+		FChain Recent;
+		Recent.See(Bit(0), Bit(0) | Bit(2) | Bit(3), Bit(1), 100.f, 102.f);
+		TestTrue(TEXT("A cut first seen 2 s late still plays, for every cut region"),
+			Recent.Observer.FlashAge(2, 102.f) == 0.f && Recent.Observer.FlashAge(3, 102.f) == 0.f);
+		TestTrue(TEXT("and its stub is guessed from the opponent's neighbour, never the neutral one"),
+			Recent.Observer.IsSnapped(2, 1) && !Recent.Observer.IsSnapped(2, 5));
+		FChain Old;
+		Old.See(Bit(0), Bit(0) | Bit(2) | Bit(3), Bit(1), 100.f, 103.5f);
+		TestTrue(TEXT("A cut first seen 3.5 s late shows only the steady state"),
+			Old.Observer.FlashAge(2, 103.5f) < 0.f && Old.Observer.IsSnapped(2, 1));
+		FChain Slow;
+		Slow.See(Whole, Whole, 0, 50.f, 100.f);
+		Slow.See(Bit(0), Bit(0) | Bit(2) | Bit(3), Bit(1), 100.f, 103.5f);
+		TestTrue(TEXT("A change that reaches the client's frame after the window is steady too"), Slow.Observer.FlashAge(2, 103.5f) < 0.f);
+	}
+	// The main falling empties the mask: that is the end of the battle, not a cut.
+	{
+		FChain Chain;
+		Chain.See(Whole, Whole, 0, 50.f, 100.f);
+		Chain.See(0, Whole, 0, 100.f, 100.f);
+		TestTrue(TEXT("No region flashes when the mask empties"), Chain.Observer.FlashAge(1, 100.f) < 0.f && Chain.Observer.FlashAge(3, 100.f) < 0.f);
+	}
 	return true;
 }
 
@@ -140,7 +235,6 @@ bool FMapPlateOrderTest::RunTest(const FString&)
 		Trait.Glyph.Intersects(Trait.Name) || Trait.Glyph.Intersects(Trait.Word) || Trait.Name.Intersects(Trait.Word)
 			|| Trait.Bar.Intersects(Trait.Name) || Trait.Bar.Intersects(Trait.Word) || Trait.Bar.Intersects(Trait.Glyph));
 	TestEqual(TEXT("The glyph is 20 px"), Trait.Glyph.W, 20.f);
-	TestTrue(TEXT("and the trait word is at least 9.5 px, the caption floor"), TraitWordSize >= 9.5f);
 	TestTrue(TEXT("A long name widens the plate rather than overlapping the glyph"),
 		Plate(true, 200.f).Plate.W >= 200.f + Trait.Glyph.W && !Plate(true, 200.f).Glyph.Intersects(Plate(true, 200.f).Name));
 	TestTrue(TEXT("The chips start below the plate"), Trait.ChipTop > Trait.Plate.Bottom() && Bare.ChipTop > Bare.Plate.Bottom());

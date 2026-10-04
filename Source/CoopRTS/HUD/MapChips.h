@@ -15,6 +15,6 @@ FLinearColor TraitColor(ERegionTrait Trait);
 // The red chip at Rect's centre column: chain-break glyph and the word.
 void DrawCutOffChip(const FPainter& Paint, const FRect& Rect);
 float CutOffChipWidth(const FPainter& Paint);
-// A Drill Rig the supply cut left offline: the chain-break glyph on a dark tile.
+// A Drill Rig the supply cut left offline: the chain-break glyph on a dark tile, centred at Center.
 void DrawOfflineRigGlyph(const FPainter& Paint, const FVector2D& Center);
 }

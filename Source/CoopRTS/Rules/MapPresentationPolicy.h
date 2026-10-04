@@ -11,8 +11,9 @@ namespace MapPresentation
 // A client's estimate of server time may trail a replicated stamp by this much; an earlier stamp has not happened yet.
 inline constexpr float ClockSlackSeconds = .25f;
 
-// A cut flashes the region's border FlashCount times within FlashSeconds, and a change up to FlashWindowSeconds old
-// still plays; an older one shows only the steady state.
+// A cut flashes the region's border FlashCount times within FlashSeconds, on a clock the client starts when it first
+// sees the cut; a change seen up to FlashWindowSeconds after it happened still plays, an older one shows only the steady
+// state.
 inline constexpr float FlashWindowSeconds = 3.f;
 inline constexpr float FlashSeconds = 1.f;
 inline constexpr int32 FlashCount = 3;
@@ -23,7 +24,7 @@ inline constexpr float SparkSeconds = .5f;
 // happened yet.
 float ChangeAge(float Now, float ChangedAt);
 bool FlashPlays(float Now, float ChangedAt);
-// Whether the border is lit at this age: lit for the first half of each of the FlashCount cycles, dark after FlashSeconds.
+// Whether the border is lit at this age (seconds since the client started the flash): lit for the first half of each of the FlashCount cycles, dark after FlashSeconds.
 bool FlashLit(float Age);
 float SparkAlpha(float Age);
 
@@ -44,7 +45,8 @@ enum class ECable : uint8
 	Live,
 	// Between two cut-off regions: grey dashes.
 	Beyond,
-	// From a cut-off region to a neighbour the team does not control: the stub left where the cable broke.
+	// The stub left where a cable that was live broke: a cut-off region next to a region the team lost. The observer
+	// decides which edges these are (FCutObserver); the region states alone cannot tell a lost cable from none.
 	Snapped
 };
 ECable ClassifyCable(const FRegionLink& A, const FRegionLink& B);
@@ -53,8 +55,46 @@ ECable ClassifyCable(const FRegionLink& A, const FRegionLink& B);
 inline constexpr const TCHAR* SupplyCutEventId = TEXT("supply_cut");
 
 // Regions that left a team's connected mask while it still controls them: the ones a feed row announces. Regions lost to
-// an enemy are not cut off, they are lost.
+// an enemy are not cut off, they are lost. A mask with no region at all means the main fell, which ends the battle
+// rather than cutting anything.
 uint64 NewlyCutOff(uint64 PreviousConnected, uint64 Connected, uint64 Controlled);
+
+// What one client has seen of a team's supply chain. The replicated change time is team-wide and moves on every change, so
+// the client compares each new mask with the last one it observed to find the regions that were just cut: only those
+// flash and spark, and only the cables that were live between them and the lost neighbour snap.
+inline constexpr int32 ObservedRegions = 64;
+struct FCutObserver
+{
+	bool bSeen = false;
+	uint64 PreviousConnected = 0;
+	float SeenChangedAt = 0.f;
+	// Local flash clock start per region, or negative when it is not flashing.
+	float Started[ObservedRegions];
+	// Snapped edges, (cut-off region << 8) | other region, kept while the cut and the loss both stand.
+	TArray<uint16> Snapped;
+	FCutObserver()
+	{
+		for (float& Start : Started)
+			Start = -1.f;
+	}
+	// Seconds since the region's flash started, or negative when it is steady.
+	float FlashAge(int32 Region, float Now) const;
+	bool IsSnapped(int32 CutRegion, int32 OtherRegion) const;
+};
+struct FObservation
+{
+	uint64 Connected = 0;
+	// Held and not connected.
+	uint64 CutOff = 0;
+	uint64 Held = 0;
+	// Regions the opposing team holds: the best guess for a lost cable when the client joined after the cut.
+	uint64 Opponent = 0;
+	// Per region, the bit mask of its neighbours.
+	const uint64* Neighbours = nullptr;
+	float ChangedAt = 0.f;
+	float Now = 0.f;
+};
+void Observe(FCutObserver& Observer, const FObservation& In);
 
 // The Scrambler pulse ring grows from the unit to the pulse radius over RingSeconds, then fades over FadeSeconds. A hit
 // shield bar or building sparks for SparkSeconds once the ring reaches it.
