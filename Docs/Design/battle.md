@@ -40,7 +40,7 @@ There is no battle timer and no fail state tied to time. Instead JEV **escalates
 - Each release adds a **new behaviour** as well as more budget, and sends a scheduled wave ([jev.md](jev.md)).
 - Escalation depends on elapsed time and node depth only. **It never reacts to the team's performance.** No rubber-banding.
 
-Finite deposits **[Built]** add pressure from the economy side: a normal deposit runs out after 600 s and a rich one after 500 s.
+Finite deposits add pressure from the economy side. Their reserves are halved in build step 1b, so a normal deposit runs out after 300 s instead of 600 s ([economy.md](economy.md)).
 
 **Measured today (`Docs/Balance.md`, 20 AI-vs-AI matches on V2):**
 - Median battle: **23.6 min** at the 2/s baseline. Only 1 of 9 decisive matches fell inside 12–18 min.
@@ -52,7 +52,7 @@ Finite deposits **[Built]** add pressure from the economy side: a normal deposit
 **Levers that end stalls**, all in build step 1b ([build-order.md](build-order.md)):
 1. Orphan forces stay commandable ([forces.md](forces.md)).
 2. A defined wave budget per release ([jev.md](jev.md)).
-3. A decision on deposits: either cut reserves to about half, so the first ones run dry around 5 min and force the second expansion, or drop depletion. **Open ([open-questions.md](open-questions.md)).**
+3. Halved deposit reserves, so the first deposits run dry around 5 min and force the second expansion. Decided 2026-10-03; the Power baseline stays as a floor, at 2/s or 1/s ([economy.md](economy.md)).
 
 Measure battle length per node in the harness before and after each lever.
 

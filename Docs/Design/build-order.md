@@ -16,6 +16,7 @@ The battle has to be fun before a run layer can help it.
      - **Gate:** playtest with 2–3 friends: steering feels clear, and JEV's plans are readable.
    - **1b: economy and pressure**
      - Connectivity (definition in [economy.md](economy.md)), shared income with accumulators, reinforcements along the supply chain, and gifting.
+     - **Deposit pressure:** halved deposit reserves, and JEV's baseline split from the human floor; the harness compares a 2/s and a 1/s human baseline ([economy.md](economy.md)).
      - **JEV planner, chain-aware:** expansion scoring gets a supply-chain term, so JEV doesn't build disconnected Drill Rigs and starve.
      - Lancer and Scrambler, so the Shielded triangle exists.
      - Version escalation and free-spawn waves from the budget table ([jev.md](jev.md)).

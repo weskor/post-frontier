@@ -16,7 +16,13 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 - **Opening [Change]:** each commander starts with **200 Power** (starting value; today 600) and 0 Data, because their kit starts pre-built ([battle.md](battle.md)), and earns a 2/s Power baseline.
 - **Reward regions [New]:** each connected reward region your team holds pays **1 Data/s per commander**. Data per commander therefore doesn't shrink as the team grows. Region roles finally mean something.
 - **Structure kills [New]:** destroying a JEV building pays **60 Data** into the team pool (starting value).
-- **Upkeep:** none. Army size is limited only by refill cost.
+- **Upkeep:** none. Army size is limited only by refill cost. **[Candidate]** Company of Heroes–style upkeep (income falls as the army grows) is the next anti-turtling lever if baseline income still feeds stalemates after the 1b levers. Try it before removing the baseline.
+
+**Baseline income — decided 2026-10-03.** The Power baseline stays, as a floor:
+- **Why not zero:** a commander with no paying Drill Rig and under 160 Power could never rebuild income. Unlike StarCraft or Age of Empires, there are no workers to rebuild from, so that commander would sit out the rest of the battle. Territory games keep a floor too: Company of Heroes 2 gives +300 manpower/min, Dawn of War's HQ +20 requisition, Supreme Commander's commander +1 mass and +20 energy.
+- Territory drives growth, and Data stays territory-only, with no baseline.
+- **[Change]** Build step 1b measures **2/s against 1/s** with the halved deposit reserves below, against the 1b gate ([build-order.md](build-order.md)). Drop to 1/s if 2/s still lets players turtle.
+- **[Change]** JEV's baseline becomes its own value. Today it is the human baseline times the player-count factor ([jev.md](jev.md)), so tuning the human floor would also change JEV.
 
 **Data budget (starting values, per commander per battle).** Demand should exceed supply, so Data forces choices.
 
@@ -45,16 +51,16 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 - Today a Drill Rig keeps paying after its region is lost.
 - This applies to JEV as well, so cutting JEV's chain is a real target for an Attack or Move & Hold order.
 
-## Deposits [Built]
+## Deposits [Change]
 
 | Deposit | Rate | Reserve | Runs out after |
 |---|---:|---:|---:|
-| Normal | 4/s | 2400 | 600 s |
-| Rich | 6/s | 3000 | 500 s |
+| Normal | 4/s | 1200 (today 2400) | 300 s (today 600 s) |
+| Rich | 6/s | 1500 (today 3000) | 250 s (today 500 s) |
 
 - A Drill Rig costs 160 Power, takes 9 s to build and has 350 HP.
 - Habitable Zone v2 has 16 deposits: 8 normal and 8 rich.
-- Deposits stay finite for now. Whether to halve reserves or drop depletion is open ([battle.md](battle.md), [open-questions.md](open-questions.md)).
+- **Reserves halved — decided 2026-10-03,** so the first deposits run dry around 5 min and force the second expansion. Depletion stays. StarCraft II: Legacy of the Void made the same move, half of each base's mineral patches at half the minerals, to make players take expansions more aggressively. Built in step 1b ([build-order.md](build-order.md)).
 
 ## Gifting [New]
 
