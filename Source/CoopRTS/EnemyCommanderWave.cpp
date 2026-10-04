@@ -84,6 +84,13 @@ void LogWave(const FJevWaveEvent& Event, int32 Carry, const FJevTurn& Turn)
 		Turn.EnemyArmor.Count[3]);
 }
 
+// A release wave raids or marches on the humans' main; an emergency wave defends JEV's own main.
+int32 WaveTarget(const FJevTurn& Turn, const JevRelease::FBehaviour& Behaviour, bool bEmergency)
+{
+	return bEmergency ? Turn.Summary.Home : Behaviour.bRaid ? JevRelease::RaidRegion(Turn.Summary)
+															: Turn.Summary.EnemyHome;
+}
+
 int32 CostOf(const AArmyGroup& Force)
 {
 	int32 Cost = 0;
@@ -100,9 +107,7 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmerg
 	int32& Carry = bEmergency ? EmergencyCarry : WaveCarry;
 	const JevRelease::FBehaviour Behaviour = JevRelease::BehaviourFor(ReleaseIndex);
 	const int32 Budget = JevRelease::WaveBudget(ReleaseIndex, HumanCommanders(*Turn.State));
-	const int32 Target = bEmergency ? Turn.Summary.Home
-		: Behaviour.bRaid           ? JevRelease::RaidRegion(Turn.Summary)
-									: Turn.Summary.EnemyHome;
+	const int32 Target = WaveTarget(Turn, Behaviour, bEmergency);
 	if (Budget <= 0)
 		return;
 	// No place to send the wave: the budget carries to the next release rather than vanishing.
@@ -151,9 +156,7 @@ void AEnemyCommander::LaunchWave(FJevTurn& Turn, int32 ReleaseIndex, bool bEmerg
 		for (AArmyGroup* Force : Turn.Forces)
 			ExecuteWaveForce(Turn, Force, Target, true);
 	RecordWave(Event);
-	// An emergency wave is published, but it is no release wave: the release count is not its to raise.
-	if (bEmergency)
-		--Release.WaveCount;
+	Release.WaveCount -= bEmergency ? 1 : 0; // Published like a wave, but no release wave.
 	LogWave(Event, Carry, Turn);
 }
 
