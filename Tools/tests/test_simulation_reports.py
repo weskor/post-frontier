@@ -467,3 +467,29 @@ def test_plan_events_require_exact_escalation_evidence(kind: str, field: str) ->
     report["events"].append(event)
     with pytest.raises(ValueError):
         validate_report(report, job)
+
+
+def test_plan_issued_before_observation_is_created_at_time_zero() -> None:
+    # JEV's first plans are issued during planning; the observer records them at match time 0.
+    job, report = telemetry()
+    plan = telemetry_plan()
+    report["events"].append(dict(plan, time=0, kind="plan_created", team=5))
+    report["snapshots"][0]["enemy_plans"].append(dict(plan))
+    validate_report(report, job)
+
+
+def test_plan_in_snapshot_without_creation_event_is_rejected() -> None:
+    job, report = telemetry()
+    report["snapshots"][0]["enemy_plans"].append(telemetry_plan())
+    with pytest.raises(ValueError, match="Missing JEV plan creation history"):
+        validate_report(report, job)
+
+
+def test_negative_snapshot_time_is_rejected() -> None:
+    # A float-truncated match clock once put the first snapshot at -8.7e-10, before plans created at 0.
+    job, report = telemetry()
+    plan = telemetry_plan()
+    report["events"].append(dict(plan, time=0, kind="plan_created", team=5))
+    report["snapshots"][0].update(time=-1e-9, enemy_plans=[dict(plan)])
+    with pytest.raises(ValueError, match="Negative snapshot time"):
+        validate_report(report, job)

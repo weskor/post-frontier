@@ -142,6 +142,8 @@ def validate_snapshots(report: JsonObject, duration: float) -> None:
     previous = -1.0
     for snapshot in snapshots:
         current = number(snapshot.get("time"), "snapshot time")
+        if current < 0:
+            raise ValueError("Negative snapshot time")
         if current <= previous or current > duration + 0.001:
             raise ValueError(
                 "Snapshot times not strictly increasing or exceed match duration"
