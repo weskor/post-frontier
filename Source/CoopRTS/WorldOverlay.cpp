@@ -214,7 +214,7 @@ void DrawCaptureRings(AWorldOverlay& Overlay, const ACommandGameState& State)
 		if (!IsValid(Point))
 			continue;
 		const FColor Color = Point->ControllingTeam == 0 ? FColor::Green : Point->ControllingTeam == 5 ? FColor::Red
-																									 : FColor::Yellow;
+																									   : FColor::Yellow;
 		Overlay.Ring(Point->GetActorLocation() + FVector(0.f, 0.f, 9.f), ACapturePoint::CaptureRadius, Color);
 	}
 }

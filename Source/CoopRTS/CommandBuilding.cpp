@@ -190,12 +190,6 @@ void ACommandBuilding::Tick(float DeltaSeconds)
 	SyncAppearance();
 }
 
-void ACommandBuilding::SyncAppearance()
-{
-	if (GetNetMode() != NM_DedicatedServer && DesiredMesh().ToSoftObjectPath() != AppliedMesh)
-		OnRep_Appearance();
-}
-
 void ACommandBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	StopConstructionAudio();

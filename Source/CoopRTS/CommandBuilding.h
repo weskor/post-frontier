@@ -43,7 +43,11 @@ public:
 	// Presentation only. Producer locks replicate independently of Body; the host and standalone never receive an OnRep, so
 	// the mesh the replicated state calls for is applied here. The tick calls it, and so does the overlay while the world is
 	// paused (the simulation tick is stopped then, a producer's unit type may still change).
-	void SyncAppearance();
+	void SyncAppearance()
+	{
+		if (GetNetMode() != NM_DedicatedServer && DesiredMesh().ToSoftObjectPath() != AppliedMesh)
+			OnRep_Appearance();
+	}
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

@@ -358,8 +358,7 @@ private:
 		int32 Unit = INDEX_NONE;
 		UStaticMesh* Variant = nullptr;
 		const UStaticMeshComponent* Body = Barracks->FindComponentByClass<UStaticMeshComponent>();
-		return FrozenWorld() && Check(VariantFor(Unit, Variant) && Body && Body->GetStaticMesh() == Variant,
-			TEXT("The producer's mesh follows its configured unit type while paused"));
+		return FrozenWorld() && Check(VariantFor(Unit, Variant) && Body && Body->GetStaticMesh() == Variant, TEXT("The producer's mesh follows its configured unit type while paused"));
 	}
 
 	bool bActivePause;
