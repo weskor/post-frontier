@@ -169,6 +169,70 @@ bool FGuardedPlatingTest::RunTest(const FString&)
 	return true;
 }
 
+namespace
+{
+// The first lethal hit takes an HQ without nodes offline, not out of the battle; with nobody present it stays so.
+void CheckGoesOffline(FTeamEconomyFixture& F, int32 Team, AHeadquarters& Home, AArmyUnit* Striker1, int32 Region)
+{
+	FAutomationTestBase& T = *F.Test;
+	// Without nodes the first lethal hit takes the HQ offline, not out of the battle.
+	Home.ReceiveAttack(100000, Striker1);
+	ClearGroups(F, Team);
+	T.TestEqual(TEXT("An HQ at 0 HP"), Home.Health, 0);
+	T.TestTrue(TEXT("is offline"), Home.IsOffline());
+	T.TestTrue(TEXT("and still in the battle"), Home.IsAlive());
+	T.TestEqual(TEXT("which is not over"), static_cast<int32>(F.State->MatchResult), static_cast<int32>(EMatchResult::Ongoing));
+	T.TestFalse(TEXT("An offline HQ is not a target"), CombatTarget::IsAliveHostile(&Home, Opponent(Team)));
+	const int32 Before = Home.Health;
+	Home.ReceiveAttack(100, Striker1);
+	T.TestEqual(TEXT("and takes no damage"), Home.Health, Before);
+	T.TestEqual(TEXT("Its main stays controlled by its owner"), F.State->GetRegionController(Region), Team);
+	GameStateTerritory::RefreshConnections(*F.State);
+	T.TestTrue(TEXT("and connected"), (F.State->GetConnectedMask(Team) & (uint64(1) << Region)) != 0);
+
+	// Nobody present and no progress ever: it stays offline.
+	Home.Tick(30.f);
+	T.TestTrue(TEXT("An empty main with no progress does not revive the HQ"), Home.IsOffline());
+	T.TestEqual(TEXT("The hold reads decaying"), static_cast<int32>(Home.GetHoldState()),
+		static_cast<int32>(HqHoldPolicy::EHoldState::Decaying));
+}
+
+// Attackers advance the hold, a defender pauses it, an empty main decays it, and zero progress revives the HQ.
+void CheckHoldAndRevival(FTeamEconomyFixture& F, int32 Team, AHeadquarters& Home, int32 Region, int32 Since)
+{
+	FAutomationTestBase& T = *F.Test;
+	// Attackers alone advance the hold.
+	AArmyUnit* Attacker = Stand(F, Opponent(Team), Region);
+	Home.Tick(10.f);
+	T.TestTrue(TEXT("Attackers alone advance the hold"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
+	T.TestEqual(TEXT("which reads holding"), static_cast<int32>(Home.GetHoldState()),
+		static_cast<int32>(HqHoldPolicy::EHoldState::Holding));
+	// Any defender pauses it.
+	AArmyUnit* Defender = Stand(F, Team, Region);
+	Home.Tick(10.f);
+	T.TestTrue(TEXT("A defender pauses it"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
+	T.TestEqual(TEXT("which reads paused"), static_cast<int32>(Home.GetHoldState()),
+		static_cast<int32>(HqHoldPolicy::EHoldState::Paused));
+	Remove(Defender);
+	Home.Tick(5.f);
+	T.TestTrue(TEXT("Alone again, the attackers resume"), FMath::IsNearlyEqual(Home.GetHold().Progress, 15.f, .01f));
+	// An empty main decays at the same rate.
+	Remove(Attacker);
+	Home.Tick(5.f);
+	T.TestTrue(TEXT("An empty main decays at the same rate"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
+	T.TestEqual(TEXT("which reads decaying"), static_cast<int32>(Home.GetHoldState()),
+		static_cast<int32>(HqHoldPolicy::EHoldState::Decaying));
+	// Zero progress after progress existed revives the HQ at a quarter of its HP.
+	Home.Tick(10.f);
+	T.TestTrue(TEXT("Decay back to zero brings the HQ back online"), Home.IsOnline());
+	T.TestEqual(TEXT("at 25% HP"), Home.Health, Home.MaxHealth() / 4);
+	T.TestEqual(TEXT("with no hold left"), static_cast<int32>(Home.GetHoldState()),
+		static_cast<int32>(HqHoldPolicy::EHoldState::None));
+	T.TestEqual(TEXT("The revival is announced"),
+		Events(F, Team == 0 ? TEXT("own_hq_online") : TEXT("enemy_hq_online"), Since), 1);
+}
+}
+
 bool FGuardedHoldTest::RunTest(const FString&)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FGuardedScenario(this, 1, [](FTeamEconomyFixture& F) {
@@ -184,61 +248,13 @@ bool FGuardedHoldTest::RunTest(const FString&)
 				T.AddError(TEXT("Striker unavailable"));
 				return;
 			}
-			// Without nodes the first lethal hit takes the HQ offline, not out of the battle.
-			Home.ReceiveAttack(100000, Striker1);
-			ClearGroups(F, Team);
-			T.TestEqual(TEXT("An HQ at 0 HP"), Home.Health, 0);
-			T.TestTrue(TEXT("is offline"), Home.IsOffline());
-			T.TestTrue(TEXT("and still in the battle"), Home.IsAlive());
-			T.TestEqual(TEXT("which is not over"), static_cast<int32>(F.State->MatchResult), static_cast<int32>(EMatchResult::Ongoing));
-			T.TestFalse(TEXT("An offline HQ is not a target"), CombatTarget::IsAliveHostile(&Home, Opponent(Team)));
-			const int32 Before = Home.Health;
-			Home.ReceiveAttack(100, Striker1);
-			T.TestEqual(TEXT("and takes no damage"), Home.Health, Before);
-			T.TestEqual(TEXT("Its main stays controlled by its owner"), F.State->GetRegionController(Region), Team);
-			GameStateTerritory::RefreshConnections(*F.State);
-			T.TestTrue(TEXT("and connected"), (F.State->GetConnectedMask(Team) & (uint64(1) << Region)) != 0);
-
-			// Nobody present and no progress ever: it stays offline.
-			Home.Tick(30.f);
-			T.TestTrue(TEXT("An empty main with no progress does not revive the HQ"), Home.IsOffline());
-			T.TestEqual(TEXT("The hold reads decaying"), static_cast<int32>(Home.GetHoldState()),
-				static_cast<int32>(HqHoldPolicy::EHoldState::Decaying));
-
-			// Attackers alone advance the hold.
-			AArmyUnit* Attacker = Stand(F, Opponent(Team), Region);
-			Home.Tick(10.f);
-			T.TestTrue(TEXT("Attackers alone advance the hold"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
-			T.TestEqual(TEXT("which reads holding"), static_cast<int32>(Home.GetHoldState()),
-				static_cast<int32>(HqHoldPolicy::EHoldState::Holding));
-			// Any defender pauses it.
-			AArmyUnit* Defender = Stand(F, Team, Region);
-			Home.Tick(10.f);
-			T.TestTrue(TEXT("A defender pauses it"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
-			T.TestEqual(TEXT("which reads paused"), static_cast<int32>(Home.GetHoldState()),
-				static_cast<int32>(HqHoldPolicy::EHoldState::Paused));
-			Remove(Defender);
-			Home.Tick(5.f);
-			T.TestTrue(TEXT("Alone again, the attackers resume"), FMath::IsNearlyEqual(Home.GetHold().Progress, 15.f, .01f));
-			// An empty main decays at the same rate.
-			Remove(Attacker);
-			Home.Tick(5.f);
-			T.TestTrue(TEXT("An empty main decays at the same rate"), FMath::IsNearlyEqual(Home.GetHold().Progress, 10.f, .01f));
-			T.TestEqual(TEXT("which reads decaying"), static_cast<int32>(Home.GetHoldState()),
-				static_cast<int32>(HqHoldPolicy::EHoldState::Decaying));
-			// Zero progress after progress existed revives the HQ at a quarter of its HP.
-			Home.Tick(10.f);
-			T.TestTrue(TEXT("Decay back to zero brings the HQ back online"), Home.IsOnline());
-			T.TestEqual(TEXT("at 25% HP"), Home.Health, Home.MaxHealth() / 4);
-			T.TestEqual(TEXT("with no hold left"), static_cast<int32>(Home.GetHoldState()),
-				static_cast<int32>(HqHoldPolicy::EHoldState::None));
-			T.TestEqual(TEXT("The revival is announced"),
-				Events(F, Team == 0 ? TEXT("own_hq_online") : TEXT("enemy_hq_online"), Since), 1);
+			CheckGoesOffline(F, Team, Home, Striker1, Region);
+			CheckHoldAndRevival(F, Team, Home, Region, Since);
 
 			// 75 s of uninterrupted attackers complete the hold and lose the HQ.
 			Home.ReceiveAttack(100000, Striker1);
 			ClearGroups(F, Team);
-			Attacker = Stand(F, Opponent(Team), Region);
+			Stand(F, Opponent(Team), Region);
 			Home.Tick(74.f);
 			T.TestTrue(TEXT("74 s in, the HQ is still offline"), Home.IsOffline());
 			T.TestTrue(TEXT("with 74 s of progress"), FMath::IsNearlyEqual(Home.GetHold().Progress, 74.f, .01f));
@@ -251,6 +267,42 @@ bool FGuardedHoldTest::RunTest(const FString&)
 		}
 	}));
 	return true;
+}
+
+namespace
+{
+// Each commander's emergency force: a full squad of its Barracks unit type, at the HQ, and commandable.
+void CheckEmergencyForces(FTeamEconomyFixture& F, const AHeadquarters& Home, int32 Frontline, int32 Ranged, int32 (&Forces)[2])
+{
+	FAutomationTestBase& T = *F.Test;
+	for (TActorIterator<AArmyGroup> It(F.World); It; ++It)
+	{
+		if (It->GetTeamIndex() != 0)
+			continue;
+		const int32 Slot = F.Wallets.IndexOfByKey(It->GetOwningPlayerState());
+		if (Slot == INDEX_NONE)
+			continue;
+		++Forces[Slot];
+		const int32 Expected = Slot == 1 ? Ranged : Frontline;
+		bool bFull = It->GetAliveCount() == F.State->Content->Unit(Expected)->Capacity;
+		bool bType = true;
+		bool bAtHome = true;
+		for (const AArmyUnit* Unit : It->GetUnits())
+		{
+			bType &= Unit->GetUnitIndex() == Expected;
+			bAtHome &= F.State->FindRegionAt(Unit->GetActorLocation()) == F.State->FindRegionAt(Home.GetActorLocation());
+		}
+		T.TestTrue(*FString::Printf(TEXT("Commander %d's emergency force is a full squad of its Barracks unit type"), Slot + 1), bFull && bType);
+		T.TestTrue(TEXT("spawned at the HQ, in the main"), bAtHome);
+		// The commander can command it: ownership matches the controller, as for a produced force.
+		ACommandPlayerState* Commander = F.Wallets[Slot];
+		T.TestTrue(TEXT("and orders it"),
+			FCommandService::IssueForceOrder(Commander, *It, EForceVerb::MoveHold, F.State->FindRegionAt(Home.GetActorLocation())->RegionIndex)
+				.IsAccepted());
+		T.TestTrue(TEXT("and sets its retreat threshold"),
+			FCommandService::SetRetreatThreshold(Commander, *It, ERetreatThreshold::Percent40).IsAccepted());
+	}
+}
 }
 
 bool FGuardedEmergencyTest::RunTest(const FString&)
@@ -275,33 +327,7 @@ bool FGuardedEmergencyTest::RunTest(const FString&)
 		AHeadquarters& Home = Hq(F, 0);
 		Home.ReceiveAttack(100000, Striker1);
 		int32 Forces[2] = {};
-		for (TActorIterator<AArmyGroup> It(F.World); It; ++It)
-		{
-			if (It->GetTeamIndex() != 0)
-				continue;
-			const int32 Slot = F.Wallets.IndexOfByKey(It->GetOwningPlayerState());
-			if (Slot == INDEX_NONE)
-				continue;
-			++Forces[Slot];
-			const int32 Expected = Slot == 1 ? Ranged : Frontline;
-			bool bFull = It->GetAliveCount() == F.State->Content->Unit(Expected)->Capacity;
-			bool bType = true;
-			bool bAtHome = true;
-			for (const AArmyUnit* Unit : It->GetUnits())
-			{
-				bType &= Unit->GetUnitIndex() == Expected;
-				bAtHome &= F.State->FindRegionAt(Unit->GetActorLocation()) == F.State->FindRegionAt(Home.GetActorLocation());
-			}
-			T.TestTrue(*FString::Printf(TEXT("Commander %d's emergency force is a full squad of its Barracks unit type"), Slot + 1), bFull && bType);
-			T.TestTrue(TEXT("spawned at the HQ, in the main"), bAtHome);
-			// The commander can command it: ownership matches the controller, as for a produced force.
-			ACommandPlayerState* Commander = F.Wallets[Slot];
-			T.TestTrue(TEXT("and orders it"),
-				FCommandService::IssueForceOrder(Commander, *It, EForceVerb::MoveHold, F.State->FindRegionAt(Home.GetActorLocation())->RegionIndex)
-					.IsAccepted());
-			T.TestTrue(TEXT("and sets its retreat threshold"),
-				FCommandService::SetRetreatThreshold(Commander, *It, ERetreatThreshold::Percent40).IsAccepted());
-		}
+		CheckEmergencyForces(F, Home, Frontline, Ranged, Forces);
 		T.TestTrue(TEXT("Every commander gets exactly one free force"), Forces[0] == 1 && Forces[1] == 1);
 		T.TestEqual(TEXT("The emergency is announced to all"), Events(F, TEXT("own_emergency"), Since), 1);
 		T.TestEqual(TEXT("without touching a wallet"), F.Wallets[0]->Resources + F.Wallets[1]->Resources, 0);

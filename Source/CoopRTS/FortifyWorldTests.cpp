@@ -102,6 +102,35 @@ public:
 	{
 	}
 };
+
+// Refusals by cost, roster and target, then the repeat cast after the cooldown.
+void CheckCastLimits(FTeamEconomyFixture& F, ACommandPlayerState* First, ACommandPlayerState* Second)
+{
+	FAutomationTestBase& T = *F.Test;
+	Second->Data = FortifyPolicy::DataCost - 1;
+	const FCommandResult Short = Cast(F, Second, F.Neck);
+	T.TestFalse(TEXT("One Data short is refused"), Short.IsAccepted());
+	T.TestEqual(TEXT("with the shortfall"), Short.Message, FString(TEXT("Need 1 more Data")));
+	T.TestEqual(TEXT("keeping the Data"), Second->Data, FortifyPolicy::DataCost - 1);
+
+	int32 Slot = 0;
+	while (F.Wallets.ContainsByPredicate([Slot](const ACommandPlayerState* Wallet) { return Wallet->CommanderIndex == Slot; }))
+		++Slot;
+	ACommandPlayerState* Outsider = F.Spawn(Slot, false);
+	Outsider->Data = 100;
+	T.TestFalse(TEXT("A player state outside the roster cannot cast"), Cast(F, Outsider, F.Far).IsAccepted());
+	T.TestEqual(TEXT("and pays nothing"), Outsider->Data, 100);
+	Outsider->Destroy();
+	T.TestFalse(TEXT("JEV has no Fortify"), Cast(F, F.State->EnemyCommander, F.Far).IsAccepted());
+	T.TestFalse(TEXT("A missing region is refused"), FCommandService::CastFortify(Second, nullptr).IsAccepted());
+	T.TestEqual(TEXT("Nothing above protected the neck"), Region(F, F.Neck)->FortifyTeam, -1);
+
+	// After the cooldown the same commander pays again.
+	First->FortifyReadyAt = Now(F) - 1.f;
+	T.TestTrue(TEXT("A cooled-down commander casts again"), Cast(F, First, F.Neck).IsAccepted());
+	T.TestEqual(TEXT("and pays 40 Data again"), First->Data, 20);
+	T.TestEqual(TEXT("A new cooldown starts"), First->FortifyReadyAt > Now(F) + 80.f, true);
+}
 }
 
 bool FFortifyCastTest::RunTest(const FString&)
@@ -142,30 +171,7 @@ bool FFortifyCastTest::RunTest(const FString&)
 		T.TestEqual(TEXT("Neither spent Data"), Second->Data, 100);
 		T.TestEqual(TEXT("or started a cooldown"), Second->FortifyReadyAt, 0.f);
 		T.TestEqual(TEXT("The refused regions stay unprotected"), Region(F, F.Alternate)->FortifyTeam, -1);
-
-		Second->Data = FortifyPolicy::DataCost - 1;
-		const FCommandResult Short = Cast(F, Second, F.Neck);
-		T.TestFalse(TEXT("One Data short is refused"), Short.IsAccepted());
-		T.TestEqual(TEXT("with the shortfall"), Short.Message, FString(TEXT("Need 1 more Data")));
-		T.TestEqual(TEXT("keeping the Data"), Second->Data, FortifyPolicy::DataCost - 1);
-
-		int32 Slot = 0;
-		while (F.Wallets.ContainsByPredicate([Slot](const ACommandPlayerState* Wallet) { return Wallet->CommanderIndex == Slot; }))
-			++Slot;
-		ACommandPlayerState* Outsider = F.Spawn(Slot, false);
-		Outsider->Data = 100;
-		T.TestFalse(TEXT("A player state outside the roster cannot cast"), Cast(F, Outsider, F.Far).IsAccepted());
-		T.TestEqual(TEXT("and pays nothing"), Outsider->Data, 100);
-		Outsider->Destroy();
-		T.TestFalse(TEXT("JEV has no Fortify"), Cast(F, F.State->EnemyCommander, F.Far).IsAccepted());
-		T.TestFalse(TEXT("A missing region is refused"), FCommandService::CastFortify(Second, nullptr).IsAccepted());
-		T.TestEqual(TEXT("Nothing above protected the neck"), Region(F, F.Neck)->FortifyTeam, -1);
-
-		// After the cooldown the same commander pays again.
-		First->FortifyReadyAt = Now(F) - 1.f;
-		T.TestTrue(TEXT("A cooled-down commander casts again"), Cast(F, First, F.Neck).IsAccepted());
-		T.TestEqual(TEXT("and pays 40 Data again"), First->Data, 20);
-		T.TestEqual(TEXT("A new cooldown starts"), First->FortifyReadyAt > Now(F) + 80.f, true);
+		CheckCastLimits(F, First, Second);
 	}));
 	return true;
 }

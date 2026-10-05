@@ -50,6 +50,40 @@ int32 CutRows(const ACommandPlayerController& Controller)
 		Count += Event.Id == FName(MapPresentation::SupplyCutEventId);
 	return Count;
 }
+
+// After the cut: reconnecting, losing the far region outright, and two regions beyond one lost neck.
+void CheckReconnectAndDeepCut(FTeamEconomyFixture& F, FSeen& Seen)
+{
+	FAutomationTestBase& T = *F.Test;
+	const ACommandGameState& State = *F.State;
+	const int32 Neck = F.Neck, Far = F.Far;
+	// Reconnecting brings the cables back and posts no row.
+	F.SetController(Neck, 0);
+	Seen.Step(F);
+	T.TestFalse(TEXT("Retaking the neck reconnects the far region"), MapView::IsCutOff(State, 0, Far));
+	T.TestEqual(TEXT("and its cable is live again"), CableBetween(Seen, State, 0, Neck, Far), ECable::Live);
+	T.TestFalse(TEXT("and its rig is online"), MapView::IsRigOffline(State, *F.DepositIn(Far)));
+	T.TestEqual(TEXT("Reconnecting posts no row"), CutRows(*F.Controller), 1);
+
+	// Losing the far region itself is a loss, not a cut.
+	F.SetController(Far, 5);
+	Seen.Step(F);
+	T.TestFalse(TEXT("A region the enemy took is not cut off"), MapView::IsCutOff(State, 0, Far));
+	T.TestEqual(TEXT("and posts no cut row"), CutRows(*F.Controller), 1);
+
+	// Two regions beyond one lost neck: the dimmed cable joins them and each is cut.
+	F.SetController(Far, 0);
+	F.SetController(F.Alternate, 0);
+	F.SetNeighbours(Far, { Neck, F.Alternate });
+	F.SetNeighbours(F.Alternate, { Far });
+	Seen.Step(F);
+	T.TestTrue(TEXT("Both are connected before the cut"), State.IsRegionConnected(0, Far) && State.IsRegionConnected(0, F.Alternate));
+	F.SetController(Neck, 5);
+	Seen.Step(F);
+	T.TestTrue(TEXT("Both far regions are cut off"), MapView::IsCutOff(State, 0, Far) && MapView::IsCutOff(State, 0, F.Alternate));
+	T.TestEqual(TEXT("A dimmed cable joins them beyond the cut"), CableBetween(Seen, State, 0, Far, F.Alternate), ECable::Beyond);
+	T.TestEqual(TEXT("Each cut region got its own row"), CutRows(*F.Controller), 3);
+}
 }
 
 bool FMapPresentationCutTest::RunTest(const FString&)
@@ -88,33 +122,7 @@ bool FMapPresentationCutTest::RunTest(const FString&)
 				&& Row.Location.Equals(State.GetRegionAnchor(Far)) && Row.AffectedTeam == 0);
 		Seen.Step(F);
 		T.TestEqual(TEXT("A later tick with no change posts nothing more"), CutRows(*F.Controller), 1);
-
-		// Reconnecting brings the cables back and posts no row.
-		F.SetController(Neck, 0);
-		Seen.Step(F);
-		T.TestFalse(TEXT("Retaking the neck reconnects the far region"), MapView::IsCutOff(State, 0, Far));
-		T.TestEqual(TEXT("and its cable is live again"), CableBetween(Seen, State, 0, Neck, Far), ECable::Live);
-		T.TestFalse(TEXT("and its rig is online"), MapView::IsRigOffline(State, *F.DepositIn(Far)));
-		T.TestEqual(TEXT("Reconnecting posts no row"), CutRows(*F.Controller), 1);
-
-		// Losing the far region itself is a loss, not a cut.
-		F.SetController(Far, 5);
-		Seen.Step(F);
-		T.TestFalse(TEXT("A region the enemy took is not cut off"), MapView::IsCutOff(State, 0, Far));
-		T.TestEqual(TEXT("and posts no cut row"), CutRows(*F.Controller), 1);
-
-		// Two regions beyond one lost neck: the dimmed cable joins them and each is cut.
-		F.SetController(Far, 0);
-		F.SetController(F.Alternate, 0);
-		F.SetNeighbours(Far, { Neck, F.Alternate });
-		F.SetNeighbours(F.Alternate, { Far });
-		Seen.Step(F);
-		T.TestTrue(TEXT("Both are connected before the cut"), State.IsRegionConnected(0, Far) && State.IsRegionConnected(0, F.Alternate));
-		F.SetController(Neck, 5);
-		Seen.Step(F);
-		T.TestTrue(TEXT("Both far regions are cut off"), MapView::IsCutOff(State, 0, Far) && MapView::IsCutOff(State, 0, F.Alternate));
-		T.TestEqual(TEXT("A dimmed cable joins them beyond the cut"), CableBetween(Seen, State, 0, Far, F.Alternate), ECable::Beyond);
-		T.TestEqual(TEXT("Each cut region got its own row"), CutRows(*F.Controller), 3);
+		CheckReconnectAndDeepCut(F, Seen);
 	}));
 	return true;
 }

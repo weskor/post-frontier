@@ -174,6 +174,33 @@ void AWorldOverlay::Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>
 	Pending.Reset();
 }
 
+namespace
+{
+// Rings and crosses on the defend posts of every region the team controls.
+void DrawDefendPosts(AWorldOverlay& Overlay, const ACommandGameState& State, int32 Team)
+{
+	for (const AMapRegion* Region : State.Regions)
+	{
+		if (!IsValid(Region) || State.GetRegionController(Region->RegionIndex) != Team)
+			continue;
+		for (const FVector& Post : Region->GetDefendPosts())
+		{
+			const FVector Center = Post + FVector(0., 0., 8.);
+			const FColor Color = FColor::Green;
+			for (int32 Segment = 0; Segment < 8; ++Segment)
+			{
+				const FVector2D A = CircleDirections<8>()[Segment];
+				const FVector2D B = CircleDirections<8>()[(Segment + 1) % 8];
+				Overlay.Line(Center + FVector(A.X * 65., A.Y * 65., 0.),
+					Center + FVector(B.X * 65., B.Y * 65., 0.), Color, 4.f);
+			}
+			Overlay.Line(Center - FVector(18., 0., 0.), Center + FVector(18., 0., 0.), Color, 4.f);
+			Overlay.Line(Center - FVector(0., 18., 0.), Center + FVector(0., 18., 0.), Color, 4.f);
+		}
+	}
+}
+}
+
 void AWorldOverlay::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -186,25 +213,7 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 		const ACommandPlayerState* Player = Controller->GetPlayerState<ACommandPlayerState>();
 		ForceRoutePresentation::DrawWorld(*this, *Controller);
 		if (State && Player && Player->TeamIndex >= 0)
-			for (const AMapRegion* Region : State->Regions)
-			{
-				if (!IsValid(Region) || State->GetRegionController(Region->RegionIndex) != Player->TeamIndex)
-					continue;
-				for (const FVector& Post : Region->GetDefendPosts())
-				{
-					const FVector Center = Post + FVector(0., 0., 8.);
-					const FColor Color = FColor::Green;
-					for (int32 Segment = 0; Segment < 8; ++Segment)
-					{
-						const FVector2D A = CircleDirections<8>()[Segment];
-						const FVector2D B = CircleDirections<8>()[(Segment + 1) % 8];
-						Line(Center + FVector(A.X * 65., A.Y * 65., 0.),
-							Center + FVector(B.X * 65., B.Y * 65., 0.), Color, 4.f);
-					}
-					Line(Center - FVector(18., 0., 0.), Center + FVector(18., 0., 0.), Color, 4.f);
-					Line(Center - FVector(0., 18., 0.), Center + FVector(0., 18., 0.), Color, 4.f);
-				}
-			}
+			DrawDefendPosts(*this, *State, Player->TeamIndex);
 		if (State)
 			MapWorld.Draw(*this, *State);
 		break;

@@ -62,6 +62,56 @@ int32 RowsWith(const UPressureView& View, const TCHAR* Id)
 		Count += Row.Id == FName(Id);
 	return Count;
 }
+
+// A release posts one feed row that a later client does not replay; v1.2's row names the armor class JEV published.
+void CheckReleaseRows(FTeamEconomyFixture& F, UPressureView* View)
+{
+	FAutomationTestBase& T = *F.Test;
+	ACommandGameState& State = *F.State;
+	const int32 Before = RowsWith(*View, PressureView::ReleaseRowId);
+	PublishSchedule(F, 1);
+	SetMatch(F, *View, 121.f);
+	View->Observe(State, F.Wallets[0]);
+	T.TestEqual(TEXT("The feed posts a row when v1.1 arrives"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
+	T.TestEqual(TEXT("with the release's tag"), View->Rows().Last().TargetForceOwnerName,
+		FString(TEXT("JEV v1.1 released: WAVE \u00B7 RAIDS DRILL RIGS")));
+	T.TestTrue(TEXT("on a local sequence no replicated ring uses"), PressureView::IsLocalSequence(View->Rows().Last().Sequence));
+	View->Observe(State, F.Wallets[0]);
+	T.TestEqual(TEXT("Observing again posts nothing more"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
+	T.TestEqual(TEXT("The clock reads match time from the published start"),
+		FMath::RoundToInt(JevIntent::MatchSeconds(View->Release(), State.GetServerWorldTimeSeconds())), 121);
+
+	// v1.2 counters the humans' most numerous armor class: the row names the class the cell showed, though JEV's own
+	// value has moved on by the time the release is in force.
+	AArmyUnit* Human = F.SpawnAttacker();
+	if (!T.TestNotNull(TEXT("A human unit stands"), Human))
+		return;
+	// JEV publishes the class it counters (JevReleaseWorldTests asserts that side); the view carries it to the row.
+	PublishSchedule(F, 1)->Release.CounterArmor = Human->GetArmorClass();
+	SetMatch(F, *View, 235.f);
+	View->Observe(State, F.Wallets[0]);
+	T.TestEqual(TEXT("With v1.2 next the view carries the class JEV published"), View->Release().CounterArmor, Human->GetArmorClass());
+	PublishSchedule(F, 2)->Release.CounterArmor = EArmorClass::Unset;
+	SetMatch(F, *View, 241.f);
+	View->Observe(State, F.Wallets[0]);
+	TStringBuilder<64> Expected;
+	Expected << TEXT("JEV v1.2 released: ");
+	JevIntent::AppendReleaseTag(Expected, 2, Human->GetArmorClass());
+	T.TestEqual(TEXT("The v1.2 release row names that class"), View->Rows().Last().TargetForceOwnerName, FString(Expected.ToView()));
+	T.TestFalse(TEXT("not the generic word"), View->Rows().Last().TargetForceOwnerName.EndsWith(TEXT("COUNTERS ARMOR")));
+}
+
+// The chip's click area sits inside the top bar, clear of the battle clock, and hits as the cut chip.
+void CheckCutChip(FTeamEconomyFixture& F, const FContext& Context, const FLayout& Layout, const PressureHud::FCutLoss& Loss)
+{
+	FAutomationTestBase& T = *F.Test;
+	const FRect Chip = CutChipRect(Layout, Loss);
+	T.TestEqual(TEXT("The chip's click area is the full bar height"), Chip.H, Layout.Top.H);
+	T.TestTrue(TEXT("inside the top bar"), Chip.X >= Layout.Top.X && Chip.Right() <= Layout.Top.Right());
+	T.TestFalse(TEXT("clear of the battle clock"), Chip.Intersects(BattleClockRect(Layout)));
+	T.TestEqual(TEXT("Clicking it hits the cut chip"), HitTest(Context, Layout, Chip.Center()), EHUDAction::JevCutChip);
+	T.TestTrue(TEXT("and the chip is a panel point, so the world never sees the click"), IsPanelPoint(Context, Layout, Chip.Center()));
+}
 }
 
 bool FPressureHudReleaseTest::RunTest(const FString&)
@@ -113,38 +163,7 @@ bool FPressureHudReleaseTest::RunTest(const FString&)
 		T.TestTrue(TEXT("A release focuses a place"), PressureFocusTarget(Context, Click, Focus));
 		T.TestTrue(TEXT("which is JEV's main"), Focus.Equals(State.EnemyHeadquarters->GetActorLocation()));
 
-		// A release happens: the feed posts one row, and a client that arrives later does not replay it.
-		const int32 Before = RowsWith(*View, PressureView::ReleaseRowId);
-		PublishSchedule(F, 1);
-		SetMatch(F, *View, 121.f);
-		View->Observe(State, F.Wallets[0]);
-		T.TestEqual(TEXT("The feed posts a row when v1.1 arrives"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
-		T.TestEqual(TEXT("with the release's tag"), View->Rows().Last().TargetForceOwnerName,
-			FString(TEXT("JEV v1.1 released: WAVE \u00B7 RAIDS DRILL RIGS")));
-		T.TestTrue(TEXT("on a local sequence no replicated ring uses"), PressureView::IsLocalSequence(View->Rows().Last().Sequence));
-		View->Observe(State, F.Wallets[0]);
-		T.TestEqual(TEXT("Observing again posts nothing more"), RowsWith(*View, PressureView::ReleaseRowId), Before + 1);
-		T.TestEqual(TEXT("The clock reads match time from the published start"),
-			FMath::RoundToInt(JevIntent::MatchSeconds(View->Release(), State.GetServerWorldTimeSeconds())), 121);
-
-		// v1.2 counters the humans' most numerous armor class: the row names the class the cell showed, though JEV's own
-		// value has moved on by the time the release is in force.
-		AArmyUnit* Human = F.SpawnAttacker();
-		if (!T.TestNotNull(TEXT("A human unit stands"), Human))
-			return;
-		// JEV publishes the class it counters (JevReleaseWorldTests asserts that side); the view carries it to the row.
-		PublishSchedule(F, 1)->Release.CounterArmor = Human->GetArmorClass();
-		SetMatch(F, *View, 235.f);
-		View->Observe(State, F.Wallets[0]);
-		T.TestEqual(TEXT("With v1.2 next the view carries the class JEV published"), View->Release().CounterArmor, Human->GetArmorClass());
-		PublishSchedule(F, 2)->Release.CounterArmor = EArmorClass::Unset;
-		SetMatch(F, *View, 241.f);
-		View->Observe(State, F.Wallets[0]);
-		TStringBuilder<64> Expected;
-		Expected << TEXT("JEV v1.2 released: ");
-		JevIntent::AppendReleaseTag(Expected, 2, Human->GetArmorClass());
-		T.TestEqual(TEXT("The v1.2 release row names that class"), View->Rows().Last().TargetForceOwnerName, FString(Expected.ToView()));
-		T.TestFalse(TEXT("not the generic word"), View->Rows().Last().TargetForceOwnerName.EndsWith(TEXT("COUNTERS ARMOR")));
+		CheckReleaseRows(F, View);
 	}));
 	return true;
 }
@@ -180,12 +199,7 @@ bool FPressureHudCutTest::RunTest(const FString&)
 		PressureHud::AppendCutChip(Text, Loss);
 		T.TestTrue(TEXT("The chip lists both lost rates"), FString(Text.ToView()).Contains(TEXT("Power/s")) && FString(Text.ToView()).Contains(TEXT("Data/s")));
 
-		const FRect Chip = CutChipRect(Layout, Loss);
-		T.TestEqual(TEXT("The chip's click area is the full bar height"), Chip.H, Layout.Top.H);
-		T.TestTrue(TEXT("inside the top bar"), Chip.X >= Layout.Top.X && Chip.Right() <= Layout.Top.Right());
-		T.TestFalse(TEXT("clear of the battle clock"), Chip.Intersects(BattleClockRect(Layout)));
-		T.TestEqual(TEXT("Clicking it hits the cut chip"), HitTest(Context, Layout, Chip.Center()), EHUDAction::JevCutChip);
-		T.TestTrue(TEXT("and the chip is a panel point, so the world never sees the click"), IsPanelPoint(Context, Layout, Chip.Center()));
+		CheckCutChip(F, Context, Layout, Loss);
 
 		// A second cut region: clicks walk both in index order and wrap.
 		F.SetController(F.Alternate, 0);

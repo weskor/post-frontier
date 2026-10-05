@@ -172,6 +172,12 @@ public:
 		}
 		FTeamEconomyFixture& F = *Fixture;
 		const double Now = ArmyTestSetup::GameSeconds(World);
+		return Step(F, Now);
+	}
+
+private:
+	bool Step(FTeamEconomyFixture& F, double Now)
+	{
 		const bool bFarConnected = F.State->IsRegionConnected(0, F.Far);
 		switch (Stage)
 		{
@@ -223,7 +229,6 @@ public:
 		}
 	}
 
-private:
 	FAutomationTestBase* Test;
 	double Started, StageStart = 0., CutAt = 0.;
 	float InitialChange = 0.f, CutPublished = 0.f;

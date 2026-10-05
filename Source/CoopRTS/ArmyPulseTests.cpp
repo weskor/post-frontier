@@ -27,6 +27,8 @@ public:
 protected:
 	bool Setup() override;
 	bool Step(double Now) override;
+	bool StepResume(double Now);
+	bool StepCooldown(double Now);
 
 private:
 	bool PlaceBarracksNear(const FVector& Center, TWeakObjectPtr<ACommandBuilding>& Out);
@@ -173,6 +175,15 @@ bool FPulseScenario::Step(double Now)
 		Scrambler->GetGroup()->Status = EForceStatus::Holding;
 		Next(1, Now);
 		return false;
+	default:
+		return StepCooldown(Now);
+	}
+}
+
+bool FPulseScenario::StepCooldown(double Now)
+{
+	switch (Stage)
+	{
 	case 1:
 		if (Shielded->GetShield() > 0)
 			return !Check(!After(Now, 1.5), TEXT("A shielded hostile in range makes the Scrambler pulse"));
@@ -200,6 +211,15 @@ bool FPulseScenario::Step(double Now)
 		Arena.Place(Scrambler.Get(), (Barracks->GetActorLocation() + Foundation->GetActorLocation()) * .5f + FVector(0.f, 0.f, 65.f));
 		Next(3, Now);
 		return false;
+	default:
+		return StepResume(Now);
+	}
+}
+
+bool FPulseScenario::StepResume(double Now)
+{
+	switch (Stage)
+	{
 	case 3:
 		if (!Barracks->IsStunned())
 			return !Check(Now - FirstPulse < 11.5, TEXT("A building in range triggers the next pulse when the cooldown ends"));

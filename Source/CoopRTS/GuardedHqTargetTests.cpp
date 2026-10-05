@@ -17,6 +17,21 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedAcquisitionTest, "CoopRTS.Guarded.Acqui
 
 using namespace GuardedHqWorld;
 
+namespace
+{
+// JEV's free units, and how many of them stand in the HQ's region.
+void CountEmergencyUnits(FTeamEconomyFixture& F, const AHeadquarters& Home, int32& Units, int32& AtHome)
+{
+	for (TActorIterator<AArmyGroup> It(F.World); It; ++It)
+		if (It->GetTeamIndex() == 5 && !It->GetProductionBuilding())
+			for (const AArmyUnit* Unit : It->GetUnits())
+			{
+				++Units;
+				AtHome += F.State->FindRegionAt(Unit->GetActorLocation()) == F.State->FindRegionAt(Home.GetActorLocation()) ? 1 : 0;
+			}
+}
+}
+
 bool FGuardedJevEmergencyTest::RunTest(const FString&)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FGuardedScenario(this, 2, [](FTeamEconomyFixture& F) {
@@ -46,13 +61,7 @@ bool FGuardedJevEmergencyTest::RunTest(const FString&)
 		T.TestTrue(TEXT("JEV launches its emergency wave"), FreeForces() >= 1);
 		int32 Units = 0;
 		int32 AtHome = 0;
-		for (TActorIterator<AArmyGroup> It(F.World); It; ++It)
-			if (It->GetTeamIndex() == 5 && !It->GetProductionBuilding())
-				for (const AArmyUnit* Unit : It->GetUnits())
-				{
-					++Units;
-					AtHome += F.State->FindRegionAt(Unit->GetActorLocation()) == F.State->FindRegionAt(Home.GetActorLocation()) ? 1 : 0;
-				}
+		CountEmergencyUnits(F, Home, Units, AtHome);
 		T.TestTrue(TEXT("which has units"), Units > 0);
 		T.TestEqual(TEXT("spawned at the HQ, in its main"), AtHome, Units);
 		// Decision (review ruling): an emergency wave is published on the timeline as one, and is not a release wave.
