@@ -92,7 +92,7 @@ private:
 		if (!Check(Host->Resources == GameStatePlanning::FixtureStartingResources, TEXT("A commander present at the skip starts with the fixture wallet")))
 			return Done();
 		ACommandPlayerState* Joiner = SpawnCommander();
-		if (!Check(Joiner && Joiner->Resources == ACommandPlayerState::InitialResources, TEXT("A new commander is reset to the opening wallet")))
+		if (!Check(Joiner && Joiner->Resources == ACommandPlayerState::InitialResources, TEXT("A new commander starts with the opening wallet")))
 			return Done();
 		State->GrantLateKit(Joiner);
 		const bool bWallet = Joiner->Resources == GameStatePlanning::FixtureStartingResources;
