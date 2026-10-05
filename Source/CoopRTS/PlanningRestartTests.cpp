@@ -1,5 +1,6 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "PlanningFixture.h"
+#include "GameState/GameStatePlanning.h"
 
 // A restart after a finished battle travels to a fresh world, which opens in planning again: frozen, a kit slot for
 // the carried commander, the opening wallet and a new sixty-second countdown.
@@ -23,8 +24,10 @@ private:
 			return Finish();
 		case 1:
 			return Reopened();
-		default:
+		case 2:
 			return Started();
+		default:
+			return FixtureJoiner();
 		}
 	}
 
@@ -69,8 +72,36 @@ private:
 		if (State->IsPlanning())
 			return false;
 		const float Match = State->GetBattleClockStartServerTime();
-		Check(State->GetPlanningEndCount() == 1 && State->GetPlanningEnd() == EPlanningEnd::AllReady && !World->IsPaused() && Match >= 0.f,
-			TEXT("The lone human's Ready ends the restarted planning exactly once"));
+		if (!Check(State->GetPlanningEndCount() == 1 && State->GetPlanningEnd() == EPlanningEnd::AllReady && !World->IsPaused() && Match >= 0.f,
+				TEXT("The lone human's Ready ends the restarted planning exactly once")))
+			return Done();
+		// The fixture rule of the same world, planning opened again: the harness skips it.
+		State->BeginPlanning();
+		ACommandGameState::bPlanningHeldByTest = false;
+		State->CompletePlanningForHarness(false);
+		Enter(3);
+		return false;
+	}
+
+	// A world that skips planning gives every commander the fixture wallet, also one who logs in after the skip: a
+	// restart's second carried commander arrives a frame after the first, whose login is what ends planning.
+	bool FixtureJoiner()
+	{
+		if (!Check(!State->IsPlanning() && State->GetPlanningEnd() == EPlanningEnd::Fixture, TEXT("The harness skips planning")))
+			return Done();
+		if (!Check(Host->Resources == GameStatePlanning::FixtureStartingResources, TEXT("A commander present at the skip starts with the fixture wallet")))
+			return Done();
+		ACommandPlayerState* Joiner = SpawnCommander();
+		if (!Check(Joiner && Joiner->Resources == ACommandPlayerState::InitialResources, TEXT("A new commander is reset to the opening wallet")))
+			return Done();
+		State->GrantLateKit(Joiner);
+		const bool bWallet = Joiner->Resources == GameStatePlanning::FixtureStartingResources;
+		bool bKit = false;
+		for (ACommandBuilding* Building : State->Buildings)
+			bKit |= IsValid(Building) && Building->OwningPlayerState == Joiner;
+		RemoveCommander(Joiner);
+		Check(bWallet, TEXT("A commander who joins after the skip starts with the fixture wallet"));
+		Check(!bKit, TEXT("and gets no kit"));
 		return Done();
 	}
 

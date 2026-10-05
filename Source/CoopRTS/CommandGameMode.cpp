@@ -223,13 +223,6 @@ void ACommandGameMode::PreLogin(const FString& Options, const FString& Address,
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-void ACommandGameMode::HandleSeamlessTravelPlayer(AController*& Controller)
-{
-	Super::HandleSeamlessTravelPlayer(Controller);
-	if (ACommandPlayerState* Commander = Controller ? Controller->GetPlayerState<ACommandPlayerState>() : nullptr)
-		Commander->ResetForNewMatch();
-}
-
 void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
 {
 	ACommandGameState* State = GetGameState<ACommandGameState>();
@@ -263,6 +256,8 @@ void ACommandGameMode::HandleStartingNewPlayer_Implementation(APlayerController*
 			GameSession->KickPlayer(NewPlayer, FText::FromString(TEXT("Match full (five commanders maximum)")));
 		return;
 	}
+	// The one reset of a login, seamless-travel arrivals included (the engine calls this inside HandleSeamlessTravelPlayer):
+	// a reset after this call would undo GrantLateKit's wallet.
 	Commander->ResetForNewMatch();
 	Commander->CommanderIndex = Slot;
 	Commander->TeamIndex = 0;

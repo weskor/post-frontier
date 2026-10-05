@@ -324,11 +324,22 @@ void ACommandGameState::FillKits()
 	PlaceJevKit(true);
 }
 
+// A commander who joins after planning ended. A fixture-skipped world has no kits and one wallet for everyone, the
+// roster at the time of the skip included, so a joiner (a restart's second carried commander logs in after the
+// first has already triggered the skip) gets that wallet rather than the 200 Power of the real opening.
 void ACommandGameState::GrantLateKit(ACommandPlayerState* Commander)
 {
-	if (!HasAuthority() || Planning.bActive || PlanningEndCount == 0 || PlanningEndReason == EPlanningEnd::Fixture
+	if (!HasAuthority() || Planning.bActive || PlanningEndCount == 0
 		|| MatchResult != EMatchResult::Ongoing || !IsValid(Content) || !IsValid(Commander) || Commander->TeamIndex != 0)
 		return;
+	if (PlanningEndReason == EPlanningEnd::Fixture)
+	{
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+		Commander->Resources = GameStatePlanning::FixtureStartingResources;
+		Commander->ForceNetUpdate();
+#endif
+		return;
+	}
 	FPlanningKit Kit;
 	Kit.Commander = Commander;
 	FillKit(Kit);
