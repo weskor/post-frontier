@@ -81,7 +81,8 @@ struct FOrderChange
 	bool bChanged = false;
 };
 // A new commitment or a changed decision reissues an order only if the force's actual order differs. So does a
-// committed plan that was never issued (FPlan::bUnissued): the force gets it once commands unlock.
+// committed plan that was never issued (FPlan::bUnissued): the force gets it once commands unlock. A standing plan
+// (FPlan::bStanding) is reissued whenever the force's order differs, so a lost wave order is restored.
 FOrderChange OrderChange(const JevPlanner::FPlan& Next, const JevPlanner::FPlan* Current, bool bActualDiffers);
 // A decision that carries a different commitment deadline than the one on record starts a new ticket.
 bool NewCommitment(const JevPlanner::FPlan* Current, const JevPlanner::FPlan& Next);

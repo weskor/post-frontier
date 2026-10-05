@@ -289,8 +289,26 @@ bool TargetValid(const FWorld& World, const FPlan& Plan)
 	return false;
 }
 
+namespace
+{
+// A standing plan is kept while its target is valid, the force has units and is not retreating. Defending
+// one's own region (an emergency wave) lasts only while hostiles are in it or it is under attack.
+bool StandingHolds(const FWorld& World, const FForce& Force, const FPlan& Plan)
+{
+	if (!Plan.bStanding || Force.UnitCount <= 0 || Force.bRetreating || !TargetValid(World, Plan))
+		return false;
+	const FRegion& Target = World.Regions[Plan.Target];
+	return Target.Controller != World.Team || Target.Hostiles > 0 || Target.bAttacked;
+}
+}
+
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out)
 {
+	if (Current && StandingHolds(World, Force, *Current))
+	{
+		Out = *Current;
+		return true;
+	}
 	if (Current && Now < Current->CommittedUntil && MustDefend(World, Force))
 	{
 		if (Current->bEscalated && Current->Verb == EVerb::MoveAndHold && Current->Target == Force.Source)

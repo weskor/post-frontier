@@ -105,6 +105,9 @@ struct FPlan
 	// The force has had living units when this plan was made or any plan before it. An empty force with this set was
 	// wiped out, not newly built.
 	bool bFielded = false;
+	// A wave's Attack: it outlives its commitment window. Decide keeps it while the target is valid, the force has
+	// units and is not retreating, whatever the clock says and even when its source region is attacked.
+	bool bStanding = false;
 };
 
 struct FCandidate
@@ -136,7 +139,7 @@ bool TargetValid(const FWorld& World, const FPlan& Plan);
 // Returns false only when there is neither a legal proposal nor an active commitment.
 // An attacked, team-controlled source forces defense unless the executor is Retreating.
 // Defense is escalated at creation; escalation retains an active commitment's deadline.
-// Target invalidation starts a fresh commitment.
+// Target invalidation starts a fresh commitment. A standing plan is the exception to the clock: see FPlan::bStanding.
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out);
 float Remaining(const FPlan& Plan, float Now);
 }

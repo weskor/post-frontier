@@ -98,7 +98,7 @@ private:
 		}
 		if (Stage == 2)
 			return WaveLaunched(1) ? Wound() : false;
-		// Past the 25 s commitment the ordinary planner is back in charge of the wave.
+		// Past the 25 s commitment window the wave still holds its standing Attack.
 		if (InStage() < 32.)
 			return false;
 		for (const AArmyGroup* Force : EnemyForces(Kit.World))

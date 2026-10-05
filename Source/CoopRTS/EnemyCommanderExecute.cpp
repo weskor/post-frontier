@@ -87,11 +87,14 @@ void SnapshotForce(const FJevTurn& Turn, FJevForceStep& Step)
 bool ChoosePlan(const FJevTurn& Turn, FJevForceStep& Step)
 {
 	const JevPlanner::FPlan* Prior = Step.Current ? &Step.Current->Plan : nullptr;
+	// A refilling force that is hurt enough to recover gives up its standing wave order; its own withdrawal and
+	// refill still run under the standing order otherwise.
+	const JevPlanner::FPlan* Standing = Prior && Prior->bStanding && Step.bRecovering ? nullptr : Prior;
 	Step.bCommandsRejected = Step.Current && Step.Current->bCommandsRejected && Turn.Now < Step.Current->Plan.CommittedUntil
 		&& !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
 	if (Step.bCommandsRejected)
 		Step.Next = ActualPlanOf(Turn, Step);
-	else if (!JevPlanner::Decide(Turn.Summary, Step.Snapshot, Turn.Now, Prior, Step.Next))
+	else if (!JevPlanner::Decide(Turn.Summary, Step.Snapshot, Turn.Now, Standing, Step.Next))
 	{
 		if (Step.Force->Orders.IsEmpty())
 		{
@@ -260,6 +263,8 @@ void AEnemyCommander::ExecuteWaveForce(FJevTurn& Turn, AArmyGroup* Force, int32 
 	if ((bJoining && !JoinsWave(Turn, Step)) || !JevExecution::ValidRegion(Target))
 		return;
 	Step.Next = WavePlan(Turn, Step, Target);
+	// A wave attack outlives its commitment window: the march takes longer than the window.
+	Step.Next.bStanding = true;
 	if (!IssueOrder(Turn, Step))
 		return;
 	Commit(Turn, Step);

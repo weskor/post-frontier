@@ -135,7 +135,7 @@ FOrderChange OrderChange(const JevPlanner::FPlan& Next, const JevPlanner::FPlan*
 	Change.bFresh = NewCommitment(Current, Next);
 	const bool bDecisionChanged = !Current || Next.Verb != Current->Verb || Next.Target != Current->Target
 		|| Next.TargetIdentity != Current->TargetIdentity;
-	Change.bChanged = bActualDiffers && (bDecisionChanged || Change.bFresh || Current->bUnissued);
+	Change.bChanged = bActualDiffers && (bDecisionChanged || Change.bFresh || Current->bUnissued || Current->bStanding);
 	return Change;
 }
 
