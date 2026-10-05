@@ -7,6 +7,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStandingPlanTest, "CoopRTS.Rules.Jev.Standi
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStandingOrderChangeTest, "CoopRTS.Rules.JevExecution.StandingOrderChange",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStandingEndsTest, "CoopRTS.Rules.Jev.StandingEnds",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevWaveObjectiveTest, "CoopRTS.Rules.Jev.WaveObjective",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
@@ -45,6 +47,17 @@ JevPlanner::FPlan WavePlan(float Now)
 	Plan.bStanding = true;
 	return Plan;
 }
+
+// Six units of a free wave force in JEV's main.
+JevPlanner::FForce WaveForce(TConstArrayView<float> Speeds)
+{
+	JevPlanner::FForce Force;
+	Force.Source = Force.Home = 0;
+	Force.UnitCount = 6;
+	Force.bCanRefill = false;
+	Force.ClassSpeeds = Speeds;
+	return Force;
+}
 }
 
 bool FJevStandingPlanTest::RunTest(const FString&)
@@ -53,11 +66,7 @@ bool FJevStandingPlanTest::RunTest(const FString&)
 	const float Speeds[] = { 100.f };
 	const float Now = 2000.f;
 	FWorld World = LineWorld();
-	FForce Force;
-	Force.Source = Force.Home = 0;
-	Force.UnitCount = 6;
-	Force.bCanRefill = false;
-	Force.ClassSpeeds = Speeds;
+	const FForce Force = WaveForce(Speeds);
 	const FPlan Standing = WavePlan(Now);
 	FPlan Out;
 	TestTrue(TEXT("An expired standing Attack is kept"), Decide(World, Force, Now, &Standing, Out));
@@ -88,6 +97,18 @@ bool FJevStandingPlanTest::RunTest(const FString&)
 	Decide(World, Wiped, Now, &Standing, Out);
 	TestFalse(TEXT("A force with no units left does not carry the standing order into its refill"), Out.bStanding);
 
+	return true;
+}
+
+bool FJevStandingEndsTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	const float Now = 2000.f;
+	FWorld World = LineWorld();
+	const FForce Force = WaveForce(Speeds);
+	const FPlan Standing = WavePlan(Now);
+	FPlan Out;
 	FWorld Captured = World;
 	Captured.Regions[3].Controller = 5;
 	Decide(Captured, Force, Now, &Standing, Out);
