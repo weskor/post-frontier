@@ -22,42 +22,19 @@ from harness.network import (
 )
 from harness.verify import JsonObject
 
-
 # EHUDAction::BranchPurchase in Source/CoopRTS/CommandHUD.h (hud_actions.py is outside this slice's files).
 BRANCH_PURCHASE = 54
 
 
-def start_and_starve(
-    run: NetworkRun, capture: Capture, owner: int, barracks: int
+def check_locked_type_ui(
+    run: NetworkRun, capture: Capture, owner: int, barracks: int, paused: JsonObject
 ) -> None:
-    run.request("host", "income", paused=True)
-    capture.hud(RECIPE_RANGED, "Ranged recipe")
-    selected = capture.wait(
-        lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated"
-    )
-    run.request(
-        "host", "fund", owner=owner, amount=building(selected, barracks)["unitCost"]
-    )
-    capture.hud(TOGGLE_PRODUCTION, "Start production")
-    capture.wait(
-        lambda s: (
-            building(s, barracks)["enabled"]
-            and building(s, barracks)["configured"]
-            and building(s, barracks)["productionSeconds"]
-            > building(s, barracks)["unitTime"] * 0.25
-        ),
-        "configured force production progressing",
-    )
-    capture.shot("barracks-producing-locked-type")
-    capture.hud(TOGGLE_PRODUCTION, "Pause partially produced unit")
-    paused = capture.wait(
-        lambda s: not building(s, barracks)["enabled"], "partial unit paused"
-    )
+    """A locked Barracks shows its locked row and the TIER 2 BRANCH button, and both clicks explain themselves.
+
+    The other recipes are not drawn (ui.md surface 5). The button snapshot stops at ForceCard60 (52), below
+    BranchPurchase, so the branch click is what proves that button is on screen.
+    """
     progress = building(paused, barracks)["productionSeconds"]
-    capture.shot("barracks-paused-locked-type")
-    # Once locked, the FORCE TYPE column shows only the locked row (its own recipe action, blocked) and the
-    # TIER 2 BRANCH button below it; the other recipes are not drawn (ui.md surface 5). The button snapshot stops
-    # at ForceCard60 (52), below BranchPurchase, so the branch click below is what proves that button is on screen.
     buttons = {button["action"] for button in capture.state()["uiButtons"]}
     require(
         RECIPE_RANGED in buttons and RECIPE_SIEGE not in buttons,
@@ -94,6 +71,37 @@ def start_and_starve(
         "TIER 2 BRANCH click did not explain the shortfall or spent/changed work",
     )
     capture.shot("barracks-branch-button-explained")
+
+
+def start_and_starve(
+    run: NetworkRun, capture: Capture, owner: int, barracks: int
+) -> None:
+    run.request("host", "income", paused=True)
+    capture.hud(RECIPE_RANGED, "Ranged recipe")
+    selected = capture.wait(
+        lambda s: building(s, barracks)["recipe"] == RANGED, "ranged recipe replicated"
+    )
+    run.request(
+        "host", "fund", owner=owner, amount=building(selected, barracks)["unitCost"]
+    )
+    capture.hud(TOGGLE_PRODUCTION, "Start production")
+    capture.wait(
+        lambda s: (
+            building(s, barracks)["enabled"]
+            and building(s, barracks)["configured"]
+            and building(s, barracks)["productionSeconds"]
+            > building(s, barracks)["unitTime"] * 0.25
+        ),
+        "configured force production progressing",
+    )
+    capture.shot("barracks-producing-locked-type")
+    capture.hud(TOGGLE_PRODUCTION, "Pause partially produced unit")
+    paused = capture.wait(
+        lambda s: not building(s, barracks)["enabled"], "partial unit paused"
+    )
+    progress = building(paused, barracks)["productionSeconds"]
+    capture.shot("barracks-paused-locked-type")
+    check_locked_type_ui(run, capture, owner, barracks, paused)
     capture.hud(TOGGLE_PRODUCTION, "Resume locked ranged force")
     run.request("host", "fund", owner=owner, amount=0)
     capture.wait(
