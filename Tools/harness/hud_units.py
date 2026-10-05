@@ -2,17 +2,35 @@
 
 from __future__ import annotations
 
+from harness.hud_jev_units import ZOOM_OUT, focus
+from harness.hud_map_presentation import zoom
 from harness.hud_setup import boot, place_barracks
 from harness.hud_surface import Capture, no_compositor_windows
-from harness.network import BARRACKS, NetworkRun, building, owned_buildings, require
+from harness.network import (
+    BARRACKS,
+    NetworkRun,
+    alive_units,
+    building,
+    force,
+    owned_buildings,
+    require,
+)
+from harness.verify import JsonObject
 
 # EUnitRole ordinals appended by combat-shields-traits.
 ASSAULT, SUPPORT = 3, 4
 
 
+def squad_centre(state: JsonObject, owner: int, index: int) -> list[float]:
+    """Ground centre of the living units of the force produced by Barracks `index`."""
+    units = alive_units(force(state, owner, index))
+    require(len(units) == 3, f"{len(units)} living units in force {index}, expected 3")
+    return [sum(unit["position"][axis] for unit in units) / 3 for axis in (0, 1)]
+
+
 def produce_squad(
     run: NetworkRun, capture: Capture, owner: int, count: int, role: int, label: str
-) -> int:
+) -> list[float]:
     """Place the count-th Barracks, lock it to `role` through the production RPC and wait for a full squad."""
     run.request("host", "fund", owner=owner, amount=1000)
     state = place_barracks(run, capture, owner, count, f"{label} barracks placed")
@@ -43,8 +61,10 @@ def produce_squad(
         ),
         f"{label} squad of {capacity} joined",
     )
+    centre = squad_centre(capture.state(), owner, index)
+    focus(run, capture, centre, f"camera on the {label} squad")
     capture.shot(f"{label}-squad")
-    return int(index)
+    return centre
 
 
 def scenario(run: NetworkRun, resolution: tuple[int, int], support_first: bool) -> None:
@@ -57,8 +77,13 @@ def scenario(run: NetworkRun, resolution: tuple[int, int], support_first: bool) 
         if support_first
         else [(ASSAULT, "lancer"), (SUPPORT, "scrambler")]
     )
-    for count, (role, label) in enumerate(order, start=1):
+    squads = [
         produce_squad(run, capture, owner, count, role, label)
+        for count, (role, label) in enumerate(order, start=1)
+    ]
+    middle = [sum(centre[axis] for centre in squads) / len(squads) for axis in (0, 1)]
+    focus(run, capture, middle, "camera between the squads")
+    zoom(run, capture, ZOOM_OUT.get(resolution[1], -7))
     capture.shot("both-squads")
     final = capture.state()
     run.event(

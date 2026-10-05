@@ -23,6 +23,10 @@ from harness.network import (
 from harness.verify import JsonObject
 
 
+# EHUDAction::BranchPurchase in Source/CoopRTS/CommandHUD.h (hud_actions.py is outside this slice's files).
+BRANCH_PURCHASE = 54
+
+
 def start_and_starve(
     run: NetworkRun, capture: Capture, owner: int, barracks: int
 ) -> None:
@@ -51,9 +55,17 @@ def start_and_starve(
     )
     progress = building(paused, barracks)["productionSeconds"]
     capture.shot("barracks-paused-locked-type")
+    # Once locked, the FORCE TYPE column shows only the locked row (its own recipe action, blocked) and the
+    # TIER 2 BRANCH button below it; the other recipes are not drawn (ui.md surface 5). The button snapshot stops
+    # at ForceCard60 (52), below BranchPurchase, so the branch click below is what proves that button is on screen.
+    buttons = {button["action"] for button in capture.state()["uiButtons"]}
+    require(
+        RECIPE_RANGED in buttons and RECIPE_SIEGE not in buttons,
+        "locked barracks must show its locked type row and no other recipe",
+    )
     capture.hud(
-        RECIPE_SIEGE,
-        "Blocked locked-type button explains itself without changing production",
+        RECIPE_RANGED,
+        "Blocked locked-type row explains itself without changing production",
     )
     locked = capture.state()
     require(
@@ -68,6 +80,20 @@ def start_and_starve(
         and locked["feedbackOpacity"] > 0,
         "locked-type click did not visibly explain why the force type cannot change",
     )
+    capture.shot("barracks-locked-type-row")
+    capture.hud(
+        BRANCH_PURCHASE,
+        "Greyed TIER 2 BRANCH button explains its shortfall without spending",
+    )
+    branch = capture.state()
+    require(
+        branch["orderFeedback"].startswith("Need ")
+        and branch["feedbackOpacity"] > 0
+        and building(branch, barracks)["productionSeconds"] == progress
+        and wallet(branch, owner)["wallet"] == wallet(paused, owner)["wallet"],
+        "TIER 2 BRANCH click did not explain the shortfall or spent/changed work",
+    )
+    capture.shot("barracks-branch-button-explained")
     capture.hud(TOGGLE_PRODUCTION, "Resume locked ranged force")
     run.request("host", "fund", owner=owner, amount=0)
     capture.wait(
@@ -244,6 +270,8 @@ def check_removed_squad_keys(
     run: NetworkRun, capture: Capture, owner: int, state: JsonObject
 ) -> None:
     roster = [(a["army"], a["serial"]) for a in state["armies"] if a["owner"] == owner]
+    # Q is unbound; Tab and H are no longer squad keys: Tab toggles the Team panel (ui.md surface 3), which replaces
+    # the alert feed column while open, and H arms Fortify (surface 4). Leave both closed for the later feed checks.
     for key in ("Tab", "Q", "H"):
         capture.key(key)
     state = capture.state()
@@ -253,4 +281,12 @@ def check_removed_squad_keys(
         "removed manual squad keys changed automatic squad orders",
     )
     require(state["buildingSelected"], "removed Tab binding changed building selection")
+    if state["team"]["open"]:
+        capture.key("Tab")
+    if state["fortify"]["targeting"]:
+        capture.key("Escape")
+    capture.wait(
+        lambda s: not s["team"]["open"] and not s["fortify"]["targeting"],
+        "Team panel and Fortify targeting closed after the removed-key check",
+    )
     run.phase("former squad-control keys preserve force orders and building selection")

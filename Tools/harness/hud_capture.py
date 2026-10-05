@@ -16,9 +16,9 @@ isolated host and captures the timeline bar, region badge and memo feed after ea
 --quick force-bar: real card selection, production pause/resume, Attack, withdrawal and Retreat,
 with state captures at every --res. Other --quick labels boot one placed barracks and capture the
 deck + inspector at one resolution; they do not prove production, orders, research or victory.
---quick new-units: locks two real Barracks to the Lancer and the Scrambler, waits for each full squad of 3 and
-captures both squads and the two together at the default camera (Human faction only); new-units-support-first
-produces the Scrambler first, which puts it in the open instead of behind the second Barracks.
+--quick new-units: locks two real Barracks to the Lancer and the Scrambler, waits for each full squad of 3, centres the camera on
+each squad for its capture and on the point between them, zoomed out, for the two together (Human faction only);
+new-units-support-first produces the Scrambler first, which puts it in the open instead of behind the second Barracks.
 --quick jev-units: the Machine-faction counterpart on an isolated host: the host fixture places two completed JEV
 Barracks locked to the Lancer and the Scrambler, and the capture shows each full squad of 3, then both with the camera between them.
 """
