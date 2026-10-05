@@ -99,7 +99,6 @@ def start_and_starve(
     paused = capture.wait(
         lambda s: not building(s, barracks)["enabled"], "partial unit paused"
     )
-    progress = building(paused, barracks)["productionSeconds"]
     capture.shot("barracks-paused-locked-type")
     check_locked_type_ui(run, capture, owner, barracks, paused)
     capture.hud(TOGGLE_PRODUCTION, "Resume locked ranged force")
