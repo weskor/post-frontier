@@ -354,7 +354,7 @@ rendered = true
 
 [scopes.paused-presentation]
 kind = "automation"
-filter = "CoopRTS.PausedPresentation"
+filter = "CoopRTS.Presentation.Paused"
 map = "default"
 rendered = true
 

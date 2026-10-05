@@ -20,9 +20,9 @@
 // camera, the arrow keys pan it, the Barracks placement preview draws its cells at the cursor, and a producer's mesh
 // follows its configured unit type, both while planning stands the world still and while a solo player has paused the match.
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPausedPresentationPlanningTest, "CoopRTS.PausedPresentation.Planning",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPausedPresentationPlanningTest, "CoopRTS.Presentation.Paused.Planning",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPausedPresentationActiveTest, "CoopRTS.PausedPresentation.ActivePause",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPausedPresentationActiveTest, "CoopRTS.Presentation.Paused.ActivePause",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 namespace PausedPresentationTests
