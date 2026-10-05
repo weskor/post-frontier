@@ -189,7 +189,8 @@ void FMatchSimulation::ObserveRush(ACommandGameState& State)
 			Rush = &RushForces.Add(Key, FRushForce{});
 			Record(TEXT("rush_force_seen"));
 		}
-		// The rush's objective is JEV's main, or a Failover Node (a structure attack) while one guards its HQ.
+		// The rush's objective is JEV's main, or a structure while a Failover Node guards its HQ (only nodes are
+		// targeted then, so a structure here is a node).
 		const bool bObjective = It->TargetRegionIndex == RushTargetRegion || IsValid(It->TargetStructure);
 		if (!Rush->bAttacking && It->Verb == EForceVerb::Attack && bObjective)
 		{
