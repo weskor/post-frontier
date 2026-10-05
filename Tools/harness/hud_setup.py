@@ -8,6 +8,17 @@ from harness.network import BARRACKS, NetworkRun, building, owned_buildings, req
 from harness.verify import JsonObject
 
 
+def park_cursor(run: NetworkRun, state: JsonObject) -> None:
+    """Put the offscreen cursor in the viewport centre.
+
+    One left on a viewport edge (the default is the top-left corner, and a resize can strand it) engages real
+    edge-pan, which drifts the camera to the arena clamp mid-run: black out-of-arena captures and minimap-focus timeouts.
+    """
+    run.request(
+        "host", "cursor", x=state["viewportWidth"] / 2, y=state["viewportHeight"] / 2
+    )
+
+
 def boot(
     run: NetworkRun,
     capture: Capture,
@@ -27,6 +38,7 @@ def boot(
         "rendered listen host with commander and regions",
     )
     no_compositor_windows(run, pid)
+    park_cursor(run, state)
     if isolate:
         run.request("host", "isolate")
         run.phase("isolated enemy planner for stable presentation states (fixture)")
@@ -43,6 +55,7 @@ def boot(
             lambda s: (s["viewportWidth"], s["viewportHeight"]) == (width, height),
             f"viewport {width}x{height}",
         )
+        park_cursor(run, state)
     return pid, state
 
 

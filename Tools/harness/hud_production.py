@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from harness.hud_actions import RECIPE_RANGED, RECIPE_SIEGE, TOGGLE_PRODUCTION
+from harness.hud_actions import (
+    BRANCH_PURCHASE,
+    RECIPE_RANGED,
+    RECIPE_SLOTS,
+    TOGGLE_PRODUCTION,
+)
 from harness.hud_surface import Capture
 from harness.network import (
     HOLDING,
@@ -22,9 +27,6 @@ from harness.network import (
 )
 from harness.verify import JsonObject
 
-# EHUDAction::BranchPurchase in Source/CoopRTS/CommandHUD.h (hud_actions.py is outside this slice's files).
-BRANCH_PURCHASE = 54
-
 
 def check_locked_type_ui(
     run: NetworkRun, capture: Capture, owner: int, barracks: int, paused: JsonObject
@@ -37,7 +39,7 @@ def check_locked_type_ui(
     progress = building(paused, barracks)["productionSeconds"]
     buttons = {button["action"] for button in capture.state()["uiButtons"]}
     require(
-        RECIPE_RANGED in buttons and RECIPE_SIEGE not in buttons,
+        buttons & RECIPE_SLOTS == {RECIPE_RANGED},
         "locked barracks must show its locked type row and no other recipe",
     )
     capture.hud(
