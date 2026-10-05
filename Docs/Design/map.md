@@ -10,7 +10,7 @@
   - Radius 430 cm, rate 0.125/s: 8 s to take a neutral anchor, 16 s to flip an enemy one.
   - Capture makes no progress when both sides are present or when nobody is, and nothing locks a capture. Only units that belong to a force count.
 - **Contested:** any hostile unit inside the region's polygon. You can only build in regions your team controls that are not contested.
-- **[Change]:** income needs a connected chain ([economy.md](economy.md)).
+- **[Built]:** income needs a connected chain ([economy.md](economy.md)).
 
 ## Maps [New] — decided
 
@@ -41,7 +41,7 @@
 - **Habitable Zone v2 check (2026-10-02):** measured from the single capture point, a region's farthest point is 48 m away on average, and 75 m in East Spur. An automatic placement estimate brings every region inside 35 m with 2–3 posts each, 35 in total, so no region needs reshaping.
 - **[Built]:** holding forces wait at these posts ([forces.md](forces.md)).
 
-## Region traits [New] — decided
+## Region traits [Built] — decided
 
 A region can have one trait, shown as an icon on the region and the minimap:
 
@@ -55,7 +55,7 @@ A region can have one trait, shown as an icon on the region and the minimap:
 Traits make *where* to fight a decision, and they combine with Move & Hold.
 
 - **Who is affected:** units standing inside the region, on both teams including JEV. Buildings are unaffected.
-- **Stacking:** Cover and the other incoming multipliers multiply together ([units.md](units.md#damage-pipeline-change)). Open's speed bonus composes with Retreat's sprint and the selection speed cap ([forces.md](forces.md#steering-forces-change--decided)) without breaking formation cohesion.
+- **Stacking:** Cover and the other incoming multipliers multiply together ([units.md](units.md#damage-pipeline-built)). Open's speed bonus composes with Retreat's sprint and the selection speed cap ([forces.md](forces.md#steering-forces-change--decided)) without breaking formation cohesion.
 - **Effects [Built]:** every region carries a replicated trait that the map generator sets from the map data; the four effects above work on units in a region, with the region cached per unit and re-read on a short clock. Open speed applies only while every joined member of a force stands in Open ground, so a force straddling the border keeps one speed. The fixed Habitable Zone v2 layout and its terrain are [Built], below.
 
 **[Built] Terrain and fixed layout in step 1b** on Habitable Zone v2, with terrain to match each trait: 300 cm plateaus with 8 m ramps for high ground, visible cover props, a hazard ground effect, flat clear ground for open, and narrow necks giving three routes between the fronts. The layout, ramps, closed borders and route costs are in [AvailabilityZoneV2.md](../Maps/AvailabilityZoneV2.md#terrain-and-traits). The generator sets each region's trait from the map data; the effects (range, damage taken, speed, damage over time) live in the combat rules. The seed shuffles traits from step 4 ([build-order.md](build-order.md)). Layout rules (starting values, orchestrator 2026-10-04), checked by the map audit:

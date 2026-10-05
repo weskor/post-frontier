@@ -2,12 +2,12 @@
 
 > Part of the [Post-Frontier design](../Design.md). Related: [build-order](build-order.md), [forces](forces.md), [jev](jev.md), [open-questions](open-questions.md).
 
-- **Length target:** 8–12 min.
+- **Length target [New]:** 8–12 min. Tuning is open: the step-1b gate has no run result yet ([Balance.md](../Balance.md#step-1b-gate-new), [open-questions.md](open-questions.md)).
 - **Start [Built]:** a planning phase, then the commanders' kits stand pre-built (see "Opening" below). Before this: an empty base, 600 Power per commander and no units.
 - **Win:** complete the node objective.
 - **Lose [Built]:** the friendly HQ goes offline and the attackers complete its hold ([Guarding the HQs](#guarding-the-hqs-built--decided)).
 
-## Opening: planning phase and pre-built kit [Change] — decided
+## Opening: planning phase and pre-built kit [Built] — decided
 
 **Why.** Every battle used to start from an empty base. In all 20 harness matches the AI's opening was identical to the second: barracks finished at 14 s, first Drill Rig at 27 s, first capture at 39 s, first fight around 2:15. One build order, replayed 4–6 times a run. Research: [opening.md](../Research/opening.md).
 
@@ -20,7 +20,7 @@
   - edits all of it until Ready or 0:00; Ready locks edits and un-Ready unlocks;
   - sees JEV's base and its first plans ([jev.md](jev.md)). Pings work; freehand drawing is **[Later]**.
 - **At expiry,** unplaced kits auto-place at default spots (rings around the headquarters, clear of free deposits), as does any AI adjutant's kit ([run.md](run.md)).
-- **Joining and leaving:** a commander who joins during planning gets a kit; one who leaves has their kit removed. If a commander's territory has no free deposit, they get the Drill Rig's cost in Power instead ([economy.md](economy.md#deposits-change)).
+- **Joining and leaving:** a commander who joins during planning gets a kit; one who leaves has their kit removed. If a commander's territory has no free deposit, they get the Drill Rig's cost in Power instead ([economy.md](economy.md#deposits-built)).
 - **Wallet:** the Opening values in [economy.md](economy.md#resources-change--decided).
 - **JEV's matching start [Built]:** one pre-built Barracks and Drill Rig per human commander, placed and finished as the humans' kits are. They follow the roster: a joiner adds a pair, a leaver removes one.
 - **JEV's first plans [Built]:** published during planning, so the layout answers a real threat. JEV's kit forces exist then (its Barracks are configured as the planning kit's are, the role by JEV's producer rule), and each is planned at its squad size as if at 0:00 ([jev.md](jev.md#published-intent-built)). The world stays frozen while they are made: JEV plans when its kit stands and whenever the roster changes, not on a tick, and the plans' 25 s commitment starts at 0:00.
@@ -35,7 +35,7 @@
 
 ## No clock: JEV escalates
 
-There is no battle timer and no fail state tied to time. Instead JEV **escalates on a visible schedule** of versions, the Releases table in [jev.md](jev.md#how-jev-plays-change--decided). The HUD timeline counts down to the next one.
+There is no battle timer and no fail state tied to time. Instead JEV **escalates on a visible schedule** of versions, the Releases table in [jev.md](jev.md#how-jev-plays-built--decided). The HUD timeline counts down to the next one.
 
 - Escalation depends on elapsed time and node depth only. **It never reacts to the team's performance.** No rubber-banding.
 
@@ -80,16 +80,16 @@ The same rules apply to **both HQs**, the Lattice and Hardline (starting values,
   - The main stays controlled and connected for its owner until the hold completes.
 - **Emergency wave [Built]** (the final protocol): the first time a side's HQ goes offline (once per battle per side), an emergency force spawns at that HQ, announced globally.
   - Humans: one free force per commander, of that commander's Barracks unit type, at full squad.
-  - JEV: one wave at the current release's wave budget ([jev.md](jev.md#how-jev-plays-change--decided)).
+  - JEV: one wave at the current release's wave budget ([jev.md](jev.md#how-jev-plays-built--decided)).
   - Neither emergency force is strong enough to win on its own.
 - **Outcome [Built]:** in step 1b, which has the Assault objective only, a battle ends only on a completed hold. Raid and Sabotage keep their own win conditions when they arrive (step 4). The harness counts completed holds.
 - **Earliest win:** the nodes' reduced damage lasts until the `v1.2` release; then a node and the HQ must break and the hold complete, so roughly 6–7 min against an unattended rush.
 
-## Two-commander threat [New]
+## Two-commander threat [Built]
 
 **Split-Brain Cut [Built]**, in co-op only (starting values, orchestrator 2026-10-04, budget semantics amended 2026-10-04):
-- **The threat:** at the `v2.0` release (6:00), JEV sends two extra free assault forces at the same moment to two authored, non-adjacent human supply-neck regions ([map.md](map.md#region-traits-new--decided)), on top of the normal `v2.0` wave. Both plans are published 30 s ahead: a timeline cell tagged `SPLIT-BRAIN CUT` and a region badge for each, a memo from the `[JevMemos]` template, an alert row naming every target and a voiced line ("Split-Brain Cut in thirty seconds. Hold your supply necks."; with one target, "...Hold your supply neck."). The forces' live plans keep the tag, the badge and the memo wording for the whole march (a force that is defending its region shows the escalation instead).
-- **Composition and budget [Built]:** each force is composed by the threat's tuning rule, not bought with the budget: one full Lancer squad (three) with one Brawler as escort, four units costing 92 Power. The budget only caps it: half the `v2.0` budget times the player-count factor ([jev.md](jev.md#how-jev-plays-change--decided)), 260 for two commanders and 200 alone. The cap never forces extra units, so it is never reached and two or more commanders do not make the force stronger; a cap below 92 would cut the force down, Lancers first. The force keeps its Attack order until it has arrived and fights to the end.
+- **The threat:** at the `v2.0` release (6:00), JEV sends two extra free assault forces at the same moment to two authored, non-adjacent human supply-neck regions ([map.md](map.md#region-traits-built--decided)), on top of the normal `v2.0` wave. Both plans are published 30 s ahead: a timeline cell tagged `SPLIT-BRAIN CUT` and a region badge for each, a memo from the `[JevMemos]` template, an alert row naming every target and a voiced line ("Split-Brain Cut in thirty seconds. Hold your supply necks."; with one target, "...Hold your supply neck."). The forces' live plans keep the tag, the badge and the memo wording for the whole march (a force that is defending its region shows the escalation instead).
+- **Composition and budget [Built]:** each force is composed by the threat's tuning rule, not bought with the budget: one full Lancer squad (three) with one Brawler as escort, four units costing 92 Power. The budget only caps it: half the `v2.0` budget times the player-count factor ([jev.md](jev.md#how-jev-plays-built--decided)), 260 for two commanders and 200 alone. The cap never forces extra units, so it is never reached and two or more commanders do not make the force stronger; a cap below 92 would cut the force down, Lancers first. The force keeps its Attack order until it has arrived and fights to the end.
 - **Targets:** [Built] the map authors the eligible pairs; Habitable Zone v2 authors one, Skyhook with Reactor Yard (Uplink and Power Yard in the map data). A neck is a non-main region nearer the humans' main than JEV's whose loss lengthens or cuts the humans' shortest hop path to some other region; the map audit checks that every pair is two distinct, non-adjacent necks. JEV takes the pair the humans hold most of, else the pair nearest their main, and skips the threat with a logged reason when every pair is malformed or holds a region JEV controls. **Limit:** every region of the only pair is a single point of failure: JEV holding Reactor Yard or Skyhook disables the threat. Two more neck pairs exist (West Cut with Reactor Yard, Human Near with Skyhook) and are not authored, because the tuning rule does not hold the target on them (below).
 - **Tuning [Built]:** one holding force loses its region without Fortify and keeps it with Fortify ([commanders.md](commanders.md)). The world tests run the real threat from the real `v2.0` schedule against six Brawlers (a full tier-1 squad) on both regions, with two commanders and with or without the cast (cast when the force is within 40 m of the region's anchor, about ten seconds before it arrives): without Fortify both regions fall (the squad dies and JEV captures; the force keeps 192 of 618 and 274 of 618 durability); with it both hold (the force dies; the squad keeps 157 and 701 of 1980). **Repeatability:** each fight is its own scope (`jev-split-brain-unfortified`, `jev-split-brain-fortified`), so it runs in a fresh process, and starts on a whole second of world time. Measured: a fight alone in a fresh process gave the same numbers on every run (7 unfortified runs, 7 or more fortified); the unfortified fight run second in a world, after the fortified one, gave two different outcomes on identical content (242/363 and 263/244 left of 618), and a probe showed the outcome followed the test's start: world time 116.3000 gave 263/244, 116.3167 (one 1/60 s frame later) gave 242/363. The automation framework starts a test a frame or two off from run to run, and a fight is chaotic enough to turn that into a different result; a garbage collection before the second scenario changed nothing, and what else a first fight leaves in the world is undiagnosed. The window is also one unit wide, so a result is stable only in the fresh, aligned conditions the scopes give. Each row below ran alone in its own process. Candidates on Skyhook and Reactor Yard, unfortified then fortified, `lost`/`held` per region:
 

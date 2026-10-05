@@ -54,7 +54,7 @@ Research: [input.md](../Research/input.md).
 
 **Force ETA [Built]:** length of the active replicated intent route, divided by the force's effective march speed ([forces.md](forces.md)). The card and world/minimap path use the same polyline builder, including accepted formation destinations and structure endpoint corrections; no shortest-path route is recomputed on the client. Queued and retained recovery legs are excluded until active. The travel estimate excludes combat, capture waits and local navigation/crowd detours; no client navigation mesh is required. It refreshes every 0.5 seconds or when an order or waypoint changes. JEV's authoritative plan ETA is not replaced by this client-side estimate.
 
-**Force-card future badges [New]:** supply cutoff and upgrade availability arrive with their mechanics in [forces.md](forces.md); neither is shown early. Their placement and the refit badge are decided in "Step 1b surfaces" below (orchestrator 2026-10-04).
+**Force-card badges [Built]:** the CUT OFF chip, the REFIT n/m chip and the `▲ T2` chip; placement and wording are in "Step 1b surfaces" below (orchestrator 2026-10-04).
 
 **Order-state presentation [Built]:** the replicated force status is Marching, Holding, Withdrawing, Retreating or Refilling. **Attack + Refilling + `ResumeCount`** identifies automatic withdrawal recovery, not a manual Retreat: the card keeps the withdrawal's joined strength and resume count while the force refills. Retreat + Refilling means the manual sprint has ended and weapons are enabled while refilling. Completion, orphan exceptions and rally defaults have a single specification in [forces.md](forces.md).
 
@@ -97,17 +97,17 @@ Everything here reads the replicated JEV plans ([jev.md](jev.md#published-intent
 - **[Built] Region badges:** every region a plan targets carries a badge above its region label on the world map and a marker with its countdown on the minimap (`ESC` while defending). The badge names the target region and the verb (`JEV  Attack  Fusion Works  0:20`); an escalated plan reads *Escalated: defending X* in place of a countdown. Two plans on one region show the sooner one and `x2`. The world region label shows the region's display name from the map data (the name the timeline and memos print) instead of `REGION n`.
 - **[Built] Memo feed:** below the timeline bar, separate from the team announcer's alerts, in the Machine's voice: the Machine colours of [STYLE.md](../../Art/UI/STYLE.md) (pearl text, cyan trim, red lens) and a `JEV` tag, never the team panels' blue-grey. A plan posts its memo (the [jev.md](jev.md) template text, verbatim) when it is first published or when what the memo prints changes: its ticket, verb, target region, size band or escalation. ETA drift or a changed target structure posts nothing. Newest first, 3 rows, each held for 12 s and faded over 2 s (starting values); the feed remembers the latest 8.
 
-## Step 1b surfaces [New] — decided (orchestrator 2026-10-04)
+## Step 1b surfaces [Built] — decided (orchestrator 2026-10-04)
 
 Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 2026-10-04)**; mechanics, costs and durations live in the topic files they link, never here, so quoted numbers in strings are examples and real values come from data. Layout numbers are virtual pixels at HUD scale 1.0 (1600×900 and 1280×720 are both 1.0). They follow the binding rules above: no drag-only actions, no hover-only information, an on-screen prompt for every key, large snap targets (28 px minimum for any clickable target; a chip's hit area may be larger than its drawing), and state is never carried by colour alone (each state has a glyph or a word).
 
-**Keys [New].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which restarts only on the Result screen and starts Play Solo on the Main Menu; neither screen overlaps planning). Esc cancels the armed mode first, then closes the Team panel **[Built]**, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
+**Keys [Built].** Checked against every existing binding (arrows, wheel, LMB, MMB, RMB, 1–5, Space, F, Esc, F4, P, G, A, R, Shift, **B** plus the grid QWERT/ASDFG/ZXCVB, and Enter, which restarts only on the Result screen and starts Play Solo on the Main Menu; neither screen overlaps planning). Esc cancels the armed mode first, then closes the Team panel, then opens the menu. A key that is not a grid letter ends a pending **B** and still acts, as F does today.
 
 | Key | Action | Where it also sits on screen |
 |---|---|---|
-| **H** | Arm Fortify targeting | The Fortify dock button |
+| **H** | [Built] Arm Fortify targeting | The Fortify dock button |
 | **Tab** | [Built] Toggle the Team panel (roster, gifting, gift log) | The **TEAM [Tab]** button |
-| **Enter** | Ready / un-ready | The **READY** button, planning only |
+| **Enter** | [Built] Ready / un-ready | The **READY** button, planning only |
 
 ### 1. Data, rates and supply-cut state [Built]
 
@@ -116,10 +116,10 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Supply-cut state [Built]:** a red chip after Regions with a chain-break glyph: `LINE CUT ×2  −3 Power/s  −1 Data/s`. It lists only the rates that are lost, and disappears when the chain is whole. The Power figure is your share of the offline Drill Rigs' extraction (the pool splits evenly among the roster) and the Data figure is one second's worth per cut reward region; a fallen main is the end of the battle, not a cut. Its hit area is the full 32 px bar height. Clicking it focuses the first cut region; repeated clicks cycle (the controller reads `PressureFocusTarget`, which remembers the last region).
 - **Why:** the top bar leaves about 540 px free at every window size, so nothing else moves, and the chip is a glyph plus words.
 
-### 2. Supply cuts on the map and the force card [New]
+### 2. Supply cuts on the map and the force card [Built]
 
 - **World [Built]:** at the replicated change time the boundary cable snaps (two stubs and a spark) and each cut-off region's border flashes red three times within 1 s ([economy.md](economy.md)). A change seen under 3 s late still plays; an older one shows only the steady state: a dashed red border with a light hatch, grey dashed cables beyond the cut. The client compares each replicated mask with the last one it observed, so only the regions just cut flash (on a clock that starts when the client sees them) and only cables that were live snap; a client that joins more than 3 s after the cut sees the steady state and guesses the stub from the opponent's neighbouring region. A mask that empties (the main fell) is the end of the battle, not a cut.
-- **Region and Drill Rigs:** [Built] the region's chip row (surface 7's stack) gets a **CUT OFF** chip, each offline Drill Rig carries a chain glyph, and its deposit label reads `POWER 1200 · OFFLINE` in place of the rate. **[New]** The rig mesh itself goes greyscale with the building appearance work (tier-2 slice).
+- **Region and Drill Rigs:** [Built] the region's chip row (surface 7's stack) gets a **CUT OFF** chip, each offline Drill Rig carries a chain glyph, and its deposit label reads `POWER 1200 · OFFLINE` in place of the rate. **[New]** The rig mesh itself does not grey yet; it waits for the building appearance work, which the tier-2 slice did not include.
 - **Minimap [Built]:** the node gets a red hatched outline.
 - **Feed [Built]:** `Supply cut: Fusion Works cut off · 1 Drill Rig offline` (one row per region just cut, red stripe, Drill Rig count read live); clicking it focuses the region. It is a team row (see surface 3).
 - **Force card:** a **CUT OFF** chip in the header between unit type and strength, and the refill line reads `Refill: HELD · cut off · 1 recruit waiting` ([forces.md](forces.md)). A card shows at most two chips (CUT OFF, REFIT n/m, `▲ T2`), then `+N`.
@@ -144,7 +144,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Teammates' casts:** one expanding ring at the region, a badge with their stripe and `C2`, and the feed row `Commander 2 fortified X` (cyan stripe, click focuses; the camera never moves). The caster hears the same voiced line, **Fortify active.**, and sees no row for their own cast.
 - **Why:** A-mode is already learned, H is free, and the dock is the only pocket that survives 1280×720 with five force cards and the deck open.
 
-### 5. Tier-2 branch in the production panel [New]
+### 5. Tier-2 branch in the production panel [Built]
 
 - **Placement:** once a Barracks' unit type is locked, its FORCE TYPE column shows the locked row and a 30 px `TIER 2 BRANCH` button below it, e.g. `MARKSMAN +20% range · 100 Power + 50 Data · 20 s`, with the text taken from the unit data ([forces.md](forces.md), [units.md](units.md)). No hotkey: it is a rare, costly decision.
 - **States:** `Lock a type first`; unaffordable and greyed, `Need 50 more Data` (a click explains); `Opens at 0:00` during planning; buying, a bar `Upgrading to Marksman 12 / 20 s` with an amber `UPGRADING` header pill; done, a static `✓ MARKSMAN +20% range`.
@@ -162,7 +162,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **Stun panel [Built]:** the inspector's status slot reads a yellow `STUNNED` pill (it wins over `UPGRADING`, since a stun freezes the upgrade timer), and the construction and production bars freeze and desaturate to grey with `frozen: stunned` / `Production frozen: stunned` under them. Research has no bar, so a research building shows the pill alone; an Extractor shows neither, since extraction is unaffected.
 - **Why:** the HP bar keeps its position; the ring and the chip both appear at t = 0, so it reads within 1 s.
 
-### 7. Region trait icons [New]
+### 7. Region trait icons [Built]
 
 - **World [Built]:** a 20 px glyph left of the name on the label plate, and the trait word in 9.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9.5 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
 - **Stack above a region anchor [Built],** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
@@ -201,7 +201,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 | What | How it's shown |
 |---|---|
 | Counters | Hit flashes coloured by effectiveness: bonus hits flash bright, normal hits plain. Every force badge, including JEV's, shows its armor and damage icons. No floating numbers. |
-| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours (the humans' teal, and JEV's in the Machine skin's pearl, [STYLE.md](../../Art/UI/STYLE.md)). A cut snaps the cable, flashes the region and greys its Drill Rigs. [New] The cut's map, minimap, top-bar and force-card presentation is decided in "Step 1b surfaces" above. |
+| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours (the humans' teal, and JEV's in the Machine skin's pearl, [STYLE.md](../../Art/UI/STYLE.md)). [Built] A cut snaps the cable, flashes the region and marks its Drill Rigs offline; the cut's map, minimap, top-bar and force-card presentation is in "Step 1b surfaces" above. **[New]** Greying the rig mesh. |
 | Alerts | [Built] Objective feed, global announcer and explicit camera jumps described above. [New] Voiced supply cuts, JEV releases and calldowns follow their mechanics in [economy.md](economy.md) and [jev.md](jev.md). |
 | Incident report (after each battle) | A timeline graph of income, forces and regions with key events; **3 "why" callouts**, e.g. *Line cut at 4:12 cost 600 Power*; plus a Machine memo for the joke |
 | Contribution card | **1–2 positive highlights per player**, e.g. *Saved West Cut at 6:40* or *Gifted 800 Power*, plus personal stats. It never ranks players. |

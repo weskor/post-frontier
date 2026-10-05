@@ -23,4 +23,4 @@ Telemetry contains only commander slots and random match-local pseudonyms for pl
 
 Terminal or abandonment flush attempts the write once. A filesystem or serialization failure cannot change the match result; it emits a warning where logging is available. An abrupt process crash or unwritable saved folder can still prevent output.
 
-The [step 1a questions](1a-questions.md) accompany these measurements. Card and unit pick/win rates remain outside this slice; the wider plan lives in [build order](../Design/build-order.md).
+The [step 1b questions](1b-questions.md) accompany these measurements. Card and unit pick/win rates remain outside this slice; the wider plan lives in [build order](../Design/build-order.md).

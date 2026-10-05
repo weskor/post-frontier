@@ -22,7 +22,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 - **Why not zero:** a commander with no paying Drill Rig and under 160 Power could never rebuild income. Unlike StarCraft or Age of Empires, there are no workers to rebuild from, so that commander would sit out the rest of the battle. Territory games keep a floor too: Company of Heroes 2 gives +300 manpower/min, Dawn of War's HQ +20 requisition, Supreme Commander's commander +1 mass and +20 energy.
 - Territory drives growth, and Data stays territory-only, with no baseline.
 - **[Change]** Build step 1b measures **2/s against 1/s** with the halved deposit reserves below, against the 1b gate ([Balance.md](../Balance.md#step-1b-gate-new)). The human baseline stays at 2/s per commander until that measurement says otherwise. Drop to 1/s if 2/s still lets players turtle (starting value, orchestrator 2026-10-04).
-- **[Built]** JEV's baseline is its own constant, `JevBaselineIncome`, set to 2/s and still multiplied by the player-count factor ([jev.md](jev.md#scaling-with-player-count-change)). Before step 1b it was the human baseline times that factor, so tuning the human floor also changed JEV (starting value, orchestrator 2026-10-04).
+- **[Built]** JEV's baseline is its own constant, `JevBaselineIncome`, set to 2/s and still multiplied by the player-count factor ([jev.md](jev.md#scaling-with-player-count-built)). Before step 1b it was the human baseline times that factor, so tuning the human floor also changed JEV (starting value, orchestrator 2026-10-04).
 
 **Data budget (starting values, per commander per battle).** Demand should exceed supply, so Data forces choices.
 
@@ -55,7 +55,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 - Cutting the chain stops income from every region beyond the cut. A disconnected Drill Rig neither pays nor depletes, and a disconnected reward region pays no Data (starting value, orchestrator 2026-10-04).
 - **[Built]** The connected set is recomputed whenever any region controller changes, and at least every 0.25 s. Each team's connected mask replicates together with the server time of its last change (starting value, orchestrator 2026-10-04).
 - **[Built]** There is one connectivity rule: income here and reinforcements ([forces.md](forces.md)) both read `ForceOrders::ConnectedMask`.
-- **[New]** The cut must be readable within 1 s: the cut-off region's border flashes and its Drill Rigs grey out. The replicated change time is built; the visuals are not drawn yet.
+- **[Built]** The cut is readable within 1 s: at the replicated change time the cut-off region's border flashes and its Drill Rigs show offline with a glyph and a label ([ui.md](ui.md#2-supply-cuts-on-the-map-and-the-force-card-built)). **[New]** Greying the Drill Rig mesh itself waits for the building appearance work ([ui.md](ui.md#2-supply-cuts-on-the-map-and-the-force-card-built)).
 - This applies to JEV as well, so cutting JEV's chain is a real target for an Attack or Move & Hold order.
 
 ## Deposits [Built]

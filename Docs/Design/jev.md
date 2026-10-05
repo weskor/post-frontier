@@ -2,16 +2,16 @@
 
 > Part of the [Post-Frontier design](../Design.md). Related: [battle](battle.md), [commanders](commanders.md), [map](map.md), [meta](meta.md), [ui](ui.md).
 
-## How JEV plays [Change] — decided
+## How JEV plays [Built] — decided
 
 - **[Built]** A deterministic planner that re-plans every 2 s and follows the same economy, placement and production rules as the players.
 - **[Built] Matching start:** JEV starts each battle with a pre-built Barracks and Drill Rig per human commander, finished before 0:00, so its first release still matters ([battle.md](battle.md)). Its kit forces are planned and published during planning ([published intent](#published-intent-built)).
-- **[New] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
-- **[New] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
+- **[Built] HQ guard:** JEV defends its Failover Nodes like any threatened region, and its final protocol wave spawns at the Lattice when it goes offline ([battle.md](battle.md)).
+- **[Built] Hybrid:** JEV still mines, builds and expands under player rules, so its economy can be raided and its supply chain cut. On top of that, every version release (table below) sends a **scheduled wave**.
 - **[Built] Supply chain:** JEV builds and counts a Drill Rig only in a region its main reaches through regions it controls (`ForceOrders::ConnectedMask`, the one connectivity rule), so it never pays for a disconnected rig and resumes investing once the chain is retaken. Its planner values an expansion or Move & Hold that restores connected income, counts an isolated deposit as worth nothing, and values holding a region that connected income depends on.
 - **[Built] Waves are free spawns** at JEV's main, paid from a per-release budget rather than JEV's wallet. That is what reliably ends stalls ([battle.md](battle.md)). Each wave gets an Attack order with a published plan. Until personalities arrive (step 4), its composition follows the per-release behaviour below; afterwards it follows the personality.
 
-**Releases [Change].** The visible version schedule. Each release adds a behaviour and a wave. Starting values, orchestrator 2026-10-04:
+**Releases [Built].** The visible version schedule. Each release adds a behaviour and a wave. Starting values, orchestrator 2026-10-04:
 
 | Release | At | Wave budget (Power-equivalent, N = 1, node depth 1) | Behaviour added |
 |---|---|---:|---|
@@ -28,13 +28,13 @@
 - **[Built] Force health counts shields:** the planner's recovery decision reads each unit's hit points plus shield over its maximum of both. That cuts both ways: a Lancer force that lost its shield reads as hurt (36 of 96 points, one Scrambler pulse and a little damage send it home), and a Lancer at 10 HP behind a full shield (70 of 96) stays in the fight where its hit points alone (10 of 36) would have sent it back.
 - **[Built] Spawning:** a wave spawns free, with no wallet change and no extraction, as forces of up to 6 units at JEV's main, each with an Attack order and a published plan. From `v2.0` every other JEV force takes the wave's Attack order and a fresh ticket too, except a force defending its attacked region, retreating or recovering.
 - **[Built] Free forces fight to the end:** a wave force has no producer, so it never refills. Its retreat threshold is Never and the planner never sends it to recover, so it keeps its orders however hurt it is. Forces JEV's producers refill keep the normal recovery rules.
-- **[Built] Timeline:** each release appears on JEV's timeline 30 s before it happens. The schedule, the release in force, the next release time, whether it is within 30 s and the last 8 wave events replicate on `AEnemyCommander::Release`; match time comes from one function, `GetMatchSeconds`, which is frozen while the game is paused. The schedule stops when the match ends: no release launches after that. The HUD drawing is [New] ([ui.md](ui.md)).
+- **[Built] Timeline:** each release appears on JEV's timeline 30 s before it happens. The schedule, the release in force, the next release time, whether it is within 30 s and the last 8 wave events replicate on `AEnemyCommander::Release`; match time comes from one function, `GetMatchSeconds`, which is frozen while the game is paused. The schedule stops when the match ends: no release launches after that. The HUD drawing is **[Built]** ([ui.md](ui.md#8-jev-timeline-and-the-battle-clock-built)).
 - **[Built] `v2.1` speed:** wave forces launched from `v2.1` on carry a replicated `AArmyGroup::SpeedFactor` of 1.15, multiplied into the force's base march speed. It composes with region traits (Open) and the selection cap, and the planner's ETA uses it. Forces launched before `v2.1`, and forces that join a wave, keep factor 1.
-- **[Built] Split-Brain Cut:** at `v2.0`, JEV sends two extra free forces, one per target of an authored neck pair, on top of the wave ([battle.md](battle.md#two-commander-threat-new) has the targets, composition, budget cap and tuning). Both plans are published `JevThreat::LeadSeconds` (30 s) early on `AEnemyCommander::Release.Cuts` (ticket, source, target, size band, ETA from the publication time, and a memo from the `SplitBrainCut` template of `[JevMemos]`), with the pair chosen then; at 360 s the forces spawn, each takes an Attack order and the cut plans give way to the forces' own `EnemyPlans`. The intent view turns each cut plan into an ordinary plan view, so the timeline shows a cell tagged `SPLIT-BRAIN CUT` and the region a badge naming the threat, and the memo feed posts the memo, from the moment of publication ([ui.md](ui.md#jev-intent-display-built--new)). A cut force stays committed until it has arrived, so the planner never re-routes it on the way, and its wave event carries `bCut` and what its units cost: it is no release wave and does not count in `WaveCount`. Alone, one force goes to one region. When every authored pair is malformed or holds a region JEV controls, the threat is skipped with a logged reason.
+- **[Built] Split-Brain Cut:** at `v2.0`, JEV sends two extra free forces, one per target of an authored neck pair, on top of the wave ([battle.md](battle.md#two-commander-threat-built) has the targets, composition, budget cap and tuning). Both plans are published `JevThreat::LeadSeconds` (30 s) early on `AEnemyCommander::Release.Cuts` (ticket, source, target, size band, ETA from the publication time, and a memo from the `SplitBrainCut` template of `[JevMemos]`), with the pair chosen then; at 360 s the forces spawn, each takes an Attack order and the cut plans give way to the forces' own `EnemyPlans`. The intent view turns each cut plan into an ordinary plan view, so the timeline shows a cell tagged `SPLIT-BRAIN CUT` and the region a badge naming the threat, and the memo feed posts the memo, from the moment of publication ([ui.md](ui.md#jev-intent-display-built--new)). A cut force stays committed until it has arrived, so the planner never re-routes it on the way, and its wave event carries `bCut` and what its units cost: it is no release wave and does not count in `WaveCount`. Alone, one force goes to one region. When every authored pair is malformed or holds a region JEV controls, the threat is skipped with a logged reason.
   - **Naming after launch:** the launched forces are listed on `Release.CutForces`, and the intent view marks each one's live Attack plan as a cut plan, so the timeline cell and the badge keep the threat's name for the whole march and the memo posted for the live plan is the same template. A force defending its region shows the escalation instead.
 - Calldowns stay in step 4. **[Later]** Target timing for step 4: the first calldown comes with `v2.0`, and calldowns get faster at `v2.1`. All values are starting values for the harness.
 
-- **[New] Calldowns:** two at launch. Each is **announced 20 s ahead** on the timeline and gives teams a reason to spread out:
+- **[New] Calldowns** (step 4, not built in step 1b): two at launch. Each is **announced 20 s ahead** on the timeline and gives teams a reason to spread out:
 
 | JEV calldown | Effect |
 |---|---|
@@ -55,7 +55,7 @@
   - The target becomes invalid: destroyed, or captured by JEV.
 - **[Built] Execution:** plans use the same Move & Hold, Attack, Retreat, casualty withdrawal, production and whole-region Hold rules as players ([forces.md](forces.md)). Retreat publishes its executor-selected safe endpoint; JEV sets its producer rally there so natural completion holds safety. Completion publishes the resulting Hold without resetting the ticket/deadline; health scoring may choose another order only when commitment expires. Executor completions can precede publication by up to one planner evaluation interval.
 - **[Built] Published state:** `ACommandGameState::EnemyPlans` replicates each live force's ticket, force identity, verb, source, target/structure, size band, ETA with the server time it was computed (`EtaIssuedAt`, so every peer counts down from the same moment), commitment deadline/remaining time, escalation and memo to every player. `EtaIssuedAt` restarts when the ticket, verb, target or escalation changes, and whenever the published ETA value itself changes (for example a display ETA recomputed from a new position); a size-band change alone keeps it. Destroyed forces are removed; a completed match clears the active list. The old global debug string is removed.
-- **[New] Disruption:** this commitment gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
+- **[New] Disruption** (with the abilities that cast it, steps 3 and 4): this commitment gives *Jam*, *Signal Jam* and *Prompt Injection* their meaning: Jam and Signal Jam delay the plan, and Prompt Injection replaces its target.
 - **[Built] Memo text**, for example: `Ticket #4471 · Move & Hold: reallocating ~8 units to West Cut · ETA 0:30`. Each memo names its actual verb or defending escalation.
 - **[Built] Presentation:** the timeline bar, region badges and memo feed read this state and nothing else ([ui.md](ui.md#jev-intent-display-built--new)). **[New]** Commanders and cards can reveal composition, the next plan and building queues.
 - **[Built] First plans:** while the planning phase runs, JEV's kit forces (each Barracks' force, empty and producer-backed) are planned as if at 0:00 and published through the normal path, so the timeline, region badges and memo feed show them before the battle starts ([battle.md](battle.md)).
@@ -81,11 +81,11 @@
   - They need a server for the game's lifetime, or 1–2.5 GB of video memory, which loses offline play or the Steam Deck.
   - 85% of core players say they're negative on generative AI in games.
 
-## Escalation [New]
+## Escalation [Built]
 
 The visible version schedule is the Releases table above; the HUD timeline counts down to each release ([battle.md](battle.md#no-clock-jev-escalates)). Each release adds a behaviour and a scheduled wave.
 
-## Scaling with player count [Change]
+## Scaling with player count [Built]
 
 - **[Built] Baseline income:** JEV's baseline is multiplied by ×(1 + 0.3 × (N − 1)). N counts human player states with a valid commander slot in the current match roster, read at each payment, so joining or leaving changes the rate. Counts below one use N = 1. Fractional credits carry between integer-wallet payments, including across roster changes; extraction income is not multiplied. **[Built]** The base value is JEV's own constant ([economy.md](economy.md#resources-change--decided)).
 - **[Built] Wave budget:** uses the same player-count factor, read at each release. **[Later]** Node depth multiplies on top.

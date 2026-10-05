@@ -26,7 +26,7 @@ A full barracks of each type was worth very different amounts. Before the step 1
 | Shielded [Built] | A shield layer on top of HP that recharges after a few seconds out of combat | EMP |
 | Structure | Buildings and HQs | Demolition |
 
-- **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the [damage pipeline](#damage-pipeline-change) orders the class bonus against every other modifier. EMP has no HP bonus against any class; its shield rule is below.
+- **Bonus [Built]:** ×1.5 damage against the matching Light, Heavy or Structure class, ×1.0 otherwise. Starting value; tune it in the harness. Fractional HP truncates; the [damage pipeline](#damage-pipeline-built) orders the class bonus against every other modifier. EMP has no HP bonus against any class; its shield rule is below.
 - **Targeting [Built]:** follows the rule in [forces.md](forces.md). That topic owns explicit-target priority, retained-target lifetime, automatic acquisition and the pending force-card presentation.
 - **Artillery splash [Built]:** each impact damages hostile units, buildings and HQs within 200 cm in the ground plane. Damage falls linearly from 100% at the centre to 50% at the inclusive edge, with no damage outside. Each victim's class bonus applies before falloff. Allies are never hit.
 - **Shields [Built] — decided:**
@@ -37,17 +37,17 @@ A full barracks of each type was worth very different amounts. Before the step 1
 - **Triangle:** each unit carries its own damage type (see the roster below). The roster guarantees **at least two answers to every armor class**.
 - **Air [Later]:** an unlockable layer once ground play is proven. It will need its own anti-air answers, and it bypasses region paths.
 
-## Damage pipeline [Change]
+## Damage pipeline [Built]
 
 One shared policy orders every modifier. Each hit runs these steps in order (starting value, orchestrator 2026-10-04):
 
 1. **Base damage.**
 2. **Outgoing multipliers:** class bonus, splash falloff and Workshop modifiers.
-3. **Incoming multipliers:** region Cover ([map.md](map.md#region-traits-new--decided)), Fortify ([commanders.md](commanders.md)) and Entrenched Frontline. They multiply together.
+3. **Incoming multipliers:** region Cover ([map.md](map.md#region-traits-built--decided)), Fortify ([commanders.md](commanders.md)) and Entrenched Frontline. They multiply together.
 4. **Shield absorption:** shield damage is the damage × 2 for EMP and × 1 otherwise. Excess shield damage converts back to HP damage, divided by the same factor.
 5. **HP:** the remainder after shield absorption.
 
-[Built] Fractional damage truncates at each step, in whole points: the class bonus (×1.5), splash falloff and the Workshop multiplier each truncate as before, and the incoming multipliers (Cover, Entrenched Frontline, later Fortify) are multiplied together and truncated once. Today's units therefore deal and take identical damage, except that Cover combined with Entrenched Frontline truncates once rather than twice; the shield step is new and works in whole points.
+[Built] Fractional damage truncates at each step, in whole points: the class bonus (×1.5), splash falloff and the Workshop multiplier each truncate as before, and the incoming multipliers (Cover, Entrenched Frontline, Fortify) are multiplied together and truncated once. Today's units therefore deal and take identical damage, except that Cover combined with Entrenched Frontline truncates once rather than twice; the shield step works in whole points.
 
 ## Unit rules — decided
 
@@ -55,7 +55,7 @@ One shared policy orders every modifier. Each hit runs these steps in order (sta
 - **Shape:** hand-designed niches, each tagged with an armor class.
 - **Factions:** humans and the Machine share roles and armor classes. Each faction has its own **twists** and its own look. JEV keeps using the same rules as the players.
 - **Force size:** small squads of 2–6 units per barracks, as today. Every unit stays readable and losses feel personal. The Juggernaut is the exception at capacity 1.
-- **Speed by armor class [Change]:** Light is fast and Heavy slow [Built], using the speed bands below. Shielded medium and the faster Raider remain [New]. Every unit moves at its definition's speed; mixed-selection synchronization belongs to [forces.md](forces.md) and is not built here.
+- **Speed by armor class [Change]:** Light is fast, Heavy slow and Shielded medium (the Lancer) [Built], using the speed bands below. The faster Raider speed remains [New] because the Raider is unbuilt. Every unit moves at its definition's speed; mixed-selection synchronization belongs to [forces.md](forces.md) and is not built here.
 - **Pursuit [Built]:** firing keeps a unit engaged, preventing automatic fronts from reissuing mid-fight; losing the last target returns it to formation. Movement hysteresis compares against the last accepted pursuit endpoint: active paths reissue only after more than **130 cm** of goal drift or a target switch. Leaving weapon range starts movement immediately; an idle path retries at most every **0.5 game seconds** while its target stays unchanged, and target switches bypass that cooldown. Desired standoff is `max(0, min(0.82 × range, range − (capsule radius + 35 cm)))`, reserving the actual moving capsule and path-arrival tolerance.
 - **No friendly fire [Built].** Splash only hits enemies; players can't steer units away from it, so friendly fire would feel unfair.
 - **Unit abilities:** every unit has passive traits. Some also have **auto-cast abilities** that fire on a published rule, e.g. *shield bash when an enemy is in melee range*. The player never casts them.
@@ -107,10 +107,10 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 **Rules:**
 - **Cost:** a combat squad costs about 120 Power to fill, support squads cost less, and the Juggernaut about 2×.
 - **Range bands:** melee 175, short 300, mid 550, long 1150. Branches move a unit up or down a band.
-- **Speed bands by armor class [Change]:** slow 360 (Heavy) and fast 480 (Light) are [Built]; medium 420 (Shielded) and very fast 560 (Raider) are [New].
+- **Speed bands by armor class [Change]:** slow 360 (Heavy), medium 420 (Shielded) and fast 480 (Light) are [Built]; very fast 560 (Raider) is [New] with the unbuilt Raider.
 - **Auto-casts at tier 1:** only the specialists (Scrambler, Repair crew, Shield projector). Branches add auto-casts to other units, e.g. the Warden's taunt.
 
-[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed (starting values, orchestrator 2026-10-04, from the [tuning round](../Balance.md#lancer-and-scrambler-tuning-round--no-passing-point-2026-10-04)); they pass every duel rule except the roster worth ratio, which is an open owner decision; [New] the other rows remain starting values for future harness validation:
+[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed (starting values, orchestrator 2026-10-04, from the [tuning round](../Balance.md#lancer-and-scrambler-tuning-round--no-passing-point-2026-10-04)); they pass every duel rule except the roster worth ratio, which is an open owner decision ([open-questions.md](open-questions.md)); [New] the other rows remain starting values for future harness validation:
 
 | Unit | Squad | Cost per unit | Full squad | HP | DPS | Range | Speed | Auto-cast |
 |---|---:|---:|---:|---|---:|---|---|---|
@@ -156,7 +156,7 @@ Two branches per unit; each branch is a card ([cards.md](cards.md)). Each branch
 | Shield projector | Dome: bigger radius | Reflector: reflects part of the damage taken |
 | Juggernaut | Siege Walker: long-range Demolition | Crusher: melee trample splash against Light |
 
-**Branch effects built in step 1b [Built].** Each unit type offers one branch in 1b, available from battle 1 and bought per production building ([forces.md](forces.md#barracks-upgrades-new--decided)); drafting arrives with the run layer. Starting values, orchestrator 2026-10-04. The other branch of each unit waits for drafting.
+**Branch effects built in step 1b [Built].** Each unit type offers one branch in 1b, available from battle 1 and bought per production building ([forces.md](forces.md#barracks-upgrades-built-new--decided)); drafting arrives with the run layer. Starting values, orchestrator 2026-10-04. The other branch of each unit waits for drafting.
 
 | Unit | Branch | 1b effect |
 |---|---|---|
@@ -208,16 +208,16 @@ Groundbreaker's 3rd branch comes in the first unlock batch.
 
 [Built] The combat duel harness runs every ordered pair of runtime combat definitions, including mirrors, in verified open ground on the requested map. Fresh squads use real Attack combat through the shared authoritative command service, without JEV, production, income, capture, HQ targets or Workshop specializations; each fight ends on a wipe, its game-time cap or an invalid stall. Seeds vary spawn jitter and orientation. [Built] The duel report also runs the support composition fights: the partner squad with and without one support unit against the same target squad at the same 120 Power budget, on both sides of the field, and reports shield loss separately from HP loss (a fight whose only effect so far is stripped shields is not a stall).
 
-- [Change] **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix. [Built] The report combines both ordered sides against the opponent; draws remain in the denominator and are not half-wins.
-- [Change] **Scrambler:** excluded from the 1-vs-1 prey and predator rules above, whatever the matrix lists; the support composition rule below tests it (starting value, orchestrator 2026-10-04).
-- [Change] **Shields in acceptance:** wherever a rule uses durability, durability is HP plus shield (starting value, orchestrator 2026-10-04).
+- [Built] **Combat units:** each wins ≥65% against its prey and ≤35% against its predator, following the who-beats-whom matrix. The report combines both ordered sides against the opponent; draws remain in the denominator and are not half-wins.
+- [Built] **Scrambler:** excluded from the 1-vs-1 prey and predator rules above, whatever the matrix lists; the support composition rule below tests it (starting value, orchestrator 2026-10-04).
+- [Built] **Shields in acceptance:** wherever a rule uses durability, durability is HP plus shield (starting value, orchestrator 2026-10-04).
 - [Built] **Support units:** tested in compositions at the 120 Power budget: one support unit plus ⌊(120 − support cost) / partner cost⌋ partners (Scrambler + four Rifles = 120 Power) against ⌊120 / target cost⌋ targets (five Lancers), compared with ⌊120 / partner cost⌋ partners alone (five Rifles) against the same targets, on both sides of the field, at least 40 fights per scenario with draws in the denominator. Adding the support unit must raise the win rate against its target by ≥20 points. Combat prey and predator rules list one rule per opponent; worth and dominance cover combat units only, with durability as HP plus shield.
 - [Built] **Mirror acceptance (2026-10-03):** measure at least **40 fights per mirror**, recording both sides separately. Each side passes when a **two-sided exact binomial test** cannot reject a 50% win probability at the **95% level** (`p ≥ 0.05`). At exactly 40 fights, the effective inclusive window is **14–26 wins per side (35–65%)**, much looser than the old **45–55%** window; non-rejection is not evidence of that old ±5% precision. A fight is one trial, not two independent trials for its two sides; draws remain in each side's trial denominator and are not wins. Reports include sample counts and both p-values. The former 50% ±5% screen on ten fights is superseded; one result moved that estimate by ten percentage points.
 - [Built] **Side-order neutralisation:** odd seeds create team 0 first; even seeds create team 5 first. Left/right identities remain team 0/team 5, and each fight records the first-created team. An odd-sized or parity-unbalanced seed set is not a fully balanced ordering sample.
-- [Change] No full squad of one type is worth more than 1.25× another at equal cost, and **no squad leads on both HP and DPS per Power**.
+- [Built] No full squad of one type is worth more than 1.25× another at equal cost, and **no squad leads on both HP and DPS per Power**. The worth ratio fails with the Lancer and Scrambler values: an open owner decision ([open-questions.md](open-questions.md)).
 - [Built] **Operational budget:** 120 Power per side, whole units only (`floor(120 / unit cost)`); one-time configuration fees are excluded. Unspent remainder is not converted into units or damage. The report records actual spent Power and survivors' full unit-cost value, not HP-weighted value.
 - [Built] **Operational worth:** each side's duel score is `(1 + own surviving Power / own spent Power − enemy surviving Power / enemy spent Power) / 2`. A unit's worth is its mean score over all non-mirror opponents, both ordered sides and seeds. The roster rule passes when maximum worth / minimum worth ≤1.25; zero minimum worth fails. This is an overall roster comparison, not a restriction on counter-matchup margins.
-- [Built] **Definition check:** DPS per Power is damage / attack interval / unit cost. [Change] HP per Power is maximum HP plus maximum shield, divided by unit cost. Strictly leading on both metrics fails; a tie on either does not.
+- [Built] **Definition check:** DPS per Power is damage / attack interval / unit cost. HP per Power is maximum HP plus maximum shield, divided by unit cost. Strictly leading on both metrics fails; a tie on either does not.
 - [Built] **Stall validity:** the no-damage clock starts at the first observed attack, HP loss or shield loss, not during approach. Before contact, the game-time cap still bounds the fight. After contact, when neither side removes HP or shield while both sides survive for `max(30 seconds, 10 × the slower weapon's attack interval)`, the fight is `stalled` and the matrix is invalid, not a draw. A wipe takes precedence. Stall telemetry is retained outside the accepted duel rows; no rule may pass on that incomplete matrix.
 - [Built] **Seed geometry:** member spacing is 160 cm with independent seeded offsets of ±40 cm per horizontal axis. This avoids overlap at the jitter extremes. Wider offsets and alternating creation order do not prove independent samples.
 - [Built] **Cap default:** duel fights default to 300 game seconds; ordinary matches retain their existing cap. An explicit cap overrides the duel default. Cap outcomes remain censored draws only when the runtime has not detected a stall.

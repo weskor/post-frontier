@@ -66,14 +66,14 @@ Move & Hold and Attack have different combat rules on purpose, so players can te
 - **[Built] Rally point:** each production building has one; it defaults to its own region. A new or idle producer-backed force with no explicit order and nothing queued Move & Holds there automatically, including after a completed manual Retreat. Changing the rally redirects an existing idle force. Existing explicit Move & Hold/Attack orders are not idle and are not redirected. An orphan with no pending order stays at its current position, or at its completed Retreat's arrival region, without assignment to a defend post. If its producer dies during implicit rally travel, the force stops where it is instead of finishing the old rally trip; explicit orders survive producer death. The owned rally command is available to input and verification.
 - **[Built] Routing:** Move & Hold and Attack share one shortest-graph-path traversal with the pre-confirmation hover preview, with ascending-region tie breaks. Manual Retreat and casualty withdrawal travel directly to the selected safe region rather than via intermediate region anchors. **[Later]** Alt-click waypoints, cut from launch scope.
 - **Region-order formation placement [Built]:** only complete formation paths are accepted. If a structure blocks a slot at the capture anchor, the centre may shift by at most 75 cm within that same region; precise point orders still reject obstructed formations. Arrival and settled waypoint reuse use the formation centre corrected by the occupied-slot offsets, not a depleted formation's biased member mean or exact rigid slot occupancy after crowd steering. Every joined member must also have gathered within the formation's occupied radius plus the arrival tolerance before the force stops; a nearby mean cannot strand a trailing member. A force with no joined member retains its accepted route until its first recruit joins.
-- **[Built] Reinforcements travel along the supply chain** (starting values, orchestrator 2026-10-04). Recruits never walk across the map; a finished recruit is a queue entry until it is delivered. This ties steering to the connectivity rule ([economy.md](economy.md#connected-territory-change)):
+- **[Built] Reinforcements travel along the supply chain** (starting values, orchestrator 2026-10-04). Recruits never walk across the map; a finished recruit is a queue entry until it is delivered. This ties steering to the connectivity rule ([economy.md](economy.md#connected-territory-built)):
   - **Delivery:** a producer-backed force standing in, or marching through, a region connected for its team gets each finished recruit at the force. At a quiet defend post the recruit takes its own clipped post slot.
   - **Travel delay:** **4 s + 2 s per region hop** from the producer's region to the force's region along the connected path, fixed when the delay starts. Then the recruit spawns at a free formation slot (nav-projected) and joins at once.
   - **Force cut off:** the finished recruit waits at the producer, and production holds while one is waiting. A recruit in transit when the chain breaks goes back to waiting. Each recruit delivers when the force is connected again, restarting its whole delay.
   - **Empty force:** a force with no living members gets its recruit at the producer's exit, joined at once; recruits queued for a force that is then wiped leave the exit too.
   - **Producer dies:** recruits in transit or waiting are cancelled and their Power is refunded to the owner. The force is an orphan and receives nothing.
   - **HUD counts:** recruits in transit or waiting count separately from joined strength, including the Attack resume threshold. The card's `CUT OFF` chip and `HELD` refill line are in [ui.md](ui.md).
-- **[Built] Refit after an upgrade:** see Refits under [Barracks upgrades](#barracks-upgrades-new--decided).
+- **[Built] Refit after an upgrade:** see Refits under [Barracks upgrades](#barracks-upgrades-built-new--decided).
 - **[Built] The executor is dumb and obedient.** Only Attack uses the retreat threshold. Current verb, target, active-first queue, status, waypoint, march speed and withdrawal resume count replicate on the force. Force-card order-state presentation and the travel estimate are specified in [ui.md](ui.md).
 - **[Built] Intent arrows:** every human commander's active route and queued orders are drawn in their commander colour on the shared map and minimap. The authority publishes region lists only for human forces; each client builds the lines from its map anchors. A withdrawal includes the direct safe leg and, only when recovery can resume it, the retained Attack. Queued Retreat predictions advance the last-held region through preceding Move & Hold legs. Selected paths have a target highlight, queued legs are dashed, and an uncommitted hover preview is white. Teammates can read the plan without selecting the force.
 
@@ -111,19 +111,19 @@ Move & Hold forces with Holding status and a valid held region defend that whole
   - **[Built]** Force-card text explains the rule. **[New]** Two-icon presentation accompanies that explanation.
   - A per-force priority setting is **[Later]**.
 
-## Barracks upgrades [New] — decided
+## Barracks upgrades [Built, New] — decided
 
 A barracks grows through three tiers. Upgrades belong to **that barracks' force only**, so two Brawler barracks can branch differently.
 
 | Tier | What you choose | Requirement | Perk slots |
 |---|---|---|---|
 | 1 | The unit type, locked on first Start [Built] | — | 1 |
-| 2 | **Branch:** one of the unit's variants | Power, Data and upgrade time at the barracks | 2 |
-| 3 | **Mastery:** an expensive capstone for the chosen variant | Power, Data and time, **and** a living Workshop **of your own** ([buildings.md](buildings.md)) | 3 |
+| 2 | **Branch** [Built]: one of the unit's variants | Power, Data and upgrade time at the barracks | 2 |
+| 3 | **Mastery** [New], step 2 ([build-order.md](build-order.md)): an expensive capstone for the chosen variant | Power, Data and time, **and** a living Workshop **of your own** ([buildings.md](buildings.md)) | 3 |
 
 - **Branches:** each unit has 2 branches at launch, and **each branch is a card** that must be drafted ([cards.md](cards.md)). A 3rd branch per unit comes later as a Rare or Legendary card, or a meta unlock ([meta.md](meta.md)).
 - **Who gets the upgrade:** see Refits below.
-- **Perks:** drafted cards make perks available for a unit type for the rest of the run ([cards.md](cards.md)). In battle, each barracks buys perks into its free slots for Data.
+- **Perks [New]**, step 2: drafted cards make perks available for a unit type for the rest of the run ([cards.md](cards.md)). In battle, each barracks buys perks into its free slots for Data.
 - **How it's paid:** cards decide *which* branches and perks exist in this run; Power and Data decide *when* you take them in this battle. In-battle purchases reset every battle.
 - **Starting values for tuning:**
   - Tier 2: 100 Power + 50 Data, 20 s.
