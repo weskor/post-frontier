@@ -68,10 +68,7 @@ private:
 		case 2:
 			if (Release().Cuts.IsEmpty())
 				return InStage() > 3. ? Fail(TEXT("The threat did not publish")) : false;
-			// The HUD reads the game state's battle clock, which SkipTo does not move; give it the same skew so the bar,
-			// the release cell and the clock show the true 331 s.
-			if (UPressureView* Pressure = UPressureView::Get(Kit.State))
-				Pressure->SetClockSkew(Kit.Planner->GetMatchSeconds() - (Kit.State->GetServerWorldTimeSeconds() - Kit.State->GetBattleClockStartServerTime()));
+			SyncHudClock();
 			Enter(3);
 			return false;
 		default:
@@ -102,6 +99,7 @@ private:
 			}
 			return ++Frames > 300 ? Fail(TEXT("The cut forces did not launch")) : false;
 		}
+		SyncHudClock();
 		if (!bRequested)
 		{
 			IFileManager::Get().Delete(*Path);
@@ -127,6 +125,14 @@ private:
 			return false;
 		}
 		return Frames > 900 ? Fail(*FString::Printf(TEXT("No screenshot produced for %s"), Shot.Name)) : false;
+	}
+
+	// The HUD reads the game state's battle clock, which SkipTo does not move; give it the planner's skew so the bar, the
+	// release cell and the clock show the true match time (331 s for the published shots, about 6:02 after the launch).
+	void SyncHudClock()
+	{
+		if (UPressureView* Pressure = UPressureView::Get(Kit.State))
+			Pressure->SetClockSkew(Kit.Planner->GetMatchSeconds() - (Kit.State->GetServerWorldTimeSeconds() - Kit.State->GetBattleClockStartServerTime()));
 	}
 
 	int32 Index = 0;
