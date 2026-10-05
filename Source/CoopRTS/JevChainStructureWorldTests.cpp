@@ -26,22 +26,22 @@ private:
 	{
 		Kit.Planner->SetActorTickEnabled(false);
 		for (const TWeakObjectPtr<AFailoverNode>& Node : Kit.State->FriendlyHeadquarters->GetNodes())
-			if (Node.IsValid() && Node->IsAlive() && !Rig)
-				Rig = Node.Get();
-		if (!Check(Rig != nullptr, TEXT("The humans have a standing Failover Node")))
+			if (Node.IsValid() && Node->IsAlive() && !Victim)
+				Victim = Node.Get();
+		if (!Check(Victim != nullptr, TEXT("The humans have a standing Failover Node")))
 			return true;
-		StartHealth = Rig->Health;
+		StartHealth = Victim->Health;
 		ACommandPlayerState* Jev = Kit.State->EnemyCommander;
-		const int32 Region = ArmyTestSetup::RegionAt(Kit.State, Rig->GetActorLocation());
+		const int32 Region = ArmyTestSetup::RegionAt(Kit.State, Victim->GetActorLocation());
 		const int32 Brawler = ArmyTestSetup::UnitIndex(Kit.State, EUnitRole::Frontline);
 		const int32 Rifle = ArmyTestSetup::UnitIndex(Kit.State, EUnitRole::Ranged);
 		const TArray<int32> Members = { Brawler, Brawler, Brawler, Rifle, Rifle, Rifle };
-		const FVector Start = Rig->GetActorLocation() + FVector(900.f, 0.f, 0.f);
+		const FVector Start = Victim->GetActorLocation() + FVector(900.f, 0.f, 0.f);
 		AArmyGroup* Force = AArmyGroup::SpawnFreeForce(*Kit.World, *Jev, Start, Members, 4, 1.f);
 		if (!Check(Force != nullptr && Region != INDEX_NONE, TEXT("The attacking force spawned beside the building")))
 			return true;
 		FCommandService::SetRetreatThreshold(Jev, Force, ERetreatThreshold::Never);
-		if (!Check(FCommandService::IssueForceOrder(Jev, Force, EForceVerb::Attack, Region, Rig).IsAccepted(),
+		if (!Check(FCommandService::IssueForceOrder(Jev, Force, EForceVerb::Attack, Region, Victim).IsAccepted(),
 				TEXT("The force accepted an Attack on the building")))
 			return true;
 		Enter(1);
@@ -50,17 +50,17 @@ private:
 
 	bool Step() override
 	{
-		if (!IsValid(Rig) || !Rig->IsAlive())
+		if (!IsValid(Victim) || !Victim->IsAlive())
 			return true;
 		if (InStage() < AttackSeconds)
 			return false;
-		Check(Rig->Health < StartHealth,
+		Check(Victim->Health < StartHealth,
 			*FString::Printf(TEXT("A force ordered to attack a human Failover Node fired on it within %.0f s (health %d of %d)"), AttackSeconds,
-				Rig->Health, StartHealth));
+				Victim->Health, StartHealth));
 		return true;
 	}
 
-	AFailoverNode* Rig = nullptr;
+	AFailoverNode* Victim = nullptr;
 	int32 StartHealth = 0;
 };
 }
