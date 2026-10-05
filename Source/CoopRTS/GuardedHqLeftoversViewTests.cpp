@@ -97,7 +97,8 @@ TArray<FState> States()
 		{ TEXT("1-nodes-standing"), [](const FWorldRefs&) {}, EFeedKind::Plain, -1 },
 		{ TEXT("2-node-lost"), [](const FWorldRefs& W) {
 			 ForEachHq(W, [&W](AHeadquarters& Home) { KillNode(Home, Striker(W, Home.TeamIndex)); });
-		 }, EFeedKind::NodeLost, 1 },
+		 },
+			EFeedKind::NodeLost, 1 },
 		// A cast Fortify puts its ring on each main, where the node marks must stay clear of it.
 		{ TEXT("3-fortify-ring"), [](const FWorldRefs& W) {
 			 ForEachHq(W, [&W](AHeadquarters& Home) {
@@ -106,7 +107,8 @@ TArray<FState> States()
 					 if (Main && Region == Main)
 						 Region->StartFortify(Home.TeamIndex, 0);
 			 });
-		 }, EFeedKind::NodeLost, 1 },
+		 },
+			EFeedKind::NodeLost, 1 },
 		{ TEXT("4-offline-emergency"), [](const FWorldRefs& W) {
 			 ForEachHq(W, [&W](AHeadquarters& Home) {
 				 AArmyUnit* Hit = Striker(W, Home.TeamIndex);
@@ -114,7 +116,8 @@ TArray<FState> States()
 				 if (Hit)
 					 Home.ReceiveAttack(100000, Hit);
 			 });
-		 }, EFeedKind::Emergency, -1 },
+		 },
+			EFeedKind::Emergency, -1 },
 	};
 }
 
