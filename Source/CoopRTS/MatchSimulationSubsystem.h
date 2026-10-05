@@ -112,5 +112,7 @@ private:
 	double StartWallTime = 0.;
 	double NextSnapshot = 30.;
 	float MaxGameDelta = 0.f;
+	// Most living units of both teams at once; at most the crowd cap, or units stop moving.
+	int32 PeakLivingUnits = 0;
 };
 #endif

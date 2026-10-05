@@ -17,8 +17,8 @@ constexpr double WalkSeconds = 20.;
 constexpr double MinimumTravel = 1500.;
 
 // Detour crowd steering caps the units that can path-follow at UCrowdManager::MaxAgents (50 by default); units
-// beyond it stand still while their force reissues the same order. The project raises the cap
-// (Config/DefaultEngine.ini) above the largest army the game allows, so 96 units must all march.
+// beyond it stand still while their force reissues the same order. The project raises the cap to 300
+// (Config/DefaultEngine.ini; a measured peak of about 220 JEV units on V2, no cap is enforced), so 96 units must all march.
 class FCrowdScenario : public FScenario
 {
 public:

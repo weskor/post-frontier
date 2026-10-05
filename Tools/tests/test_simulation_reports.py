@@ -52,6 +52,8 @@ def telemetry() -> tuple[JsonObject, JsonObject]:
         requested_dilation=1,
         effective_dilation=1,
         max_game_delta_seconds=1 / 60,
+        peak_living_units=40,
+        crowd_max_agents=300,
         outcome="time_cap",
         winner=None,
         hq_position_team0=[0, 0, 0],
@@ -492,4 +494,21 @@ def test_negative_snapshot_time_is_rejected() -> None:
     report["events"].append(dict(plan, time=0, kind="plan_created", team=5))
     report["snapshots"][0].update(time=-1e-9, enemy_plans=[dict(plan)])
     with pytest.raises(ValueError, match="Negative snapshot time"):
+        validate_report(report, job)
+
+
+def test_peak_living_units_above_the_crowd_cap_is_rejected() -> None:
+    # Units beyond UCrowdManager::MaxAgents stand still, which once silently ruined a whole gate run.
+    job, report = telemetry()
+    report.update(peak_living_units=301, crowd_max_agents=300)
+    with pytest.raises(ValueError, match="crowd cap"):
+        validate_report(report, job)
+    report.update(peak_living_units=300)
+    validate_report(report, job)
+
+
+def test_report_without_the_unit_peak_is_rejected() -> None:
+    job, report = telemetry()
+    del report["peak_living_units"]
+    with pytest.raises(ValueError, match="peak living units"):
         validate_report(report, job)

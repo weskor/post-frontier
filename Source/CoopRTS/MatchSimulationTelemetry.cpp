@@ -21,6 +21,7 @@
 #include "HAL/PlatformTime.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Navigation/CrowdManager.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
@@ -65,6 +66,17 @@ TSharedRef<FJsonObject> FMatchSimulation::Event(const TCHAR* Kind, int32 Team)
 	return Row;
 }
 
+namespace
+{
+// UCrowdManager::MaxAgents as configured (it is protected, so read through reflection); 0 if the property is gone.
+int32 CrowdMaxAgents()
+{
+	const UCrowdManager* Crowd = GetDefault<UCrowdManager>();
+	const FIntProperty* Property = CastField<FIntProperty>(UCrowdManager::StaticClass()->FindPropertyByName(TEXT("MaxAgents")));
+	return Crowd && Property ? Property->GetPropertyValue_InContainer(Crowd) : 0;
+}
+}
+
 bool FMatchSimulation::Flush()
 {
 	const FString& Path = FSimulationSettings::Get().Output;
@@ -78,6 +90,9 @@ bool FMatchSimulation::Flush()
 		Report->SetNumberField(TEXT("duration"), bStarted ? GetWorld()->GetTimeSeconds() - StartWorldTime : 0.);
 	Report->SetNumberField(TEXT("wall_duration"), FPlatformTime::Seconds() - StartWallTime);
 	Report->SetNumberField(TEXT("max_game_delta_seconds"), MaxGameDelta);
+	// Units beyond the crowd cap cannot move (Config/DefaultEngine.ini); the validator fails a peak above it.
+	Report->SetNumberField(TEXT("peak_living_units"), PeakLivingUnits);
+	Report->SetNumberField(TEXT("crowd_max_agents"), CrowdMaxAgents());
 	FString Json;
 	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Json);
 	if (!FJsonSerializer::Serialize(Report, Writer)

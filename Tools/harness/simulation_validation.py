@@ -130,6 +130,13 @@ def validate_report(report: JsonObject, job: JsonObject) -> None:
             )
     if number(report.get("max_game_delta_seconds"), "game delta") > 1 / 60 + 0.0001:
         raise ValueError("Game delta exceeded fixed 60 Hz contract")
+    peak = number(report.get("peak_living_units"), "peak living units")
+    agents = number(report.get("crowd_max_agents"), "crowd agent cap")
+    if peak > agents:
+        raise ValueError(
+            f"Peak living units {peak:g} exceed the crowd cap of {agents:g} agents: "
+            "units beyond it cannot move"
+        )
     validate_snapshots(report, duration)
     validate_outcome(report, job, duration)
     validate_plans(report)

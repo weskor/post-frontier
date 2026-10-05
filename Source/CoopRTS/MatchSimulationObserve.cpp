@@ -81,6 +81,7 @@ void FMatchSimulation::ObserveUnits()
 			Previous->Attacks = It->AttackCount;
 		}
 	}
+	PeakLivingUnits = FMath::Max(PeakLivingUnits, ObservedUnits.Num());
 }
 
 void FMatchSimulation::ObserveBuildings(ACommandGameState& State)
