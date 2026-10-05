@@ -438,7 +438,6 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         f"Run: `{run.name}`. Complete matches: **{len(valid)}**; failed/interrupted: **{len(failed)}**.",
         "Failures never enter win, draw, duration or curve denominators. JSON, launch identity, stdout and game logs remain beside this report.",
         "",
-        *crowd_unchecked_lines(valid),
         "Fixed 60 Hz game steps, unlimited headless wall-clock throughput; dilation is not permitted to coarsen combat/production ticks.",
         "Seeds initialize UE global random streams; asynchronous navigation and actor ordering are not guaranteed deterministic. Identical outcomes across seeds are not independent statistical evidence.",
         "",
@@ -463,7 +462,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         "",
     ]
     layouts = layout_evidence(groups, lines)
-    stats_lines: list[str] = []
+    stats_lines = crowd_unchecked_lines(valid)
     length_rows = battle_length_section(valid, stats_lines)
     gate = gate_section(manifest, valid, stats_lines)
     lines += stats_lines
