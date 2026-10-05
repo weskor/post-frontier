@@ -183,15 +183,27 @@ JevPlanner::FPlan WavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int3
 	return Plan;
 }
 
-// The rush scenario's choice: Attack the opposing main whatever the planner would pick. Planner
-// recovery, defence and expansion are off; the force's own casualty withdrawal and refill still run,
-// and an Attack that already stands is not reissued (OrderChange), so a refill resumes it.
+// The Attack plan toward Target under a fresh commitment, aimed at the nearest standing Failover Node while one
+// guards the hostile HQ (JevExecution::WaveObjective): waves and the rush scenario share the rule.
+JevPlanner::FPlan ObjectivePlan(const FJevTurn& Turn, const FJevForceStep& Step, int32 Target)
+{
+	const JevExecution::FObjective Objective = JevExecution::WaveObjective(Turn.Summary, Step.Snapshot, Target);
+	JevPlanner::FPlan Plan = WavePlan(Turn, Step, Objective.Region);
+	Plan.TargetIdentity = Objective.Identity;
+	// A structure attack lasts while the structure lives, whoever holds its region.
+	Plan.bRequiresUnownedTarget = Plan.bRequiresUnownedTarget && !Objective.Identity;
+	return Plan;
+}
+
+// The rush scenario's choice: Attack the opposing objective (its nodes first, then its main) whatever the planner
+// would pick. Planner recovery, defence and expansion are off; the force's own casualty withdrawal and refill still
+// run, and an Attack that already stands is not reissued (OrderChange), so a refill resumes it.
 bool ChooseNextPlan(const FJevTurn& Turn, FJevForceStep& Step)
 {
 	if (!Turn.bRush || !ValidRegion(Turn.Summary.EnemyHome))
 		return ChoosePlan(Turn, Step);
 	Step.bRecovering = false;
-	Step.Next = WavePlan(Turn, Step, Turn.Summary.EnemyHome);
+	Step.Next = ObjectivePlan(Turn, Step, Turn.Summary.EnemyHome);
 	return true;
 }
 
@@ -202,15 +214,11 @@ bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
 		&& !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
 }
 
-// The plan a wave force is sent on: standing, and aimed at a standing Failover Node first (JevExecution::WaveObjective).
+// The plan a wave force is sent on: its objective, standing. A wave attack outlives its commitment window because the
+// march takes longer than the window.
 JevPlanner::FPlan StandingWavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int32 Target)
 {
-	const JevExecution::FObjective Objective = JevExecution::WaveObjective(Turn.Summary, Step.Snapshot, Target);
-	JevPlanner::FPlan Plan = WavePlan(Turn, Step, Objective.Region);
-	Plan.TargetIdentity = Objective.Identity;
-	// A structure attack lasts while the structure lives, whoever holds its region.
-	Plan.bRequiresUnownedTarget = Plan.bRequiresUnownedTarget && !Objective.Identity;
-	// A wave attack outlives its commitment window: the march takes longer than the window.
+	JevPlanner::FPlan Plan = ObjectivePlan(Turn, Step, Target);
 	Plan.bStanding = true;
 	return Plan;
 }
