@@ -8,6 +8,7 @@
 #include "MapPresentation.h"
 #include "ObjectiveAnnouncer.h"
 #include "Rules/AnnouncerPolicy.h"
+#include "Rules/GuardedHqView.h"
 #include "Rules/MapPresentationPolicy.h"
 #include "PressureView.h"
 #include "TeamPanelFeed.h"
@@ -225,6 +226,38 @@ static bool AppendCutTargets(const FContext& Context, FStringBuilderBase& Out)
 	return Named > 0;
 }
 
+// Which guarded-HQ row an objective event is, from its announcer id.
+static GuardedHqView::EFeedKind ObjectiveRowKind(const FObjectiveEvent& Event)
+{
+	TStringBuilder<64> Id;
+	Event.Id.AppendString(Id);
+	return GuardedHqView::Classify(Id.ToView());
+}
+
+// A guarded-HQ row's title carries its number: the nodes left after a loss, the restored HP after a revival.
+static void AppendObjectiveTitle(const FObjectiveEvent& Event, const AnnouncerPolicy::FDefinition* Definition, FStringBuilderBase& Title)
+{
+	const GuardedHqView::EFeedKind Kind = ObjectiveRowKind(Event);
+	const int32 Number = Kind == GuardedHqView::EFeedKind::NodeLost ? Event.NodesLeft() : Event.RestoredPercent();
+	GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(TEXT("Objective update")), Kind, Number);
+}
+
+// The EMERGENCY badge of an emergency row, right-aligned on its second line in the side's colour. Returns the width it
+// takes there (with its gap), or 0 for any other row.
+static float DrawEmergencyBadge(const FPainter& Paint, const FObjectiveEvent& Event, const FRect& Rect, float Alpha)
+{
+	if (ObjectiveRowKind(Event) != GuardedHqView::EFeedKind::Emergency)
+		return 0.f;
+	const FStringView Label = GuardedHqView::EmergencyBadge;
+	const float Width = Paint.TextWidth(Label, 8.5f, true) + 8.f;
+	const FRect Badge{ Rect.Right() - Pad - Width, Rect.Y + Pad + AlertLineHeight, Width, AlertLineHeight - 3.f };
+	const FLinearColor Color = (Event.AffectedTeam == 5 ? Palette::Enemy : Palette::Friendly).CopyWithNewOpacity(Alpha);
+	Paint.Fill(Badge, Palette::Card.CopyWithNewOpacity(.96f * Alpha));
+	Paint.Outline(Badge, Color);
+	Paint.TextIn(Label, Badge, 8.5f, Color, true, EAlign::Center);
+	return Width + Gap;
+}
+
 void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const FLayout& Layout)
 {
 	ForEachAlert(Context, Layout, [&](const FObjectiveEvent& Event, const FRect& Rect, float Alpha) {
@@ -249,7 +282,7 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 		{
 			if (bPing && !Event.Forces.IsEmpty())
 				Title << Event.Forces[0].PlayerName << TEXT(": ");
-			Title << (Definition ? Definition->Text : TEXT("Objective update"));
+			AppendObjectiveTitle(Event, Definition, Title);
 		}
 		Paint.Text(Title.ToView(), Rect.X + Pad, Rect.Y + Pad,
 			10.f, Palette::Text.CopyWithNewOpacity(Alpha), true, EAlign::Left, Rect.W - 2.f * Pad);
@@ -259,8 +292,9 @@ void DrawObjectiveAlerts(const FPainter& Paint, const FContext& Context, const F
 			AlertSubtitle(Event, bPing, bGift, bLocal, bAbility, Region);
 		else
 			Region << TEXT("  |  Click to focus");
+		const float BadgeWidth = DrawEmergencyBadge(Paint, Event, Rect, Alpha);
 		Paint.Text(Region.ToView(), Rect.X + Pad, Rect.Y + Pad + AlertLineHeight,
-			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad);
+			9.f, Palette::Muted.CopyWithNewOpacity(Alpha), false, EAlign::Left, Rect.W - 2.f * Pad - BadgeWidth);
 		for (int32 Index = 0; !bPing && !bAbility && !bLocal && !bGift && Index < Event.Forces.Num(); ++Index)
 		{
 			const FObjectiveForce& Force = Event.Forces[Index];

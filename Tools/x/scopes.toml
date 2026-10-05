@@ -292,6 +292,13 @@ filter = "CoopRTS.Visual.GuardedHq"
 map = "/Game/Maps/AvailabilityZoneV2"
 rendered = true
 
+# Rendered feed rows and minimap Failover Node marks at 1600x900 and 1280x720, run on request (./x test hq-leftovers-view); the PNGs are inspected by a person.
+[scopes.hq-leftovers-view]
+kind = "automation"
+filter = "CoopRTS.Visual.HqLeftovers"
+map = "/Game/Maps/AvailabilityZoneV2"
+rendered = true
+
 [scopes.match-loss]
 kind = "automation"
 filter = "CoopRTS.Match.DefeatRestart"
@@ -1069,3 +1076,10 @@ rendered = true
 "Source/CoopRTS/JevMemoTemplates.[ch]*" = ["jev-split-brain"]
 "Config/DefaultGame.in[i]" = ["jev-split-brain"]
 "Source/CoopRTS/JevThreatViewTests.cpp" = ["split-brain-view"]
+
+# Guarded-HQ readability leftovers (ui.md surface 9): the feed's node-loss and emergency rows and the minimap's Failover Node marks.
+"Source/CoopRTS/GuardedHqViewRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/GuardedHqLeftoversViewTests.cpp" = ["hq-leftovers-view"]
+"Source/CoopRTS/Rules/GuardedHqView.*" = ["rules", "hq-leftovers-view"]
+"Source/CoopRTS/HUD/ObjectiveAlerts.c[p]*" = ["hq-leftovers-view"]
+"Source/CoopRTS/CommandMinimap.c[p]*" = ["hq-leftovers-view"]

@@ -19,9 +19,11 @@
 #include "Engine/Level.h"
 #include "Engine/World.h"
 #include "GroundHeight.h"
+#include "FailoverNode.h"
 #include "Headquarters.h"
 #include "JevIntentView.h"
 #include "HUD/MapPresentation.h"
+#include "Rules/GuardedHqView.h"
 #include "HUD/MinimapMap.h"
 #include "HUD/ForceRoutePresentation.h"
 
@@ -234,6 +236,27 @@ void DrawSites(const FMap& Map, const ACommandGameState& State, const ACommandPl
 	}
 }
 
+// The HQ's Failover Nodes: a row of small diamonds beside the HQ mark (placement in GuardedHqView). A standing node is a
+// filled team-coloured diamond, a lost one a hollow dim diamond, so the difference does not rest on colour.
+void DrawNodeMarks(const FMap& Map, const AHeadquarters& HQ, FVector2D Point)
+{
+	const TArray<TWeakObjectPtr<AFailoverNode>>& Nodes = HQ.GetNodes();
+	const GuardedHqView::FNodeMarks Marks = GuardedHqView::PlaceNodeMarks(Point, Map.Origin, Map.Size, Nodes.Num());
+	for (int32 Index = 0; Index < Marks.Count; ++Index)
+	{
+		const AFailoverNode* Node = Nodes[Index].Get();
+		if (IsValid(Node) && Node->IsAlive())
+		{
+			const FLinearColor Color = TeamColor(HQ.TeamIndex);
+			Map.Diamond(Marks.Centre[Index], GuardedHqView::MinimapNodeRadius, Color);
+			Map.Diamond(Marks.Centre[Index], GuardedHqView::MinimapNodeRadius * .5, Color);
+			Map.Fill(Marks.Centre[Index] - FVector2D(.5, .5), FVector2D(1, 1), Color);
+		}
+		else
+			Map.Diamond(Marks.Centre[Index], GuardedHqView::MinimapNodeRadius, Neutral.CopyWithNewOpacity(.75f));
+	}
+}
+
 void DrawStructures(const FMap& Map, const ACommandGameState& State, const ACommandPlayerController& Controller)
 {
 	for (const ACommandBuilding* Building : State.Buildings)
@@ -253,6 +276,7 @@ void DrawStructures(const FMap& Map, const ACommandGameState& State, const AComm
 		FVector2D Point;
 		if (!IsValid(HQ) || !Map.Point(HQ->GetActorLocation(), Point))
 			continue;
+		DrawNodeMarks(Map, *HQ, Point);
 		if (HQ->IsOffline())
 		{
 			// Offline (0 HP, the attackers hold its main): the team's outline over a dim fill and an amber cross,
