@@ -40,9 +40,10 @@ public:
 	ACommandBuilding();
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
-	// Presentation only. Producer locks replicate independently of Body; the host and standalone never receive an OnRep, so
-	// the mesh the replicated state calls for is applied here. The tick calls it, and so does the overlay while the world is
-	// paused (the simulation tick is stopped then, a producer's unit type may still change).
+	// Applies the mesh the replicated state calls for. Producer locks replicate independently of Body; the host and standalone
+	// never receive an OnRep, so this resync is theirs. It runs OnRep_Appearance, which also refreshes the audio bookkeeping and
+	// the footprint extent, so call it only for a changed mesh (it checks). The tick calls it, and so does the overlay while
+	// the world is paused (the simulation tick is stopped then, a producer's unit type may still change).
 	void SyncAppearance()
 	{
 		if (GetNetMode() != NM_DedicatedServer && DesiredMesh().ToSoftObjectPath() != AppliedMesh)

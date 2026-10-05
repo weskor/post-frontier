@@ -1090,6 +1090,9 @@ rendered = true
 "Source/CoopRTS/CommandCamera.[c]*" = ["paused-presentation"]
 "Source/CoopRTS/CommandPlayerController*.[c]*" = ["paused-presentation"]
 "Source/CoopRTS/CapturePoint.[c]*" = ["paused-presentation"]
+"Source/CoopRTS/CommandBuilding.[hc]*" = ["paused-presentation"]
+"Source/CoopRTS/CommandCamera.[h]" = ["paused-presentation"]
+"Source/CoopRTS/CommandPlayerController*.[h]" = ["paused-presentation"]
 "Source/CoopRTS/PlanningFixture.[ch]*" = ["paused-presentation"]
 "Source/CoopRTS/HUD/Placement.cpp" = ["paused-presentation"]
 

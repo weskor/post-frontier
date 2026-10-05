@@ -140,8 +140,11 @@ private:
 		if (!Check(State->IsPlanning() && World->IsPaused() && Overlay, TEXT("Planning holds the world while the overlay is watched")))
 			return true;
 		Pending = FMath::Max(Pending, Overlay->PendingLineCount());
+		Drawn = FMath::Max(Drawn, Overlay->DrawnLineCount());
 		if (++Frames < HeldFrames)
 			return false;
+		// The capture rings and defend posts are drawn by the overlay's own tick, so a count above zero proves it flushes while paused.
+		Check(Drawn > 0, TEXT("The overlay flushes while the world is paused (it drew lines)"));
 		Check(Pending < 10000, FString::Printf(TEXT("The pending list stays bounded over %d paused frames (largest %d)"), HeldFrames, Pending));
 		return Done();
 	}
@@ -150,6 +153,7 @@ private:
 	int32 Own = 0;
 	int32 Frames = 0;
 	int32 Pending = 0;
+	int32 Drawn = 0;
 };
 }
 
