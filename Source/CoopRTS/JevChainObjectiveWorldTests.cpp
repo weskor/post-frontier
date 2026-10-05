@@ -60,7 +60,7 @@ private:
 		{
 			Victim = NodeAt(Force->TargetStructure);
 			if (!Check(Victim && Victim->IsAlive() && Force->Verb == EForceVerb::Attack
-					&& Force->TargetRegionIndex == ArmyTestSetup::RegionAt(Kit.State, Victim->GetActorLocation()),
+						&& Force->TargetRegionIndex == ArmyTestSetup::RegionAt(Kit.State, Victim->GetActorLocation()),
 					TEXT("A wave sent at the guarded main attacks a standing Failover Node in the node's region")))
 				return true;
 		}
