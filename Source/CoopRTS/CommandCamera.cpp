@@ -36,6 +36,9 @@ ACommandCamera::ACommandCamera()
 	SpringArm->bInheritRoll = false;
 	SpringArm->bEnableCameraLag = false;
 	SpringArm->bEnableCameraRotationLag = false;
+	// The arm places the camera, so it keeps ticking while the world is paused: zoom, pan and focus must reach the screen
+	// during planning and active pause. It reads no simulation state.
+	SpringArm->PrimaryComponentTick.bTickEvenWhenPaused = true;
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);

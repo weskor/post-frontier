@@ -2,6 +2,8 @@
 
 #include "ArmyGroup.h"
 #include "ArmyUnit.h"
+#include "CapturePoint.h"
+#include "CommandBuilding.h"
 #include "EngineUtils.h"
 #include "CommandGameState.h"
 #include "CommandPlayerController.h"
@@ -37,6 +39,9 @@ AWorldOverlay::AWorldOverlay()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
+	// The overlay only presents. It flushes what the controller and HUD submitted each frame, so it must run while the world is
+	// paused (planning, active pause): placement cells and route previews are drawn then.
+	PrimaryActorTick.bTickEvenWhenPaused = true;
 	SetReplicates(false);
 	Cells = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("Cells"));
 	SetRootComponent(Cells);
@@ -199,6 +204,20 @@ void DrawDefendPosts(AWorldOverlay& Overlay, const ACommandGameState& State, int
 		}
 	}
 }
+
+// The ring is presentation of replicated capture state; it is submitted here, not from the capture point's own tick, because
+// that tick stops while the world is paused and an unsubmitted ring would vanish at the next flush.
+void DrawCaptureRings(AWorldOverlay& Overlay, const ACommandGameState& State)
+{
+	for (const ACapturePoint* Point : State.CaptureSites)
+	{
+		if (!IsValid(Point))
+			continue;
+		const FColor Color = Point->ControllingTeam == 0 ? FColor::Green : Point->ControllingTeam == 5 ? FColor::Red
+																									 : FColor::Yellow;
+		Overlay.Ring(Point->GetActorLocation() + FVector(0.f, 0.f, 9.f), ACapturePoint::CaptureRadius, Color);
+	}
+}
 }
 
 void AWorldOverlay::Tick(float DeltaSeconds)
@@ -217,6 +236,15 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 		if (State)
 			MapWorld.Draw(*this, *State);
 		break;
+	}
+	if (State)
+	{
+		DrawCaptureRings(*this, *State);
+		// The buildings' own ticks are stopped while paused; their meshes still follow what the player just configured.
+		if (GetWorld()->IsPaused())
+			for (ACommandBuilding* Building : State->Buildings)
+				if (IsValid(Building))
+					Building->SyncAppearance();
 	}
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		if (It->bHoldResponding && IsValid(It->HoldThreat) && It->HoldThreat->IsAlive())

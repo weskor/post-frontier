@@ -6,7 +6,6 @@
 #include "CoopAudioSubsystem.h"
 #include "ObjectiveAnnouncer.h"
 #include "MapRegion.h"
-#include "WorldOverlay.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
@@ -74,13 +73,6 @@ void ACapturePoint::Tick(float DeltaSeconds)
 			CaptureElapsed = 0.f;
 			AdvanceCapture(Elapsed);
 		}
-	}
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		const FColor Color = ControllingTeam == 0 ? FColor::Green : ControllingTeam == 5 ? FColor::Red
-																						 : FColor::Yellow;
-		if (AWorldOverlay* Overlay = AWorldOverlay::Get(this))
-			Overlay->Ring(GetActorLocation() + FVector(0.f, 0.f, 9.f), CaptureRadius, Color);
 	}
 }
 

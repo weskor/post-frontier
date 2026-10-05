@@ -11,6 +11,8 @@
 
 **Owner decisions (2026-10-02):** P is the active-pause key. Co-op uses the single shared budget and early/automatic resume rules above. Pause and resume use the authoritative command layer and replicate to every player.
 
+**Paused rule [Built]:** presentation and input run while the world is paused, in planning and in active pause; the simulation does not. Camera pan, zoom and focus, the placement preview cells, order and route previews, selection highlights, capture rings, the planning ghosts, motion-blur suppression and a producer's mesh variant all keep working, because their actors and components tick when paused (the controller's full pause tick, the camera's spring arm, the world overlay). No simulation actor (units, buildings, forces, capture state, income, the match clock) ticks when paused. New presentation that is driven from an actor tick must submit from one of those, never from a simulation actor's own tick.
+
 ## Camera
 
 - **[Built]** A free camera: arrow keys, screen-edge movement or middle-mouse drag pan; the wheel zooms (owner decision, 2026-10-03). WASD does not pan; A is reserved for Attack.

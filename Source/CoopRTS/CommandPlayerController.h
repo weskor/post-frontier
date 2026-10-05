@@ -285,7 +285,7 @@ private:
 	// Planning, in CommandPlayerControllerPlanning.cpp.
 	void UpdatePlanning();
 	void EndPlanningInput();
-	void SuppressPlanningMotionBlur(bool bSuppress);
+	void SuppressPausedMotionBlur(bool bSuppress);
 	void SendKitPlacement(const FVector& Location);
 	void SendPlanningUnitType(int32 ChipIndex);
 	void FocusJevBase();

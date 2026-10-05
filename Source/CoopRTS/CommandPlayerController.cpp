@@ -75,7 +75,7 @@ void ACommandPlayerController::ResetLocalMatchView()
 	PlanningGhosts = CommandHUDPanels::FPlanningGhosts();
 	PlanningGhostsAt = -1000.;
 	bPlanningWasActive = false;
-	SuppressPlanningMotionBlur(false);
+	SuppressPausedMotionBlur(false);
 	bHUDExpanded = true;
 	bDeckPinned = false;
 	bPlacementPending = false;

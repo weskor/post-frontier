@@ -26,11 +26,11 @@ bool ACommandPlayerController::IsPlanningActive() const
 	return State && State->IsPlanning();
 }
 
-// The frozen world keeps its previous frame's velocity, so once the camera has moved motion blur smears the whole scene
-// until the world runs again (planning captures with it on show buildings streaked and the terrain ghosted; with it off
-// they are sharp). The override lives on this player's camera only and is applied every planning tick, so a camera that
-// was replaced mid-phase gets it too; EndPlanningInput lifts it at 0:00.
-void ACommandPlayerController::SuppressPlanningMotionBlur(bool bSuppress)
+// A paused world (planning or active pause) keeps its previous frame's velocity, so once the camera has moved motion blur
+// smears the whole scene until the world runs again (captures with it on show buildings streaked and the terrain ghosted; with
+// it off they are sharp). The override lives on this player's camera only and is applied every tick while paused, so a camera
+// that was replaced mid-pause gets it too; it lifts on the first tick after the world runs.
+void ACommandPlayerController::SuppressPausedMotionBlur(bool bSuppress)
 {
 	if (ACommandCamera* Camera = Cast<ACommandCamera>(GetPawn()))
 		if (Camera->IsMotionBlurSuppressed() != bSuppress)
@@ -42,7 +42,7 @@ void ACommandPlayerController::SuppressPlanningMotionBlur(bool bSuppress)
 void ACommandPlayerController::EndPlanningInput()
 {
 	CancelMode();
-	SuppressPlanningMotionBlur(false);
+	SuppressPausedMotionBlur(false);
 	PlanningConfirmAsked = -1000.;
 	PlanningGhosts = FPlanningGhosts();
 	PlanningGhostsAt = -1000.;
@@ -56,8 +56,7 @@ void ACommandPlayerController::UpdatePlanning()
 	const bool bActive = State && State->IsPlanning();
 	if (bPlanningWasActive && !bActive)
 		EndPlanningInput();
-	if (bActive)
-		SuppressPlanningMotionBlur(true);
+	SuppressPausedMotionBlur(GetWorld()->IsPaused());
 	bPlanningWasActive = bActive;
 	const FPlanningKit* Kit = bActive && IsValid(Commander) ? State->FindKit(Commander) : nullptr;
 	if (!Kit)
