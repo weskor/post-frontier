@@ -93,13 +93,40 @@ AWorldOverlay* AWorldOverlay::Get(const UObject* Context)
 	return Subsystem ? Subsystem->GetOverlay() : nullptr;
 }
 
+void AWorldOverlay::NoteSubmission()
+{
+	DropStaleSubmissions();
+	if (PendingSince == NoSubmission)
+		PendingSince = GFrameCounter;
+}
+
+void AWorldOverlay::DropStaleSubmissions()
+{
+	// The controller draws in frame N + 1 what the HUD drew in frame N, so two frames are one flush's worth.
+	if (PendingSince != NoSubmission && GFrameCounter - PendingSince > 1)
+	{
+		PendingCells.Reset();
+		PendingLines.Reset();
+		PendingSince = NoSubmission;
+	}
+}
+
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+int32 AWorldOverlay::DrawnLineCount() const
+{
+	return Lines->GetInstanceCount();
+}
+#endif
+
 void AWorldOverlay::Cell(const FVector& Center, const FVector2D& HalfSize, FColor Color)
 {
+	NoteSubmission();
 	PendingCells.Add({ FTransform(FQuat::Identity, Center, FVector(HalfSize.X * .02, HalfSize.Y * .02, 1.)), FLinearColor(Color) });
 }
 
 void AWorldOverlay::Line(const FVector& Start, const FVector& End, FColor Color, float Width)
 {
+	NoteSubmission();
 	const FVector Delta = End - Start;
 	const double Length = Delta.Size();
 	if (Length <= UE_SMALL_NUMBER)
@@ -139,7 +166,16 @@ void AWorldOverlay::Attack(const FVector& Start, const FVector& End, FColor Colo
 
 void AWorldOverlay::Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>& Pending, TArray<FInstance>& Previous)
 {
+	// Removing instances one by one reallocates per index, so a large shrink (a long backlog drawn once) is a clear and a
+	// re-add of this frame's few, never a removal over a huge index list.
+	constexpr int32 MaxIncrementalRemovals = 64;
 	bool bChanged = false;
+	if (Mesh->GetInstanceCount() - Pending.Num() > MaxIncrementalRemovals)
+	{
+		Mesh->ClearInstances();
+		Previous.Reset();
+		bChanged = true;
+	}
 	const int32 AddedInstances = Pending.Num() - Mesh->GetInstanceCount();
 	if (AddedInstances > 0)
 		Mesh->PreAllocateInstancesMemory(AddedInstances);
@@ -223,6 +259,7 @@ void DrawCaptureRings(AWorldOverlay& Overlay, const ACommandGameState& State)
 void AWorldOverlay::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	DropStaleSubmissions();
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -272,4 +309,5 @@ void AWorldOverlay::Tick(float DeltaSeconds)
 	}
 	Flush(Cells, PendingCells, PreviousCells);
 	Flush(Lines, PendingLines, PreviousLines);
+	PendingSince = NoSubmission;
 }

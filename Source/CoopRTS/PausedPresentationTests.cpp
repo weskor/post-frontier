@@ -101,6 +101,7 @@ private:
 		PauseUp,
 		Wheel,
 		Zoom,
+		Centre,
 		Pan,
 		Arm,
 		Preview,
@@ -123,7 +124,9 @@ private:
 		case Wheel:
 			return Settled() && FrozenWorld() ? Press(EKeys::MouseScrollUp, Zoom) : false;
 		case Zoom:
-			return Settled() && Zoomed() ? Press(EKeys::Up, Pan) : false;
+			return Settled() && Zoomed() ? CentreCamera() : false;
+		case Centre:
+			return Settled() ? Press(EKeys::Up, Pan) : false;
 		case Pan:
 			return Settled() && Panned() ? Advance(Arm) : false;
 		case Arm:
@@ -146,6 +149,12 @@ private:
 		Enter(Next);
 		Frames = 0;
 		return false;
+	}
+	// The camera starts wherever the initial focus left it, possibly on the arena's edge where it cannot pan further.
+	bool CentreCamera()
+	{
+		Camera()->FocusOn(FVector::ZeroVector);
+		return Advance(Centre);
 	}
 	// Sends a key and remembers the view it must change.
 	bool Press(FKey Value, int32 Next)
@@ -241,7 +250,8 @@ private:
 		const FView Now = CaptureView();
 		return FrozenWorld()
 			&& Check(Now.Root.X > Before.Root.X + 1. && Now.Eye.X > Before.Eye.X + 1.,
-				TEXT("The Up arrow pans the camera, and its view with it, while paused"));
+				FString::Printf(TEXT("The Up arrow pans the camera, and its view with it, while paused (root %s -> %s, eye %s -> %s)"),
+					*Before.Root.ToCompactString(), *Now.Root.ToCompactString(), *Before.Eye.ToCompactString(), *Now.Eye.ToCompactString()));
 	}
 
 	bool ArmPlacement()

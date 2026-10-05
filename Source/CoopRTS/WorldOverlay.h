@@ -22,6 +22,10 @@ public:
 	void Square(const FVector& Center, const FVector2D& HalfSize, FColor Color, float Width);
 	void Ring(const FVector& Center, float Radius, FColor Color, float Width = 2.f);
 	void Attack(const FVector& Start, const FVector& End, FColor Color, bool bSiege);
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+	int32 PendingLineCount() const { return PendingLines.Num(); }
+	int32 DrawnLineCount() const;
+#endif
 
 private:
 	struct FInstance
@@ -38,6 +42,12 @@ private:
 		float Expires;
 	};
 	void Flush(UInstancedStaticMeshComponent* Mesh, TArray<FInstance>& Pending, TArray<FInstance>& Previous);
+	// Submissions are one frame's drawing. Whatever was submitted more than a frame before the newest is stale and goes, so a
+	// world that does not flush (a missed tick) can never accumulate an unbounded backlog.
+	void NoteSubmission();
+	void DropStaleSubmissions();
+	static constexpr uint64 NoSubmission = TNumericLimits<uint64>::Max();
+	uint64 PendingSince = NoSubmission;
 	UPROPERTY()
 	TObjectPtr<UInstancedStaticMeshComponent> Cells;
 	UPROPERTY()

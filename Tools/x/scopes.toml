@@ -1085,6 +1085,7 @@ rendered = true
 # Paused presentation: presentation and input run while the world is paused (ui.md), proven on a held planning phase and
 # on a solo active pause. Everything that presents or reads input while paused selects it.
 "Source/CoopRTS/PausedPresentationTests.cpp" = ["paused-presentation"]
+"Source/CoopRTS/WorldOverlayTests.cpp" = ["paused-presentation"]
 "Source/CoopRTS/WorldOverlay.[hc]*" = ["paused-presentation"]
 "Source/CoopRTS/CommandCamera.[c]*" = ["paused-presentation"]
 "Source/CoopRTS/CommandPlayerController*.[c]*" = ["paused-presentation"]
