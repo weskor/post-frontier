@@ -1,5 +1,5 @@
-import pytest
 from harness.simulation_validation import validate_report
+import pytest
 from test_simulation_reports import telemetry
 
 
