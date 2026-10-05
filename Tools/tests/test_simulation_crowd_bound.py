@@ -1,5 +1,4 @@
 import pytest
-
 from harness.simulation_validation import validate_report
 from test_simulation_reports import telemetry
 
