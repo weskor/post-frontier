@@ -167,7 +167,9 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Cha
 		if (!Target.Identity || !Target.bAlive || !Exists(World, Target.Region))
 			continue;
 		const FRegion& Region = World.Regions[Target.Region];
-		if (Region.bClaimed || Region.Controller == World.Team || Route.Hops[Target.Region] == INDEX_NONE
+		// A hostile Failover Node is worth attacking in a region JEV already holds: holding a region does not shoot a
+		// node standing far from the force, and the HQ stays immune until the nodes fall.
+		if (Region.bClaimed || (Region.Controller == World.Team && !Target.bNode) || Route.Hops[Target.Region] == INDEX_NONE
 			|| (Region.bMain && Target.Region != World.EnemyHome))
 			continue;
 		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
@@ -289,17 +291,15 @@ bool TargetValid(const FWorld& World, const FPlan& Plan)
 	return false;
 }
 
-namespace
-{
-// A standing plan is kept while its target is valid, the force has units and is not retreating. Defending
-// one's own region (an emergency wave) lasts only while hostiles are in it or it is under attack.
 bool StandingHolds(const FWorld& World, const FForce& Force, const FPlan& Plan)
 {
 	if (!Plan.bStanding || Force.UnitCount <= 0 || Force.bRetreating || !TargetValid(World, Plan))
 		return false;
+	// An attack on a structure lasts as long as the structure lives, wherever its region's control stands.
+	if (Plan.TargetIdentity)
+		return true;
 	const FRegion& Target = World.Regions[Plan.Target];
 	return Target.Controller != World.Team || Target.Hostiles > 0 || Target.bAttacked;
-}
 }
 
 bool Decide(const FWorld& World, const FForce& Force, float Now, const FPlan* Current, FPlan& Out)

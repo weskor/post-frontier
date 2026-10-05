@@ -136,6 +136,10 @@ float TravelSeconds(const FWorld& World, const FForce& Force, int32 Target);
 FCandidates Propose(const FWorld& World, const FForce& Force);
 const FCandidate* Choose(const FCandidates& Candidates);
 bool TargetValid(const FWorld& World, const FPlan& Plan);
+// Whether a standing plan still stands: its target is valid, the force has units and is not retreating, and an
+// attack on a region lasts only while JEV does not hold it (a defence of its own region, while hostiles are in it
+// or it is attacked). An attack on a structure lasts while the structure lives.
+bool StandingHolds(const FWorld& World, const FForce& Force, const FPlan& Plan);
 // Returns false only when there is neither a legal proposal nor an active commitment.
 // An attacked, team-controlled source forces defense unless the executor is Retreating.
 // Defense is escalated at creation; escalation retains an active commitment's deadline.

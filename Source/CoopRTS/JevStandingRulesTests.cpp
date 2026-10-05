@@ -7,6 +7,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStandingPlanTest, "CoopRTS.Rules.Jev.Standi
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevStandingOrderChangeTest, "CoopRTS.Rules.JevExecution.StandingOrderChange",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevWaveObjectiveTest, "CoopRTS.Rules.Jev.WaveObjective",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -121,6 +123,61 @@ bool FJevStandingOrderChangeTest::RunTest(const FString&)
 	TestFalse(TEXT("An ordinary decision that did not change keeps a differing order"),
 		JevExecution::OrderChange(Ordinary, &Ordinary, true).bChanged);
 	TestFalse(TEXT("Keeping a standing plan is not a new commitment"), JevExecution::NewCommitment(&Standing, Standing));
+	return true;
+}
+
+bool FJevWaveObjectiveTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	FWorld World = LineWorld();
+	// The humans' two Failover Nodes stand in regions 1 and 2, outside their main.
+	FTarget Nodes[2];
+	Nodes[0].Identity = 12;
+	Nodes[0].Region = 1;
+	Nodes[1].Identity = 11;
+	Nodes[1].Region = 2;
+	for (FTarget& Node : Nodes)
+		Node.bAlive = Node.bNode = true;
+	World.Targets = Nodes;
+	World.bHostileNodesStand = true;
+	FForce Force;
+	Force.Source = Force.Home = 0;
+	Force.UnitCount = 6;
+	Force.ClassSpeeds = Speeds;
+
+	JevExecution::FObjective Objective = JevExecution::WaveObjective(World, Force, 3);
+	TestTrue(TEXT("A wave sent at the guarded main goes to the nearest standing node"), Objective.Region == 1 && Objective.Identity == 12);
+	Objective = JevExecution::WaveObjective(World, Force, 2);
+	TestTrue(TEXT("A wave sent anywhere but the main keeps its target"), Objective.Region == 2 && Objective.Identity == 0);
+	Nodes[0].bAlive = false;
+	Objective = JevExecution::WaveObjective(World, Force, 3);
+	TestTrue(TEXT("When the nearest node has fallen the next one is the objective"), Objective.Region == 2 && Objective.Identity == 11);
+	Nodes[1].bAlive = false;
+	World.bHostileNodesStand = false;
+	Objective = JevExecution::WaveObjective(World, Force, 3);
+	TestTrue(TEXT("With every node down the wave goes for the main"), Objective.Region == 3 && Objective.Identity == 0);
+
+	// A plan that attacks a node lasts while the node lives, even in a region JEV holds.
+	Nodes[0].bAlive = Nodes[1].bAlive = true;
+	World.bHostileNodesStand = true;
+	World.Regions[1].Controller = 5;
+	FPlan NodePlan;
+	NodePlan.Verb = EVerb::Attack;
+	NodePlan.Source = 0;
+	NodePlan.Target = 1;
+	NodePlan.TargetIdentity = 12;
+	NodePlan.bStanding = true;
+	TestTrue(TEXT("A standing attack on a standing node holds although JEV holds the node's region"), StandingHolds(World, Force, NodePlan));
+	Nodes[0].bAlive = false;
+	TestFalse(TEXT("It ends when the node falls"), StandingHolds(World, Force, NodePlan));
+	Nodes[0].bAlive = true;
+
+	bool bOffered = false;
+	const FCandidates Candidates = Propose(World, Force);
+	for (int32 Index = 0; Index < Candidates.Count; ++Index)
+		bOffered |= Candidates.Values[Index].Plan.TargetIdentity == 12;
+	TestTrue(TEXT("The planner offers a hostile node standing in a region JEV holds"), bOffered);
 	return true;
 }
 

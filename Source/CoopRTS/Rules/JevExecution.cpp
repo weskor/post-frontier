@@ -69,6 +69,27 @@ bool HoldsClaim(const JevPlanner::FWorld& World, const JevPlanner::FPlan& Plan, 
 		&& World.Regions[Plan.Target].Controller != World.Team;
 }
 
+FObjective WaveObjective(const JevPlanner::FWorld& World, const JevPlanner::FForce& Force, int32 Target)
+{
+	FObjective Objective;
+	Objective.Region = Target;
+	if (Target != World.EnemyHome || !World.bHostileNodesStand)
+		return Objective;
+	float Nearest = TNumericLimits<float>::Max();
+	for (const JevPlanner::FTarget& Node : World.Targets)
+	{
+		if (!Node.bNode || !Node.bAlive || !Node.Identity)
+			continue;
+		const float Eta = JevPlanner::TravelSeconds(World, Force, Node.Region);
+		if (Eta < 0.f || Eta >= Nearest)
+			continue;
+		Nearest = Eta;
+		Objective.Region = Node.Region;
+		Objective.Identity = Node.Identity;
+	}
+	return Objective;
+}
+
 bool ClaimsTarget(const JevPlanner::FWorld& World, const JevPlanner::FPlan& Plan)
 {
 	return ValidRegion(Plan.Target) && Plan.Verb != JevPlanner::EVerb::Retreat

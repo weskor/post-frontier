@@ -59,6 +59,16 @@ bool HoldsClaim(const JevPlanner::FWorld& World, const JevPlanner::FPlan& Plan, 
 // A plan the force just committed to claims its unowned, non-Retreat target.
 bool ClaimsTarget(const JevPlanner::FWorld& World, const JevPlanner::FPlan& Plan);
 
+// Where a wave sent at Target goes. A wave sent at the hostile main goes to the nearest standing hostile Failover
+// Node while one stands: the HQ takes no damage until the nodes fall, and a node can stand outside the main. Otherwise
+// the target region itself (Identity 0).
+struct FObjective
+{
+	int32 Region = INDEX_NONE;
+	uint32 Identity = 0;
+};
+FObjective WaveObjective(const JevPlanner::FWorld& World, const JevPlanner::FForce& Force, int32 Target);
+
 // The plan describing the order the force is executing, keeping any live commitment deadline.
 JevPlanner::FPlan ActualPlan(const JevPlanner::FWorld& World, const JevPlanner::FForce& Force,
 	const JevPlanner::FPlan* Current, float Now, JevPlanner::EVerb ActualVerb, int32 ActualTarget,

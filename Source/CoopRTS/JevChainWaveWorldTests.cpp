@@ -10,7 +10,7 @@ namespace
 {
 using namespace JevWorldKit;
 
-// On Habitable Zone v2 a wave needs about a minute to march from JEV's main to its target, far longer than the
+// On Habitable Zone v2 a wave needs about a minute to march from JEV's main to its objective, far longer than the
 // 25 s commitment window. The wave must keep its Attack past the window and arrive.
 class FWaveStanding : public FScenario
 {
@@ -41,17 +41,17 @@ private:
 
 	bool Launched()
 	{
-		Target = Release().Waves.Last().TargetRegion;
 		Wave = EnemyForces(Kit.World);
-		if (!Check(!Wave.IsEmpty() && Target != INDEX_NONE, TEXT("The wave fielded forces with a target")))
+		if (!Check(!Wave.IsEmpty(), TEXT("The wave fielded forces")))
 			return true;
 		for (const AArmyGroup* Force : Wave)
 		{
 			const FJevPublishedPlan* Plan = PlanOf(Force);
-			if (!Check(Plan && Plan->TargetRegionIndex == Target, TEXT("Each wave force publishes an Attack on the wave's target"))
+			if (!Check(Plan && Plan->Verb == EForceVerb::Attack && Plan->TargetRegionIndex != INDEX_NONE, TEXT("Each wave force publishes an Attack"))
 				|| !Check(Plan->EtaSeconds > JevPlanner::CommitmentSeconds + 10.f,
 					*FString::Printf(TEXT("The march (ETA %.1f s) is longer than the commitment window, or this test proves nothing"), Plan->EtaSeconds)))
 				return true;
+			Objectives.Add(Force->ForceNumber, Plan->TargetRegionIndex);
 			Tickets.Add(Force->ForceNumber, Plan->TicketNumber);
 			Eta = FMath::Max(Eta, Plan->EtaSeconds);
 		}
@@ -69,8 +69,8 @@ private:
 			if (Force->GetAliveCount() == 0)
 				continue;
 			const FJevPublishedPlan* Plan = PlanOf(Force);
-			if (!Check(Force->Verb == EForceVerb::Attack && Force->TargetRegionIndex == Target && !Force->Orders.IsEmpty(),
-					TEXT("After the commitment window a wave force still executes Attack on its target, not a hold or retreat"))
+			if (!Check(Force->Verb == EForceVerb::Attack && Force->TargetRegionIndex == Objectives.FindRef(Force->ForceNumber) && !Force->Orders.IsEmpty(),
+					TEXT("After the commitment window a wave force still executes Attack on its objective, not a hold or retreat"))
 				|| !Check(Plan && Plan->TicketNumber == Tickets.FindRef(Force->ForceNumber) && Plan->CommittedUntil < Kit.World->GetTimeSeconds(),
 					TEXT("Its ticket is the one it launched with, and the window has expired")))
 				return true;
@@ -82,18 +82,18 @@ private:
 	bool Arrived()
 	{
 		const bool bThere = Wave.ContainsByPredicate([this](const AArmyGroup* Force) {
-			return Force->GetAliveCount() > 0 && ArmyTestSetup::CurrentRegion(Force) == Target;
+			return Force->GetAliveCount() > 0 && ArmyTestSetup::CurrentRegion(Force) == Objectives.FindRef(Force->ForceNumber);
 		});
 		if (bThere)
 			return true;
 		if (InStage() > 2. * Eta + 40.)
-			return Fail(TEXT("The wave did not reach its target region"));
+			return Fail(TEXT("The wave did not reach its objective region"));
 		return false;
 	}
 
-	int32 Target = INDEX_NONE;
 	float Eta = 0.f;
 	TArray<AArmyGroup*> Wave;
+	TMap<int32, int32> Objectives;
 	TMap<int32, int32> Tickets;
 };
 }

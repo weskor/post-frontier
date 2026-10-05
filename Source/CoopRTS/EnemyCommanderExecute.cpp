@@ -202,6 +202,27 @@ bool JoinsWave(const FJevTurn& Turn, const FJevForceStep& Step)
 		&& !JevPlanner::MustDefend(Turn.Summary, Step.Snapshot);
 }
 
+// The plan a wave force is sent on: standing, and aimed at a standing Failover Node first (JevExecution::WaveObjective).
+JevPlanner::FPlan StandingWavePlan(const FJevTurn& Turn, const FJevForceStep& Step, int32 Target)
+{
+	const JevExecution::FObjective Objective = JevExecution::WaveObjective(Turn.Summary, Step.Snapshot, Target);
+	JevPlanner::FPlan Plan = WavePlan(Turn, Step, Objective.Region);
+	Plan.TargetIdentity = Objective.Identity;
+	// A structure attack lasts while the structure lives, whoever holds its region.
+	Plan.bRequiresUnownedTarget = Plan.bRequiresUnownedTarget && !Objective.Identity;
+	// A wave attack outlives its commitment window: the march takes longer than the window.
+	Plan.bStanding = true;
+	return Plan;
+}
+
+// A wave's attack on a Failover Node that has fallen goes on to the next objective instead of back to the planner.
+bool AdvancesWave(const FJevTurn& Turn, const FJevForceStep& Step)
+{
+	const JevPlanner::FPlan* Plan = Step.Current ? &Step.Current->Plan : nullptr;
+	return Plan && Plan->bStanding && Plan->TargetIdentity && Step.Snapshot.UnitCount > 0 && !Step.Snapshot.bRetreating
+		&& !Step.bRecovering && !JevPlanner::StandingHolds(Turn.Summary, Step.Snapshot, *Plan);
+}
+
 // Producer-backed forces with no unit yet that JEV plans: every one while planning (nothing has been fielded), and
 // afterwards those whose plan has never seen a unit. A force wiped out and refilling is not among them.
 void AddUnfieldedForces(FJevTurn& Turn, TConstArrayView<FJevCommittedForce> Held)
@@ -247,6 +268,11 @@ void AEnemyCommander::ExecuteForce(FJevTurn& Turn, AArmyGroup* Force)
 	if (Step.Current && JevExecution::HoldsClaim(Turn.Summary, Step.Current->Plan, Turn.Now))
 		Turn.Summary.Regions[Step.Current->Plan.Target].bClaimed = --Turn.Reservations[Step.Current->Plan.Target] > 0;
 	SnapshotForce(Turn, Step);
+	if (AdvancesWave(Turn, Step))
+	{
+		ExecuteWaveForce(Turn, Force, Turn.Summary.EnemyHome, false);
+		return;
+	}
 	if (!ChooseNextPlan(Turn, Step) || !IssueOrder(Turn, Step))
 		return;
 	Commit(Turn, Step);
@@ -262,9 +288,7 @@ void AEnemyCommander::ExecuteWaveForce(FJevTurn& Turn, AArmyGroup* Force, int32 
 	SnapshotForce(Turn, Step);
 	if ((bJoining && !JoinsWave(Turn, Step)) || !JevExecution::ValidRegion(Target))
 		return;
-	Step.Next = WavePlan(Turn, Step, Target);
-	// A wave attack outlives its commitment window: the march takes longer than the window.
-	Step.Next.bStanding = true;
+	Step.Next = StandingWavePlan(Turn, Step, Target);
 	if (!IssueOrder(Turn, Step))
 		return;
 	Commit(Turn, Step);
