@@ -236,12 +236,20 @@ void DrawSites(const FMap& Map, const ACommandGameState& State, const ACommandPl
 	}
 }
 
-// The HQ's Failover Nodes: a row of small diamonds beside the HQ mark (placement in GuardedHqView). A standing node is a
-// filled team-coloured diamond, a lost one a hollow dim diamond, so the difference does not rest on colour.
-void DrawNodeMarks(const FMap& Map, const AHeadquarters& HQ, FVector2D Point)
+// The HQ's Failover Nodes: a row of small diamonds beside the HQ mark (placement in GuardedHqView, which keeps the row off the
+// main's deposit markers). A standing node is a filled team-coloured diamond, a lost one a hollow dim diamond, so the
+// difference does not rest on colour.
+void DrawNodeMarks(const FMap& Map, const ACommandGameState& State, const AHeadquarters& HQ, FVector2D Point)
 {
 	const TArray<TWeakObjectPtr<AFailoverNode>>& Nodes = HQ.GetNodes();
-	const GuardedHqView::FNodeMarks Marks = GuardedHqView::PlaceNodeMarks(Point, Map.Origin, Map.Size, Nodes.Num());
+	TArray<FVector2D, TInlineAllocator<8>> Deposits;
+	for (const ADepositSite* Deposit : State.Deposits)
+	{
+		FVector2D At;
+		if (IsValid(Deposit) && Map.Point(Deposit->GetActorLocation(), At) && FVector2D::Distance(At, Point) < 30.)
+			Deposits.Add(At);
+	}
+	const GuardedHqView::FNodeMarks Marks = GuardedHqView::PlaceNodeMarks(Point, Map.Origin, Map.Size, Nodes.Num(), Deposits);
 	for (int32 Index = 0; Index < Marks.Count; ++Index)
 	{
 		const AFailoverNode* Node = Nodes[Index].Get();
@@ -276,7 +284,7 @@ void DrawStructures(const FMap& Map, const ACommandGameState& State, const AComm
 		FVector2D Point;
 		if (!IsValid(HQ) || !Map.Point(HQ->GetActorLocation(), Point))
 			continue;
-		DrawNodeMarks(Map, *HQ, Point);
+		DrawNodeMarks(Map, State, *HQ, Point);
 		if (HQ->IsOffline())
 		{
 			// Offline (0 HP, the attackers hold its main): the team's outline over a dim fill and an amber cross,

@@ -19,7 +19,7 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuardedHqLeftoversViewTest, "CoopRTS.Visual.HqLeftovers.Surface",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
-// Rendered proof for the guarded-HQ readability pass (scope guarded-hq-leftovers-view, run on request): the objective feed's
+// Rendered proof for the guarded-HQ readability pass (scope hq-leftovers-view, run on request): the objective feed's
 // node-loss and emergency rows and the minimap's Failover Node marks, standing and lost, beside HQs that also carry a Fortify
 // ring and an offline X, each at 1600x900 and 1280x720. A person inspects the PNGs; the scenario asserts the events behind them.
 namespace GuardedHqLeftoversViewTests
@@ -214,13 +214,12 @@ private:
 		const GuardedHqView::EFeedKind Kind = GuardedHqView::Classify(Id.ToView());
 		const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Event.Id);
 		TStringBuilder<160> Title;
-		GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(), Kind,
-			Kind == GuardedHqView::EFeedKind::NodeLost ? Event.NodesLeft() : Event.RestoredPercent());
+		GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(), Id.ToView(), Event.DamageTier);
 		Test->AddInfo(FString::Printf(TEXT("%s: newest feed row reads \"%s\""), Shot.Name, Title.ToString()));
 		const bool bKind = Kind == Shot.ExpectedKind;
-		const bool bNumber = Shot.ExpectedNumber < 0 || Event.NodesLeft() == Shot.ExpectedNumber;
+		const bool bNumber = Shot.ExpectedNumber < 0 || Event.DamageTier == Shot.ExpectedNumber;
 		if (!bKind || !bNumber)
-			Test->AddError(FString::Printf(TEXT("%s: newest event %s has the wrong kind or number (%d)"), Shot.Name, *Event.Id.ToString(), Event.NodesLeft()));
+			Test->AddError(FString::Printf(TEXT("%s: newest event %s has the wrong kind or number (%d)"), Shot.Name, *Event.Id.ToString(), Event.DamageTier));
 		return bKind && bNumber;
 	}
 

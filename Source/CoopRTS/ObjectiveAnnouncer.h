@@ -42,16 +42,15 @@ struct FObjectiveEvent
 	FString RegionName;
 	UPROPERTY()
 	int32 AffectedTeam = -1;
-	// The event's one number; its meaning depends on the event id, so read it through the accessor of that id's kind
-	// (the field keeps its first meaning's name because it replicates and is logged by that name):
+	// The event's one number; its meaning depends on the event id (the field keeps its first meaning's name because it
+	// replicates and is logged by that name):
 	//   own_/enemy_hq_under_attack, _half, _critical, _offline: the damage tier (0 under attack, 1 half, 2 critical or offline);
-	//   own_/enemy_node_lost: Failover Nodes left, NodesLeft();
-	//   own_/enemy_hq_online: the restored HP percent, RestoredPercent();
+	//   own_/enemy_node_lost: Failover Nodes left;
+	//   own_/enemy_hq_online: the restored HP percent;
 	//   every other event: 0.
+	// Titles that print it go through GuardedHqView::AppendFeedTitle.
 	UPROPERTY()
 	int32 DamageTier = 0;
-	int32 NodesLeft() const { return DamageTier; }
-	int32 RestoredPercent() const { return DamageTier; }
 	UPROPERTY()
 	TArray<FObjectiveForce> Forces;
 	UPROPERTY()

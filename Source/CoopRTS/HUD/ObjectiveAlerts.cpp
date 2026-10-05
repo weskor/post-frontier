@@ -234,12 +234,12 @@ static GuardedHqView::EFeedKind ObjectiveRowKind(const FObjectiveEvent& Event)
 	return GuardedHqView::Classify(Id.ToView());
 }
 
-// A guarded-HQ row's title carries its number: the nodes left after a loss, the restored HP after a revival.
 static void AppendObjectiveTitle(const FObjectiveEvent& Event, const AnnouncerPolicy::FDefinition* Definition, FStringBuilderBase& Title)
 {
-	const GuardedHqView::EFeedKind Kind = ObjectiveRowKind(Event);
-	const int32 Number = Kind == GuardedHqView::EFeedKind::NodeLost ? Event.NodesLeft() : Event.RestoredPercent();
-	GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(TEXT("Objective update")), Kind, Number);
+	TStringBuilder<64> Id;
+	Event.Id.AppendString(Id);
+	GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(TEXT("Objective update")),
+		Id.ToView(), Event.DamageTier);
 }
 
 // The EMERGENCY badge of an emergency row, right-aligned on its second line in the side's colour. Returns the width it

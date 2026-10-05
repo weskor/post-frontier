@@ -23,9 +23,11 @@ EFeedKind Classify(FStringView EventId);
 // The badge text drawn on an emergency row.
 inline constexpr const TCHAR* EmergencyBadge = TEXT("EMERGENCY");
 
-// Appends a row's title: Text is the announcer's sentence, Number the event's one number (read by Kind).
-// A node loss reads `Hardline Failover Node lost · 1 left`, a revival `Hardline HQ back online at 25% HP`.
-void AppendFeedTitle(FStringBuilderBase& Out, FStringView Text, EFeedKind Kind, int32 Number);
+// Appends the title of the objective event EventId, the one place that composes it for the feed row and the objective strip:
+// Text is the announcer's sentence, Number the event's one number (FObjectiveEvent::DamageTier, which for a node loss is
+// the nodes left and for a revival the restored percent). A node loss reads `Hardline Failover Node lost · 1 left`, a revival
+// `Hardline HQ back online at 25% HP`, any other event its sentence.
+void AppendFeedTitle(FStringBuilderBase& Out, FStringView Text, FStringView EventId, int32 Number);
 
 // Minimap pixels, from the centre of an HQ's mark. The HQ mark is a 12 px square (half 6) whose offline X stays inside it.
 // A Fortify ring (radius 9) and a JEV badge box (half 5.5) are centred on the region's anchor, which sits on the main.
@@ -33,9 +35,14 @@ inline constexpr float MinimapHqHalf = 6.f;
 inline constexpr float MinimapRingRadius = 9.f;
 // A node mark is a diamond of this radius.
 inline constexpr float MinimapNodeRadius = 2.5f;
-// Marks sit in a row this far below the HQ's centre, which clears the ring by more than a pixel, and this far apart.
+// Marks sit in a row this far below the HQ's centre (which clears the ring by more than a pixel) and this far apart. The
+// row may instead sit this far above, or MinimapNodeFarDrop below or above, to keep off the main's deposit markers.
 inline constexpr float MinimapNodeDrop = 13.f;
-inline constexpr float MinimapNodePitch = 10.f;
+inline constexpr float MinimapNodeFarDrop = 17.f;
+inline constexpr float MinimapNodePitch = 14.f;
+// A deposit marker is a diamond of this radius; a mark keeps MinimapMarkGap pixels clear of it.
+inline constexpr float MinimapDepositRadius = 2.f;
+inline constexpr float MinimapMarkGap = 2.f;
 
 struct FNodeMarks
 {
@@ -43,7 +50,8 @@ struct FNodeMarks
 	int32 Count = 0;
 };
 
-// Where Count marks go for an HQ at Hq inside the square starting at Origin: a centred row below the HQ, or above it when the
-// row would leave the square at the bottom, shifted sideways when it would leave at a side.
-FNodeMarks PlaceNodeMarks(FVector2D Hq, FVector2D Origin, double Size, int32 Count);
+// Where Count marks go for an HQ at Hq inside the square starting at Origin: a centred row below the HQ, above it, or
+// further below or above (in that order), whichever sits inside the square and on the fewest deposit markers in Deposits
+// (the earliest on a tie), shifted sideways when it would leave the square at a side.
+FNodeMarks PlaceNodeMarks(FVector2D Hq, FVector2D Origin, double Size, int32 Count, TConstArrayView<FVector2D> Deposits);
 }

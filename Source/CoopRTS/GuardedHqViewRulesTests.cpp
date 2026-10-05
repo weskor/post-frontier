@@ -11,7 +11,7 @@ FString Title(const TCHAR* Id, int32 Number)
 {
 	const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(FName(Id));
 	TStringBuilder<128> Out;
-	GuardedHqView::AppendFeedTitle(Out, Definition ? FStringView(Definition->Text) : FStringView(), GuardedHqView::Classify(Id), Number);
+	GuardedHqView::AppendFeedTitle(Out, Definition ? FStringView(Definition->Text) : FStringView(), Id, Number);
 	return FString(Out.ToView());
 }
 }
@@ -56,27 +56,48 @@ bool FGuardedHqNodeMarksTest::RunTest(const FString& Parameters)
 	const FVector2D Centre = Origin + FVector2D(Size, Size) * .5;
 	const double Drop = MinimapNodeDrop, Pitch = MinimapNodePitch, Radius = MinimapNodeRadius;
 
-	const FNodeMarks Mid = PlaceNodeMarks(Centre, Origin, Size, 2);
+	const FNodeMarks Mid = PlaceNodeMarks(Centre, Origin, Size, 2, {});
 	TestEqual(TEXT("Two nodes, two marks"), Mid.Count, 2);
 	TestEqual(TEXT("Marks sit below the HQ"), Mid.Centre[0].Y, Centre.Y + Drop);
 	TestEqual(TEXT("Both on one row"), Mid.Centre[0].Y, Mid.Centre[1].Y);
 	TestEqual(TEXT("Centred on the HQ"), (Mid.Centre[0].X + Mid.Centre[1].X) * .5, Centre.X);
 	TestEqual(TEXT("One pitch apart"), Mid.Centre[1].X - Mid.Centre[0].X, Pitch);
 
-	const FNodeMarks One = PlaceNodeMarks(Centre, Origin, Size, 1);
+	const FNodeMarks One = PlaceNodeMarks(Centre, Origin, Size, 1, {});
 	TestEqual(TEXT("A single node gets one mark"), One.Count, 1);
 	TestEqual(TEXT("A single node sits straight below the HQ"), One.Centre[0].X, Centre.X);
-	TestEqual(TEXT("No nodes, no marks"), PlaceNodeMarks(Centre, Origin, Size, 0).Count, 0);
-	TestEqual(TEXT("Never more marks than nodes a side has"), PlaceNodeMarks(Centre, Origin, Size, 9).Count, HqHoldPolicy::NodesPerHq);
+	TestEqual(TEXT("No nodes, no marks"), PlaceNodeMarks(Centre, Origin, Size, 0, {}).Count, 0);
+	TestEqual(TEXT("Never more marks than nodes a side has"), PlaceNodeMarks(Centre, Origin, Size, 9, {}).Count, HqHoldPolicy::NodesPerHq);
 
 	const FVector2D Bottom(Centre.X, Origin.Y + Size - 6.);
-	TestEqual(TEXT("An HQ on the lower edge puts its row above"), PlaceNodeMarks(Bottom, Origin, Size, 2).Centre[0].Y, Bottom.Y - Drop);
+	TestEqual(TEXT("An HQ on the lower edge puts its row above"), PlaceNodeMarks(Bottom, Origin, Size, 2, {}).Centre[0].Y, Bottom.Y - Drop);
 
-	const FNodeMarks Shifted = PlaceNodeMarks(FVector2D(Origin.X + 3., Centre.Y), Origin, Size, 2);
+	const FNodeMarks Shifted = PlaceNodeMarks(FVector2D(Origin.X + 3., Centre.Y), Origin, Size, 2, {});
 	TestEqual(TEXT("A row at the left edge shifts to just inside the square"), Shifted.Centre[0].X - Radius, Origin.X);
 	TestEqual(TEXT("The shifted row keeps its pitch"), Shifted.Centre[1].X - Shifted.Centre[0].X, Pitch);
-	const FNodeMarks ShiftedRight = PlaceNodeMarks(FVector2D(Origin.X + Size - 3., Centre.Y), Origin, Size, 2);
+	const FNodeMarks ShiftedRight = PlaceNodeMarks(FVector2D(Origin.X + Size - 3., Centre.Y), Origin, Size, 2, {});
 	TestEqual(TEXT("A row at the right edge shifts to just inside the square"), ShiftedRight.Centre[1].X + Radius, Origin.X + Size);
+
+	// Deposit markers (radius MinimapDepositRadius) sit in the main: the row keeps clear of them, flipping above when
+	// that clears more, and stays below when they are no nearer than the clearance or both sides are equally blocked.
+	const double Reach = Radius + MinimapDepositRadius + MinimapMarkGap;
+	auto Hits = [&](const FNodeMarks& Marks, const FVector2D& Deposit) {
+		int32 Count = 0;
+		for (int32 Index = 0; Index < Marks.Count; ++Index)
+			Count += FVector2D::Distance(Marks.Centre[Index], Deposit) < Reach;
+		return Count;
+	};
+	const FVector2D BelowLeft = Centre + FVector2D(-Pitch * .5 + 1., Drop - 2.);
+	TestEqual(TEXT("The row blocked below flips above"), PlaceNodeMarks(Centre, Origin, Size, 2, MakeArrayView(&BelowLeft, 1)).Centre[0].Y, Centre.Y - Drop);
+	const FVector2D BelowFar = Centre + FVector2D(0., Drop + Reach + 4.);
+	TestEqual(TEXT("A deposit no nearer than the clearance leaves the row below"), PlaceNodeMarks(Centre, Origin, Size, 2, MakeArrayView(&BelowFar, 1)).Centre[0].Y, Centre.Y + Drop);
+	const FVector2D Mixed[] = { BelowLeft, Centre + FVector2D(-Pitch * .5, -Drop), Centre + FVector2D(Pitch * .5, -Drop) };
+	const FNodeMarks Blocked = PlaceNodeMarks(Centre, Origin, Size, 2, Mixed);
+	TestEqual(TEXT("Blocked on both sides, the row with fewer marks on deposits wins"), Blocked.Centre[0].Y, Centre.Y + Drop);
+	TestEqual(TEXT("... and only one of its marks sits on a deposit"), Hits(Blocked, Mixed[0]) + Hits(Blocked, Mixed[1]) + Hits(Blocked, Mixed[2]), 1);
+	const FVector2D AboveBottom = Bottom + FVector2D(-Pitch * .5, -Drop);
+	TestEqual(TEXT("A side the square cannot hold is never chosen, blocked or not"),
+		PlaceNodeMarks(Bottom, Origin, Size, 2, MakeArrayView(&AboveBottom, 1)).Centre[0].Y, Bottom.Y - Drop);
 
 	// Over the whole square, at both minimap sizes, no mark meets the HQ square, its offline X, a Fortify ring or a JEV
 	// badge box (all centred on the HQ, the largest reaching MinimapRingRadius), and every mark stays inside the square.
@@ -86,7 +107,7 @@ bool FGuardedHqNodeMarksTest::RunTest(const FString& Parameters)
 			for (int32 Row = 0; Row <= 20; ++Row)
 			{
 				const FVector2D Hq = Origin + FVector2D(Column, Row) * (Edge / 20.);
-				const FNodeMarks Marks = PlaceNodeMarks(Hq, Origin, Edge, 2);
+				const FNodeMarks Marks = PlaceNodeMarks(Hq, Origin, Edge, 2, {});
 				for (int32 Index = 0; Index < Marks.Count && Failure.IsEmpty(); ++Index)
 				{
 					const FVector2D Mark = Marks.Centre[Index];

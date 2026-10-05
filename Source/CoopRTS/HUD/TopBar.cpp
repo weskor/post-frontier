@@ -7,6 +7,7 @@
 #include "PlanningPanel.h"
 #include "ObjectiveAnnouncer.h"
 #include "TeamPanel.h"
+#include "Rules/GuardedHqView.h"
 #include "Rules/AnnouncerPolicy.h"
 
 namespace CommandHUDPanels
@@ -44,17 +45,10 @@ static void DrawLatestObjective(const FPainter& Paint, const FContext& Context, 
 	const FObjectiveEvent& Latest = Announcer->GetEvents().Last();
 	const AnnouncerPolicy::FDefinition* Definition = AnnouncerPolicy::Find(Latest.Id);
 	TStringBuilder<256> Title;
-	Title << (Definition ? Definition->Text : TEXT("Objective update"));
-	// Node loss and revival carry their number in the event's tier: nodes left, restored percent.
-	const FString Id = Latest.Id.ToString();
-	if (Id.EndsWith(TEXT("_node_lost")) || Id.EndsWith(TEXT("_hq_online")))
-	{
-		Title.RemoveSuffix(1); // The feed's full stop.
-		if (Id.EndsWith(TEXT("_node_lost")))
-			Title.Appendf(TEXT(" \u00B7 %d left"), Latest.DamageTier);
-		else
-			Title.Appendf(TEXT(" at %d%% HP"), Latest.DamageTier);
-	}
+	TStringBuilder<64> Id;
+	Latest.Id.AppendString(Id);
+	GuardedHqView::AppendFeedTitle(Title, Definition ? FStringView(Definition->Text) : FStringView(TEXT("Objective update")),
+		Id.ToView(), Latest.DamageTier);
 	if (!Latest.RegionName.IsEmpty())
 		Title << TEXT("  |  ") << ObjectiveRegionName(Latest.RegionName);
 	Paint.Text(Title.ToView(), Contributors.X, Strip.Y + 5.f, 9.f, Palette::Text, true, EAlign::Left, Contributors.W);
