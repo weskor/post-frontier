@@ -25,7 +25,11 @@ from harness.simulation_evidence import (
     save_json,
     teams,
 )
-from harness.simulation_validation import interpret_outcome, validate_report
+from harness.simulation_validation import (
+    crowd_unchecked_lines,
+    interpret_outcome,
+    validate_report,
+)
 from harness.verify import JsonObject
 
 
@@ -43,7 +47,7 @@ def load_results(
             report = json.loads((run / directory.name / "match.json").read_text())
             if record.get("returncode") != 0:
                 raise ValueError("Recorded process did not exit zero")
-            validate_report(report, record["job"])
+            validate_report(report, record["job"], legacy=True)
             valid.append((record, report))
         except (OSError, ValueError, KeyError, TypeError) as error:
             failed.append(dict(record, status="failed", error=str(error)))
@@ -340,7 +344,7 @@ def _rush_line(variant: str, rush: JsonObject) -> str:
     )
     return (
         f"- `{variant}` rush: {rush['forces_seen']} forces seen alive, "
-        f"{rush['forces_attacking']} ordered to Attack JEV's main; order delay {delays}. "
+        f"{rush['forces_attacking']} ordered to Attack JEV's objective (its Failover Nodes, then its main); order delay {delays}. "
         f"Casualty-rule cycle under the Attack: {rush['withdrawals']} withdrawals, {rush['resumes']} resumes. "
         f"Retreat events (a defect, expected 0): {rush['retreats']}."
     )
@@ -434,6 +438,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         f"Run: `{run.name}`. Complete matches: **{len(valid)}**; failed/interrupted: **{len(failed)}**.",
         "Failures never enter win, draw, duration or curve denominators. JSON, launch identity, stdout and game logs remain beside this report.",
         "",
+        *crowd_unchecked_lines(valid),
         "Fixed 60 Hz game steps, unlimited headless wall-clock throughput; dilation is not permitted to coarsen combat/production ticks.",
         "Seeds initialize UE global random streams; asynchronous navigation and actor ordering are not guaranteed deterministic. Identical outcomes across seeds are not independent statistical evidence.",
         "",

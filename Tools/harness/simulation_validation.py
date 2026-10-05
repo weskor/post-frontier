@@ -85,7 +85,41 @@ def number(value: object, label: str) -> float:
     return float(value)
 
 
-def validate_report(report: JsonObject, job: JsonObject) -> None:
+def has_crowd_record(report: JsonObject) -> bool:
+    return "peak_living_units" in report or "crowd_max_agents" in report
+
+
+def validate_crowd_bound(report: JsonObject, legacy: bool) -> None:
+    """Units beyond UCrowdManager::MaxAgents cannot move, so a peak above it voids the match.
+
+    A report from before the fields existed passes only when `legacy` is set (revalidating
+    retained evidence); a report a run has just produced must carry both fields.
+    """
+    if legacy and not has_crowd_record(report):
+        return
+    peak = number(report.get("peak_living_units"), "peak living units")
+    agents = number(report.get("crowd_max_agents"), "crowd agent cap")
+    if peak > agents:
+        raise ValueError(
+            f"Peak living units {peak:g} exceed the crowd cap of {agents:g} agents: "
+            "units beyond it cannot move"
+        )
+
+
+def crowd_unchecked_lines(valid: list[tuple[JsonObject, JsonObject]]) -> list[str]:
+    """A warning for matches recorded before reports carried the crowd-cap fields."""
+    unchecked = sum(not has_crowd_record(report) for _, report in valid)
+    if not unchecked:
+        return []
+    return [
+        f"**Warning:** {unchecked} of {len(valid)} matches predate the crowd-cap record "
+        "(`peak_living_units`): their unit peak was not checked against `MaxAgents`, "
+        "so units frozen by the cap would not show.",
+        "",
+    ]
+
+
+def validate_report(report: JsonObject, job: JsonObject, legacy: bool = False) -> None:
     if job.get("mode") == "duel":
         from harness.simulation_duel_validation import validate_duel_report
 
@@ -130,13 +164,7 @@ def validate_report(report: JsonObject, job: JsonObject) -> None:
             )
     if number(report.get("max_game_delta_seconds"), "game delta") > 1 / 60 + 0.0001:
         raise ValueError("Game delta exceeded fixed 60 Hz contract")
-    peak = number(report.get("peak_living_units"), "peak living units")
-    agents = number(report.get("crowd_max_agents"), "crowd agent cap")
-    if peak > agents:
-        raise ValueError(
-            f"Peak living units {peak:g} exceed the crowd cap of {agents:g} agents: "
-            "units beyond it cannot move"
-        )
+    validate_crowd_bound(report, legacy)
     validate_snapshots(report, duration)
     validate_outcome(report, job, duration)
     validate_plans(report)
