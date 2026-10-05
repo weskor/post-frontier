@@ -321,7 +321,7 @@ TArray<TSharedPtr<FJsonValue>> SnapshotDeposits(ACommandGameState& State)
 	return Deposits;
 }
 
-TArray<TSharedPtr<FJsonValue>> SnapshotPlans(ACommandGameState& State, double StartWorldTime, double WorldTime)
+TArray<TSharedPtr<FJsonValue>> SnapshotPlans(ACommandGameState& State, double StartWorldTime, float WorldTime)
 {
 	TArray<TSharedPtr<FJsonValue>> Plans;
 	Plans.Reserve(State.EnemyPlans.Num());
@@ -330,7 +330,7 @@ TArray<TSharedPtr<FJsonValue>> SnapshotPlans(ACommandGameState& State, double St
 		const TSharedRef<FJsonObject> Detail = MakeShared<FJsonObject>();
 		PlanFields(*Detail, Plan, Plan.ForceNumber,
 			IsValid(Plan.TargetStructure) ? Plan.TargetStructure->GetName() : FString(), StartWorldTime,
-			static_cast<float>(FMath::Max(0., static_cast<double>(Plan.CommittedUntil) - WorldTime)));
+			FMath::Max(0.f, Plan.CommittedUntil - WorldTime));
 		Plans.Add(MakeShared<FJsonValueObject>(Detail));
 	}
 	return Plans;
@@ -385,8 +385,9 @@ TSharedRef<FJsonObject> FMatchSimulation::SnapshotTeam(ACommandGameState& State,
 
 void FMatchSimulation::Snapshot(ACommandGameState& State, double ScheduledTime)
 {
-	const double WorldTime = GetWorld()->GetTimeSeconds();
-	const double Time = WorldTime - StartWorldTime;
+	// Plan events use the float game clock clamped at 0; the snapshot shares it so a plan and its snapshot never disagree.
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	const double Time = FMath::Max(0., WorldTime - StartWorldTime);
 	const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
 	Row->SetNumberField(TEXT("time"), Time);
 	Row->SetNumberField(TEXT("scheduled_time"), ScheduledTime);
