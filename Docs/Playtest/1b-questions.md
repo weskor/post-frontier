@@ -10,13 +10,15 @@ Gate: [economy and pressure, and where and how to fight](../Design/build-order.m
 - **JEV:** could you tell what JEV was planning and where the threat would arrive? Rate readability **1–5**. What cue helped, or what information was missing?
 - **Awareness:** did you notice important wins, incoming threats and the match ending in time to react? Which event did you miss, if any?
 - **Co-op:** could you tell what your teammates needed and coordinate with them? Describe a useful or confusing ping.
-- **Decisions:** were there real choices about where and when to fight, or only a direction to push? Name one decision that mattered.
+- **Decisions:** were there real choices about where and when to fight, or only a direction to push? Name one decision that mattered. Were there stretches with nothing to decide? About how long, and when?
 - **Confusion:** what was the most confusing moment? What one change would have helped most?
 
 ## Economy and pressure (step 1b)
 
 - **Planning phase:** did the pre-battle planning (kit placement, unit type, first orders, looking at JEV's base) give you a real choice? Rate how useful it was **1–5**. Was 60 s too short, right or too long? Did you use the first order?
 - **Supply cuts and connected territory:** did you notice when a region or Drill Rig was cut off, within a second or two? Rate how clear the cut was **1–5**. Did you cut JEV's chain, or lose yours? What did it cost?
+- **Reinforcements along the supply chain:** did recruits reach your forces when you expected? Did you see a force held at its producer because it was cut off, and did the card tell you why? Rate how clear the refill state was **1–5**.
+- **Deposit pressure and income:** did your first deposits run dry, and when? Did that make you expand? Did anyone sit on their base income without taking more ground (did the baseline let you turtle)? Rate how much Power pressure you felt **1–5** (1 = none, 5 = constant).
 - **Data and the tier-2 branch:** where did your Data come from (reward regions, kills)? Did you buy a branch? Was there enough Data to choose between Fortify and a branch, or too little or too much? Rate how much the branch changed the fight **1–5**.
 - **Fortify:** did you use it (yes/no)? If yes, where and why, and did it matter **1–5**? If not, why not?
 - **Lancer, Scrambler and shields:** did you build either? Could you tell which units had shields, and what the Scrambler pulse did? Did any unit type feel too strong or useless? Rate how readable the shield bar and pulse were **1–5**.

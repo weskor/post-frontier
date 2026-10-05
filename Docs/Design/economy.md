@@ -55,7 +55,7 @@ Power alone funds your army, but tech needs Data, so aggression and holding terr
 - Cutting the chain stops income from every region beyond the cut. A disconnected Drill Rig neither pays nor depletes, and a disconnected reward region pays no Data (starting value, orchestrator 2026-10-04).
 - **[Built]** The connected set is recomputed whenever any region controller changes, and at least every 0.25 s. Each team's connected mask replicates together with the server time of its last change (starting value, orchestrator 2026-10-04).
 - **[Built]** There is one connectivity rule: income here and reinforcements ([forces.md](forces.md)) both read `ForceOrders::ConnectedMask`.
-- **[Built]** The cut is readable within 1 s: at the replicated change time the cut-off region's border flashes and its Drill Rigs show offline with a glyph and a label ([ui.md](ui.md#2-supply-cuts-on-the-map-and-the-force-card-built)). **[New]** Greying the Drill Rig mesh itself waits for the building appearance work ([ui.md](ui.md#2-supply-cuts-on-the-map-and-the-force-card-built)).
+- **[Built]** The cut must be readable within 1 s: the cut-off region's border flashes and its Drill Rigs show offline ([ui.md](ui.md#2-supply-cuts-on-the-map-and-the-force-card-built)).
 - This applies to JEV as well, so cutting JEV's chain is a real target for an Attack or Move & Hold order.
 
 ## Deposits [Built]

@@ -110,7 +110,7 @@ Scrambler, Repair crew and Shield projector are **support**. They are tested in 
 - **Speed bands by armor class [Change]:** slow 360 (Heavy), medium 420 (Shielded) and fast 480 (Light) are [Built]; very fast 560 (Raider) is [New] with the unbuilt Raider.
 - **Auto-casts at tier 1:** only the specialists (Scrambler, Repair crew, Shield projector). Branches add auto-casts to other units, e.g. the Warden's taunt.
 
-[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed (starting values, orchestrator 2026-10-04, from the [tuning round](../Balance.md#lancer-and-scrambler-tuning-round--no-passing-point-2026-10-04)); they pass every duel rule except the roster worth ratio, which is an open owner decision ([open-questions.md](open-questions.md)); [New] the other rows remain starting values for future harness validation:
+[Built] Tuned existing-unit values. [Built] The Lancer and Scrambler rows are authored in `units.json` exactly as listed (starting values, orchestrator 2026-10-04, from the [tuning round](../Balance.md#lancer-and-scrambler-tuning-round--no-passing-point-2026-10-04)); their duel results are in the [acceptance check](#acceptance-check). [New] The other rows remain starting values for future harness validation:
 
 | Unit | Squad | Cost per unit | Full squad | HP | DPS | Range | Speed | Auto-cast |
 |---|---:|---:|---:|---|---:|---|---|---|

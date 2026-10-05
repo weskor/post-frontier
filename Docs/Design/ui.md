@@ -167,7 +167,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 - **World [Built]:** a 20 px glyph left of the name on the label plate, and the trait word in 9.5 px capitals under it, so nothing is hover-only. High ground is a chevron, Cover a brick, Open a double arrow, Hazard a warning triangle in amber; the silhouettes differ, so colour is secondary ([map.md](map.md)). 20 px meets the glyph rule in [STYLE.md](../../Art/UI/STYLE.md); 9.5 px stays at or above its 7.1 px caption floor down to the 0.78 minimum HUD scale.
 - **Stack above a region anchor [Built],** top to bottom: the JEV badge, the label plate with the glyph, the chip row. Draw order: defend-post decals, then deposit labels, then the region stack, then the JEV badge.
 - **Minimap [Built]:** a 10 px glyph at the node's top-left; deposit ticks stay bottom-left, the JEV marker and countdown stay on the right, and the Fortify ring wraps the node. 10 px is under STYLE.md's 20 px glyph rule because the minimap is 144 px wide; the world plate carries the full glyph and word, and if art cannot make the four silhouettes readable at 10 px the minimap falls back to one-letter pips (`H`, `C`, `O`, `!`).
-- **War-table zoom [New]:** the plate collapses to a 24 px glyph plus the name.
+- **War-table zoom [New]:** the plate collapses to a 24 px glyph plus the name. Not built: there is no war table yet ("War-table ordering", above).
 - **Why:** the other node corners are taken, and a glyph inside the plate cannot collide with the badge, the deposit label or the post marker.
 
 ### 8. JEV timeline and the battle clock [Built]
@@ -201,7 +201,7 @@ Step 1b adds ten player-facing surfaces. Every entry below is **(orchestrator 20
 | What | How it's shown |
 |---|---|
 | Counters | Hit flashes coloured by effectiveness: bonus hits flash bright, normal hits plain. Every force badge, including JEV's, shows its armor and damage icons. No floating numbers. |
-| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours (the humans' teal, and JEV's in the Machine skin's pearl, [STYLE.md](../../Art/UI/STYLE.md)). [Built] A cut snaps the cable, flashes the region and marks its Drill Rigs offline; the cut's map, minimap, top-bar and force-card presentation is in "Step 1b surfaces" above. **[New]** Greying the rig mesh. |
+| Supply chain | **Always-visible cables** across region borders between connected regions, in team colours (the humans' teal, and JEV's in the Machine skin's pearl, [STYLE.md](../../Art/UI/STYLE.md)). [Built] A cut snaps the cable, flashes the region and marks its Drill Rigs offline; the presentation is in surface 2 of "Step 1b surfaces" above. |
 | Alerts | [Built] Objective feed, global announcer and explicit camera jumps described above. [New] Voiced supply cuts, JEV releases and calldowns follow their mechanics in [economy.md](economy.md) and [jev.md](jev.md). |
 | Incident report (after each battle) | A timeline graph of income, forces and regions with key events; **3 "why" callouts**, e.g. *Line cut at 4:12 cost 600 Power*; plus a Machine memo for the joke |
 | Contribution card | **1–2 positive highlights per player**, e.g. *Saved West Cut at 6:40* or *Gifted 800 Power*, plus personal stats. It never ranks players. |
