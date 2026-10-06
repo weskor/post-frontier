@@ -160,7 +160,7 @@ float RegionScore(const FWorld& World, const FForce& Force, const FChain& Chain,
 		- (Region.Controller != INDEX_NONE ? 3.f : 0.f) + ChainScore(World, Chain, Index);
 }
 
-void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, FCandidates& Out)
+void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, bool bSupport, FCandidates& Out)
 {
 	for (const FTarget& Target : World.Targets)
 	{
@@ -169,13 +169,45 @@ void OfferStructures(const FWorld& World, const FForce& Force, const FChain& Cha
 		const FRegion& Region = World.Regions[Target.Region];
 		// A hostile Failover Node is worth attacking in a region JEV already holds: holding a region does not shoot a
 		// node standing far from the force, and the HQ stays immune until the nodes fall.
-		if (Region.bClaimed || (Region.Controller == World.Team && !Target.bNode) || Route.Hops[Target.Region] == INDEX_NONE
+		if ((Region.bClaimed && !bSupport) || (Region.Controller == World.Team && !Target.bNode) || Route.Hops[Target.Region] == INDEX_NONE
 			|| (Region.bMain && Target.Region != World.EnemyHome))
 			continue;
 		FPlan Plan = MakePlan(World, Force, EVerb::Attack, Target.Region, Route.Length[Target.Region]);
 		Plan.TargetIdentity = Target.Identity;
 		Offer(Out, Plan, RegionScore(World, Force, Chain, Route, Target.Region) + (Target.bNode ? NodeTargetBonus : 0.f));
 	}
+}
+
+// Every legal region and structure candidate. A claimed region is skipped unless bSupport: then a sibling's target
+// is offered too, for the force to join it.
+void OfferTargets(const FWorld& World, const FForce& Force, const FChain& Chain, const FPaths& Route, bool bSupport, FCandidates& Out)
+{
+	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
+	{
+		const FRegion& Region = World.Regions[Index];
+		if (!Region.bExists || Route.Hops[Index] == INDEX_NONE || (Region.bClaimed && !bSupport))
+			continue;
+		const float NodeDefence = Region.OwnNodes > 0 ? NodeDefenceBonus : 0.f;
+		if (Region.Controller == World.Team)
+		{
+			if (Region.Hostiles > 0 || Region.bAttacked || Index == Force.Source)
+				Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Index, Route.Length[Index]),
+					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f + ChainScore(World, Chain, Index) + NodeDefence
+															: -100.f);
+			continue;
+		}
+		if (Region.bMain && Index != World.EnemyHome)
+			continue;
+		const EVerb Verb = Region.Controller == INDEX_NONE ? EVerb::MoveAndHold : EVerb::Attack;
+		if (Region.OwnNodes > 0 && Region.Hostiles > 0)
+		{
+			// A node of its own in a region it does not control: fight for the region rather than leave the node to fall.
+			Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), 100.f - Route.Hops[Index] * 5.f + NodeDefence);
+			continue;
+		}
+		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Chain, Route, Index));
+	}
+	OfferStructures(World, Force, Chain, Route, bSupport, Out);
 }
 }
 
@@ -236,36 +268,15 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 	if (bRecover && Force.bAtRecovery && Exists(World, Force.Source)
 		&& World.Regions[Force.Source].Controller == World.Team && !World.Regions[Force.Source].Hostiles)
 		Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Force.Source, Route.Length[Force.Source]), 1001.f);
-	if (Exists(World, Force.Home)
+	// Retreat is for recovery only: a force that needs none never falls back home.
+	if (bRecover && Exists(World, Force.Home)
 		&& World.Regions[Force.Home].Controller == World.Team && World.Regions[Force.Home].Hostiles == 0
 		&& Route.Hops[Force.Home] != INDEX_NONE)
-		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), bRecover ? 1000.f : -1000.f);
-	for (int32 Index = 0; Index < ForceOrders::MaxRegions; ++Index)
-	{
-		const FRegion& Region = World.Regions[Index];
-		if (!Region.bExists || Route.Hops[Index] == INDEX_NONE || Region.bClaimed)
-			continue;
-		const float NodeDefence = Region.OwnNodes > 0 ? NodeDefenceBonus : 0.f;
-		if (Region.Controller == World.Team)
-		{
-			if (Region.Hostiles > 0 || Region.bAttacked || Index == Force.Source)
-				Offer(Out, MakePlan(World, Force, EVerb::MoveAndHold, Index, Route.Length[Index]),
-					Region.Hostiles > 0 || Region.bAttacked ? 100.f - Route.Hops[Index] * 5.f + ChainScore(World, Chain, Index) + NodeDefence
-															: -100.f);
-			continue;
-		}
-		if (Region.bMain && Index != World.EnemyHome)
-			continue;
-		const EVerb Verb = Region.Controller == INDEX_NONE ? EVerb::MoveAndHold : EVerb::Attack;
-		if (Region.OwnNodes > 0 && Region.Hostiles > 0)
-		{
-			// A node of its own in a region it does not control: fight for the region rather than leave the node to fall.
-			Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), 100.f - Route.Hops[Index] * 5.f + NodeDefence);
-			continue;
-		}
-		Offer(Out, MakePlan(World, Force, Verb, Index, Route.Length[Index]), RegionScore(World, Force, Chain, Route, Index));
-	}
-	OfferStructures(World, Force, Chain, Route, Out);
+		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), 1000.f);
+	OfferTargets(World, Force, Chain, Route, false, Out);
+	// Nothing unclaimed is legal: the force joins a sibling's target rather than leave its order.
+	if (!Out.Count)
+		OfferTargets(World, Force, Chain, Route, true, Out);
 	return Out;
 }
 

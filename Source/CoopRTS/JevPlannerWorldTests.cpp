@@ -36,6 +36,8 @@ bool FJevPlannerWorldScenario::Stage1(ACommandGameState* State, float Now)
 		FCommandService::ConfigureProduction(State->EnemyCommander, Producer, EUnitRole::Frontline, false);
 		Producer->SetActorTickEnabled(false);
 	}
+	if (Proof == EJevWorldProof::ClaimedFallback)
+		PlaceInHumanMain(State);
 	State->EnemyCommander->Resources = 0;
 	Planner->EvaluatePlan();
 	if (!Plan(State, 0) || !Plan(State, 1))
@@ -62,7 +64,7 @@ bool FJevPlannerWorldScenario::Stage1(ACommandGameState* State, float Now)
 		&& !Check(Initial[0].TargetRegionIndex != Initial[0].SourceRegionIndex,
 			TEXT("Escalation proof must start with a committed order away from its source")))
 		return true;
-	if (Proof == EJevWorldProof::RejectedOrder || Proof == EJevWorldProof::CommittedClaims)
+	if (Proof == EJevWorldProof::RejectedOrder || Proof == EJevWorldProof::CommittedClaims || Proof == EJevWorldProof::ClaimedFallback)
 		for (const TWeakObjectPtr<AArmyGroup>& Force : Forces)
 			Park(*Force);
 	if (Proof == EJevWorldProof::ForeignAttack)
@@ -111,7 +113,7 @@ bool FJevPlannerWorldScenario::Stage2(UWorld* World, ACommandGameState* State, A
 		if (PrepareClaims(State))
 			return true;
 	}
-	else if (PrepareDestroyed())
+	else if (Proof != EJevWorldProof::ClaimedFallback && PrepareDestroyed())
 		return true;
 	Stage = 3;
 	return AfterSetup(World, State, PC, Now);
@@ -142,6 +144,8 @@ bool FJevPlannerWorldScenario::Evaluate(UWorld* World, ACommandGameState* State,
 	Planner->EvaluatePlan();
 	if (!PublishedMatches(State, Now))
 		return true;
+	if (Proof == EJevWorldProof::ClaimedFallback)
+		return ClaimedFallback(State, Now);
 	if (Proof == EJevWorldProof::RejectedOrder)
 		return RejectedOrder(World, State, PC, Now);
 	if (Proof == EJevWorldProof::Commitment)
@@ -234,6 +238,10 @@ bool FJevPlannerWorldScenario::BeginPlanner(UWorld* World, ACommandGameState* St
 						State->GetRegionAnchor(Region->RegionIndex) + FVector(0.f, 700.f, 5.f)))
 					return Fail(TEXT("Concrete hostile target fixtures must spawn outside anchor arrival footprints"));
 			}
+	if (Proof == EJevWorldProof::ClaimedFallback)
+		for (AMapRegion* Region : State->Regions)
+			if (IsValid(Region) && Region->RegionRole != ERegionRole::Main && IsValid(Region->Anchor))
+				Region->Anchor->ControllingTeam = 5; // No neutral region is left: the player's main is the only target.
 	if (!Templates.Load())
 		return Fail(TEXT("World proof must load the real writer-authored memo templates"));
 	Planner = World->SpawnActor<AEnemyCommander>();

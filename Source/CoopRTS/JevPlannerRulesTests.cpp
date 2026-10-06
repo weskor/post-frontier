@@ -18,6 +18,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevDefenseCreationTest, "CoopRTS.Rules.Jev.Def
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevRetreatExemptionTest, "CoopRTS.Rules.Jev.RetreatExemption",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJevClaimedFallbackTest, "CoopRTS.Rules.Jev.ClaimedFallback",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
 namespace
 {
@@ -358,6 +360,55 @@ bool FJevRetreatExemptionTest::RunTest(const FString&)
 		TestTrue(TEXT("Completed Retreat becomes visibly escalated"), Held.bEscalated);
 		TestEqual(TEXT("Completed Retreat defense retains the original window"), Held.CommittedUntil, Initial.CommittedUntil);
 	}
+	return true;
+}
+
+bool FJevClaimedFallbackTest::RunTest(const FString&)
+{
+	using namespace JevPlanner;
+	const float Speeds[] = { 100.f };
+	// A line of regions: JEV's main 0 and its held 1 and 2 are quiet, the hostile main 3 is the only enemy region, and
+	// a sibling force has claimed it. The force stands in region 3.
+	FWorld World = WorldSummary();
+	World.Regions[1].Controller = World.Regions[2].Controller = World.Team;
+	World.Regions[3].bClaimed = true;
+	World.Regions[3].Hostiles = 12;
+	FForce Force = ForceSummary(Speeds);
+	Force.Source = 3;
+	Force.Position = World.Regions[3].Position;
+	const FCandidate* Healthy = Choose(Propose(World, Force));
+	TestTrue(TEXT("A healthy force with only a claimed target still has a plan"), Healthy != nullptr);
+	if (Healthy)
+	{
+		TestNotEqual(TEXT("A healthy force never retreats because a sibling claimed its target"), Healthy->Plan.Verb, EVerb::Retreat);
+		TestEqual(TEXT("It supports the sibling's target"), Healthy->Plan.Target, 3);
+		TestEqual(TEXT("Supporting an enemy region is an Attack"), Healthy->Plan.Verb, EVerb::Attack);
+	}
+	FPlan Expired, Renewed;
+	Expired.Verb = EVerb::Attack;
+	Expired.Source = 0;
+	Expired.Target = 3;
+	Expired.CommittedUntil = 25.f;
+	Expired.bRequiresUnownedTarget = true;
+	TestTrue(TEXT("The expired commitment is replaced"), Decide(World, Force, 30.f, &Expired, Renewed));
+	TestEqual(TEXT("A healthy force renews its Attack at expiry"), Renewed.Verb, EVerb::Attack);
+	TestEqual(TEXT("The renewed Attack keeps its target"), Renewed.Target, 3);
+	TestEqual(TEXT("The renewal starts a new commitment"), Renewed.CommittedUntil, 30.f + CommitmentSeconds);
+
+	FWorld Open = World;
+	Open.Regions[2].Controller = INDEX_NONE;
+	const FCandidate* Unclaimed = Choose(Propose(Open, Force));
+	TestTrue(TEXT("An unclaimed target exists"), Unclaimed != nullptr);
+	if (Unclaimed)
+		TestEqual(TEXT("An unclaimed target is taken before a claimed one"), Unclaimed->Plan.Target, 2);
+
+	Force.HealthFraction = .2f;
+	TestEqual(TEXT("A hurt refilling force still retreats to recover"), Choose(Propose(World, Force))->Plan.Verb, EVerb::Retreat);
+	Force.bCanRefill = false;
+	const FCandidate* Free = Choose(Propose(World, Force));
+	TestTrue(TEXT("A hurt force nothing refills has a plan"), Free != nullptr);
+	if (Free)
+		TestEqual(TEXT("It supports the claimed target instead of retreating"), Free->Plan.Verb, EVerb::Attack);
 	return true;
 }
 #endif

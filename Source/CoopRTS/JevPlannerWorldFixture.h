@@ -15,7 +15,8 @@ enum class EJevWorldProof
 	TargetDestroyed,
 	ForeignAttack,
 	RejectedOrder,
-	CommittedClaims
+	CommittedClaims,
+	ClaimedFallback
 };
 
 // Each filter runs alone in a fresh world. Only the tested commander makes
@@ -43,6 +44,8 @@ private:
 	bool Commitment(ACommandGameState* State, float Now);
 	bool ForeignAttack(ACommandGameState* State, float Now, const FJevPublishedPlan* Changed);
 	bool CommittedClaims(ACommandGameState* State, float Now, const FJevPublishedPlan* Changed);
+	void PlaceInHumanMain(ACommandGameState* State);
+	bool ClaimedFallback(ACommandGameState* State, float Now);
 	bool Escalation(UWorld* World, ACommandGameState* State, ACommandPlayerController* PC, float Now, const FJevPublishedPlan* Changed);
 	bool ReEscalate(UWorld* World, ACommandGameState* State, ACommandPlayerController* PC, float Now, const FJevPublishedPlan* Changed);
 	bool FinishEscalation(ACommandGameState* State, float Now, int32 FirstRegion, uint32 FirstDefenseSerial, AMapRegion* NextRegion);
@@ -188,6 +191,7 @@ private:
 	FJevMemoTemplates Templates;
 	int32 Stage = 0;
 	int32 InvadedRegion = INDEX_NONE;
+	int32 HumanMain = INDEX_NONE;
 	float AcceptedAt = 0.f;
 	float LastHeldAt = 0.f;
 	float RejectedAt = 0.f;
