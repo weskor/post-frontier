@@ -61,6 +61,88 @@ bool IsRegionOrderDestination(const FVector& Destination, const FVector& RegionA
 // distance of it (or to the centre); an arrival test must allow a member that far from its fitted slot.
 constexpr float SlotFallbackRadius = 300.f;
 
+// ---- March legs: heading, column, class rows and slot assignment ----
+// A march leg is one order to the next region anchor on the way. An intermediate leg of a long march ends in a
+// single-file column facing the direction of travel (narrow through necks); the leg that ends in the order's
+// target region ends in the box, the fitted layout above, as it always did. Hold posts keep their world-aligned
+// slots. Every transform below keeps the centroid of the force's occupied slots, so the arrival test and a
+// recruit's slot estimate (both of which subtract the rigid mean offset) are unaffected.
+constexpr float ColumnSpacing = 80.f;
+// A column's slots stay at least a capsule diameter (68 cm) plus clearance apart: a fit that would squeeze the
+// file below this plans the box instead.
+constexpr float ColumnFloorSpacing = 72.f;
+// A leg of at least this ends in a column; a force already marching in column stays in it down to the exit.
+constexpr float ColumnMinDistance = 1500.f;
+constexpr float ColumnExitDistance = 1200.f;
+// Heading hysteresis: a turn at most this large keeps the previous heading, and a larger one is taken only after
+// the cooldown since the last heading change. A leg to a goal farther than GoalMovedDistance from the previous
+// plan's is a new leg (a redirect) and takes its heading and shape fresh.
+constexpr float HeadingTurnThreshold = UE_PI * 25.f / 180.f;
+constexpr double HeadingCooldownSeconds = 4.;
+constexpr float GoalMovedDistance = 300.f;
+// Lateral jitter of a column slot, within +/-JitterRadius before the mean is removed (so within twice that after).
+// It is deterministic in the force's seed and the slot, and never changes the spacing along the file.
+constexpr float JitterRadius = 12.f;
+
+enum class ELegShape : uint8
+{
+	Box,
+	Column
+};
+// The shape of a leg; a force that was in column stays in it down to ColumnExitDistance.
+ELegShape ChooseLegShape(bool bMarching, bool bIntermediateRegion, float DistanceToDestination, bool bWasColumn);
+// Previous heading is kept for a small turn, and for a large one until the cooldown since the last turn has run.
+float ChooseHeading(bool bHasPrevious, float PreviousYaw, float DesiredYaw, double SecondsSinceTurn);
+
+// What the last plan of a force's march leg decided; every member carries a copy (server only).
+struct FLegMemory
+{
+	bool bPlanned = false;
+	bool bColumn = false;
+	float Yaw = 0.f;
+	// World time of the last heading change (not of the last plan).
+	double TurnedAt = 0.;
+	FVector2D Goal = FVector2D::ZeroVector;
+};
+struct FLegChoice
+{
+	ELegShape Shape = ELegShape::Box;
+	float Yaw = 0.f;
+};
+// Chooses the shape and heading of a leg to Goal and updates Memory to the plan, with the hysteresis above.
+FLegChoice ChooseLeg(FLegMemory& Memory, const FVector2D& Goal, float DesiredYaw, bool bMarching,
+	bool bIntermediateRegion, float DistanceToDestination, double Now);
+// The lateral jitter of a slot of the force with this seed, within +/-JitterRadius.
+float SlotJitter(int32 Seed, int32 Index);
+
+// Unit class rows are ranks: 0 melee front, 1 ranged middle, 2 artillery back (the caller maps its roles).
+// Assigns each unit one of the slots with the least total distance, among assignments that keep the class rows:
+// a unit of a lower rank never takes a slot behind (along Forward, beyond a centimetre) one of a higher rank.
+// Exact (every assignment is considered, so at most MaxAssigned units); ties go to the lexicographically first.
+constexpr int32 MaxAssigned = 8;
+void AssignSlots(TConstArrayView<FVector2D> Positions, TConstArrayView<int32> Ranks, TConstArrayView<FVector2D> Slots,
+	const FVector2D& Forward, TArray<int32, TInlineAllocator<8>>& SlotOfUnit);
+
+struct FMarchUnit
+{
+	FVector2D Position = FVector2D::ZeroVector;
+	int32 Rank = 1;
+	// The unit's composition slot: the rigid layout slot whose offset it contributes to the occupied centroid.
+	int32 Slot = 0;
+};
+struct FLegPlan
+{
+	ELegShape Shape = ELegShape::Box;
+	FFit Fit;
+	// One destination per input unit, in input order.
+	TArray<FVector, TInlineAllocator<8>> Targets;
+};
+// Plans the destination slots of a leg around Centre (a box: the fitted layout of the force, its occupied slots
+// reassigned; a column: a file facing Yaw about the occupied centroid, fitted inside the polygon, jittered by
+// Seed). A column the fit would squeeze below ColumnFloorSpacing is planned as the box.
+FLegPlan PlanLeg(const FFormation& Formation, TConstArrayView<FVector2D> Polygon, const FVector& Centre,
+	TConstArrayView<FMarchUnit> Units, ELegShape Shape, float Yaw, int32 Seed);
+
 // Team 0 forces belong to one of the five human commanders; any other force belongs to the
 // enemy commander on team 5. The owner's team must also match the force's.
 bool OwnerPermitted(int32 GroupTeam, int32 OwnerTeam, int32 CommanderIndex, bool bEnemyCommander);

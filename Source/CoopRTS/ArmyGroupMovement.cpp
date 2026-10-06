@@ -111,52 +111,87 @@ bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIContro
 	return PrepareMove(Navigation, Agent, &AI, Following, Start, Centre, Move, 75.0f);
 }
 
+// What the leg being ordered is, for choosing the shape and heading of its slots. Seed varies a column's jitter
+// between forces (stable for one force).
+struct FLegContext
+{
+	const ACommandGameState* State = nullptr;
+	int32 TargetRegion = INDEX_NONE;
+	bool bMarching = false;
+	double Now = 0.;
+	int32 Seed = 0;
+};
+
+using FLivingUnits = TArray<AArmyUnit*, TInlineAllocator<MaxUnitCount>>;
+
+// The shape and heading of a leg to Center and its destination slots: the box at arrival and at short legs, a
+// column on an intermediate leg of a long march (ArmyGroupPolicy::ChooseLeg keeps the previous plan's heading and
+// shape against small changes, on the members' memory), each unit assigned by least total distance and class row.
+// Planned is the memory the order leaves on its members.
+ArmyGroupPolicy::FLegPlan PlanLegTargets(const FLegContext& Leg, const FLivingUnits& Living,
+	const ArmyGroupPolicy::FFormation& Formation, TConstArrayView<FVector2D> Polygon, const AMapRegion* Region,
+	const FVector& Center, ArmyGroupPolicy::FLegMemory& Planned)
+{
+	FVector Mean = FVector::ZeroVector;
+	TArray<ArmyGroupPolicy::FMarchUnit, TInlineAllocator<MaxUnitCount>> March;
+	for (const AArmyUnit* Unit : Living)
+	{
+		Mean += Unit->GetActorLocation() / Living.Num();
+		March.Add({ FVector2D(Unit->GetActorLocation()), Unit->FormationClassRank(), Unit->GetCompositionSlot() });
+	}
+	for (const AArmyUnit* Unit : Living)
+		if (Unit->FormationMemory.bPlanned)
+		{
+			Planned = Unit->FormationMemory;
+			break;
+		}
+	const FVector2D Way = FVector2D(Center - Mean);
+	const float Desired = Way.SizeSquared() > 1. ? FMath::Atan2(Way.Y, Way.X) : 0.f;
+	const bool bIntermediate = Region && Leg.TargetRegion != INDEX_NONE && Region->RegionIndex != Leg.TargetRegion;
+	const ArmyGroupPolicy::FLegChoice Choice = ArmyGroupPolicy::ChooseLeg(Planned, FVector2D(Center), Desired,
+		Leg.bMarching, bIntermediate, FVector::Dist2D(Mean, Center), Leg.Now);
+	ArmyGroupPolicy::FLegPlan Plan = ArmyGroupPolicy::PlanLeg(Formation, Polygon, Center, March, Choice.Shape, Choice.Yaw, Leg.Seed);
+	Planned.bColumn = Plan.Shape == ArmyGroupPolicy::ELegShape::Column;
+	return Plan;
+}
+
 // Validates the entire command without touching the current order or paths.
 // In particular, partial paths never count as accepting the user's target. The centre check is strict; the
-// slots are the force's formation fitted inside the region around that centre (ArmyGroupPolicy::FitFormation),
-// and a region order gives each slot its own fallback.
-bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const ACommandGameState* State,
+// slots are the leg's plan (ArmyGroupPolicy::PlanLeg: the formation fitted inside the region around that
+// centre, facing the heading), and a region order gives each slot its own fallback.
+bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const FLegContext& Leg,
 	const TArray<TObjectPtr<AArmyUnit>>& Units, const ArmyGroupPolicy::FFormation& Formation,
-	const FVector& Destination, FPreparedMoves& Prepared, FVector& ProjectedCenter)
+	const FVector& Destination, FPreparedMoves& Prepared, FVector& ProjectedCenter, ArmyGroupPolicy::FLegMemory& Planned)
 {
-	const AMapRegion* Region = nullptr;
-	TConstArrayView<FVector2D> Polygon;
-	ArmyGroupPolicy::FFit Fit;
-	bool bCentred = false, bFallback = false;
-	for (int32 Index = 0; Index < Units.Num(); ++Index)
-	{
-		AArmyUnit* Unit = Units[Index];
-		if (!IsValid(Unit) || !Unit->IsAlive())
-			continue;
-		AAIController* AI = GetReadyController(Unit);
-		if (!AI)
+	FLivingUnits Living;
+	for (AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive())
 		{
-			return false;
-		}
-		if (!bCentred)
-		{
-			FPreparedMove CenterMove;
-			if (!PrepareMove(Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
-					Unit->GetNavAgentLocation(), Destination, CenterMove, 75.0f))
-			{
+			if (!GetReadyController(Unit))
 				return false;
-			}
-			ProjectedCenter = CenterMove.Goal;
-			Region = State ? State->FindRegionAt(ProjectedCenter) : nullptr;
-			if (Region)
-			{
-				Polygon = Region->Polygon;
-				bFallback = ArmyGroupPolicy::IsRegionOrderDestination(Destination, State->GetRegionAnchor(Region->RegionIndex));
-			}
-			Fit = ArmyGroupPolicy::FitForce(Formation, Polygon, ProjectedCenter);
-			bCentred = true;
+			Living.Add(Unit);
 		}
+	if (Living.IsEmpty())
+		return true;
+	AAIController* First = GetReadyController(Living[0]);
+	FPreparedMove CenterMove;
+	if (!PrepareMove(Navigation, Living[0]->GetNavAgentPropertiesRef(), First, *First->GetPathFollowingComponent(),
+			Living[0]->GetNavAgentLocation(), Destination, CenterMove, 75.0f))
+		return false;
+	ProjectedCenter = CenterMove.Goal;
+	const AMapRegion* Region = Leg.State ? Leg.State->FindRegionAt(ProjectedCenter) : nullptr;
+	TConstArrayView<FVector2D> Polygon;
+	if (Region)
+		Polygon = Region->Polygon;
+	const bool bFallback = Region
+		&& ArmyGroupPolicy::IsRegionOrderDestination(Destination, Leg.State->GetRegionAnchor(Region->RegionIndex));
+	const ArmyGroupPolicy::FLegPlan Plan = PlanLegTargets(Leg, Living, Formation, Polygon, Region, ProjectedCenter, Planned);
+	for (int32 Index = 0; Index < Living.Num(); ++Index)
+	{
 		FPreparedMove Move;
-		const FVector Slot = ArmyGroupPolicy::FittedSlot(Formation, Fit, Polygon, Unit->GetCompositionSlot());
-		if (!PrepareSlotMove(Navigation, *Unit, *AI, Slot, ProjectedCenter, Region, bFallback, Move))
-		{
+		if (!PrepareSlotMove(Navigation, *Living[Index], *GetReadyController(Living[Index]), Plan.Targets[Index],
+				ProjectedCenter, Region, bFallback, Move))
 			return false;
-		}
 		Prepared.Add(MoveTemp(Move));
 	}
 	return true;
@@ -221,7 +256,11 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 
 	FPreparedMoves Prepared;
 	FVector ProjectedCenter = FVector::ZeroVector;
-	if (!PrepareFormationMoves(*Navigation, State, Units, FormationShape(), InDestination, Prepared, ProjectedCenter)
+	ArmyGroupPolicy::FLegMemory Planned;
+	const double Now = GetWorld()->GetTimeSeconds();
+	const int32 Seed = static_cast<int32>(HashCombineFast(GetTypeHash(ArmyIndex), GetTypeHash(ForceNumber)));
+	const FLegContext Leg{ State, TargetRegionIndex, Status == EForceStatus::Marching, Now, Seed };
+	if (!PrepareFormationMoves(*Navigation, Leg, Units, FormationShape(), InDestination, Prepared, ProjectedCenter, Planned)
 		|| (Prepared.IsEmpty() && !ValidateAssemblyRoute(*Navigation, *this, HomeLocation, InDestination, ProjectedCenter)))
 		return false;
 	if (!bApply)
@@ -234,6 +273,9 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 		// Submit the complete prevalidated path; no second query or delayed order.
 		StartPreparedMove(Move);
 	}
+	for (AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive())
+			Unit->FormationMemory = Planned;
 	Order = NewOrder;
 	AttackTarget = nullptr;
 	Destination = ProjectedCenter;

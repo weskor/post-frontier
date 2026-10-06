@@ -521,6 +521,19 @@ kind = "automation"
 filter = "CoopRTS.Forces.FormationFit"
 map = "default"
 
+# Heading-aware formations: columns on intermediate legs, boxes on arrival, least-distance assignment with class rows.
+[scopes.formation-heading]
+kind = "automation"
+filter = "CoopRTS.Forces.FormationHeading"
+map = "default"
+
+# The same plans on the real game, rendered (run on request: ./x test formation-heading-view); a person inspects the PNGs.
+[scopes.formation-heading-view]
+kind = "automation"
+filter = "CoopRTS.Visual.FormationHeading"
+map = "default"
+rendered = true
+
 [scopes.shielded-squad]
 kind = "automation"
 filter = "CoopRTS.Content.ShieldedSquad"
@@ -1128,10 +1141,10 @@ rendered = true
 # uses it, and the world scenarios on a border post. These entries are added to the files' existing ones.
 "Source/CoopRTS/FormationFitRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/FormationFit[A-Z]*" = ["formation-fit"]
-"Source/CoopRTS/Rules/ArmyGroupPolicy.[ch]*" = ["formation-fit"]
+"Source/CoopRTS/Rules/ArmyGroupPolicy.[ch]*" = ["formation-fit", "formation-heading"]
 "Source/CoopRTS/Rules/HoldPolicy.[ch]*" = ["formation-fit"]
-"Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit"]
-"Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit"]
+"Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit", "formation-heading"]
+"Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit", "formation-heading"]
 "Source/CoopRTS/ArmyGroupSupply.cpp" = ["formation-fit"]
 # Movement progress: idle detection, escalation and straggler-tolerant arrival.
 "Source/CoopRTS/ForceOrders?*" = ["force-progress-pinned", "force-progress-walled-slot", "formation-fit"]
@@ -1141,3 +1154,10 @@ rendered = true
 "Source/CoopRTS/VerbOrderProgressSupport.h" = ["force-progress-pinned", "force-progress-walled-slot"]
 "Source/CoopRTS/VerbOrderPinnedUnitTests.cpp" = ["force-progress-pinned"]
 "Source/CoopRTS/VerbOrderWalledSlotTests.cpp" = ["force-progress-walled-slot"]
+
+# Formation heading (forces.md): the pure planning rules, the world scenarios and the rendered capture.
+"Source/CoopRTS/FormationHeadingRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/FormationHeadingWorldTests.cpp" = ["formation-heading"]
+"Source/CoopRTS/FormationHeadingNeckTests.cpp" = ["formation-heading"]
+"Source/CoopRTS/FormationHeadingNeck.[ch]*" = ["formation-heading", "formation-heading-view"]
+"Source/CoopRTS/FormationHeadingViewTests.cpp" = ["formation-heading-view"]

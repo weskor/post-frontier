@@ -182,6 +182,199 @@ bool IsRegionOrderDestination(const FVector& Destination, const FVector& RegionA
 	return FVector::DistSquared2D(Destination, RegionAnchor) <= FMath::Square(static_cast<double>(RegionAnchorTolerance));
 }
 
+namespace
+{
+constexpr double RowTolerance = 1.;
+constexpr double CostEpsilon = 1.e-6;
+
+uint32 Mix(uint32 Value)
+{
+	Value ^= Value >> 16;
+	Value *= 0x7feb352du;
+	Value ^= Value >> 15;
+	Value *= 0x846ca68bu;
+	return Value ^ (Value >> 16);
+}
+
+// Depth-first over the assignments in lexicographic order; a later assignment must beat the best by an epsilon,
+// so the first of equal cost wins.
+struct FAssignment
+{
+	TConstArrayView<FVector2D> Positions;
+	TConstArrayView<int32> Ranks;
+	TConstArrayView<FVector2D> Slots;
+	TArray<double, TInlineAllocator<8>> Forwardness;
+	TArray<int32, TInlineAllocator<8>> Current, Best;
+	uint32 Used = 0;
+	double BestCost = TNumericLimits<double>::Max();
+
+	bool KeepsRows(int32 Unit, int32 Slot) const
+	{
+		for (int32 Other = 0; Other < Unit; ++Other)
+		{
+			const double Held = Forwardness[Current[Other]], Taken = Forwardness[Slot];
+			if ((Ranks[Other] < Ranks[Unit] && Held < Taken - RowTolerance)
+				|| (Ranks[Other] > Ranks[Unit] && Taken < Held - RowTolerance))
+				return false;
+		}
+		return true;
+	}
+
+	void Search(int32 Unit, double Cost)
+	{
+		if (Cost >= BestCost - CostEpsilon)
+			return;
+		if (Unit == Positions.Num())
+		{
+			BestCost = Cost;
+			Best = Current;
+			return;
+		}
+		for (int32 Slot = 0; Slot < Slots.Num(); ++Slot)
+		{
+			if ((Used & (1u << Slot)) || !KeepsRows(Unit, Slot))
+				continue;
+			Current[Unit] = Slot;
+			Used |= 1u << Slot;
+			Search(Unit + 1, Cost + FVector2D::Distance(Positions[Unit], Slots[Slot]));
+			Used &= ~(1u << Slot);
+		}
+	}
+};
+
+// The file of a column: Count slots along Yaw, front first, centred on the origin, with lateral jitter whose mean
+// is removed. The spacing along the file is exactly ColumnSpacing.
+void ColumnOffsets(int32 Count, float Yaw, int32 Seed, TArray<FVector, TInlineAllocator<8>>& Offsets)
+{
+	const FVector2D Forward(FMath::Cos(Yaw), FMath::Sin(Yaw)), Left(-Forward.Y, Forward.X);
+	double MeanJitter = 0.;
+	for (int32 Index = 0; Index < Count; ++Index)
+		MeanJitter += ArmyGroupPolicy::SlotJitter(Seed, Index) / Count;
+	for (int32 Index = 0; Index < Count; ++Index)
+	{
+		const FVector2D Place = Forward * ((Count - 1) * .5 - Index) * ArmyGroupPolicy::ColumnSpacing
+			+ Left * (ArmyGroupPolicy::SlotJitter(Seed, Index) - MeanJitter);
+		Offsets.Add(FVector(Place.X, Place.Y, 0.));
+	}
+}
+}
+
+ELegShape ChooseLegShape(bool bMarching, bool bIntermediateRegion, float DistanceToDestination, bool bWasColumn)
+{
+	const float Needed = bWasColumn ? ColumnExitDistance : ColumnMinDistance;
+	return bMarching && bIntermediateRegion && DistanceToDestination >= Needed ? ELegShape::Column : ELegShape::Box;
+}
+
+float ChooseHeading(bool bHasPrevious, float PreviousYaw, float DesiredYaw, double SecondsSinceTurn)
+{
+	if (!bHasPrevious)
+		return DesiredYaw;
+	const float Turn = FMath::Abs(FMath::FindDeltaAngleRadians(PreviousYaw, DesiredYaw));
+	return Turn <= HeadingTurnThreshold || SecondsSinceTurn < HeadingCooldownSeconds ? PreviousYaw : DesiredYaw;
+}
+
+FLegChoice ChooseLeg(FLegMemory& Memory, const FVector2D& Goal, float DesiredYaw, bool bMarching,
+	bool bIntermediateRegion, float DistanceToDestination, double Now)
+{
+	const bool bSameLeg = Memory.bPlanned && FVector2D::Distance(Memory.Goal, Goal) <= GoalMovedDistance;
+	FLegChoice Choice;
+	Choice.Yaw = bSameLeg ? ChooseHeading(true, Memory.Yaw, DesiredYaw, Now - Memory.TurnedAt) : DesiredYaw;
+	Choice.Shape = ChooseLegShape(bMarching, bIntermediateRegion, DistanceToDestination, bSameLeg && Memory.bColumn);
+	if (!bSameLeg || Choice.Yaw != Memory.Yaw)
+		Memory.TurnedAt = Now;
+	Memory.bPlanned = true;
+	Memory.bColumn = Choice.Shape == ELegShape::Column;
+	Memory.Yaw = Choice.Yaw;
+	Memory.Goal = Goal;
+	return Choice;
+}
+
+float SlotJitter(int32 Seed, int32 Index)
+{
+	const uint32 Bits = Mix(Mix(static_cast<uint32>(Seed)) ^ (static_cast<uint32>(Index) * 2u + 1u));
+	return (static_cast<float>((Bits >> 8) & 0xffffu) / 32767.5f - 1.f) * JitterRadius;
+}
+
+void AssignSlots(TConstArrayView<FVector2D> Positions, TConstArrayView<int32> Ranks, TConstArrayView<FVector2D> Slots,
+	const FVector2D& Forward, TArray<int32, TInlineAllocator<8>>& SlotOfUnit)
+{
+	const int32 Count = Positions.Num();
+	SlotOfUnit.Reset();
+	if (Count > MaxAssigned || Slots.Num() < Count || Ranks.Num() < Count)
+	{
+		for (int32 Index = 0; Index < Count; ++Index)
+			SlotOfUnit.Add(Index);
+		return;
+	}
+	FAssignment Assignment{ Positions, Ranks, Slots };
+	for (const FVector2D& Slot : Slots)
+		Assignment.Forwardness.Add(FVector2D::DotProduct(Slot, Forward));
+	Assignment.Current.Init(0, Count);
+	Assignment.Search(0, 0.);
+	SlotOfUnit = Assignment.Best;
+	for (int32 Index = SlotOfUnit.Num(); Index < Count; ++Index)
+		SlotOfUnit.Add(Index);
+}
+
+namespace
+{
+// The points a column of Units takes around Centre: a file centred on the occupied slots' centroid, so the
+// force's mean stays where the box put it.
+FFit ColumnPoints(const FFormation& Formation, TConstArrayView<FVector2D> Polygon, const FVector& Centre,
+	TConstArrayView<ArmyGroupPolicy::FMarchUnit> Units, float Yaw, int32 Seed, TArray<FVector, TInlineAllocator<8>>& Points)
+{
+	FVector Centroid = FVector::ZeroVector;
+	for (const ArmyGroupPolicy::FMarchUnit& Unit : Units)
+		Centroid += ArmyGroupPolicy::FormationOffset(Formation, Unit.Slot) / Units.Num();
+	TArray<FVector, TInlineAllocator<8>> Offsets;
+	ColumnOffsets(Units.Num(), Yaw, Seed, Offsets);
+	const FFit Fit = ArmyGroupPolicy::FitFormation(Polygon, Centre + Centroid, Offsets);
+	for (const FVector& Offset : Offsets)
+		Points.Add(ArmyGroupPolicy::FitPoint(Polygon, Fit, Offset));
+	return Fit;
+}
+}
+
+FLegPlan PlanLeg(const FFormation& Formation, TConstArrayView<FVector2D> Polygon, const FVector& Centre,
+	TConstArrayView<FMarchUnit> Units, ELegShape Shape, float Yaw, int32 Seed)
+{
+	FLegPlan Plan;
+	Plan.Shape = Shape;
+	const int32 Count = Units.Num();
+	if (!Count)
+		return Plan;
+	TArray<FVector, TInlineAllocator<8>> Points;
+	if (Shape == ELegShape::Column)
+	{
+		Plan.Fit = ColumnPoints(Formation, Polygon, Centre, Units, Yaw, Seed, Points);
+		// A file the fit squeezed would overlap capsules: plan the box instead.
+		if (Plan.Fit.bClamped || ColumnSpacing * Plan.Fit.Scale < ColumnFloorSpacing)
+		{
+			Points.Reset();
+			Plan.Shape = ELegShape::Box;
+		}
+	}
+	if (Plan.Shape == ELegShape::Box)
+	{
+		Plan.Fit = FitForce(Formation, Polygon, Centre);
+		for (const FMarchUnit& Unit : Units)
+			Points.Add(FittedSlot(Formation, Plan.Fit, Polygon, Unit.Slot));
+	}
+	TArray<FVector2D, TInlineAllocator<8>> Positions, Slots;
+	TArray<int32, TInlineAllocator<8>> Ranks, SlotOfUnit;
+	for (const FMarchUnit& Unit : Units)
+	{
+		Positions.Add(Unit.Position);
+		Ranks.Add(Unit.Rank);
+	}
+	for (const FVector& Point : Points)
+		Slots.Add(FVector2D(Point));
+	AssignSlots(Positions, Ranks, Slots, FVector2D(FMath::Cos(Yaw), FMath::Sin(Yaw)), SlotOfUnit);
+	for (int32 Index = 0; Index < Count; ++Index)
+		Plan.Targets.Add(Points[SlotOfUnit[Index]]);
+	return Plan;
+}
+
 bool OwnerPermitted(int32 GroupTeam, int32 OwnerTeam, int32 CommanderIndex, bool bEnemyCommander)
 {
 	if (OwnerTeam != GroupTeam)

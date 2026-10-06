@@ -86,6 +86,37 @@ const AMapRegion* FindRegion(const ACommandGameState& State, int32 RegionIndex)
 			return Region;
 	return nullptr;
 }
+
+// Where each living unit stands at an idle post, in unit order. The slot points are the fitted world-aligned post
+// layout of the force's own occupied slots; which unit takes which is the march's assignment (least total
+// distance, melee ahead along the last march heading), so the walk from the anchor's box to the post crosses
+// no one and the class rows hold at rest.
+void AssignPostSlots(const ArmyGroupPolicy::FFormation& Formation, const ArmyGroupPolicy::FFit& Fit,
+	TConstArrayView<FVector2D> Polygon, const TArray<TObjectPtr<AArmyUnit>>& Units, TArray<FVector, TInlineAllocator<MaxUnitCount>>& Goals)
+{
+	TArray<FVector, TInlineAllocator<MaxUnitCount>> Points;
+	TArray<FVector2D, TInlineAllocator<MaxUnitCount>> Positions, Slots;
+	TArray<int32, TInlineAllocator<MaxUnitCount>> Ranks;
+	float Yaw = 0.f;
+	bool bHeading = false;
+	for (const AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive())
+		{
+			Points.Add(ArmyGroupPolicy::FittedSlot(Formation, Fit, Polygon, Unit->GetCompositionSlot()));
+			Slots.Add(FVector2D(Points.Last()));
+			Positions.Add(FVector2D(Unit->GetActorLocation()));
+			Ranks.Add(Unit->FormationClassRank());
+			if (!bHeading && Unit->FormationMemory.bPlanned)
+			{
+				Yaw = Unit->FormationMemory.Yaw;
+				bHeading = true;
+			}
+		}
+	TArray<int32, TInlineAllocator<8>> SlotOfUnit;
+	ArmyGroupPolicy::AssignSlots(Positions, Ranks, Slots, FVector2D(FMath::Cos(Yaw), FMath::Sin(Yaw)), SlotOfUnit);
+	for (const int32 Slot : SlotOfUnit)
+		Goals.Add(Points[Slot]);
+}
 }
 
 bool AArmyGroup::IsHoldingRegion() const
@@ -239,16 +270,20 @@ void AArmyGroup::UpdateHoldCombat()
 	// The idle post's slots are one rigid set fitted inside the region, not clamped one by one at the border.
 	const ArmyGroupPolicy::FFit PostFit = bHoldResponding ? ArmyGroupPolicy::FFit()
 														  : ArmyGroupPolicy::FitForce(FormationShape(), Region->Polygon, HoldPostLocation);
+	TArray<FVector, TInlineAllocator<MaxUnitCount>> Goals;
+	if (!bHoldResponding)
+		AssignPostSlots(FormationShape(), PostFit, Region->Polygon, Units, Goals);
+	int32 Living = 0;
 	for (AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		AArmyUnit* Target = SelectHoldCombatTarget(*Unit, Enemies);
 		if (!bHoldResponding)
-			UpdateHoldMovement(*Unit, *Region, Navigation,
-				ArmyGroupPolicy::FittedSlot(FormationShape(), PostFit, Region->Polygon, Unit->CompositionSlot), Now);
+			UpdateHoldMovement(*Unit, *Region, Navigation, Goals[Living], Now);
 		else
 			UpdateHoldResponse(*Unit, *Region, Navigation, Now);
+		++Living;
 		if (Target)
 			Unit->FireAt(Target);
 	}

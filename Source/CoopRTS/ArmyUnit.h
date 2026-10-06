@@ -5,6 +5,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Rules/DamagePolicy.h"
+#include "Rules/ArmyGroupPolicy.h"
 #include "Rules/RegionTraitPolicy.h"
 #include "Rules/ShieldPolicy.h"
 #include "ArmyUnit.generated.h"
@@ -48,6 +49,9 @@ public:
 	int32 GetUnitIndex() const { return UnitIndex; }
 	UArmyUnitDefinition* GetDefinition() const { return Definition.Get(); }
 	EUnitRole GetUnitRole() const { return UnitRole; }
+	// The unit's row in a formation: 0 melee front, 1 ranged middle, 2 artillery back (ArmyGroupPolicy::AssignSlots).
+	int32 FormationClassRank() const { return UnitRole == EUnitRole::Frontline ? 0 : UnitRole == EUnitRole::Siege ? 2
+																												  : 1; }
 	EArmorClass GetArmorClass() const { return Definition->ArmorClass; }
 	EDamageType GetDamageType() const { return Definition->DamageType; }
 	int32 GetHealth() const { return Health; }
@@ -80,6 +84,9 @@ public:
 	float NextAttackTime = 0.f;
 	bool bPursuing = false;
 	FVector PursuitGoal = FVector::ZeroVector;
+	// Server-only: what the force's last march-leg plan decided (heading, shape, goal, time of the last turn). Every
+	// member of a force carries the same copy, so the plan's hysteresis needs no field on the force.
+	ArmyGroupPolicy::FLegMemory FormationMemory;
 	// Server-only Field Repairs state; interruptions reset both clocks.
 	float QuietSeconds = 0.f;
 	float HealAccumulator = 0.f;
