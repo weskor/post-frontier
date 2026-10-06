@@ -276,13 +276,19 @@ def launch(
         finally:
             try:
                 stop(run)
-            except (OSError, RuntimeError, WaitTimeout) as cleanup_error:
+            except (
+                OSError,
+                RuntimeError,
+                WaitTimeout,
+                subprocess.SubprocessError,
+            ) as cleanup_error:
                 error.add_note(f"Recorded peer cleanup failed: {cleanup_error}")
-            for child in reversed(children):
-                try:
-                    reap_owned(child)
-                except (OSError, WaitTimeout) as cleanup_error:
-                    error.add_note(f"Owned child cleanup failed: {cleanup_error}")
+            finally:
+                for child in reversed(children):
+                    try:
+                        reap_owned(child)
+                    except (OSError, WaitTimeout) as cleanup_error:
+                        error.add_note(f"Owned child cleanup failed: {cleanup_error}")
         raise
 
 
@@ -396,10 +402,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
         if action == "capture":
             command.add_argument("label")
         if action == "key":
-            command.add_argument(
-                "key",
-                choices=INPUT_KEYS,
-            )
+            command.add_argument("key", choices=INPUT_KEYS)
             command.add_argument(
                 "--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000"
             )

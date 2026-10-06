@@ -121,7 +121,9 @@ def test_expired_probe_does_not_prevent_owned_child_kill(
     assert clock.now == pytest.approx(0.3)
 
 
-@pytest.mark.parametrize("desktop", [False, True])
+@pytest.mark.parametrize(
+    "desktop,restore_error", [(False, False), (True, False), (True, True)]
+)
 @pytest.mark.parametrize("predicate", ["identity", "readiness"])
 def test_failed_launch_reaps_child_even_before_session_identity(
     tmp_path: Path,
@@ -129,6 +131,7 @@ def test_failed_launch_reaps_child_even_before_session_identity(
     clock: Clock,
     desktop: bool,
     predicate: str,
+    restore_error: bool,
 ) -> None:
     module: Any = network_desktop if desktop else verify
     child = Child()
@@ -154,6 +157,12 @@ def test_failed_launch_reaps_child_even_before_session_identity(
         raise RuntimeError("owned window still unmapped")
 
     monkeypatch.setattr(module, "doctor", not_ready)
+    if restore_error:
+
+        def fail_restore(run: Path) -> None:
+            raise subprocess.CalledProcessError(1, ["hyprctl", "dispatch"])
+
+        monkeypatch.setattr(network_desktop, "restore_workspace", fail_restore)
     signals = pidfd_signals(monkeypatch, child)
     run = tmp_path / "run"
     with pytest.raises(waits.WaitTimeout) as failure:
@@ -170,6 +179,10 @@ def test_failed_launch_reaps_child_even_before_session_identity(
     assert ("/wrong" if predicate == "identity" else "still unmapped") in message
     assert child.returncode == -signal.SIGKILL
     assert signals[-1] == (71, signal.SIGKILL)
+    if restore_error:
+        assert any(
+            "Recorded peer cleanup failed" in note for note in failure.value.__notes__
+        )
 
 
 def test_simulation_checkpoint_rewrites_do_not_reset_game_time_watchdog(
