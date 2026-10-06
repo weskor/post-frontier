@@ -193,7 +193,9 @@ void AArmyGroup::UpdateUnitCombat(AArmyUnit& Unit, const FArmyCombatScan& Scan)
 		if (Unit.bPursuing && AI)
 		{
 			Unit.bPursuing = false;
-			AI->MoveToLocation(Destination + FormationOffset(Unit.CompositionSlot), 35.f, false, true, false, false);
+			// Back to the fitted formation slot; the composition offset when none was assigned.
+			const FVector Slot = Unit.FormationTarget.IsZero() ? Destination + FormationOffset(Unit.CompositionSlot) : Unit.FormationTarget;
+			AI->MoveToLocation(Slot, 35.f, false, true, false, false);
 		}
 		return;
 	}
