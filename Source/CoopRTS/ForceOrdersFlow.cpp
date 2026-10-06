@@ -104,7 +104,11 @@ void AArmyGroup::UpdateMarchSpeed()
 			Heading = ToDestination.GetSafeNormal();
 	}
 	TArray<float, TInlineAllocator<8>> Factors;
-	MarchSpeedPolicy::Factors(Layout, Heading, Factors);
+	// A column leg stretches the force on purpose; see MarchSpeedPolicy::ColumnExtraBand.
+	bool bColumn = false;
+	for (const AArmyUnit* Unit : Members)
+		bColumn |= Unit->FormationMemory.bPlanned && Unit->FormationMemory.bColumn;
+	MarchSpeedPolicy::Factors(Layout, Heading, Factors, bColumn ? MarchSpeedPolicy::ColumnExtraBand : 0.f);
 	for (int32 Index = 0; Index < Members.Num(); ++Index)
 		Members[Index]->GetCharacterMovement()->MaxWalkSpeed = Speed * (LayoutIndex[Index] == INDEX_NONE ? 1.f : Factors[LayoutIndex[Index]]);
 }
@@ -135,12 +139,14 @@ bool AArmyGroup::ReleaseLaneIfUnserved(const ACommandGameState& State, const AMa
 void AArmyGroup::AssignLane(int32 RegionIndex, const FVector& Anchor)
 {
 	TArray<int32, TInlineAllocator<16>> Used;
+	const float Now = GetWorld()->GetTimeSeconds();
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
 		if (*It != this && It->TeamIndex == TeamIndex && It->AppliedWaypoint == RegionIndex && It->LaneIndex != INDEX_NONE
-			&& !It->IsHoldingRegion())
+			&& !It->IsHoldingRegion() && Now - It->LaneAssignedAt <= LanePolicy::WaveSeconds)
 			Used.Add(It->LaneIndex);
 	LaneIndex = LanePolicy::Allocate(Used);
 	LaneWaypoint = RegionIndex;
+	LaneAssignedAt = Now;
 	// The approach direction: from the route region before the waypoint to its anchor, so ranks lie on the side
 	// the force comes from even when a leg crosses several regions. Without a route, from the force itself.
 	LaneHeading = FVector2D::ZeroVector;

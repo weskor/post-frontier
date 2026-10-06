@@ -11,6 +11,9 @@ namespace MarchSpeedPolicy
 {
 // How far behind or ahead a member may be before its speed changes: about one slot spacing of an encounter layout.
 constexpr float BandHalfWidth = 220.f;
+// A column stretches along its route on purpose, and easing its head while its tail hurries would bunch it up in a
+// bottleneck: on a column leg only a member this much further behind the file than a box allows is delayed.
+constexpr float ColumnExtraBand = 500.f;
 // From the band edge the factor reaches its limit over this much further lag.
 constexpr float RampLength = 220.f;
 constexpr float MaxCatchUp = 1.15f;
@@ -25,8 +28,8 @@ struct FMember
 
 // Planar distance behind (positive) or ahead of (negative) its slot along Heading, against the mean of the members.
 float Lag(TConstArrayView<FMember> Members, int32 Index, const FVector2D& Heading);
-// The speed factor for a lag.
-float Factor(float Lag);
+// The speed factor for a lag, with ExtraBand added to the band on both sides.
+float Factor(float Lag, float ExtraBand = 0.f);
 // The factor of every member, in order. A zero Heading or fewer than two members: every factor 1.
-void Factors(TConstArrayView<FMember> Members, const FVector2D& Heading, TArray<float, TInlineAllocator<8>>& Out);
+void Factors(TConstArrayView<FMember> Members, const FVector2D& Heading, TArray<float, TInlineAllocator<8>>& Out, float ExtraBand = 0.f);
 }

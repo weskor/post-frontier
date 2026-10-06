@@ -271,6 +271,7 @@ private:
 	int32 LaneIndex = INDEX_NONE;
 	int32 LaneWaypoint = INDEX_NONE;
 	float LaneWaitingSince = -1.f;
+	float LaneAssignedAt = -1.e9f;
 	// True when the lane was given up for the anchor: the force stands at its lane, the region still needs securing and no
 	// force of its team is in capture range. The next order goes to the anchor.
 	bool ReleaseLaneIfUnserved(const ACommandGameState& State, const AMapRegion& Region, int32 RegionIndex);

@@ -32,6 +32,10 @@ bool FMarchSpeedBandsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Half the ramp ahead eases half way"), Factor(-(BandHalfWidth + RampLength / 2.f)), 1.f - (1.f - MinAhead) / 2.f);
 	TestEqual(TEXT("Far ahead the member slows to the lower limit"), Factor(-5000.f), MinAhead);
 	TestTrue(TEXT("The catch-up bonus is 10 to 15 percent"), MaxCatchUp >= 1.1f && MaxCatchUp <= 1.15f);
+	TestEqual(TEXT("On a column leg the band is wider: a stretched file is not a lag"), Factor(BandHalfWidth + ColumnExtraBand, ColumnExtraBand), 1.f);
+	TestEqual(TEXT("On a column leg the same stretch outside the box band changes nothing, behind"), Factor(600.f, ColumnExtraBand), 1.f);
+	TestEqual(TEXT("On a column leg a member far behind the file still hurries"), Factor(BandHalfWidth + ColumnExtraBand + RampLength, ColumnExtraBand), MaxCatchUp);
+	TestTrue(TEXT("A column's extra band does not change a box's"), Factor(600.f) > 1.f);
 	return true;
 }
 

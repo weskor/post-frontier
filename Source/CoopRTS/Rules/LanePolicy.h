@@ -17,6 +17,9 @@ constexpr float RankDepth = 260.f;
 // A force standing on a lane (not lane 0) while its region needs securing and nobody of its team is in capture
 // range of the anchor takes the anchor after this long, so capture never depends on the lane-0 force surviving.
 constexpr float ReleaseSeconds = 6.f;
+// Forces take lanes against forces that took theirs this recently: one wave. A force that has been on its way
+// longer is not crowding the anchor with the new arrivals.
+constexpr float WaveSeconds = 30.f;
 
 // The lowest lane not in Used (INDEX_NONE entries ignored); lane 0 when none is taken. Beyond LaneCount forces
 // the lanes repeat, lowest first, so the result is still deterministic.
