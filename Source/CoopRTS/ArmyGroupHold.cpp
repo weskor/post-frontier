@@ -91,8 +91,8 @@ const AMapRegion* FindRegion(const ACommandGameState& State, int32 RegionIndex)
 // layout of the force's own occupied slots; which unit takes which is the march's assignment (least total
 // distance, melee ahead along the last march heading), so the walk from the anchor's box to the post crosses
 // no one and the class rows hold at rest.
-void AssignPostSlots(const ArmyGroupPolicy::FFormation& Formation, const ArmyGroupPolicy::FFit& Fit,
-	TConstArrayView<FVector2D> Polygon, const TArray<TObjectPtr<AArmyUnit>>& Units, TArray<FVector, TInlineAllocator<MaxUnitCount>>& Goals)
+void AssignPostSlots(const FFittedSlots& Fitted, const TArray<TObjectPtr<AArmyUnit>>& Units,
+	TArray<FVector, TInlineAllocator<MaxUnitCount>>& Goals)
 {
 	TArray<FVector, TInlineAllocator<MaxUnitCount>> Points;
 	TArray<FVector2D, TInlineAllocator<MaxUnitCount>> Positions, Slots;
@@ -102,7 +102,7 @@ void AssignPostSlots(const ArmyGroupPolicy::FFormation& Formation, const ArmyGro
 	for (const AArmyUnit* Unit : Units)
 		if (IsValid(Unit) && Unit->IsAlive())
 		{
-			Points.Add(ArmyGroupPolicy::FittedSlot(Formation, Fit, Polygon, Unit->GetCompositionSlot()));
+			Points.Add(Fitted.Goals.IsValidIndex(Unit->GetCompositionSlot()) ? Fitted.Goals[Unit->GetCompositionSlot()] : Fitted.Centre);
 			Slots.Add(FVector2D(Points.Last()));
 			Positions.Add(FVector2D(Unit->GetActorLocation()));
 			Ranks.Add(Unit->FormationClassRank());
@@ -267,12 +267,15 @@ void AArmyGroup::UpdateHoldCombat()
 		Destination = HoldThreat->GetActorLocation();
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	const float Now = GetWorld()->GetTimeSeconds();
-	// The idle post's slots are one rigid set fitted inside the region, not clamped one by one at the border.
-	const ArmyGroupPolicy::FFit PostFit = bHoldResponding ? ArmyGroupPolicy::FFit()
-														  : ArmyGroupPolicy::FitForce(FormationShape(), Region->Polygon, HoldPostLocation);
+	// The idle post's slots are one rigid set fitted inside the region, not clamped one by one at the border. The fit
+	// is cached on the force for the hold driver alone, so it is not refitted every combat tick.
 	TArray<FVector, TInlineAllocator<MaxUnitCount>> Goals;
 	if (!bHoldResponding)
-		AssignPostSlots(FormationShape(), PostFit, Region->Polygon, Units, Goals);
+	{
+		FFittedSlots PostFit;
+		FitSlotsAt(Region, HoldPostLocation, PostFit, EFitUser::Hold);
+		AssignPostSlots(PostFit, Units, Goals);
+	}
 	int32 Living = 0;
 	for (AArmyUnit* Unit : Units)
 	{

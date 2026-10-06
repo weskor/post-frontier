@@ -31,25 +31,29 @@ bool AArmyGroup::GatherArrival(const ACommandGameState& State, bool bSkipExempt,
 	FFittedSlots Fitted;
 	FitSlots(&State, Fitted);
 	int32 Alive = 0;
-	float FittedRadius = 0.f;
+	FVector SlotCentroid = FVector::ZeroVector;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		Out.AllCenter += Unit->GetActorLocation();
+		SlotCentroid += PlannedSlot(*Unit, Fitted);
 		++Alive;
 		if (bSkipExempt ? IsUnitExempt(*Unit) : !Unit->bPursuing && IsUnitSettled(*Unit))
 			continue;
-		const int32 Index = Unit->GetCompositionSlot();
-		const FVector Slot = Fitted.Goals.IsValidIndex(Index) ? Fitted.Goals[Index] : Destination + FormationOffset(Index);
 		const AAIController* AI = Cast<AAIController>(Unit->GetController());
-		FittedRadius = FMath::Max(FittedRadius, static_cast<float>(FVector::Dist2D(Slot, Fitted.Centre)));
-		Out.Members.Add({ Unit->GetActorLocation(), Slot,
+		Out.Members.Add({ Unit->GetActorLocation(), PlannedSlot(*Unit, Fitted),
 			!Unit->bPursuing && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle });
 	}
 	if (!Alive)
 		return false;
 	Out.AllCenter /= Alive;
+	SlotCentroid /= Alive;
+	// The planned targets are the members' own slots (a column's centroid is not the box centre): the radius is
+	// measured from their centroid.
+	float FittedRadius = 0.f;
+	for (const MovementProgressPolicy::FArrivalMember& Member : Out.Members)
+		FittedRadius = FMath::Max(FittedRadius, static_cast<float>(FVector::Dist2D(Member.Slot, SlotCentroid)));
 	Out.bAllLeftOut = Out.Members.IsEmpty();
 	Out.Arrival = MovementProgressPolicy::JudgeArrival(Out.Members, FittedRadius);
 	return true;
@@ -147,10 +151,15 @@ bool AArmyGroup::IsUnitExempt(const AArmyUnit& Unit) const
 
 FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit, const FFittedSlots& Fitted) const
 {
-	if (Unit.bPursuing)
-		return Unit.PursuitGoal;
-	return Fitted.Goals.IsValidIndex(Unit.GetCompositionSlot()) ? Fitted.Goals[Unit.GetCompositionSlot()]
-																: Destination + FormationOffset(Unit.GetCompositionSlot());
+	return Unit.bPursuing ? Unit.PursuitGoal : PlannedSlot(Unit, Fitted);
+}
+
+FVector AArmyGroup::PlannedSlot(const AArmyUnit& Unit, const FFittedSlots& Fitted) const
+{
+	if (!Unit.FormationTarget.IsZero())
+		return Unit.FormationTarget;
+	const int32 Index = Unit.GetCompositionSlot();
+	return Fitted.Goals.IsValidIndex(Index) ? Fitted.Goals[Index] : Destination + FormationOffset(Index);
 }
 
 void AArmyGroup::ResetProgress()

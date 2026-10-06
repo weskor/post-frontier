@@ -27,8 +27,8 @@ private:
 		{
 			if (Unit == Delayed.Get())
 				DelayedIndex = Members.Num();
-			Members.Add({ FVector2D(Unit->GetActorLocation()),
-				FVector2D(ArmyGroupPolicy::FormationOffset({ false, 6, false }, Unit->GetCompositionSlot())) });
+			// The member's own planned slot (a column or assigned slot), as the march measures lag.
+			Members.Add({ FVector2D(Unit->GetActorLocation()), FVector2D(Unit->FormationTarget) });
 			Center += Unit->GetActorLocation();
 		}
 		const FVector2D Heading = (FVector2D(Force->Destination) - FVector2D(Center / Members.Num())).GetSafeNormal();

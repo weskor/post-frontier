@@ -37,7 +37,13 @@ struct FFittedSlots
 	FVector Centre = FVector::ZeroVector;
 };
 
-// The last fitted set of a force. FitForce depends only on the region polygon, the centre and the slot layout, so
+enum class EFitUser : uint8
+{
+	March,
+	Hold
+};
+
+// The last fitted set of a force for one caller. FitForce depends only on the region polygon, the centre and the slot layout, so
 // the set is valid until one of them changes: a new region, a moved centre (a new post, a new order) or a new
 // layout (capacity, produced or opposing). Membership does not enter: every slot is fitted, occupied or not.
 struct FFittedCache
@@ -291,8 +297,12 @@ private:
 	// The slots of the force fitted inside the region that holds Destination (ArmyGroupPolicy::FitForce).
 	void FitSlots(const ACommandGameState* State, FFittedSlots& Out) const;
 	// The same around any centre inside Region, served from the cache while region, centre and layout are unchanged.
-	void FitSlotsAt(const AMapRegion* Region, const FVector& Centre, FFittedSlots& Out) const;
-	mutable FFittedCache FitCache;
+	// One cache entry per caller, so the march (Destination) and the hold driver (post) never evict each other.
+	void FitSlotsAt(const AMapRegion* Region, const FVector& Centre, FFittedSlots& Out, EFitUser User = EFitUser::March) const;
+	mutable FFittedCache FitCache[2];
+	// Where the member is going: the planned target of its last formation move (a column slot, an assigned post slot),
+	// else its fitted slot.
+	FVector PlannedSlot(const AArmyUnit& Unit, const FFittedSlots& Fitted) const;
 	bool GatherArrival(const ACommandGameState& State, bool bSkipExempt, FArrivalLayout& Out) const;
 	void CompleteOrder(int32 EndRegion);
 	// Completes the active order, then ticks the next one.
