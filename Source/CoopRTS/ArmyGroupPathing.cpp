@@ -11,7 +11,8 @@ namespace ArmyGroupPathing
 namespace
 {
 FQueryStats Stats;
-// Moves shorter than this have a one-point path in a path query; leave them to it.
+// A move this short is left to a path query (a raycast corridor of one polygon between nearly equal points is no
+// saving, and the engine special-cases a nearly zero distance).
 constexpr double MinimumStraightLength = 5.;
 }
 
@@ -20,10 +21,12 @@ const FQueryStats& Snapshot()
 	return Stats;
 }
 
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 void Reset()
 {
 	Stats = FQueryStats();
 }
+#endif
 
 void NotePathQuery()
 {
@@ -60,7 +63,7 @@ bool TryStraightPath(const ANavigationData& NavData, const FPathFindingQuery& Qu
 {
 	const ARecastNavMesh* Recast = Cast<ARecastNavMesh>(&NavData);
 	if (!Recast || !Query.QueryFilter.IsValid()
-		|| FVector::Dist(Query.StartLocation, Query.EndLocation) < MinimumStraightLength)
+		|| FVector::Dist2D(Query.StartLocation, Query.EndLocation) < MinimumStraightLength)
 		return false;
 	ARecastNavMesh::FRaycastResult Ray;
 	FVector Hit;

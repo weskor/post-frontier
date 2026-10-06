@@ -250,6 +250,7 @@ bool ValidateAssemblyRoute(UNavigationSystemV1& Navigation, UObject& Querier, co
 		return false;
 	FPathFindingQuery Query(&Querier, *NavData, Home, Projected.Location);
 	Query.SetAllowPartialPaths(false);
+	ArmyGroupPathing::NotePathQuery();
 	const FPathFindingResult Result = Navigation.FindPathSync(Agent, Query);
 	if (!Result.IsSuccessful() || !Result.Path.IsValid() || Result.Path->IsPartial())
 		return false;

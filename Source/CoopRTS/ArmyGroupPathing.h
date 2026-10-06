@@ -10,6 +10,9 @@ struct FPathFindingQuery;
 
 // The cost of moving a force, counted: how many synchronous path queries were solved, how many moves a navmesh
 // raycast answered instead, in all and inside orders. The simulation report reads Snapshot().
+// Counted: every query made through PrepareMove (re-path, pursuit, hold, join, order slots) and the assembly check
+// of a force with no members. NOT counted, so the totals are a lower bound: the sync pathfinding that
+// AAIController::MoveToLocation does at a pursuit's end (ArmyGroupCombat.cpp) and the engine's own re-paths.
 namespace ArmyGroupPathing
 {
 struct FQueryStats
@@ -22,7 +25,10 @@ struct FQueryStats
 };
 
 const FQueryStats& Snapshot();
+#if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
+// Zeroes the counters: for tests that measure one order.
 void Reset();
+#endif
 void NotePathQuery();
 void NoteStraightMove();
 
@@ -41,9 +47,12 @@ private:
 };
 
 // A path along the straight line Query.StartLocation to Query.EndLocation, built from a navmesh raycast, when
-// that line stays on walkable ground to its end. The corridor is the raycast's polygons, which is the corridor
-// a path query would find for a clear line (the straight line is the shortest path across a navmesh), in the
-// form the crowd-following component reads. False when the line is blocked, leaves the navmesh, or is too short
+// that line stays on walkable ground to its end. The corridor is the raycast's polygons and the path points are
+// the two ends, the form the crowd-following component reads. The corridor costs stay zero (the raycast does not
+// compute them; nothing in the game reads path cost). It stands for the path a query would return only while
+// every walkable area costs the same, which holds today (the one area in use is the null area): a straight line
+// is then the shortest path across a navmesh. A weighted area would make a detour cheaper than the line and
+// this function wrong for it. False when the line is blocked, leaves the navmesh, or is too short
 // or too long for one raycast corridor: the caller asks for a path query then.
 bool TryStraightPath(const ANavigationData& NavData, const FPathFindingQuery& Query, FNavPathSharedPtr& OutPath);
 }
