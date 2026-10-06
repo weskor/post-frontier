@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from harness.simulation_evidence import Groups
+from harness.simulation_movement import movement_section
 from harness.verify import JsonObject
 
 
@@ -42,7 +43,9 @@ def path_cost_evidence(reports: list[JsonObject]) -> JsonObject:
         path_queries=queries,
         straight_moves=sum(row["straight_moves"] for row in rows),
         queries_per_order=_ratio(order_queries, orders),
-        straight_per_order=_ratio(sum(row["order_straight_moves"] for row in rows), orders),
+        straight_per_order=_ratio(
+            sum(row["order_straight_moves"] for row in rows), orders
+        ),
         order_queries_per_minute=_ratio(order_queries, minutes),
         queries_per_minute=_ratio(queries, minutes),
     )
@@ -78,3 +81,11 @@ def path_cost_section(groups: Groups, lines: list[str]) -> list[JsonObject]:
         rows.append(dict(evidence, map=map_name, variant=variant, dilation=dilation))
     lines.append("")
     return rows
+
+
+def movement_sections(groups: Groups, lines: list[str]) -> JsonObject:
+    """The movement-progress and order-cost sections, as the summary.json fields they fill."""
+    return dict(
+        movement=movement_section(groups, lines),
+        path_cost=path_cost_section(groups, lines),
+    )
