@@ -68,12 +68,17 @@ Owned packaged surface:
 ./x verify native doctor
 ./x verify native focus
 ./x verify native capture baseline
-./x verify native key w --hold 350
+./x verify native key up --hold 350
 ./x verify native capture after-pan
 ./x verify native stop
 For remote input/HUD use ./x verify desktop launch --clients 1, then doctor,
-focus, capture, key, point or click with --peer host|c1 (four remotes only when
-requested), and ./x verify desktop stop. Desktop uses -nosteam, not Steam.
+focus, capture, key, point, click or scroll with --peer host|c1 (four remotes only
+when requested), and ./x verify desktop stop. Desktop uses -nosteam, not Steam.
+Desktop launch --isolate moves only identity-checked game windows to a new empty
+temporary workspace. Stop restores the prior workspace, cursor and surviving
+prior-window focus; it never moves or reconfigures user windows.
+Both input harnesses support up/down/left/right arrow pan, f selection/HQ focus,
+and key --hold 0..2000. Scroll -12..12 zooms: positive out, negative in.
 Native/desktop require a fresh Development package, UE 5.8.3 readiness, Hyprland's
 Lua dispatch API, wlr virtual-pointer support, wtype, grim with cursor capture,
 cc, pkg-config and Wayland client headers/library. They do not install dependencies
@@ -90,7 +95,7 @@ Doctor checks recorded process identity, package hashes, requested-map readiness
 and owned window geometry/scale; it cannot detect a logically wedged UI. Run it
 for each instance and after surprises. Inputs/captures recheck ownership and focus;
 explicitly focus the verified window, never bypass the guard or adopt another game.
-Use inspected HUD/ground targets and current logical-window fractions (.05..95),
+Use inspected HUD/ground targets and current logical-window fractions (0 <= n < 1),
 not copied screen coordinates. Correlate input with actual resulting state, not
 just key delivery or accepted-order logs. For affected placement/production/orders,
 selection, research, combat or restart, inspect the relevant before/after transition;

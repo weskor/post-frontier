@@ -20,15 +20,19 @@ from typing import cast
 from harness.verification_readiness import WindowNotReady, desktop_log_ready
 from harness.verify import (
     DEFAULT_MAP,
+    INPUT_KEYS,
     POINTER,
     JsonObject,
     compile_pointer,
     execute,
+    fraction,
     identity,
+    key_name,
     map_started,
     package_stamp,
     reap_owned,
     wait_for_exit,
+    window_point,
 )
 from harness.waits import Deadline, WaitTimeout
 from x.content.packages import package_executable
@@ -131,18 +135,29 @@ def stop_one(run: Path, item: JsonObject) -> None:
 
 
 def stop(run: Path) -> None:
-    failures = []
+    failures: list[Exception] = []
     for item in reversed(list(session(run)["peers"].values())):
         try:
             stop_one(run, item)
         except (OSError, RuntimeError, WaitTimeout) as error:
             failures.append(error)
+    try:
+        restore_workspace(run)
+    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        failures.append(error)
     if failures:
         raise failures[0]
     print(f"Stopped recorded game processes only; evidence retained in {run}")
 
 
-def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) -> None:
+def launch(
+    run: Path,
+    clients: int,
+    probe: bool,
+    map_path: str = DEFAULT_MAP,
+    *,
+    isolate: bool = False,
+) -> None:
     map_path = map_package(map_path)
     package = package_stamp()
     binary = package_executable(Path(package["root"]), "CoopRTS", "development")
@@ -159,6 +174,8 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
         "probe": probe,
         "peers": {},
     }
+    if isolate:
+        record["desktop"] = save_workspace()
     (run / "session.json").write_text(json.dumps(record, indent=2))
     # Connect to loopback only; use a freely chosen port to avoid adopting a different listen server.
     import socket
@@ -227,6 +244,8 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
             while True:
                 try:
                     report = doctor(run, name)
+                    if isolate:
+                        isolate_peer(run, name)
                     print(
                         json.dumps(
                             {
@@ -267,17 +286,98 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
         raise
 
 
-def fraction(value: str) -> float:
-    number = float(value)
-    if not 0.05 <= number <= 0.95:
-        raise argparse.ArgumentTypeError("Use a fraction between .05 and .95")
-    return number
+def save_workspace() -> JsonObject:
+    target = f"cooprts-{os.getpid()}"
+    if any(
+        w["name"] == target
+        for w in json.loads(execute(["hyprctl", "workspaces", "-j"]))
+    ):
+        raise RuntimeError("Temporary workspace already exists; no windows moved")
+    active = json.loads(execute(["hyprctl", "activewindow", "-j"]))
+    return {
+        "target": target,
+        "workspace": json.loads(execute(["hyprctl", "activeworkspace", "-j"])),
+        "cursor": json.loads(execute(["hyprctl", "cursorpos", "-j"])),
+        "window": active,
+        "identity": identity(active["pid"]) if active.get("pid") else None,
+    }
+
+
+def isolate_peer(run: Path, peer: str) -> None:
+    record = session(run)
+    target = record["desktop"]["target"]
+    owned = {item["pid"] for item in record["peers"].values()}
+    if any(
+        w["workspace"]["name"] == target and w["pid"] not in owned for w in windows()
+    ):
+        raise RuntimeError("Temporary workspace contains an unowned window; no move")
+    window = doctor(run, peer)["window"]
+    address = window["address"]
+    execute(
+        [
+            "hyprctl",
+            "dispatch",
+            f'hl.dsp.window.move({{workspace="name:{target}",follow=true,window="address:{address}"}})',
+        ]
+    )
+    moved = doctor(run, peer)["window"]
+    if moved["workspace"]["name"] != target:
+        raise RuntimeError("Owned window did not reach temporary workspace")
+    event(run, "isolate", peer=peer, address=address, workspace=target)
+
+
+def restore_workspace(run: Path) -> None:
+    record = session(run)
+    saved = record.get("desktop")
+    if not saved or saved.get("restored"):
+        return
+    workspace = saved["workspace"]
+    execute(
+        ["hyprctl", "dispatch", f"hl.dsp.focus({{monitor={workspace['monitorID']}}})"]
+    )
+    selector = json.dumps("name:" + workspace["name"])
+    execute(["hyprctl", "dispatch", f"hl.dsp.focus({{workspace={selector}}})"])
+    cursor = saved["cursor"]
+    execute(
+        [
+            "hyprctl",
+            "dispatch",
+            f"hl.dsp.cursor.move({{x={cursor['x']},y={cursor['y']}}})",
+        ]
+    )
+    prior = saved["window"]
+    if (
+        prior.get("pid")
+        and saved["identity"]
+        and identity(prior["pid"]) == saved["identity"]
+        and prior.get("workspace", {}).get("name") == workspace["name"]
+        and any(
+            w["address"] == prior["address"]
+            and w["pid"] == prior["pid"]
+            and w["workspace"]["name"] == workspace["name"]
+            for w in windows()
+        )
+    ):
+        address = prior["address"]
+        execute(
+            ["hyprctl", "dispatch", f'hl.dsp.focus({{window="address:{address}"}})']
+        )
+    saved["restored"] = True
+    (run / "session.json").write_text(json.dumps(record, indent=2))
+    event(
+        run, "restore-desktop", workspace=workspace, prior_window=prior.get("address")
+    )
 
 
 def configure(parser: argparse.ArgumentParser) -> None:
     commands = parser.add_subparsers(dest="action", required=True)
     launch_command = commands.add_parser("launch")
     launch_command.add_argument("--clients", type=int, choices=(1, 4), required=True)
+    launch_command.add_argument(
+        "--isolate",
+        action="store_true",
+        help="Use an empty temporary workspace; stop restores prior desktop focus",
+    )
     launch_command.add_argument(
         "--map",
         type=map_package,
@@ -290,7 +390,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
         help="opt into Development observations and host-only encounter fixtures",
     )
     commands.add_parser("stop")
-    for action in ("doctor", "focus", "capture", "key", "click", "point"):
+    for action in ("doctor", "focus", "capture", "key", "click", "point", "scroll"):
         command = commands.add_parser(action)
         command.add_argument("--peer", required=True)
         if action == "capture":
@@ -298,26 +398,20 @@ def configure(parser: argparse.ArgumentParser) -> None:
         if action == "key":
             command.add_argument(
                 "key",
-                choices=(
-                    "w",
-                    "a",
-                    "s",
-                    "d",
-                    "tab",
-                    "space",
-                    "h",
-                    "r",
-                    "q",
-                    "escape",
-                    "f4",
-                    "enter",
-                ),
+                choices=INPUT_KEYS,
             )
-        if action in ("point", "click"):
+            command.add_argument(
+                "--hold", type=int, choices=range(0, 2001), default=0, metavar="0..2000"
+            )
+        if action in ("point", "click", "scroll"):
             command.add_argument("--x", type=fraction, default=0.5)
             command.add_argument("--y", type=fraction, default=0.5)
         if action == "click":
             command.add_argument("button", choices=("left", "right"))
+        if action == "scroll":
+            command.add_argument(
+                "steps", type=int, choices=range(-12, 13), metavar="-12..12"
+            )
 
 
 def main() -> None:
@@ -326,13 +420,15 @@ def main() -> None:
     args = parser.parse_args()
     run = Path(os.environ["X_HARNESS_DIR"]).resolve()
     if args.action == "launch":
-        launch(run, args.clients, args.probe, map_path=args.map)
+        launch(run, args.clients, args.probe, map_path=args.map, isolate=args.isolate)
         return
     if args.action == "stop":
         stop(run)
         return
     report = doctor(
-        run, args.peer, focused=args.action in ("capture", "key", "click", "point")
+        run,
+        args.peer,
+        focused=args.action in ("capture", "key", "click", "point", "scroll"),
     )
     if args.action == "doctor":
         print(json.dumps(report, indent=2))
@@ -357,21 +453,26 @@ def main() -> None:
         event(run, "capture", peer=args.peer, path=str(target))
         print(target)
     elif args.action == "key":
-        key = {"enter": "Return", "tab": "Tab", "escape": "Escape", "f4": "F4"}.get(
-            args.key, args.key
+        key = key_name(args.key)
+        execute(
+            ["wtype", "-P", key, "-s", str(args.hold), "-p", key]
+            if args.hold
+            else ["wtype", "-k", key]
         )
-        execute(["wtype", "-k", key])
-        event(run, "key", peer=args.peer, key=args.key)
+        event(run, "key", peer=args.peer, key=args.key, hold=args.hold)
     else:
         window = report["window"]
-        x = int(window["at"][0] + window["size"][0] * args.x)
-        y = int(window["at"][1] + window["size"][1] * args.y)
+        x, y = window_point(window, args.x, args.y)
         execute(["hyprctl", "dispatch", f"hl.dsp.cursor.move({{x={x},y={y}}})"])
         doctor(run, args.peer, focused=True)
         execute(
             [POINTER, "click", "273" if args.button == "right" else "272"]
             if args.action == "click"
-            else [POINTER, "scroll", "0"]
+            else [
+                POINTER,
+                "scroll",
+                str(args.steps) if args.action == "scroll" else "0",
+            ]
         )
         event(
             run,
@@ -380,6 +481,7 @@ def main() -> None:
             x=args.x,
             y=args.y,
             **({"button": args.button} if args.action == "click" else {}),
+            **({"steps": args.steps} if args.action == "scroll" else {}),
         )
 
 

@@ -315,9 +315,7 @@ def drive(run: Path, args: argparse.Namespace) -> None:
         parameters={k: v for k, v in vars(args).items() if k != "run"},
     )
     if args.command == "key":
-        key = {"enter": "Return", "tab": "Tab", "escape": "Escape", "f4": "F4"}.get(
-            args.key, args.key
-        )
+        key = key_name(args.key)
         if args.hold:
             execute(["wtype", "-P", key, "-s", str(args.hold), "-p", key])
         else:
@@ -327,8 +325,7 @@ def drive(run: Path, args: argparse.Namespace) -> None:
     else:
         if args.command == "point" or not args.here:
             window = report["window"]
-            x = int(window["at"][0] + window["size"][0] * args.x)
-            y = int(window["at"][1] + window["size"][1] * args.y)
+            x, y = window_point(window, args.x, args.y)
             execute(["hyprctl", "dispatch", f"hl.dsp.cursor.move({{x={x},y={y}}})"])
             doctor(run, focused=True)
 
@@ -344,10 +341,61 @@ def drive(run: Path, args: argparse.Namespace) -> None:
     record(run, "input-complete", action=args.command)
 
 
+def window_point(window: JsonObject, x: float, y: float) -> tuple[int, int]:
+    fractions = (fraction(str(x)), fraction(str(y)))
+    if any(size <= 0 for size in window["size"]):
+        raise RuntimeError("Owned window has no client area")
+    return cast(
+        tuple[int, int],
+        tuple(
+            int(origin) + min(int(size) - 1, int(size * part))
+            for origin, size, part in zip(
+                window["at"], window["size"], fractions, strict=True
+            )
+        ),
+    )
+
+
+INPUT_KEYS = (
+    "w",
+    "a",
+    "s",
+    "d",
+    "h",
+    "r",
+    "q",
+    "tab",
+    "space",
+    "enter",
+    "escape",
+    "f4",
+    "f",
+    "up",
+    "down",
+    "left",
+    "right",
+)
+
+
+def key_name(key: str) -> str:
+    return {
+        "enter": "Return",
+        "tab": "Tab",
+        "escape": "Escape",
+        "f4": "F4",
+        "up": "Up",
+        "down": "Down",
+        "left": "Left",
+        "right": "Right",
+    }.get(key, key)
+
+
 def fraction(value: str) -> float:
     number = float(value)
-    if not 0.05 <= number <= 0.95:
-        raise argparse.ArgumentTypeError("Use a window fraction between .05 and .95")
+    if not 0 <= number < 1:
+        raise argparse.ArgumentTypeError(
+            "Use a window fraction at least 0 and less than 1"
+        )
     return number
 
 
@@ -367,20 +415,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
     key = commands.add_parser("key")
     key.add_argument(
         "key",
-        choices=[
-            "w",
-            "a",
-            "s",
-            "d",
-            "h",
-            "r",
-            "q",
-            "tab",
-            "space",
-            "enter",
-            "escape",
-            "f4",
-        ],
+        choices=INPUT_KEYS,
     )
     key.add_argument(
         "--hold",
