@@ -8,6 +8,7 @@
 #include "CommandGameState.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "MapRegion.h"
 #include "NavigationData.h"
 #include "NavigationSystem.h"
 #include "Navigation/PathFollowingComponent.h"
@@ -80,12 +81,45 @@ namespace
 {
 using FPreparedMoves = TArray<FPreparedMove, TInlineAllocator<MaxUnitCount>>;
 
-// Validates the entire command without touching the current order or paths.
-// In particular, partial paths never count as accepting the user's target.
-bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const TArray<TObjectPtr<AArmyUnit>>& Units,
-	const ArmyGroupPolicy::FFormation& Formation, const FVector& Destination,
-	FPreparedMoves& Prepared, FVector& ProjectedCenter)
+// A slot that has no path of its own sends its unit to the nearest navigable point within this distance of it.
+constexpr float SlotFallbackRadius = 300.f;
+
+// One unit's move to its fitted slot. The slot itself first, then the nearest navigable point around it that
+// stays inside the region, then the force's centre, which the caller has already proved reachable for the
+// first member. Only when even the centre has no path for this unit does the command fail.
+bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIController& AI,
+	const FVector& Slot, const FVector& Centre, const AMapRegion* Region, FPreparedMove& Move)
 {
+	const FNavAgentProperties& Agent = Unit.GetNavAgentPropertiesRef();
+	const FVector Start = Unit.GetNavAgentLocation();
+	UPathFollowingComponent& Following = *AI.GetPathFollowingComponent();
+	Move.Controller = &AI;
+	// Limit horizontal projection so a wall cannot collapse several slots
+	// onto the same edge, or pull an out-of-arena slot back into bounds.
+	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Move))
+		return true;
+	FPreparedMove Nearby;
+	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Nearby, SlotFallbackRadius)
+		&& (!Region || Region->Contains(Nearby.Goal)))
+	{
+		Nearby.Controller = &AI;
+		Move = MoveTemp(Nearby);
+		return true;
+	}
+	return PrepareMove(Navigation, Agent, &AI, Following, Start, Centre, Move, 75.0f);
+}
+
+// Validates the entire command without touching the current order or paths.
+// In particular, partial paths never count as accepting the user's target. The centre check is strict; the
+// slots are the force's formation fitted inside the region around that centre (ArmyGroupPolicy::FitFormation),
+// each with its own fallback.
+bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const ACommandGameState* State,
+	const TArray<TObjectPtr<AArmyUnit>>& Units, const ArmyGroupPolicy::FFormation& Formation,
+	const FVector& Destination, FPreparedMoves& Prepared, FVector& ProjectedCenter)
+{
+	const AMapRegion* Region = nullptr;
+	ArmyGroupPolicy::FFit Fit;
+	bool bCentred = false;
 	for (int32 Index = 0; Index < Units.Num(); ++Index)
 	{
 		AArmyUnit* Unit = Units[Index];
@@ -96,26 +130,24 @@ bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const TArray<TObject
 		{
 			return false;
 		}
-		const FNavAgentProperties& Agent = Unit->GetNavAgentPropertiesRef();
-		const FVector Start = Unit->GetNavAgentLocation();
-
-		if (Prepared.IsEmpty())
+		if (!bCentred)
 		{
 			FPreparedMove CenterMove;
-			if (!PrepareMove(Navigation, Agent, AI, *AI->GetPathFollowingComponent(),
-					Start, Destination, CenterMove, 75.0f))
+			if (!PrepareMove(Navigation, Unit->GetNavAgentPropertiesRef(), AI, *AI->GetPathFollowingComponent(),
+					Unit->GetNavAgentLocation(), Destination, CenterMove, 75.0f))
 			{
 				return false;
 			}
 			ProjectedCenter = CenterMove.Goal;
+			Region = State ? State->FindRegionAt(ProjectedCenter) : nullptr;
+			Fit = ArmyGroupPolicy::FitForce(Formation, Region ? TConstArrayView<FVector2D>(Region->Polygon)
+															  : TConstArrayView<FVector2D>(), ProjectedCenter);
+			bCentred = true;
 		}
-
 		FPreparedMove Move;
-		Move.Controller = AI;
-		// Limit horizontal projection so a wall cannot collapse several slots
-		// onto the same edge, or pull an out-of-arena slot back into bounds.
-		if (!PrepareMove(Navigation, Agent, AI, *AI->GetPathFollowingComponent(),
-				Start, ProjectedCenter + ArmyGroupPolicy::FormationOffset(Formation, Unit->GetCompositionSlot()), Move))
+		const FVector Slot = ArmyGroupPolicy::FittedSlot(Formation, Fit,
+			Region ? TConstArrayView<FVector2D>(Region->Polygon) : TConstArrayView<FVector2D>(), Unit->GetCompositionSlot());
+		if (!PrepareSlotMove(Navigation, *Unit, *AI, Slot, ProjectedCenter, Region, Move))
 		{
 			return false;
 		}
@@ -183,7 +215,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 
 	FPreparedMoves Prepared;
 	FVector ProjectedCenter = FVector::ZeroVector;
-	if (!PrepareFormationMoves(*Navigation, Units, FormationShape(), InDestination, Prepared, ProjectedCenter)
+	if (!PrepareFormationMoves(*Navigation, State, Units, FormationShape(), InDestination, Prepared, ProjectedCenter)
 		|| (Prepared.IsEmpty() && !ValidateAssemblyRoute(*Navigation, *this, HomeLocation, InDestination, ProjectedCenter)))
 		return false;
 	if (!bApply)

@@ -506,6 +506,11 @@ filter = "CoopRTS.HUD.SupplyCard"
 map = "default"
 rendered = true
 
+[scopes.formation-fit]
+kind = "automation"
+filter = "CoopRTS.Forces.FormationFit"
+map = "default"
+
 [scopes.shielded-squad]
 kind = "automation"
 filter = "CoopRTS.Content.ShieldedSquad"
@@ -1108,3 +1113,13 @@ rendered = true
 "Source/CoopRTS/Rules/GuardedHqView.*" = ["rules", "hq-leftovers-view"]
 "Source/CoopRTS/HUD/ObjectiveAlerts.c[p]*" = ["hq-leftovers-view"]
 "Source/CoopRTS/CommandMinimap.c[p]*" = ["hq-leftovers-view"]
+
+# Formation fit (forces.md, region-order formation placement): the pure fit, the march/hold/supply movement that
+# uses it, and the world scenarios on a border post. These entries are added to the files' existing ones.
+"Source/CoopRTS/FormationFitRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/FormationFit[A-Z]*" = ["formation-fit"]
+"Source/CoopRTS/Rules/ArmyGroupPolicy.[ch]*" = ["formation-fit"]
+"Source/CoopRTS/Rules/HoldPolicy.[ch]*" = ["formation-fit"]
+"Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit"]
+"Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit"]
+"Source/CoopRTS/ArmyGroupSupply.cpp" = ["formation-fit"]

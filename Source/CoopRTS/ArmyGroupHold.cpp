@@ -236,13 +236,17 @@ void AArmyGroup::UpdateHoldCombat()
 		Destination = HoldThreat->GetActorLocation();
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	const float Now = GetWorld()->GetTimeSeconds();
+	// The idle post's slots are one rigid set fitted inside the region, not clamped one by one at the border.
+	const ArmyGroupPolicy::FFit PostFit = bHoldResponding ? ArmyGroupPolicy::FFit()
+		: ArmyGroupPolicy::FitForce(FormationShape(), Region->Polygon, HoldPostLocation);
 	for (AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		AArmyUnit* Target = SelectHoldCombatTarget(*Unit, Enemies);
 		if (!bHoldResponding)
-			UpdateHoldMovement(*Unit, *Region, Navigation, HoldPostLocation + FormationOffset(Unit->CompositionSlot), Now);
+			UpdateHoldMovement(*Unit, *Region, Navigation,
+				ArmyGroupPolicy::FittedSlot(FormationShape(), PostFit, Region->Polygon, Unit->CompositionSlot), Now);
 		else
 			UpdateHoldResponse(*Unit, *Region, Navigation, Now);
 		if (Target)

@@ -36,14 +36,27 @@ bool FreeGround(UNavigationSystemV1& Navigation, const FVector& Wanted, FVector&
 	Ground = Floor;
 	return true;
 }
+
+// The fitted slot of a force around Centre: inside RegionIndex, or inside the region that holds Centre when
+// the index is INDEX_NONE. Outside every region the formation is its plain layout.
+FVector FittedGoal(const ACommandGameState* State, int32 RegionIndex, const ArmyGroupPolicy::FFormation& Formation,
+	const FVector& Centre, int32 Slot)
+{
+	const AMapRegion* Region = !State ? nullptr
+		: RegionIndex != INDEX_NONE   ? ForceOrderGraph::Region(*State, RegionIndex)
+									  : State->FindRegionAt(Centre);
+	const TConstArrayView<FVector2D> Polygon = Region ? TConstArrayView<FVector2D>(Region->Polygon) : TConstArrayView<FVector2D>();
+	return ArmyGroupPolicy::FittedSlot(Formation, ArmyGroupPolicy::FitForce(Formation, Polygon, Centre), Polygon, Slot);
+}
 }
 
 bool AArmyGroup::FormationSlotGoal(int32 Slot, FVector& Goal) const
 {
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	if (IsHoldingRegion() && HoldPostIndex != INDEX_NONE && !bHoldResponding)
 	{
-		// Holding slots are individually clipped/projected, not a rigid formation.
-		Goal = HoldPostLocation + FormationOffset(Slot);
+		// The idle post's slots are one rigid set fitted inside the region, as the holders stand in it.
+		Goal = FittedGoal(State, HoldRegionIndex, FormationShape(), HoldPostLocation, Slot);
 		return ClipHoldingDestination(Goal);
 	}
 	// A depleted formation's member center is biased toward its occupied slots.
@@ -61,7 +74,7 @@ bool AArmyGroup::FormationSlotGoal(int32 Slot, FVector& Goal) const
 		Anchor /= Joined;
 	else
 		Anchor = AppliedWaypoint != INDEX_NONE ? Destination : GetActorLocation();
-	Goal = Anchor + FormationOffset(Slot);
+	Goal = FittedGoal(State, INDEX_NONE, FormationShape(), Anchor, Slot);
 	return ClipHoldingDestination(Goal);
 }
 
@@ -76,7 +89,11 @@ void AArmyGroup::JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSy
 	}
 	FPreparedMove Formation;
 	Formation.Controller = &AI;
-	FVector FormationGoal = Destination + FormationOffset(Unit.CompositionSlot);
+	// The slot the members of this intent stand in: around the post while holding, else around the destination.
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	const bool bAtPost = IsHoldingRegion() && HoldPostIndex != INDEX_NONE;
+	FVector FormationGoal = FittedGoal(State, bAtPost ? HoldRegionIndex : INDEX_NONE, FormationShape(),
+		bAtPost ? HoldPostLocation : Destination, Unit.CompositionSlot);
 	if (ClipHoldingDestination(FormationGoal)
 		&& PrepareMove(Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(),
 			Unit.GetNavAgentLocation(), FormationGoal, Formation))
