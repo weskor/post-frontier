@@ -267,7 +267,7 @@ void AArmyUnit::FireAt(AActor* Victim)
 		|| (State && State->MatchResult != EMatchResult::Ongoing)
 		|| (IsValid(Group) && Group->Status == EForceStatus::Retreating)
 		|| !CombatTarget::IsAliveHostile(Victim, TeamIndex)
-		|| FVector::Dist2D(GetActorLocation(), Victim->GetActorLocation()) > WeaponRange())
+		|| CombatTarget::EdgeDistance(*this, Victim) > WeaponRange())
 		return;
 	const float Now = GetWorld()->GetTimeSeconds();
 	if (Now < NextAttackTime)
