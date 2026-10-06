@@ -24,6 +24,7 @@ from harness.network import (
     select_order_region,
     wallet,
 )
+from harness.network_guard_nodes import attack_guard_nodes
 from harness.network_outcomes import finish, objective_event, research
 from harness.network_retreat import begin_retreat_home
 from harness.network_session import Session, converged
@@ -407,6 +408,7 @@ def attack_and_finish(
     run: NetworkRun, s: Session, index: int, squad: int
 ) -> dict[str, JsonObject]:
     research(run, s)
+    attack_guard_nodes(run, s, index)
     enemy_main = next(
         r["index"] for r in run.observe("host")["regions"] if r["homeTeam"] == 5
     )
