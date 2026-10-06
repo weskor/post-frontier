@@ -14,9 +14,9 @@ namespace ArmyGroupPathing
 {
 struct FQueryStats
 {
-	int64 PathQueries = 0;    // FindPathSync calls of any caller of PrepareMove or an assembly check
-	int64 StraightMoves = 0;  // moves answered by a clear straight line, no path query
-	int64 Orders = 0;         // IssueTravel calls that planned moves (applied or only validated)
+	int64 PathQueries = 0; // FindPathSync calls of any caller of PrepareMove or an assembly check
+	int64 StraightMoves = 0; // moves answered by a clear straight line, no path query
+	int64 Orders = 0; // IssueTravel calls that planned moves (applied or only validated)
 	int64 OrderPathQueries = 0;
 	int64 OrderStraightMoves = 0;
 };
