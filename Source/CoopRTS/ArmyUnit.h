@@ -87,6 +87,10 @@ public:
 	// Server-only: what the force's last march-leg plan decided (heading, shape, goal, time of the last turn). Every
 	// member of a force carries the same copy, so the plan's hysteresis needs no field on the force.
 	ArmyGroupPolicy::FLegMemory FormationMemory;
+	// Server-only: the ground this member's last formation move was sent to (a march leg's planned slot or the point
+	// it fell back to, or its idle post slot): where it is meant to stand. Zero until the first formation move.
+	// Movement progress reads it as the member's goal instead of the composition slot.
+	FVector FormationTarget = FVector::ZeroVector;
 	// Server-only Field Repairs state; interruptions reset both clocks.
 	float QuietSeconds = 0.f;
 	float HealAccumulator = 0.f;

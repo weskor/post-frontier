@@ -389,9 +389,35 @@ protected:
 			SettledSince = Now;
 		if (Now - SettledSince < 2.)
 			return false;
-		const double Goal = FVector2D::DotProduct(FVector2D(A->PursuitGoal - B->PursuitGoal), FVector2D(Axis));
-		Test->AddInfo(FString::Printf(TEXT("At the post: A is %.0f cm from B along the slots' axis, post slots differ by %.0f cm; most crossed on the way %.0f cm"),
-			Side, Goal, MostCrossed));
+		const double Goal = FVector2D::DotProduct(FVector2D(A->FormationTarget - B->FormationTarget), FVector2D(Axis));
+		for (const AArmyUnit* Member : { A, B })
+			Test->AddInfo(FString::Printf(TEXT("  member slot %d rests at %s on its planned target %s, post %s"), Member->GetCompositionSlot(),
+				*Member->GetActorLocation().ToCompactString(), *Member->FormationTarget.ToCompactString(), *Force->HoldPostLocation.ToCompactString()));
+		const AMapRegion* Region = State->FindRegionAt(Force->HoldPostLocation);
+		if (!Region)
+			return Fail(TEXT("The post is inside a region"));
+		// The fitted post slots of the two composition slots: each member rests on its own planned target, which is
+		// at one of them (or, where the slot is not navigable, the nearest standing point to it), the two apart.
+		const ArmyGroupPolicy::FFormation Formation{ false, 0, false };
+		const ArmyGroupPolicy::FFit Fit = ArmyGroupPolicy::FitForce(Formation, Region->Polygon, Force->HoldPostLocation);
+		const FVector Slots[2] = { ArmyGroupPolicy::FittedSlot(Formation, Fit, Region->Polygon, A->GetCompositionSlot()),
+			ArmyGroupPolicy::FittedSlot(Formation, Fit, Region->Polygon, B->GetCompositionSlot()) };
+		const double Fitted = FVector::Dist2D(Slots[0], Slots[1]);
+		for (const AArmyUnit* Member : { A, B })
+			if (Member->FormationTarget.IsZero() || FVector::Dist2D(Member->GetActorLocation(), Member->FormationTarget) > 100.)
+				return Fail(TEXT("Each member rests within 100 cm of its own planned post slot"));
+		const double Own = FVector::Dist2D(A->FormationTarget, Slots[0]) + FVector::Dist2D(B->FormationTarget, Slots[1]);
+		const double Swapped = FVector::Dist2D(A->FormationTarget, Slots[1]) + FVector::Dist2D(B->FormationTarget, Slots[0]);
+		const double Off = FMath::Min(Own, Swapped);
+		const double Spacing = FVector::Dist2D(A->FormationTarget, B->FormationTarget);
+		Test->AddInfo(FString::Printf(TEXT("Planned targets %.0f cm apart, fitted slots %.0f cm apart, targets %.0f cm from their slots in all; A is %.0f cm from B along the axis, targets differ by %.0f cm; most crossed on the way %.0f cm"),
+			Spacing, Fitted, Off, Side, Goal, MostCrossed));
+		if (Off > 2. * (ArmyGroupPolicy::SlotFallbackRadius + 75.f))
+			return Fail(TEXT("The planned post slots are the fitted slots, or the nearest standing points to them"));
+		if (Off < 1. && FMath::Abs(Spacing - Fitted) > 1.)
+			return Fail(TEXT("On navigable ground the two slots are the fitted spacing apart"));
+		if (Spacing < 100.)
+			return Fail(TEXT("The two members have distinct slots"));
 		return Side < -60. && Goal < -60. ? true : Fail(TEXT("The pair rests on the sides the march gave it"));
 	}
 

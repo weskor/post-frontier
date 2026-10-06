@@ -25,6 +25,13 @@ class FCapture : public IAutomationLatentCommand
 public:
 	explicit FCapture(FAutomationTestBase* InTest) : Test(InTest), Started(FPlatformTime::Seconds()) {}
 
+	~FCapture() override
+	{
+		for (const TWeakObjectPtr<AActor>& Wall : Walls)
+			if (Wall.IsValid())
+				Wall->Destroy();
+	}
+
 	bool Update() override
 	{
 		if (FPlatformTime::Seconds() - Started > 240.)

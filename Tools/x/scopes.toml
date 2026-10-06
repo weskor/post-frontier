@@ -1159,5 +1159,6 @@ rendered = true
 "Source/CoopRTS/FormationHeadingRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/FormationHeadingWorldTests.cpp" = ["formation-heading"]
 "Source/CoopRTS/FormationHeadingNeckTests.cpp" = ["formation-heading"]
+"Source/CoopRTS/FormationHeadingRecruitTests.cpp" = ["formation-heading"]
 "Source/CoopRTS/FormationHeadingNeck.[ch]*" = ["formation-heading", "formation-heading-view"]
 "Source/CoopRTS/FormationHeadingViewTests.cpp" = ["formation-heading-view"]

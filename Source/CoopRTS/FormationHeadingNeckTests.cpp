@@ -19,6 +19,15 @@ class FScenario : public IAutomationLatentCommand
 public:
 	explicit FScenario(FAutomationTestBase* InTest) : Test(InTest), Started(FPlatformTime::Seconds()) {}
 
+	// The walls are real navigation-affecting actors in the shared test world: they go when the scenario ends, so
+	// the scenarios that run after it do not meet them.
+	~FScenario() override
+	{
+		for (const TWeakObjectPtr<AActor>& Wall : Walls)
+			if (Wall.IsValid())
+				Wall->Destroy();
+	}
+
 	bool Update() override
 	{
 		if (FPlatformTime::Seconds() - Started > 150.)

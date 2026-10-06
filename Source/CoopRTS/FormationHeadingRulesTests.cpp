@@ -263,6 +263,23 @@ bool FFormationHeadingColumnTest::RunTest(const FString& Parameters)
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFormationHeadingTailTest, "CoopRTS.Rules.ArmyGroup.Heading.Tail",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+
+bool FFormationHeadingTailTest::RunTest(const FString& Parameters)
+{
+	const TArray<FVector2D> File = { FVector2D(0., 40.), FVector2D(0., -40.) };
+	TestTrue(TEXT("A column heading along +Y has its tail behind the rearmost slot"),
+		FVector2D::Distance(ColumnTail(File, UE_HALF_PI), FVector2D(0., -40. - ColumnSpacing)) < .01);
+	TestTrue(TEXT("A column heading along -Y has its tail on the other side"),
+		FVector2D::Distance(ColumnTail(File, -UE_HALF_PI), FVector2D(0., 40. + ColumnSpacing)) < .01);
+	TestTrue(TEXT("An empty file has no tail"), ColumnTail(TArray<FVector2D>(), 0.f).IsZero());
+	const TArray<FVector2D> One = { FVector2D(100., 100.) };
+	TestTrue(TEXT("A file of one leaves one spacing behind it"),
+		FVector2D::Distance(ColumnTail(One, 0.f), FVector2D(100. - ColumnSpacing, 100.)) < .01);
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFormationHeadingBoxTest, "CoopRTS.Rules.ArmyGroup.Heading.Box",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 

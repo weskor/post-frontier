@@ -114,6 +114,8 @@ FLegChoice ChooseLeg(FLegMemory& Memory, const FVector2D& Goal, float DesiredYaw
 	bool bIntermediateRegion, float DistanceToDestination, double Now);
 // The lateral jitter of a slot of the force with this seed, within +/-JitterRadius.
 float SlotJitter(int32 Seed, int32 Index);
+// The slot a unit joining a column takes: one ColumnSpacing behind the rearmost of Targets, along Yaw.
+FVector2D ColumnTail(TConstArrayView<FVector2D> Targets, float Yaw);
 
 // Unit class rows are ranks: 0 melee front, 1 ranged middle, 2 artillery back (the caller maps its roles).
 // Assigns each unit one of the slots with the least total distance, among assignments that keep the class rows:

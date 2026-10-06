@@ -272,6 +272,8 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 	{
 		// Submit the complete prevalidated path; no second query or delayed order.
 		StartPreparedMove(Move);
+		if (AArmyUnit* Member = Move.Controller ? Cast<AArmyUnit>(Move.Controller->GetPawn()) : nullptr)
+			Member->FormationTarget = Move.Goal;
 	}
 	for (AArmyUnit* Unit : Units)
 		if (IsValid(Unit) && Unit->IsAlive())

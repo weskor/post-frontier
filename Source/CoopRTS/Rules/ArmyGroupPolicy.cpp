@@ -295,6 +295,18 @@ float SlotJitter(int32 Seed, int32 Index)
 	return (static_cast<float>((Bits >> 8) & 0xffffu) / 32767.5f - 1.f) * JitterRadius;
 }
 
+FVector2D ColumnTail(TConstArrayView<FVector2D> Targets, float Yaw)
+{
+	if (Targets.IsEmpty())
+		return FVector2D::ZeroVector;
+	const FVector2D Forward(FMath::Cos(Yaw), FMath::Sin(Yaw));
+	FVector2D Rear = Targets[0];
+	for (const FVector2D& Target : Targets)
+		if (FVector2D::DotProduct(Target, Forward) < FVector2D::DotProduct(Rear, Forward))
+			Rear = Target;
+	return Rear - Forward * ColumnSpacing;
+}
+
 void AssignSlots(TConstArrayView<FVector2D> Positions, TConstArrayView<int32> Ranks, TConstArrayView<FVector2D> Slots,
 	const FVector2D& Forward, TArray<int32, TInlineAllocator<8>>& SlotOfUnit)
 {

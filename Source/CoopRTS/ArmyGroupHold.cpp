@@ -280,7 +280,10 @@ void AArmyGroup::UpdateHoldCombat()
 			continue;
 		AArmyUnit* Target = SelectHoldCombatTarget(*Unit, Enemies);
 		if (!bHoldResponding)
+		{
+			Unit->FormationTarget = Goals[Living];
 			UpdateHoldMovement(*Unit, *Region, Navigation, Goals[Living], Now);
+		}
 		else
 			UpdateHoldResponse(*Unit, *Region, Navigation, Now);
 		++Living;

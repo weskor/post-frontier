@@ -89,6 +89,36 @@ void AArmyGroup::JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSy
 	}
 	FPreparedMove Formation;
 	Formation.Controller = &AI;
+	// During a column leg the recruit joins the tail of the file: its composition slot is a box slot that may sit
+	// inside the file. The members' planned targets and the leg's heading (their memory) say where the tail is.
+	TArray<FVector2D, TInlineAllocator<MaxUnitCount>> FileTargets;
+	const ArmyGroupPolicy::FLegMemory* Leg = nullptr;
+	for (const AArmyUnit* Member : Units)
+		if (IsValid(Member) && Member->IsAlive() && Member != &Unit && Member->FormationMemory.bPlanned
+			&& Member->FormationMemory.bColumn && !Member->FormationTarget.IsZero())
+		{
+			FileTargets.Add(FVector2D(Member->FormationTarget));
+			Leg = &Member->FormationMemory;
+		}
+	if (Leg && !FileTargets.IsEmpty() && !IsHoldingRegion())
+	{
+		const FVector2D Tail = ArmyGroupPolicy::ColumnTail(FileTargets, Leg->Yaw);
+		const FVector Level(Tail.X, Tail.Y, Unit.GetActorLocation().Z);
+		FVector Rear = FVector(FileTargets[0], Level.Z);
+		for (const FVector2D& Target : FileTargets)
+			if (FVector2D::DotProduct(Target, FVector2D(FMath::Cos(Leg->Yaw), FMath::Sin(Leg->Yaw)))
+				< FVector2D::DotProduct(FVector2D(Rear), FVector2D(FMath::Cos(Leg->Yaw), FMath::Sin(Leg->Yaw))))
+				Rear = FVector(Target, Level.Z);
+		for (const FVector& Goal : { Level, Rear })
+			if (PrepareMove(Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(),
+					Unit.GetNavAgentLocation(), Goal, Formation))
+			{
+				StartPreparedMove(Formation);
+				Unit.FormationMemory = *Leg;
+				Unit.FormationTarget = Formation.Goal;
+				return;
+			}
+	}
 	// The slot the members of this intent stand in: around the idle post while holding, else around the destination
 	// (a responding holder's destination is its threat, as before the fit).
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
@@ -98,7 +128,10 @@ void AArmyGroup::JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSy
 	if (ClipHoldingDestination(FormationGoal)
 		&& PrepareMove(Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(),
 			Unit.GetNavAgentLocation(), FormationGoal, Formation))
+	{
 		StartPreparedMove(Formation);
+		Unit.FormationTarget = Formation.Goal;
+	}
 }
 
 bool AArmyGroup::QueueRecruit(int32 UnitIndex)
