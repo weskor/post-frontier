@@ -59,4 +59,3 @@ def test_path_cost_section_has_no_per_order_figure_without_orders() -> None:
     rows = path_cost_section({("map", "baseline2", 1): [quiet]}, lines)
     assert rows[0]["queries_per_order"] is None
     assert rows[0]["queries_per_minute"] == 0
-
