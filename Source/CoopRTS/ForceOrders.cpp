@@ -133,7 +133,7 @@ FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit, const FFittedSlots& Fitted) 
 	if (Unit.bPursuing)
 		return Unit.PursuitGoal;
 	return Fitted.Goals.IsValidIndex(Unit.GetCompositionSlot()) ? Fitted.Goals[Unit.GetCompositionSlot()]
-															   : Destination + FormationOffset(Unit.GetCompositionSlot());
+																: Destination + FormationOffset(Unit.GetCompositionSlot());
 }
 
 void AArmyGroup::ResetProgress()
