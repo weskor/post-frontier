@@ -25,7 +25,12 @@ def test_movement_section_counts_settled_overrun_and_never_held_forces() -> None
     stuck["movement"] = dict(
         forces={
             "a": movement_force(
-                settled=3, overruns=1, spread_samples=10, spread_sum=1500, spread_over=2, spread_max=400
+                settled=3,
+                overruns=1,
+                spread_samples=10,
+                spread_sum=1500,
+                spread_over=2,
+                spread_max=400,
             ),
             "b": movement_force(
                 held_after_march=False,

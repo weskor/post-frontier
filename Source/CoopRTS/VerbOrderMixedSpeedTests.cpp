@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 
 #include "VerbOrderFixture.h"
+#include "Rules/MarchSpeedPolicy.h"
 
 namespace VerbOrderMixedSpeedTests
 {
@@ -30,8 +31,9 @@ private:
 					TEXT("Selection cap applies while marching and ends at completed MoveHold arrival")))
 				return true;
 			for (const AArmyUnit* Unit : Group->GetUnits())
-				if (!Check(FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, Speed),
-						TEXT("Moving characters share cap; completed orders restore authored formation speed")))
+				if (!Check(FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, Speed,
+								bHolding ? .01f : Speed * FMath::Max(MarchSpeedPolicy::MaxCatchUp - 1.f, 1.f - MarchSpeedPolicy::MinAhead) + .01f),
+						TEXT("Moving characters stay within the catch-up band of the shared cap; completed orders restore authored formation speed")))
 					return true;
 		}
 		if (Holding(Target) && Second->Status == EForceStatus::Holding && At(Second.Get(), Target))

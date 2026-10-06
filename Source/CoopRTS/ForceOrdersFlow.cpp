@@ -90,11 +90,13 @@ void AArmyGroup::UpdateMarchSpeed()
 		Members[Index]->GetCharacterMovement()->MaxWalkSpeed = Speed * (Members[Index]->bPursuing ? 1.f : Factors[Index]);
 }
 
+// A force already holding the region stands at its post, not on a lane, and frees its lane.
 void AArmyGroup::AssignLane(int32 RegionIndex, const FVector& Anchor)
 {
 	TArray<int32, TInlineAllocator<16>> Used;
 	for (TActorIterator<AArmyGroup> It(GetWorld()); It; ++It)
-		if (*It != this && It->TeamIndex == TeamIndex && It->AppliedWaypoint == RegionIndex && It->LaneIndex != INDEX_NONE)
+		if (*It != this && It->TeamIndex == TeamIndex && It->AppliedWaypoint == RegionIndex && It->LaneIndex != INDEX_NONE
+			&& !It->IsHoldingRegion())
 			Used.Add(It->LaneIndex);
 	LaneIndex = LanePolicy::Allocate(Used);
 	LaneHeading = FVector2D(Anchor - GetMarchCenter()).GetSafeNormal();
