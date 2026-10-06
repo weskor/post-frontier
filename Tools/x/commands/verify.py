@@ -76,7 +76,9 @@ focus, capture, key, point, click or scroll with --peer host|c1 (four remotes on
 when requested), and ./x verify desktop stop. Desktop uses -nosteam, not Steam.
 Desktop launch --isolate moves only identity-checked game windows to a new empty
 temporary workspace. Stop restores the prior workspace, cursor and surviving
-prior-window focus; it never moves or reconfigures user windows.
+same-workspace prior-window focus; it never moves or reconfigures user windows.
+Failed launch always reaps its spawned children even if compositor restoration
+fails, retaining that cleanup error as a note on the original launch failure.
 Both input harnesses support up/down/left/right arrow pan, f selection/HQ focus,
 and key --hold 0..2000. Scroll -12..12 zooms: positive out, negative in.
 Native/desktop require a fresh Development package, UE 5.8.3 readiness, Hyprland's
