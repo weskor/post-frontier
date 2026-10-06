@@ -24,7 +24,7 @@ AHeadquarters::AHeadquarters()
 	// Same 300x300x200 cm volume and collision settings the scaled cube root used to provide.
 	HitBox = CreateDefaultSubobject<UBoxComponent>(TEXT("HQ Hit Box"));
 	SetRootComponent(HitBox);
-	HitBox->InitBoxExtent(FVector(150.f, 150.f, 100.f));
+	HitBox->InitBoxExtent(FVector(HitBoxHalfSize, HitBoxHalfSize, 100.f));
 	HitBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HitBox->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	HitBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);

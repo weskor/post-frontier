@@ -35,6 +35,8 @@ public:
 	HqHoldPolicy::FHold GetHold() const { return { HoldProgress, bHoldStarted }; }
 	HqHoldPolicy::EHoldState GetHoldState() const { return static_cast<HqHoldPolicy::EHoldState>(HoldState); }
 	EArmorClass GetArmorClass() const { return EArmorClass::Structure; }
+	// The hit box is a square of this half size, turned with the actor.
+	static constexpr float HitBoxHalfSize = 150.f;
 
 	// The nodes that guard this HQ; they register in their BeginPlay.
 	void RegisterNode(AFailoverNode* Node);

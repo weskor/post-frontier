@@ -1,5 +1,6 @@
 #include "ArmyGroup.h"
 
+#include "Algo/AnyOf.h"
 #include "AIController.h"
 #include "ArmyGroupInternal.h"
 #include "ArmyUnit.h"
@@ -57,21 +58,47 @@ FArmyCombatScan ScanHostiles(UWorld& World, int32 Team)
 	return Scan;
 }
 
-// Pursuit may only follow routes that stay inside the anchor's pursuit radius.
-void IssueBoundedPursuit(UWorld& World, AArmyUnit& Unit, AAIController& AI, const FVector& Goal, const FVector& Anchor)
+// Pursuit may only follow routes that stay inside the anchor's pursuit radius. When the ideal goal's
+// path is rejected (a navigation cutout, the leash, unreachable ground) the unit tries the next
+// approach goals, each closer to the target, and takes the first that routes.
+void IssueBoundedPursuit(UWorld& World, AArmyUnit& Unit, AAIController& AI, const CombatRangePolicy::FRangeTarget& Target, const FVector& Anchor)
 {
 	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(&World);
-	FPreparedMove Pursuit;
-	Pursuit.Controller = &AI;
-	if (!Navigation || !PrepareMove(*Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(), Unit.GetNavAgentLocation(), Goal, Pursuit, 75.f))
+	if (!Navigation)
 		return;
-	for (const FNavPathPoint& Point : Pursuit.Path->GetPathPoints())
-		if (FVector::DistSquared2D(Point.Location, Anchor) > FMath::Square(AArmyGroup::PursuitRadius))
-			return;
-	if (StartPreparedMove(Pursuit))
+	// Where the rest of the force stands, or is walking to.
+	TArray<FVector2D, TInlineAllocator<MaxUnitCount>> Occupied;
+	if (const AArmyGroup* Group = Unit.GetGroup())
+		for (const AArmyUnit* Member : Group->GetUnits())
+			if (IsValid(Member) && Member != &Unit && Member->IsAlive())
+			{
+				const AAIController* MemberAI = Cast<AAIController>(Member->GetController());
+				const bool bWalking = Member->bPursuing && MemberAI && MemberAI->GetMoveStatus() != EPathFollowingStatus::Idle;
+				Occupied.Add(FVector2D(bWalking ? Member->PursuitGoal : Member->GetActorLocation()));
+			}
+	FVector Tried[PursuitPolicy::MaxApproachGoals];
+	for (int32 Index = 0; Index < PursuitPolicy::MaxApproachGoals; ++Index)
 	{
-		Unit.bPursuing = true;
-		Unit.PursuitGoal = Pursuit.Goal;
+		const FVector Goal = PursuitPolicy::ApproachGoal(Unit.GetActorLocation(), Target, Unit.WeaponRange(),
+			PursuitPolicy::ArrivalAllowance(Target, Unit.GetSimpleCollisionRadius()), Anchor, AArmyGroup::PursuitRadius, Anchor.Z, Index, Occupied);
+		bool bRepeat = false;
+		for (int32 Earlier = 0; Earlier < Index; ++Earlier)
+			bRepeat |= FVector::DistSquared2D(Tried[Earlier], Goal) < FMath::Square(1.f);
+		Tried[Index] = Goal;
+		FPreparedMove Pursuit;
+		Pursuit.Controller = &AI;
+		if (bRepeat
+			|| !PrepareMove(*Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(), Unit.GetNavAgentLocation(), Goal, Pursuit, 75.f)
+			|| Algo::AnyOf(Pursuit.Path->GetPathPoints(), [&](const FNavPathPoint& Point) {
+				   return FVector::DistSquared2D(Point.Location, Anchor) > FMath::Square(AArmyGroup::PursuitRadius);
+			   }))
+			continue;
+		if (StartPreparedMove(Pursuit))
+		{
+			Unit.bPursuing = true;
+			Unit.PursuitGoal = Pursuit.Goal;
+			return;
+		}
 	}
 }
 }
@@ -85,7 +112,7 @@ bool AArmyGroup::IsEngagementPermitted(const AArmyUnit& Unit, AActor* Enemy) con
 	ArmyGroupPolicy::FEngagement Engagement;
 	Engagement.bAttackOrder = Order == EArmyOrder::Attack;
 	Engagement.bMarching = Status == EForceStatus::Marching;
-	Engagement.UnitToEnemy = static_cast<float>(FVector::DistSquared2D(UnitLocation, EnemyLocation));
+	Engagement.UnitToEnemy = static_cast<float>(FMath::Square(CombatTarget::EdgeDistance(Unit, Enemy)));
 	Engagement.EnemyToAnchor = FVector::DistSquared2D(EnemyLocation, Destination);
 	Engagement.UnitToAnchor = FVector::DistSquared2D(UnitLocation, Destination);
 	Engagement.WeaponRange = Unit.WeaponRange();
@@ -107,7 +134,7 @@ AActor* AArmyGroup::ChooseTarget(AArmyUnit& Unit, const FArmyCombatScan& Scan) c
 			return;
 		const int32 IndexInSelection = CandidateIndex++;
 		Selection.Consider(Unit.GetDamageType(), IndexInSelection, CombatTarget::ArmorClass(Candidate),
-			FVector::DistSquared2D(Unit.GetActorLocation(), Candidate->GetActorLocation()));
+			FMath::Square(CombatTarget::EdgeDistance(Unit, Candidate)));
 		if (Selection.Index == IndexInSelection)
 			Chosen = Candidate;
 	};
@@ -127,9 +154,9 @@ void AArmyGroup::UpdateAttackPursuit(AArmyUnit& Unit, AAIController& AI, AActor&
 	const int32 Slot = Unit.CompositionSlot;
 	const float Now = GetWorld()->GetTimeSeconds();
 	const bool bActivePursuit = Unit.bPursuing && AI.GetMoveStatus() != EPathFollowingStatus::Idle;
-	const FPursuitDecision Decision = PursuitPolicy::Evaluate(Unit.GetActorLocation(),
-		Chosen.GetActorLocation(), Unit.WeaponRange(), Unit.GetSimpleCollisionRadius() + 35.f,
-		Destination, PursuitRadius, Destination.Z, bActivePursuit, bTargetChanged,
+	const CombatRangePolicy::FRangeTarget Target = CombatTarget::RangeTarget(&Chosen, Unit.GetSimpleCollisionRadius());
+	const FPursuitDecision Decision = PursuitPolicy::Evaluate(Unit.GetActorLocation(), Target, Unit.WeaponRange(),
+		PursuitPolicy::ArrivalAllowance(Target, Unit.GetSimpleCollisionRadius()), Destination, PursuitRadius, Destination.Z, bActivePursuit, bTargetChanged,
 		Unit.PursuitGoal, Now >= PursuitRetryAt(Slot));
 	if (bTargetChanged)
 		Unit.bPursuing = false;
@@ -137,7 +164,8 @@ void AArmyGroup::UpdateAttackPursuit(AArmyUnit& Unit, AAIController& AI, AActor&
 	{
 		Unit.bPursuing = true; // Engaged: front maintenance and regrouping depend on this flag.
 		PursuitRetryAt(Slot) = 0.f;
-		if (AI.GetMoveStatus() != EPathFollowingStatus::Idle)
+		// A unit that is still walking keeps going until it is inside the stop band.
+		if (Decision.bStop && AI.GetMoveStatus() != EPathFollowingStatus::Idle)
 		{
 			AI.StopMovement();
 			Unit.GetCharacterMovement()->StopMovementImmediately();
@@ -146,7 +174,7 @@ void AArmyGroup::UpdateAttackPursuit(AArmyUnit& Unit, AAIController& AI, AActor&
 	else if (Decision.bIssueMove)
 	{
 		PursuitRetryAt(Slot) = Now + PursuitPolicy::IdleRetrySeconds;
-		IssueBoundedPursuit(*GetWorld(), Unit, AI, Decision.Goal, Destination);
+		IssueBoundedPursuit(*GetWorld(), Unit, AI, Target, Destination);
 	}
 }
 

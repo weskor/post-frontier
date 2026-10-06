@@ -74,6 +74,12 @@ public:
 	// Contract: Failover Nodes are never stunned. The pulse scan stuns every ACommandBuilding in range, so the
 	// slice that adds that building kind must exclude it there (ArmyUnitShield.cpp CastPulse) or guard this call.
 	void ApplyStun(float Seconds);
+	// Half size of the square footprint that blocks movement and that attackers measure their range to.
+	float GetFootprintHalfExtent() const
+	{
+		const UBuildingDefinition* Definition = GetDefinition();
+		return Definition ? GetFootprintRadius(*Definition) : 0.f;
+	}
 	void NotifyPlacementCommitted();
 	bool TrySpend(int32 Cost);
 

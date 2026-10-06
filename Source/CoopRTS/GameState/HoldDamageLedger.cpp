@@ -38,7 +38,7 @@ bool FHoldDamageLedger::IsDamaging(const ACommandGameState& State, const AArmyUn
 		if (VictimRegion && VictimRegion->RegionIndex == RegionIndex
 			&& HoldPolicy::IsDamageCurrent(Now, Source.Expires,
 				CombatTarget::IsAliveHostile(Source.Victim.Get(), Attacker.GetTeamIndex()),
-				FVector::DistSquared2D(Attacker.GetActorLocation(), Source.Victim->GetActorLocation()) <= FMath::Square(Attacker.WeaponRange())))
+				CombatTarget::EdgeDistance(Attacker, Source.Victim.Get()) <= Attacker.WeaponRange()))
 			return true;
 	}
 	return false;

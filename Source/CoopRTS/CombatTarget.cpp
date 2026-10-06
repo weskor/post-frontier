@@ -60,3 +60,29 @@ void CombatTarget::ReceiveAttack(AActor* Target, int32 Damage, AArmyUnit* Attack
 	else if (ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
 		Building->ReceiveAttack(Damage, Attacker);
 }
+
+CombatRangePolicy::FRangeTarget CombatTarget::RangeTarget(const AActor* Target, float AttackerRadius)
+{
+	const FVector Center = Target->GetActorLocation();
+	const float Yaw = Target->GetActorRotation().Yaw;
+	// Only a building's footprint keeps units out; the HQ and the Failover Node can be walked into.
+	const auto Square = [&](float HalfSize, bool bBlocksMovement) {
+		return CombatRangePolicy::Box(Center, FVector2D(HalfSize, HalfSize), Yaw, AttackerRadius, bBlocksMovement);
+	};
+	if (Cast<AArmyUnit>(Target))
+		return CombatRangePolicy::FRangeTarget(Center);
+	if (Cast<AHeadquarters>(Target))
+		return Square(AHeadquarters::HitBoxHalfSize, false);
+	if (Cast<AFailoverNode>(Target))
+		return Square(AFailoverNode::HitBoxHalfSize, false);
+	if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
+		return Square(Building->GetFootprintHalfExtent(), true);
+	checkNoEntry();
+	return CombatRangePolicy::FRangeTarget(Center);
+}
+
+double CombatTarget::EdgeDistance(const AArmyUnit& Attacker, const AActor* Target)
+{
+	return CombatRangePolicy::EdgeDistance(FVector2D(Attacker.GetActorLocation()),
+		RangeTarget(Target, Attacker.GetSimpleCollisionRadius()));
+}
