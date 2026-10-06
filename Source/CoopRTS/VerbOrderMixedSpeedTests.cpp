@@ -32,7 +32,7 @@ private:
 				return true;
 			for (const AArmyUnit* Unit : Group->GetUnits())
 				if (!Check(FMath::IsNearlyEqual(Unit->GetCharacterMovement()->MaxWalkSpeed, Speed,
-								bHolding ? .01f : Speed * FMath::Max(MarchSpeedPolicy::MaxCatchUp - 1.f, 1.f - MarchSpeedPolicy::MinAhead) + .01f),
+							   bHolding ? .01f : Speed * FMath::Max(MarchSpeedPolicy::MaxCatchUp - 1.f, 1.f - MarchSpeedPolicy::MinAhead) + .01f),
 						TEXT("Moving characters stay within the catch-up band of the shared cap; completed orders restore authored formation speed")))
 					return true;
 		}
