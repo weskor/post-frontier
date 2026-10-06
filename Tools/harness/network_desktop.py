@@ -19,7 +19,6 @@ from typing import cast
 
 from harness.verification_readiness import WindowNotReady, desktop_log_ready
 from harness.verify import (
-    BINARY,
     DEFAULT_MAP,
     POINTER,
     JsonObject,
@@ -32,6 +31,7 @@ from harness.verify import (
     wait_for_exit,
 )
 from harness.waits import Deadline, WaitTimeout
+from x.content.packages import package_executable
 from x.scopes import map_package
 
 
@@ -145,6 +145,7 @@ def stop(run: Path) -> None:
 def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) -> None:
     map_path = map_package(map_path)
     package = package_stamp()
+    binary = package_executable(Path(package["root"]), "CoopRTS", "development")
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
             raise RuntimeError(f"Missing desktop prerequisite: {program}")
@@ -173,7 +174,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
             folder.mkdir()
             travel = f"{map_path}?listen" if index == 0 else f"127.0.0.1:{port}"
             command = [
-                str(BINARY),
+                str(binary),
                 travel,
                 "-windowed",
                 "-ResX=1100",
@@ -196,7 +197,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
             with (folder / "stdout.log").open("w") as output:
                 process = subprocess.Popen(
                     command,
-                    cwd=BINARY.parents[3],
+                    cwd=binary.parents[3],
                     stdout=output,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
@@ -205,7 +206,7 @@ def launch(run: Path, clients: int, probe: bool, map_path: str = DEFAULT_MAP) ->
             deadline = Deadline(f"{name} executable identity", "identity")
             while True:
                 stamp = identity(process.pid)
-                if stamp and stamp["exe"] == str(BINARY.resolve()):
+                if stamp and stamp["exe"] == str(binary.resolve()):
                     break
                 if process.poll() is not None:
                     raise RuntimeError(

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from x import freshness, jsonio
+from x.content.packages import latest_package_directory, package_executable
 
 
 @lru_cache(maxsize=32)
@@ -21,21 +22,19 @@ def digest(path: Path) -> str:
 
 
 def package_snapshot(repo: Path) -> dict[str, Any]:
-    root = repo / "Saved/Packages/development/latest"
     try:
-        record = jsonio.load(root / "package.json")
+        directory = latest_package_directory(repo, "development")
+        binary = package_executable(directory, "CoopRTS", "development")
+        record = jsonio.load(directory / "package.json")
     except (OSError, ValueError) as error:
         raise RuntimeError("package missing or invalid; run ./x package") from error
-    if record.get("package_hash") != freshness.current_hash(repo, "package"):
-        raise RuntimeError("package stale; run ./x package")
-    if not (root / "CoopRTS/Binaries/Linux/CoopRTS").is_file():
-        raise RuntimeError("package binary missing; run ./x package")
+    root = binary.parents[3]
     content = sorted(
         path for path in (root / "CoopRTS/Content/Paks").glob("*") if path.is_file()
     )
     if not content:
         raise RuntimeError("packaged content missing; run ./x package")
-    artifacts = [root / "CoopRTS/Binaries/Linux/CoopRTS", *content]
+    artifacts = [binary, *content]
     hashes = {
         str(path.relative_to(root)): digest(path)
         for path in artifacts

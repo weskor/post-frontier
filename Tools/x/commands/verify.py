@@ -32,7 +32,9 @@ not a requirement after every change. Use host plus one remote for ordinary
 replicated proof; --clients 0 or 4 and --emulation belong only to requested topology/
 fault checks. Emulation requires observed native PktLag=120/PktLoss=8 on every peer.
 Editor mode ensures a fresh editor build and holds its module reader lock throughout
-verification. Packaged mode requires ./x package and takes no editor module lock.
+verification. Packaged mode takes no editor module lock and selects the newest
+fresh ordinary Development or --playtest package, using the same selector as
+./x play. Binary and cooked-content hashes remain guarded throughout verification.
 Network leases one headless slot per host/client peer, capped at the configured
 pool size and acquired together. HUD uses one slot. Native/desktop sessions remain
 exclusive; rendered network peers still use the headless pool.
@@ -72,9 +74,11 @@ cc, pkg-config and Wayland client headers/library. They do not install dependenc
 or support arbitrary compositors. Shipping lacks the required ordinary logs/
 probes; use ./x help play for manual Shipping/Steam surface checks instead.
 Launch --map accepts a /Game/... package path without extension or URL options;
-network/HUD accept --map too. Boot is the harness default. Shape validation is
-not existence proof: a missing/unstarted requested map fails, and selecting one
-level supplies no evidence for another.
+network/HUD accept --map too. Boot is the harness default; for a playtest package
+select a cooked map explicitly, such as --map /Game/Maps/AvailabilityZoneV2 for
+network scenarios or --map /Game/Maps/Menu for a native menu observation.
+Shape validation is not existence proof: a missing/unstarted requested map fails,
+and selecting one level supplies no evidence for another.
 
 Doctor checks recorded process identity, package hashes, requested-map readiness
 and owned window geometry/scale; it cannot detect a logically wedged UI. Run it

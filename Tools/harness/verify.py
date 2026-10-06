@@ -22,13 +22,13 @@ from typing import Any, cast
 from harness.verification_readiness import native_log_ready
 from harness.waits import Deadline, WaitTimeout
 from x import scopes
+from x.content.packages import package_executable
 
 # JSON session and compositor payloads are dynamic third-party records.
 type JsonObject = dict[str, Any]
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = Path(__file__).resolve().parent
-BINARY = ROOT / "Saved/Packages/development/latest/CoopRTS/Binaries/Linux/CoopRTS"
 POINTER = ROOT / "Intermediate/x-harness/pointer"
 DEFAULT_MAP = "/Game/Maps/Boot"
 
@@ -207,13 +207,14 @@ def stop(run: Path) -> None:
 def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
     map_path = scopes.map_package(map_path)
     stamp = package_stamp()
+    binary = package_executable(Path(stamp["root"]), "CoopRTS", "development")
     for program in ("hyprctl", "wtype", "grim", "cc", "pkg-config"):
         if not shutil.which(program):
             raise RuntimeError(f"Missing dependency: {program}")
     execute(["hyprctl", "monitors", "-j"])
     run.mkdir(parents=True, exist_ok=False)
     command = [
-        str(BINARY),
+        str(binary),
         map_path,
         "-windowed",
         "-ResX=1600",
@@ -227,7 +228,7 @@ def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
     with (run / "stdout.log").open("w") as out:
         process = subprocess.Popen(
             command,
-            cwd=BINARY.parents[3],
+            cwd=binary.parents[3],
             stdout=out,
             stderr=subprocess.STDOUT,
             start_new_session=True,
@@ -236,7 +237,7 @@ def launch(run: Path, map_path: str = DEFAULT_MAP) -> None:
         deadline = Deadline("native game executable identity", "identity")
         while True:
             current = identity(process.pid)
-            if current and current["exe"] == str(BINARY.resolve()):
+            if current and current["exe"] == str(binary.resolve()):
                 break
             if process.poll() is not None:
                 raise RuntimeError("Game exited during launch; inspect stdout.log")

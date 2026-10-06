@@ -14,7 +14,6 @@ import time
 from typing import NotRequired, TypedDict
 
 from harness.verify import (
-    BINARY,
     DEFAULT_MAP,
     ROOT,
     JsonObject,
@@ -23,6 +22,7 @@ from harness.verify import (
     package_stamp,
 )
 from harness.waits import Deadline, WaitTimeout
+from x.content.packages import package_executable
 from x.scopes import map_package
 
 
@@ -291,8 +291,11 @@ class NetworkPeers:
                 "-unattended",
             ]
         else:
+            binary = package_executable(
+                Path(self.artifact["root"]), "CoopRTS", "development"
+            )
             command = [
-                str(BINARY),
+                str(binary),
                 f"{self.map_path}?listen" if host else f"127.0.0.1:{self.port}",
                 "-nosound",
                 "-unattended",
@@ -333,7 +336,7 @@ class NetworkPeers:
         with (folder / "stdout.log").open("w") as output:
             process = subprocess.Popen(
                 command,
-                cwd=ROOT if self.mode == "editor" else BINARY.parents[3],
+                cwd=ROOT if self.mode == "editor" else Path(command[0]).parents[3],
                 stdout=output,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,

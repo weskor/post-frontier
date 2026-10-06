@@ -132,10 +132,12 @@ def test_failed_launch_reaps_child_even_before_session_identity(
 ) -> None:
     module: Any = network_desktop if desktop else verify
     child = Child()
-    binary = tmp_path / "package/game/bin/game"
+    root = tmp_path / "package"
+    binary = root / "CoopRTS/Binaries/Linux/CoopRTS"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"package")
     expected = {"start": "1", "exe": str(binary.resolve())}
-    monkeypatch.setattr(module, "BINARY", binary)
-    monkeypatch.setattr(module, "package_stamp", lambda: {})
+    monkeypatch.setattr(module, "package_stamp", lambda: {"root": str(root)})
     monkeypatch.setattr(module.shutil, "which", lambda program: "/fake/program")
     monkeypatch.setattr(module, "compile_pointer", lambda: None)
     monkeypatch.setattr(module, "execute", lambda command: "[]")
