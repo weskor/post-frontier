@@ -261,7 +261,13 @@ private:
 	// Takes the lowest lane no same-team force already heading for RegionIndex holds.
 	void AssignLane(int32 RegionIndex, const FVector& Anchor);
 	bool IssueOnLane(EArmyOrder Phase, const AMapRegion& Region, const FVector& Anchor);
+	// The lane for LaneWaypoint, kept while the waypoint stays; INDEX_NONE for orders that use no lane.
 	int32 LaneIndex = INDEX_NONE;
+	int32 LaneWaypoint = INDEX_NONE;
+	float LaneWaitingSince = -1.f;
+	// True when the lane was given up for the anchor: the force stands at its lane, the region still needs securing and no
+	// force of its team is in capture range. The next order goes to the anchor.
+	bool ReleaseLaneIfUnserved(const ACommandGameState& State, const AMapRegion& Region, int32 RegionIndex);
 	FVector2D LaneHeading = FVector2D::ZeroVector;
 	bool ShouldKeepWaypoint(const ACommandGameState& State, int32 RegionIndex, AActor* Structure) const;
 	bool IssueTravelNearAnchor(EArmyOrder Phase, const FVector& Anchor, const AMapRegion& Region);

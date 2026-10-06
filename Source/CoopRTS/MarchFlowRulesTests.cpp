@@ -109,11 +109,12 @@ bool FLaneOffsetTest::RunTest(const FString& Parameters)
 	using namespace LanePolicy;
 	const FVector2D Heading(0., 1.);
 	TestEqual(TEXT("Lane 0 is the anchor"), Offset(0, Heading), FVector2D::ZeroVector);
-	TestEqual(TEXT("Lane 1 is one spacing to the right of the heading"), Offset(1, Heading), FVector2D(LaneSpacing, 0.));
-	TestEqual(TEXT("Lane 2 is one spacing to the left"), Offset(2, Heading), FVector2D(-LaneSpacing, 0.));
-	TestEqual(TEXT("Lane 3 is two to the right"), Offset(3, Heading), FVector2D(2.f * LaneSpacing, 0.));
+	// Unreal axes: facing +Y, the right hand is -X.
+	TestEqual(TEXT("Lane 1 is one spacing to the right of the heading"), Offset(1, Heading), FVector2D(-LaneSpacing, 0.));
+	TestEqual(TEXT("Lane 2 is one spacing to the left"), Offset(2, Heading), FVector2D(LaneSpacing, 0.));
+	TestEqual(TEXT("Lane 3 is two to the right"), Offset(3, Heading), FVector2D(-2.f * LaneSpacing, 0.));
 	TestEqual(TEXT("The second rank lies behind the anchor"), Offset(LanesPerRank, Heading), FVector2D(0., -RankDepth));
-	TestEqual(TEXT("The offset follows the heading"), Offset(1, FVector2D(1., 0.)), FVector2D(0., -LaneSpacing));
+	TestEqual(TEXT("The offset follows the heading: facing +X the right hand is +Y"), Offset(1, FVector2D(1., 0.)), FVector2D(0., LaneSpacing));
 	TestEqual(TEXT("A zero heading is a fixed axis, not an error"), Offset(1, FVector2D::ZeroVector), Offset(1, FVector2D(1., 0.)));
 
 	float Closest = TNumericLimits<float>::Max(), Farthest = 0.f;

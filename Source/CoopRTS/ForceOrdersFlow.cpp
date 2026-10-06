@@ -2,6 +2,7 @@
 
 #include "AIController.h"
 #include "ArmyUnit.h"
+#include "CapturePoint.h"
 #include "CommandGameState.h"
 #include "Commands/OrderGraph.h"
 #include "EngineUtils.h"
@@ -49,13 +50,21 @@ float AArmyGroup::GetFormationRadius() const
 	return Radius;
 }
 
+// Members in combat (pursuing) or wedged (settled) do not speak for the march, and are left out of the mean too.
 float AArmyGroup::GetMarchSpread() const
 {
-	const FVector Center = GetCenter();
+	FVector Center = FVector::ZeroVector;
+	int32 Count = 0;
+	for (const AArmyUnit* Unit : Units)
+		if (IsValid(Unit) && Unit->IsAlive() && !Unit->bPursuing && !IsUnitSettled(*Unit))
+		{
+			Center += Unit->GetActorLocation();
+			++Count;
+		}
 	float Spread = 0.f;
 	for (const AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive())
-			Spread = FMath::Max(Spread, static_cast<float>(FVector::Dist2D(Unit->GetActorLocation(), Center)));
+		if (Count > 0 && IsValid(Unit) && Unit->IsAlive() && !Unit->bPursuing && !IsUnitSettled(*Unit))
+			Spread = FMath::Max(Spread, static_cast<float>(FVector::Dist2D(Unit->GetActorLocation(), Center / Count)));
 	return Spread;
 }
 
@@ -90,6 +99,28 @@ void AArmyGroup::UpdateMarchSpeed()
 		Members[Index]->GetCharacterMovement()->MaxWalkSpeed = Speed * (Members[Index]->bPursuing ? 1.f : Factors[Index]);
 }
 
+bool AArmyGroup::ReleaseLaneIfUnserved(const ACommandGameState& State, const AMapRegion& Region, int32 RegionIndex)
+{
+	const bool bUnserved = LaneIndex > 0 && AppliedWaypoint == RegionIndex && Region.Anchor
+		&& State.GetRegionController(RegionIndex) != TeamIndex
+		&& !(TeamIndex == 0 ? Region.Anchor->bFriendlyPresent : Region.Anchor->bEnemyPresent)
+		&& HasArrivedAtRegion(State, RegionIndex);
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (!bUnserved)
+	{
+		LaneWaitingSince = -1.f;
+		return false;
+	}
+	if (LaneWaitingSince < 0.f)
+		LaneWaitingSince = Now;
+	if (Now - LaneWaitingSince < LanePolicy::ReleaseSeconds)
+		return false;
+	LaneIndex = 0;
+	LaneWaitingSince = -1.f;
+	AppliedWaypoint = INDEX_NONE;
+	return true;
+}
+
 // A force already holding the region stands at its post, not on a lane, and frees its lane.
 void AArmyGroup::AssignLane(int32 RegionIndex, const FVector& Anchor)
 {
@@ -99,7 +130,27 @@ void AArmyGroup::AssignLane(int32 RegionIndex, const FVector& Anchor)
 			&& !It->IsHoldingRegion())
 			Used.Add(It->LaneIndex);
 	LaneIndex = LanePolicy::Allocate(Used);
-	LaneHeading = FVector2D(Anchor - GetMarchCenter()).GetSafeNormal();
+	LaneWaypoint = RegionIndex;
+	// The approach direction: from the route region before the waypoint to its anchor, so ranks lie on the side
+	// the force comes from even when a leg crosses several regions. Without a route, from the force itself.
+	LaneHeading = FVector2D::ZeroVector;
+	if (const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>())
+	{
+		uint64 Graph[ForceOrders::MaxRegions];
+		const int32 Count = ForceOrderGraph::ReadGraph(*State, Graph);
+		int32 Previous = MarchSourceRegion(*State);
+		for (int32 Step = 0; Step < Count && Previous != INDEX_NONE && Previous != RegionIndex; ++Step)
+		{
+			const int32 Next = ForceOrders::NextWaypoint(Graph, Count, Previous, RegionIndex);
+			if (Next == RegionIndex || Next == INDEX_NONE || Next == Previous)
+				break;
+			Previous = Next;
+		}
+		if (Previous != INDEX_NONE && Previous != RegionIndex)
+			LaneHeading = FVector2D(Anchor - State->GetRegionAnchor(Previous)).GetSafeNormal();
+	}
+	if (LaneHeading.IsNearlyZero())
+		LaneHeading = FVector2D(Anchor - GetMarchCenter()).GetSafeNormal();
 }
 
 // Orders the force to its lane around the anchor: the whole lane offset first, then half of it, each only where

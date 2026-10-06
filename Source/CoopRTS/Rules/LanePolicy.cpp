@@ -25,7 +25,8 @@ FVector2D Offset(int32 Lane, const FVector2D& Heading)
 	// 0, +1, -1, +2, -2
 	const int32 Lateral = Index == 0 ? 0 : (Index % 2 ? (Index + 1) / 2 : -(Index / 2));
 	const FVector2D Forward = Heading.IsNearlyZero() ? FVector2D(1., 0.) : Heading.GetSafeNormal();
-	const FVector2D Right(Forward.Y, -Forward.X);
+	// Unreal axes: X forward, Y right, so the right of a planar heading (X, Y) is (-Y, X).
+	const FVector2D Right(-Forward.Y, Forward.X);
 	return Right * (Lateral * LaneSpacing) - Forward * (Rank * RankDepth);
 }
 }

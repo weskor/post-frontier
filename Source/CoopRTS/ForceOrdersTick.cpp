@@ -157,7 +157,7 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 		Anchor = StructureStandOff(*Structure, GetCenter(), Anchor.Z);
 	// A lane is chosen once per waypoint and kept while the waypoint stays.
 	const bool bLaned = bLane && !Structure;
-	if (bLaned && (Kind == MovementProgressPolicy::EOrderKind::NewWaypoint || LaneIndex == INDEX_NONE))
+	if (bLaned && (LaneWaypoint != RegionIndex || LaneIndex == INDEX_NONE))
 		AssignLane(RegionIndex, Anchor);
 	if (!(bLaned && IssueOnLane(Phase, *Region, Anchor)) && !IssueTravel(Phase, Anchor)
 		&& (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
@@ -167,6 +167,8 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 	AppliedPhase = Phase;
 	AppliedStructure = Structure;
 	NextWaypointAttempt = 0.f;
+	if (!bLaned)
+		LaneIndex = LaneWaypoint = INDEX_NONE;
 	AttackTarget = Structure;
 	ForceNetUpdate();
 	return true;
@@ -276,6 +278,7 @@ void AArmyGroup::MaintainHoldWaypoint(const FForceTickContext& Ctx, const AMapRe
 	if ((bIdleRally && !IsValid(ProductionBuilding)) || IsHoldingRegion()
 		|| (Ctx.PreviousStatus == EForceStatus::Holding && GetWorld()->GetTimeSeconds() < NextHoldingMaintenance))
 		return;
+	ReleaseLaneIfUnserved(*Ctx.State, Target, TargetRegionIndex);
 	if (ApplyWaypoint(TargetRegionIndex, EArmyOrder::Attack, nullptr, true)
 		&& (!Target.Anchor || Ctx.State->GetRegionController(TargetRegionIndex) == TeamIndex)
 		&& !Target.GetDefendPosts().IsEmpty())
@@ -328,6 +331,8 @@ void AArmyGroup::TickMarch(const FForceTickContext& Ctx)
 			{ Ctx.Controlled, Ctx.Hostiles, Ctx.Anchored });
 	else if (Decision.Step == RouteCapturePolicy::EStep::Continue)
 		Waypoint = AppliedWaypoint;
+	if (Decision.Step == RouteCapturePolicy::EStep::Secure)
+		ReleaseLaneIfUnserved(*Ctx.State, *Current, Source);
 	if (Waypoint == TargetRegionIndex && TargetStructure)
 		ApplyWaypoint(Waypoint, EArmyOrder::Attack, TargetStructure);
 	else
