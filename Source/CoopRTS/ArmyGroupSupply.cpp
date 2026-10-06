@@ -103,21 +103,15 @@ void AArmyGroup::JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSy
 	if (Leg && !FileTargets.IsEmpty() && !IsHoldingRegion())
 	{
 		const FVector2D Tail = ArmyGroupPolicy::ColumnTail(FileTargets, Leg->Yaw);
-		const FVector Level(Tail.X, Tail.Y, Unit.GetActorLocation().Z);
-		FVector Rear = FVector(FileTargets[0], Level.Z);
-		for (const FVector2D& Target : FileTargets)
-			if (FVector2D::DotProduct(Target, FVector2D(FMath::Cos(Leg->Yaw), FMath::Sin(Leg->Yaw)))
-				< FVector2D::DotProduct(FVector2D(Rear), FVector2D(FMath::Cos(Leg->Yaw), FMath::Sin(Leg->Yaw))))
-				Rear = FVector(Target, Level.Z);
-		for (const FVector& Goal : { Level, Rear })
-			if (PrepareMove(Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(),
-					Unit.GetNavAgentLocation(), Goal, Formation))
-			{
-				StartPreparedMove(Formation);
-				Unit.FormationMemory = *Leg;
-				Unit.FormationTarget = Formation.Goal;
-				return;
-			}
+		// A tail with no complete path falls through to the composition slot below rather than onto a member.
+		if (PrepareMove(Navigation, Unit.GetNavAgentPropertiesRef(), &AI, *AI.GetPathFollowingComponent(),
+				Unit.GetNavAgentLocation(), FVector(Tail.X, Tail.Y, Unit.GetActorLocation().Z), Formation))
+		{
+			StartPreparedMove(Formation);
+			Unit.FormationMemory = *Leg;
+			Unit.FormationTarget = Formation.Goal;
+			return;
+		}
 	}
 	// The slot the members of this intent stand in: around the idle post while holding, else around the destination
 	// (a responding holder's destination is its threat, as before the fit).
