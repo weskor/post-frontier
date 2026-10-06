@@ -48,8 +48,7 @@ private:
 			for (const AArmyUnit* Unit : Force->GetUnits())
 			{
 				Targets.Add(Unit->FormationTarget);
-				Furthest = FMath::Max(Furthest, static_cast<float>(FVector::Dist2D(Unit->FormationTarget,
-					Force->Destination + ArmyGroupPolicy::FormationOffset({ false, 6, false }, Unit->GetCompositionSlot()))));
+				Furthest = FMath::Max(Furthest, static_cast<float>(FVector::Dist2D(Unit->FormationTarget, Force->Destination + ArmyGroupPolicy::FormationOffset({ false, 6, false }, Unit->GetCompositionSlot()))));
 			}
 			Test->AddInfo(FString::Printf(TEXT("At rest at the anchor; the planned targets lie up to %.0f cm from the box slots"), Furthest));
 			if (!Check(Furthest > 100.f, TEXT("The leg planned slots that differ from the box slots, so the test can tell the two apart")))
