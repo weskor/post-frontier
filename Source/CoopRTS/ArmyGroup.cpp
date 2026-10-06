@@ -76,28 +76,18 @@ float& AArmyGroup::PursuitRetryAt(int32 Slot)
 
 FVector AArmyGroup::GetCenter() const
 {
-	// A settled (wedged) member no longer speaks for where the force is, unless every member is settled.
-	// A pursuing member belongs to combat and always counts.
-	FVector All = FVector::ZeroVector;
-	FVector Unsettled = FVector::ZeroVector;
-	int32 AllCount = 0, UnsettledCount = 0;
+	FVector Center = FVector::ZeroVector;
+	int32 Count = 0;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (IsValid(Unit) && Unit->IsAlive())
 		{
-			All += Unit->GetActorLocation();
-			++AllCount;
-			if (Unit->bPursuing || !IsUnitSettled(*Unit))
-			{
-				Unsettled += Unit->GetActorLocation();
-				++UnsettledCount;
-			}
+			Center += Unit->GetActorLocation();
+			++Count;
 		}
 	}
-	if (UnsettledCount > 0)
-		return Unsettled / UnsettledCount;
-	return AllCount > 0 ? All / AllCount : AppliedWaypoint != INDEX_NONE ? Destination
-																		 : GetActorLocation();
+	return Count > 0 ? Center / Count : AppliedWaypoint != INDEX_NONE ? Destination
+																	  : GetActorLocation();
 }
 
 void AArmyGroup::Tick(float DeltaSeconds)

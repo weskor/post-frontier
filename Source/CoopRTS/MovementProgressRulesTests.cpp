@@ -12,6 +12,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressResetTest, "CoopRTS.Rules.Move
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressArrivalTest, "CoopRTS.Rules.MovementProgress.FittedArrival",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressOrderTest, "CoopRTS.Rules.MovementProgress.RepeatOrders",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressExemptTest, "CoopRTS.Rules.MovementProgress.Exempt",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
@@ -221,6 +223,40 @@ bool FMovementProgressArrivalTest::RunTest(const FString& Parameters)
 	const FArrivalMember Shifted[] = { { SlotA, SlotA + FVector(0.f, 600.f, 0.f), false }, { SlotB, SlotB + FVector(0.f, 600.f, 0.f), false } };
 	TestFalse(TEXT("Members 600 cm from fitted slots they are still walking to are not gathered"),
 		JudgeArrival(Shifted, Radius).bGathered);
+	return true;
+}
+
+bool FMovementProgressOrderTest::RunTest(const FString& Parameters)
+{
+	TestTrue(TEXT("A new waypoint is a new waypoint whatever its phase"),
+		ClassifyOrder(false, true) == EOrderKind::NewWaypoint && ClassifyOrder(false, false) == EOrderKind::NewWaypoint);
+	TestTrue(TEXT("The applied waypoint with the same phase is a repeat"), ClassifyOrder(true, true) == EOrderKind::Repeat);
+	TestTrue(TEXT("The applied waypoint with another phase is a phase switch"), ClassifyOrder(true, false) == EOrderKind::PhaseSwitch);
+
+	FOrderClocks Clocks;
+	const float Start = 100.f;
+	Ordered(EOrderKind::NewWaypoint, Clocks, Start);
+	TestFalse(TEXT("An identical order right after is held back"), MayOrder(EOrderKind::Repeat, Clocks, Start + .25f));
+	TestTrue(TEXT("An advance to a new waypoint right after a repeat goes out in the same tick"),
+		MayOrder(EOrderKind::NewWaypoint, Clocks, Start + .25f));
+	Ordered(EOrderKind::Repeat, Clocks, Start + RepeatOrderSeconds);
+	TestTrue(TEXT("The new waypoint is not held back by a repeat issued the tick before"),
+		MayOrder(EOrderKind::NewWaypoint, Clocks, Start + RepeatOrderSeconds));
+	TestFalse(TEXT("Another repeat waits out a fresh interval"), MayOrder(EOrderKind::Repeat, Clocks, Start + RepeatOrderSeconds + 1.f));
+	TestTrue(TEXT("A repeat is allowed once the interval has passed"),
+		MayOrder(EOrderKind::Repeat, Clocks, Start + 2.f * RepeatOrderSeconds));
+
+	// Arrival: the first phase switch is immediate even right after the waypoint was ordered.
+	FOrderClocks Arrival;
+	Ordered(EOrderKind::NewWaypoint, Arrival, Start);
+	TestTrue(TEXT("The first phase switch on a waypoint is never held back"), MayOrder(EOrderKind::PhaseSwitch, Arrival, Start + .25f));
+	Ordered(EOrderKind::PhaseSwitch, Arrival, Start + .25f);
+	TestFalse(TEXT("A second switch within the interval waits, so disagreeing callers cannot alternate"),
+		MayOrder(EOrderKind::PhaseSwitch, Arrival, Start + .5f));
+	Ordered(EOrderKind::Repeat, Arrival, Start + 1.f);
+	TestFalse(TEXT("A repeat in between does not release the switch clock"), MayOrder(EOrderKind::PhaseSwitch, Arrival, Start + 1.5f));
+	TestTrue(TEXT("A switch is allowed again after the interval"),
+		MayOrder(EOrderKind::PhaseSwitch, Arrival, Start + .25f + RepeatOrderSeconds));
 	return true;
 }
 #endif

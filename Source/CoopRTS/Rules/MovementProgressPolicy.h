@@ -26,6 +26,28 @@ constexpr float GoalChangeTolerance = 100.f;
 // test that stays unmet cannot re-order the force every tick.
 constexpr float RepeatOrderSeconds = 2.f;
 
+// What an order to a waypoint is, against the one applied last. A new waypoint (or structure) is never held back.
+// Changing the phase on the applied waypoint (Retreat to Attack on arrival, Move to Attack at a hold) goes out
+// at once the first time; only a second switch within RepeatOrderSeconds waits, which stops callers that
+// disagree on the phase from alternating every tick. Repeating the same phase waits out the same interval.
+enum class EOrderKind : uint8
+{
+	NewWaypoint,
+	PhaseSwitch,
+	Repeat
+};
+
+struct FOrderClocks
+{
+	float NextRepeat = 0.f;
+	float NextSwitch = 0.f;
+};
+
+EOrderKind ClassifyOrder(bool bSameWaypoint, bool bSamePhase);
+bool MayOrder(EOrderKind Kind, const FOrderClocks& Clocks, float Now);
+// Records an order that went out.
+void Ordered(EOrderKind Kind, FOrderClocks& Clocks, float Now);
+
 struct FUnitProgress
 {
 	bool bTracking = false;

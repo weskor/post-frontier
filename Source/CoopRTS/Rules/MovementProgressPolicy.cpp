@@ -83,4 +83,22 @@ FArrival JudgeArrival(TConstArrayView<FArrivalMember> Members, float FittedRadiu
 			|| FVector::Dist2D(Member.Position, Arrival.Center) <= FittedRadius + ArrivalTolerance;
 	return Arrival;
 }
+
+EOrderKind ClassifyOrder(bool bSameWaypoint, bool bSamePhase)
+{
+	return !bSameWaypoint ? EOrderKind::NewWaypoint : bSamePhase ? EOrderKind::Repeat
+																 : EOrderKind::PhaseSwitch;
+}
+
+bool MayOrder(EOrderKind Kind, const FOrderClocks& Clocks, float Now)
+{
+	return Kind == EOrderKind::NewWaypoint || Now >= (Kind == EOrderKind::Repeat ? Clocks.NextRepeat : Clocks.NextSwitch);
+}
+
+void Ordered(EOrderKind Kind, FOrderClocks& Clocks, float Now)
+{
+	Clocks.NextRepeat = Now + RepeatOrderSeconds;
+	if (Kind != EOrderKind::Repeat)
+		Clocks.NextSwitch = Kind == EOrderKind::PhaseSwitch ? Now + RepeatOrderSeconds : 0.f;
+}
 }

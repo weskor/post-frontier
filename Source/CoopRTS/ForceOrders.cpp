@@ -68,6 +68,36 @@ bool AArmyGroup::GatherArrival(const ACommandGameState& State, bool bSkipExempt,
 	return true;
 }
 
+// Where the force is for the executor: the mean of its members, without those settled by progress (unless every
+// member is), so one wedged unit does not drag the force's region behind it. GetCenter stays the mean of all.
+FVector AArmyGroup::GetMarchCenter() const
+{
+	FVector All = FVector::ZeroVector, Free = FVector::ZeroVector;
+	int32 AllCount = 0, FreeCount = 0;
+	for (const AArmyUnit* Unit : Units)
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive())
+			continue;
+		All += Unit->GetActorLocation();
+		++AllCount;
+		if (Unit->bPursuing || !IsUnitSettled(*Unit))
+		{
+			Free += Unit->GetActorLocation();
+			++FreeCount;
+		}
+	}
+	return FreeCount > 0 ? Free / FreeCount : AllCount > 0 ? All / AllCount
+														   : GetCenter();
+}
+
+int32 AArmyGroup::MarchSourceRegion(const ACommandGameState& State) const
+{
+	if (GetJoinedCount() == 0)
+		return ForceOrderGraph::SourceRegion(*this, State);
+	const AMapRegion* Region = State.FindRegionAt(GetMarchCenter());
+	return Region ? Region->RegionIndex : INDEX_NONE;
+}
+
 bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
 {
 	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);

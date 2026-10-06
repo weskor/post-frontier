@@ -29,6 +29,9 @@ struct FForceTickContext
 
 namespace
 {
+// A waypoint order that could not be issued is retried no sooner than this.
+constexpr float RetryAfterFailureSeconds = 2.f;
+
 constexpr uint64 Bit(int32 RegionIndex)
 {
 	return uint64(1) << RegionIndex;
@@ -131,19 +134,23 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 	const float Now = GetWorld()->GetTimeSeconds();
 	if (Now < NextWaypointAttempt)
 		return false;
-	NextWaypointAttempt = Now + MovementProgressPolicy::RepeatOrderSeconds;
+	// A repeat of the applied order, or a second phase switch on its waypoint, waits out its clock; an order to a
+	// new waypoint or structure, or the first phase switch, is never held back by a repeat.
+	const MovementProgressPolicy::EOrderKind Kind = MovementProgressPolicy::ClassifyOrder(
+		AppliedWaypoint == RegionIndex && AppliedStructure.Get() == Structure, AppliedPhase == Phase);
+	if (!MovementProgressPolicy::MayOrder(Kind, OrderClocks, Now))
+		return false;
+	NextWaypointAttempt = Now + RetryAfterFailureSeconds;
 	FVector Anchor = State->GetRegionAnchor(RegionIndex);
 	if (Structure)
 		Anchor = StructureStandOff(*Structure, GetCenter(), Anchor.Z);
 	if (!IssueTravel(Phase, Anchor) && (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
 		return false;
-	// An order to the waypoint already applied, whatever its phase, waits out the retry interval; a new waypoint
-	// starts at once. Callers that disagree on the phase would otherwise re-order the force every tick.
-	const bool bRepeat = AppliedWaypoint == RegionIndex && AppliedStructure.Get() == Structure;
+	MovementProgressPolicy::Ordered(Kind, OrderClocks, Now);
 	WaypointRegionIndex = AppliedWaypoint = RegionIndex;
 	AppliedPhase = Phase;
 	AppliedStructure = Structure;
-	NextWaypointAttempt = bRepeat ? Now + MovementProgressPolicy::RepeatOrderSeconds : 0.f;
+	NextWaypointAttempt = 0.f;
 	AttackTarget = Structure;
 	ForceNetUpdate();
 	return true;
@@ -336,7 +343,7 @@ void AArmyGroup::TickOrders()
 	const ACommandGameState* State = GetWorld() ? GetWorld()->GetGameState<ACommandGameState>() : nullptr;
 	if (!HasAuthority() || !State || State->MatchResult != EMatchResult::Ongoing)
 		return;
-	const int32 Source = ForceOrderGraph::SourceRegion(*this, *State);
+	const int32 Source = MarchSourceRegion(*State);
 	if (Source == INDEX_NONE)
 		return;
 	EnsureActiveOrder(Source);

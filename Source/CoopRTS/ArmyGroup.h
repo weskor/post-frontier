@@ -254,6 +254,9 @@ private:
 	void RepathUnit(AArmyUnit& Unit, const FVector& Goal);
 	TArray<FUnitProgressSlot, TInlineAllocator<6>> UnitProgress;
 	int32 UnitsSettled = 0;
+	FVector GetMarchCenter() const;
+	// The region the executor treats the force as standing in: that of GetMarchCenter.
+	int32 MarchSourceRegion(const ACommandGameState& State) const;
 	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
 	// A structure order's stand-off point is reached: the force's mean is within 170 cm of the fitted mean.
 	bool HasReachedStandOff() const;
@@ -279,6 +282,8 @@ private:
 	bool bStructureAttack = false;
 	bool bIdleRally = false;
 	float NextWaypointAttempt = 0.f;
+	// When the applied waypoint may be ordered again (MovementProgressPolicy::EOrderKind).
+	MovementProgressPolicy::FOrderClocks OrderClocks;
 	float NextHoldingMaintenance = 0.f;
 	int32 AppliedWaypoint = INDEX_NONE;
 	EArmyOrder AppliedPhase = EArmyOrder::Hold;
