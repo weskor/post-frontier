@@ -17,7 +17,7 @@ constexpr float SettleIdleSeconds = 6.f;
 constexpr float RadiusGrowth = 75.f;
 constexpr float MaxRadius = 300.f;
 // A unit this close to its goal has arrived and is not tracked.
-constexpr float AtGoalRadius = 60.f;
+constexpr float AtGoalRadius = 100.f;
 // A goal that moved further than this is a new goal.
 constexpr float GoalChangeTolerance = 100.f;
 
