@@ -2,6 +2,7 @@
 #include "MatchSimulationSubsystem.h"
 
 #include "ArmyGroup.h"
+#include "ArmyGroupPathing.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
@@ -77,6 +78,23 @@ int32 CrowdMaxAgents()
 }
 }
 
+namespace
+{
+// What moving forces cost since the match began (ArmyGroupPathing): synchronous path queries and moves a navmesh
+// raycast answered instead, in all and inside orders. MoveToLocation and engine re-paths are not counted.
+TSharedRef<FJsonObject> PathCost()
+{
+	const ArmyGroupPathing::FQueryStats& Stats = ArmyGroupPathing::Snapshot();
+	const TSharedRef<FJsonObject> Cost = MakeShared<FJsonObject>();
+	Cost->SetNumberField(TEXT("path_queries"), static_cast<double>(Stats.PathQueries));
+	Cost->SetNumberField(TEXT("straight_moves"), static_cast<double>(Stats.StraightMoves));
+	Cost->SetNumberField(TEXT("orders"), static_cast<double>(Stats.Orders));
+	Cost->SetNumberField(TEXT("order_path_queries"), static_cast<double>(Stats.OrderPathQueries));
+	Cost->SetNumberField(TEXT("order_straight_moves"), static_cast<double>(Stats.OrderStraightMoves));
+	return Cost;
+}
+}
+
 bool FMatchSimulation::Flush()
 {
 	const FString& Path = FSimulationSettings::Get().Output;
@@ -93,6 +111,7 @@ bool FMatchSimulation::Flush()
 	// Units beyond the crowd cap cannot move (Config/DefaultEngine.ini); the validator fails a peak above it.
 	Report->SetNumberField(TEXT("peak_living_units"), PeakLivingUnits);
 	Report->SetNumberField(TEXT("crowd_max_agents"), CrowdMaxAgents());
+	Report->SetObjectField(TEXT("path_cost"), PathCost());
 	FString Json;
 	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Json);
 	if (!FJsonSerializer::Serialize(Report, Writer)
@@ -158,6 +177,8 @@ void FMatchSimulation::DescribeMatch(ACommandGameState& State)
 	DescribeRegions(State);
 	Report->SetArrayField(TEXT("deposits"), DepositDefinitions(State));
 	Report->SetArrayField(TEXT("unit_definitions"), UnitDefinitions(*State.Content));
+	// Path queries and straight moves are counted from here (ArmyGroupPathing), written by Flush as path_cost.
+	ArmyGroupPathing::Reset();
 	// Per-force movement-progress records, filled by Observe (MatchSimulationObserve.cpp).
 	const TSharedRef<FJsonObject> Movement = MakeShared<FJsonObject>();
 	Movement->SetNumberField(TEXT("next"), 0);

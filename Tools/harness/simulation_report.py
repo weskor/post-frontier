@@ -26,6 +26,7 @@ from harness.simulation_evidence import (
     teams,
 )
 from harness.simulation_movement import movement_section
+from harness.simulation_pathcost import path_cost_section
 from harness.simulation_validation import (
     crowd_unchecked_lines,
     interpret_outcome,
@@ -465,6 +466,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
     length_rows = battle_length_section(valid, stats_lines)
     gate = gate_section(manifest, valid, stats_lines)
     movement = movement_section(groups, stats_lines)
+    path_cost = path_cost_section(groups, stats_lines)
     lines += stats_lines
     print("\n".join(stats_lines), flush=True)
     plans = plan_evidence(valid, lines)
@@ -478,6 +480,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
             jev_plans=plans,
             battle_length=length_rows,
             movement=movement,
+            path_cost=path_cost,
             gate=gate,
             failures=failed,
             dilation_comparisons=comparisons,

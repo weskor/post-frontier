@@ -307,7 +307,7 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 		bPlanned = PrepareFormationMoves(*Navigation, Leg, Units, FormationShape(), InDestination, Prepared, ProjectedCenter, Planned)
 			&& (!Prepared.IsEmpty() || ValidateAssemblyRoute(*Navigation, *this, HomeLocation, InDestination, ProjectedCenter));
 		const ArmyGroupPathing::FQueryStats& Total = ArmyGroupPathing::Snapshot();
-		UE_LOG(LogOrderCost, Display, TEXT("%s order cost planned=%d apply=%d path_queries=%lld straight_moves=%lld units=%d total_path_queries=%lld total_straight_moves=%lld"),
+		UE_LOG(LogOrderCost, Verbose, TEXT("%s order cost planned=%d apply=%d path_queries=%lld straight_moves=%lld units=%d total_path_queries=%lld total_straight_moves=%lld"),
 			*GetName(), bPlanned, bApply, Cost.PathQueries(), Cost.StraightMoves(), Units.Num(), Total.PathQueries, Total.StraightMoves);
 	}
 	if (!bPlanned)
