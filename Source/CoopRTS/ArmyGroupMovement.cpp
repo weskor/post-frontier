@@ -2,6 +2,7 @@
 
 #include "AIController.h"
 #include "ArenaBounds.h"
+#include "ArmyGroupPathing.h"
 #include "ArmyGroupInternal.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
@@ -22,35 +23,74 @@ AAIController* GetReadyController(AArmyUnit* Unit)
 	return Following && !Following->IsResourceLocked() && Following->IsPathFollowingAllowed() ? AI : nullptr;
 }
 
-bool PrepareMove(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, UObject* Querier,
-	UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
-	FPreparedMove& Prepared, float ProjectionRadius)
+namespace
+{
+// The query for a move to Target, or false when Target is outside the arena or too far from the navmesh (the
+// projection of Target within ProjectionRadius is what the move goes to).
+bool BuildMoveQuery(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, UObject* Querier,
+	UPathFollowingComponent& Following, const FVector& Start, const FVector& Target, float ProjectionRadius,
+	const ANavigationData*& OutNavData, FPathFindingQuery& OutQuery)
 {
 	if (!AArenaBounds::IsTravelLocation(Navigation.GetWorld(), Target))
-	{
 		return false;
-	}
 	const ANavigationData* NavData = Navigation.GetNavDataForProps(Agent, Start);
 	FNavLocation Projected;
 	if (!NavData || !Navigation.ProjectPointToNavigation(Target, Projected, FVector(ProjectionRadius, ProjectionRadius, 200.0f), NavData)
 		|| !AArenaBounds::IsTravelLocation(Navigation.GetWorld(), Projected.Location)
 		|| FVector::DistSquared2D(Target, Projected.Location) > FMath::Square(ProjectionRadius))
-	{
 		return false;
-	}
-	FPathFindingQuery Query(Querier, *NavData, Start, Projected.Location);
-	Query.SetAllowPartialPaths(false);
+	OutNavData = NavData;
+	OutQuery = FPathFindingQuery(Querier, *NavData, Start, Projected.Location);
+	OutQuery.SetAllowPartialPaths(false);
 	// Match the engine's normal query setup, including Detour crowd's
 	// corridor-preserving flags, before validating the synchronous path.
-	Following.OnPathfindingQuery(Query);
-	const FPathFindingResult Result = Navigation.FindPathSync(Agent, Query);
-	if (!Result.IsSuccessful() || !Result.Path.IsValid() || Result.Path->IsPartial())
-	{
-		return false;
-	}
-	Prepared.Goal = Projected.Location;
-	Prepared.Path = Result.Path;
+	Following.OnPathfindingQuery(OutQuery);
 	return true;
+}
+
+bool SolveMove(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, const ANavigationData& NavData,
+	const FPathFindingQuery& Query, bool bStraightFirst, FPreparedMove& Prepared)
+{
+	FNavPathSharedPtr Path;
+	if (bStraightFirst && ArmyGroupPathing::TryStraightPath(NavData, Query, Path))
+		ArmyGroupPathing::NoteStraightMove();
+	else
+	{
+		ArmyGroupPathing::NotePathQuery();
+		const FPathFindingResult Result = Navigation.FindPathSync(Agent, Query);
+		if (!Result.IsSuccessful() || !Result.Path.IsValid() || Result.Path->IsPartial())
+			return false;
+		Path = Result.Path;
+	}
+	Prepared.Goal = Query.EndLocation;
+	Prepared.Path = Path;
+	return true;
+}
+}
+
+bool PrepareMove(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, UObject* Querier,
+	UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
+	FPreparedMove& Prepared, float ProjectionRadius)
+{
+	const ANavigationData* NavData = nullptr;
+	FPathFindingQuery Query;
+	return BuildMoveQuery(Navigation, Agent, Querier, Following, Start, Target, ProjectionRadius, NavData, Query)
+		&& SolveMove(Navigation, Agent, *NavData, Query, false, Prepared);
+}
+
+namespace
+{
+// A slot's route: a clear straight line answers without a path query (see ArmyGroupPathing::TryStraightPath),
+// a blocked one is a path query as PrepareMove would make.
+bool PrepareSlotRoute(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, UObject* Querier,
+	UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
+	FPreparedMove& Prepared, float ProjectionRadius)
+{
+	const ANavigationData* NavData = nullptr;
+	FPathFindingQuery Query;
+	return BuildMoveQuery(Navigation, Agent, Querier, Following, Start, Target, ProjectionRadius, NavData, Query)
+		&& SolveMove(Navigation, Agent, *NavData, Query, true, Prepared);
+}
 }
 
 bool StartPreparedMove(const FPreparedMove& Move)
@@ -260,8 +300,16 @@ bool AArmyGroup::IssueTravel(EArmyOrder NewOrder, const FVector& InDestination, 
 	const double Now = GetWorld()->GetTimeSeconds();
 	const int32 Seed = static_cast<int32>(HashCombineFast(GetTypeHash(ArmyIndex), GetTypeHash(ForceNumber)));
 	const FLegContext Leg{ State, TargetRegionIndex, Status == EForceStatus::Marching, Now, Seed };
-	if (!PrepareFormationMoves(*Navigation, Leg, Units, FormationShape(), InDestination, Prepared, ProjectedCenter, Planned)
-		|| (Prepared.IsEmpty() && !ValidateAssemblyRoute(*Navigation, *this, HomeLocation, InDestination, ProjectedCenter)))
+	bool bPlanned = false;
+	{
+		const ArmyGroupPathing::FOrderCount Cost;
+		bPlanned = PrepareFormationMoves(*Navigation, Leg, Units, FormationShape(), InDestination, Prepared, ProjectedCenter, Planned)
+			&& (!Prepared.IsEmpty() || ValidateAssemblyRoute(*Navigation, *this, HomeLocation, InDestination, ProjectedCenter));
+		const ArmyGroupPathing::FQueryStats& Total = ArmyGroupPathing::Snapshot();
+		UE_LOG(LogOrderCost, Display, TEXT("%s order cost planned=%d apply=%d path_queries=%lld straight_moves=%lld units=%d total_path_queries=%lld total_straight_moves=%lld"),
+			*GetName(), bPlanned, bApply, Cost.PathQueries(), Cost.StraightMoves(), Units.Num(), Total.PathQueries, Total.StraightMoves);
+	}
+	if (!bPlanned)
 		return false;
 	if (!bApply)
 		return true;
