@@ -177,6 +177,11 @@ FVector FittedSlot(const FFormation& Formation, const FFit& Fit, TConstArrayView
 	return FitPoint(Polygon, Fit, FormationOffset(Formation, Slot));
 }
 
+bool IsRegionOrderDestination(const FVector& Destination, const FVector& RegionAnchor)
+{
+	return FVector::DistSquared2D(Destination, RegionAnchor) <= FMath::Square(static_cast<double>(RegionAnchorTolerance));
+}
+
 bool OwnerPermitted(int32 GroupTeam, int32 OwnerTeam, int32 CommanderIndex, bool bEnemyCommander)
 {
 	if (OwnerTeam != GroupTeam)

@@ -51,6 +51,12 @@ FVector FitPoint(TConstArrayView<FVector2D> Polygon, const FFit& Fit, const FVec
 FFit FitForce(const FFormation& Formation, TConstArrayView<FVector2D> Polygon, const FVector& Centre);
 FVector FittedSlot(const FFormation& Formation, const FFit& Fit, TConstArrayView<FVector2D> Polygon, int32 Slot);
 
+// A destination at a region's anchor, or within the 75 cm the capture anchor tolerates (the same limit
+// the executor's near-anchor retry shifts it by), is that region's order. Any other point is a precise point.
+// Region orders give a slot with no path of its own a fallback; precise points still reject obstructed formations.
+constexpr float RegionAnchorTolerance = 75.f;
+bool IsRegionOrderDestination(const FVector& Destination, const FVector& RegionAnchor);
+
 // Team 0 forces belong to one of the five human commanders; any other force belongs to the
 // enemy commander on team 5. The owner's team must also match the force's.
 bool OwnerPermitted(int32 GroupTeam, int32 OwnerTeam, int32 CommanderIndex, bool bEnemyCommander);

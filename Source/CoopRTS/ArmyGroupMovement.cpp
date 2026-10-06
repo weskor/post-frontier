@@ -84,11 +84,12 @@ using FPreparedMoves = TArray<FPreparedMove, TInlineAllocator<MaxUnitCount>>;
 // A slot that has no path of its own sends its unit to the nearest navigable point within this distance of it.
 constexpr float SlotFallbackRadius = 300.f;
 
-// One unit's move to its fitted slot. The slot itself first, then the nearest navigable point around it that
-// stays inside the region, then the force's centre, which the caller has already proved reachable for the
-// first member. Only when even the centre has no path for this unit does the command fail.
-bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIController& AI,
-	const FVector& Slot, const FVector& Centre, const AMapRegion* Region, FPreparedMove& Move)
+// One unit's move to its fitted slot. The slot itself first. A region order then falls back to the nearest
+// navigable point around the slot that stays inside the region, then to the force's centre, which the caller
+// has already proved reachable for the first member; only when even the centre has no path for this unit does
+// the command fail. A precise point order has no fallback: an obstructed formation rejects it.
+bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIController& AI, const FVector& Slot,
+	const FVector& Centre, const AMapRegion* Region, bool bFallback, FPreparedMove& Move)
 {
 	const FNavAgentProperties& Agent = Unit.GetNavAgentPropertiesRef();
 	const FVector Start = Unit.GetNavAgentLocation();
@@ -98,6 +99,8 @@ bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIContro
 	// onto the same edge, or pull an out-of-arena slot back into bounds.
 	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Move))
 		return true;
+	if (!bFallback)
+		return false;
 	FPreparedMove Nearby;
 	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Nearby, SlotFallbackRadius)
 		&& (!Region || Region->Contains(Nearby.Goal)))
@@ -112,14 +115,15 @@ bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIContro
 // Validates the entire command without touching the current order or paths.
 // In particular, partial paths never count as accepting the user's target. The centre check is strict; the
 // slots are the force's formation fitted inside the region around that centre (ArmyGroupPolicy::FitFormation),
-// each with its own fallback.
+// and a region order gives each slot its own fallback.
 bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const ACommandGameState* State,
 	const TArray<TObjectPtr<AArmyUnit>>& Units, const ArmyGroupPolicy::FFormation& Formation,
 	const FVector& Destination, FPreparedMoves& Prepared, FVector& ProjectedCenter)
 {
 	const AMapRegion* Region = nullptr;
+	TConstArrayView<FVector2D> Polygon;
 	ArmyGroupPolicy::FFit Fit;
-	bool bCentred = false;
+	bool bCentred = false, bFallback = false;
 	for (int32 Index = 0; Index < Units.Num(); ++Index)
 	{
 		AArmyUnit* Unit = Units[Index];
@@ -140,14 +144,17 @@ bool PrepareFormationMoves(UNavigationSystemV1& Navigation, const ACommandGameSt
 			}
 			ProjectedCenter = CenterMove.Goal;
 			Region = State ? State->FindRegionAt(ProjectedCenter) : nullptr;
-			Fit = ArmyGroupPolicy::FitForce(Formation, Region ? TConstArrayView<FVector2D>(Region->Polygon)
-															  : TConstArrayView<FVector2D>(), ProjectedCenter);
+			if (Region)
+			{
+				Polygon = Region->Polygon;
+				bFallback = ArmyGroupPolicy::IsRegionOrderDestination(Destination, State->GetRegionAnchor(Region->RegionIndex));
+			}
+			Fit = ArmyGroupPolicy::FitForce(Formation, Polygon, ProjectedCenter);
 			bCentred = true;
 		}
 		FPreparedMove Move;
-		const FVector Slot = ArmyGroupPolicy::FittedSlot(Formation, Fit,
-			Region ? TConstArrayView<FVector2D>(Region->Polygon) : TConstArrayView<FVector2D>(), Unit->GetCompositionSlot());
-		if (!PrepareSlotMove(Navigation, *Unit, *AI, Slot, ProjectedCenter, Region, Move))
+		const FVector Slot = ArmyGroupPolicy::FittedSlot(Formation, Fit, Polygon, Unit->GetCompositionSlot());
+		if (!PrepareSlotMove(Navigation, *Unit, *AI, Slot, ProjectedCenter, Region, bFallback, Move))
 		{
 			return false;
 		}
