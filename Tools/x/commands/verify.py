@@ -38,6 +38,9 @@ fresh ordinary Development or --playtest package, using the same selector as
 Economy/construction require exact authoritative extractor/deposit XY and exact
 client movement coordinates at UE's whole-number wire precision (half-ties away
 from zero), alongside deposit identity, completion, ownership, payment and income.
+On authored maps with guarded HQs, the same force first attacks the map's guard
+nodes through minimap orders. Replicated node-loss events must identify each site
+and remaining guard count before the unchanged HQ damage/event/victory assertions.
 Network leases one headless slot per host/client peer, capped at the configured
 pool size and acquired together. HUD uses one slot. Native/desktop sessions remain
 exclusive; rendered network peers still use the headless pool.
