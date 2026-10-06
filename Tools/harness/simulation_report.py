@@ -445,7 +445,7 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         "| Map | Variant | Dilation | Complete | Team 0 wins | Team 5 wins | Draws | Median game min | Median wall s | Median first depletion min |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    group_rows = [group_summary(key, reports) for key, reports in sorted(groups.items())]
+    group_rows = [group_summary(*item) for item in sorted(groups.items())]
     lines += [line for line, _ in group_rows]
     summaries = [summary for _, summary in group_rows]
     lines += [
