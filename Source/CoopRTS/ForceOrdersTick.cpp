@@ -137,8 +137,9 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 		Anchor = StructureStandOff(*Structure, GetCenter(), Anchor.Z);
 	if (!IssueTravel(Phase, Anchor) && (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
 		return false;
-	// An order that repeats the one already applied waits out the retry interval; a different one starts at once.
-	const bool bRepeat = AppliedWaypoint == RegionIndex && AppliedPhase == Phase && AppliedStructure.Get() == Structure;
+	// An order to the waypoint already applied, whatever its phase, waits out the retry interval; a new waypoint
+	// starts at once. Callers that disagree on the phase would otherwise re-order the force every tick.
+	const bool bRepeat = AppliedWaypoint == RegionIndex && AppliedStructure.Get() == Structure;
 	WaypointRegionIndex = AppliedWaypoint = RegionIndex;
 	AppliedPhase = Phase;
 	AppliedStructure = Structure;
