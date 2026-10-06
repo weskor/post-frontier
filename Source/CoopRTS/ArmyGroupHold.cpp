@@ -238,7 +238,7 @@ void AArmyGroup::UpdateHoldCombat()
 	const float Now = GetWorld()->GetTimeSeconds();
 	// The idle post's slots are one rigid set fitted inside the region, not clamped one by one at the border.
 	const ArmyGroupPolicy::FFit PostFit = bHoldResponding ? ArmyGroupPolicy::FFit()
-		: ArmyGroupPolicy::FitForce(FormationShape(), Region->Polygon, HoldPostLocation);
+														  : ArmyGroupPolicy::FitForce(FormationShape(), Region->Polygon, HoldPostLocation);
 	for (AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())

@@ -120,7 +120,7 @@ private:
 		if (!FVector::PointsAreNear(Force->HoldPostLocation, Post, 1.f))
 			return Fail(TEXT("The force holds at the region's only post"));
 		double LeastGoalClearance = TNumericLimits<double>::Max(), LeastGoalGap = TNumericLimits<double>::Max(),
-			LeastStandGap = TNumericLimits<double>::Max();
+			   LeastStandGap = TNumericLimits<double>::Max();
 		for (int32 A = 0; A < Units.Num(); ++A)
 		{
 			if (Units[A]->PursuitGoal.IsNearlyZero())

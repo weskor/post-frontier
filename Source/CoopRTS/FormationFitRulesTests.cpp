@@ -253,8 +253,7 @@ bool FFormationFitSweepTest::RunTest(const FString& Parameters)
 					return true;
 				}
 				if (!(Fit.Scale >= MinFitScale && Fit.Scale <= 1.f && MinimumClearance(Region, Points) >= 0.
-						&& (Fit.bClamped || (MinimumClearance(Region, Points) >= FitMargin - .1
-											   && FVector::Dist2D(Fit.Centre, Post) <= MaxFitShift + .01))))
+						&& (Fit.bClamped || (MinimumClearance(Region, Points) >= FitMargin - .1 && FVector::Dist2D(Fit.Centre, Post) <= MaxFitShift + .01))))
 				{
 					AddError(FString::Printf(TEXT("Fit around %s breaks an invariant: scale %.2f yaw %.2f clamped %d"),
 						*Post.ToCompactString(), Fit.Scale, Fit.Yaw, Fit.bClamped));
