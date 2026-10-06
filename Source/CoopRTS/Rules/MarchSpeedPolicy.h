@@ -21,7 +21,8 @@ constexpr float MinAhead = .85f;
 
 struct FMember
 {
-	// Planar position, and the member's slot as an offset from the force's formation centre.
+	// Planar position, and the member's planned target (its slot, absolute or relative to any common centre: only
+	// the difference from Position along the heading matters).
 	FVector2D Position = FVector2D::ZeroVector;
 	FVector2D SlotOffset = FVector2D::ZeroVector;
 };

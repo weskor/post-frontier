@@ -1211,9 +1211,9 @@ rendered = true
 "Source/CoopRTS/FormationHeadingNeck.[ch]*" = ["formation-heading", "formation-heading-view"]
 "Source/CoopRTS/FormationHeadingViewTests.cpp" = ["formation-heading-view"]
 # March flow: per-member catch-up speed, lanes, pass-through legs.
-"Source/CoopRTS/ForceOrdersFlow.cpp" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait"]
-"Source/CoopRTS/Rules/MarchSpeedPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait"]
-"Source/CoopRTS/Rules/LanePolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait"]
-"Source/CoopRTS/Rules/PassThroughPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait"]
+"Source/CoopRTS/ForceOrdersFlow.cpp" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait", "formation-heading"]
+"Source/CoopRTS/Rules/MarchSpeedPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait", "formation-heading"]
+"Source/CoopRTS/Rules/LanePolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait", "formation-heading"]
+"Source/CoopRTS/Rules/PassThroughPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait", "formation-heading"]
 "Source/CoopRTS/MarchFlowRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/VerbOrderMarchFlow*" = ["force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture", "force-lane-capture", "force-column-wait"]
