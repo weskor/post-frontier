@@ -154,33 +154,45 @@ def clear_deposit(
     return cast(JsonObject, free)
 
 
+def extractor_ready(state: JsonObject, owner: int, free: JsonObject) -> bool:
+    site = deposit(state, free["index"])
+    expected_xy = free["position"][:2]
+    if state["netMode"] == 3:  # NM_Client: AActor movement uses RoundWholeNumber.
+        # UE5.8 QuantizedVectorSerialization.cpp RoundFloatToInt truncates
+        # value + Sign(value)*0.5: nearest integer, half-ties away from zero.
+        expected_xy = [
+            int(value + (0.5 if value >= 0 else -0.5)) for value in expected_xy
+        ]
+    return bool(
+        site["occupied"]
+        and site["complete"]
+        and site["owner"] == owner
+        and site["team"] == 0
+        and any(
+            b["index"] == site["extractor"]
+            and b["deposit"] == free["index"]
+            and b["position"][:2] == expected_xy
+            for b in state["buildings"]
+        )
+        and wallet(state, owner)["wallet"] == 0
+        and all(
+            p["income"] == 2 + free["rate"] // len(state["players"])
+            for p in state["players"]
+        )
+    )
+
+
 def build_extractor(
     run: NetworkRun, s: Session, free: JsonObject
 ) -> tuple[int, dict[str, JsonObject]]:
     deposit_index = free["index"]
-    rate = free["rate"]
     run.request("host", "fund", owner=s.owner, amount=160)
     run.request(s.peer, "build", kind=EXTRACTOR, **near(free["position"], 71, -63))
     states = converged(
         run,
         s.names,
-        lambda st: (
-            deposit(st, deposit_index)["occupied"]
-            and deposit(st, deposit_index)["complete"]
-            and deposit(st, deposit_index)["owner"] == s.owner
-            and deposit(st, deposit_index)["team"] == 0
-            and any(
-                b["index"] == deposit(st, deposit_index)["extractor"]
-                and b["deposit"] == deposit_index
-                and b["position"][:2] == free["position"][:2]
-                for b in st["buildings"]
-            )
-            and wallet(st, s.owner)["wallet"] == 0
-            and all(
-                p["income"] == 2 + rate // len(st["players"]) for p in st["players"]
-            )
-        ),
-        "paid extractor snaps exact deposit XY, reserves it, and raises every commander's share",
+        lambda st: extractor_ready(st, s.owner, free),
+        "paid extractor snaps exact authority XY and quantized client XY, reserves deposit, and raises every commander's share",
     )
     extractor = deposit(states["host"], deposit_index)["extractor"]
     return extractor, states

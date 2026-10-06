@@ -35,6 +35,9 @@ Editor mode ensures a fresh editor build and holds its module reader lock throug
 verification. Packaged mode takes no editor module lock and selects the newest
 fresh ordinary Development or --playtest package, using the same selector as
 ./x play. Binary and cooked-content hashes remain guarded throughout verification.
+Economy/construction require exact authoritative extractor/deposit XY and exact
+client movement coordinates at UE's whole-number wire precision (half-ties away
+from zero), alongside deposit identity, completion, ownership, payment and income.
 Network leases one headless slot per host/client peer, capped at the configured
 pool size and acquired together. HUD uses one slot. Native/desktop sessions remain
 exclusive; rendered network peers still use the headless pool.
