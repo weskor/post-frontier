@@ -44,9 +44,9 @@ tar --extract --gzip --file "$stage/$asset" --directory "$stage/unpacked" --no-s
 # ./x package --playtest wraps the complete package in one commit-named folder.
 shopt -s nullglob dotglob
 roots=("$stage/unpacked/"*)
-[[ ${#roots[@]} == 1 && -d ${roots[0]} && ! -L ${roots[0]} && -f ${roots[0]}/PLAYTEST.sh && -x ${roots[0]}/PLAYTEST.sh ]] || fail 'Archive must contain one package folder with executable PLAYTEST.sh.'
+[[ ${#roots[@]} == 1 && -d ${roots[0]} && ! -L ${roots[0]} && ! -L ${roots[0]}/PLAYTEST.sh && -f ${roots[0]}/PLAYTEST.sh && -x ${roots[0]}/PLAYTEST.sh ]] || fail 'Archive must contain one package folder with regular executable PLAYTEST.sh (not a symlink).'
 if [[ -e $destination || -L $destination ]]; then
-    [[ ! -L $destination && -d $destination && -x $destination/PLAYTEST.sh ]] || fail "Existing path is not a playtest installation: $destination (left untouched)."
+    [[ ! -L $destination && -d $destination && ! -L $destination/PLAYTEST.sh && -f $destination/PLAYTEST.sh && -x $destination/PLAYTEST.sh ]] || fail "Existing path is not a playtest installation: $destination (left untouched)."
     printf 'Keeping existing installation and saves: %s\n' "$destination"
 else
     mv -T -- "${roots[0]}" "$destination"
