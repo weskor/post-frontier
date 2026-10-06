@@ -71,8 +71,7 @@ FVector StructureStandOff(const AActor& Structure, const FVector& Center, float 
 bool AArmyGroup::ShouldKeepWaypoint(const ACommandGameState& State, int32 RegionIndex, AActor* Structure) const
 {
 	// Reuse a settled regional waypoint using the same corrected centre.
-	if (Structure ? FVector::DistSquared2D(GetCenter(), Destination) <= FMath::Square(170.f)
-				  : HasArrivedAtRegion(State, RegionIndex))
+	if (Structure ? HasReachedStandOff() : HasArrivedAtRegion(State, RegionIndex))
 		return true;
 	bool bHasJoinedMember = false;
 	for (const AArmyUnit* Unit : Units)
@@ -132,16 +131,18 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 	const float Now = GetWorld()->GetTimeSeconds();
 	if (Now < NextWaypointAttempt)
 		return false;
-	NextWaypointAttempt = Now + 2.f;
+	NextWaypointAttempt = Now + MovementProgressPolicy::RepeatOrderSeconds;
 	FVector Anchor = State->GetRegionAnchor(RegionIndex);
 	if (Structure)
 		Anchor = StructureStandOff(*Structure, GetCenter(), Anchor.Z);
 	if (!IssueTravel(Phase, Anchor) && (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
 		return false;
+	// An order that repeats the one already applied waits out the retry interval; a different one starts at once.
+	const bool bRepeat = AppliedWaypoint == RegionIndex && AppliedPhase == Phase && AppliedStructure.Get() == Structure;
 	WaypointRegionIndex = AppliedWaypoint = RegionIndex;
 	AppliedPhase = Phase;
 	AppliedStructure = Structure;
-	NextWaypointAttempt = 0.f;
+	NextWaypointAttempt = bRepeat ? Now + MovementProgressPolicy::RepeatOrderSeconds : 0.f;
 	AttackTarget = Structure;
 	ForceNetUpdate();
 	return true;

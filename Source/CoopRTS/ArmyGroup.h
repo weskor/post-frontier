@@ -21,12 +21,20 @@ class UArmyUnitDefinition;
 class UNavigationSystemV1;
 struct FArmyCombatScan;
 struct FForceTickContext;
+struct FArrivalLayout;
 
 // A unit's movement progress toward its current goal (Rules/MovementProgressPolicy.h), keyed by composition slot.
 struct FUnitProgressSlot
 {
 	TWeakObjectPtr<const AArmyUnit> Unit;
 	MovementProgressPolicy::FUnitProgress Progress;
+};
+
+// The slots of a force fitted inside the region under its Destination, by composition slot.
+struct FFittedSlots
+{
+	TArray<FVector, TInlineAllocator<6>> Goals;
+	FVector Centre = FVector::ZeroVector;
 };
 
 struct FArmyGroupSpawn
@@ -240,13 +248,18 @@ private:
 	const FUnitProgressSlot* FindProgress(const AArmyUnit& Unit) const;
 	FUnitProgressSlot& ProgressFor(const AArmyUnit& Unit);
 	// Where the unit is going: its pursuit goal while it chases a target, else its formation slot.
-	FVector UnitGoal(const AArmyUnit& Unit) const;
+	FVector UnitGoal(const AArmyUnit& Unit, const FFittedSlots& Fitted) const;
 	// Settled, or idle inside its grown radius: such a unit does not hold back arrival or waypoint advance. Never true while pursuing.
 	bool IsUnitExempt(const AArmyUnit& Unit) const;
 	void RepathUnit(AArmyUnit& Unit, const FVector& Goal);
 	TArray<FUnitProgressSlot, TInlineAllocator<6>> UnitProgress;
 	int32 UnitsSettled = 0;
 	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
+	// A structure order's stand-off point is reached: the force's mean is within 170 cm of the fitted mean.
+	bool HasReachedStandOff() const;
+	// The slots of the force fitted inside the region that holds Destination (ArmyGroupPolicy::FitForce).
+	void FitSlots(const ACommandGameState* State, FFittedSlots& Out) const;
+	bool GatherArrival(const ACommandGameState& State, bool bSkipExempt, FArrivalLayout& Out) const;
 	void CompleteOrder(int32 EndRegion);
 	// Completes the active order, then ticks the next one.
 	void AdvanceOrder(int32 EndRegion);

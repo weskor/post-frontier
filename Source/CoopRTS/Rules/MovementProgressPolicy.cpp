@@ -58,4 +58,29 @@ EAction Update(FUnitProgress& Progress, const FSample& Sample)
 	}
 	return EAction::None;
 }
+
+FArrival JudgeArrival(TConstArrayView<FArrivalMember> Members, float FittedRadius)
+{
+	FArrival Arrival;
+	if (Members.IsEmpty())
+		return Arrival;
+	const auto Settled = [](const FArrivalMember& Member) {
+		return Member.bIdle
+			&& FVector::Dist2D(Member.Position, Member.Slot) <= ArmyGroupPolicy::SlotFallbackRadius + ArrivalTolerance;
+	};
+	for (const FArrivalMember& Member : Members)
+	{
+		Arrival.Center += Member.Position;
+		Arrival.ExpectedMean += Settled(Member) && FVector::Dist2D(Member.Position, Member.Slot) > ArrivalTolerance
+			? Member.Position
+			: Member.Slot;
+	}
+	Arrival.Center /= Members.Num();
+	Arrival.ExpectedMean /= Members.Num();
+	Arrival.bGathered = FVector::Dist2D(Arrival.Center, Arrival.ExpectedMean) <= ArrivalTolerance;
+	for (const FArrivalMember& Member : Members)
+		Arrival.bGathered &= Settled(Member) || FVector::Dist2D(Member.Position, Member.Slot) <= ArrivalTolerance
+			|| FVector::Dist2D(Member.Position, Arrival.Center) <= FittedRadius + ArrivalTolerance;
+	return Arrival;
+}
 }

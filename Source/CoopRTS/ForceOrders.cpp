@@ -12,48 +12,84 @@
 #include "NavigationSystem.h"
 #include "MapRegion.h"
 
-bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
+// The members that decide arrival, each with the fitted slot it is judged against.
+struct FArrivalLayout
 {
-	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);
-	if (!Region)
-		return false;
-	// Members that stopped making progress (settled, or idle inside their grown radius) are not asked to
-	// gather, so the rest decide. With none left, the region alone does.
-	FVector All = FVector::ZeroVector;
-	FVector Center = FVector::ZeroVector;
-	FVector Offsets = FVector::ZeroVector;
-	int32 Alive = 0, Joined = 0;
-	float FormationRadiusSquared = 0.f;
+	TArray<MovementProgressPolicy::FArrivalMember, TInlineAllocator<6>> Members;
+	MovementProgressPolicy::FArrival Arrival;
+	// Mean of every living member, for when none is left to judge.
+	FVector AllCenter = FVector::ZeroVector;
+	// Every living member is left out.
+	bool bAllLeftOut = false;
+};
+
+// The slots of the force fitted inside the region that holds Destination, as PrepareFormationMoves fits them.
+void AArmyGroup::FitSlots(const ACommandGameState* State, FFittedSlots& Out) const
+{
+	const AMapRegion* Region = State ? State->FindRegionAt(Destination) : nullptr;
+	const TConstArrayView<FVector2D> Polygon = Region ? TConstArrayView<FVector2D>(Region->Polygon) : TConstArrayView<FVector2D>();
+	const ArmyGroupPolicy::FFormation Shape = FormationShape();
+	const ArmyGroupPolicy::FFit Fit = ArmyGroupPolicy::FitForce(Shape, Polygon, Destination);
+	Out.Centre = Fit.Centre;
+	Out.Goals.Reset();
+	for (int32 Slot = 0; Slot < ArmyGroupPolicy::SlotCount(Shape); ++Slot)
+		Out.Goals.Add(ArmyGroupPolicy::FittedSlot(Shape, Fit, Polygon, Slot));
+}
+
+// The members that still speak for the force, each against its fitted slot. Members left out are those settled
+// by progress, or with bSkipExempt those idle inside their grown radius too (never a pursuing member).
+// False when no member lives.
+bool AArmyGroup::GatherArrival(const ACommandGameState& State, bool bSkipExempt, FArrivalLayout& Out) const
+{
+	FFittedSlots Fitted;
+	FitSlots(&State, Fitted);
+	int32 Alive = 0;
+	float FittedRadius = 0.f;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
-		All += Unit->GetActorLocation();
+		Out.AllCenter += Unit->GetActorLocation();
 		++Alive;
-		if (IsUnitExempt(*Unit))
+		if (bSkipExempt ? IsUnitExempt(*Unit) : !Unit->bPursuing && IsUnitSettled(*Unit))
 			continue;
-		Center += Unit->GetActorLocation();
-		const FVector Offset = FormationOffset(Unit->GetCompositionSlot());
-		Offsets += Offset;
-		FormationRadiusSquared = FMath::Max(FormationRadiusSquared, Offset.SizeSquared2D());
-		++Joined;
+		const int32 Index = Unit->GetCompositionSlot();
+		const FVector Slot = Fitted.Goals.IsValidIndex(Index) ? Fitted.Goals[Index] : Destination + FormationOffset(Index);
+		const AAIController* AI = Cast<AAIController>(Unit->GetController());
+		FittedRadius = FMath::Max(FittedRadius, static_cast<float>(FVector::Dist2D(Slot, Fitted.Centre)));
+		Out.Members.Add({ Unit->GetActorLocation(), Slot,
+			!Unit->bPursuing && AI && AI->GetMoveStatus() == EPathFollowingStatus::Idle });
 	}
 	if (!Alive)
 		return false;
-	if (!Joined)
-		return Region->Contains(All / Alive);
-	Center /= Joined;
-	// Correct sparse-slot bias without requiring rigid slot occupancy after
-	// crowd steering. A nearby mean must not stop a trailing member en route.
-	if (!Region->Contains(Center)
-		|| FVector::DistSquared2D(Center - Offsets / Joined, Destination) > FMath::Square(170.f))
-		return false;
-	const float ArrivalRadiusSquared = FMath::Square(FMath::Sqrt(FormationRadiusSquared) + 170.f);
-	for (const AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive() && !IsUnitExempt(*Unit)
-			&& FVector::DistSquared2D(Unit->GetActorLocation(), Center) > ArrivalRadiusSquared)
-			return false;
+	Out.AllCenter /= Alive;
+	Out.bAllLeftOut = Out.Members.IsEmpty();
+	Out.Arrival = MovementProgressPolicy::JudgeArrival(Out.Members, FittedRadius);
 	return true;
+}
+
+bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
+{
+	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);
+	FArrivalLayout Layout;
+	// Members that stopped making progress are not asked to gather; with none left the region alone decides.
+	if (!Region || !GatherArrival(State, true, Layout))
+		return false;
+	if (Layout.bAllLeftOut)
+		return Region->Contains(Layout.AllCenter);
+	return Region->Contains(Layout.Arrival.Center) && Layout.Arrival.bGathered;
+}
+
+// Whether the force stands at the stand-off point of a structure order, by the same fitted mean.
+bool AArmyGroup::HasReachedStandOff() const
+{
+	FArrivalLayout Layout;
+	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
+	if (!State || !GatherArrival(*State, false, Layout))
+		return false;
+	const MovementProgressPolicy::FArrival& Arrival = Layout.Arrival;
+	return Layout.bAllLeftOut ? FVector::Dist2D(Layout.AllCenter, Destination) <= MovementProgressPolicy::ArrivalTolerance
+							  : FVector::Dist2D(Arrival.Center, Arrival.ExpectedMean) <= MovementProgressPolicy::ArrivalTolerance;
 }
 
 const FUnitProgressSlot* AArmyGroup::FindProgress(const AArmyUnit& Unit) const
@@ -92,9 +128,12 @@ bool AArmyGroup::IsUnitExempt(const AArmyUnit& Unit) const
 	return Entry && !Unit.bPursuing && MovementProgressPolicy::IsExempt(Entry->Progress, Unit.GetActorLocation());
 }
 
-FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit) const
+FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit, const FFittedSlots& Fitted) const
 {
-	return Unit.bPursuing ? Unit.PursuitGoal : Destination + FormationOffset(Unit.GetCompositionSlot());
+	if (Unit.bPursuing)
+		return Unit.PursuitGoal;
+	return Fitted.Goals.IsValidIndex(Unit.GetCompositionSlot()) ? Fitted.Goals[Unit.GetCompositionSlot()]
+															   : Destination + FormationOffset(Unit.GetCompositionSlot());
 }
 
 void AArmyGroup::ResetProgress()
@@ -123,13 +162,15 @@ void AArmyGroup::UpdateProgress()
 	const bool bMarching = Order != EArmyOrder::Hold && Status != EForceStatus::Holding && !IsHoldingRegion();
 	MovementProgressPolicy::FSample Sample;
 	Sample.Now = GetWorld()->GetTimeSeconds();
+	FFittedSlots Fitted;
+	FitSlots(GetWorld()->GetGameState<ACommandGameState>(), Fitted);
 	for (AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
 			continue;
 		AAIController* AI = Cast<AAIController>(Unit->GetController());
 		Sample.Position = Unit->GetActorLocation();
-		Sample.Goal = UnitGoal(*Unit);
+		Sample.Goal = UnitGoal(*Unit, Fitted);
 		// An engaged unit has stopped on purpose; a pursuing one is judged against its pursuit goal.
 		Sample.bHasGoal = bMarching && AI && (!Unit->bPursuing || AI->GetMoveStatus() != EPathFollowingStatus::Idle);
 		switch (MovementProgressPolicy::Update(ProgressFor(*Unit).Progress, Sample))

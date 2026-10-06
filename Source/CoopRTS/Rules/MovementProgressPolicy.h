@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Rules/ArmyGroupPolicy.h"
 
 // Per-unit progress toward a goal, sampled on the force tick. A unit that stops making progress widens its
 // "close enough" radius, gets one re-path, and is finally settled for that goal, so one wedged unit never blocks
@@ -20,6 +21,10 @@ constexpr float MaxRadius = 300.f;
 constexpr float AtGoalRadius = 100.f;
 // A goal that moved further than this is a new goal.
 constexpr float GoalChangeTolerance = 100.f;
+
+// A force that keeps the same order and target is not given that order again sooner than this, so an arrival
+// test that stays unmet cannot re-order the force every tick.
+constexpr float RepeatOrderSeconds = 2.f;
 
 struct FUnitProgress
 {
@@ -51,6 +56,33 @@ enum class EAction : uint8
 	// The unit just became settled: stop it.
 	Settle
 };
+
+// How far a member, or the mean of the fitted slots, may be from where it should be and still count as arrived.
+constexpr float ArrivalTolerance = 170.f;
+
+// A member judged against its fitted slot (ArmyGroupPolicy::FitForce). bIdle: not pursuing and its path request
+// is finished. An idle member within SlotFallbackRadius + ArrivalTolerance of its slot stands where it was left
+// (a slot fallback stands up to SlotFallbackRadius away, a crowd can leave it anywhere near), so the mean test
+// expects it there instead of at the slot and it needs no straggler slack.
+struct FArrivalMember
+{
+	FVector Position = FVector::ZeroVector;
+	FVector Slot = FVector::ZeroVector;
+	bool bIdle = false;
+};
+
+struct FArrival
+{
+	FVector Center = FVector::ZeroVector;
+	// Mean of the slots the members should be at, or of their own positions where settled away from a slot.
+	FVector ExpectedMean = FVector::ZeroVector;
+	bool bGathered = false;
+};
+
+// The mean test (members' mean within ArrivalTolerance of ExpectedMean) and the straggler test (each member
+// within ArrivalTolerance of its slot, or settled, or within FittedRadius + ArrivalTolerance of the mean).
+// FittedRadius is the largest distance of a member's slot from the fitted centre. No members: not gathered.
+FArrival JudgeArrival(TConstArrayView<FArrivalMember> Members, float FittedRadius);
 
 // Advances one unit's state by a sample. Without a goal, or at the goal, the state is cleared; a new goal starts a new window.
 EAction Update(FUnitProgress& Progress, const FSample& Sample);

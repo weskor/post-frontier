@@ -10,6 +10,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressEscalationTest, "CoopRTS.Rules
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressResetTest, "CoopRTS.Rules.MovementProgress.NewGoal",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressArrivalTest, "CoopRTS.Rules.MovementProgress.FittedArrival",
+	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovementProgressExemptTest, "CoopRTS.Rules.MovementProgress.Exempt",
 	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
 
@@ -188,6 +190,37 @@ bool FMovementProgressExemptTest::RunTest(const FString& Parameters)
 	TestFalse(TEXT("An idle unit outside its grown radius is not exempt"), IsExempt(Progress, Far));
 	Progress.bSettled = true;
 	TestTrue(TEXT("A settled unit is exempt wherever it stands"), IsExempt(Progress, Far));
+	return true;
+}
+
+bool FMovementProgressArrivalTest::RunTest(const FString& Parameters)
+{
+	// Two members on fitted slots 200 cm apart; the fitted radius is the slot distance from the fitted centre.
+	const FVector SlotA(-100.f, 0.f, 0.f), SlotB(100.f, 0.f, 0.f);
+	constexpr float Radius = 100.f;
+	const auto Judge = [&](const FVector& PositionB, bool bIdleB) {
+		const FArrivalMember Members[] = { { SlotA, SlotA, true }, { PositionB, SlotB, bIdleB } };
+		return JudgeArrival(Members, Radius);
+	};
+	TestFalse(TEXT("No members are not gathered"), JudgeArrival({}, Radius).bGathered);
+	TestTrue(TEXT("Members on their fitted slots are gathered"), Judge(SlotB, false).bGathered);
+	TestTrue(TEXT("Members within 170 cm of their slots are gathered"), Judge(SlotB + FVector(0.f, 150.f, 0.f), false).bGathered);
+	TestFalse(TEXT("A member still walking 400 cm short pulls the mean off the slots"),
+		Judge(SlotB + FVector(0.f, 400.f, 0.f), false).bGathered);
+	TestTrue(TEXT("A fallback member idle 400 cm from its slot stands where it was left"),
+		Judge(SlotB + FVector(0.f, 400.f, 0.f), true).bGathered);
+	TestTrue(TEXT("The mean then expects it where it stands"),
+		Judge(SlotB + FVector(0.f, 400.f, 0.f), true).ExpectedMean.Equals(FVector(0.f, 200.f, 0.f)));
+	TestFalse(TEXT("An idle member beyond the fallback radius plus tolerance is not settled"),
+		Judge(SlotB + FVector(0.f, 500.f, 0.f), true).bGathered);
+	// Slack through the fitted radius: a walking member 250 cm off its slot still counts when it is within the
+	// radius plus tolerance of the mean and the mean test holds.
+	TestTrue(TEXT("A trailing member within the fitted radius plus tolerance of the mean is gathered"),
+		Judge(SlotB + FVector(0.f, 250.f, 0.f), false).bGathered);
+	// A fitted layout is judged against its own slots, not the rigid layout: shifting every slot shifts the verdict.
+	const FArrivalMember Shifted[] = { { SlotA, SlotA + FVector(0.f, 600.f, 0.f), false }, { SlotB, SlotB + FVector(0.f, 600.f, 0.f), false } };
+	TestFalse(TEXT("Members 600 cm from fitted slots they are still walking to are not gathered"),
+		JudgeArrival(Shifted, Radius).bGathered);
 	return true;
 }
 #endif

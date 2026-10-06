@@ -37,9 +37,13 @@ private:
 				|| !Check(Force->WaypointRegionIndex == Intermediate && Force->Orders.Num() == 2,
 					TEXT("The first region is the active waypoint and the second is queued")))
 				return true;
-			// The wall goes up after the order is accepted, around the exact slot the force assigned.
-			SlotGoal = Force->Destination + ArmyGroupPolicy::FormationOffset({ false, 6, false }, SurvivorSlot);
+			// The wall goes up after the order is accepted, around the fitted slot the force assigned.
+			const ArmyGroupPolicy::FFormation Shape{ false, 6, false };
+			const TConstArrayView<FVector2D> Polygon = Region(State, Intermediate)->Polygon;
+			SlotGoal = ArmyGroupPolicy::FittedSlot(Shape, ArmyGroupPolicy::FitForce(Shape, Polygon, Force->Destination), Polygon, SurvivorSlot);
 			SlotGoal.Z = Force->Destination.Z + 60.f; // capsule centre height above the floor
+			OrderedAt = ArmyTestSetup::GameSeconds(GameWorld);
+			SerialAtOrder = Force->OrderSerial;
 			if (!Check(BuildCage(*GameWorld, SlotGoal, 40.f, 120.f), TEXT("The engine cube builds a wall around the slot")))
 				return true;
 			SetStage(1);
@@ -56,6 +60,13 @@ private:
 			// The old arrival rule needed the member within 170 cm of its slot, which the wall prevents.
 			if (!Check(MinSlotDistance > 170.f, TEXT("The wall kept the member out of arrival range of its slot")))
 				return true;
+			// An unmet arrival test must not re-order the force every tick: identical orders are 2 s apart.
+			const double Elapsed = ArmyTestSetup::GameSeconds(GameWorld) - OrderedAt;
+			const int32 Orders = static_cast<int32>(Force->OrderSerial - SerialAtOrder);
+			Test->AddInfo(FString::Printf(TEXT("%d orders accepted in %.1f s"), Orders, Elapsed));
+			if (!Check(Orders <= 3 + FMath::CeilToInt(Elapsed / MovementProgressPolicy::RepeatOrderSeconds),
+					TEXT("The force is not re-ordered at every tick while its member sits at the wall")))
+				return true;
 			SetStage(2);
 		}
 		return Stage == 2 && Holding(Target);
@@ -70,6 +81,8 @@ private:
 	TWeakObjectPtr<AArmyUnit> Survivor;
 	FVector SlotGoal = FVector::ZeroVector;
 	float MinSlotDistance = TNumericLimits<float>::Max();
+	double OrderedAt = 0.;
+	uint32 SerialAtOrder = 0;
 };
 }
 
