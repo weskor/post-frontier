@@ -5,6 +5,7 @@
 #include "ConstructionTypes.h"
 #include "Rules/ArmyGroupPolicy.h"
 #include "Rules/HoldPolicy.h"
+#include "Rules/MovementProgressPolicy.h"
 #include "Rules/SupplyDeliveryPolicy.h"
 #include "ForceOrders.h"
 #include "ArmyGroup.generated.h"
@@ -20,6 +21,13 @@ class UArmyUnitDefinition;
 class UNavigationSystemV1;
 struct FArmyCombatScan;
 struct FForceTickContext;
+
+// A unit's movement progress toward its current goal (Rules/MovementProgressPolicy.h), keyed by composition slot.
+struct FUnitProgressSlot
+{
+	TWeakObjectPtr<const AArmyUnit> Unit;
+	MovementProgressPolicy::FUnitProgress Progress;
+};
 
 struct FArmyGroupSpawn
 {
@@ -120,6 +128,13 @@ public:
 	int32 GetJoinedCount() const;
 	float GetBaseMarchSpeed() const;
 	float GetMarchSpeed() const;
+	// Movement progress. A settled unit stopped making progress toward its goal for MovementProgressPolicy::SettleIdleSeconds
+	// and no longer holds back its force's arrival or waypoint; it stays settled until its goal changes.
+	bool IsUnitSettled(const AArmyUnit& Unit) const;
+	// Radius around its goal inside which the unit counts as arrived: 0 while it moves freely, growing with idle time.
+	float GetCloseEnoughRadius(const AArmyUnit& Unit) const;
+	// Units settled so far, cumulative; authority only.
+	int32 GetSettledUnitCount() const { return UnitsSettled; }
 	// Executor-selected safe endpoint; Retreat commands intentionally have no regional target.
 	int32 GetRetreatRegion() const { return WithdrawalRegionIndex; }
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Orders")
@@ -220,6 +235,17 @@ private:
 	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
 	bool ShouldKeepWaypoint(const ACommandGameState& State, int32 RegionIndex, AActor* Structure) const;
 	bool IssueTravelNearAnchor(EArmyOrder Phase, const FVector& Anchor, const AMapRegion& Region);
+	void UpdateProgress();
+	void ResetProgress();
+	const FUnitProgressSlot* FindProgress(const AArmyUnit& Unit) const;
+	FUnitProgressSlot& ProgressFor(const AArmyUnit& Unit);
+	// Where the unit is going: its pursuit goal while it chases a target, else its formation slot.
+	FVector UnitGoal(const AArmyUnit& Unit) const;
+	// Settled, or idle inside its grown radius: such a unit does not hold back arrival or waypoint advance.
+	bool IsUnitExempt(const AArmyUnit& Unit) const;
+	void RepathUnit(AArmyUnit& Unit, const FVector& Goal);
+	TArray<FUnitProgressSlot, TInlineAllocator<6>> UnitProgress;
+	int32 UnitsSettled = 0;
 	bool HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const;
 	void CompleteOrder(int32 EndRegion);
 	// Completes the active order, then ticks the next one.

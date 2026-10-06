@@ -79,6 +79,9 @@ bool AArmyGroup::ShouldKeepWaypoint(const ACommandGameState& State, int32 Region
 		if (IsValid(Unit) && Unit->IsAlive())
 		{
 			bHasJoinedMember = true;
+			// A settled unit, or one idle inside its grown radius, no longer keeps the waypoint alive.
+			if (IsUnitExempt(*Unit))
+				continue;
 			const AAIController* AI = Cast<AAIController>(Unit->GetController());
 			if (Unit->bPursuing || (AI && AI->GetMoveStatus() != EPathFollowingStatus::Idle))
 				return true;
@@ -335,6 +338,7 @@ void AArmyGroup::TickOrders()
 	if (Source == INDEX_NONE)
 		return;
 	EnsureActiveOrder(Source);
+	UpdateProgress();
 	CancelOrphanRally(Source);
 	FForceTickContext Ctx;
 	Ctx.State = State;

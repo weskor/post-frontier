@@ -1,11 +1,15 @@
 #include "ForceOrders.h"
 
+#include "AIController.h"
 #include "ArmyGroup.h"
+#include "ArmyGroupInternal.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "Commands/OrderGraph.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "NavigationSystem.h"
 #include "MapRegion.h"
 
 bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 RegionIndex) const
@@ -13,13 +17,20 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 	const AMapRegion* Region = ForceOrderGraph::Region(State, RegionIndex);
 	if (!Region)
 		return false;
+	// Members that stopped making progress (settled, or idle inside their grown radius) are not asked to
+	// gather, so the rest decide. With none left, the region alone does.
+	FVector All = FVector::ZeroVector;
 	FVector Center = FVector::ZeroVector;
 	FVector Offsets = FVector::ZeroVector;
-	int32 Joined = 0;
+	int32 Alive = 0, Joined = 0;
 	float FormationRadiusSquared = 0.f;
 	for (const AArmyUnit* Unit : Units)
 	{
 		if (!IsValid(Unit) || !Unit->IsAlive())
+			continue;
+		All += Unit->GetActorLocation();
+		++Alive;
+		if (IsUnitExempt(*Unit))
 			continue;
 		Center += Unit->GetActorLocation();
 		const FVector Offset = FormationOffset(Unit->GetCompositionSlot());
@@ -27,8 +38,10 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 		FormationRadiusSquared = FMath::Max(FormationRadiusSquared, Offset.SizeSquared2D());
 		++Joined;
 	}
-	if (!Joined)
+	if (!Alive)
 		return false;
+	if (!Joined)
+		return Region->Contains(All / Alive);
 	Center /= Joined;
 	// Correct sparse-slot bias without requiring rigid slot occupancy after
 	// crowd steering. A nearby mean must not stop a trailing member en route.
@@ -37,10 +50,102 @@ bool AArmyGroup::HasArrivedAtRegion(const ACommandGameState& State, int32 Region
 		return false;
 	const float ArrivalRadiusSquared = FMath::Square(FMath::Sqrt(FormationRadiusSquared) + 170.f);
 	for (const AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive()
+		if (IsValid(Unit) && Unit->IsAlive() && !IsUnitExempt(*Unit)
 			&& FVector::DistSquared2D(Unit->GetActorLocation(), Center) > ArrivalRadiusSquared)
 			return false;
 	return true;
+}
+
+const FUnitProgressSlot* AArmyGroup::FindProgress(const AArmyUnit& Unit) const
+{
+	const int32 Slot = Unit.GetCompositionSlot();
+	return UnitProgress.IsValidIndex(Slot) && UnitProgress[Slot].Unit.Get() == &Unit ? &UnitProgress[Slot] : nullptr;
+}
+
+FUnitProgressSlot& AArmyGroup::ProgressFor(const AArmyUnit& Unit)
+{
+	const int32 Slot = FMath::Max(0, Unit.GetCompositionSlot());
+	if (UnitProgress.Num() <= Slot)
+		UnitProgress.SetNum(Slot + 1);
+	FUnitProgressSlot& Entry = UnitProgress[Slot];
+	if (Entry.Unit.Get() != &Unit)
+		Entry = FUnitProgressSlot{ TWeakObjectPtr<const AArmyUnit>(&Unit), MovementProgressPolicy::FUnitProgress() };
+	return Entry;
+}
+
+bool AArmyGroup::IsUnitSettled(const AArmyUnit& Unit) const
+{
+	const FUnitProgressSlot* Entry = FindProgress(Unit);
+	return Entry && Entry->Progress.bTracking && Entry->Progress.bSettled;
+}
+
+float AArmyGroup::GetCloseEnoughRadius(const AArmyUnit& Unit) const
+{
+	const FUnitProgressSlot* Entry = FindProgress(Unit);
+	return Entry && Entry->Progress.bTracking ? MovementProgressPolicy::CloseEnoughRadius(Entry->Progress.IdleSeconds) : 0.f;
+}
+
+bool AArmyGroup::IsUnitExempt(const AArmyUnit& Unit) const
+{
+	const FUnitProgressSlot* Entry = FindProgress(Unit);
+	return Entry && MovementProgressPolicy::IsExempt(Entry->Progress, Unit.GetActorLocation());
+}
+
+FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit) const
+{
+	return Unit.bPursuing ? Unit.PursuitGoal : Destination + FormationOffset(Unit.GetCompositionSlot());
+}
+
+void AArmyGroup::ResetProgress()
+{
+	UnitProgress.Reset();
+}
+
+void AArmyGroup::RepathUnit(AArmyUnit& Unit, const FVector& Goal)
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	AAIController* AI = ArmyGroupInternal::GetReadyController(&Unit);
+	ArmyGroupInternal::FPreparedMove Move;
+	Move.Controller = AI;
+	if (Navigation && AI
+		&& ArmyGroupInternal::PrepareMove(*Navigation, Unit.GetNavAgentPropertiesRef(), AI,
+			*AI->GetPathFollowingComponent(), Unit.GetNavAgentLocation(), Goal, Move, 75.f))
+		ArmyGroupInternal::StartPreparedMove(Move);
+}
+
+// Samples every unit's progress toward its goal. Marching units with a goal that move less than
+// MovementProgressPolicy::MinProgress per window are idle: the first escalation widens their arrival radius
+// (read through IsUnitExempt), the second re-paths them once, the last settles them. Holding forces and
+// units engaged in range have no goal.
+void AArmyGroup::UpdateProgress()
+{
+	const bool bMarching = Order != EArmyOrder::Hold && Status != EForceStatus::Holding && !IsHoldingRegion();
+	MovementProgressPolicy::FSample Sample;
+	Sample.Now = GetWorld()->GetTimeSeconds();
+	for (AArmyUnit* Unit : Units)
+	{
+		if (!IsValid(Unit) || !Unit->IsAlive())
+			continue;
+		AAIController* AI = Cast<AAIController>(Unit->GetController());
+		Sample.Position = Unit->GetActorLocation();
+		Sample.Goal = UnitGoal(*Unit);
+		// An engaged unit has stopped on purpose; a pursuing one is judged against its pursuit goal.
+		Sample.bHasGoal = bMarching && AI && (!Unit->bPursuing || AI->GetMoveStatus() != EPathFollowingStatus::Idle);
+		switch (MovementProgressPolicy::Update(ProgressFor(*Unit).Progress, Sample))
+		{
+		case MovementProgressPolicy::EAction::Repath:
+			RepathUnit(*Unit, Sample.Goal);
+			break;
+		case MovementProgressPolicy::EAction::Settle:
+			++UnitsSettled;
+			if (AI)
+				AI->StopMovement();
+			Unit->GetCharacterMovement()->StopMovementImmediately();
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 int32 AArmyGroup::GetCapacity() const
@@ -118,6 +223,7 @@ bool AArmyGroup::CommitOrder(const FForceOrder& InOrder, bool bQueue, float Sele
 		// Clear the old pursuit corridor before preparing the new complete route.
 		StopAllUnits();
 		ResetHoldState();
+		ResetProgress();
 		Order = Verb == EForceVerb::Retreat ? EArmyOrder::Retreat : EArmyOrder::Move;
 		AttackTarget = nullptr;
 		NextWaypointAttempt = NextHoldingMaintenance = 0.f;
@@ -162,6 +268,7 @@ void AArmyGroup::CompleteOrder(int32 EndRegion)
 	bWithdrawing = false;
 	WithdrawalRegionIndex = INDEX_NONE;
 	ResetHoldState();
+	ResetProgress();
 	if (bIdleRally && !IsValid(ProductionBuilding))
 	{
 		StopAllUnits();

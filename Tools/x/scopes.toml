@@ -254,6 +254,16 @@ kind = "automation"
 filter = "CoopRTS.Forces.Verbs.RouteCaptureClip"
 map = "default"
 
+[scopes.force-progress-pinned]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.PinnedUnit"
+map = "default"
+
+[scopes.force-progress-walled-slot]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.WalledSlot"
+map = "default"
+
 [scopes.route-intent]
 kind = "automation"
 filter = "CoopRTS.Forces.RouteIntent"
@@ -1123,3 +1133,11 @@ rendered = true
 "Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit"]
 "Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit"]
 "Source/CoopRTS/ArmyGroupSupply.cpp" = ["formation-fit"]
+# Movement progress: idle detection, escalation and straggler-tolerant arrival.
+"Source/CoopRTS/ForceOrders?*" = ["force-progress-pinned", "force-progress-walled-slot"]
+"Source/CoopRTS/ArmyGroup?*" = ["force-progress-pinned", "force-progress-walled-slot"]
+"Source/CoopRTS/Rules/MovementProgressPolicy.*" = ["rules", "force-move-hold", "force-progress-pinned", "force-progress-walled-slot"]
+"Source/CoopRTS/MovementProgressRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/VerbOrderProgressSupport.h" = ["force-progress-pinned", "force-progress-walled-slot"]
+"Source/CoopRTS/VerbOrderPinnedUnitTests.cpp" = ["force-progress-pinned"]
+"Source/CoopRTS/VerbOrderWalledSlotTests.cpp" = ["force-progress-walled-slot"]

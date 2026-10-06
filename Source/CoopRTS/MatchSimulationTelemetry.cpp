@@ -158,6 +158,11 @@ void FMatchSimulation::DescribeMatch(ACommandGameState& State)
 	DescribeRegions(State);
 	Report->SetArrayField(TEXT("deposits"), DepositDefinitions(State));
 	Report->SetArrayField(TEXT("unit_definitions"), UnitDefinitions(*State.Content));
+	// Per-force movement-progress records, filled by Observe (MatchSimulationObserve.cpp).
+	const TSharedRef<FJsonObject> Movement = MakeShared<FJsonObject>();
+	Movement->SetNumberField(TEXT("next"), 0);
+	Movement->SetObjectField(TEXT("forces"), MakeShared<FJsonObject>());
+	Report->SetObjectField(TEXT("movement"), Movement);
 }
 
 void FMatchSimulation::DescribeRegions(ACommandGameState& State)

@@ -7,6 +7,7 @@ from pathlib import Path
 from harness.simulation_charts import sample_buckets
 from harness.simulation_comparison import compare_pair, symmetry_metadata
 from harness.simulation_evidence import committed_plan_evidence, save_json
+from harness.simulation_movement import movement_section
 from harness.simulation_report import group_summary, load_results, summarize
 from harness.simulation_validation import TEAM_FIELDS, validate_report
 from harness.verify import JsonObject
@@ -495,3 +496,58 @@ def test_negative_snapshot_time_is_rejected() -> None:
     report["snapshots"][0].update(time=-1e-9, enemy_plans=[dict(plan)])
     with pytest.raises(ValueError, match="Negative snapshot time"):
         validate_report(report, job)
+
+
+def movement_force(**fields: object) -> JsonObject:
+    return dict(
+        dict(
+            team=0,
+            marched=True,
+            held_after_march=True,
+            settled=0,
+            overruns=0,
+            alive=True,
+        ),
+        **fields,
+    )
+
+
+def test_movement_section_counts_settled_overrun_and_never_held_forces() -> None:
+    _, stuck = telemetry()
+    stuck["duration"] = 120
+    stuck["movement"] = dict(
+        forces={
+            "a": movement_force(settled=3, overruns=1),
+            "b": movement_force(held_after_march=False),
+            # A force destroyed on the march is not stuck, and one that never marched never held on purpose.
+            "c": movement_force(held_after_march=False, alive=False),
+            "d": movement_force(marched=False, held_after_march=False),
+        }
+    )
+    _, old = telemetry()
+    lines: list[str] = []
+    rows = movement_section({("map", "baseline2", 1): [stuck, old]}, lines)
+    assert rows == [
+        dict(
+            matches=2,
+            recorded=1,
+            minutes=2,
+            settled=3,
+            settled_per_minute=1.5,
+            overruns=1,
+            marched=3,
+            never_holding=1,
+            map="map",
+            variant="baseline2",
+            dilation=1,
+        )
+    ]
+    assert "| map | baseline2 | 1\u00d7 | 1/2 | 3 | 1.50 | 1 | 3 | 1 |" in lines
+
+
+def test_movement_section_reports_nothing_for_reports_without_metrics() -> None:
+    _, old = telemetry()
+    lines: list[str] = []
+    rows = movement_section({("map", "baseline2", 1): [old]}, lines)
+    assert rows[0]["settled_per_minute"] is None
+    assert "| map | baseline2 | 1\u00d7 | 0/1 | 0 | n/a | 0 | 0 | 0 |" in lines

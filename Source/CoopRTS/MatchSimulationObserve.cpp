@@ -1,10 +1,12 @@
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
 #include "MatchSimulationSubsystem.h"
 
+#include "ArmyGroup.h"
 #include "ArmyUnit.h"
 #include "CommandBuilding.h"
 #include "CommandGameState.h"
 #include "DepositSite.h"
+#include "HUD/ForceETA.h"
 #include "Headquarters.h"
 #include "MapRegion.h"
 #include "MatchSimulationJson.h"
@@ -19,6 +21,94 @@ namespace
 {
 int32 TeamSlot(int32 Team) { return Team == 0 ? 0 : Team == 5 ? 1
 															  : INDEX_NONE; }
+
+// Movement-progress bookkeeping lives in the report itself, one record per force under
+// report.movement.forces keyed by actor name, and is observed once per game second.
+constexpr double MovementInterval = 1.;
+// A Marching leg is over its published ETA once it has lasted this many times the ETA.
+constexpr double OverrunFactor = 2.;
+
+TSharedPtr<FJsonObject> MovementRecord(FJsonObject& Forces, const FString& Name, int32 Team)
+{
+	const TSharedPtr<FJsonObject>* Existing = nullptr;
+	if (Forces.TryGetObjectField(Name, Existing))
+		return *Existing;
+	const TSharedRef<FJsonObject> Record = MakeShared<FJsonObject>();
+	Record->SetNumberField(TEXT("team"), Team);
+	Record->SetBoolField(TEXT("marched"), false);
+	Record->SetBoolField(TEXT("held_after_march"), false);
+	Record->SetNumberField(TEXT("settled"), 0);
+	Record->SetNumberField(TEXT("overruns"), 0);
+	Record->SetBoolField(TEXT("alive"), true);
+	Record->SetNumberField(TEXT("leg_key"), -1);
+	Record->SetNumberField(TEXT("leg_start"), 0);
+	Record->SetNumberField(TEXT("leg_eta"), -1);
+	Forces.SetObjectField(Name, Record);
+	return Record;
+}
+
+// A Marching leg is one order (verb, target) of continuous Marching; its ETA is the force card's, read once
+// it can be computed. A leg that outlasts OverrunFactor times that ETA is reported once.
+void ObserveMarch(FJsonObject& Record, FJsonObject& Report, const AArmyGroup& Force, const ACommandGameState& State, double Time)
+{
+	if (Force.Status == EForceStatus::Holding && Record.GetBoolField(TEXT("marched")))
+		Record.SetBoolField(TEXT("held_after_march"), true);
+	if (Force.Status != EForceStatus::Marching)
+	{
+		Record.SetNumberField(TEXT("leg_key"), -1);
+		return;
+	}
+	Record.SetBoolField(TEXT("marched"), true);
+	const int32 Key = (Force.TargetRegionIndex + 1) * 8 + static_cast<int32>(Force.Verb) * 2 + (IsValid(Force.TargetStructure) ? 1 : 0);
+	if (Record.GetIntegerField(TEXT("leg_key")) != Key)
+	{
+		Record.SetNumberField(TEXT("leg_key"), Key);
+		Record.SetNumberField(TEXT("leg_eta"), -1);
+		Record.SetBoolField(TEXT("held_after_march"), false);
+	}
+	const double Eta = Record.GetNumberField(TEXT("leg_eta"));
+	if (Eta < 0.)
+	{
+		const int32 Published = ForceTravelETA::Compute(Force, State);
+		if (Published > 0)
+		{
+			Record.SetNumberField(TEXT("leg_eta"), Published);
+			Record.SetNumberField(TEXT("leg_start"), Time);
+		}
+	}
+	else if (Eta > 0. && Time - Record.GetNumberField(TEXT("leg_start")) > OverrunFactor * Eta)
+	{
+		Record.SetNumberField(TEXT("leg_eta"), 0);
+		Record.SetNumberField(TEXT("overruns"), Record.GetNumberField(TEXT("overruns")) + 1);
+		const TSharedRef<FJsonObject> Row = MakeShared<FJsonObject>();
+		Row->SetStringField(TEXT("kind"), TEXT("march_overrun"));
+		Row->SetNumberField(TEXT("time"), Time);
+		Row->SetNumberField(TEXT("team"), Force.GetTeamIndex());
+		Row->SetStringField(TEXT("force"), Force.GetName());
+		Row->SetNumberField(TEXT("eta"), Eta);
+		Append(Report, TEXT("events"), Row);
+	}
+}
+
+void ObserveMovement(UWorld& World, const ACommandGameState& State, FJsonObject& Report, double Time)
+{
+	const TSharedPtr<FJsonObject>* Movement = nullptr;
+	if (!Report.TryGetObjectField(TEXT("movement"), Movement) || Time < (*Movement)->GetNumberField(TEXT("next")))
+		return;
+	(*Movement)->SetNumberField(TEXT("next"), Time + MovementInterval);
+	FJsonObject& Forces = *(*Movement)->GetObjectField(TEXT("forces"));
+	for (const auto& Entry : Forces.Values)
+		Entry.Value->AsObject()->SetBoolField(TEXT("alive"), false);
+	for (TActorIterator<AArmyGroup> It(&World); It; ++It)
+	{
+		if (TeamSlot(It->GetTeamIndex()) == INDEX_NONE || It->GetAliveCount() == 0)
+			continue;
+		const TSharedPtr<FJsonObject> Record = MovementRecord(Forces, It->GetName(), It->GetTeamIndex());
+		Record->SetBoolField(TEXT("alive"), true);
+		Record->SetNumberField(TEXT("settled"), It->GetSettledUnitCount());
+		ObserveMarch(*Record, Report, **It, State, Time);
+	}
+}
 }
 
 void FMatchSimulation::Observe(ACommandGameState& State)
@@ -29,6 +119,7 @@ void FMatchSimulation::Observe(ACommandGameState& State)
 	ObserveRegions(State);
 	ObserveDeposits(State);
 	ObserveHeadquarters(State);
+	ObserveMovement(*GetWorld(), State, *Report, GetWorld()->GetTimeSeconds() - StartWorldTime);
 }
 
 void FMatchSimulation::ObservePlans(ACommandGameState& State)
