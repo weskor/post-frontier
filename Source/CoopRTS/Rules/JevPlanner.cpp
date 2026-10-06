@@ -274,8 +274,9 @@ FCandidates Propose(const FWorld& World, const FForce& Force)
 		&& Route.Hops[Force.Home] != INDEX_NONE)
 		Offer(Out, MakePlan(World, Force, EVerb::Retreat, Force.Home, Route.Length[Force.Home]), 1000.f);
 	OfferTargets(World, Force, Chain, Route, false, Out);
-	// Nothing unclaimed is legal: the force joins a sibling's target rather than leave its order.
-	if (!Out.Count)
+	// Nothing unclaimed is legal: a healthy force joins a sibling's target rather than leave its order. A force that
+	// needs recovery but has no safe place to go keeps its order.
+	if (!Out.Count && !bRecover)
 		OfferTargets(World, Force, Chain, Route, true, Out);
 	return Out;
 }

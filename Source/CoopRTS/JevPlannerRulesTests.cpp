@@ -397,6 +397,7 @@ bool FJevClaimedFallbackTest::RunTest(const FString&)
 
 	FWorld Open = World;
 	Open.Regions[2].Controller = INDEX_NONE;
+	Open.bAdvantage = true; // The claimed enemy main now outscores the neutral region (200 against a few points).
 	const FCandidate* Unclaimed = Choose(Propose(Open, Force));
 	TestTrue(TEXT("An unclaimed target exists"), Unclaimed != nullptr);
 	if (Unclaimed)
@@ -404,6 +405,9 @@ bool FJevClaimedFallbackTest::RunTest(const FString&)
 
 	Force.HealthFraction = .2f;
 	TestEqual(TEXT("A hurt refilling force still retreats to recover"), Choose(Propose(World, Force))->Plan.Verb, EVerb::Retreat);
+	FForce Stranded = Force;
+	Stranded.Home = INDEX_NONE;
+	TestEqual(TEXT("A hurt refilling force with no safe place keeps its order instead of supporting"), Propose(World, Stranded).Count, 0);
 	Force.bCanRefill = false;
 	const FCandidate* Free = Choose(Propose(World, Force));
 	TestTrue(TEXT("A hurt force nothing refills has a plan"), Free != nullptr);
