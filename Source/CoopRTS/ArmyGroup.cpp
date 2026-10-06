@@ -96,7 +96,7 @@ FVector AArmyGroup::GetCenter() const
 	if (UnsettledCount > 0)
 		return Unsettled / UnsettledCount;
 	return AllCount > 0 ? All / AllCount : AppliedWaypoint != INDEX_NONE ? Destination
-																		  : GetActorLocation();
+																		 : GetActorLocation();
 }
 
 void AArmyGroup::Tick(float DeltaSeconds)

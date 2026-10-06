@@ -445,11 +445,9 @@ def _summarize_matches(run: Path, manifest: JsonObject) -> bool:
         "| Map | Variant | Dilation | Complete | Team 0 wins | Team 5 wins | Draws | Median game min | Median wall s | Median first depletion min |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    summaries = []
-    for key, reports in sorted(groups.items()):
-        line, summary = group_summary(key, reports)
-        lines.append(line)
-        summaries.append(summary)
+    group_rows = [group_summary(key, reports) for key, reports in sorted(groups.items())]
+    lines += [line for line, _ in group_rows]
+    summaries = [summary for _, summary in group_rows]
     lines += [
         "",
         "Draw durations are censored by the cap, not measured victory times; see the battle-length section for decisive and censored results separately.",

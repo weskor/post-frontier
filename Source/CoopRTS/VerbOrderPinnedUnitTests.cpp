@@ -49,8 +49,7 @@ private:
 			return true;
 		const AMapRegion* TargetRegion = Region(State, Target);
 		for (const AArmyUnit* Unit : Force->GetUnits())
-			if (Unit != Pinned.Get() && !Check(TargetRegion->Contains(Unit->GetActorLocation()),
-					TEXT("The five free members hold the target region")))
+			if (Unit != Pinned.Get() && !Check(TargetRegion->Contains(Unit->GetActorLocation()), TEXT("The five free members hold the target region")))
 				return true;
 		return Check(FVector::Dist2D(Pinned->GetActorLocation(), PinnedStart) < 100.f && !TargetRegion->Contains(Pinned->GetActorLocation()),
 			TEXT("The force reached Holding without the walled member, which never left its wall"));
