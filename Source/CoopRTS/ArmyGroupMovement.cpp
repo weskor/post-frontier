@@ -84,7 +84,7 @@ namespace
 // a blocked one is a path query as PrepareMove would make.
 bool PrepareSlotRoute(UNavigationSystemV1& Navigation, const FNavAgentProperties& Agent, UObject* Querier,
 	UPathFollowingComponent& Following, const FVector& Start, const FVector& Target,
-	FPreparedMove& Prepared, float ProjectionRadius)
+	FPreparedMove& Prepared, float ProjectionRadius = 35.0f)
 {
 	const ANavigationData* NavData = nullptr;
 	FPathFindingQuery Query;
@@ -123,7 +123,7 @@ using FPreparedMoves = TArray<FPreparedMove, TInlineAllocator<MaxUnitCount>>;
 
 using ArmyGroupPolicy::SlotFallbackRadius;
 
-// One unit's move to its fitted slot. The slot itself first. A region order then falls back to the nearest
+// One unit's move to its fitted slot (a straight move when the line is clear, else a path query). The slot itself first. A region order then falls back to the nearest
 // navigable point around the slot that stays inside the region, then to the force's centre, which the caller
 // has already proved reachable for the first member; only when even the centre has no path for this unit does
 // the command fail. A precise point order has no fallback: an obstructed formation rejects it.
@@ -136,19 +136,19 @@ bool PrepareSlotMove(UNavigationSystemV1& Navigation, AArmyUnit& Unit, AAIContro
 	Move.Controller = &AI;
 	// Limit horizontal projection so a wall cannot collapse several slots
 	// onto the same edge, or pull an out-of-arena slot back into bounds.
-	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Move))
+	if (PrepareSlotRoute(Navigation, Agent, &AI, Following, Start, Slot, Move))
 		return true;
 	if (!bFallback)
 		return false;
 	FPreparedMove Nearby;
-	if (PrepareMove(Navigation, Agent, &AI, Following, Start, Slot, Nearby, SlotFallbackRadius)
+	if (PrepareSlotRoute(Navigation, Agent, &AI, Following, Start, Slot, Nearby, SlotFallbackRadius)
 		&& (!Region || Region->Contains(Nearby.Goal)))
 	{
 		Nearby.Controller = &AI;
 		Move = MoveTemp(Nearby);
 		return true;
 	}
-	return PrepareMove(Navigation, Agent, &AI, Following, Start, Centre, Move, 75.0f);
+	return PrepareSlotRoute(Navigation, Agent, &AI, Following, Start, Centre, Move, 75.0f);
 }
 
 // What the leg being ordered is, for choosing the shape and heading of its slots. Seed varies a column's jitter

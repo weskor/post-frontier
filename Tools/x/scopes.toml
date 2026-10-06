@@ -572,6 +572,12 @@ kind = "automation"
 filter = "CoopRTS.Forces.FormationHeading"
 map = "default"
 
+# Order cost: a member with a clear straight line to its slot gets a raycast path, not a path query.
+[scopes.order-cost]
+kind = "automation"
+filter = "CoopRTS.Forces.OrderCost"
+map = "default"
+
 # The same plans on the real game, rendered (run on request: ./x test formation-heading-view); a person inspects the PNGs.
 [scopes.formation-heading-view]
 kind = "automation"
@@ -1191,7 +1197,10 @@ rendered = true
 "Source/CoopRTS/FormationFit[A-Z]*" = ["formation-fit"]
 "Source/CoopRTS/Rules/ArmyGroupPolicy.[ch]*" = ["formation-fit", "formation-heading"]
 "Source/CoopRTS/Rules/HoldPolicy.[ch]*" = ["formation-fit"]
-"Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit", "formation-heading"]
+"Source/CoopRTS/ArmyGroupMovement.cpp" = ["formation-fit", "formation-heading", "order-cost"]
+# Order cost (forces.md, order planning): the path query counter, the straight path, and the world scenario.
+"Source/CoopRTS/ArmyGroupPathing.[ch]*" = ["formation-fit", "formation-heading", "order-cost"]
+"Source/CoopRTS/OrderCostTests.cpp" = ["order-cost"]
 "Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit", "formation-heading"]
 "Source/CoopRTS/ArmyGroupSupply.cpp" = ["formation-fit"]
 # Movement progress: idle detection, escalation and straggler-tolerant arrival.
