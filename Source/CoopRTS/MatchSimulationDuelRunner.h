@@ -78,6 +78,7 @@ private:
 	bool StartPair();
 	bool SpawnSide(int32 Side, const TArray<FSquadPart>& Squad, const FVector& Forward, const FVector& Across,
 		TArray<TSharedPtr<FJsonValue>>& Spawns);
+	void OrderSideTicks();
 	bool IssueAttackOrders();
 	void PublishPair(TArray<TSharedPtr<FJsonValue>> Spawns[2]);
 	void Observe();

@@ -63,6 +63,12 @@ public:
 		const float Delta = World->GetDeltaSeconds();
 		Runner->Tick(Delta, Cap);
 		const TSharedRef<FJsonObject> Report = Runner->GetReport();
+		if (Report->HasField(TEXT("current_duel")))
+			if (const TSharedPtr<FJsonObject> Pair = Report->GetObjectField(TEXT("current_duel")); Pair != CheckedPair)
+			{
+				CheckedPair = Pair;
+				CheckSideTickOrder(*World, *Pair);
+			}
 		if (Phase == EPhase::PausedEncounter)
 			return CheckPausedEncounter(*World, Report, Delta);
 		if (!Runner->GetError().IsEmpty())
@@ -299,6 +305,30 @@ private:
 			Test->TestEqual(TEXT("Short-cap matrix does not fabricate wipes"), Wipes, 0);
 	}
 
+	// Combat resolves group by group inside a frame, so the side created first by seed parity must also tick first,
+	// in every fight of the matrix, not only the first one.
+	void CheckSideTickOrder(UWorld& World, const FJsonObject& Pair)
+	{
+		const int32 FirstTeam = static_cast<int32>(Pair.GetNumberField(TEXT("spawn_first_team")));
+		TArray<const AActor*> First, Second;
+		for (TActorIterator<AArmyUnit> It(&World); It; ++It)
+			(It->GetTeamIndex() == FirstTeam ? First : Second).Add(*It);
+		for (TActorIterator<AArmyGroup> It(&World); It; ++It)
+			(It->GetTeamIndex() == FirstTeam ? First : Second).Add(*It);
+		Test->TestTrue(TEXT("Both sides have actors whose tick order is checked"), !First.IsEmpty() && !Second.IsEmpty());
+		for (const AActor* Later : Second)
+			for (const AActor* Earlier : First)
+			{
+				const bool bOrdered = Later->PrimaryActorTick.GetPrerequisites().ContainsByPredicate(
+					[Earlier](const FTickPrerequisite& Prerequisite) { return Prerequisite.PrerequisiteTickFunction == &Earlier->PrimaryActorTick; });
+				if (!bOrdered)
+				{
+					Test->AddError(TEXT("A second-created duel actor can tick before a first-created one"));
+					return;
+				}
+			}
+	}
+
 	FAutomationTestBase* Test;
 	double Started;
 	EPhase Phase = EPhase::FullMatrix;
@@ -313,6 +343,7 @@ private:
 	IConsoleVariable* MaxFPS = nullptr;
 	float OriginalMaxFPS = 0.f;
 	TUniquePtr<FSimulationDuelRunner> Runner;
+	TSharedPtr<FJsonObject> CheckedPair;
 };
 
 bool FSimulationDuelTest::RunTest(const FString& Parameters)

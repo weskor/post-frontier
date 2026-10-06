@@ -107,6 +107,7 @@ bool FSimulationDuelRunner::StartPair()
 		if (!SpawnSide(Side, Fight.Squads[Side], Forward, Across, Spawns[Side]))
 			return false;
 	}
+	OrderSideTicks();
 	if (Fight.IsComposition())
 	{
 		Current->SetStringField(TEXT("scenario"), Fight.Kind);
@@ -126,6 +127,26 @@ bool FSimulationDuelRunner::StartPair()
 		return false;
 	PublishPair(Spawns);
 	return true;
+}
+
+// Combat resolves inside the frame, one group after another: a volley that kills lands before the next group
+// fires, and a unit killed this frame no longer fires. With equal intervals both sides fire in the same frame
+// every time, so the group that ticks first wins the race (measured: the first-ticking side won 27-38 of 40
+// mirror fights). Actor tick order is not creation order once earlier fights have recycled tick slots, so the
+// seed-parity side order must be enforced: every actor of the side created second ticks after every actor of
+// the side created first.
+void FSimulationDuelRunner::OrderSideTicks()
+{
+	TArray<AActor*, TInlineAllocator<16>> First, Second;
+	for (const FMember& Member : Members)
+		if (AArmyUnit* Unit = Member.Unit.Get())
+			(Member.Side == SpawnFirstSide ? First : Second).Add(Unit);
+	for (const TWeakObjectPtr<AArmyGroup>& Group : Groups)
+		if (AArmyGroup* Actor = Group.Get())
+			(Actor->GetTeamIndex() == (SpawnFirstSide == 0 ? 0 : 5) ? First : Second).Add(Actor);
+	for (AActor* Later : Second)
+		for (AActor* Earlier : First)
+			Later->AddTickPrerequisiteActor(Earlier);
 }
 
 bool FSimulationDuelRunner::SpawnSide(int32 Side, const TArray<FSquadPart>& Squad, const FVector& Forward,
