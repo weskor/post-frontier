@@ -3,8 +3,9 @@
 #include "VerbOrderFixture.h"
 
 // Forces of one wave march to the same region. Their destinations must not pile onto one slot rectangle, and all
-// of them must reach Holding. In the second variant four forces march and the first three are wiped as they set
-// out: the fourth stands on a lane outside capture range, and must still take the region.
+// of them must reach Holding. In the second variant fourteen forces march and the first thirteen are wiped as they
+// set out: the last stands on lane 13, so far out that none of its members is in capture range of the anchor, and
+// must still take the region.
 namespace VerbOrderLanesTests
 {
 using namespace VerbOrderTests;
@@ -17,7 +18,7 @@ public:
 		: FScenarioBase(InTest, EScenario::MoveHold) {}
 
 private:
-	static constexpr int32 ForceTotal = bLoseLaneZero ? 4 : 12;
+	static constexpr int32 ForceTotal = bLoseLaneZero ? 14 : 12;
 	// A force's slots span 440 x 280 cm in the encounter layout.
 	static constexpr float RectX = 440.f, RectY = 280.f;
 
@@ -82,8 +83,9 @@ private:
 			if (bLoseLaneZero)
 			{
 				const float Reach = FVector::Dist2D(Wave.Last()->Destination, State->GetRegionAnchor(Intermediate));
-				Test->AddInfo(FString::Printf(TEXT("The fourth force's destination is %.0f cm from the anchor"), Reach));
-				if (!Check(Reach > ACapturePoint::CaptureRadius, TEXT("The fourth force stands on a lane outside capture range")))
+				Test->AddInfo(FString::Printf(TEXT("The last force's destination is %.0f cm from the anchor"), Reach));
+				if (!Check(Reach > ACapturePoint::CaptureRadius + Wave.Last()->GetFormationRadius(),
+						TEXT("The last force stands on a lane where no member is in capture range of the anchor")))
 					return true;
 				for (int32 Index = 0; Index < ForceTotal - 1; ++Index)
 				{
