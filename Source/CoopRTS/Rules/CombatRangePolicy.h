@@ -13,20 +13,18 @@ namespace CombatRangePolicy
 struct FRangeTarget
 {
 	FRangeTarget() = default;
-	// A bare point: a unit, or any target measured centre to centre.
-	FRangeTarget(const FVector& Point) : Center(Point) {}
+	// A bare point: a unit, or any target measured centre to centre. Explicit, so that a structure call
+	// site cannot compile to centre distance by accident.
+	explicit FRangeTarget(const FVector& Point) : Center(Point) {}
 	FVector2D Center = FVector2D::ZeroVector;
 	// Half sizes of the box along its own axes; zero for a point.
 	FVector2D HalfExtent = FVector2D::ZeroVector;
 	float YawDegrees = 0.f;
 	float Clearance = 0.f;
-	// A structure whose footprint cuts the navigation mesh: units cannot stand within it or close to
-	// its origin, so approaching it needs the edge rules of Rules/PursuitPolicy.h.
-	bool bBlocksMovement = false;
 };
 
 // A structure: box of half sizes HalfExtent turned by YawDegrees.
-FRangeTarget Box(const FVector& Center, const FVector2D& HalfExtent, float YawDegrees, float AttackerRadius, bool bBlocksMovement = true);
+FRangeTarget Box(const FVector& Center, const FVector2D& HalfExtent, float YawDegrees, float AttackerRadius);
 
 // Whether the target is a structure (a box that stands still) rather than a unit (a point).
 bool IsStructure(const FRangeTarget& Target);

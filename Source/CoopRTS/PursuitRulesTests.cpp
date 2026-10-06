@@ -14,7 +14,7 @@ bool FPursuitTransitionsTest::RunTest(const FString& Parameters)
 	for (const float Range : { 175.f, 560.f, 1150.f })
 	{
 		const auto Decide = [&](float Distance, bool bPursuing, bool bChanged, const FVector& LastGoal, bool bRetryReady = true) {
-			return PursuitPolicy::Evaluate(Origin, FVector(Distance, 0.f, 0.f), Range, ArrivalAllowance,
+			return PursuitPolicy::Evaluate(Origin, CombatRangePolicy::FRangeTarget(FVector(Distance, 0.f, 0.f)), Range, ArrivalAllowance,
 				Origin, 2000.f, 0.f, bPursuing, bChanged, LastGoal, bRetryReady);
 		};
 		const FPursuitDecision Firing = Decide(Range, false, false, Origin);
@@ -50,10 +50,10 @@ bool FPursuitTransitionsTest::RunTest(const FString& Parameters)
 				Decide(Distance + 131.f, true, false, Leaving.Goal).bIssueMove);
 		}
 	}
-	const FPursuitDecision LargerCapsule = PursuitPolicy::Evaluate(Origin, FVector(200.f, 0.f, 0.f),
+	const FPursuitDecision LargerCapsule = PursuitPolicy::Evaluate(Origin, CombatRangePolicy::FRangeTarget(FVector(200.f, 0.f, 0.f)),
 		175.f, 80.f + 35.f, Origin, 2000.f, 0.f, false, false, Origin, true);
 	TestEqual(TEXT("Larger capsule reserves its own full allowance"), LargerCapsule.Goal.X, 140.);
-	const FPursuitDecision Clamped = PursuitPolicy::Evaluate(Origin, FVector(1000.f, 0.f, 0.f),
+	const FPursuitDecision Clamped = PursuitPolicy::Evaluate(Origin, CombatRangePolicy::FRangeTarget(FVector(1000.f, 0.f, 0.f)),
 		175.f, 69.f, Origin, 500.f, 7.f, false, false, Origin, true);
 	TestTrue(TEXT("Pursuit goal stays inside order leash"), FMath::IsNearlyEqual(Clamped.Goal.Size2D(), 500.));
 	TestEqual(TEXT("Pursuit goal keeps order height"), Clamped.Goal.Z, 7.);
@@ -69,12 +69,14 @@ bool FPursuitStopBandTest::RunTest(const FString& Parameters)
 	// stop band; one that is idle in range stays put. A crowd nudge across the range edge therefore
 	// cannot start a pursuit that the stop band would end a tick later.
 	const FVector Origin = FVector::ZeroVector;
-	const CombatRangePolicy::FRangeTarget Workshop = CombatRangePolicy::Box(Origin, FVector2D(145., 145.), 0.f, 34.f);
+	// The same band for every structure: Workshop (145 half size) and HQ / Failover Node (150).
+	for (const float Half : { 145.f, 150.f })
 	for (const float Range : { 175.f, 300.f, 560.f, 1150.f })
 	{
+		const CombatRangePolicy::FRangeTarget Workshop = CombatRangePolicy::Box(Origin, FVector2D(Half, Half), 0.f, 34.f);
 		const float Band = Range * PursuitPolicy::StopBandFraction;
 		const auto Decide = [&](double Edge, bool bPursuing) {
-			const FVector Unit(145. + 34. + Edge, 0., 0.);
+			const FVector Unit(Half + 34. + Edge, 0., 0.);
 			return PursuitPolicy::Evaluate(Unit, Workshop, Range, PursuitPolicy::ArrivalTolerance, Unit, 5000.f, 0.f, bPursuing, false, Origin, true);
 		};
 		const FPursuitDecision Entering = Decide(Range - 1., true);
@@ -90,31 +92,6 @@ bool FPursuitStopBandTest::RunTest(const FString& Parameters)
 			PursuitPolicy::ArrivalAllowance(CombatRangePolicy::FRangeTarget(Origin), 34.f), Origin, 5000.f, 0.f, true, false, Origin, true);
 		TestTrue(TEXT("A walking unit stops as soon as a unit target is in range"), VsUnit.bInRange && VsUnit.bStop);
 	}
-	return true;
-}
-
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPursuitOpenStructureTest, "CoopRTS.Rules.Combat.PursuitOpenStructure",
-	EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::ProductFilter)
-
-bool FPursuitOpenStructureTest::RunTest(const FString& Parameters)
-{
-	// An HQ or Failover Node (150 cm half size) can be walked into: range runs to its edge and members spread along
-	// it, but the approach is the balanced one against a unit: stop the moment it is in range, stand at 0.82 x range.
-	const FVector Origin = FVector::ZeroVector;
-	const FVector Far(1500.f, 0.f, 0.f);
-	const CombatRangePolicy::FRangeTarget Node = CombatRangePolicy::Box(Origin, FVector2D(150., 150.), 0.f, 34.f, false);
-	const float Allowance = PursuitPolicy::ArrivalAllowance(Node, 34.f);
-	TestEqual(TEXT("A walk-in structure reserves the capsule like a unit target"), Allowance, 34.f + PursuitPolicy::ArrivalTolerance);
-	const FVector InRange(150.f + 34.f + 500.f, 0.f, 0.f);
-	const FPursuitDecision Entering = PursuitPolicy::Evaluate(InRange, Node, 550.f, Allowance, InRange, 5000.f, 0.f, true, false, Origin, true);
-	TestTrue(TEXT("A walking unit in range of an open structure stops at once"), Entering.bInRange && Entering.bStop);
-	const FVector Goal = PursuitPolicy::ApproachGoal(Far, Node, 550.f, Allowance, Far, 5000.f, 0.f, 0);
-	TestEqual(TEXT("Its goal stands 0.82 x range from the edge, capped by the arrival allowance"),
-		CombatRangePolicy::EdgeDistance(FVector2D(Goal), Node), static_cast<double>(FMath::Min(550.f * PursuitPolicy::UnitStandoffFraction, 550.f - Allowance)), 1e-6);
-	const TArray<FVector2D> Taken = { FVector2D(Goal) };
-	const FVector Next = PursuitPolicy::ApproachGoal(Far, Node, 550.f, Allowance, Far, 5000.f, 0.f, 0, Taken);
-	TestTrue(TEXT("Members spread along an open structure"), FVector::Dist2D(Next, Goal) >= PursuitPolicy::SlotSpacing - .001f);
-	TestEqual(TEXT("at the same standoff"), CombatRangePolicy::EdgeDistance(FVector2D(Next), Node), CombatRangePolicy::EdgeDistance(FVector2D(Goal), Node), 1e-6);
 	return true;
 }
 
@@ -144,6 +121,18 @@ bool FPursuitStructureApproachTest::RunTest(const FString& Parameters)
 	const FPursuitDecision Held = PursuitPolicy::Evaluate(Far, Workshop, 175.f + 300.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f,
 		true, false, PursuitPolicy::ApproachGoal(Circled, Workshop, 475.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f, 0), true);
 	TestFalse(TEXT("A goal on another side of the structure at the same standoff is kept"), Held.bIssueMove);
+
+	// A unit already walking to a fallback goal keeps it; one walking to neither is redirected.
+	const FVector Fallback = PursuitPolicy::ApproachGoal(Far, Workshop, 560.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f, 1);
+	const FPursuitDecision OnFallback = PursuitPolicy::Evaluate(Far, Workshop, 560.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f,
+		true, false, Fallback, true);
+	TestFalse(TEXT("Walking to a fallback goal issues no new move"), OnFallback.bIssueMove);
+	TestTrue(TEXT("Walking to a goal that matches no approach standoff does"),
+		PursuitPolicy::Evaluate(Far, Workshop, 560.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f, true, false, Far, true).bIssueMove);
+	const CombatRangePolicy::FRangeTarget Enemy(Origin);
+	const FVector UnitFallback = PursuitPolicy::ApproachGoal(Far, Enemy, 560.f, 69.f, Far, 5000.f, 0.f, 1);
+	TestFalse(TEXT("The same holds against a unit"),
+		PursuitPolicy::Evaluate(Far, Enemy, 560.f, 69.f, Far, 5000.f, 0.f, true, false, UnitFallback, true).bIssueMove);
 
 	// Fallback goals walk toward the target, ending at its edge, and the leash clips each.
 	double Previous = TNumericLimits<double>::Max();
@@ -205,10 +194,10 @@ bool FPursuitSpreadTest::RunTest(const FString& Parameters)
 		Blocked.Add(FVector2D(Goal));
 	}
 	// A unit target is approached head on whoever stands there already.
-	const CombatRangePolicy::FRangeTarget Enemy{ FVector(Origin) };
-	const FVector Head = PursuitPolicy::ApproachGoal(Far, Enemy, 550.f, 69.f, Far, 5000.f, 0.f, 0);
+	const CombatRangePolicy::FRangeTarget EnemyUnit(Origin);
+	const FVector Head = PursuitPolicy::ApproachGoal(Far, EnemyUnit, 550.f, 69.f, Far, 5000.f, 0.f, 0);
 	const TArray<FVector2D> Crowd = { FVector2D(Head) };
-	TestEqual(TEXT("Members chasing a unit do not spread"), PursuitPolicy::ApproachGoal(Far, Enemy, 550.f, 69.f, Far, 5000.f, 0.f, 0, Crowd), Head);
+	TestEqual(TEXT("Members chasing a unit do not spread"), PursuitPolicy::ApproachGoal(Far, EnemyUnit, 550.f, 69.f, Far, 5000.f, 0.f, 0, Crowd), Head);
 	TestEqual(TEXT("With every shift taken the goal falls back to the nearest point"),
 		PursuitPolicy::ApproachGoal(Far, Workshop, 175.f, PursuitPolicy::ArrivalTolerance, Far, 5000.f, 0.f, 0, Blocked), Alone);
 	return true;

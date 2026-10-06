@@ -26,13 +26,12 @@ FVector2D ToWorld(const FVector2D& Local, const FRangeTarget& Target)
 }
 }
 
-FRangeTarget Box(const FVector& Center, const FVector2D& HalfExtent, float YawDegrees, float AttackerRadius, bool bBlocksMovement)
+FRangeTarget Box(const FVector& Center, const FVector2D& HalfExtent, float YawDegrees, float AttackerRadius)
 {
 	FRangeTarget Target(Center);
 	Target.HalfExtent = HalfExtent;
 	Target.YawDegrees = YawDegrees;
 	Target.Clearance = AttackerRadius;
-	Target.bBlocksMovement = bBlocksMovement;
 	return Target;
 }
 

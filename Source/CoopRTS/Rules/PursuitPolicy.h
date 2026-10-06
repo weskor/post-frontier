@@ -15,18 +15,17 @@ struct FPursuitDecision
 
 // Approach rule shared by ordinary pursuit and the hold response. A unit pursues once the target is
 // out of range and stands at the standoff. Distance runs centre to centre against a unit and to the
-// edge against a structure. Against a structure (a box that stands still) the force's members spread
-// along the edge and a goal is kept while its standoff holds. Against a building whose footprint cuts
-// the navigation mesh (FRangeTarget::bBlocksMovement) a walking unit also fires from the edge of its
-// range but keeps walking to the stop band, and stands at 0.9 x range. Against a unit or an HQ or
-// Failover Node, which can be walked into, the approach is the one the duel matrix was balanced on:
-// stop at the range edge and stand at 0.82 x range.
+// edge against a structure (Barracks, Drill Rig, Workshop, HQ, Failover Node). Against a structure a
+// walking unit fires from the edge of its range but keeps walking to the stop band and stands at
+// 0.9 x range, the force's members spread along the edge, and a goal is kept while its standoff
+// holds. Against a unit the approach is the one the duel matrix was balanced on: stop at the range
+// edge, stand at 0.82 x range, follow the target's movement.
 namespace PursuitPolicy
 {
 constexpr float IdleRetrySeconds = .5f;
-// Footprint buildings: walking units stop inside this fraction of the weapon range; an idle unit in range stays put.
+// Structures: walking units stop inside this fraction of the weapon range; an idle unit in range stays put.
 constexpr float StopBandFraction = .9f;
-// Everything else: the fraction of the weapon range pursuit stands at.
+// Units: the fraction of the weapon range pursuit stands at.
 constexpr float UnitStandoffFraction = .82f;
 // Movement acceptance of an issued pursuit, reserved inside the weapon range.
 constexpr float ArrivalTolerance = 35.f;
@@ -41,18 +40,18 @@ constexpr float SlotSpacing = 90.f;
 constexpr float SlotShiftStep = 30.f;
 constexpr int32 MaxSlotShifts = 20;
 
-// What a moving unit reserves inside its range: the arrival tolerance, and against targets that do not
-// block movement also the capsule, since a footprint building's distance already counts it.
+// What a moving unit reserves inside its range: the arrival tolerance, and against a unit also the
+// capsule, since a structure's distance already counts it (its clearance is the capsule).
 inline float ArrivalAllowance(const CombatRangePolicy::FRangeTarget& Target, float CapsuleRadius)
 {
-	return Target.bBlocksMovement ? ArrivalTolerance : CapsuleRadius + ArrivalTolerance;
+	return CombatRangePolicy::IsStructure(Target) ? ArrivalTolerance : CapsuleRadius + ArrivalTolerance;
 }
 
 // Distance (to the edge for a structure, to the centre for a unit) at which the unit prefers to
 // stand: inside the stop band and short of the weapon range by the arrival allowance.
 inline float Standoff(const CombatRangePolicy::FRangeTarget& Target, float Range, float Allowance)
 {
-	const float Fraction = Target.bBlocksMovement ? StopBandFraction : UnitStandoffFraction;
+	const float Fraction = CombatRangePolicy::IsStructure(Target) ? StopBandFraction : UnitStandoffFraction;
 	return FMath::Max(0.f, FMath::Min(Range * Fraction, Range - Allowance));
 }
 
@@ -109,16 +108,23 @@ inline FPursuitDecision Evaluate(const FVector& Unit, const CombatRangePolicy::F
 	Decision.bInRange = Distance <= Range;
 	if (Decision.bInRange)
 	{
-		Decision.bStop = !Target.bBlocksMovement || !bPursuing || Distance <= Range * StopBandFraction;
+		Decision.bStop = !bStructure || !bPursuing || Distance <= Range * StopBandFraction;
 		return Decision;
 	}
 	Decision.Goal = ApproachGoal(Unit, Target, Range, Allowance, Anchor, Radius, GoalZ, 0);
-	// A moving target: its goal is kept until a new one is more than the slack away. A structure
-	// stands still: the accepted goal stays good while its own standoff stays near a new goal's, so
-	// the unit turning around the structure does not call for a new path.
-	const bool bGoalChanged = bStructure
-		? FMath::Abs(CombatRangePolicy::EdgeDistance(FVector2D(LastIssuedGoal), Target) - CombatRangePolicy::EdgeDistance(FVector2D(Decision.Goal), Target)) > GoalSlack + .001
-		: FVector::DistSquared2D(Decision.Goal, LastIssuedGoal) > FMath::Square(GoalSlack);
+	// A moving target: a goal is kept until a new one is more than the slack away. A structure stands
+	// still: the accepted goal stays good while its own standoff stays near a new goal's, so the unit
+	// turning around the structure does not call for a new path. A goal that matches any approach
+	// index counts, so a unit walking to a fallback goal is not restarted every tick.
+	bool bGoalChanged = true;
+	if (bPursuing && !bTargetChanged)
+		for (int32 Index = 0; Index < MaxApproachGoals && bGoalChanged; ++Index)
+		{
+			const FVector Candidate = Index ? ApproachGoal(Unit, Target, Range, Allowance, Anchor, Radius, GoalZ, Index) : Decision.Goal;
+			bGoalChanged = bStructure
+				? FMath::Abs(CombatRangePolicy::EdgeDistance(FVector2D(LastIssuedGoal), Target) - CombatRangePolicy::EdgeDistance(FVector2D(Candidate), Target)) > GoalSlack + .001
+				: FVector::DistSquared2D(Candidate, LastIssuedGoal) > FMath::Square(GoalSlack);
+		}
 	Decision.bIssueMove = bTargetChanged || (bPursuing ? bGoalChanged : bRetryReady);
 	return Decision;
 }

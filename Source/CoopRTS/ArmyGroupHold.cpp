@@ -224,7 +224,7 @@ void AArmyGroup::UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region,
 	const float Range = Unit.WeaponRange();
 	// The region supplies the leash; leave the policy's circular leash inactive
 	// and clip its capsule-aware standoff to the polygon in UpdateHoldMovement.
-	const FPursuitDecision Decision = PursuitPolicy::Evaluate(Position, ThreatPosition, Range,
+	const FPursuitDecision Decision = PursuitPolicy::Evaluate(Position, CombatRangePolicy::FRangeTarget(ThreatPosition), Range,
 		Unit.GetSimpleCollisionRadius() + 35.f, Position,
 		FVector::Dist2D(Position, ThreatPosition) + Range, HoldPostLocation.Z,
 		Unit.bPursuing && AI->GetMoveStatus() != EPathFollowingStatus::Idle,

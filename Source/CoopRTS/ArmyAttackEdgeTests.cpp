@@ -21,6 +21,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAttackEdgeNodeTest, "CoopRTS.Combat.AttackEdge
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAttackEdgeRangedTest, "CoopRTS.Combat.AttackEdge.RangedStandoff",
 	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAttackEdgeRangedNodeTest, "CoopRTS.Combat.AttackEdge.RangedStandoffFailoverNode",
+	EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 
 namespace
 {
@@ -70,6 +72,7 @@ private:
 		if (!TargetStanding())
 		{
 			Check(FiredCount() == Force->GetUnits().Num(), TEXT("Every unit fired before the structure fell"));
+			Test->AddInfo(FString::Printf(TEXT("Six melee units destroyed a %d HP structure (target kind %d) %.1f game seconds after the order"), StartHealth, static_cast<int32>(Kind), InStage()));
 			return true;
 		}
 		if (Role == EUnitRole::Ranged)
@@ -140,7 +143,7 @@ private:
 				return false;
 			Node->TeamIndex = 5;
 			Node->FinishSpawning(NodeTransform);
-			Node->Health = StartHealth = 1500;
+			Node->Health = StartHealth = Role == EUnitRole::Ranged ? 100000 : 1500;
 			return true;
 		}
 		const FTransform Transform(Place + FVector(0.f, 0.f, -35.f));
@@ -208,6 +211,12 @@ bool FAttackEdgeNodeTest::RunTest(const FString&)
 bool FAttackEdgeRangedTest::RunTest(const FString&)
 {
 	ADD_LATENT_AUTOMATION_COMMAND(FEdgeScenario(this, ETarget::Workshop, EUnitRole::Ranged));
+	return true;
+}
+
+bool FAttackEdgeRangedNodeTest::RunTest(const FString&)
+{
+	ADD_LATENT_AUTOMATION_COMMAND(FEdgeScenario(this, ETarget::Node, EUnitRole::Ranged));
 	return true;
 }
 

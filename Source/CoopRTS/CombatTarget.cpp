@@ -65,18 +65,17 @@ CombatRangePolicy::FRangeTarget CombatTarget::RangeTarget(const AActor* Target, 
 {
 	const FVector Center = Target->GetActorLocation();
 	const float Yaw = Target->GetActorRotation().Yaw;
-	// Only a building's footprint keeps units out; the HQ and the Failover Node can be walked into.
-	const auto Square = [&](float HalfSize, bool bBlocksMovement) {
-		return CombatRangePolicy::Box(Center, FVector2D(HalfSize, HalfSize), Yaw, AttackerRadius, bBlocksMovement);
+	const auto Square = [&](float HalfSize) {
+		return CombatRangePolicy::Box(Center, FVector2D(HalfSize, HalfSize), Yaw, AttackerRadius);
 	};
 	if (Cast<AArmyUnit>(Target))
 		return CombatRangePolicy::FRangeTarget(Center);
 	if (Cast<AHeadquarters>(Target))
-		return Square(AHeadquarters::HitBoxHalfSize, false);
+		return Square(AHeadquarters::HitBoxHalfSize);
 	if (Cast<AFailoverNode>(Target))
-		return Square(AFailoverNode::HitBoxHalfSize, false);
+		return Square(AFailoverNode::HitBoxHalfSize);
 	if (const ACommandBuilding* Building = Cast<ACommandBuilding>(Target))
-		return Square(Building->GetFootprintHalfExtent(), true);
+		return Square(Building->GetFootprintHalfExtent());
 	checkNoEntry();
 	return CombatRangePolicy::FRangeTarget(Center);
 }
