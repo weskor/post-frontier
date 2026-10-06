@@ -71,27 +71,27 @@ bool FPursuitStopBandTest::RunTest(const FString& Parameters)
 	const FVector Origin = FVector::ZeroVector;
 	// The same band for every structure: Workshop (145 half size) and HQ / Failover Node (150).
 	for (const float Half : { 145.f, 150.f })
-	for (const float Range : { 175.f, 300.f, 560.f, 1150.f })
-	{
-		const CombatRangePolicy::FRangeTarget Workshop = CombatRangePolicy::Box(Origin, FVector2D(Half, Half), 0.f, 34.f);
-		const float Band = Range * PursuitPolicy::StopBandFraction;
-		const auto Decide = [&](double Edge, bool bPursuing) {
-			const FVector Unit(Half + 34. + Edge, 0., 0.);
-			return PursuitPolicy::Evaluate(Unit, Workshop, Range, PursuitPolicy::ArrivalTolerance, Unit, 5000.f, 0.f, bPursuing, false, Origin, true);
-		};
-		const FPursuitDecision Entering = Decide(Range - 1., true);
-		TestTrue(TEXT("A walking unit fires as soon as it is in range"), Entering.bInRange);
-		TestFalse(TEXT("A walking unit above the stop band keeps walking"), Entering.bStop);
-		TestFalse(TEXT("A walking unit in range issues no new move"), Entering.bIssueMove);
-		TestTrue(TEXT("A walking unit inside the stop band stops"), Decide(Band, true).bStop);
-		TestTrue(TEXT("An idle unit anywhere in range holds still"), Decide(Range - 1., false).bStop);
-		TestFalse(TEXT("An idle unit in range never issues a move"), Decide(Range - 1., false).bIssueMove);
-		TestFalse(TEXT("An idle unit just out of range is not stopped"), Decide(Range + 1., false).bStop);
-		// Against a unit the approach is the balanced one: stop the moment it is in range.
-		const FPursuitDecision VsUnit = PursuitPolicy::Evaluate(FVector(Range - 1., 0., 0.), CombatRangePolicy::FRangeTarget(Origin), Range,
-			PursuitPolicy::ArrivalAllowance(CombatRangePolicy::FRangeTarget(Origin), 34.f), Origin, 5000.f, 0.f, true, false, Origin, true);
-		TestTrue(TEXT("A walking unit stops as soon as a unit target is in range"), VsUnit.bInRange && VsUnit.bStop);
-	}
+		for (const float Range : { 175.f, 300.f, 560.f, 1150.f })
+		{
+			const CombatRangePolicy::FRangeTarget Workshop = CombatRangePolicy::Box(Origin, FVector2D(Half, Half), 0.f, 34.f);
+			const float Band = Range * PursuitPolicy::StopBandFraction;
+			const auto Decide = [&](double Edge, bool bPursuing) {
+				const FVector Unit(Half + 34. + Edge, 0., 0.);
+				return PursuitPolicy::Evaluate(Unit, Workshop, Range, PursuitPolicy::ArrivalTolerance, Unit, 5000.f, 0.f, bPursuing, false, Origin, true);
+			};
+			const FPursuitDecision Entering = Decide(Range - 1., true);
+			TestTrue(TEXT("A walking unit fires as soon as it is in range"), Entering.bInRange);
+			TestFalse(TEXT("A walking unit above the stop band keeps walking"), Entering.bStop);
+			TestFalse(TEXT("A walking unit in range issues no new move"), Entering.bIssueMove);
+			TestTrue(TEXT("A walking unit inside the stop band stops"), Decide(Band, true).bStop);
+			TestTrue(TEXT("An idle unit anywhere in range holds still"), Decide(Range - 1., false).bStop);
+			TestFalse(TEXT("An idle unit in range never issues a move"), Decide(Range - 1., false).bIssueMove);
+			TestFalse(TEXT("An idle unit just out of range is not stopped"), Decide(Range + 1., false).bStop);
+			// Against a unit the approach is the balanced one: stop the moment it is in range.
+			const FPursuitDecision VsUnit = PursuitPolicy::Evaluate(FVector(Range - 1., 0., 0.), CombatRangePolicy::FRangeTarget(Origin), Range,
+				PursuitPolicy::ArrivalAllowance(CombatRangePolicy::FRangeTarget(Origin), 34.f), Origin, 5000.f, 0.f, true, false, Origin, true);
+			TestTrue(TEXT("A walking unit stops as soon as a unit target is in range"), VsUnit.bInRange && VsUnit.bStop);
+		}
 	return true;
 }
 
