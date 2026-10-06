@@ -23,7 +23,8 @@ bool CanPass(const FRegions& Regions, int32 Region);
 
 // The waypoint region for a force standing in Source whose order targets Target, along the shortest route
 // (ForceOrders::NextWaypoint). The leg runs past every passable region, up to MaxSegments regions, and ends at
-// the first region that must be secured or at the target. A waypoint Applied earlier that still lies ahead on the
+// the first region that must be secured, or in the region before the target (the leg into the target region is
+// its own leg), or at the target when it is the next region. A waypoint Applied earlier that still lies ahead on the
 // route, with only passable regions before it, is kept so the force does not re-order at every border.
 // INDEX_NONE when the target cannot be reached.
 int32 Waypoint(const uint64* Graph, int32 Count, int32 Source, int32 Target, int32 Applied, const FRegions& Regions);

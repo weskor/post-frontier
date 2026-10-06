@@ -148,7 +148,7 @@ bool FPassThroughRouteTest::RunTest(const FString& Parameters)
 	Open.Anchored = Bit(1) | Bit(2) | Bit(3) | Bit(4) | Bit(5);
 
 	TestEqual(TEXT("Controlled ground is passed: one leg of MaxSegments regions"), Waypoint(Graph, 6, 0, 5, INDEX_NONE, Open), MaxSegments);
-	TestEqual(TEXT("A target within the leg is the waypoint"), Waypoint(Graph, 6, 3, 5, INDEX_NONE, Open), 5);
+	TestEqual(TEXT("A leg that would end at the target ends in the region before it"), Waypoint(Graph, 6, 3, 5, INDEX_NONE, Open), 4);
 	TestEqual(TEXT("An adjacent target is the waypoint"), Waypoint(Graph, 6, 4, 5, INDEX_NONE, Open), 5);
 
 	FRegions Uncontrolled = Open;
@@ -174,9 +174,9 @@ bool FPassThroughRouteTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Without it the leg would end further on"), Waypoint(Graph, 6, 1, 5, INDEX_NONE, Open), 4);
 	TestEqual(TEXT("It is dropped when ground before it needs securing"), Waypoint(Graph, 6, 1, 5, 3, Uncontrolled), 2);
 	TestEqual(TEXT("It is dropped when a hostile unit stands before it"), Waypoint(Graph, 6, 1, 5, 3, Hostile), 2);
-	TestEqual(TEXT("Standing in the applied waypoint orders on"), Waypoint(Graph, 6, 3, 5, 3, Open), 5);
-	TestEqual(TEXT("A waypoint behind the force is not kept"), Waypoint(Graph, 6, 3, 5, 1, Open), 5);
-	TestEqual(TEXT("A waypoint off the route is not kept"), Waypoint(Graph, 6, 3, 5, 0, Open), 5);
+	TestEqual(TEXT("Standing in the applied waypoint orders on"), Waypoint(Graph, 6, 3, 5, 3, Open), 4);
+	TestEqual(TEXT("A waypoint behind the force is not kept"), Waypoint(Graph, 6, 3, 5, 1, Open), 4);
+	TestEqual(TEXT("A waypoint off the route is not kept"), Waypoint(Graph, 6, 3, 5, 0, Open), 4);
 
 	TestEqual(TEXT("Standing in the target the route is the target"), Waypoint(Graph, 6, 5, 5, INDEX_NONE, Open), 5);
 	uint64 Split[3] = { Bit(1), Bit(0), 0 };

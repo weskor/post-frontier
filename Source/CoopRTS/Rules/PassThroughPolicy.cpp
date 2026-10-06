@@ -27,8 +27,10 @@ int32 Waypoint(const uint64* Graph, int32 Count, int32 Source, int32 Target, int
 			break;
 		if (Applied != INDEX_NONE && Applied != Source && Next == Applied && bPassableSoFar)
 			return Applied;
+		// The leg into the target region stays its own leg (the box at arrival, ArmyGroupPolicy), so a leg that would
+		// end there ends in the region before it.
 		if (Fresh == INDEX_NONE && (Next == Target || !CanPass(Regions, Next) || Step == MaxSegments))
-			Fresh = Next;
+			Fresh = Next == Target && Current != Source ? Current : Next;
 		if (Next == Target)
 			break;
 		bPassableSoFar = bPassableSoFar && CanPass(Regions, Next);
