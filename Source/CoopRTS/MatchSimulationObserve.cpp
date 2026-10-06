@@ -43,6 +43,10 @@ TSharedPtr<FJsonObject> MovementRecord(FJsonObject& Forces, const FString& Name,
 	Record->SetNumberField(TEXT("leg_key"), -1);
 	Record->SetNumberField(TEXT("leg_start"), 0);
 	Record->SetNumberField(TEXT("leg_eta"), -1);
+	Record->SetNumberField(TEXT("spread_samples"), 0);
+	Record->SetNumberField(TEXT("spread_over"), 0);
+	Record->SetNumberField(TEXT("spread_sum"), 0);
+	Record->SetNumberField(TEXT("spread_max"), 0);
 	Forces.SetObjectField(Name, Record);
 	return Record;
 }
@@ -90,6 +94,20 @@ void ObserveMarch(FJsonObject& Record, FJsonObject& Report, const AArmyGroup& Fo
 	}
 }
 
+// Cohesion while Marching: the farthest member from the force's mean, against the formation radius plus the
+// 170 cm arrival tolerance. A sample is counted over when the spread exceeds that.
+void ObserveSpread(FJsonObject& Record, const AArmyGroup& Force)
+{
+	if (Force.Status != EForceStatus::Marching || Force.GetAliveCount() < 2)
+		return;
+	const double Spread = Force.GetMarchSpread();
+	Record.SetNumberField(TEXT("spread_samples"), Record.GetNumberField(TEXT("spread_samples")) + 1);
+	Record.SetNumberField(TEXT("spread_sum"), Record.GetNumberField(TEXT("spread_sum")) + Spread);
+	Record.SetNumberField(TEXT("spread_max"), FMath::Max(Record.GetNumberField(TEXT("spread_max")), Spread));
+	if (Spread > Force.GetFormationRadius() + 170.)
+		Record.SetNumberField(TEXT("spread_over"), Record.GetNumberField(TEXT("spread_over")) + 1);
+}
+
 void ObserveMovement(UWorld& World, const ACommandGameState& State, FJsonObject& Report, double Time)
 {
 	const TSharedPtr<FJsonObject>* Movement = nullptr;
@@ -107,6 +125,7 @@ void ObserveMovement(UWorld& World, const ACommandGameState& State, FJsonObject&
 		Record->SetBoolField(TEXT("alive"), true);
 		Record->SetNumberField(TEXT("settled"), It->GetSettledUnitCount());
 		ObserveMarch(*Record, Report, **It, State, Time);
+		ObserveSpread(*Record, **It);
 	}
 }
 }

@@ -11,6 +11,7 @@
 #include "MapRegion.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationSystem.h"
+#include "Rules/PassThroughPolicy.h"
 #include "Rules/RouteCapturePolicy.h"
 
 // Region state read once per order tick; bit N of a mask addresses region index N.
@@ -23,6 +24,7 @@ struct FForceTickContext
 	uint64 Graph[ForceOrders::MaxRegions];
 	uint64 Controlled = 0;
 	uint64 Hostiles = 0;
+	uint64 Anchored = 0;
 	EForceStatus PreviousStatus = EForceStatus::Marching;
 	bool bTargetCompleted = false;
 };
@@ -44,6 +46,15 @@ uint64 ControlledRegions(const ACommandGameState& State, int32 Count, int32 Team
 		if (ForceOrderGraph::Region(State, Index) && State.GetRegionController(Index) == Team)
 			Controlled |= Bit(Index);
 	return Controlled;
+}
+
+uint64 AnchoredRegions(const ACommandGameState& State, int32 Count)
+{
+	uint64 Anchored = 0;
+	for (int32 Index = 0; Index < Count; ++Index)
+		if (const AMapRegion* Region = ForceOrderGraph::Region(State, Index); Region && Region->Anchor)
+			Anchored |= Bit(Index);
+	return Anchored;
 }
 
 uint64 HostileRegions(UWorld& World, const ACommandGameState& State, int32 Count, int32 Team)
@@ -120,7 +131,7 @@ bool AArmyGroup::IssueTravelNearAnchor(EArmyOrder Phase, const FVector& Anchor, 
 	return false;
 }
 
-bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure)
+bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure, bool bLane)
 {
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
 	const AMapRegion* Region = State ? ForceOrderGraph::Region(*State, RegionIndex) : nullptr;
@@ -144,7 +155,12 @@ bool AArmyGroup::ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Stru
 	FVector Anchor = State->GetRegionAnchor(RegionIndex);
 	if (Structure)
 		Anchor = StructureStandOff(*Structure, GetCenter(), Anchor.Z);
-	if (!IssueTravel(Phase, Anchor) && (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
+	// A lane is chosen once per waypoint and kept while the waypoint stays.
+	const bool bLaned = bLane && !Structure;
+	if (bLaned && (Kind == MovementProgressPolicy::EOrderKind::NewWaypoint || LaneIndex == INDEX_NONE))
+		AssignLane(RegionIndex, Anchor);
+	if (!(bLaned && IssueOnLane(Phase, *Region, Anchor)) && !IssueTravel(Phase, Anchor)
+		&& (Structure || !IssueTravelNearAnchor(Phase, Anchor, *Region)))
 		return false;
 	MovementProgressPolicy::Ordered(Kind, OrderClocks, Now);
 	WaypointRegionIndex = AppliedWaypoint = RegionIndex;
@@ -199,6 +215,7 @@ void AArmyGroup::ReadTickContext(FForceTickContext& Ctx)
 	Ctx.Count = ForceOrderGraph::ReadGraph(State, Ctx.Graph);
 	Ctx.Controlled = ControlledRegions(State, Ctx.Count, TeamIndex);
 	Ctx.Hostiles = HostileRegions(*GetWorld(), State, Ctx.Count, TeamIndex);
+	Ctx.Anchored = AnchoredRegions(State, Ctx.Count);
 	Ctx.Home = ForceOrderGraph::TeamMain(State, TeamIndex);
 	ResumeCount = ForceOrders::ResumeCount(GetCapacity());
 	Ctx.PreviousStatus = Status;
@@ -259,7 +276,7 @@ void AArmyGroup::MaintainHoldWaypoint(const FForceTickContext& Ctx, const AMapRe
 	if ((bIdleRally && !IsValid(ProductionBuilding)) || IsHoldingRegion()
 		|| (Ctx.PreviousStatus == EForceStatus::Holding && GetWorld()->GetTimeSeconds() < NextHoldingMaintenance))
 		return;
-	if (ApplyWaypoint(TargetRegionIndex, EArmyOrder::Attack)
+	if (ApplyWaypoint(TargetRegionIndex, EArmyOrder::Attack, nullptr, true)
 		&& (!Target.Anchor || Ctx.State->GetRegionController(TargetRegionIndex) == TeamIndex)
 		&& !Target.GetDefendPosts().IsEmpty())
 	{
@@ -307,13 +324,14 @@ void AArmyGroup::TickMarch(const FForceTickContext& Ctx)
 	Orders[0].RouteOrigin = Decision.Origin;
 	int32 Waypoint = Source;
 	if (Decision.Step == RouteCapturePolicy::EStep::Advance)
-		Waypoint = ForceOrders::NextWaypoint(Ctx.Graph, Ctx.Count, Source, TargetRegionIndex);
+		Waypoint = PassThroughPolicy::Waypoint(Ctx.Graph, Ctx.Count, Source, TargetRegionIndex, AppliedWaypoint,
+			{ Ctx.Controlled, Ctx.Hostiles, Ctx.Anchored });
 	else if (Decision.Step == RouteCapturePolicy::EStep::Continue)
 		Waypoint = AppliedWaypoint;
 	if (Waypoint == TargetRegionIndex && TargetStructure)
 		ApplyWaypoint(Waypoint, EArmyOrder::Attack, TargetStructure);
 	else
-		ApplyWaypoint(Waypoint, Verb == EForceVerb::Attack ? EArmyOrder::Attack : EArmyOrder::Move);
+		ApplyWaypoint(Waypoint, Verb == EForceVerb::Attack ? EArmyOrder::Attack : EArmyOrder::Move, nullptr, true);
 }
 
 // Returns whether the tick should finish by publishing speed, routes and status.

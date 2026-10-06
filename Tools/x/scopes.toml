@@ -274,6 +274,31 @@ kind = "automation"
 filter = "CoopRTS.Forces.Verbs.WalledSlot"
 map = "default"
 
+[scopes.force-catch-up]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.CatchUp"
+map = "default"
+
+[scopes.force-open-member]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.OpenMember"
+map = "default"
+
+[scopes.force-lanes]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.Lanes"
+map = "default"
+
+[scopes.force-pass-through]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.PassThrough"
+map = "default"
+
+[scopes.force-pass-capture]
+kind = "automation"
+filter = "CoopRTS.Forces.Verbs.PassCapture"
+map = "default"
+
 [scopes.route-intent]
 kind = "automation"
 filter = "CoopRTS.Forces.RouteIntent"
@@ -1160,8 +1185,8 @@ rendered = true
 "Source/CoopRTS/ArmyGroupHold.cpp" = ["formation-fit", "formation-heading"]
 "Source/CoopRTS/ArmyGroupSupply.cpp" = ["formation-fit"]
 # Movement progress: idle detection, escalation and straggler-tolerant arrival.
-"Source/CoopRTS/ForceOrders?*" = ["force-progress-pinned", "force-progress-walled-slot", "formation-fit"]
-"Source/CoopRTS/ArmyGroup?*" = ["force-progress-pinned", "force-progress-walled-slot", "formation-fit"]
+"Source/CoopRTS/ForceOrders?*" = ["force-progress-pinned", "force-progress-walled-slot", "formation-fit", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
+"Source/CoopRTS/ArmyGroup?*" = ["force-progress-pinned", "force-progress-walled-slot", "formation-fit", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
 "Source/CoopRTS/Rules/MovementProgressPolicy.*" = ["rules", "force-move-hold", "force-progress-pinned", "force-progress-walled-slot", "formation-fit"]
 "Source/CoopRTS/MovementProgressRulesTests.cpp" = ["rules"]
 "Source/CoopRTS/VerbOrderProgressSupport.h" = ["force-progress-pinned", "force-progress-walled-slot"]
@@ -1175,3 +1200,10 @@ rendered = true
 "Source/CoopRTS/FormationHeadingRecruitTests.cpp" = ["formation-heading"]
 "Source/CoopRTS/FormationHeadingNeck.[ch]*" = ["formation-heading", "formation-heading-view"]
 "Source/CoopRTS/FormationHeadingViewTests.cpp" = ["formation-heading-view"]
+# March flow: per-member catch-up speed, lanes, pass-through legs.
+"Source/CoopRTS/ForceOrdersFlow.cpp" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
+"Source/CoopRTS/Rules/MarchSpeedPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
+"Source/CoopRTS/Rules/LanePolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
+"Source/CoopRTS/Rules/PassThroughPolicy.*" = ["rules", "force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]
+"Source/CoopRTS/MarchFlowRulesTests.cpp" = ["rules"]
+"Source/CoopRTS/VerbOrderMarchFlow*" = ["force-catch-up", "force-open-member", "force-lanes", "force-pass-through", "force-pass-capture"]

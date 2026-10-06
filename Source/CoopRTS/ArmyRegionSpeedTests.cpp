@@ -11,7 +11,8 @@ namespace
 using namespace CombatTraitFixture;
 
 // Two-unit forces, one in Open ground and one on plain ground, walk the same real path on the real
-// movement component. The Open force must be 15% faster, and only while the whole force is inside.
+// movement component. The Open force must be 15% faster, member by member: a member off Open ground keeps its own
+// speed while the others in Open ground still get the bonus.
 // Last, a real bulk order caps a fast Open force to the slower selected force's speed.
 class FOpenSpeedScenario : public FScenario
 {
@@ -82,7 +83,7 @@ bool FOpenSpeedScenario::Step(double Now)
 			return false;
 		if (!Check(FMath::IsNearlyEqual(Speed(OpenFirst.Get()), 460.f, .5f) && FMath::IsNearlyEqual(Speed(OpenSecond.Get()), 460.f, .5f)
 					&& FMath::IsNearlyEqual(Speed(PlainFirst.Get()), 400.f, .5f) && FMath::IsNearlyEqual(Speed(PlainSecond.Get()), 400.f, .5f),
-				TEXT("A force wholly in Open ground moves at 115% of its speed; plain ground is unchanged")))
+				TEXT("Members in Open ground move at 115% of their speed; plain ground is unchanged")))
 			return true;
 		Arena.Place(OpenSecond.Get(), At(PlainGround, 0.f, 300.f));
 		Next(1, Now);
@@ -90,8 +91,8 @@ bool FOpenSpeedScenario::Step(double Now)
 	case 1:
 		if (!After(Now, .6))
 			return false;
-		if (!Check(FMath::IsNearlyEqual(Speed(OpenFirst.Get()), 400.f, .5f) && FMath::IsNearlyEqual(Speed(OpenSecond.Get()), 400.f, .5f),
-				TEXT("A force with one member off Open ground keeps a single speed, so the formation holds together")))
+		if (!Check(FMath::IsNearlyEqual(Speed(OpenFirst.Get()), 460.f, .5f) && FMath::IsNearlyEqual(Speed(OpenSecond.Get()), 400.f, .5f),
+				TEXT("A member off Open ground loses the bonus while the member still in Open ground keeps it")))
 			return true;
 		Arena.Place(OpenSecond.Get(), At(OpenGround, -500.f, 100.f));
 		Next(2, Now);
@@ -99,7 +100,7 @@ bool FOpenSpeedScenario::Step(double Now)
 	case 2:
 		if (!After(Now, .6))
 			return false;
-		if (!Check(FMath::IsNearlyEqual(Speed(OpenSecond.Get()), 460.f, .5f), TEXT("The bonus returns once the whole force is back in Open ground")))
+		if (!Check(FMath::IsNearlyEqual(Speed(OpenSecond.Get()), 460.f, .5f), TEXT("The bonus returns once the member is back in Open ground")))
 			return true;
 		March(OpenFirst.Get(), OpenGround, -100.f);
 		March(OpenSecond.Get(), OpenGround, 100.f);

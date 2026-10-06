@@ -37,6 +37,18 @@ struct FFittedSlots
 	FVector Centre = FVector::ZeroVector;
 };
 
+// The last fitted set of a force. FitForce depends only on the region polygon, the centre and the slot layout, so
+// the set is valid until one of them changes: a new region, a moved centre (a new post, a new order) or a new
+// layout (capacity, produced or opposing). Membership does not enter: every slot is fitted, occupied or not.
+struct FFittedCache
+{
+	bool bValid = false;
+	const AMapRegion* Region = nullptr;
+	FVector Centre = FVector::ZeroVector;
+	ArmyGroupPolicy::FFormation Shape;
+	FFittedSlots Slots;
+};
+
 struct FArmyGroupSpawn
 {
 	int32 TeamIndex = 0;
@@ -141,6 +153,10 @@ public:
 	bool IsUnitSettled(const AArmyUnit& Unit) const;
 	// Radius around its goal inside which the unit counts as arrived: 0 while it moves freely, growing with idle time.
 	float GetCloseEnoughRadius(const AArmyUnit& Unit) const;
+	// Cohesion while marching: the largest planar distance of a member from the force's mean, and the largest
+	// distance of a formation slot from its centre (the spread a formation is expected to have).
+	float GetMarchSpread() const;
+	float GetFormationRadius() const;
 	// Units settled so far, cumulative; authority only.
 	int32 GetSettledUnitCount() const { return UnitsSettled; }
 	// Executor-selected safe endpoint; Retreat commands intentionally have no regional target.
@@ -240,7 +256,13 @@ private:
 	void UpdateHoldResponse(AArmyUnit& Unit, const AMapRegion& Region, UNavigationSystemV1* Navigation, float Now);
 	bool CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed);
 	void RetargetIdleRally(int32 RegionIndex);
-	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr);
+	// bLane: a region waypoint is ordered on the force's lane around the anchor (LanePolicy), else on the anchor.
+	bool ApplyWaypoint(int32 RegionIndex, EArmyOrder Phase, AActor* Structure = nullptr, bool bLane = false);
+	// Takes the lowest lane no same-team force already heading for RegionIndex holds.
+	void AssignLane(int32 RegionIndex, const FVector& Anchor);
+	bool IssueOnLane(EArmyOrder Phase, const AMapRegion& Region, const FVector& Anchor);
+	int32 LaneIndex = INDEX_NONE;
+	FVector2D LaneHeading = FVector2D::ZeroVector;
 	bool ShouldKeepWaypoint(const ACommandGameState& State, int32 RegionIndex, AActor* Structure) const;
 	bool IssueTravelNearAnchor(EArmyOrder Phase, const FVector& Anchor, const AMapRegion& Region);
 	void UpdateProgress();
@@ -262,6 +284,9 @@ private:
 	bool HasReachedStandOff() const;
 	// The slots of the force fitted inside the region that holds Destination (ArmyGroupPolicy::FitForce).
 	void FitSlots(const ACommandGameState* State, FFittedSlots& Out) const;
+	// The same around any centre inside Region, served from the cache while region, centre and layout are unchanged.
+	void FitSlotsAt(const AMapRegion* Region, const FVector& Centre, FFittedSlots& Out) const;
+	mutable FFittedCache FitCache;
 	bool GatherArrival(const ACommandGameState& State, bool bSkipExempt, FArrivalLayout& Out) const;
 	void CompleteOrder(int32 EndRegion);
 	// Completes the active order, then ticks the next one.

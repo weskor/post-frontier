@@ -25,17 +25,10 @@ void AArmyUnit::RefreshRegion()
 
 void AArmyUnit::UpdateTraitSpeed()
 {
-	UArmyUnitMovement* Movement = Cast<UArmyUnitMovement>(GetCharacterMovement());
-	if (!Movement)
-		return;
-	// A force moves at one speed to keep its formation: Open applies only while every joined member is in Open ground.
-	TArray<ERegionTrait, TInlineAllocator<8>> Traits;
-	if (IsValid(Group))
-		for (const AArmyUnit* Member : Group->GetUnits())
-			if (IsValid(Member) && Member->IsAlive())
-				Traits.Add(Member->GetRegionTrait());
-	Movement->TraitSpeedMultiplier = Traits.IsEmpty() ? RegionTraitPolicy::SpeedMultiplier(GetRegionTrait())
-													  : RegionTraitPolicy::ForceSpeedMultiplier(Traits);
+	// Open applies to each member while it stands in Open ground; the force's march keeps the members together
+	// by slowing the ones that get ahead (MarchSpeedPolicy).
+	if (UArmyUnitMovement* Movement = Cast<UArmyUnitMovement>(GetCharacterMovement()))
+		Movement->TraitSpeedMultiplier = RegionTraitPolicy::SpeedMultiplier(GetRegionTrait());
 }
 
 ERegionTrait AArmyUnit::GetRegionTrait() const

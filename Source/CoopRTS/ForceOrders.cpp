@@ -23,19 +23,6 @@ struct FArrivalLayout
 	bool bAllLeftOut = false;
 };
 
-// The slots of the force fitted inside the region that holds Destination, as PrepareFormationMoves fits them.
-void AArmyGroup::FitSlots(const ACommandGameState* State, FFittedSlots& Out) const
-{
-	const AMapRegion* Region = State ? State->FindRegionAt(Destination) : nullptr;
-	const TConstArrayView<FVector2D> Polygon = Region ? TConstArrayView<FVector2D>(Region->Polygon) : TConstArrayView<FVector2D>();
-	const ArmyGroupPolicy::FFormation Shape = FormationShape();
-	const ArmyGroupPolicy::FFit Fit = ArmyGroupPolicy::FitForce(Shape, Polygon, Destination);
-	Out.Centre = Fit.Centre;
-	Out.Goals.Reset();
-	for (int32 Slot = 0; Slot < ArmyGroupPolicy::SlotCount(Shape); ++Slot)
-		Out.Goals.Add(ArmyGroupPolicy::FittedSlot(Shape, Fit, Polygon, Slot));
-}
-
 // The members that still speak for the force, each against its fitted slot. Members left out are those settled
 // by progress, or with bSkipExempt those idle inside their grown radius too (never a pursuing member).
 // False when no member lives.
@@ -261,14 +248,6 @@ float AArmyGroup::GetMarchSpeed() const
 	const float Base = GetBaseMarchSpeed();
 	return ForceOrders::TravelSpeed(MarchSpeed > 0.f ? FMath::Min(MarchSpeed, Base) : Base,
 		Verb == EForceVerb::Retreat && Status == EForceStatus::Retreating);
-}
-
-void AArmyGroup::UpdateMarchSpeed()
-{
-	const float Speed = GetMarchSpeed();
-	for (AArmyUnit* Unit : Units)
-		if (IsValid(Unit) && Unit->IsAlive())
-			Unit->GetCharacterMovement()->MaxWalkSpeed = Speed;
 }
 
 bool AArmyGroup::CommitOrder(const FForceOrder& InOrder, bool bQueue, float SelectionSpeed)
