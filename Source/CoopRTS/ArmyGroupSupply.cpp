@@ -89,9 +89,10 @@ void AArmyGroup::JoinFormation(AArmyUnit& Unit, AAIController& AI, UNavigationSy
 	}
 	FPreparedMove Formation;
 	Formation.Controller = &AI;
-	// The slot the members of this intent stand in: around the post while holding, else around the destination.
+	// The slot the members of this intent stand in: around the idle post while holding, else around the destination
+	// (a responding holder's destination is its threat, as before the fit).
 	const ACommandGameState* State = GetWorld()->GetGameState<ACommandGameState>();
-	const bool bAtPost = IsHoldingRegion() && HoldPostIndex != INDEX_NONE;
+	const bool bAtPost = IsHoldingRegion() && HoldPostIndex != INDEX_NONE && !bHoldResponding;
 	FVector FormationGoal = FittedGoal(State, bAtPost ? HoldRegionIndex : INDEX_NONE, FormationShape(),
 		bAtPost ? HoldPostLocation : Destination, Unit.CompositionSlot);
 	if (ClipHoldingDestination(FormationGoal)

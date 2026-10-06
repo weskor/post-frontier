@@ -81,8 +81,7 @@ namespace
 {
 using FPreparedMoves = TArray<FPreparedMove, TInlineAllocator<MaxUnitCount>>;
 
-// A slot that has no path of its own sends its unit to the nearest navigable point within this distance of it.
-constexpr float SlotFallbackRadius = 300.f;
+using ArmyGroupPolicy::SlotFallbackRadius;
 
 // One unit's move to its fitted slot. The slot itself first. A region order then falls back to the nearest
 // navigable point around the slot that stays inside the region, then to the force's centre, which the caller

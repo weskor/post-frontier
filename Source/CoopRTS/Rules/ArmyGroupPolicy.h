@@ -20,10 +20,11 @@ FVector FormationOffset(const FFormation& Formation, int32 Slot);
 int32 FirstVacantSlot(uint32 Occupied, int32 Capacity);
 
 // Fitting a formation inside a region. The slots of one force move together: first the whole slot set shifts
-// inward (by at most MaxFitShift, so a force that stopped at the unshifted centre still counts as arrived),
-// then the spacing shrinks down to MinFitScale, then the set rotates (each turn tried from full scale down);
-// only when nothing fits does each slot clamp to the polygon on its own. All steps are deterministic and
-// stateless, so every caller that passes the same polygon and centre gets the same slots.
+// inward (by at most MaxFitShift), then the spacing shrinks down to MinFitScale, then the set rotates (each
+// turn tried from full scale down); only when nothing fits does each slot clamp to the polygon on its own.
+// All steps are deterministic and stateless, so every caller that passes the same polygon and centre gets the
+// same slots. The order's Destination stays the unshifted centre, and members stand at the fitted slots, so an
+// arrival test must compare them with FitForce around that Destination, not with the rigid FormationOffset set.
 constexpr float MinFitScale = .65f;
 constexpr float MaxFitShift = 120.f;
 // Clearance every slot keeps from the polygon border: the unit capsule radius plus a little.
@@ -56,6 +57,9 @@ FVector FittedSlot(const FFormation& Formation, const FFit& Fit, TConstArrayView
 // Region orders give a slot with no path of its own a fallback; precise points still reject obstructed formations.
 constexpr float RegionAnchorTolerance = 75.f;
 bool IsRegionOrderDestination(const FVector& Destination, const FVector& RegionAnchor);
+// A region order's slot with no path of its own sends its unit to the nearest navigable point within this
+// distance of it (or to the centre); an arrival test must allow a member that far from its fitted slot.
+constexpr float SlotFallbackRadius = 300.f;
 
 // Team 0 forces belong to one of the five human commanders; any other force belongs to the
 // enemy commander on team 5. The owner's team must also match the force's.

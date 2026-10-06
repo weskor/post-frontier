@@ -17,7 +17,7 @@ namespace FormationFitFallback
 {
 // A finished building stands on one slot of the formation at a region's anchor, so that slot has no path. A
 // Move & Hold order to the region is accepted: the unit of that slot is sent to the nearest navigable point
-// around it inside the region while the others take their own slots; a point order to the same spot is not.
+// around it inside the region while the others take their own slots.
 class FScenario : public IAutomationLatentCommand
 {
 public:
