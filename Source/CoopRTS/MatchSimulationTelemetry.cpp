@@ -105,13 +105,16 @@ bool FMatchSimulation::Flush()
 	if (DuelRunner && bStarted)
 		DuelRunner->GetReport();
 	else
+	{
 		Report->SetNumberField(TEXT("duration"), bStarted ? GetWorld()->GetTimeSeconds() - StartWorldTime : 0.);
+		// A duel matrix runs many fights in one process and never resets the counter: it reports none.
+		Report->SetObjectField(TEXT("path_cost"), PathCost());
+	}
 	Report->SetNumberField(TEXT("wall_duration"), FPlatformTime::Seconds() - StartWallTime);
 	Report->SetNumberField(TEXT("max_game_delta_seconds"), MaxGameDelta);
 	// Units beyond the crowd cap cannot move (Config/DefaultEngine.ini); the validator fails a peak above it.
 	Report->SetNumberField(TEXT("peak_living_units"), PeakLivingUnits);
 	Report->SetNumberField(TEXT("crowd_max_agents"), CrowdMaxAgents());
-	Report->SetObjectField(TEXT("path_cost"), PathCost());
 	FString Json;
 	const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Json);
 	if (!FJsonSerializer::Serialize(Report, Writer)

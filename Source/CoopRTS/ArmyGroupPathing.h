@@ -26,7 +26,7 @@ struct FQueryStats
 
 const FQueryStats& Snapshot();
 #if WITH_DEV_AUTOMATION_TESTS && !UE_BUILD_SHIPPING
-// Zeroes the counters: for tests that measure one order.
+// Zeroes the counters: for tests that measure one order, and for the simulation, which starts each match from zero.
 void Reset();
 #endif
 void NotePathQuery();

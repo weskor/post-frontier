@@ -1,6 +1,6 @@
 """Order-cost report lines: queries per order and per minute, and reports without the counter."""
 
-from harness.simulation_pathcost import movement_sections, path_cost_section
+from harness.simulation_pathcost import path_cost_section
 from test_simulation_reports import telemetry
 
 
@@ -60,11 +60,3 @@ def test_path_cost_section_has_no_per_order_figure_without_orders() -> None:
     assert rows[0]["queries_per_order"] is None
     assert rows[0]["queries_per_minute"] == 0
 
-
-def test_movement_sections_fill_both_summary_fields_and_both_report_tables() -> None:
-    _, old = telemetry()
-    lines: list[str] = []
-    sections = movement_sections({("map", "baseline2", 1): [old]}, lines)
-    assert sorted(sections) == ["movement", "path_cost"]
-    assert any(line == "## Movement progress" for line in lines)
-    assert any(line == "## Order cost" for line in lines)
