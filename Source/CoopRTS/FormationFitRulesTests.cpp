@@ -100,6 +100,12 @@ bool FFormationFitOpenGroundTest::RunTest(const FString& Parameters)
 			!Fit.bClamped && Fit.Scale == 1.f && Fit.Yaw == 0.f && Fit.Centre == At(3., 4.));
 	}
 	TestTrue(TEXT("No offsets fit as they are"), !FitFormation(Region, At(1., 1.), TArray<FVector>()).bClamped);
+
+	const FVector Anchor = At(1000., -2000.);
+	TestTrue(TEXT("The anchor itself is a region order"), IsRegionOrderDestination(Anchor, Anchor));
+	TestTrue(TEXT("A point within the anchor tolerance is a region order"), IsRegionOrderDestination(At(1000., -1925.), Anchor));
+	TestFalse(TEXT("A point just beyond the anchor tolerance is precise"), IsRegionOrderDestination(At(1000., -1924.), Anchor));
+	TestTrue(TEXT("Height does not make a point precise"), IsRegionOrderDestination(FVector(1000., -2000., 900.), Anchor));
 	return true;
 }
 
