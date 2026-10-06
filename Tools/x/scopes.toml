@@ -617,6 +617,7 @@ rendered = true
 "Art/**" = ["lint"]
 "Tools/**" = ["tools"]
 "x" = ["tools"]
+"install.sh" = ["tools"]
 "pyproject.toml" = ["tools"]
 "uv.lock" = ["tools"]
 "Build/DrawMapLayout.py" = ["maps", "tools"]
