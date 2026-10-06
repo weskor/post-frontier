@@ -17,7 +17,7 @@ public:
 		: FScenarioBase(InTest, EScenario::MoveHold) {}
 
 private:
-	// Three neutral anchored regions in a row from home, by breadth-first search in ascending index order.
+	// Three anchored regions in a row from home (the last neutral), by breadth-first search in ascending index order.
 	bool FindChain()
 	{
 		TMap<int32, int32> Parent;
@@ -31,8 +31,7 @@ private:
 			for (const int32 Next : Neighbours)
 			{
 				const AMapRegion* Candidate = Region(State, Next);
-				if (!Candidate || Parent.Contains(Next) || Candidate->HomeTeam >= 0 || !IsValid(Candidate->Anchor)
-					|| State->GetRegionController(Next) != -1)
+				if (!Candidate || Parent.Contains(Next) || Candidate->HomeTeam == 5)
 					continue;
 				Parent.Add(Next, Pending[Cursor]);
 				Pending.Add(Next);
@@ -43,7 +42,10 @@ private:
 		{
 			const int32 Second = Parent[Candidate];
 			const int32 First = Second != INDEX_NONE && Second != Home ? Parent[Second] : INDEX_NONE;
-			if (First != INDEX_NONE && First != Home && Parent[First] == Home)
+			const AMapRegion* End = Region(State, Candidate);
+			// The first region of the capture variant must have an anchor to capture; the target must be neutral and anchored.
+			if (First != INDEX_NONE && First != Home && Parent[First] == Home && End->HomeTeam < 0 && IsValid(End->Anchor)
+				&& State->GetRegionController(Candidate) == -1 && (bControlled || IsValid(Region(State, First)->Anchor)))
 			{
 				ChainFirst = First;
 				ChainSecond = Second;
@@ -60,12 +62,16 @@ private:
 		{
 			if (!Check(FindChain(), TEXT("The map has a neutral three-region chain from home")))
 				return true;
-			Region(State, ChainSecond)->Anchor->ControllingTeam = 0;
-			Region(State, ChainSecond)->Anchor->CaptureProgress = 1.f;
-			if (bControlled)
+			// The second region is the team's or has no anchor; the first is too, or is not.
+			if (ACapturePoint* Anchor = Region(State, ChainSecond)->Anchor)
 			{
-				Region(State, ChainFirst)->Anchor->ControllingTeam = 0;
-				Region(State, ChainFirst)->Anchor->CaptureProgress = 1.f;
+				Anchor->ControllingTeam = 0;
+				Anchor->CaptureProgress = 1.f;
+			}
+			if (ACapturePoint* Anchor = Region(State, ChainFirst)->Anchor)
+			{
+				Anchor->ControllingTeam = bControlled ? 0 : -1;
+				Anchor->CaptureProgress = bControlled ? 1.f : 0.f;
 			}
 			if (!Issue(EForceVerb::MoveHold, ChainTarget))
 				return true;

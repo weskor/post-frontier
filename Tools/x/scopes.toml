@@ -292,12 +292,12 @@ map = "default"
 [scopes.force-pass-through]
 kind = "automation"
 filter = "CoopRTS.Forces.Verbs.PassThrough"
-map = "default"
+map = "/Game/Maps/AvailabilityZoneV2"
 
 [scopes.force-pass-capture]
 kind = "automation"
 filter = "CoopRTS.Forces.Verbs.PassCapture"
-map = "default"
+map = "/Game/Maps/AvailabilityZoneV2"
 
 [scopes.force-lane-capture]
 kind = "automation"
