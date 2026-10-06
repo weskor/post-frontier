@@ -87,8 +87,9 @@ float AArmyGroup::GetCloseEnoughRadius(const AArmyUnit& Unit) const
 
 bool AArmyGroup::IsUnitExempt(const AArmyUnit& Unit) const
 {
+	// A pursuing member belongs to combat, which owns its movement: it is never held out of the force.
 	const FUnitProgressSlot* Entry = FindProgress(Unit);
-	return Entry && MovementProgressPolicy::IsExempt(Entry->Progress, Unit.GetActorLocation());
+	return Entry && !Unit.bPursuing && MovementProgressPolicy::IsExempt(Entry->Progress, Unit.GetActorLocation());
 }
 
 FVector AArmyGroup::UnitGoal(const AArmyUnit& Unit) const

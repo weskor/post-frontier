@@ -241,7 +241,7 @@ private:
 	FUnitProgressSlot& ProgressFor(const AArmyUnit& Unit);
 	// Where the unit is going: its pursuit goal while it chases a target, else its formation slot.
 	FVector UnitGoal(const AArmyUnit& Unit) const;
-	// Settled, or idle inside its grown radius: such a unit does not hold back arrival or waypoint advance.
+	// Settled, or idle inside its grown radius: such a unit does not hold back arrival or waypoint advance. Never true while pursuing.
 	bool IsUnitExempt(const AArmyUnit& Unit) const;
 	void RepathUnit(AArmyUnit& Unit, const FVector& Goal);
 	TArray<FUnitProgressSlot, TInlineAllocator<6>> UnitProgress;
