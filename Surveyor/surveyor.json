@@ -1,5 +1,5 @@
 {
-  "revision": "surveyor-review-03",
+  "revision": "surveyor-review-04",
   "dimensionsMeters": [
     4.945615768432617,
     3.0439999103546143,
@@ -13,9 +13,9 @@
   "materials": {
     "Team": {
       "baseColor": [
-        0.035,
-        0.105,
-        0.205,
+        0.055,
+        0.16,
+        0.3,
         1.0
       ],
       "metallic": 1.0,
@@ -174,7 +174,7 @@
     "baseColorSpace": "sRGB",
     "ormColorSpace": "linear",
     "ormChannels": "R=AO G=roughness B=metallic",
-    "authoring": "Deterministic panel paint with short-range rest-pose AO; packed PNG source",
+    "authoring": "Illustrated industrial paint: brush fields, directional value shading, irregular edge wear and baked contact AO",
     "aoDistanceMeters": 0.18,
     "aoSamples": 16,
     "aoMinimum": 0.72
