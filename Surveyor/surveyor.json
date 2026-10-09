@@ -1,11 +1,11 @@
 {
-  "revision": "surveyor-review-02",
+  "revision": "surveyor-review-03",
   "dimensionsMeters": [
     4.945615768432617,
     3.0439999103546143,
     3.187999963760376
   ],
-  "triangles": 15088,
+  "triangles": 15040,
   "forwardAxis": "+X",
   "upAxis": "+Z",
   "units": "meters",
@@ -18,119 +18,166 @@
         0.205,
         1.0
       ],
-      "metallic": 0.3,
-      "roughness": 0.53,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Shell": {
       "baseColor": [
-        0.095,
-        0.125,
-        0.15,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.48,
-      "roughness": 0.58,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Dark": {
       "baseColor": [
-        0.023,
-        0.031,
-        0.036,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.35,
-      "roughness": 0.62,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Glow": {
       "baseColor": [
-        1.0,
-        0.4,
-        0.055,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.15,
-      "roughness": 0.26,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         3.0,
         1.2000000000000002,
         0.165
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Rubber": {
       "baseColor": [
-        0.018,
-        0.022,
-        0.025,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.02,
-      "roughness": 0.83,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Glass": {
       "baseColor": [
-        0.018,
-        0.14,
-        0.19,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.4,
-      "roughness": 0.24,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.00324,
         0.0252,
         0.0342
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Brass": {
       "baseColor": [
-        0.23,
-        0.15,
-        0.065,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.55,
-      "roughness": 0.52,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     },
     "Marking": {
       "baseColor": [
-        0.72,
-        0.77,
-        0.71,
+        1,
+        1,
+        1,
         1.0
       ],
-      "metallic": 0.12,
-      "roughness": 0.59,
+      "metallic": 1.0,
+      "roughness": 1.0,
       "emissive": [
         0.0,
         0.0,
         0.0
-      ]
+      ],
+      "textures": {
+        "baseColor": "Textures/Surveyor_BaseColor.png",
+        "orm": "Textures/Surveyor_ORM.png"
+      }
     }
+  },
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Deterministic panel paint with short-range rest-pose AO; packed PNG source",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
   },
   "clips": [
     {
