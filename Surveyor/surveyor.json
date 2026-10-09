@@ -1,0 +1,195 @@
+{
+  "revision": "surveyor-review-01",
+  "dimensionsMeters": [
+    5.007378816604614,
+    3.130784511566162,
+    3.214860200881958
+  ],
+  "triangles": 65940,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.045,
+        0.145,
+        0.285,
+        1.0
+      ],
+      "metallic": 0.48,
+      "roughness": 0.38,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Shell": {
+      "baseColor": [
+        0.2,
+        0.245,
+        0.27,
+        1.0
+      ],
+      "metallic": 0.72,
+      "roughness": 0.43,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Dark": {
+      "baseColor": [
+        0.023,
+        0.031,
+        0.036,
+        1.0
+      ],
+      "metallic": 0.58,
+      "roughness": 0.48,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Glow": {
+      "baseColor": [
+        1.0,
+        0.4,
+        0.055,
+        1.0
+      ],
+      "metallic": 0.15,
+      "roughness": 0.26,
+      "emissive": [
+        3.0,
+        1.2000000000000002,
+        0.165
+      ]
+    },
+    "Rubber": {
+      "baseColor": [
+        0.018,
+        0.022,
+        0.025,
+        1.0
+      ],
+      "metallic": 0.02,
+      "roughness": 0.83,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Glass": {
+      "baseColor": [
+        0.018,
+        0.25,
+        0.34,
+        1.0
+      ],
+      "metallic": 0.68,
+      "roughness": 0.16,
+      "emissive": [
+        0.0045,
+        0.0625,
+        0.085
+      ]
+    },
+    "Steel": {
+      "baseColor": [
+        0.39,
+        0.43,
+        0.44,
+        1.0
+      ],
+      "metallic": 0.88,
+      "roughness": 0.31,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Brass": {
+      "baseColor": [
+        0.38,
+        0.24,
+        0.095,
+        1.0
+      ],
+      "metallic": 0.76,
+      "roughness": 0.43,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "Marking": {
+      "baseColor": [
+        0.72,
+        0.77,
+        0.71,
+        1.0
+      ],
+      "metallic": 0.12,
+      "roughness": 0.59,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 4.0,
+      "loop": true
+    },
+    {
+      "name": "Drive",
+      "duration": 2.0,
+      "loop": true
+    },
+    {
+      "name": "Scan",
+      "duration": 6.0,
+      "loop": true
+    },
+    {
+      "name": "Shutdown",
+      "duration": 3.0,
+      "loop": false
+    }
+  ],
+  "bones": [
+    "Root",
+    "Body",
+    "FrontBlade",
+    "ScanYaw",
+    "ScanTilt",
+    "Dish",
+    "Antenna",
+    "Suspension_R0",
+    "Wheel_R0",
+    "Suspension_R1",
+    "Wheel_R1",
+    "Suspension_R2",
+    "Steering_R",
+    "Wheel_R2",
+    "Suspension_L0",
+    "Wheel_L0",
+    "Suspension_L1",
+    "Wheel_L1",
+    "Suspension_L2",
+    "Steering_L",
+    "Wheel_L2"
+  ]
+}
