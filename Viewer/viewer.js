@@ -269,7 +269,7 @@ if (renderer) {
     showError('The browser lost its graphics context. Reload the viewer to restore the model.');
   });
 
-  new GLTFLoader().load(new URL('../Surveyor/surveyor.glb', document.baseURI).href, (gltf) => {
+  new GLTFLoader().load(document.querySelector('.download-link').href, (gltf) => {
     try {
       model = gltf.scene;
       const materialSet = new Set();
