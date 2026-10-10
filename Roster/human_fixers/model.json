@@ -1,0 +1,252 @@
+{
+  "id": "human_fixers",
+  "name": "Fixers",
+  "faction": "Human",
+  "role": "Repair crew",
+  "status": "design",
+  "revision": "human_fixers-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.4,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "WeldArm",
+        "ClampArm"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.4,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "ThighL",
+        "ShinL",
+        "FootL",
+        "ThighR",
+        "ShinR",
+        "FootR",
+        "WeldArm",
+        "ClampArm"
+      ]
+    },
+    {
+      "name": "Repair",
+      "duration": 3.6,
+      "loop": true,
+      "movingBones": [
+        "Head",
+        "WeldArm",
+        "WeldForearm",
+        "WeldWrist",
+        "ToolSlide",
+        "ClampArm",
+        "ClampForearm",
+        "ClampWrist",
+        "JawInner",
+        "JawOuter"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.4,
+      "loop": false,
+      "movingBones": [
+        "Head",
+        "WeldArm",
+        "WeldForearm",
+        "WeldWrist",
+        "ToolSlide",
+        "ClampArm",
+        "ClampForearm",
+        "ClampWrist",
+        "JawInner",
+        "JawOuter"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    1.7894999980926514,
+    1.7300000190734863,
+    2.5961568355560303
+  ],
+  "triangles": 12920,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "ThighL",
+    "ShinL",
+    "FootL",
+    "ThighR",
+    "ShinR",
+    "FootR",
+    "WeldArm",
+    "WeldForearm",
+    "WeldWrist",
+    "ToolSlide",
+    "ClampArm",
+    "ClampForearm",
+    "ClampWrist",
+    "JawInner",
+    "JawOuter"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        3,
+        1.2000000000000002,
+        0.165
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Glass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0288,
+        0.015300000000000001,
+        0.0045
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    },
+    "Brass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_fixers_BaseColor.png",
+        "orm": "Textures/human_fixers_ORM.png"
+      }
+    }
+  }
+}

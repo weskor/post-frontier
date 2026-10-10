@@ -1,0 +1,252 @@
+{
+  "id": "machine_jammer",
+  "name": "Override / Jammer",
+  "faction": "Machine",
+  "role": "Scrambler \u2014 Jammer",
+  "status": "built",
+  "revision": "machine_jammer-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.6,
+      "loop": true,
+      "movingBones": [
+        "Head",
+        "FocusCrown",
+        "ResonatorFront",
+        "ResonatorLeft",
+        "ResonatorRight"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "FocusCrown",
+        "ResonatorFront",
+        "ResonatorLeft",
+        "ResonatorRight",
+        "FrontHip",
+        "FrontKnee",
+        "FrontFoot",
+        "LeftHip",
+        "LeftKnee",
+        "LeftFoot",
+        "RightHip",
+        "RightKnee",
+        "RightFoot"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 2.2,
+      "loop": true,
+      "movingBones": [
+        "Head",
+        "Emitter",
+        "FocusCrown",
+        "ResonatorFront",
+        "ResonatorLeft",
+        "ResonatorRight"
+      ]
+    },
+    {
+      "name": "Pulse",
+      "duration": 3.0,
+      "loop": true,
+      "movingBones": [
+        "Head",
+        "FocusCrown",
+        "ResonatorFront",
+        "ResonatorLeft",
+        "ResonatorRight"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.4,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Emitter",
+        "FocusCrown",
+        "ResonatorFront",
+        "ResonatorLeft",
+        "ResonatorRight",
+        "FrontHip",
+        "FrontKnee",
+        "FrontFoot",
+        "LeftHip",
+        "LeftKnee",
+        "LeftFoot",
+        "RightHip",
+        "RightKnee",
+        "RightFoot"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    2.6622050404548645,
+    3.0605247020721436,
+    3.51200008392334
+  ],
+  "triangles": 16100,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "Emitter",
+    "FrontHip",
+    "FrontKnee",
+    "FrontFoot",
+    "ResonatorFront",
+    "LeftHip",
+    "LeftKnee",
+    "LeftFoot",
+    "ResonatorLeft",
+    "RightHip",
+    "RightKnee",
+    "RightFoot",
+    "ResonatorRight",
+    "FocusCrown"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.045,
+        2.16,
+        3
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    },
+    "Eye": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.175,
+        0.001,
+        0.0005
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_jammer_BaseColor.png",
+        "orm": "Textures/machine_jammer_ORM.png"
+      }
+    }
+  }
+}

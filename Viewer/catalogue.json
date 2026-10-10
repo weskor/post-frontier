@@ -1,0 +1,292 @@
+[
+  {
+    "id": "surveyor",
+    "name": "Surveyor",
+    "faction": "Human",
+    "role": "Heavy reconnaissance rover",
+    "status": "art candidate",
+    "revision": "surveyor-review-05",
+    "manifest": "../Surveyor/surveyor.json",
+    "glb": "../Surveyor/surveyor.glb"
+  },
+  {
+    "id": "human_bulkhead",
+    "name": "Bulkhead",
+    "faction": "Human",
+    "role": "Brawler",
+    "status": "built",
+    "revision": "human_bulkhead-01",
+    "manifest": "../Roster/human_bulkhead/model.json",
+    "glb": "../Roster/human_bulkhead/model.glb"
+  },
+  {
+    "id": "machine_sol6000",
+    "name": "SOL 6000",
+    "faction": "Machine",
+    "role": "Brawler",
+    "status": "built",
+    "revision": "machine_sol6000-01",
+    "manifest": "../Roster/machine_sol6000/model.json",
+    "glb": "../Roster/machine_sol6000/model.glb"
+  },
+  {
+    "id": "human_longshot",
+    "name": "Longshot",
+    "faction": "Human",
+    "role": "Rifle",
+    "status": "built",
+    "revision": "human_longshot-01",
+    "manifest": "../Roster/human_longshot/model.json",
+    "glb": "../Roster/human_longshot/model.glb"
+  },
+  {
+    "id": "machine_recursion_drone",
+    "name": "Recursion Drone",
+    "faction": "Machine",
+    "role": "Rifle",
+    "status": "built",
+    "revision": "machine_recursion_drone-01",
+    "manifest": "../Roster/machine_recursion_drone/model.json",
+    "glb": "../Roster/machine_recursion_drone/model.glb"
+  },
+  {
+    "id": "human_doorknocker",
+    "name": "Doorknocker",
+    "faction": "Human",
+    "role": "Artillery",
+    "status": "built",
+    "revision": "human_doorknocker-01",
+    "manifest": "../Roster/human_doorknocker/model.json",
+    "glb": "../Roster/human_doorknocker/model.glb"
+  },
+  {
+    "id": "machine_certainty_engine",
+    "name": "Certainty Engine",
+    "faction": "Machine",
+    "role": "Artillery",
+    "status": "built",
+    "revision": "machine_certainty_engine-01",
+    "manifest": "../Roster/machine_certainty_engine/model.json",
+    "glb": "../Roster/machine_certainty_engine/model.glb"
+  },
+  {
+    "id": "human_torchbearer",
+    "name": "Torchbearer",
+    "faction": "Human",
+    "role": "Lancer",
+    "status": "built",
+    "revision": "human_torchbearer-01",
+    "manifest": "../Roster/human_torchbearer/model.json",
+    "glb": "../Roster/human_torchbearer/model.glb"
+  },
+  {
+    "id": "machine_corrector",
+    "name": "Corrector",
+    "faction": "Machine",
+    "role": "Lancer",
+    "status": "built",
+    "revision": "machine_corrector-01",
+    "manifest": "../Roster/machine_corrector/model.json",
+    "glb": "../Roster/machine_corrector/model.glb"
+  },
+  {
+    "id": "human_killswitch",
+    "name": "Killswitch",
+    "faction": "Human",
+    "role": "Scrambler",
+    "status": "built",
+    "revision": "human_killswitch-01",
+    "manifest": "../Roster/human_killswitch/model.json",
+    "glb": "../Roster/human_killswitch/model.glb"
+  },
+  {
+    "id": "machine_override",
+    "name": "Override",
+    "faction": "Machine",
+    "role": "Scrambler",
+    "status": "built",
+    "revision": "machine_override-01",
+    "manifest": "../Roster/machine_override/model.json",
+    "glb": "../Roster/machine_override/model.glb"
+  },
+  {
+    "id": "human_hotwire",
+    "name": "Hotwire",
+    "faction": "Human",
+    "role": "Raider",
+    "status": "design",
+    "revision": "human_hotwire-01",
+    "manifest": "../Roster/human_hotwire/model.json",
+    "glb": "../Roster/human_hotwire/model.glb"
+  },
+  {
+    "id": "machine_same_second_courier",
+    "name": "Same-Second Courier",
+    "faction": "Machine",
+    "role": "Raider",
+    "status": "design",
+    "revision": "machine_same_second_courier-01",
+    "manifest": "../Roster/machine_same_second_courier/model.json",
+    "glb": "../Roster/machine_same_second_courier/model.glb"
+  },
+  {
+    "id": "human_fixers",
+    "name": "Fixers",
+    "faction": "Human",
+    "role": "Repair crew",
+    "status": "design",
+    "revision": "human_fixers-01",
+    "manifest": "../Roster/human_fixers/model.json",
+    "glb": "../Roster/human_fixers/model.glb"
+  },
+  {
+    "id": "machine_upkeep_daemon",
+    "name": "Upkeep Daemon",
+    "faction": "Machine",
+    "role": "Repair crew",
+    "status": "design",
+    "revision": "machine_upkeep_daemon-01",
+    "manifest": "../Roster/machine_upkeep_daemon/model.json",
+    "glb": "../Roster/machine_upkeep_daemon/model.glb"
+  },
+  {
+    "id": "human_faraday",
+    "name": "Faraday",
+    "faction": "Human",
+    "role": "Shield projector",
+    "status": "design",
+    "revision": "human_faraday-01",
+    "manifest": "../Roster/human_faraday/model.json",
+    "glb": "../Roster/human_faraday/model.glb"
+  },
+  {
+    "id": "machine_firewall",
+    "name": "Firewall",
+    "faction": "Machine",
+    "role": "Shield projector",
+    "status": "design",
+    "revision": "machine_firewall-01",
+    "manifest": "../Roster/machine_firewall/model.json",
+    "glb": "../Roster/machine_firewall/model.glb"
+  },
+  {
+    "id": "human_terraformer",
+    "name": "Terraformer",
+    "faction": "Human",
+    "role": "Juggernaut",
+    "status": "design",
+    "revision": "human_terraformer-01",
+    "manifest": "../Roster/human_terraformer/model.json",
+    "glb": "../Roster/human_terraformer/model.glb"
+  },
+  {
+    "id": "machine_kardashev_walker",
+    "name": "Kardashev Walker",
+    "faction": "Machine",
+    "role": "Juggernaut",
+    "status": "design",
+    "revision": "machine_kardashev_walker-01",
+    "manifest": "../Roster/machine_kardashev_walker/model.json",
+    "glb": "../Roster/machine_kardashev_walker/model.glb"
+  },
+  {
+    "id": "human_warden",
+    "name": "Bulkhead / Warden",
+    "faction": "Human",
+    "role": "Brawler — Warden",
+    "status": "built",
+    "revision": "human_warden-01",
+    "manifest": "../Roster/human_warden/model.json",
+    "glb": "../Roster/human_warden/model.glb"
+  },
+  {
+    "id": "machine_warden",
+    "name": "SOL 6000 / Warden",
+    "faction": "Machine",
+    "role": "Brawler — Warden",
+    "status": "built",
+    "revision": "machine_warden-01",
+    "manifest": "../Roster/machine_warden/model.json",
+    "glb": "../Roster/machine_warden/model.glb"
+  },
+  {
+    "id": "human_marksman",
+    "name": "Longshot / Marksman",
+    "faction": "Human",
+    "role": "Rifle — Marksman",
+    "status": "built",
+    "revision": "human_marksman-01",
+    "manifest": "../Roster/human_marksman/model.json",
+    "glb": "../Roster/human_marksman/model.glb"
+  },
+  {
+    "id": "machine_marksman",
+    "name": "Recursion Drone / Marksman",
+    "faction": "Machine",
+    "role": "Rifle — Marksman",
+    "status": "built",
+    "revision": "machine_marksman-01",
+    "manifest": "../Roster/machine_marksman/model.json",
+    "glb": "../Roster/machine_marksman/model.glb"
+  },
+  {
+    "id": "human_demolisher",
+    "name": "Doorknocker / Demolisher",
+    "faction": "Human",
+    "role": "Artillery — Demolisher",
+    "status": "built",
+    "revision": "human_demolisher-01",
+    "manifest": "../Roster/human_demolisher/model.json",
+    "glb": "../Roster/human_demolisher/model.glb"
+  },
+  {
+    "id": "machine_demolisher",
+    "name": "Certainty Engine / Demolisher",
+    "faction": "Machine",
+    "role": "Artillery — Demolisher",
+    "status": "built",
+    "revision": "machine_demolisher-01",
+    "manifest": "../Roster/machine_demolisher/model.json",
+    "glb": "../Roster/machine_demolisher/model.glb"
+  },
+  {
+    "id": "human_bulwark",
+    "name": "Torchbearer / Bulwark",
+    "faction": "Human",
+    "role": "Lancer — Bulwark",
+    "status": "built",
+    "revision": "human_bulwark-01",
+    "manifest": "../Roster/human_bulwark/model.json",
+    "glb": "../Roster/human_bulwark/model.glb"
+  },
+  {
+    "id": "machine_bulwark",
+    "name": "Corrector / Bulwark",
+    "faction": "Machine",
+    "role": "Lancer — Bulwark",
+    "status": "built",
+    "revision": "machine_bulwark-01",
+    "manifest": "../Roster/machine_bulwark/model.json",
+    "glb": "../Roster/machine_bulwark/model.glb"
+  },
+  {
+    "id": "human_jammer",
+    "name": "Killswitch / Jammer",
+    "faction": "Human",
+    "role": "Scrambler — Jammer",
+    "status": "built",
+    "revision": "human_jammer-01",
+    "manifest": "../Roster/human_jammer/model.json",
+    "glb": "../Roster/human_jammer/model.glb"
+  },
+  {
+    "id": "machine_jammer",
+    "name": "Override / Jammer",
+    "faction": "Machine",
+    "role": "Scrambler — Jammer",
+    "status": "built",
+    "revision": "machine_jammer-01",
+    "manifest": "../Roster/machine_jammer/model.json",
+    "glb": "../Roster/machine_jammer/model.glb"
+  }
+]

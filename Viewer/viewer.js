@@ -86,6 +86,14 @@ if (renderer) {
   let clips = [];
   let materials = [];
   let teamMaterials = [];
+  let clipSpecs = [];
+  let catalogue = [];
+  let selection = 0;
+  let manifestRequest;
+  const download = document.querySelector('.download-link');
+  download.addEventListener('click', (event) => {
+    if (download.getAttribute('aria-disabled') === 'true') event.preventDefault();
+  });
   let playing = !reducedMotion.matches;
   let dirty = true;
   let radius = 4;
@@ -164,15 +172,15 @@ if (renderer) {
     const clip = clips[index];
     action = mixer.clipAction(clip);
     action.reset();
-    const shutdown = clip.name.toLowerCase() === 'shutdown';
-    action.setLoop(shutdown ? THREE.LoopOnce : THREE.LoopRepeat, shutdown ? 1 : Infinity);
-    action.clampWhenFinished = shutdown;
+    const once = !clipSpecs[index].loop;
+    action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
+    action.clampWhenFinished = once;
     action.timeScale = Number($('speed').value);
     action.play();
     updatePlayButton();
     mixer.update(0);
     $('timeline').max = clip.duration;
-    $('motion-note').textContent = `${shutdown ? 'One-shot · holds final pose' : 'Looping mechanical study'}${reducedMotion.matches ? ' · motion paused by default' : ''}`;
+    $('motion-note').textContent = `${once ? 'One-shot · holds final pose' : 'Looping mechanical study'}${reducedMotion.matches ? ' · motion paused by default' : ''}`;
     updateTimeline();
     dirty = true;
   }
@@ -269,84 +277,225 @@ if (renderer) {
     showError('The browser lost its graphics context. Reload the viewer to restore the model.');
   });
 
-  new GLTFLoader().load(document.querySelector('.download-link').href, (gltf) => {
-    try {
-      model = gltf.scene;
-      const materialSet = new Set();
-      let triangles = 0;
-      model.traverse((node) => {
-        if (!node.isMesh) return;
-        node.castShadow = true;
-        node.receiveShadow = true;
-        const geometry = node.geometry;
-        triangles += (geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3 * (node.isInstancedMesh ? node.count : 1);
-        (Array.isArray(node.material) ? node.material : [node.material]).forEach((material) => materialSet.add(material));
+  function disposeModel(root) {
+    if (!root) return;
+    const geometries = new Set();
+    const surfaces = new Set();
+    const textures = new Set();
+    const skeletons = new Set();
+    root.traverse((node) => {
+      if (node.geometry) geometries.add(node.geometry);
+      if (node.skeleton) skeletons.add(node.skeleton);
+      if (node.material) (Array.isArray(node.material) ? node.material : [node.material]).forEach((surface) => {
+        surfaces.add(surface);
+        Object.values(surface).forEach((value) => { if (value?.isTexture) textures.add(value); });
       });
-      if (!triangles) throw new Error('The GLB contains no renderable mesh geometry.');
-      materials = [...materialSet];
-      teamMaterials = materials.filter((material) => /^Team(?:\.|$)/i.test(material.name));
-      model.updateMatrixWorld(true);
-      const bounds = modelBounds.setFromObject(model, true);
-      const dimensions = bounds.getSize(new THREE.Vector3());
-      bounds.getCenter(target);
-      radius = dimensions.length() / 2;
-      floor.position.y = bounds.min.y - 0.025;
-      grid.position.y = bounds.min.y - 0.015;
-      grid.position.x = Math.round(target.x);
-      grid.position.z = Math.round(target.z);
-      key.target.position.copy(target);
-      key.shadow.camera.left = key.shadow.camera.bottom = -radius * 1.6;
-      key.shadow.camera.right = key.shadow.camera.top = radius * 1.6;
-      key.shadow.camera.near = 0.1;
-      key.shadow.camera.far = 40;
-      key.shadow.camera.updateProjectionMatrix();
-      scene.add(model);
-      $('dimensions').textContent = `${dimensions.x.toFixed(2)} × ${dimensions.z.toFixed(2)} × ${dimensions.y.toFixed(2)} m`;
-      $('triangles').textContent = Math.round(triangles).toLocaleString('en-US');
-      $('materials').textContent = materials.length;
-      clips = gltf.animations;
-      $('clip-count').textContent = clips.length;
-      $('surface-controls').disabled = false;
-      $('team-colour').disabled = teamMaterials.length === 0;
-      if (teamMaterials.length) {
-        $('team-colour').value = `#${teamMaterials[0].color.getHexString()}`;
-        $('colour-value').value = $('team-colour').value.toUpperCase();
-      } else {
-        $('colour-value').value = 'No Team material';
+    });
+    geometries.forEach((geometry) => geometry.dispose());
+    skeletons.forEach((skeleton) => skeleton.dispose());
+    textures.forEach((texture) => { texture.dispose(); texture.source?.data?.close?.(); });
+    surfaces.forEach((surface) => surface.dispose());
+  }
+
+  function clearModel() {
+    if (mixer) {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(model);
+    }
+    if (model) { scene.remove(model); disposeModel(model); }
+    model = mixer = action = undefined;
+    clips = clipSpecs = materials = teamMaterials = [];
+    controls.enabled = false;
+    floor.visible = grid.visible = false;
+    $('motion-controls').disabled = $('surface-controls').disabled = true;
+    cameraButtons.forEach((button) => { button.disabled = true; });
+    $('reset-camera').disabled = true;
+    canvas.dataset.assetLoaded = 'false';
+    download.removeAttribute('href');
+    download.setAttribute('aria-disabled', 'true');
+    download.tabIndex = -1;
+    for (const id of ['dimensions', 'triangles', 'materials', 'clip-count']) $(id).textContent = '—';
+    $('animation').replaceChildren(new Option('Loading clips…', ''));
+    $('time-display').value = '0.00 / 0.00 s';
+    $('timeline').value = 0;
+    dirty = true;
+  }
+
+  function installModel(gltf, manifest, entry) {
+    const specs = manifest.clips;
+    if (!Array.isArray(specs) || !specs.length) throw new Error('Manifest contains no animation clips.');
+    const matched = specs.map((spec) => {
+      const matches = gltf.animations.filter((clip) => clip.name === spec.name || clip.name.endsWith(`_${spec.name}`));
+      if (matches.length !== 1 || typeof spec.loop !== 'boolean'
+          || Math.abs(matches[0].duration - spec.duration) > 0.08) {
+        throw new Error(`Missing or mismatched animation: ${spec.name}`);
       }
-      $('animation').replaceChildren(...clips.map((clip, index) => new Option(clip.name || `Clip ${index + 1}`, index)));
-      if (clips.length) {
-        mixer = new THREE.AnimationMixer(model);
-        mixer.addEventListener('finished', () => { playing = false; updatePlayButton(); updateTimeline(); dirty = true; });
-        const initial = Math.max(0, clips.findIndex((clip) => clip.name === 'Idle'));
-        $('animation').value = initial;
-        $('motion-controls').disabled = false;
-        selectAnimation(initial);
-      } else {
-        $('animation').add(new Option('No embedded animation', ''));
-        $('motion-note').textContent = 'This asset contains no animation clips.';
+      return matches[0];
+    });
+    if (matched.length !== gltf.animations.length) throw new Error('GLB has unexpected animation clips.');
+    const materialSet = new Set();
+    let triangles = 0;
+    gltf.scene.traverse((node) => {
+      if (!node.isMesh) return;
+      node.castShadow = node.receiveShadow = true;
+      const geometry = node.geometry;
+      triangles += (geometry.index ? geometry.index.count : geometry.attributes.position.count) / 3 * (node.isInstancedMesh ? node.count : 1);
+      (Array.isArray(node.material) ? node.material : [node.material]).forEach((material) => materialSet.add(material));
+    });
+    if (!triangles || Math.round(triangles) !== manifest.triangles) throw new Error('GLB geometry does not match the manifest.');
+    gltf.scene.updateMatrixWorld(true);
+    const bounds = modelBounds.setFromObject(gltf.scene, true);
+    const dimensions = bounds.getSize(new THREE.Vector3());
+    if (!Number.isFinite(dimensions.length()) || dimensions.length() <= 0) throw new Error('Invalid model bounds.');
+    model = gltf.scene;
+    materials = [...materialSet];
+    teamMaterials = materials.filter((material) => /^Team(?:\.|$)/i.test(material.name));
+    if (manifest.materials.Team && !teamMaterials.length) throw new Error('GLB is missing its recolourable Team slot.');
+    materials.forEach((material) => { material.wireframe = $('wireframe').checked; });
+    bounds.getCenter(target);
+    radius = dimensions.length() / 2;
+    camera.near = Math.max(0.01, radius / 100);
+    camera.far = Math.max(500, radius * 100);
+    camera.updateProjectionMatrix();
+    floor.position.y = bounds.min.y - 0.025;
+    grid.position.set(Math.round(target.x), bounds.min.y - 0.015, Math.round(target.z));
+    floor.visible = grid.visible = true;
+    key.position.copy(target).add(new THREE.Vector3(radius * 1.5, radius * 2.5, radius * 1.5));
+    key.target.position.copy(target);
+    key.shadow.camera.left = key.shadow.camera.bottom = -radius * 1.6;
+    key.shadow.camera.right = key.shadow.camera.top = radius * 1.6;
+    key.shadow.camera.near = 0.1;
+    key.shadow.camera.far = radius * 8;
+    key.shadow.camera.updateProjectionMatrix();
+    key.shadow.needsUpdate = true;
+    scene.add(model);
+    $('dimensions').textContent = `${dimensions.x.toFixed(2)} × ${dimensions.z.toFixed(2)} × ${dimensions.y.toFixed(2)} m`;
+    $('triangles').textContent = Math.round(triangles).toLocaleString('en-US');
+    $('materials').textContent = materials.length;
+    clips = matched;
+    clipSpecs = specs;
+    $('clip-count').textContent = clips.length;
+    $('surface-controls').disabled = false;
+    $('team-colour').disabled = teamMaterials.length === 0;
+    if (teamMaterials.length) {
+      $('team-colour').value = `#${teamMaterials[0].color.getHexString()}`;
+      $('colour-value').value = $('team-colour').value.toUpperCase();
+    } else {
+      $('colour-value').value = 'No Team material';
+    }
+    $('animation').replaceChildren(...specs.map((spec, index) => new Option(spec.name, index)));
+    mixer = new THREE.AnimationMixer(model);
+    mixer.addEventListener('finished', () => { playing = false; updatePlayButton(); updateTimeline(); dirty = true; });
+    playing = !reducedMotion.matches;
+    const initial = Math.max(0, specs.findIndex((spec) => spec.name === 'Idle'));
+    $('animation').value = initial;
+    $('motion-controls').disabled = false;
+    selectAnimation(initial);
+    cameraButtons.forEach((button) => { button.disabled = false; });
+    $('reset-camera').disabled = false;
+    controls.enabled = true;
+    setCamera('game');
+    $('asset-title').textContent = manifest.name ?? entry.name;
+    $('asset-category').textContent = `${manifest.faction ?? entry.faction} / ROSTER REVIEW`;
+    $('asset-description').textContent = manifest.role ?? entry.role;
+    $('model-status').textContent = `${manifest.faction ?? entry.faction} · ${manifest.role ?? entry.role} · ${manifest.status ?? entry.status}`;
+    $('asset-revision').textContent = manifest.revision;
+    document.title = `${manifest.name ?? entry.name} / Asset review — Post-Frontier`;
+    canvas.setAttribute('aria-label', `3D ${manifest.name ?? entry.name} model. Drag to orbit, scroll or pinch to zoom. Arrow keys orbit, plus and minus zoom, R resets the camera.`);
+    download.href = `${entry.glb}?v=${encodeURIComponent(manifest.revision)}`;
+    download.download = `${entry.id}.glb`;
+    download.removeAttribute('aria-disabled');
+    download.tabIndex = 0;
+    $('load-state').hidden = true;
+    viewport.setAttribute('aria-busy', 'false');
+    canvas.dataset.assetLoaded = 'true';
+    $('scene-state').textContent = 'LIVE MODEL';
+    dirty = true;
+  }
+
+  async function selectModel(id, updateUrl = true) {
+    const token = ++selection;
+    manifestRequest?.abort();
+    manifestRequest = new AbortController();
+    clearModel();
+    $('load-state').hidden = false;
+    $('load-state').classList.remove('error');
+    $('retry').hidden = true;
+    $('scene-state').textContent = 'LOADING ASSET';
+    $('load-title').textContent = 'Preparing the review model';
+    $('load-detail').textContent = 'Loading manifest, geometry and materials.';
+    $('asset-title').textContent = 'Loading';
+    $('asset-category').textContent = 'ROSTER / ART REVIEW';
+    $('model-selector').value = id;
+    document.title = 'Roster / Asset review — Post-Frontier';
+    $('asset-description').textContent = '';
+    $('asset-revision').textContent = '—';
+    $('model-status').textContent = 'Loading model';
+    viewport.setAttribute('aria-busy', 'true');
+    let loaded;
+    try {
+      const entry = catalogue.find((item) => item.id === id);
+      if (!entry) throw new Error(`Unknown catalogue model: ${id}`);
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('model', id);
+        window.history.replaceState(null, '', url);
       }
-      cameraButtons.forEach((button) => { button.disabled = false; });
-      $('reset-camera').disabled = false;
-      controls.enabled = true;
-      setCamera('game');
-      $('load-state').hidden = true;
-      viewport.setAttribute('aria-busy', 'false');
-      canvas.dataset.assetLoaded = 'true';
-      $('scene-state').textContent = 'LIVE MODEL';
-      dirty = true;
+      const response = await fetch(`${entry.manifest}?v=${encodeURIComponent(entry.revision)}`, { signal: manifestRequest.signal });
+      if (!response.ok) throw new Error(`Manifest request failed (${response.status}): ${entry.id}`);
+      const manifest = await response.json();
+      if (token !== selection) return;
+      if (manifest.revision !== entry.revision || (entry.id !== 'surveyor' && manifest.id !== entry.id)) {
+        throw new Error('Catalogue and model manifest revisions do not match.');
+      }
+      loaded = await new GLTFLoader().loadAsync(`${entry.glb}?v=${encodeURIComponent(manifest.revision)}`, (event) => {
+        if (token !== selection) return;
+        $('load-detail').textContent = event.lengthComputable
+          ? `Receiving model · ${Math.round(event.loaded / event.total * 100)}%`
+          : `Receiving model · ${(event.loaded / 1024 / 1024).toFixed(1)} MB`;
+      });
+      if (token !== selection || contextLost) { disposeModel(loaded.scene); return; }
+      installModel(loaded, manifest, entry);
+    } catch (error) {
+      if (token !== selection) { if (loaded) disposeModel(loaded.scene); return; }
+      const attached = model === loaded?.scene;
+      clearModel();
+      if (loaded && !attached) disposeModel(loaded.scene);
+      showError(error.message);
+      console.error('Roster selection failed:', error);
+    }
+  }
+
+  $('model-selector').addEventListener('change', () => selectModel($('model-selector').value));
+  window.addEventListener('popstate', () => selectModel(new URLSearchParams(window.location.search).get('model') ?? 'surveyor', false));
+  clearModel();
+  async function loadCatalogue() {
+    try {
+      const response = await fetch(`./catalogue.json?v=${encodeURIComponent(new URL(import.meta.url).searchParams.get('v') ?? '')}`);
+      if (!response.ok) throw new Error(`Catalogue request failed (${response.status}).`);
+      catalogue = await response.json();
+      if (!Array.isArray(catalogue) || !catalogue.length || new Set(catalogue.map((entry) => entry.id)).size !== catalogue.length) {
+        throw new Error('Invalid review catalogue.');
+      }
+      const groups = new Map();
+      for (const entry of catalogue) {
+        const key = entry.id === 'surveyor' ? 'Original art candidate' : entry.faction;
+        if (!groups.has(key)) {
+          const group = document.createElement('optgroup');
+          group.label = key;
+          groups.set(key, group);
+        }
+        groups.get(key).append(new Option(`${entry.name} — ${entry.role} (${entry.status})`, entry.id));
+      }
+      $('model-selector').replaceChildren(...groups.values());
+      $('model-selector').disabled = false;
+      await selectModel(new URLSearchParams(window.location.search).get('model') ?? 'surveyor');
     } catch (error) {
       showError(error.message);
-      console.error(error);
+      console.error('Roster catalogue failed:', error);
     }
-  }, (event) => {
-    $('load-detail').textContent = event.lengthComputable
-      ? `Receiving model · ${Math.round(event.loaded / event.total * 100)}%`
-      : `Receiving model · ${(event.loaded / 1024 / 1024).toFixed(1)} MB`;
-  }, (error) => {
-    showError('The Surveyor GLB could not be loaded. Check your connection and reload. The published review must include Surveyor/surveyor.glb.');
-    console.error('Surveyor GLB load failed:', error);
-  });
+  }
+  loadCatalogue();
 
   function frame(now) {
     if (contextLost) return;

@@ -29,6 +29,11 @@ h1 { font-size: clamp(40px, 4vw, 61px); line-height: 1.1; font-weight: 650; lett
 .revision strong { font: 25px var(--mono); color: #8d9da2; }
 .revision strong span { color: var(--text); }
 .revision > span:last-child { color: #899b9f; font-size: 10px; }
+.catalogue-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: -10px 0 24px; }
+.catalogue-bar label { margin: 0; }
+.catalogue-bar select { width: min(100%, 380px); }
+.catalogue-bar > span { color: var(--muted); font: 10px var(--mono); }
+.download-link[aria-disabled='true'] { opacity: .45; pointer-events: none; }
 .review-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; align-items: start; }
 .viewport-panel { min-width: 0; }
 .viewport { position: relative; height: clamp(410px, 55vw, 665px); overflow: hidden; background: radial-gradient(ellipse at 50% 34%, #34474d, #172327 74%); border: 1px solid #3d4d52; border-radius: 4px 4px 0 0; }

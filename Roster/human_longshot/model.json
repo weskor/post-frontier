@@ -1,0 +1,233 @@
+{
+  "id": "human_longshot",
+  "name": "Longshot",
+  "faction": "Human",
+  "role": "Rifle",
+  "status": "built",
+  "revision": "human_longshot-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.2,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Aim"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.1,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Aim",
+        "ThighL",
+        "ShinL",
+        "FootL",
+        "ThighR",
+        "ShinR",
+        "FootR"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 1.3,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Aim",
+        "Weapon"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.0,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Aim"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    2.1919999718666077,
+    1.090000033378601,
+    2.3964998722076416
+  ],
+  "triangles": 11292,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "Aim",
+    "ArmL",
+    "ForearmL",
+    "ArmR",
+    "ForearmR",
+    "Weapon",
+    "ThighL",
+    "ShinL",
+    "FootL",
+    "ThighR",
+    "ShinR",
+    "FootR"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        3,
+        1.2000000000000002,
+        0.165
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Glass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0288,
+        0.015300000000000001,
+        0.0045
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    },
+    "Brass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_longshot_BaseColor.png",
+        "orm": "Textures/human_longshot_ORM.png"
+      }
+    }
+  }
+}

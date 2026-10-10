@@ -1,0 +1,238 @@
+{
+  "id": "human_bulwark",
+  "name": "Torchbearer / Bulwark",
+  "faction": "Human",
+  "role": "Lancer \u2014 Bulwark",
+  "status": "built",
+  "revision": "human_bulwark-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 5.6,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Cutter",
+        "Core"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 3.2,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Cutter",
+        "ThighL",
+        "ShinL",
+        "FootL",
+        "ThighR",
+        "ShinR",
+        "FootR"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 2.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Cutter",
+        "Core",
+        "ShieldL",
+        "ShieldR"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 3.6,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Cutter",
+        "Core",
+        "ShieldL",
+        "ShieldR"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    3.032186508178711,
+    2.50600004196167,
+    2.8125
+  ],
+  "triangles": 9772,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "ShieldL",
+    "ShieldR",
+    "Cutter",
+    "Core",
+    "ThighL",
+    "ShinL",
+    "FootL",
+    "ThighR",
+    "ShinR",
+    "FootR"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        3,
+        1.2000000000000002,
+        0.165
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Brass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    },
+    "Marking": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_bulwark_BaseColor.png",
+        "orm": "Textures/human_bulwark_ORM.png"
+      }
+    }
+  }
+}

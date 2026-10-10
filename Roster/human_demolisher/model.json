@@ -1,0 +1,221 @@
+{
+  "id": "human_demolisher",
+  "name": "Doorknocker / Demolisher",
+  "faction": "Human",
+  "role": "Artillery \u2014 Demolisher",
+  "status": "built",
+  "revision": "human_demolisher-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Turret"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Turret",
+        "UpperFL",
+        "LowerFL",
+        "FootFL",
+        "UpperFR",
+        "LowerFR",
+        "FootFR",
+        "UpperRL",
+        "LowerRL",
+        "FootRL",
+        "UpperRR",
+        "LowerRR",
+        "FootRR"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 2.6,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Turret",
+        "Cannon",
+        "Loader"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.2,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Turret",
+        "Loader"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    3.2045000791549683,
+    2.4700000286102295,
+    2.131999969482422
+  ],
+  "triangles": 12348,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Turret",
+    "Cannon",
+    "Loader",
+    "UpperFL",
+    "LowerFL",
+    "FootFL",
+    "UpperFR",
+    "LowerFR",
+    "FootFR",
+    "UpperRL",
+    "LowerRL",
+    "FootRL",
+    "UpperRR",
+    "LowerRR",
+    "FootRR"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        3,
+        1.2000000000000002,
+        0.165
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    },
+    "Brass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_demolisher_BaseColor.png",
+        "orm": "Textures/human_demolisher_ORM.png"
+      }
+    }
+  }
+}

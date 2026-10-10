@@ -1,0 +1,264 @@
+{
+  "id": "machine_demolisher",
+  "name": "Certainty Engine / Demolisher",
+  "faction": "Machine",
+  "role": "Artillery \u2014 Demolisher",
+  "status": "built",
+  "revision": "machine_demolisher-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.2,
+      "loop": true,
+      "movingBones": [
+        "Accelerator",
+        "PetalL",
+        "PetalR",
+        "PetalTop",
+        "PetalBottom",
+        "BankL",
+        "BankR"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "FLHip",
+        "FLKnee",
+        "FLFoot",
+        "FRHip",
+        "FRKnee",
+        "FRFoot",
+        "RLHip",
+        "RLKnee",
+        "RLFoot",
+        "RRHip",
+        "RRKnee",
+        "RRFoot",
+        "BankL",
+        "BankR"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 2.4,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Accelerator",
+        "PetalL",
+        "PetalR",
+        "PetalTop",
+        "PetalBottom",
+        "FLHip",
+        "FLKnee",
+        "FLFoot",
+        "FRHip",
+        "FRKnee",
+        "FRFoot",
+        "RLHip",
+        "RLKnee",
+        "RLFoot",
+        "RRHip",
+        "RRKnee",
+        "RRFoot",
+        "BankL",
+        "BankR"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.0,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Accelerator",
+        "PetalL",
+        "PetalR",
+        "PetalTop",
+        "PetalBottom",
+        "FLHip",
+        "FLKnee",
+        "FLFoot",
+        "FRHip",
+        "FRKnee",
+        "FRFoot",
+        "RLHip",
+        "RLKnee",
+        "RLFoot",
+        "RRHip",
+        "RRKnee",
+        "RRFoot",
+        "BankL",
+        "BankR"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    4.769999861717224,
+    3.5799999237060547,
+    2.049999952316284
+  ],
+  "triangles": 15208,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Accelerator",
+    "PetalL",
+    "PetalR",
+    "PetalTop",
+    "PetalBottom",
+    "FLHip",
+    "FLKnee",
+    "FLFoot",
+    "FRHip",
+    "FRKnee",
+    "FRFoot",
+    "RLHip",
+    "RLKnee",
+    "RLFoot",
+    "RRHip",
+    "RRKnee",
+    "RRFoot",
+    "BankL",
+    "BankR"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.045,
+        2.16,
+        3
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    },
+    "Eye": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.175,
+        0.001,
+        0.0005
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_demolisher_BaseColor.png",
+        "orm": "Textures/machine_demolisher_ORM.png"
+      }
+    }
+  }
+}

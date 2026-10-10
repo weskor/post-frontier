@@ -1,0 +1,265 @@
+{
+  "id": "human_jammer",
+  "name": "Killswitch / Jammer",
+  "faction": "Human",
+  "role": "Scrambler \u2014 Jammer",
+  "status": "built",
+  "revision": "human_jammer-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3.6,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Paddle_L",
+        "Outer_L",
+        "Paddle_R",
+        "Outer_R"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.2,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Thigh_L",
+        "Shin_L",
+        "Foot_L",
+        "Thigh_R",
+        "Shin_R",
+        "Foot_R",
+        "Arm_L",
+        "Arm_R",
+        "Outer_L",
+        "Outer_R"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 1.5,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Arm_R",
+        "Forearm_R",
+        "Emitter"
+      ]
+    },
+    {
+      "name": "Pulse",
+      "duration": 3.2,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Backpack",
+        "Arm_L",
+        "Arm_R",
+        "Forearm_L",
+        "Paddle_L",
+        "Outer_L",
+        "Paddle_R",
+        "Outer_R"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.4,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Arm_L",
+        "Arm_R",
+        "Forearm_R",
+        "Paddle_L",
+        "Outer_L",
+        "Paddle_R",
+        "Outer_R"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    2.0950000286102295,
+    1.7999999523162842,
+    2.819999933242798
+  ],
+  "triangles": 13364,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "Backpack",
+    "Paddle_L",
+    "Paddle_R",
+    "Arm_L",
+    "Arm_R",
+    "Forearm_L",
+    "Forearm_R",
+    "Emitter",
+    "Thigh_L",
+    "Thigh_R",
+    "Shin_L",
+    "Shin_R",
+    "Foot_L",
+    "Foot_R",
+    "Outer_L",
+    "Outer_R"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        3,
+        1.2000000000000002,
+        0.165
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Glass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0288,
+        0.015300000000000001,
+        0.0045
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    },
+    "Brass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/human_jammer_BaseColor.png",
+        "orm": "Textures/human_jammer_ORM.png"
+      }
+    }
+  }
+}

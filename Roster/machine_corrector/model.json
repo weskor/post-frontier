@@ -1,0 +1,255 @@
+{
+  "id": "machine_corrector",
+  "name": "Corrector",
+  "faction": "Machine",
+  "role": "Lancer",
+  "status": "built",
+  "revision": "machine_corrector-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 4.0,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Lance",
+        "Vane_L",
+        "Vane_R"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 1.3,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Lance",
+        "Vane_L",
+        "Vane_R",
+        "Hip_L",
+        "Knee_L",
+        "Foot_L",
+        "Hip_R",
+        "Knee_R",
+        "Foot_R"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 1.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Lance",
+        "Vane_L",
+        "Vane_R"
+      ]
+    },
+    {
+      "name": "Ability",
+      "duration": 2.4,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Vane_L",
+        "Vane_R"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.6,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Head",
+        "Lance",
+        "Vane_L",
+        "Vane_R",
+        "Hip_L",
+        "Knee_L",
+        "Foot_L",
+        "Hip_R",
+        "Knee_R",
+        "Foot_R"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    1.527999997138977,
+    2.3760828971862793,
+    3.2100000381469727
+  ],
+  "triangles": 12476,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Head",
+    "Lance",
+    "Vane_L",
+    "Hip_L",
+    "Knee_L",
+    "Foot_L",
+    "Vane_R",
+    "Hip_R",
+    "Knee_R",
+    "Foot_R"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.045,
+        2.16,
+        3
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Glass": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0055000000000000005,
+        0.0286,
+        0.041800000000000004
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    },
+    "Eye": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.175,
+        0.001,
+        0.0005
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_corrector_BaseColor.png",
+        "orm": "Textures/machine_corrector_ORM.png"
+      }
+    }
+  }
+}

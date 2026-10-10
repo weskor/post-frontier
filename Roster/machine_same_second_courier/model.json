@@ -1,0 +1,256 @@
+{
+  "id": "machine_same_second_courier",
+  "name": "Same-Second Courier",
+  "faction": "Machine",
+  "role": "Raider",
+  "status": "design",
+  "revision": "machine_same_second_courier-01",
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 4.0,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Cargo",
+        "Hip_FL",
+        "Shin_FL",
+        "Skate_FL",
+        "Hip_FR",
+        "Shin_FR",
+        "Skate_FR",
+        "Hip_RL",
+        "Shin_RL",
+        "Skate_RL",
+        "Hip_RR",
+        "Shin_RR",
+        "Skate_RR"
+      ]
+    },
+    {
+      "name": "Move",
+      "duration": 0.8,
+      "loop": true,
+      "movingBones": [
+        "Body",
+        "Fin_L",
+        "Fin_R",
+        "Hip_FL",
+        "Shin_FL",
+        "Skate_FL",
+        "Hip_FR",
+        "Shin_FR",
+        "Skate_FR",
+        "Hip_RL",
+        "Shin_RL",
+        "Skate_RL",
+        "Hip_RR",
+        "Shin_RR",
+        "Skate_RR"
+      ]
+    },
+    {
+      "name": "Attack",
+      "duration": 1.2,
+      "loop": true,
+      "movingBones": [
+        "Emitter"
+      ]
+    },
+    {
+      "name": "Ability",
+      "duration": 2.4,
+      "loop": true,
+      "movingBones": [
+        "Probe",
+        "Cargo"
+      ]
+    },
+    {
+      "name": "Shutdown",
+      "duration": 2.0,
+      "loop": false,
+      "movingBones": [
+        "Body",
+        "Fin_L",
+        "Fin_R",
+        "Emitter",
+        "Probe",
+        "Hip_FL",
+        "Shin_FL",
+        "Skate_FL",
+        "Hip_FR",
+        "Shin_FR",
+        "Skate_FR",
+        "Hip_RL",
+        "Shin_RL",
+        "Skate_RL",
+        "Hip_RR",
+        "Shin_RR",
+        "Skate_RR"
+      ]
+    }
+  ],
+  "dimensionsMeters": [
+    3.5800000429153442,
+    1.972000002861023,
+    1.7156016826629639
+  ],
+  "triangles": 10714,
+  "forwardAxis": "+X",
+  "upAxis": "+Z",
+  "units": "meters",
+  "rootBone": "Root",
+  "bones": [
+    "Root",
+    "Body",
+    "Emitter",
+    "Cargo",
+    "Probe",
+    "Fin_L",
+    "Fin_R",
+    "Hip_FL",
+    "Shin_FL",
+    "Skate_FL",
+    "Hip_FR",
+    "Shin_FR",
+    "Skate_FR",
+    "Hip_RL",
+    "Shin_RL",
+    "Skate_RL",
+    "Hip_RR",
+    "Shin_RR",
+    "Skate_RR"
+  ],
+  "textureSource": {
+    "resolution": [
+      2048,
+      2048
+    ],
+    "uvChannel": 0,
+    "paddingPixels": 4,
+    "baseColorSpace": "sRGB",
+    "ormColorSpace": "linear",
+    "ormChannels": "R=AO G=roughness B=metallic",
+    "authoring": "Part-specific painted layouts: armour access panels, service stencils, tool-edge abrasion, moulded rubber and machined hubs",
+    "aoDistanceMeters": 0.18,
+    "aoSamples": 16,
+    "aoMinimum": 0.72
+  },
+  "materials": {
+    "Team": {
+      "baseColor": [
+        0.055,
+        0.16,
+        0.3,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    },
+    "Shell": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    },
+    "Dark": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    },
+    "Glow": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.045,
+        2.16,
+        3
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    },
+    "Rubber": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    },
+    "Eye": {
+      "baseColor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallic": 1.0,
+      "roughness": 1.0,
+      "emissive": [
+        0.175,
+        0.001,
+        0.0005
+      ],
+      "textures": {
+        "baseColor": "Textures/machine_same_second_courier_BaseColor.png",
+        "orm": "Textures/machine_same_second_courier_ORM.png"
+      }
+    }
+  }
+}
